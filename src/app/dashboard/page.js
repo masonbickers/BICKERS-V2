@@ -40,7 +40,6 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const bookingSaved = searchParams.get("success") === "true";
 
-
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [bookings, setBookings] = useState([]);
