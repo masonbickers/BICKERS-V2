@@ -788,7 +788,7 @@ const navButton = {
 
 {/* Today's Jobs */}
 <div style={{ ...cardStyle, marginTop: "20px" }}>
-  <h2 style={cardHeaderStyle}>Today's Jobs</h2>
+  <h2 style={cardHeaderStyle}>Todays Jobs</h2>
   {todaysJobs.length === 0 ? (
     <p>No jobs today.</p>
   ) : (
