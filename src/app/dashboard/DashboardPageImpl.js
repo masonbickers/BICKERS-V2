@@ -49,6 +49,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [noteText, setNoteText] = useState("");
   const [noteDate, setNoteDate] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
 
 
 const navButton = {
@@ -84,25 +85,6 @@ const navButton = {
 
 
 
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
-
-  // Pass setSelectedBookingId into your calendar or booking list
-  // Then when a booking is clicked:
-  {bookings.map((booking, index) => (
-    <div key={index} onClick={() => setSelectedBookingId(booking.id)}>
-      {booking.jobNumber} – {booking.client}
-    </div>
-  ))}
-  
-
-
-  // Render the modal:
-  {selectedBookingId && (
-    <ViewBookingModal
-      id={selectedBookingId}
-      onClose={() => setSelectedBookingId(null)}
-    />
-  )}
   
   useEffect(() => {
     fetchBookings();
@@ -228,6 +210,8 @@ const navButton = {
     color: "#333",
   }}
 >
+
+  
 
 
 
@@ -391,13 +375,16 @@ const navButton = {
               background: "#fff",
               padding: "0px",
             }}
-            onSelectEvent={(e) => {
-              if (e.status === "Holiday") {
-                router.push(`/edit-holiday/${e.id}`);
-              } else if (e.id) {
-                router.push(`/view-booking/${e.id}`);
-              }
-            }}
+ onSelectEvent={(e) => {
+  if (e.status === "Holiday") {
+    router.push(`/edit-holiday/${e.id}`);
+  } else if (e.status === "Note") {
+    router.push(`/note/${e.id}`);
+  } else if (e.id) {
+    setSelectedBookingId(e.id);
+  }
+}}
+
             
             
             components={{
@@ -828,21 +815,35 @@ const navButton = {
                 ? b.employees.join(", ")
                 : "—"}
             </td>
-            <td style={{ padding: "10px" }}>
-              <button
-                onClick={() => router.push(`/edit-booking/${b.id}`)}
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#1976d2",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Edit
-              </button>
-            </td>
+<td style={{ padding: "10px", display: "flex", gap: "8px" }}>
+  <button
+    onClick={() => setSelectedBookingId(b.id)}
+    style={{
+      padding: "6px 10px",
+      backgroundColor: "#444",
+      color: "#fff",
+      border: "none",
+      borderRadius: "4px",
+      cursor: "pointer",
+    }}
+  >
+    View
+  </button>
+  <button
+    onClick={() => router.push(`/edit-booking/${b.id}`)}
+    style={{
+      padding: "6px 10px",
+      backgroundColor: "#1976d2",
+      color: "#fff",
+      border: "none",
+      borderRadius: "4px",
+      cursor: "pointer",
+    }}
+  >
+    Edit
+  </button>
+</td>
+
           </tr>
         ))}
       </tbody>
@@ -985,6 +986,13 @@ const navButton = {
         )}
       </div>
     </div>
+    {selectedBookingId && (
+  <ViewBookingModal
+    id={selectedBookingId}
+    onClose={() => setSelectedBookingId(null)}
+  />
+)}
+
     </HeaderSidebarLayout>
  );
 }

@@ -1,13 +1,12 @@
-// components/ViewBookingModal.jsx
 "use client";
-
 import { useEffect, useState } from "react";
 import { db } from "../../../firebaseConfig";
-import { doc, getDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function ViewBookingModal({ id, onClose }) {
   const [booking, setBooking] = useState(null);
+  const [allVehicles, setAllVehicles] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -18,60 +17,154 @@ export default function ViewBookingModal({ id, onClose }) {
         setBooking(snap.data());
       } else {
         alert("Booking not found");
-        onClose();
       }
     };
-    if (id) fetchBooking();
+    fetchBooking();
   }, [id]);
 
-  if (!id || !booking) return null;
+  useEffect(() => {
+    const loadVehicles = async () => {
+      const snapshot = await getDocs(collection(db, "vehicles"));
+      const vehicles = snapshot.docs.map((doc) => doc.data());
+      setAllVehicles(vehicles);
+    };
+    loadVehicles();
+  }, []);
+
+  const handleDelete = async () => {
+    const confirmDelete = confirm("Are you sure you want to delete this booking?");
+    if (!confirmDelete) return;
+
+    await deleteDoc(doc(db, "bookings", id));
+    alert("Booking deleted");
+    onClose();
+  };
+
+  if (!booking) return null;
 
   return (
-    <div style={{
-      position: "fixed",
-      top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.6)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 10000,
-    }}>
-      <div style={{
-        background: "#111",
-        color: "#fff",
-        padding: "30px",
-        borderRadius: "12px",
-        width: "90%",
-        maxWidth: "900px",
-        maxHeight: "90vh",
-        overflowY: "auto",
-      }}>
-        <h2>Booking Details</h2>
-        <table style={{ width: "100%", marginTop: "20px" }}>
+    <div style={overlayStyle}>
+      <div style={modalStyle}>
+        <h2 style={{ marginBottom: "20px" }}>Booking Details</h2>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.95rem" }}>
           <tbody>
-            <tr><td style={cell}><strong>Job Number</strong></td><td style={cell}>{booking.jobNumber}</td></tr>
-            <tr><td style={cell}><strong>Client</strong></td><td style={cell}>{booking.client}</td></tr>
-            <tr><td style={cell}><strong>Location</strong></td><td style={cell}>{booking.location}</td></tr>
-            <tr><td style={cell}><strong>Start</strong></td><td style={cell}>{new Date(booking.startDate).toDateString()}</td></tr>
-            <tr><td style={cell}><strong>End</strong></td><td style={cell}>{new Date(booking.endDate).toDateString()}</td></tr>
-            <tr><td style={cell}><strong>Status</strong></td><td style={cell}>{booking.status}</td></tr>
+            <Row label="Job Number" value={booking.jobNumber} />
+            <Row label="Client" value={booking.client} />
+            <Row label="Email" value={booking.contactEmail || "Not provided"} />
+            <Row label="Mobile" value={booking.contactNumber || "Not provided"} />
+            <Row label="Location" value={booking.location} />
+            <Row
+              label="Date(s)"
+              value={
+                booking.startDate && booking.endDate
+                  ? `${new Date(booking.startDate).toDateString()} → ${new Date(booking.endDate).toDateString()}`
+                  : booking.date
+                    ? new Date(booking.date).toDateString()
+                    : "Not set"
+              }
+            />
+            <Row label="Employees" value={(booking.employees || []).join(", ")} />
+            <tr>
+              <td style={cell}><strong>Vehicles</strong></td>
+              <td style={cell}>
+                {(booking.vehicles || []).map((name, i) => {
+                  const match = allVehicles.find(
+                    (v) => v.name === (typeof name === "object" ? name.name : name)
+                  );
+                  const displayName = typeof name === "object" ? name.name : name;
+                  const registration = name?.registration || match?.registration;
+                  return (
+                    <div key={i}>
+                      {displayName}{registration ? ` (${registration})` : ""}
+                    </div>
+                  );
+                })}
+              </td>
+            </tr>
+            <Row label="Equipment" value={(booking.equipment || []).join(", ")} />
+            <Row label="Notes" value={booking.notes || "None"} />
+            <Row label="Status" value={booking.status} />
           </tbody>
         </table>
 
-        <div style={{ marginTop: "20px", textAlign: "right" }}>
-          <button onClick={onClose} style={{ padding: "10px 16px", background: "#333", color: "#fff", borderRadius: "6px", border: "none", marginRight: "8px" }}>
-            Close
-          </button>
-          <button onClick={() => router.push(`/edit-booking/${id}`)} style={{ padding: "10px 16px", background: "#1976d2", color: "#fff", borderRadius: "6px", border: "none" }}>
-            Edit
-          </button>
+        <div style={buttonGroupStyle}>
+          <button onClick={() => router.push(`/edit-booking/${id}`)} style={editBtnStyle}>Edit</button>
+          <button onClick={handleDelete} style={deleteBtnStyle}>Delete</button>
+          <button onClick={onClose} style={closeBtnStyle}>Close</button>
         </div>
       </div>
     </div>
   );
 }
 
+function Row({ label, value }) {
+  return (
+    <tr>
+      <td style={cell}><strong>{label}</strong></td>
+      <td style={cell}>{value}</td>
+    </tr>
+  );
+}
+
+const overlayStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.6)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 9999,
+};
+
+const modalStyle = {
+  background: "#fff",
+  padding: 30,
+  borderRadius: 10,
+  maxWidth: "700px",
+  width: "90%",
+  color: "#000",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+};
+
 const cell = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #333",
+  padding: "12px 8px",
+  borderBottom: "1px solid #ccc",
+  verticalAlign: "top",
+};
+
+const buttonGroupStyle = {
+  marginTop: 30,
+  display: "flex",
+  justifyContent: "center",
+  gap: "12px",
+};
+
+const editBtnStyle = {
+  padding: "10px 20px",
+  backgroundColor: "#1976d2",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+};
+
+const deleteBtnStyle = {
+  padding: "10px 20px",
+  backgroundColor: "#d32f2f",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+};
+
+const closeBtnStyle = {
+  padding: "10px 20px",
+  backgroundColor: "#777",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
 };

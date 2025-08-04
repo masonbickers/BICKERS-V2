@@ -41,6 +41,9 @@ export default function CreateBookingPage() {
     "Transport Lorry": [],
     "Transport Van": []
   });
+  const [equipmentGroups, setEquipmentGroups] = useState({});
+const [openEquipGroups, setOpenEquipGroups] = useState({});
+
   
   const [openGroups, setOpenGroups] = useState({
     "Small Tracking Vehicles": false,
@@ -62,11 +65,12 @@ export default function CreateBookingPage() {
   useEffect(() => {
     const loadData = async () => {
       // ✅ Fetch bookings, holidays, employees, and vehicles
-      const [bookingSnap, holidaySnap, empSnap, vehicleSnap] = await Promise.all([
+const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promise.all([
         getDocs(collection(db, "bookings")),
         getDocs(collection(db, "holidays")),
         getDocs(collection(db, "employees")),
-        getDocs(collection(db, "vehicles"))
+        getDocs(collection(db, "vehicles")),
+        getDocs(collection(db, "equipment")), // ✅ NEW
       ]);
   
       const bookings = bookingSnap.docs.map(doc => ({
@@ -157,7 +161,27 @@ export default function CreateBookingPage() {
           setShootType(b.shootType || "Day");
         }
       }
-    };
+      const groupedEquip = {};
+    equipSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const category = (data.category || "Other").trim();
+      const name = data.name?.trim();
+      if (!name) return;
+      if (!groupedEquip[category]) groupedEquip[category] = [];
+      groupedEquip[category].push(name);
+    });
+
+    setEquipmentGroups(groupedEquip);
+
+    // ✅ Set initial open state for each category
+    const openEquip = {};
+    Object.keys(groupedEquip).forEach(cat => {
+      openEquip[cat] = false;
+    });
+    setOpenEquipGroups(openEquip);
+  };
+  
+    
   
     loadData();
   }, [bookingId]);
@@ -517,79 +541,81 @@ const booking = {
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required /><br /><br />
         </>
       )}
-      {isRange && startDate && endDate && (
-     <div>
-     <h4>Notes for Each Day</h4>
-     {(() => {
-       const days = [];
-       const curr = new Date(startDate);
-       const end = new Date(endDate);
-       while (curr <= end) {
-         const dateStr = curr.toISOString().split("T")[0];
-         days.push(dateStr);
-         curr.setDate(curr.getDate() + 1);
-       }
-   
-       return days.map(date => {
-         const selectedNote = notesByDate[date] || "";
-         const isOther = selectedNote === "Other";
-         const customNote = notesByDate[`${date}-other`] || "";
-   
-         return (
-           <div key={date} style={{ marginBottom: 10 }}>
-             <label>{new Date(date).toDateString()}</label><br />
-   
-             <select
-               value={selectedNote}
-               onChange={(e) =>
-                 setNotesByDate({ ...notesByDate, [date]: e.target.value })
-               }
-               style={{
-                 width: "100%",
-                 padding: "8px",
-                 fontSize: "14px",
-                 borderRadius: "4px",
-                 border: "1px solid #ccc",
-                 marginBottom: isOther ? "8px" : "0"
-               }}
-             >
-               <option value="">Select note</option>
-               <option value="1/2 Day Travel">1/2 Day Travel</option>
-               <option value="Travel Day">Travel Day</option>
-               <option value="On Set">On Set</option>
-               <option value="Night Shoot">Night Shoot</option>
-               <option value="Turnaround Day">Turnaround Day</option>
-               <option value="Other">Other</option>
-             </select>
-   
-             {isOther && (
-               <input
-                 type="text"
-                 placeholder="Enter custom note"
-                 value={customNote}
-                 onChange={(e) =>
-                   setNotesByDate({
-                     ...notesByDate,
-                     [date]: "Other",
-                     [`${date}-other`]: e.target.value
-                   })
-                 }
-                 style={{
-                   width: "100%",
-                   padding: "8px",
-                   fontSize: "14px",
-                   borderRadius: "4px",
-                   border: "1px solid #ccc"
-                 }}
-               />
-             )}
-           </div>
-         );
-       });
-     })()}
-   </div>
-   
-      )}
+  {startDate && (
+  <div style={{ marginTop: 20 }}>
+    <h4>{isRange ? "Notes for Each Day" : "Note for the Day"}</h4>
+    {(() => {
+      const days = [];
+      const start = new Date(startDate);
+      const end = isRange && endDate ? new Date(endDate) : start;
+      const curr = new Date(start);
+
+      while (curr <= end) {
+        const dateStr = curr.toISOString().split("T")[0];
+        days.push(dateStr);
+        curr.setDate(curr.getDate() + 1);
+      }
+
+      return days.map((date) => {
+        const selectedNote = notesByDate[date] || "";
+        const isOther = selectedNote === "Other";
+        const customNote = notesByDate[`${date}-other`] || "";
+
+        return (
+          <div key={date} style={{ marginBottom: 10 }}>
+            <label>{new Date(date).toDateString()}</label><br />
+
+            <select
+              value={selectedNote}
+              onChange={(e) =>
+                setNotesByDate({ ...notesByDate, [date]: e.target.value })
+              }
+              style={{
+                width: "100%",
+                padding: "8px",
+                fontSize: "14px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                marginBottom: isOther ? "8px" : "0",
+              }}
+            >
+              <option value="">Select note</option>
+              <option value="1/2 Day Travel">1/2 Day Travel</option>
+              <option value="Travel Day">Travel Day</option>
+              <option value="On Set">On Set</option>
+              <option value="Night Shoot">Night Shoot</option>
+              <option value="Turnaround Day">Turnaround Day</option>
+              <option value="Other">Other</option>
+            </select>
+
+            {isOther && (
+              <input
+                type="text"
+                placeholder="Enter custom note"
+                value={customNote}
+                onChange={(e) =>
+                  setNotesByDate({
+                    ...notesByDate,
+                    [date]: "Other",
+                    [`${date}-other`]: e.target.value,
+                  })
+                }
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  fontSize: "14px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                }}
+              />
+            )}
+          </div>
+        );
+      });
+    })()}
+  </div>
+)}
+
 
       
       <h2>Precision Driver</h2><br />
@@ -679,7 +705,7 @@ const booking = {
           setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }))
         }
         style={{
-          backgroundColor: "#1976d2",
+          backgroundColor: "#4b4b4b",
           color: "#fff",
           padding: "8px 12px",
           border: "none",
@@ -733,24 +759,57 @@ const booking = {
 
 
 <br />
-      <label>Equipment</label><br />
-      {["Rigging Kit", "Harness Kit", "A Frame", "Tow Dolly", "Generator", "Monitor Kit", "Radio Kit", "Headsets"].map(item => (
-        <label key={item} style={{ display: "block", marginBottom: 5 }}>
-          <input
-            type="checkbox"
-            value={item}
-            checked={equipment.includes(item)}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setEquipment([...equipment, item]);
-              } else {
-                setEquipment(equipment.filter(i => i !== item));
-              }
-            }}
-          />{" "}
-          {item}
-        </label>
-      ))}
+<h2>Equipment</h2>
+{Object.entries(equipmentGroups).map(([group, items]) => {
+  const isOpen = openEquipGroups[group] || false;
+
+  return (
+    <div key={group} style={{ marginTop: 10 }}>
+      <button
+        type="button"
+        onClick={() =>
+          setOpenEquipGroups(prev => ({ ...prev, [group]: !prev[group] }))
+        }
+        style={{
+          backgroundColor: "#4b4b4b",
+          color: "#fff",
+          padding: "8px 12px",
+          border: "none",
+          borderRadius: 4,
+          width: "100%",
+          textAlign: "left",
+          marginBottom: 5,
+          cursor: "pointer"
+        }}
+      >
+        {isOpen ? "▼" : "►"} {group.toUpperCase()}
+      </button>
+
+      {isOpen && (
+        <div style={{ paddingLeft: 10 }}>
+          {items.map((item) => (
+            <label key={item} style={{ display: "block", marginBottom: 5 }}>
+              <input
+                type="checkbox"
+                value={item}
+                checked={equipment.includes(item)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setEquipment([...equipment, item]);
+                  } else {
+                    setEquipment(equipment.filter(i => i !== item));
+                  }
+                }}
+              />{" "}
+              <span style={{ color: "#333" }}>{item}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}
+
     </div>
   </div>
 
