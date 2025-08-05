@@ -188,7 +188,7 @@ export default function HomePage() {
 
 
         <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 25, color: "#1f2937" }}>
-          Home
+          Home test
         </h1>
         <div
   style={{
