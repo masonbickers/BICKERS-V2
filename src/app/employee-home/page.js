@@ -36,9 +36,19 @@ export default function EmployeesHomePage() {
           const notesByDate = booking.notesByDate || {};
         
           // Only count days where the note is exactly "On Set"
-          const onSetDates = Object.entries(notesByDate)
-            .filter(([_, note]) => note === "On Set")
-            .map(([date]) => date);
+         // Only count days where the note is exactly "On Set" and is within the last 30 days
+const now = new Date();
+const thirtyDaysAgo = new Date(now);
+thirtyDaysAgo.setDate(now.getDate() - 30);
+
+const onSetDates = Object.entries(notesByDate)
+  .filter(([dateStr, note]) => {
+    if (note !== "On Set") return false;
+    const date = new Date(dateStr);
+    return date >= thirtyDaysAgo && date <= now;
+  })
+  .map(([date]) => date);
+
         
           onSetDates.forEach(() => {
             employeeList.forEach(name => {
@@ -94,7 +104,7 @@ export default function EmployeesHomePage() {
         </div>
 
         <div style={{ marginTop: 40 }}>
-          <h2 style={{ fontSize: 22, fontWeight: "bold", marginBottom: 10 }}>On Set Days (This Month)</h2>
+<h2 style={{ fontSize: 22, fontWeight: "bold", marginBottom: 10 }}>On Set Days (Last 30 Days)</h2>
 
           {loading ? (
             <p>Loading usage data...</p>

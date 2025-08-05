@@ -227,42 +227,9 @@ const navButton = {
         <div style={cardStyle}>
           <h2 style={cardHeaderStyle}>Work Diary</h2>
 
-          {/* View Toggle */}
-          <div style={{ marginBottom: "1rem" }}>
-            <div style={{ marginBottom: 20 }}>
-              <span style={{ marginRight: 10 }}>Calendar View:</span>
-              <button
-                onClick={() => setCalendarView("week")}
-                style={{
-                  marginRight: 10,
-                  padding: "6px 12px",
-                  backgroundColor:
-                    calendarView === "week" ? "#505050" : "#eee",
-                  color: calendarView === "week" ? "#fff" : "#000",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setCalendarView("month")}
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor:
-                    calendarView === "month" ? "#505050" : "#eee",
-                  color: calendarView === "month" ? "#fff" : "#000",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Month
-              </button>
-            </div>
-          </div>
-
+        
+          
+          
           {/* Week Nav */}
           {calendarView === "week" && (
   <div
@@ -716,21 +683,27 @@ const navButton = {
         
         <div
           title={event.title}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            fontSize: "0.85rem",
-            lineHeight: "1.4",
-            color: "#000",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            fontFamily: "'Montserrat', 'Arial', sans-serif",
-            textAlign: "left",
-            alignItems: "flex-start",
-            padding: "4px",
-            margin: 0,
-            boxSizing: "border-box",
-          }}
+  style={{
+  display: "flex",
+  flexDirection: "column",
+  fontSize: "0.85rem",
+  lineHeight: "1.4",
+  color: "#000",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  fontFamily: "'Montserrat', 'Arial', sans-serif",
+  textAlign: "left",
+  alignItems: "flex-start",
+  padding: "4px",
+  margin: 0,
+  boxSizing: "border-box",
+  overflow: "visible",           // ✅ allows content to overflow naturally
+  whiteSpace: "normal",          // ✅ allows text wrapping
+  wordBreak: "break-word",       // ✅ breaks long words
+  minHeight: "100px",            // ✅ ensures enough vertical space
+  height: "auto",                // ✅ don't clip based on height
+}}
+
         >
           {event.status === "Holiday" ? (
             <>
@@ -769,8 +742,6 @@ const navButton = {
 </div>
 
 
-
-
 {/* Today's Jobs */}
 <div style={{ ...cardStyle, marginTop: "20px" }}>
   <h2 style={cardHeaderStyle}>Todays Jobs</h2>
@@ -784,6 +755,14 @@ const navButton = {
       fontFamily: "Arial, sans-serif",
       fontSize: "14px",
     }}>
+      <colgroup>
+        <col style={{ width: "15%" }} />
+        <col style={{ width: "15%" }} />
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "20%" }} />
+        <col style={{ width: "10%" }} />
+      </colgroup>
       <thead style={{ backgroundColor: "#d3d3d3" }}>
         <tr>
           <th style={{ textAlign: "left", padding: "12px 10px" }}>Date</th>
@@ -796,54 +775,52 @@ const navButton = {
       </thead>
       <tbody>
         {todaysJobs.map((b, i) => (
-          <tr
-            key={i}
+          <tr key={i}
             style={{
               borderTop: "1px solid #ddd",
               backgroundColor: i % 2 === 0 ? "#fff" : "#d3d3d3",
               transition: "background-color 0.2s",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#f9f9f9")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#d3d3d3")}
           >
-            <td style={{ padding: "10px" }}>{new Date(b.date || b.startDate).toDateString()}</td>
-            <td style={{ padding: "10px" }}>{b.jobNumber}</td>
-            <td style={{ padding: "10px" }}>{b.client || "—"}</td>
-            <td style={{ padding: "10px" }}>{b.location || "—"}</td>
-            <td style={{ padding: "10px" }}>
-              {Array.isArray(b.employees) && b.employees.length > 0
-                ? b.employees.join(", ")
-                : "—"}
+            <td style={{ padding: "10px", verticalAlign: "middle" }}>{new Date(b.date || b.startDate).toDateString()}</td>
+            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
+            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
+            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
+            <td style={{ padding: "10px", verticalAlign: "middle" }}>
+              {Array.isArray(b.employees) && b.employees.length > 0 ? b.employees.join(", ") : "—"}
             </td>
-<td style={{ padding: "10px", display: "flex", gap: "8px" }}>
-  <button
-    onClick={() => setSelectedBookingId(b.id)}
-    style={{
-      padding: "6px 10px",
-      backgroundColor: "#444",
-      color: "#fff",
-      border: "none",
-      borderRadius: "4px",
-      cursor: "pointer",
-    }}
-  >
-    View
-  </button>
-  <button
-    onClick={() => router.push(`/edit-booking/${b.id}`)}
-    style={{
-      padding: "6px 10px",
-      backgroundColor: "#1976d2",
-      color: "#fff",
-      border: "none",
-      borderRadius: "4px",
-      cursor: "pointer",
-    }}
-  >
-    Edit
-  </button>
-</td>
-
+            <td style={{
+              padding: "10px",
+              verticalAlign: "middle",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}>
+              <button onClick={() => setSelectedBookingId(b.id)}
+                style={{
+                  padding: "6px 10px",
+                  backgroundColor: "#444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}>
+                View
+              </button>
+              <button onClick={() => router.push(`/edit-booking/${b.id}`)}
+                style={{
+                  padding: "6px 10px",
+                  backgroundColor: "#1976d2",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                }}>
+                Edit
+              </button>
+            </td>
           </tr>
         ))}
       </tbody>
@@ -880,9 +857,18 @@ const navButton = {
           <table style={{
             width: "100%",
             borderCollapse: "collapse",
+            marginTop: "1rem",
             fontFamily: "Arial, sans-serif",
             fontSize: "14px",
           }}>
+            <colgroup>
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "10%" }} />
+            </colgroup>
             <thead style={{ backgroundColor: "#d3d3d3" }}>
               <tr>
                 <th style={{ textAlign: "left", padding: "12px 10px" }}>Date</th>
@@ -895,28 +881,41 @@ const navButton = {
             </thead>
             <tbody>
               {filtered.map((b, i) => (
-                <tr
-                  key={i}
+                <tr key={i}
                   style={{
                     borderTop: "1px solid #ddd",
-                    backgroundColor: i % 2 === 0 ? "#fff" : "#f9f9f9",
+                    backgroundColor: i % 2 === 0 ? "#fff" : "#d3d3d3",
                     transition: "background-color 0.2s",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#f9f9f9")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#d3d3d3")}
                 >
-                  <td style={{ padding: "10px" }}>{new Date(b.date || b.startDate).toDateString()}</td>
-                  <td style={{ padding: "10px" }}>{b.jobNumber}</td>
-                  <td style={{ padding: "10px" }}>{b.client || "—"}</td>
-                  <td style={{ padding: "10px" }}>{b.location || "—"}</td>
-                  <td style={{ padding: "10px" }}>
-                    {Array.isArray(b.employees) && b.employees.length > 0
-                      ? b.employees.join(", ")
-                      : "—"}
+                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{new Date(b.date || b.startDate).toDateString()}</td>
+                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
+                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
+                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
+                  <td style={{ padding: "10px", verticalAlign: "middle" }}>
+                    {Array.isArray(b.employees) && b.employees.length > 0 ? b.employees.join(", ") : "—"}
                   </td>
-                  <td style={{ padding: "10px" }}>
-                    <button
-                      onClick={() => router.push(`/edit-booking/${b.id}`)}
+                  <td style={{
+                    padding: "10px",
+                    verticalAlign: "middle",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}>
+                    <button onClick={() => setSelectedBookingId(b.id)}
+                      style={{
+                        padding: "6px 10px",
+                        backgroundColor: "#444",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}>
+                      View
+                    </button>
+                    <button onClick={() => router.push(`/edit-booking/${b.id}`)}
                       style={{
                         padding: "6px 10px",
                         backgroundColor: "#1976d2",
@@ -924,8 +923,7 @@ const navButton = {
                         border: "none",
                         borderRadius: "4px",
                         cursor: "pointer",
-                      }}
-                    >
+                      }}>
                       Edit
                     </button>
                   </td>
@@ -938,6 +936,7 @@ const navButton = {
     );
   })}
 </div>
+
 
 
 

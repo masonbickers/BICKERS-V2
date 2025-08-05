@@ -17,6 +17,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 const locales = { "en-GB": enGB };
 
+
 const localizer = dateFnsLocalizer({
   format,
   parse,

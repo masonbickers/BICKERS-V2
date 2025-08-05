@@ -887,34 +887,7 @@ const booking = {
     </div>
   </div>
 
-  {/* Notes and PDF Upload */}
-  <div style={{ marginTop: 30 }}>
-    <h2>Attach Quote PDF</h2><br />
-    <input
-  id="pdfUpload"
-  name="pdfUpload"
-  type="file"
-  accept="application/pdf"
-  onChange={(e) => {
-    const file = e.target.files[0];
-    setPdfFile(file);
-    if (file) {
-      const previewURL = URL.createObjectURL(file);
-      setPdfURL(previewURL); // ✅ Temporary preview
-    }
-  }}
-/>
 
-
-
-{pdfFile && (
-  <p style={{ marginTop: "8px", color: "#333" }}>
-    📄 Selected: <strong>{pdfFile.name}</strong>
-  </p>
-)}
-
-
-  </div>
 
   <div style={{ marginTop: 30 }}>
     <h2>Additional Notes</h2><br />
@@ -941,7 +914,7 @@ const booking = {
 </form>
 
 <div style={{ marginTop: 40, padding: 20, backgroundColor: "#e0f7fa", borderRadius: 8 }}>
-  <h2 style={{ marginBottom: 10 }}>📋 Booking Summary</h2>
+  <h2 style={{ marginBottom: 10 }}>Booking Summary</h2>
 
   <p><strong>Job Number:</strong> {jobNumber}</p>
   <p><strong>Status:</strong> {status}</p>
