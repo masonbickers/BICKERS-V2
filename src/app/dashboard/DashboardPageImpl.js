@@ -557,6 +557,9 @@ const navButton = {
                 "Second Pencil": "#f73939",
                 "Holiday": "#d3d3d3",
                 "Maintenance": "#f97316",
+                "Complete": "#7AFF6E",
+                "Action Required": "##FF973B",
+
               }[status] || "#ccc";
             
               let highlightColor = defaultColor;

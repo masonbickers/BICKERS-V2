@@ -11,7 +11,7 @@ export default function FinancePage() {
     {
       title: "Ready to Invoice",
       description: "View jobs queued for invoicing.",
-      link: "/finance/ready"
+      link: "/ready-invoice"
     },
     {
       title: "Invoice Tracker",
