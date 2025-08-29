@@ -188,26 +188,28 @@ const navButton = {
 
   return (
     <HeaderSidebarLayout>
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        fontFamily: "Arial, sans-serif",
-        backgroundColor: "#f4f4f5",
+<div
+  style={{
+    display: "flex",
+    minHeight: "100vh",
+    width: "100%",          // ✅ ensures full width
+    overflowX: "hidden",    // ✅ stops sideways scrolling
+    fontFamily: "Arial, sans-serif",
+    backgroundColor: "#f4f4f5",
+  }}
+>
 
-    
-      }}
-    >
       {/* ←── Sidebar */}
            {/* Sidebar */}
 
 
       {/* ── Main Container (your original content) */}
-      <div
+<div
   style={{
     flex: 1,
     padding: "20px 40px",
     color: "#333",
+    minWidth: 0,           // ✅ allows flexbox to shrink properly
   }}
 >
 
