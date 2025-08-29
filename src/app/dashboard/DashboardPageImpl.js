@@ -229,6 +229,18 @@ const navButton = {
         <div style={cardStyle}>
           <h2 style={cardHeaderStyle}>Work Diary</h2>
 
+        {/* Month + Year title */}
+<h3 style={{ 
+  textAlign: "center", 
+  margin: "0px 0 0px 0", 
+  fontSize: "1.5rem", 
+  fontWeight: "bold" 
+}}>
+  {currentDate.toLocaleDateString("en-GB", { month: "long" })}
+</h3>
+
+        
+
         
           
           
@@ -337,7 +349,27 @@ const navButton = {
             toolbar={false}
             nowIndicator={false} // 
             getNow={() => new Date(2000, 0, 1)} 
+              formats={{
+                        dayFormat: (date, culture, localizer) =>
+                          localizer.format(date, "EEEE dd", culture), // ✅ "Monday 25"
+                      }}
             
+              // ✅ Highlight today's column
+  dayPropGetter={(date) => {
+    const today = new Date();
+    const isToday =
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+
+    return {
+      style: {
+        backgroundColor: isToday ? "rgba(137, 174, 255, 0.3)" : undefined, // light yellow
+        border: isToday ? "1px solid #3f82ffff" : undefined,               // gold border
+      },
+    };
+  }}
+
             style={{
   
               borderRadius: "12px",
@@ -372,24 +404,29 @@ const navButton = {
                   : "";
             
                 return (
-                  <div
-                    title={note || ""}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: "0.85rem",
-                      lineHeight: "1.4",
-                      color: "#000",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      fontFamily: "'Montserrat', 'Arial', sans-serif",
-                      textAlign: "left",
-                      alignItems: "flex-start",
-                      padding: "4px",
-                      margin: 0,
-                      boxSizing: "border-box"
-                    }}
-                  >
+                 <div
+  title={note || ""}
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.85rem",
+    lineHeight: "1.4",
+    color: "#000",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    fontFamily: "'Montserrat', 'Arial', sans-serif",
+    textAlign: "left",
+    alignItems: "flex-start",
+    padding: "4px",
+    margin: 0,
+    boxSizing: "border-box",
+    whiteSpace: "normal",     // ✅ allow wrapping
+    wordBreak: "break-word",  // ✅ break long words
+    height: "auto",           // ✅ let height grow with content
+    overflow: "visible",      // ✅ make sure nothing is clipped
+  }}
+>
+
                    {event.status === "Holiday" ? (
                       <>
                        {event.status === "Holiday" ? (
@@ -426,7 +463,17 @@ const navButton = {
 
 
     <span>{event.location}</span>
-    <span>{event.notes}</span>
+<span
+  style={{
+    fontWeight: "normal",
+    fontStyle: "italic",
+    fontSize: "0.85 rem",
+    opacity: 1,
+  }}
+>
+  {event.notes}
+</span>
+
   </>
 )}
 
@@ -450,7 +497,7 @@ const navButton = {
                               padding: "1px 6px",
                               borderRadius: "4px",
                               fontSize: "0.85rem",
-                              fontWeight: "bold",
+                              fontWeight: "normal",
                               border: "1px solid #000"
                             }}
                           >
@@ -490,7 +537,16 @@ const navButton = {
                            ))}
                         <span>{event.equipment}</span>
                         <span>{event.location}</span>
-                        <span>{event.notes}</span>
+                        <span
+                          style={{
+                            fontWeight: "normal",
+                       
+                            opacity: 0.8,
+                          }}
+                        >
+                          {event.notes}
+                        </span>
+
                         
 
                         {event.notesByDate && (
@@ -688,26 +744,26 @@ const navButton = {
         
         <div
           title={event.title}
-  style={{
-  display: "flex",
-  flexDirection: "column",
-  fontSize: "0.85rem",
-  lineHeight: "1.4",
-  color: "#000",
-  fontWeight: 600,
-  textTransform: "uppercase",
-  fontFamily: "'Montserrat', 'Arial', sans-serif",
-  textAlign: "left",
-  alignItems: "flex-start",
-  padding: "4px",
-  margin: 0,
-  boxSizing: "border-box",
-  overflow: "visible",           // ✅ allows content to overflow naturally
-  whiteSpace: "normal",          // ✅ allows text wrapping
-  wordBreak: "break-word",       // ✅ breaks long words
-  minHeight: "100px",            // ✅ ensures enough vertical space
-  height: "auto",                // ✅ don't clip based on height
-}}
+            style={{
+            display: "flex",
+            flexDirection: "column",
+            fontSize: "0.85rem",
+            lineHeight: "1.4",
+            color: "#000",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            fontFamily: "'Montserrat', 'Arial', sans-serif",
+            textAlign: "left",
+            alignItems: "flex-start",
+            padding: "4px",
+            margin: 0,
+            boxSizing: "border-box",
+            overflow: "visible",           // ✅ allows content to overflow naturally
+            whiteSpace: "normal",          // ✅ allows text wrapping
+            wordBreak: "break-word",       // ✅ breaks long words
+            minHeight: "100px",            // ✅ ensures enough vertical space
+            height: "auto",                // ✅ don't clip based on height
+          }}
 
         >
           {event.status === "Holiday" ? (
@@ -742,8 +798,16 @@ const navButton = {
         boxShadow: "0 2px 2px rgba(0,0,0,0.25)",
       },
     })}
-    
+
+    // ✅ ADD THIS JUST BELOW
+    dayPropGetter={(date) => ({
+      style: {
+        borderRight: "1px solid #ccc",  // vertical divider between days
+        borderTop: "1px solid #ccc",    // optional: adds a line under day headers
+      },
+    })}
   />
+
 </div>
 
 

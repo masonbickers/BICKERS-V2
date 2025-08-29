@@ -409,7 +409,7 @@ const booking = {
   value={jobNumber} 
   onChange={(e) => setJobNumber(e.target.value)} 
   required 
-  disabled={!!bookingId}
+
   style={{ 
     width: "100%",
     height: "40px",
