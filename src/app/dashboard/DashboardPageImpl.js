@@ -720,7 +720,7 @@ const navButton = {
     endAccessor="end"
     popup
     allDayAccessor={() => true}
-    allDaySlot
+    allDaySlotsimp
     dayLayoutAlgorithm="overlap"
     toolbar={false}
     nowIndicator={false}

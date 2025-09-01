@@ -1,73 +1,125 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db, googleProvider } from "../../../firebaseConfig"; // ✅ import provider + db
+import { auth, db } from "../../../firebaseConfig";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
+  sendEmailVerification,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
 
+  // MFA state
+  const [step, setStep] = useState(1); // 1 = login/signup, 2 = MFA code
+  const [mfaCode, setMfaCode] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // ✅ Password strength check
+  const isStrongPassword = (password) => {
+    const regex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return regex.test(password);
+  };
+
+  // ✅ Handle Login / Signup
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
+      // 🚨 Restrict to company emails only
+      if (!email.endsWith("@bickers.co.uk")) {
+        setError("Only @bickers.co.uk emails are allowed.");
+        return;
+      }
+
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        // LOGIN
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+
+        if (!user.emailVerified) {
+          setError("Please verify your email before logging in.");
+          return;
+        }
+
+        // ✅ Fetch MFA secret
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
+
+        if (!snap.exists() || !snap.data().mfaSecret) {
+          router.push("/setup-mfa");
+          return;
+        }
+
+        setCurrentUser({
+          uid: user.uid,
+          email: user.email,
+          secret: snap.data().mfaSecret,
+        });
+        setStep(2);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // SIGN UP
+        if (!isStrongPassword(password)) {
+          setError(
+            "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+          );
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError("Passwords do not match.");
+          return;
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
         const user = userCredential.user;
 
-        // ✅ Save new user in Firestore
+        // ✅ Save user details in Firestore
         await setDoc(doc(db, "users", user.uid), {
+          name,
+          phone,
           email: user.email,
           role: "user",
           createdAt: new Date(),
+          mfaSecret: null,
         });
-      }
 
-      router.push("/home");
+        // ✅ Send verification
+        await sendEmailVerification(user);
+        setError("Account created. Please verify your email before logging in.");
+        setIsLogin(true);
+      }
     } catch (err) {
       setError(err.message);
     }
   };
 
-  // ✅ Google Login Function
-  const handleGoogleLogin = async () => {
+  // MFA Verification (placeholder for now)
+  const handleVerifyMFA = () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      // ✅ Save to Firestore (merge to avoid overwriting)
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          email: user.email,
-          role: "user",
-          createdAt: new Date(),
-        },
-        { merge: true }
-      );
-
       router.push("/home");
     } catch (err) {
-      setError(err.message);
+      setError("Error verifying code");
     }
   };
 
   return (
     <div style={styles.page}>
-      {/* Left Side: Login form */}
       <div style={styles.formSide}>
         <div style={styles.formWrapper}>
           <Image
@@ -78,73 +130,131 @@ export default function LoginPage() {
             style={styles.logo}
           />
 
-          <h1 style={styles.title}>Welcome back</h1>
-          <p style={styles.subtitle}>Please enter your details</p>
+          {step === 1 && (
+            <>
+              <h1 style={styles.title}>
+                {isLogin ? "Welcome back" : "Create your account"}
+              </h1>
+              <p style={styles.subtitle}>
+                {isLogin
+                  ? "Please enter your details"
+                  : "Fill in your details to sign up"}
+              </p>
 
-          <form onSubmit={handleSubmit}>
-            <label style={styles.label}>Email address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={styles.input}
-            />
+              <form onSubmit={handleSubmit}>
+                {/* Extra fields only for signup */}
+                {!isLogin && (
+                  <>
+                    <label style={styles.label}>Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      style={styles.input}
+                    />
 
-            <label style={styles.label}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={styles.input}
-            />
+                    <label style={styles.label}>Phone Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                      style={styles.input}
+                    />
+                  </>
+                )}
 
-            <div style={styles.formFooter}>
-              <label style={styles.checkboxLabel}>
-                <input type="checkbox" style={styles.checkbox} />
-                Remember for 30 days
-              </label>
-              <a href="#" style={styles.link}>
-                Forgot password
-              </a>
-            </div>
+                <label style={styles.label}>Email address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={styles.input}
+                />
 
-            <button type="submit" style={styles.primaryButton}>
-              {isLogin ? "Sign in" : "Sign up"}
-            </button>
+                <label style={styles.label}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={styles.input}
+                />
 
-            {/* ✅ Google Login Button (matches style) */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              style={styles.googleButton}
-            >
-              <img
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                alt="Google"
-                style={{ width: 20, marginRight: 10 }}
+                {!isLogin && (
+                  <>
+                    <label style={styles.label}>Confirm Password</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      style={styles.input}
+                    />
+                  </>
+                )}
+
+                <div style={styles.formFooter}>
+                  {isLogin && (
+                    <label style={styles.checkboxLabel}>
+                      <input type="checkbox" style={styles.checkbox} />
+                      Remember for 30 days
+                    </label>
+                  )}
+                  <a href="#" style={styles.link}>
+                    Forgot password
+                  </a>
+                </div>
+
+                <button type="submit" style={styles.primaryButton}>
+                  {isLogin ? "Sign in" : "Sign up"}
+                </button>
+
+                <p style={styles.toggleText}>
+                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                  <a
+                    href="#"
+                    onClick={() => setIsLogin(!isLogin)}
+                    style={styles.link}
+                  >
+                    {isLogin ? "Sign up" : "Log in"}
+                  </a>
+                </p>
+
+                {error && <p style={styles.error}>{error}</p>}
+              </form>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <h1 style={styles.title}>Enter Authenticator Code</h1>
+              <p style={styles.subtitle}>
+                Open your Google Authenticator app and enter the 6-digit code
+              </p>
+              <input
+                type="text"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                maxLength={6}
+                placeholder="123456"
+                style={styles.input}
               />
-              Sign in with Google
-            </button>
-
-            <p style={styles.toggleText}>
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <a
-                href="#"
-                onClick={() => setIsLogin(!isLogin)}
-                style={styles.link}
+              <button
+                type="button"
+                style={styles.primaryButton}
+                onClick={handleVerifyMFA}
               >
-                {isLogin ? "Sign up" : "Log in"}
-              </a>
-            </p>
-
-            {error && <p style={styles.error}>{error}</p>}
-          </form>
+                Verify Code
+              </button>
+              {error && <p style={styles.error}>{error}</p>}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Right Side: Image */}
       <div style={styles.imageSide}>
         <Image
           src="/login-page-photo.jpeg"
@@ -157,129 +267,22 @@ export default function LoginPage() {
   );
 }
 
+// ✅ Styles unchanged
 const styles = {
-  page: {
-    display: "flex",
-    height: "100vh",
-    backgroundColor: "#0d0d0d",
-    fontFamily: "Arial, sans-serif",
-  },
-  formSide: {
-    flex: 0.7,
-    backgroundColor: "#0d0d0d",
-    color: "#fff",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "0 2rem",
-  },
-  formWrapper: {
-    width: "100%",
-    maxWidth: "360px",
-  },
-  logo: {
-    height: "110px",
-    width: "330px",
-    objectFit: "contain",
-    marginBottom: "30px",
-  },
-  title: {
-    fontSize: "26px",
-    fontWeight: "bold",
-    marginBottom: "8px",
-  },
-  subtitle: {
-    fontSize: "14px",
-    color: "#9ca3af",
-    marginBottom: "30px",
-  },
-  label: {
-    fontSize: "14px",
-    fontWeight: "500",
-    marginBottom: "6px",
-    display: "block",
-  },
-  input: {
-    width: "100%",
-    padding: "12px",
-    marginBottom: "16px",
-    border: "1px solid #333",
-    borderRadius: "6px",
-    fontSize: "15px",
-    backgroundColor: "#111827",
-    color: "#fff",
-  },
-  formFooter: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    margin: "10px 0 20px",
-    fontSize: "14px",
-  },
-  checkboxLabel: {
-    fontSize: "14px",
-    display: "flex",
-    alignItems: "center",
-  },
-  checkbox: {
-    marginRight: 6,
-  },
-  link: {
-    color: "#f87171",
-    textDecoration: "none",
-    cursor: "pointer",
-  },
-  primaryButton: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#ef4444",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginBottom: "12px",
-    transition: "background 0.3s",
-  },
-  googleButton: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#fff",
-    color: "#000",
-    border: "1px solid #ccc",
-    borderRadius: "6px",
-    fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: "12px",
-  },
-  toggleText: {
-    marginTop: 25,
-    fontSize: "14px",
-    color: "#9ca3af",
-  },
-  error: {
-    color: "#f87171",
-    marginTop: "15px",
-    fontSize: "14px",
-  },
-  imageSide: {
-    flex: 1.3,
-    backgroundColor: "#1a1a1a",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    objectPosition: "right",
-  },
+  page: { display: "flex", height: "100vh", backgroundColor: "#0d0d0d", fontFamily: "Arial, sans-serif" },
+  formSide: { flex: 0.7, backgroundColor: "#0d0d0d", color: "#fff", display: "flex", justifyContent: "center", alignItems: "center", padding: "0 2rem" },
+  formWrapper: { width: "100%", maxWidth: "360px" },
+  logo: { height: "110px", width: "330px", objectFit: "contain", marginBottom: "30px" },
+  title: { fontSize: "26px", fontWeight: "bold", marginBottom: "8px" },
+  subtitle: { fontSize: "14px", color: "#9ca3af", marginBottom: "30px" },
+  label: { fontSize: "14px", fontWeight: "500", marginBottom: "6px", display: "block" },
+  input: { width: "100%", padding: "12px", marginBottom: "16px", border: "1px solid #333", borderRadius: "6px", fontSize: "15px", backgroundColor: "#111827", color: "#fff" },
+  formFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0 20px", fontSize: "14px" },
+  checkboxLabel: { fontSize: "14px", display: "flex", alignItems: "center" },
+  checkbox: { marginRight: 6 },
+  link: { color: "#f87171", textDecoration: "none", cursor: "pointer" },
+  primaryButton: { width: "100%", padding: "12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginBottom: "12px", transition: "background 0.3s" },
+  error: { color: "#f87171", marginTop: "15px", fontSize: "14px" },
+  imageSide: { flex: 1.3, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" },
+  image: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "right" },
 };
