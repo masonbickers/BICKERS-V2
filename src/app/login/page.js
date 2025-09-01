@@ -1,13 +1,14 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "../../../firebaseConfig";
+import { auth, db, googleProvider } from "../../../firebaseConfig"; // ✅ import provider + db
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import Image from "next/image";
-
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,46 +16,67 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
-  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-  
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
-  
-        // ✅ Add user to Firestore
+
+        // ✅ Save new user in Firestore
         await setDoc(doc(db, "users", user.uid), {
           email: user.email,
-          role: "user",         // default role, you can customise
-          createdAt: new Date()
+          role: "user",
+          createdAt: new Date(),
         });
       }
-  
+
       router.push("/home");
     } catch (err) {
       setError(err.message);
     }
   };
-  
+
+  // ✅ Google Login Function
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // ✅ Save to Firestore (merge to avoid overwriting)
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          email: user.email,
+          role: "user",
+          createdAt: new Date(),
+        },
+        { merge: true }
+      );
+
+      router.push("/home");
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
     <div style={styles.page}>
       {/* Left Side: Login form */}
       <div style={styles.formSide}>
         <div style={styles.formWrapper}>
-        <Image
-  src="/bickers-action-logo.png"
-  alt="Bickers Logo"
-  width={330}
-  height={110}
-  style={styles.logo}
-/>
-
+          <Image
+            src="/bickers-action-logo.png"
+            alt="Bickers Logo"
+            width={330}
+            height={110}
+            style={styles.logo}
+          />
 
           <h1 style={styles.title}>Welcome back</h1>
           <p style={styles.subtitle}>Please enter your details</p>
@@ -83,16 +105,36 @@ export default function LoginPage() {
                 <input type="checkbox" style={styles.checkbox} />
                 Remember for 30 days
               </label>
-              <a href="#" style={styles.link}>Forgot password</a>
+              <a href="#" style={styles.link}>
+                Forgot password
+              </a>
             </div>
 
             <button type="submit" style={styles.primaryButton}>
               {isLogin ? "Sign in" : "Sign up"}
             </button>
 
+            {/* ✅ Google Login Button (matches style) */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              style={styles.googleButton}
+            >
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google"
+                style={{ width: 20, marginRight: 10 }}
+              />
+              Sign in with Google
+            </button>
+
             <p style={styles.toggleText}>
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <a href="#" onClick={() => setIsLogin(!isLogin)} style={styles.link}>
+              <a
+                href="#"
+                onClick={() => setIsLogin(!isLogin)}
+                style={styles.link}
+              >
                 {isLogin ? "Sign up" : "Log in"}
               </a>
             </p>
@@ -104,12 +146,12 @@ export default function LoginPage() {
 
       {/* Right Side: Image */}
       <div style={styles.imageSide}>
-      <Image
-  src="/login-page-photo.jpeg"
-  alt="Illustration"
-  fill
-  style={styles.image}
-/>
+        <Image
+          src="/login-page-photo.jpeg"
+          alt="Illustration"
+          fill
+          style={styles.image}
+        />
       </div>
     </div>
   );
@@ -200,6 +242,21 @@ const styles = {
     marginBottom: "12px",
     transition: "background 0.3s",
   },
+  googleButton: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "#fff",
+    color: "#000",
+    border: "1px solid #ccc",
+    borderRadius: "6px",
+    fontSize: "16px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: "12px",
+  },
   toggleText: {
     marginTop: 25,
     fontSize: "14px",
@@ -217,9 +274,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    position: "relative", // <-- ✅ this is the key!
+    position: "relative",
   },
-  
   image: {
     width: "100%",
     height: "100%",
