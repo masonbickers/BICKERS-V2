@@ -1,7 +1,7 @@
 // app/layout.js
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import HeaderSidebarLayout from "./components/HeaderSidebarLayout";
+import { AuthProvider } from "./context/authContext"; // ✅ import provider
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,8 +21,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-<body style={{ margin: 0, padding: 0 }}>
-      {children}
+      <body style={{ margin: 0, padding: 0 }}>
+        {/* ✅ Wrap everything in AuthProvider */}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

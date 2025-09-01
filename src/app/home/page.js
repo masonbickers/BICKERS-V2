@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import "@fullcalendar/common/main.css";   // ✅ base styles
+import "@fullcalendar/common/main.css";   // ✅ base style
+import ProtectedRoute from "../components/ProtectedRoute";  // adjust path if needed
+
 
 
 import { db } from "../../../firebaseConfig";
@@ -165,6 +167,7 @@ export default function HomePage() {
   };
 
   return (
+        <ProtectedRoute>
     <HeaderSidebarLayout>
 <div style={{
   display: "flex",
@@ -433,6 +436,7 @@ export default function HomePage() {
   
       </div>
     </HeaderSidebarLayout>
+        </ProtectedRoute>
   );
 }
 
