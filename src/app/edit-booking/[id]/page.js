@@ -348,8 +348,9 @@ const booking = {
         await addDoc(collection(db, "bookings"), booking);
       }
       
-      alert(bookingId ? "Booking Updated ✅" : "Booking Saved ✅");
-      router.push("/dashboard");
+alert(bookingId ? "Booking Updated ✅" : "Booking Saved ✅");
+router.back();  // ✅ return to previous page instead of forcing dashboard
+
 
     } catch (err) {
       console.error("❌ Error saving booking:", err);
@@ -677,16 +678,40 @@ const booking = {
 
 
 
+{employees.includes("Other") && (
+  <div style={{ marginTop: 8 }}>
+    <input
+      type="text"
+      placeholder="Other employee(s), comma-separated"
+      value={customEmployee}
+      onChange={(e) => setCustomEmployee(e.target.value)}
+      style={{ width: "100%", marginBottom: "8px" }}
+    />
 
-      {employees.includes("Other") && (
-        <input
-          type="text"
-          placeholder="Other employee(s), comma-separated"
-          value={customEmployee}
-          onChange={(e) => setCustomEmployee(e.target.value)}
-          style={{ width: "100%", marginTop: 8 }}
-        />
-      )}
+    {/* Render custom employees as checkboxes */}
+    {customEmployee
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name) => (
+        <label key={name} style={{ display: "block", marginBottom: 5 }}>
+          <input
+            type="checkbox"
+            checked={employees.includes(name)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setEmployees([...employees, name]);
+              } else {
+                setEmployees(employees.filter((n) => n !== name));
+              }
+            }}
+          />{" "}
+          <span>{name}</span>
+        </label>
+      ))}
+  </div>
+)}
+
     </div>
 
     

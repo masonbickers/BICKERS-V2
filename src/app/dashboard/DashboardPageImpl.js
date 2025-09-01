@@ -345,7 +345,7 @@ const navButton = {
             popup
             allDayAccessor={() => true}
             allDaySlot
-            dayLayoutAlgorithm="overlap"
+            dayLayoutAlgorithm="no-overlap"
             toolbar={false}
             nowIndicator={false} // 
             getNow={() => new Date(2000, 0, 1)} 
@@ -741,6 +741,7 @@ const navButton = {
     }}
     components={{
       event: ({ event }) => (
+        
         
         <div
           title={event.title}

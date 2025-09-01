@@ -1,13 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Inter } from "next/font/google";
 import { getAuth } from "firebase/auth";
-import { useEffect } from "react";
 import dynamic from "next/dynamic";
-
-
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,12 +16,12 @@ export default function HeaderSidebarLayout({ children }) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [user, setUser] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false); // 🔹 collapsible sidebar
 
   const headerLinks = [
     { label: "Workshop", path: "/workshop" },
     { label: "Wall View", path: "/wall-view" },
     { label: "Dashboard", path: "/dashboard" },
- 
   ];
 
   const sidebarItems = [
@@ -38,55 +35,52 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "Finance", path: "/finance-dashboard" },
     { label: "Settings", path: "/settings" },
     { label: "Logout", path: "/login" },
-    
   ];
 
   const [theme, setTheme] = useState("system");
 
-useEffect(() => {
-  const savedTheme = localStorage.getItem("theme");
-  if (savedTheme) {
-    applyTheme(savedTheme);
-    setTheme(savedTheme);
-  } else {
-    applyTheme("system");
-  }
-}, []);
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme) {
+      applyTheme(savedTheme);
+      setTheme(savedTheme);
+    } else {
+      applyTheme("system");
+    }
+  }, []);
 
-const applyTheme = (selectedTheme) => {
-  const root = document.documentElement;
+  const applyTheme = (selectedTheme) => {
+    const root = document.documentElement;
 
-  if (selectedTheme === "light") {
-    root.classList.remove("dark");
-    document.body.style.backgroundColor = "#ffffff";
-  } else if (selectedTheme === "dark") {
-    root.classList.add("dark");
-    document.body.style.backgroundColor = "#121212";
-  } else {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if (prefersDark) {
+    if (selectedTheme === "light") {
+      root.classList.remove("dark");
+      document.body.style.backgroundColor = "#ffffff";
+    } else if (selectedTheme === "dark") {
       root.classList.add("dark");
       document.body.style.backgroundColor = "#121212";
     } else {
-      root.classList.remove("dark");
-      document.body.style.backgroundColor = "#ffffff";
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      if (prefersDark) {
+        root.classList.add("dark");
+        document.body.style.backgroundColor = "#121212";
+      } else {
+        root.classList.remove("dark");
+        document.body.style.backgroundColor = "#ffffff";
+      }
     }
-  }
 
-  localStorage.setItem("theme", selectedTheme);
-  setTheme(selectedTheme);
-};
-
+    localStorage.setItem("theme", selectedTheme);
+    setTheme(selectedTheme);
+  };
 
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
-  
+
     return () => unsubscribe();
   }, []);
-  
 
   const themeButtonStyle = {
     backgroundColor: "#2c2c2e",
@@ -97,7 +91,7 @@ const applyTheme = (selectedTheme) => {
     flex: 1,
     fontSize: "14px",
   };
-  
+
   const menuItemStyle = {
     display: "block",
     padding: "8px 0",
@@ -106,7 +100,6 @@ const applyTheme = (selectedTheme) => {
     fontSize: "13px",
     borderBottom: "1px solid #333",
   };
-  
 
   return (
     <div
@@ -121,7 +114,7 @@ const applyTheme = (selectedTheme) => {
       {/* Sidebar */}
       <aside
         style={{
-          width: "220px",
+          width: isCollapsed ? "60px" : "220px", // 🔹 collapsible width
           backgroundColor: "#000",
           color: "#fff",
           padding: "24px",
@@ -130,19 +123,39 @@ const applyTheme = (selectedTheme) => {
           borderTopRightRadius: "0px",
           borderBottomRightRadius: "0px",
           boxShadow: "inset -1px 0 0 rgba(255, 255, 255, 0.1)",
+          transition: "width 0.3s ease",
         }}
       >
-        <img
-          src="/bickers-action-logo.png"
-          alt="Logo"
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
           style={{
-            width: 150,
-            marginBottom: 40,
-            display: "block",
-            marginLeft: "auto",
-            marginRight: "auto",
+            background: "none",
+            border: "none",
+            color: "#4caf50",
+            cursor: "pointer",
+            fontSize: "16px",
+            marginBottom: "20px",
+            textAlign: "left",
           }}
-        />
+        >
+          {isCollapsed ? "➡️" : "⬅️"}
+        </button>
+
+        {/* Logo only if expanded */}
+        {!isCollapsed && (
+          <img
+            src="/bickers-action-logo.png"
+            alt="Logo"
+            style={{
+              width: 150,
+              marginBottom: 40,
+              display: "block",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          />
+        )}
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -158,26 +171,14 @@ const applyTheme = (selectedTheme) => {
                     color: pathname === path ? "#fff" : "#aaa",
                     fontWeight: pathname === path ? "bold" : "normal",
                     fontSize: "14px",
-                    textAlign: "left",
+                    textAlign: isCollapsed ? "center" : "left",
                     cursor: "pointer",
                     padding: "10px 16px",
                     borderRadius: "0px",
                     transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) => {
-                    if (pathname !== path) {
-                      e.currentTarget.style.background = "#2c2d33";
-                      e.currentTarget.style.color = "#eee";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (pathname !== path) {
-                      e.currentTarget.style.background = "none";
-                      e.currentTarget.style.color = "#aaa";
-                    }
-                  }}
                 >
-                  {label}
+                  {isCollapsed ? label[0] : label}
                 </button>
               ))}
           </nav>
@@ -191,26 +192,14 @@ const applyTheme = (selectedTheme) => {
                 color: pathname === "/login" ? "#fff" : "#aaa",
                 fontWeight: pathname === "/login" ? "bold" : "normal",
                 fontSize: "14px",
-                textAlign: "left",
+                textAlign: isCollapsed ? "center" : "left",
                 cursor: "pointer",
                 padding: "10px 16px",
                 borderRadius: "0px",
                 transition: "all 0.2s ease",
               }}
-              onMouseEnter={(e) => {
-                if (pathname !== "/login") {
-                  e.currentTarget.style.background = "#2c2d33";
-                  e.currentTarget.style.color = "#eee";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (pathname !== "/login") {
-                  e.currentTarget.style.background = "none";
-                  e.currentTarget.style.color = "#aaa";
-                }
-              }}
             >
-              Logout
+              {isCollapsed ? "⏻" : "Logout"}
             </button>
           </div>
         </div>
@@ -261,119 +250,125 @@ const applyTheme = (selectedTheme) => {
               ))}
             </nav>
             <div style={{ position: "relative" }}>
-  <button
-    onClick={() => setShowMenu(!showMenu)}
-    style={{
-      background: "none",
-      border: "none",
-      color: "#fff",
-      fontSize: "14px",
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-    }}
-  >
- <div
-  style={{
-    width: 28,
-    height: 28,
-    borderRadius: "0px",
-    backgroundColor: "#4caf50",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "14px",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  }}
->
-  {(user?.displayName || user?.email || "U")
-    .split(" ")
-    .map(word => word[0])
-    .slice(0, 2)
-    .join("")}
-</div>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "0px",
+                    backgroundColor: "#4caf50",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {(user?.displayName || user?.email || "U")
+                    .split(" ")
+                    .map((word) => word[0])
+                    .slice(0, 2)
+                    .join("")}
+                </div>
+              </button>
 
-  </button>
+              {showMenu && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "110%",
+                    right: 0,
+                    backgroundColor: "#1c1c1e",
+                    color: "#fff",
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
+                    borderRadius: "0px",
+                    padding: "12px",
+                    minWidth: "240px",
+                    zIndex: 1002,
+                  }}
+                >
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>
+                      {user?.displayName || "User"}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "#aaa" }}>
+                      {user?.email || "email@example.com"}
+                    </div>
+                  </div>
 
-  {showMenu && (
-    <div
-      style={{
-        position: "absolute",
-        top: "110%",
-        right: 0,
-        backgroundColor: "#1c1c1e",
-        color: "#fff",
-        boxShadow: "0 4px 8px rgba(0,0,0,0.3)",
-        borderRadius: "0px",
-        padding: "12px",
-        minWidth: "240px",
-        zIndex: 1002,
-      }}
-    >
-      <div style={{ marginBottom: "10px" }}>
-        <div style={{ fontWeight: "bold", fontSize: "14px" }}>
-          {user?.displayName || "User"}
-        </div>
-        <div style={{ fontSize: "13px", color: "#aaa" }}>
-          {user?.email || "email@example.com"}
-        </div>
-      </div>
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                    <button
+                      title="Light"
+                      onClick={() => applyTheme("light")}
+                      style={{
+                        ...themeButtonStyle,
+                        backgroundColor: theme === "light" ? "#4caf50" : "#2c2c2e",
+                      }}
+                    >
+                      ☀️
+                    </button>
+                    <button
+                      title="Dark"
+                      onClick={() => applyTheme("dark")}
+                      style={{
+                        ...themeButtonStyle,
+                        backgroundColor: theme === "dark" ? "#4caf50" : "#2c2c2e",
+                      }}
+                    >
+                      🌙
+                    </button>
+                    <button
+                      title="System"
+                      onClick={() => applyTheme("system")}
+                      style={{
+                        ...themeButtonStyle,
+                        backgroundColor: theme === "system" ? "#4caf50" : "#2c2c2e",
+                      }}
+                    >
+                      🖥️
+                    </button>
+                  </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-  <button
-    title="Light"
-    onClick={() => applyTheme("light")}
-    style={{
-      ...themeButtonStyle,
-      backgroundColor: theme === "light" ? "#4caf50" : "#2c2c2e",
-    }}
-  >
-    ☀️
-  </button>
-  <button
-    title="Dark"
-    onClick={() => applyTheme("dark")}
-    style={{
-      ...themeButtonStyle,
-      backgroundColor: theme === "dark" ? "#4caf50" : "#2c2c2e",
-    }}
-  >
-    🌙
-  </button>
-  <button
-    title="System"
-    onClick={() => applyTheme("system")}
-    style={{
-      ...themeButtonStyle,
-      backgroundColor: theme === "system" ? "#4caf50" : "#2c2c2e",
-    }}
-  >
-    🖥️
-  </button>
-</div>
-
-
-      <Link href="/settings" style={menuItemStyle}>Manage cookies</Link>
-      <Link href="/profile" style={menuItemStyle}>Your profile</Link>
-      <Link href="/terms" style={menuItemStyle}>Terms & policies</Link>
-      <Link href="/login" style={menuItemStyle}>Log out</Link>
-    </div>
-  )}
-</div>
-
-
-
-       
-            
-  
-  
+                  <Link href="/settings" style={menuItemStyle}>
+                    Manage cookies
+                  </Link>
+                  <Link href="/profile" style={menuItemStyle}>
+                    Your profile
+                  </Link>
+                  <Link href="/terms" style={menuItemStyle}>
+                    Terms & policies
+                  </Link>
+                  <Link href="/login" style={menuItemStyle}>
+                    Log out
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Scrollable Content */}
-        <div style={{ flex: 1, overflowY: "auto", backgroundColor: "#f4f4f5", padding: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            backgroundColor: "#f4f4f5",
+            padding: 10,
+          }}
+        >
           {children}
         </div>
 
@@ -381,7 +376,7 @@ const applyTheme = (selectedTheme) => {
         <footer
           style={{
             backgroundColor: "#000",
-            height: "10px", 
+            height: "10px",
             color: "#fff",
             display: "flex",
             alignItems: "center",
@@ -401,7 +396,7 @@ const applyTheme = (selectedTheme) => {
         style={{
           position: "fixed",
           top: "14px",
-          left: "250px",
+          left: isCollapsed ? "90px" : "250px", // 🔹 shift with collapse
           zIndex: 900,
           backgroundColor: "#e11d48",
           color: "#fff",
@@ -412,6 +407,7 @@ const applyTheme = (selectedTheme) => {
           fontWeight: "bold",
           boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
           cursor: "pointer",
+          transition: "left 0.3s ease",
         }}
       >
         Wall View

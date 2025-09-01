@@ -421,17 +421,17 @@ const booking = {
 <div style={{ flex: "1 1 300px" }}>
   
   {/* Job Number Field */}
-  <h2>Job Number</h2><br />
+  <h3>Job Number</h3><br />
   <input 
   value={jobNumber} 
   onChange={(e) => setJobNumber(e.target.value)} 
   required 
   style={{ 
-    width: "100%",
-    height: "40px",
-    marginBottom: 20,
-    padding: "8px",
-    fontSize: "16px"
+    width: "90%",
+      height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
   }} 
 
   /><br />
@@ -442,11 +442,11 @@ const booking = {
     value={status} 
     onChange={(e) => setStatus(e.target.value)} 
     style={{ 
-      width: "100%",
-      height: "40px",           // adjust height of dropdown
-      marginBottom: 20,
-      padding: "8px",
-      fontSize: "16px"
+      width: "90%",
+     height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
     }}
   >
     <option value="Confirmed">Confirmed</option>
@@ -461,11 +461,11 @@ const booking = {
     value={shootType} 
     onChange={(e) => setShootType(e.target.value)} 
     style={{ 
-      width: "100%",
-      height: "40px",
-      marginBottom: 20,
-      padding: "8px",
-      fontSize: "16px"
+      width: "90%",
+      height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
     }}
   >
     <option value="Day">Day</option>
@@ -473,6 +473,7 @@ const booking = {
   </select><br />
 
   {/* Client Textarea */}
+  <div style={{ marginBottom: "0px" }}></div>
   <h3>Client</h3><br />
   <textarea 
     value={client} 
@@ -480,14 +481,16 @@ const booking = {
     rows={2} 
     required 
     style={{ 
-      width: "100%", 
-      height: "40px",          // override rows if needed
-      padding: "8px",
-      fontSize: "16px"
+      width: "90%", 
+       height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
     }} 
   /><br /><br />
 
   {/* Contact Email */}
+  <div style={{ marginBottom: "-20px" }}></div>
 <h3>Contact Email</h3><br />
 <input
   type="email"
@@ -495,11 +498,11 @@ const booking = {
   onChange={(e) => setContactEmail(e.target.value)}
   placeholder="Enter email address"
   style={{
-    width: "100%",
-    height: "40px",
-    marginBottom: 20,
-    padding: "8px",
-    fontSize: "16px"
+    width: "90%",
+     height: "28px",      // 🔹 smaller height
+    marginBottom: "14px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
   }}
 /><br />
 
@@ -512,11 +515,11 @@ const booking = {
   onChange={(e) => setContactNumber(e.target.value)}
   placeholder="Enter phone number"
   style={{
-    width: "100%",
-    height: "40px",
-    marginBottom: 20,
-    padding: "8px",
-    fontSize: "16px"
+    width: "90%",
+     height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
   }}
 /><br />
 
@@ -530,10 +533,11 @@ const booking = {
     rows={2} 
     required 
     style={{ 
-      width: "100%", 
-      height: "40px",
-      padding: "8px",
-      fontSize: "16px"
+      width: "90%", 
+     height: "28px",      // 🔹 smaller height
+    marginBottom: "12px",
+    padding: "4px 6px",  // 🔹 smaller padding
+    fontSize: "14px"     // 🔹 smaller font
     }} 
   /><br /><br />
 </div>
@@ -544,7 +548,7 @@ const booking = {
      columnGap: "60px",
       flexWrap: "wrap",
       marginTop: "0px"}}>
-    <h2>Date</h2><br />
+    <h3>Date</h3><br />
       <label><input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} /> Multi-day booking</label><br /><br />
       <label>{isRange ? "Start Date" : "Date"}</label><br />
       <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required /><br /><br />
@@ -678,14 +682,14 @@ const booking = {
       )}
 
       
-      <h2>Precision Driver</h2><br />
+      <h3>Precision Driver</h3><br />
       {[...employeeList, "Other"].map(name => {
   const isBooked  = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
   const disabled  = isBooked || isHoliday;
 
   return (
-    <label key={name} style={{ display: "block", marginBottom: 5 }}>
+    <label key={name} style={{ display: "block", marginBottom: 4 ,fontSize: "14px" }}>
       <input
         type="checkbox"
         value={name}
@@ -705,14 +709,14 @@ const booking = {
   );
 })}
 
-<h3 style={{ marginTop: 20 }}>Freelancers</h3><br />
+<h3 style={{ marginTop: 10 }}>Freelancers</h3><br />
 {[...freelancerList, "Other"].map(name => {
   const isBooked = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
   const disabled = isBooked || isHoliday;
 
   return (
-    <label key={name} style={{ display: "block", marginBottom: 5 }}>
+    <label key={name} style={{ display: "block", marginBottom: 4, fontSize: "14px" }}>
       <input
         type="checkbox"
         value={name}
@@ -753,12 +757,12 @@ const booking = {
 
     {/* Column 3: Vehicles + Equipment */}
     <div style={{ flex: "1 1 300px" }}>
-    <h2>Vehicles</h2>
+    <h3>Vehicles</h3>
     {Object.entries(vehicleGroups).map(([group, items]) => {
   const isOpen = openGroups[group] || false;
 
   return (
-    <div key={group} style={{ marginTop: 10 }}>
+    <div key={group} style={{ marginTop: 5 }}>
       <button
         type="button"
         onClick={() =>
@@ -770,7 +774,7 @@ const booking = {
           padding: "8px 12px",
           border: "none",
           borderRadius: 4,
-          width: "100%",
+          width: "90%",
           textAlign: "left",
           marginBottom: 5,
           cursor: "pointer"
@@ -788,7 +792,7 @@ const booking = {
 
 
   return (
-    <label key={vehicle.id || vehicle.name} style={{ display: "block", marginLeft: 10, marginBottom: 5 }}>
+    <label key={vehicle.id || vehicle.name} style={{ display: "block", marginLeft: 10, marginBottom: 0,  }}>
       <input
   type="checkbox"
   value={vehicle.name}
@@ -804,7 +808,7 @@ const booking = {
 
 
       />{" "}
-<span style={{ color: disabled ? "grey" : "#333" }}>
+<span style={{ color: disabled ? "grey" : "#333"}}>
   {vehicle.name}
   {vehicle.registration && ` – ${vehicle.registration}`}
   {isBooked && " (Booked)"}
@@ -823,12 +827,12 @@ const booking = {
 })}
 
 <br />
-<h2>Equipment</h2>
+<h3>Equipment</h3>
 {Object.entries(equipmentGroups).map(([group, items]) => {
   const isOpen = openEquipmentGroups[group] || false;
 
   return (
-    <div key={group} style={{ marginTop: 10 }}>
+    <div key={group} style={{ marginTop: 5 }}>
       <button
         type="button"
         onClick={() =>
@@ -840,7 +844,7 @@ const booking = {
           padding: "8px 12px",
           border: "none",
           borderRadius: 4,
-          width: "100%",
+          width: "90%",
           textAlign: "left",
           marginBottom: 5,
           cursor: "pointer"
@@ -890,7 +894,7 @@ const booking = {
 
 
   <div style={{ marginTop: 30 }}>
-    <h2>Additional Notes</h2><br />
+    <h3>Job Description</h3><br />
     <textarea
       value={notes}
       onChange={(e) => setNotes(e.target.value)}
