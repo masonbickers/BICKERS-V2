@@ -1,9 +1,9 @@
+// firebaseConfig.js
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth"; // ✅ add Google provider
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE",
   authDomain: "bickers-booking.firebaseapp.com",
@@ -21,7 +21,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// ✅ Add Google provider
+// ✅ Create Google Provider
 const googleProvider = new GoogleAuthProvider();
 
 export { auth, db, storage, googleProvider };
