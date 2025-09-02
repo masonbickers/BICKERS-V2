@@ -128,7 +128,7 @@ const containerStyle = {
 
 const header = { fontSize: 28, fontWeight: "bold", marginBottom: 20 };
 const tableScrollContainer = { overflowY: "auto", position: "relative" };
-const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: "10px" };
+const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: "14px" };
 const theadStyle = {
   position: "sticky",
   top: 0,

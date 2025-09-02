@@ -139,7 +139,7 @@ export default function HeaderSidebarLayout({ children }) {
             textAlign: "left",
           }}
         >
-          {isCollapsed ? "➡️" : "⬅️"}
+          {isCollapsed ? ">" : "<"}
         </button>
 
         {/* Logo only if expanded */}
@@ -178,7 +178,8 @@ export default function HeaderSidebarLayout({ children }) {
                     transition: "all 0.2s ease",
                   }}
                 >
-                  {isCollapsed ? label[0] : label}
+                  {!isCollapsed && label}
+
                 </button>
               ))}
           </nav>

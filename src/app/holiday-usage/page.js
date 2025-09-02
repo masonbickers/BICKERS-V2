@@ -262,17 +262,21 @@ export default function HolidayUsagePage() {
     );
   };
 
-  const allNames = Array.from(
-    new Set([
-      ...Object.keys(byEmployee),
-      ...Object.keys(empAllowance),
-      ...Object.keys(empCarryOver),
-      ...Object.keys(paidDaysByName),
-      ...Object.keys(unpaidDaysByName),
-      ...Object.keys(accruedEarnedByName),
-      ...Object.keys(accruedTakenByName),
-    ])
-  ).sort();
+const allNames = Array.from(
+  new Set([
+    ...Object.keys(byEmployee),
+    ...Object.keys(empAllowance),
+    ...Object.keys(empCarryOver),
+    ...Object.keys(paidDaysByName),
+    ...Object.keys(unpaidDaysByName),
+    ...Object.keys(accruedEarnedByName),
+    ...Object.keys(accruedTakenByName),
+  ])
+)
+  // ✅ Only keep employees who have a holiday allowance > 0
+  .filter((name) => (empAllowance[name] ?? 0) > 0)
+  .sort();
+
 
   // quick metric getter (used by sort)
   const metrics = (name) => {

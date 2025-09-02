@@ -7,14 +7,13 @@ import { db } from "../../../firebaseConfig";
 import Papa from "papaparse";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-
-
 export default function VehicleMaintenancePage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState([]);
   const [filter, setFilter] = useState("none");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [search, setSearch] = useState(""); // 🔎 Search
 
   // Toggle expand/collapse for a category
   const toggleCategory = (category) => {
@@ -26,39 +25,35 @@ export default function VehicleMaintenancePage() {
 
   const formatDateWithStyle = (iso) => {
     if (!iso) return { text: "", style: {} };
-  
     const d = new Date(iso);
     if (isNaN(d.getTime())) return { text: "", style: {} };
-  
+
     const now = new Date();
     const diffInDays = (d - now) / (1000 * 60 * 60 * 24);
-  
+
     let style = {};
     if (diffInDays < 0) {
       style = { color: "red", fontWeight: "bold" }; // overdue
     } else if (diffInDays <= 21) {
       style = { color: "orange", fontWeight: "bold" }; // due soon
     }
-  
+
     const text = d.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
     });
-  
+
     return { text, style };
   };
-  
 
   // Handle dropdown changes for midStatus and insuranceStatus
   const handleSelectChange = async (id, field, value) => {
-    // Optimistically update UI
     setVehicles((prev) =>
       prev.map((vehicle) =>
         vehicle.id === id ? { ...vehicle, [field]: value } : vehicle
       )
     );
-    // Persist change to Firestore
     try {
       const ref = doc(db, "vehicles", id);
       await updateDoc(ref, { [field]: value });
@@ -67,7 +62,7 @@ export default function VehicleMaintenancePage() {
     }
   };
 
-  // Fetch vehicles from Firestore and open all categories by default
+  // Fetch vehicles from Firestore
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
@@ -75,16 +70,14 @@ export default function VehicleMaintenancePage() {
         const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setVehicles(list);
 
-        // Open all categories by default on initial load
         const categories = Array.from(new Set(list.map((v) => v.category)))
-  .filter(Boolean)
-  .sort((a, b) => a.localeCompare(b));
-const initialExpanded = {};
-categories.forEach((cat) => {
-  initialExpanded[cat] = true;
-});
-setExpandedCategories(initialExpanded);
-
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+        const initialExpanded = {};
+        categories.forEach((cat) => {
+          initialExpanded[cat] = true;
+        });
+        setExpandedCategories(initialExpanded);
       } catch (err) {
         console.error("Failed to fetch vehicles:", err);
       }
@@ -92,12 +85,26 @@ setExpandedCategories(initialExpanded);
     fetchVehicles();
   }, []);
 
-  // Apply sorting & category filters
+  // Apply search + sorting + category filters
   const applyFilter = (list) => {
     let filtered = [...list];
+
+    // 🔎 Search filter
+    if (search.trim() !== "") {
+      const query = search.toLowerCase();
+      filtered = filtered.filter(
+        (v) =>
+          (v.name && v.name.toLowerCase().includes(query)) ||
+          (v.registration && v.registration.toLowerCase().includes(query)) ||
+          (v.manufacturer && v.manufacturer.toLowerCase().includes(query)) ||
+          (v.model && v.model.toLowerCase().includes(query))
+      );
+    }
+
     if (categoryFilter !== "All") {
       filtered = filtered.filter((v) => v.category === categoryFilter);
     }
+
     switch (filter) {
       case "service":
         return filtered.sort(
@@ -143,11 +150,22 @@ setExpandedCategories(initialExpanded);
         }}
       >
         <main style={{ flex: 1, padding: 30 }}>
-        <button onClick={() => router.push("/vehicle-home")} style={backButton}>
+          <button onClick={() => router.push("/vehicle-home")} style={backButton}>
             ← Back
           </button>
 
           <h1 style={header}>Vehicle Maintenance Overview</h1>
+
+          {/* 🔎 Search Input */}
+          <div style={{ marginBottom: 20 }}>
+            <input
+              type="text"
+              placeholder="Search by name, reg, manufacturer, model..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={searchInput}
+            />
+          </div>
 
           {/* Scrollable table with one sticky header */}
           <div style={tableScrollContainer}>
@@ -171,7 +189,7 @@ setExpandedCategories(initialExpanded);
                   <th style={thStyle}>Tacho Download</th>
                   <th style={thStyle}>Tail-lift</th>
                   <th style={thStyle}>LOLER</th>
-                              </tr>
+                </tr>
               </thead>
 
               {Object.entries(groupedByCategory).map(([category, list]) => (
@@ -203,7 +221,9 @@ setExpandedCategories(initialExpanded);
                           <select
                             style={inputStyle}
                             value={v.taxStatus || ""}
-                            onChange={(e) => handleSelectChange(v.id, 'taxStatus', e.target.value)}
+                            onChange={(e) =>
+                              handleSelectChange(v.id, "taxStatus", e.target.value)
+                            }
                           >
                             <option value="Taxed">Taxed</option>
                             <option value="Sorn">Sorn</option>
@@ -213,7 +233,9 @@ setExpandedCategories(initialExpanded);
                           <select
                             style={inputStyle}
                             value={v.insuranceStatus || ""}
-                            onChange={(e) => handleSelectChange(v.id, 'insuranceStatus', e.target.value)}
+                            onChange={(e) =>
+                              handleSelectChange(v.id, "insuranceStatus", e.target.value)
+                            }
                           >
                             <option value="Insured">Insured</option>
                             <option value="Not Insured">Not Insured</option>
@@ -221,59 +243,46 @@ setExpandedCategories(initialExpanded);
                           </select>
                         </td>
                         {(() => {
-  const { text, style } = formatDateWithStyle(v.inspectionDate);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextMOT);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextRFL);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextService);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-<td style={tdStyle}>{v.serviceOdometer}</td>
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextTachoInspection);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextBrakeTest);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextPMIInspection);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextTachoDownload);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextTailLiftInspection);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-{(() => {
-  const { text, style } = formatDateWithStyle(v.nextLOLERInspection);
-  return <td style={{ ...tdStyle, ...style }}>{text}</td>;
-})()}
-
-
-
+                          const { text, style } = formatDateWithStyle(v.inspectionDate);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextMOT);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextRFL);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextService);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        <td style={tdStyle}>{v.serviceOdometer}</td>
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextTachoInspection);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextBrakeTest);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextPMIInspection);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextTachoDownload);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextTailLiftInspection);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
+                        {(() => {
+                          const { text, style } = formatDateWithStyle(v.nextLOLERInspection);
+                          return <td style={{ ...tdStyle, ...style }}>{text}</td>;
+                        })()}
                       </tr>
                     ))}
                 </tbody>
@@ -346,21 +355,6 @@ const backButton = {
   color: "#fff",
   cursor: "pointer",
 };
-const filterContainer = {
-  marginBottom: 20,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-const resetButton = {
-  padding: "8px 12px",
-  backgroundColor: "#999",
-  color: "#fff",
-  border: "none",
-  borderRadius: 4,
-  cursor: "pointer",
-  height: "40px",
-};
 const categoryHeader = {
   backgroundColor: "#f0f0f0",
   cursor: "pointer",
@@ -370,7 +364,7 @@ const tableScrollContainer = {
   overflowY: "auto",
   position: "relative",
 };
-const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: "9px" };
+const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: "12px" };
 const theadStyle = {
   position: "sticky",
   top: 0,
@@ -411,4 +405,12 @@ const inputStyle = {
   backgroundColor: "#fff",
   color: "#000",
   fontSize: "8px",
+};
+const searchInput = {
+  padding: "8px 12px",
+  width: "100%",
+  maxWidth: "400px",
+  borderRadius: "4px",
+  border: "1px solid #ccc",
+  fontSize: "14px",
 };
