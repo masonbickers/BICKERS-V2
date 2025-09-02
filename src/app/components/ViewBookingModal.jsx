@@ -46,7 +46,9 @@ export default function ViewBookingModal({ id, onClose }) {
     <div style={overlayStyle}>
       <div style={modalStyle}>
         <h2 style={{ marginBottom: "20px" }}>Booking Details</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.95rem" }}>
+        <table
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.95rem" }}
+        >
           <tbody>
             <Row label="Job Number" value={booking.jobNumber} />
             <Row label="Client" value={booking.client} />
@@ -57,15 +59,19 @@ export default function ViewBookingModal({ id, onClose }) {
               label="Date(s)"
               value={
                 booking.startDate && booking.endDate
-                  ? `${new Date(booking.startDate).toDateString()} → ${new Date(booking.endDate).toDateString()}`
+                  ? `${new Date(booking.startDate).toDateString()} → ${new Date(
+                      booking.endDate
+                    ).toDateString()}`
                   : booking.date
-                    ? new Date(booking.date).toDateString()
-                    : "Not set"
+                  ? new Date(booking.date).toDateString()
+                  : "Not set"
               }
             />
             <Row label="Employees" value={(booking.employees || []).join(", ")} />
             <tr>
-              <td style={cell}><strong>Vehicles</strong></td>
+              <td style={cell}>
+                <strong>Vehicles</strong>
+              </td>
               <td style={cell}>
                 {(booking.vehicles || []).map((name, i) => {
                   const match = allVehicles.find(
@@ -75,40 +81,52 @@ export default function ViewBookingModal({ id, onClose }) {
                   const registration = name?.registration || match?.registration;
                   return (
                     <div key={i}>
-                      {displayName}{registration ? ` (${registration})` : ""}
+                      {displayName}
+                      {registration ? ` (${registration})` : ""}
                     </div>
                   );
                 })}
               </td>
             </tr>
             <Row label="Equipment" value={(booking.equipment || []).join(", ")} />
-         <Row label="Notes" value={booking.notes || "None"} />
-<Row label="Status" value={booking.status} />
-
-{/* smaller footer rows */}
-{booking?.createdBy && (
-  <tr>
-    <td colSpan={2} style={{ ...cell, fontSize: "0.8rem", color: "#555" }}>
-      Created by: <strong>{booking.createdBy}</strong>
-    </td>
-  </tr>
-)}
-{booking?.lastEditedBy && booking?.lastEditedBy !== booking?.createdBy && (
-  <tr>
-    <td colSpan={2} style={{ ...cell, fontSize: "0.8rem", color: "#555" }}>
-      Last edited by: <strong>{booking.lastEditedBy}</strong>
-    </td>
-  </tr>
-)}
-
-
+            <Row label="Notes" value={booking.notes || "None"} />
+            <Row label="Status" value={booking.status} />
           </tbody>
         </table>
 
+        {/* 🔹 Created + Last Edited info */}
+        <div style={{ marginTop: "15px", fontSize: "0.85rem", color: "#444" }}>
+          {booking?.createdBy && (
+            <div>
+              Created by <strong>{booking.createdBy}</strong>
+              {booking?.createdAt && (
+                <> on {new Date(booking.createdAt).toLocaleString("en-GB")}</>
+              )}
+            </div>
+          )}
+          {booking?.lastEditedBy && (
+            <div style={{ marginTop: "5px" }}>
+              Last edited by <strong>{booking.lastEditedBy}</strong>
+              {booking?.updatedAt && (
+                <> on {new Date(booking.updatedAt).toLocaleString("en-GB")}</>
+              )}
+            </div>
+          )}
+        </div>
+
         <div style={buttonGroupStyle}>
-          <button onClick={() => router.push(`/edit-booking/${id}`)} style={editBtnStyle}>Edit</button>
-          <button onClick={handleDelete} style={deleteBtnStyle}>Delete</button>
-          <button onClick={onClose} style={closeBtnStyle}>Close</button>
+          <button
+            onClick={() => router.push(`/edit-booking/${id}`)}
+            style={editBtnStyle}
+          >
+            Edit
+          </button>
+          <button onClick={handleDelete} style={deleteBtnStyle}>
+            Delete
+          </button>
+          <button onClick={onClose} style={closeBtnStyle}>
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -118,7 +136,9 @@ export default function ViewBookingModal({ id, onClose }) {
 function Row({ label, value }) {
   return (
     <tr>
-      <td style={cell}><strong>{label}</strong></td>
+      <td style={cell}>
+        <strong>{label}</strong>
+      </td>
       <td style={cell}>{value}</td>
     </tr>
   );

@@ -16,7 +16,7 @@ import { auth } from "../../../firebaseConfig";
 export default function CreateBookingPage() {
   const router = useRouter();
   const [equipment, setEquipment] = useState([]);
-  const [pdfURL, setPdfURL] = useState(null);
+
 
 
   const [jobNumber, setJobNumber] = useState("");
@@ -47,7 +47,8 @@ export default function CreateBookingPage() {
 
   const [isSecondPencil, setIsSecondPencil] = useState(false);
   const [notes, setNotes] = useState("");
-  const [pdfFile, setPdfFile] = useState(null);
+  const [quoteFile, setQuoteFile] = useState(null);
+  const [quoteURL, setQuoteURL] = useState(null);
   const [allBookings, setAllBookings] = useState([]);
   const [holidayBookings, setHolidayBookings] = useState([]);
   const [status, setStatus] = useState("Confirmed");
@@ -318,25 +319,27 @@ setMaintenanceBookings(maintenanceData);
       bookingDates = [new Date(startDate).toISOString().split("T")[0]];
     }
 
-    // ✅ Check if file is selected
-console.log("📎 Selected PDF:", pdfFile);
+// ✅ Upload Excel Quote
+let quoteUrlToSave = null;
 
-// ✅ Step: Upload PDF before creating the booking object
-let pdfUrlToSave = null;
-
-if (pdfFile && pdfFile.name) {
+if (quoteFile) {
   try {
-    const storageRef = ref(storage, `pdfs/${jobNumber}_${pdfFile.name}`);
-    const uploadResult = await uploadBytes(storageRef, pdfFile);
-    pdfUrlToSave = await getDownloadURL(uploadResult.ref);
+    console.log("📂 Uploading quote:", quoteFile.name);
+    const storageRef = ref(storage, `quotes/${jobNumber}_${Date.now()}_${quoteFile.name}`);
+    const uploadResult = await uploadBytes(storageRef, quoteFile);
+    quoteUrlToSave = await getDownloadURL(uploadResult.ref);
 
-    setPdfURL(pdfUrlToSave); // ✅ ADD THIS LINE
+    setQuoteURL(quoteUrlToSave);
   } catch (error) {
-    console.error("PDF upload error:", error);
-    alert("Failed to upload PDF: " + error.message);
+    console.error("❌ Excel upload error:", error);
+    alert("Failed to upload Excel/CSV: " + error.message);
     return;
   }
+} else {
+  quoteUrlToSave = null; // ✅ explicitly set null
 }
+
+
 
 
 
@@ -360,7 +363,8 @@ const booking = {
   status,
   bookingDates,
   shootType,
-  pdfUrl: pdfUrlToSave,
+quoteUrl: quoteUrlToSave,
+
   ...(isRange
     ? {
         startDate: new Date(startDate).toISOString(),
@@ -373,8 +377,16 @@ const booking = {
   lastEditedBy: user?.email || "Unknown",
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-};
 
+  // 🔹 NEW audit trail
+  history: [
+    {
+      action: "Created",
+      user: user?.email || "Unknown",
+      timestamp: new Date().toISOString(),
+    },
+  ],
+};
 
     try {
       await addDoc(collection(db, "bookings"), booking);
@@ -902,6 +914,20 @@ const booking = {
     </div>
   </div>
 
+<div style={{ marginTop: 20 }}>
+  <h3>Attach Quote (Excel)</h3>
+<input
+  type="file"
+  accept=".xls,.xlsx,.csv"
+  onChange={(e) => {
+    const file = e.target.files[0];
+    console.log("📎 Selected file:", file);
+    setQuoteFile(file);
+  }}
+/>
+
+</div>
+
 
 
   <div style={{ marginTop: 30 }}>
@@ -953,14 +979,15 @@ const booking = {
 
   <p><strong>Notes:</strong> {notes || "None added"}</p>
 
-  {pdfURL && (
+{quoteURL && (
   <p>
-    <strong>Attached PDF:</strong>{" "}
-    <a href={pdfURL} target="_blank" rel="noopener noreferrer">
-      View Quote
+    <strong>Attached Quote:</strong>{" "}
+    <a href={quoteURL} target="_blank" rel="noopener noreferrer">
+      Download Excel
     </a>
   </p>
 )}
+
 </div>
 
 
