@@ -8,6 +8,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../../firebaseConfig"; // ✅ use this
+import { auth } from "../../../firebaseConfig";
 
 
 
@@ -341,6 +342,9 @@ if (pdfFile && pdfFile.name) {
 
 
 // ✅ Step: Now define the booking object
+// ✅ Step: Now define the booking object with user + timestamps
+const user = auth.currentUser;
+
 const booking = {
   jobNumber,
   client,
@@ -356,14 +360,21 @@ const booking = {
   status,
   bookingDates,
   shootType,
-  pdfUrl: pdfUrlToSave, // ✅ now it's correct!
+  pdfUrl: pdfUrlToSave,
   ...(isRange
     ? {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString()
       }
     : { date: new Date(startDate).toISOString() }),
+
+  // 🔹 new fields
+  createdBy: user?.email || "Unknown",
+  lastEditedBy: user?.email || "Unknown",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
+
 
     try {
       await addDoc(collection(db, "bookings"), booking);

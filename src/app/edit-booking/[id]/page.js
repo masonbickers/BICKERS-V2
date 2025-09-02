@@ -7,6 +7,8 @@ import { signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth } from "../../../../firebaseConfig";
+
 
 
 
@@ -297,6 +299,8 @@ bookingDates.forEach(date => {
   filteredNotesByDate[date] = notesByDate[date] || "";
 });
 
+const user = auth.currentUser;
+
 const booking = {
   jobNumber,
   client,
@@ -308,7 +312,7 @@ const booking = {
   equipment,
   isSecondPencil,
   notes,
-  notesByDate: filteredNotesByDate, // ✅ updated here
+  notesByDate: filteredNotesByDate,
   status,
   bookingDates,
   shootType,
@@ -317,14 +321,19 @@ const booking = {
     ? {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString(),
-        date: null // ✅ clear single date if switching from single-day
+        date: null
       }
     : {
         date: new Date(startDate).toISOString(),
-        startDate: null,       // ✅ clear range dates if switching from range
+        startDate: null,
         endDate: null
       }),
+
+  // 🔹 new fields
+  lastEditedBy: user?.email || "Unknown",
+  updatedAt: new Date().toISOString(),
 };
+
 
 
     try {

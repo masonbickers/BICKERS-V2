@@ -82,8 +82,26 @@ export default function ViewBookingModal({ id, onClose }) {
               </td>
             </tr>
             <Row label="Equipment" value={(booking.equipment || []).join(", ")} />
-            <Row label="Notes" value={booking.notes || "None"} />
-            <Row label="Status" value={booking.status} />
+         <Row label="Notes" value={booking.notes || "None"} />
+<Row label="Status" value={booking.status} />
+
+{/* smaller footer rows */}
+{booking?.createdBy && (
+  <tr>
+    <td colSpan={2} style={{ ...cell, fontSize: "0.8rem", color: "#555" }}>
+      Created by: <strong>{booking.createdBy}</strong>
+    </td>
+  </tr>
+)}
+{booking?.lastEditedBy && booking?.lastEditedBy !== booking?.createdBy && (
+  <tr>
+    <td colSpan={2} style={{ ...cell, fontSize: "0.8rem", color: "#555" }}>
+      Last edited by: <strong>{booking.lastEditedBy}</strong>
+    </td>
+  </tr>
+)}
+
+
           </tbody>
         </table>
 
