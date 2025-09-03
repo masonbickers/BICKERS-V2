@@ -47,6 +47,8 @@ export default function CreateBookingPage() {
 
   const [isSecondPencil, setIsSecondPencil] = useState(false);
   const [isCrewed, setIsCrewed] = useState(false);
+  const [hasHS, setHasHS] = useState(false);            // Health & Safety
+  const [hasRiskAssessment, setHasRiskAssessment] = useState(false);  // Risk Assessment
   const [notes, setNotes] = useState("");
   const [quoteFile, setQuoteFile] = useState(null);
   const [quoteURL, setQuoteURL] = useState(null);
@@ -403,6 +405,11 @@ const booking = {
   status,
   bookingDates,
   shootType,
+  hasHS,
+  hasRiskAssessment,
+
+
+
 quoteUrl: quoteUrlToSave,
 
 ...(status !== "Enquiry"
@@ -1022,6 +1029,31 @@ quoteUrl: quoteUrlToSave,
     />
   </div>
 
+{/* Health & Safety Checkbox */}
+<div style={{ marginTop: 20 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasHS}
+      onChange={(e) => setHasHS(e.target.checked)}
+    />{" "}
+    Health & Safety Completed
+  </label>
+</div>
+
+{/* Risk Assessment Checkbox */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasRiskAssessment}
+      onChange={(e) => setHasRiskAssessment(e.target.checked)}
+    />{" "}
+    Risk Assessment Completed
+  </label>
+</div>
+
+
   <div style={{ marginTop: 30, display: "flex", gap: 10 }}>
     <button type="submit" style={buttonStyle}>Save Booking</button>
     
@@ -1045,6 +1077,9 @@ quoteUrl: quoteUrlToSave,
   <p><strong>Contact Email:</strong> {contactEmail}</p>
   <p><strong>Contact Number:</strong> {contactNumber}</p>
   <p><strong>Location:</strong> {location}</p>
+  <p><strong>Health & Safety:</strong> {hasHS ? "✅ Completed" : "❌ Not Done"}</p>
+  <p><strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}</p>
+
   <p>
     <strong>Dates:</strong>{" "}
     {isRange

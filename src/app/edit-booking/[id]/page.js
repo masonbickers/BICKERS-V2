@@ -15,7 +15,8 @@ import { auth } from "../../../../firebaseConfig";
 
 export default function CreateBookingPage() {
   const router = useRouter();
-
+  const [hasHS, setHasHS] = useState(false);
+  const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
@@ -163,6 +164,9 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
           setStatus(b.status || "Confirmed");
           setShootType(b.shootType || "Day");
           setIsCrewed(b.isCrewed || false);
+          setHasHS(b.hasHS || false);
+          setHasRiskAssessment(b.hasRiskAssessment || false);
+
         }
       }
       const groupedEquip = {};
@@ -319,6 +323,8 @@ const booking = {
   equipment,
   isSecondPencil,
   isCrewed,
+  hasHS,
+  hasRiskAssessment,
   notes,
   notesByDate: filteredNotesByDate,
   status,
@@ -899,6 +905,31 @@ const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
       placeholder="Anything extra to include for this booking..."
     />
   </div>
+
+  {/* Health & Safety Checkbox */}
+<div style={{ marginTop: 20 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasHS}
+      onChange={(e) => setHasHS(e.target.checked)}
+    />{" "}
+    Health & Safety Completed
+  </label>
+</div>
+
+{/* Risk Assessment Checkbox */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasRiskAssessment}
+      onChange={(e) => setHasRiskAssessment(e.target.checked)}
+    />{" "}
+    Risk Assessment Completed
+  </label>
+</div>
+
 
   <div style={{ marginTop: 30, display: "flex", gap: 10 }}>
   <button type="submit" style={buttonStyle}>

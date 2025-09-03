@@ -581,6 +581,8 @@ const navButton = {
     }}
   >
 
+
+
     {Array.from(
       { length: Math.ceil(Object.entries(event.notesByDate).length / 4) },
       (_, colIndex) => {
@@ -617,6 +619,43 @@ const navButton = {
   </div>
 )}
 
+{/* H&S + Risk Assessment indicators */}
+<div
+  style={{
+    display: "flex",
+    gap: "6px",
+    marginTop: "6px",
+    alignSelf: "flex-start",
+  }}
+>
+  <span
+    style={{
+      fontSize: "0.75rem",
+      fontWeight: "normal",
+      padding: "2px 4px",
+      borderRadius: "4px",
+      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+      color: "#ffffffff",
+      border: "1px solid #000",   // ✅ Black border added
+    }}
+  >
+    H&S {event.hasHS ? "✓" : "✗"}
+  </span>
+
+  <span
+    style={{
+      fontSize: "0.75rem",
+      fontWeight: "normal",
+      padding: "2px 4px",
+      borderRadius: "4px",
+      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+      color: "#fff",
+      border: "1px solid #000",   // ✅ Black border added
+    }}
+  >
+    RA {event.hasRiskAssessment ? "✓" : "✗"}
+  </span>
+</div>
 
 
 
