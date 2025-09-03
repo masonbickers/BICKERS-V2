@@ -6,7 +6,7 @@ import { collection, addDoc, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DatePicker from "react-multi-date-picker";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../../firebaseConfig"; // ✅ use this
 import { auth } from "../../../firebaseConfig";
 
@@ -319,26 +319,58 @@ setMaintenanceBookings(maintenanceData);
       bookingDates = [new Date(startDate).toISOString().split("T")[0]];
     }
 
-// ✅ Upload Excel Quote
+// ✅ Upload Excel Quote (resumable, with metadata)
+// ✅ Upload Excel/CSV Quote
 let quoteUrlToSave = null;
 
 if (quoteFile) {
   try {
-    console.log("📂 Uploading quote:", quoteFile.name);
-    const storageRef = ref(storage, `quotes/${jobNumber}_${Date.now()}_${quoteFile.name}`);
-    const uploadResult = await uploadBytes(storageRef, quoteFile);
-    quoteUrlToSave = await getDownloadURL(uploadResult.ref);
+    console.log("📂 Uploading file:", quoteFile);
 
-    setQuoteURL(quoteUrlToSave);
+    // Create storage reference
+    const storageRef = ref(storage, `quotes/${jobNumber}_${quoteFile.name}`);
+
+    // ✅ Ensure correct metadata for Excel/CSV
+    const metadata = {
+      contentType:
+        quoteFile.type ||
+        (quoteFile.name.endsWith(".csv")
+          ? "text/csv"
+          : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    };
+
+    // 🔹 Resumable upload
+    const uploadTask = uploadBytesResumable(storageRef, quoteFile, metadata);
+
+    // Wait until upload completes
+    await new Promise((resolve, reject) => {
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log(`⏳ Upload is ${progress.toFixed(0)}% done`);
+        },
+        (error) => {
+          console.error("❌ Upload failed:", error);
+          reject(error);
+        },
+        async () => {
+          // Success — get file URL
+          quoteUrlToSave = await getDownloadURL(uploadTask.snapshot.ref);
+          setQuoteURL(quoteUrlToSave);
+          console.log("✅ Upload successful, URL:", quoteUrlToSave);
+          resolve();
+        }
+      );
+    });
   } catch (error) {
-    console.error("❌ Excel upload error:", error);
     alert("Failed to upload Excel/CSV: " + error.message);
     return;
   }
 } else {
-  quoteUrlToSave = null; // ✅ explicitly set null
+  quoteUrlToSave = null; // no file attached
 }
-
 
 
 
@@ -497,7 +529,7 @@ quoteUrl: quoteUrlToSave,
 
   {/* Client Textarea */}
   <div style={{ marginBottom: "0px" }}></div>
-  <h3>Client</h3><br />
+  <h3>Production</h3><br />
   <textarea 
     value={client} 
     onChange={(e) => setClient(e.target.value)} 
@@ -592,13 +624,19 @@ quoteUrl: quoteUrlToSave,
         marginBottom: notesByDate[startDate] === "Other" ? "8px" : "0"
       }}
     >
-      <option value="">Select note</option>
-      <option value="1/2 Day Travel">1/2 Day Travel</option>
-      <option value="Travel Day">Travel Day</option>
-      <option value="On Set">On Set</option>
-      <option value="Night Shoot">Night Shoot</option>
-      <option value="Turnaround Day">Turnaround Day</option>
-      <option value="Other">Other</option>
+<option value="">Select note</option>
+<option value="1/2 Day Travel">1/2 Day Travel</option>
+<option value="Night Shoot">Night Shoot</option>
+<option value="On Set">Shoot Day</option>
+<option value="Other">Other</option>
+<option value="Rehearsal Day">Rehearsal Day</option>
+<option value="Rest Day">Rest Day</option>
+<option value="Rig Day">Rig Day</option>
+<option value="Standby Day">Standby Day</option>
+<option value="Travel Day">Travel Day</option>
+<option value="Travel Time">Travel Time</option>
+<option value="Turnaround Day">Turnaround Day</option>
+
     </select>
 
     {notesByDate[startDate] === "Other" && (

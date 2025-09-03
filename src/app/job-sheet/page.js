@@ -30,14 +30,8 @@ function formatWeekRange(monday) {
 
 export default function JobSheetPage() {
   const [bookings, setBookings] = useState([]);
-  const [openSections, setOpenSections] = useState({
-    Upcoming: true,
-    "Complete Jobs": true,
-    "Passed — Not Confirmed": true,
-  });
-
-  const toggleSection = (section) =>
-    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  const [search, setSearch] = useState("");
+  const [activeSection, setActiveSection] = useState("Upcoming"); // 🔹 New state
 
   /* ---------- Date helpers ---------- */
   const parseDate = (raw) => {
@@ -77,14 +71,8 @@ export default function JobSheetPage() {
 
   const getDateRangeLabel = (job) => {
     const ds = normaliseDates(job).sort((a, b) => a - b);
-    if (!ds.length) return <div>TBC</div>;
-    return (
-      <div>
-        {ds.map((d, i) => (
-          <div key={i}>{formatDate(d)}</div>
-        ))}
-      </div>
-    );
+    if (!ds.length) return "TBC";
+    return ds.map((d) => formatDate(d)).join(", ");
   };
 
   const todayMidnight = useMemo(() => {
@@ -102,13 +90,12 @@ export default function JobSheetPage() {
     "action required",
     "action_required",
     "invoiced",
-    // treat these as complete-like so they group by their original week:
     "ready to invoice",
     "ready_to_invoice",
     "ready-to-invoice",
     "readyinvoice",
-    "paid",          // ✅ NEW
-    "settled",       // ✅ NEW (synonym)
+    "paid",
+    "settled",
   ]);
 
   const classify = (job) => {
@@ -140,6 +127,19 @@ export default function JobSheetPage() {
     return () => unsub();
   }, []);
 
+  /* ---------- Search filter ---------- */
+  const filteredBookings = useMemo(() => {
+    if (!search) return bookings;
+    const s = search.toLowerCase();
+    return bookings.filter(
+      (job) =>
+        (job.jobNumber || "").toString().toLowerCase().includes(s) ||
+        (job.client || "").toLowerCase().includes(s) ||
+        (job.location || "").toLowerCase().includes(s) ||
+        (job.notes || "").toLowerCase().includes(s)
+    );
+  }, [bookings, search]);
+
   /* ---------- Grouping ---------- */
   const groups = useMemo(() => {
     const grouped = {
@@ -147,7 +147,7 @@ export default function JobSheetPage() {
       "Complete Jobs": [],
       "Passed — Not Confirmed": [],
     };
-    for (const job of bookings) grouped[classify(job)].push(job);
+    for (const job of filteredBookings) grouped[classify(job)].push(job);
 
     grouped.Upcoming.sort((a, b) => {
       const ad = normaliseDates(a)[0] ?? new Date(8640000000000000);
@@ -164,7 +164,7 @@ export default function JobSheetPage() {
     grouped["Passed — Not Confirmed"].sort(descMostRecent);
 
     return grouped;
-  }, [bookings, todayMidnight]);
+  }, [filteredBookings, todayMidnight]);
 
   const completeJobsByWeek = useMemo(() => {
     const byWeek = {};
@@ -183,64 +183,48 @@ export default function JobSheetPage() {
     const raw = (job.status || "").toString().trim().toLowerCase();
 
     if (section === "Complete Jobs") {
-      if (
-        raw === "ready to invoice" ||
-        raw === "ready_to_invoice" ||
-        raw === "ready-to-invoice" ||
-        /ready\s*to\s*invoice/.test(raw)
-      ) {
-        return "Ready to Invoice";
-      }
+      if (/ready\s*to\s*invoice/.test(raw)) return "Ready to Invoice";
       if (raw === "invoiced") return "Invoiced";
-      if (raw === "paid" || raw === "settled") return "Paid"; // ✅ NEW
+      if (raw === "paid" || raw === "settled") return "Paid";
       if (raw === "complete" || raw === "completed") return "Complete";
-      if (raw === "action required" || raw === "action_required")
-        return "Action Required";
+      if (raw.includes("action")) return "Action Required";
       return "Complete";
     }
 
-    if (
-      raw === "ready to invoice" ||
-      raw === "ready_to_invoice" ||
-      raw === "ready-to-invoice" ||
-      /ready\s*to\s*invoice/.test(raw)
-    )
-      return "Ready to Invoice";
+    if (/ready\s*to\s*invoice/.test(raw)) return "Ready to Invoice";
     if (raw === "invoiced") return "Invoiced";
-    if (raw === "paid" || raw === "settled") return "Paid"; // ✅ NEW
+    if (raw === "paid" || raw === "settled") return "Paid";
     if (raw === "complete" || raw === "completed") return "Complete";
-    if (raw === "action required" || raw === "action_required")
-      return "Action Required";
+    if (raw.includes("action")) return "Action Required";
     if (raw === "confirmed") return "Confirmed";
     if (raw === "first pencil") return "First Pencil";
     if (raw === "second pencil") return "Second Pencil";
     return raw ? raw[0].toUpperCase() + raw.slice(1) : "TBC";
   };
 
-const statusColors = (label) => {
-  switch (label) {
-    case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#b45309" }; // amber
-    case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#4338ca" }; // indigo
-    case "Paid":
-      return { bg: "#d1fae5", border: "#6ee7b7", text: "#065f46" }; // green
-    case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" }; // red
-    case "Complete":
-    case "Confirmed":
-      return { bg: "#cffafe", border: "#67e8f9", text: "#0e7490" }; // cyan
-    case "First Pencil":
-      return { bg: "#f3e8ff", border: "#e9d5ff", text: "#7e22ce" }; // violet
-    case "Second Pencil":
-      return { bg: "#fae8ff", border: "#f5d0fe", text: "#a21caf" }; // pink
-    case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" }; // grey
-    default:
-      return { bg: "#fef9c3", border: "#fef08a", text: "#854d0e" }; // yellow
-  }
-};
-
+  const statusColors = (label) => {
+    switch (label) {
+      case "Ready to Invoice":
+        return { bg: "#fef3c7", border: "#fde68a", text: "#b45309" };
+      case "Invoiced":
+        return { bg: "#e0e7ff", border: "#c7d2fe", text: "#4338ca" };
+      case "Paid":
+        return { bg: "#d1fae5", border: "#6ee7b7", text: "#065f46" };
+      case "Action Required":
+        return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+      case "Complete":
+      case "Confirmed":
+        return { bg: "#cffafe", border: "#67e8f9", text: "#0e7490" };
+      case "First Pencil":
+        return { bg: "#f3e8ff", border: "#e9d5ff", text: "#7e22ce" };
+      case "Second Pencil":
+        return { bg: "#fae8ff", border: "#f5d0fe", text: "#a21caf" };
+      case "TBC":
+        return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      default:
+        return { bg: "#fef9c3", border: "#fef08a", text: "#854d0e" };
+    }
+  };
 
   const StatusBadge = ({ job, section }) => {
     const label = displayStatusForSection(job, section);
@@ -248,15 +232,13 @@ const statusColors = (label) => {
     return (
       <span
         style={{
-          display: "inline-block",
-          padding: "2px 10px",
+          padding: "4px 10px",
           fontSize: 12,
           borderRadius: 999,
           border: `1px solid ${c.border}`,
           background: c.bg,
           color: c.text,
-          marginLeft: 8,
-          fontWeight: 700,
+          fontWeight: 600,
         }}
       >
         {label}
@@ -266,114 +248,161 @@ const statusColors = (label) => {
 
   /* ---------- UI ---------- */
   const cardStyle = {
-    display: "block",
-    backgroundColor: "#f3f4f6",
-    border: "1px solid #d1d5db",
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: "#fff",
+    border: "1px solid #e5e7eb",
     borderRadius: "12px",
-    padding: "16px",
+    padding: "18px",
     textDecoration: "none",
     color: "#000",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+    transition: "all 0.2s ease",
   };
+
+  const JobCard = ({ job, section }) => (
+    <Link href={`/job-numbers/${job.id}`} style={cardStyle}>
+      {/* Header Row */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+      >
+        <span style={{ fontWeight: 700, fontSize: 16 }}>
+          Job #{job.jobNumber || job.id}
+        </span>
+        <StatusBadge job={job} section={section} />
+      </div>
+
+      {/* Info Grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "90px 1fr",
+          rowGap: "6px",
+          columnGap: "12px",
+          fontSize: 14,
+          lineHeight: 1.4,
+        }}
+      >
+        <span style={{ color: "#6b7280" }}>Client</span>
+        <span>{job.client || "—"}</span>
+
+        <span style={{ color: "#6b7280" }}>Location</span>
+        <span>{job.location || "—"}</span>
+
+        <span style={{ color: "#6b7280" }}>Dates</span>
+        <span>{getDateRangeLabel(job)}</span>
+
+        <span style={{ color: "#6b7280" }}>Notes</span>
+        <span>{job.notes || "—"}</span>
+      </div>
+    </Link>
+  );
 
   return (
     <HeaderSidebarLayout>
       <div style={{ padding: "40px 24px" }}>
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
+        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>
           Jobs Overview
         </h1>
 
-        {/* Upcoming + Passed Not Confirmed */}
-        {["Upcoming", "Passed — Not Confirmed"].map((section) => {
-          const items = groups[section] || [];
-          if (!items.length) return null;
-          return (
-            <div key={section} style={{ marginBottom: 50 }}>
-              <h2
-                onClick={() => toggleSection(section)}
-                style={{
-                  marginBottom: 12,
-                  cursor: "pointer",
-                  fontSize: 22,
-                  userSelect: "none",
-                }}
-              >
-                {openSections[section] ? "▼" : "►"} {section} ({items.length})
-              </h2>
-              {openSections[section] && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(300px,1fr))",
-                    gap: "20px",
-                  }}
-                >
-                  {items.map((job) => (
-                    <Link key={job.id} href={`/job-numbers/${job.id}`} style={cardStyle}>
-                      <div style={{ fontWeight: 700, fontSize: 18 }}>
-                        Job #{job.jobNumber || job.id}
-                        <StatusBadge job={job} section={section} />
-                      </div>
-                      <div style={{ fontSize: 13 }}>
-                        <div><strong>Client:</strong> {job.client || "—"}</div>
-                        <div><strong>Location:</strong> {job.location || "—"}</div>
-                        <div><strong>Dates:</strong> {getDateRangeLabel(job)}</div>
-                        <div><strong>Notes:</strong> {job.notes || "—"}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {/* 🔍 Search Bar */}
+        <input
+          type="text"
+          placeholder="Search by job #, client, location, or notes..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "10px 14px",
+            borderRadius: "8px",
+            border: "1px solid #d1d5db",
+            marginBottom: 20,
+            fontSize: 14,
+          }}
+        />
 
-        {/* Complete Jobs grouped by week */}
-        {Object.keys(completeJobsByWeek)
-          .sort((a, b) => b - a)
-          .map((mondayTS) => {
-            const monday = new Date(Number(mondayTS));
-            const weekJobs = completeJobsByWeek[mondayTS];
-            return (
-              <div key={mondayTS} style={{ marginBottom: 50 }}>
-                <h2
-                  onClick={() => toggleSection("Complete Jobs")}
-                  style={{
-                    marginBottom: 12,
-                    cursor: "pointer",
-                    fontSize: 22,
-                    userSelect: "none",
-                  }}
-                >
-                  {openSections["Complete Jobs"] ? "▼" : "►"} Complete Jobs –{" "}
-                  {formatWeekRange(monday)} ({weekJobs.length})
-                </h2>
-                {openSections["Complete Jobs"] && (
+        {/* 🔹 Section Selector */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 30 }}>
+          {["Upcoming", "Passed — Not Confirmed", "Complete Jobs"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setActiveSection(s)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "8px",
+                border:
+                  activeSection === s
+                    ? "2px solid #2563eb"
+                    : "1px solid #d1d5db",
+                background: activeSection === s ? "#eff6ff" : "#fff",
+                color: activeSection === s ? "#1d4ed8" : "#374151",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* 🔹 Show Active Section */}
+        {activeSection !== "Complete Jobs" && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+
+              gap: "20px",
+            }}
+          >
+            {groups[activeSection]?.map((job) => (
+              <JobCard key={job.id} job={job} section={activeSection} />
+            ))}
+          </div>
+        )}
+
+        {activeSection === "Complete Jobs" &&
+          Object.keys(completeJobsByWeek)
+            .sort((a, b) => b - a)
+            .map((mondayTS) => {
+              const monday = new Date(Number(mondayTS));
+              const weekJobs = completeJobsByWeek[mondayTS];
+              return (
+                <div key={mondayTS} style={{ marginBottom: 40 }}>
+                  <h2
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 600,
+                      marginBottom: 16,
+                      color: "#374151",
+                    }}
+                  >
+                    {formatWeekRange(monday)} ({weekJobs.length})
+                  </h2>
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(300px,1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(340px,1fr))",
                       gap: "20px",
                     }}
                   >
                     {weekJobs.map((job) => (
-                      <Link key={job.id} href={`/job-numbers/${job.id}`} style={cardStyle}>
-                        <div style={{ fontWeight: 700, fontSize: 18 }}>
-                          Job #{job.jobNumber || job.id}
-                          <StatusBadge job={job} section="Complete Jobs" />
-                        </div>
-                        <div style={{ fontSize: 13 }}>
-                          <div><strong>Client:</strong> {job.client || "—"}</div>
-                          <div><strong>Location:</strong> {job.location || "—"}</div>
-                          <div><strong>Dates:</strong> {getDateRangeLabel(job)}</div>
-                          <div><strong>Notes:</strong> {job.notes || "—"}</div>
-                        </div>
-                      </Link>
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        section="Complete Jobs"
+                      />
                     ))}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
       </div>
     </HeaderSidebarLayout>
   );
