@@ -88,16 +88,34 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
   
       // Load employee/freelancer list
       const allEmployees = empSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setEmployeeList(
-        allEmployees
-          .filter(emp => (emp.jobTitle || "").toLowerCase() === "driver")
-          .map(emp => emp.name || emp.fullName || emp.id)
-      );
-      setFreelancerList(
-        allEmployees
-          .filter(emp => (emp.jobTitle || "").toLowerCase() === "freelancer")
-          .map(emp => emp.name || emp.fullName || emp.id)
-      );
+setEmployeeList(
+  allEmployees
+    .filter(emp =>
+      Array.isArray(emp.jobTitle)
+        ? emp.jobTitle.some(j => j.toLowerCase() === "driver")
+        : (emp.jobTitle || "").toLowerCase() === "driver"
+    )
+    .map(emp => ({
+      id: emp.id,
+      name: emp.name || emp.fullName || emp.id,
+      jobTitle: emp.jobTitle
+    }))
+);
+
+setFreelancerList(
+  allEmployees
+    .filter(emp =>
+      Array.isArray(emp.jobTitle)
+        ? emp.jobTitle.some(j => j.toLowerCase() === "freelancer")
+        : (emp.jobTitle || "").toLowerCase() === "freelancer"
+    )
+    .map(emp => ({
+      id: emp.id,
+      name: emp.name || emp.fullName || emp.id,
+      jobTitle: emp.jobTitle
+    }))
+);
+
   
       // Group vehicles
       const grouped = {
@@ -155,8 +173,16 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
           setIsRange(!!b.startDate && !!b.endDate);
           setStartDate((b.startDate || b.date || "").slice(0, 10));
           setEndDate((b.endDate || "").slice(0, 10));
-          setEmployees(b.employees || []);
-          setVehicles(b.vehicles || []);
+          // normalise employees: supports old string data + new object format
+setEmployees(
+  (b.employees || []).map(e =>
+    typeof e === "string" ? { role: "Precision Driver", name: e } : e
+  )
+);
+
+// vehicles stay as string names
+setVehicles(b.vehicles || []);
+
           setEquipment(b.equipment || []);
           setIsSecondPencil(b.isSecondPencil || false);
           setNotes(b.notes || "");
@@ -653,32 +679,36 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
 
       
-      <h2>Precision Driver</h2><br />
-      {[...employeeList, "Other"].map(name => {
+<h2>Precision Driver</h2><br />
+{[...employeeList, { id: "other", name: "Other" }].map(emp => {
+  const name = emp.name;
   const isBooked  = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
-const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
+  const disabled  = isBooked || isHoliday || isCrewed; // ✅ disable if crewed
 
   return (
-    <label key={name} style={{ display: "block", marginBottom: 5 }}>
-      <input
-        type="checkbox"
-        value={name}
-        disabled={disabled}
-        checked={employees.includes(name)}
-        onChange={(e) =>
-          setEmployees(e.target.checked
-            ? [...employees, name]
-            : employees.filter(n => n !== name)
-          )
-        }
-      />{" "}
+    <label key={emp.id || name} style={{ display: "block", marginBottom: 5 }}>
+<input
+  type="checkbox"
+  value={name}
+  disabled={disabled}
+  checked={employees.some(e => e.name === name && e.role === "Precision Driver")}
+  onChange={(e) =>
+    setEmployees(
+      e.target.checked
+        ? [...employees, { role: "Precision Driver", name }]
+        : employees.filter(sel => !(sel.name === name && sel.role === "Precision Driver"))
+    )
+  }
+/>
+{" "}
       <span style={{ color: disabled ? "grey" : "#333" }}>
         {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
       </span>
     </label>
   );
 })}
+
 
 {/* Booking Crewed Toggle */}
 <div style={{ marginTop: 12, marginBottom: 12 }}>
@@ -692,25 +722,25 @@ const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
   </label>
 </div>
 
-
 <h3 style={{ marginTop: 20 }}>Freelancers</h3><br />
-{[...freelancerList, "Other"].map(name => {
+{[...freelancerList, { id: "other", name: "Other" }].map(emp => {
+  const name = emp.name || emp; // handle string fallback
   const isBooked = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
   const disabled = isBooked || isHoliday;
 
   return (
-    <label key={name} style={{ display: "block", marginBottom: 5 }}>
+    <label key={emp.id || name} style={{ display: "block", marginBottom: 5 }}>
       <input
         type="checkbox"
         value={name}
         disabled={disabled}
-        checked={employees.includes(name)}
+        checked={employees.some(e => e.name === name && e.role === "Freelancer")}
         onChange={(e) =>
           setEmployees(
             e.target.checked
-              ? [...employees, name]
-              : employees.filter(n => n !== name)
+              ? [...employees, { role: "Freelancer", name }]
+              : employees.filter(sel => !(sel.name === name && sel.role === "Freelancer"))
           )
         }
       />{" "}
@@ -720,6 +750,8 @@ const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
     </label>
   );
 })}
+
+
 
 
 
@@ -964,14 +996,20 @@ const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
   <p><strong>Location:</strong> {location}</p>
   <p><strong>Dates:</strong> {isRange ? `${startDate} → ${endDate}` : startDate}</p>
 
-  <p><strong>Drivers / Freelancers:</strong> {employees.concat(customEmployee ? customEmployee.split(",").map(n => n.trim()) : []).join(", ") || "None"}</p>
-
-  <p><strong>Vehicles:</strong> {
-  Object.values(vehicleGroups)
-    .flat()
-    .filter(v => vehicles.includes(v))
+<p><strong>Drivers / Freelancers:</strong> {
+  employees.map(e => e.name)
+    .concat(customEmployee ? customEmployee.split(",").map(n => n.trim()) : [])
     .join(", ") || "None"
 }</p>
+
+<p><strong>Vehicles:</strong> {
+  Object.values(vehicleGroups)
+    .flat()
+    .filter(v => vehicles.includes(v.name))
+    .map(v => v.registration ? `${v.name} – ${v.registration}` : v.name)
+    .join(", ") || "None"
+}</p>
+
   <p><strong>Equipment:</strong> {equipment.join(", ") || "None"}</p>
   <p><strong>Notes:</strong> {notes || "None"}</p>
   {pdfFile && <p><strong>PDF:</strong> {pdfFile.name}</p>}
