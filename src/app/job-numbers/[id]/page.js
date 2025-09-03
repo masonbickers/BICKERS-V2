@@ -173,10 +173,8 @@ export default function JobDetailsPage() {
         if (!snap.exists()) throw new Error("Booking no longer exists.");
         const fresh = snap.data();
 
-        // 🔒 server-trust check
-        if (computeIsPaid(fresh)) {
-          throw new Error("This job is marked as Paid. Status changes are locked.");
-        }
+// ⚠️ No longer blocking status changes on Paid
+// We just save the new status regardless
 
         tx.update(ref, {
           status: newStatus,
@@ -709,77 +707,77 @@ const uploadPdfForJob = async (jobId) => {
                       )}
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
-                        const active = selected === opt;
-                        return (
-                          <button
-                            key={opt}
-                            onClick={() => {
-                              if (isPaid) return; // 🔒 UI lock
-                              setSelectedStatusByJob((prev) => ({ ...prev, [job.id]: opt }));
-                            }}
-                            disabled={isPaid}
-                            title={
-                              isPaid ? "This job is marked as Paid. Status changes are locked." : ""
-                            }
-                            style={{
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              border: active ? `2px solid ${statusColor(opt)}` : "1px solid #c7d2fe",
-                              background: active ? `${statusColor(opt)}20` : "#eef2ff",
-                              color: active ? statusColor(opt) : "#1f2937",
-                              fontWeight: 600,
-                              cursor: isPaid ? "not-allowed" : "pointer",
-                              opacity: isPaid ? 0.5 : 1,
-                            }}
-                          >
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
+                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+  {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
+    const active = selected === opt;
+    return (
+      <button
+        key={opt}
+        onClick={() => {
+          if (isPaid) return; // 🔒 UI lock
+          setSelectedStatusByJob((prev) => ({ ...prev, [job.id]: opt }));
+        }}
+        disabled={isPaid}
+        title={
+          isPaid ? "This job is marked as Paid. Status changes are locked." : ""
+        }
+        style={{
+          padding: "8px 12px",
+          borderRadius: 8,
+          border: active ? `2px solid ${statusColor(opt)}` : "1px solid #c7d2fe",
+          background: active ? `${statusColor(opt)}20` : "#eef2ff",
+          color: active ? statusColor(opt) : "#1f2937",
+          fontWeight: 600,
+          cursor: isPaid ? "not-allowed" : "pointer",
+          opacity: isPaid ? 0.5 : 1,
+        }}
+      >
+        {opt}
+      </button>
+    );
+  })}
+</div>
 
-                    <div style={{ marginTop: 10 }}>
-                      <button
-                        onClick={() => {
-                          const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
-                          if (chosen !== currentDbStatus) {
-                            saveJobStatus(job.id, chosen);
-                          }
-                        }}
-                        disabled={
-                          isPaid ||
-                          (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
-                        }
-                        title={
-                          isPaid
-                            ? "This job is marked as Paid. Status changes are locked."
-                            : ""
-                        }
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: 8,
-                          border: "none",
-                          background: "#111827",
-                          color: "#fff",
-                          fontWeight: 600,
-                          cursor:
-                            isPaid ||
-                            (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
-                              ? "not-allowed"
-                              : "pointer",
-                          opacity:
-                            isPaid ||
-                            (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
-                              ? 0.5
-                              : 1,
-                        }}
-                      >
-                        Save Status
-                      </button>
-                    </div>
-                  </div>
+<div style={{ marginTop: 10 }}>
+  <button
+    onClick={() => {
+      const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
+      if (chosen !== currentDbStatus) {
+        saveJobStatus(job.id, chosen);
+      }
+    }}
+    disabled={
+      isPaid ||
+      (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
+    }
+    title={
+      isPaid
+        ? "This job is marked as Paid. Status changes are locked."
+        : ""
+    }
+    style={{
+      padding: "8px 12px",
+      borderRadius: 8,
+      border: "none",
+      background: "#111827",
+      color: "#fff",
+      fontWeight: 600,
+      cursor:
+        isPaid ||
+        (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
+          ? "not-allowed"
+          : "pointer",
+      opacity:
+        isPaid ||
+        (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus
+          ? 0.5
+          : 1,
+    }}
+  >
+    Save Status
+  </button>
+</div>
+</div>
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
   <button

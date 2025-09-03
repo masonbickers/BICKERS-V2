@@ -23,10 +23,11 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "Wall View", path: "/wall-view" },
     { label: "Dashboard", path: "/dashboard" },
   ];
-
   const sidebarItems = [
     { label: "Home", path: "/home" },
-    { label: "Dashboard", path: "/dashboard" },
+    { label: "Tracking", path: "/dashboard" },
+    { label: "U-Crane", path: "/u-crane" }, 
+    { label: "Stunts", path: "/stunts" }, 
     { label: "Bookings", path: "/booking-page" },
     { label: "HR", path: "/hr" },
     { label: "Employees", path: "/employee-home" },
@@ -36,6 +37,7 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "Settings", path: "/settings" },
     { label: "Logout", path: "/login" },
   ];
+
 
   const [theme, setTheme] = useState("system");
 

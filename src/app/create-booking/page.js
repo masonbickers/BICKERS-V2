@@ -151,17 +151,28 @@ export default function CreateBookingPage() {
       const empSnap = await getDocs(collection(db, "employees"));
       const allEmployees = empSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   
-      setEmployeeList(
-        allEmployees
-          .filter(emp => (emp.jobTitle || "").toLowerCase() === "driver")
-          .map(emp => emp.name || emp.fullName || emp.id)
-      );
-  
-      setFreelancerList(
-        allEmployees
-          .filter(emp => (emp.jobTitle || "").toLowerCase() === "freelancer")
-          .map(emp => emp.name || emp.fullName || emp.id)
-      );
+console.log("🔥 Employees fetched:", allEmployees);
+allEmployees.forEach(e => console.log("👉", e.name, e.jobTitle));
+
+
+setEmployeeList(
+  allEmployees
+    .filter(emp => {
+      const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+      return titles.some(t => (t || "").toLowerCase() === "driver");
+    })
+    .map(emp => emp.name || emp.fullName || emp.id)
+);
+
+setFreelancerList(
+  allEmployees
+    .filter(emp => {
+      const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+      return titles.some(t => (t || "").toLowerCase() === "freelance" || (t || "").toLowerCase() === "freelancer");
+    })
+    .map(emp => emp.name || emp.fullName || emp.id)
+);
+
 
       const workSnap = await getDocs(collection(db, "workBookings"));
 const maintenanceData = workSnap.docs.map(doc => doc.data());
@@ -1078,7 +1089,7 @@ quoteUrl: quoteUrlToSave,
   <p><strong>Contact Number:</strong> {contactNumber}</p>
   <p><strong>Location:</strong> {location}</p>
   <p><strong>Health & Safety:</strong> {hasHS ? "✅ Completed" : "❌ Not Done"}</p>
-  <p><strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}</p>
+<p><strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}</p>
 
   <p>
     <strong>Dates:</strong>{" "}

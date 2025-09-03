@@ -16,29 +16,54 @@ export default function EditEmployeePage() {
     email: "",
     dob: "",
     licenceNumber: "",
-    jobTitle: ""
+    jobTitle: [] // ✅ now an array
   });
+
+  const jobOptions = [
+    "Driver",
+    "Freelance",
+    "Workshop",
+    "Head and Arm Tech",
+    "U-Crane Driver",
+    "Transport Driver",
+    "Arm Operator",
+    "Stunts",
+    "Camera Operator",
+  ];
 
   useEffect(() => {
     const fetchEmployee = async () => {
       const docRef = doc(db, "employees", employeeId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setFormData(docSnap.data());
+        const data = docSnap.data();
+        // ✅ Ensure jobTitle is always an array
+        setFormData({
+          ...data,
+          jobTitle: Array.isArray(data.jobTitle) ? data.jobTitle : [data.jobTitle].filter(Boolean),
+        });
       } else {
         alert("Employee not found");
         router.push("/employees");
       }
     };
     if (employeeId) fetchEmployee();
-  }, [employeeId, router]); // ✅ add router here
-  
+  }, [employeeId, router]);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const handleJobCheckbox = (job) => {
+    setFormData((prev) => {
+      const selectedJobs = prev.jobTitle.includes(job)
+        ? prev.jobTitle.filter((j) => j !== job) // remove if already selected
+        : [...prev.jobTitle, job]; // add if not selected
+      return { ...prev, jobTitle: selectedJobs };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -74,8 +99,6 @@ export default function EditEmployeePage() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333" }}>
- 
-
       <main style={{ flex: 1, padding: 40 }}>
         <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>Edit Employee</h1>
 
@@ -85,8 +108,7 @@ export default function EditEmployeePage() {
             { label: "Mobile Number", name: "mobile", type: "tel" },
             { label: "Email", name: "email", type: "email" },
             { label: "Date of Birth", name: "dob", type: "date" },
-            { label: "Driving Licence Number", name: "licenceNumber", type: "text" },
-            { label: "Job Title", name: "jobTitle", type: "text" }
+            { label: "Driving Licence Number", name: "licenceNumber", type: "text" }
           ].map(({ label, name, type }) => (
             <div key={name}>
               <label style={{ display: "block", marginBottom: 6 }}>{label}</label>
@@ -105,6 +127,23 @@ export default function EditEmployeePage() {
               />
             </div>
           ))}
+
+          {/* ✅ Job Titles as Checkboxes */}
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Job Title(s)</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {jobOptions.map((job) => (
+                <label key={job} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.jobTitle.includes(job)}
+                    onChange={() => handleJobCheckbox(job)}
+                  />
+                  {job}
+                </label>
+              ))}
+            </div>
+          </div>
 
           {/* Save Button */}
           <button type="submit" style={{
