@@ -1,8 +1,8 @@
 // src/app/layout.js
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "./context/authContext"; // ✅ import provider
-import ProtectedLayout from "./components/ProtectedLayout"; // ✅ protect routes
+import { AuthProvider } from "./context/authContext"; 
+import ProtectedLayout from "./components/ProtectedLayout"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,8 +21,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, padding: 0 }}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         {/* ✅ Wrap everything in AuthProvider and protect routes */}
         <AuthProvider>
           <ProtectedLayout>

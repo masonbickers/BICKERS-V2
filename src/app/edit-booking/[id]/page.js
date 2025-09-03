@@ -27,6 +27,7 @@ export default function CreateBookingPage() {
   const [vehicles, setVehicles] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [isSecondPencil, setIsSecondPencil] = useState(false)
+  const [isCrewed, setIsCrewed] = useState(false); 
   const [notes, setNotes] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
   const [allBookings, setAllBookings] = useState([]);
@@ -161,6 +162,7 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
           setNotesByDate(b.notesByDate || {});
           setStatus(b.status || "Confirmed");
           setShootType(b.shootType || "Day");
+          setIsCrewed(b.isCrewed || false);
         }
       }
       const groupedEquip = {};
@@ -246,8 +248,11 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
 
   const handleSubmit = async (status = "Confirmed") => {
     console.log("📋 Submitting booking for ID:", bookingId);
-    if (!startDate) return alert("Please select a start date.");
-    if (isRange && !endDate) return alert("Please select an end date.");
+if (status !== "Enquiry") {
+  if (!startDate) return alert("Please select a start date.");
+  if (isRange && !endDate) return alert("Please select an end date.");
+}
+
 
     const isDuplicateJobNumber = allBookings.some(
       (b) =>
@@ -272,17 +277,19 @@ const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promis
       }
     }
 
-    let bookingDates = [];
-    if (isRange && startDate && endDate) {
-      const current = new Date(startDate);
-      const end = new Date(endDate);
-      while (current <= end) {
-        bookingDates.push(current.toISOString().split("T")[0]);
-        current.setDate(current.getDate() + 1);
-      }
-    } else {
-      bookingDates = [new Date(startDate).toISOString().split("T")[0]];
+let bookingDates = [];
+if (status !== "Enquiry") {
+  if (isRange && startDate && endDate) {
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+    while (current <= end) {
+      bookingDates.push(current.toISOString().split("T")[0]);
+      current.setDate(current.getDate() + 1);
     }
+  } else if (startDate) {
+    bookingDates = [new Date(startDate).toISOString().split("T")[0]];
+  }
+}
 
     
     let pdfURL = null;
@@ -311,23 +318,27 @@ const booking = {
   vehicles, 
   equipment,
   isSecondPencil,
+  isCrewed,
   notes,
   notesByDate: filteredNotesByDate,
   status,
   bookingDates,
   shootType,
   pdfURL: pdfURL || null,
-  ...(isRange
-    ? {
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString(),
-        date: null
-      }
-    : {
-        date: new Date(startDate).toISOString(),
-        startDate: null,
-        endDate: null
-      }),
+...(status !== "Enquiry"
+  ? (isRange
+      ? {
+          startDate: new Date(startDate).toISOString(),
+          endDate: new Date(endDate).toISOString(),
+          date: null
+        }
+      : {
+          date: new Date(startDate).toISOString(),
+          startDate: null,
+          endDate: null
+        })
+  : {}), // ✅ Enquiry skips dates
+
 
   // 🔹 new fields
   lastEditedBy: user?.email || "Unknown",
@@ -435,13 +446,10 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
 
   {/* Status Dropdown */}
-  <h3>Status</h3><br />
+<h3>Status</h3><br />
 <select 
   value={status}
-  onChange={(e) => {
-    console.log("🌀 Status changed to:", e.target.value);
-    setStatus(e.target.value);
-  }}
+  onChange={(e) => setStatus(e.target.value)}
   style={{ 
     width: "100%",
     height: "40px",
@@ -453,7 +461,9 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   <option value="Confirmed">Confirmed</option>
   <option value="First Pencil">First Pencil</option>
   <option value="Second Pencil">Second Pencil</option>
+  <option value="Enquiry">Enquiry</option>
 </select>
+
 
   {/* Shoot Type Dropdown */}
   <h3>Shoot Type</h3><br />
@@ -604,27 +614,30 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
             </select>
 
-            {isOther && (
-              <input
-                type="text"
-                placeholder="Enter custom note"
-                value={customNote}
-                onChange={(e) =>
-                  setNotesByDate({
-                    ...notesByDate,
-                    [date]: "Other",
-                    [`${date}-other`]: e.target.value,
-                  })
-                }
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  fontSize: "14px",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc",
-                }}
-              />
-            )}
+           {isOther ? (
+  <div style={{ marginTop: "6px" }}>
+    <input
+      type="text"
+      placeholder="Enter custom note"
+      value={customNote}
+      onChange={(e) =>
+        setNotesByDate({
+          ...notesByDate,
+          [date]: "Other",
+          [`${date}-other`]: e.target.value,
+        })
+      }
+      style={{
+        width: "100%",
+        padding: "8px",
+        fontSize: "14px",
+        borderRadius: "4px",
+        border: "1px solid #ccc",
+      }}
+    />
+  </div>
+) : null}
+
           </div>
         );
       });
@@ -638,7 +651,7 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
       {[...employeeList, "Other"].map(name => {
   const isBooked  = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
-  const disabled  = isBooked || isHoliday;
+const disabled  = isBooked || isHoliday || isCrewed;   // ✅ disable if crewed
 
   return (
     <label key={name} style={{ display: "block", marginBottom: 5 }}>
@@ -660,6 +673,19 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
     </label>
   );
 })}
+
+{/* Booking Crewed Toggle */}
+<div style={{ marginTop: 12, marginBottom: 12 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={isCrewed}
+      onChange={(e) => setIsCrewed(e.target.checked)}
+    />{" "}
+    Booking Crewed
+  </label>
+</div>
+
 
 <h3 style={{ marginTop: 20 }}>Freelancers</h3><br />
 {[...freelancerList, "Other"].map(name => {

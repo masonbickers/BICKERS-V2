@@ -480,7 +480,7 @@ const uploadPdfForJob = async (jobId) => {
                   )}
                   {job.notes && (
                     <div style={{ marginBottom: "10px" }}>
-                      <strong>Notes:</strong>
+                      <strong>Description</strong>
                       <div style={{ whiteSpace: "pre-line", marginTop: "4px" }}>
                         {job.notes}
                       </div>

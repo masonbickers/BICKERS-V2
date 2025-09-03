@@ -46,6 +46,7 @@ export default function CreateBookingPage() {
   
 
   const [isSecondPencil, setIsSecondPencil] = useState(false);
+  const [isCrewed, setIsCrewed] = useState(false);
   const [notes, setNotes] = useState("");
   const [quoteFile, setQuoteFile] = useState(null);
   const [quoteURL, setQuoteURL] = useState(null);
@@ -285,8 +286,11 @@ setMaintenanceBookings(maintenanceData);
   .map(b => b.vehicleName); 
 
   const handleSubmit = async (status = "Confirmed") => {
-    if (!startDate) return alert("Please select a start date.");
-    if (isRange && !endDate) return alert("Please select an end date.");
+if (status !== "Enquiry") {
+  if (!startDate) return alert("Please select a start date.");
+  if (isRange && !endDate) return alert("Please select an end date.");
+}
+
 
     const isDuplicateJobNumber = allBookings.some(
       (b) => b.jobNumber?.trim().toLowerCase() === jobNumber.trim().toLowerCase()
@@ -307,17 +311,20 @@ setMaintenanceBookings(maintenanceData);
       }
     }
 
-    let bookingDates = [];
-    if (isRange && startDate && endDate) {
-      const current = new Date(startDate);
-      const end = new Date(endDate);
-      while (current <= end) {
-        bookingDates.push(current.toISOString().split("T")[0]);
-        current.setDate(current.getDate() + 1);
-      }
-    } else {
-      bookingDates = [new Date(startDate).toISOString().split("T")[0]];
+let bookingDates = [];
+if (status !== "Enquiry") {
+  if (isRange && startDate && endDate) {
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+    while (current <= end) {
+      bookingDates.push(current.toISOString().split("T")[0]);
+      current.setDate(current.getDate() + 1);
     }
+  } else if (startDate) {
+    bookingDates = [new Date(startDate).toISOString().split("T")[0]];
+  }
+}
+
 
 // ✅ Upload Excel Quote (resumable, with metadata)
 // ✅ Upload Excel/CSV Quote
@@ -390,6 +397,7 @@ const booking = {
   vehicles,
   equipment,
   isSecondPencil,
+  isCrewed, 
   notes,
   notesByDate,
   status,
@@ -397,12 +405,12 @@ const booking = {
   shootType,
 quoteUrl: quoteUrlToSave,
 
-  ...(isRange
-    ? {
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString()
-      }
-    : { date: new Date(startDate).toISOString() }),
+...(status !== "Enquiry"
+  ? (isRange
+      ? { startDate: new Date(startDate).toISOString(), endDate: new Date(endDate).toISOString() }
+      : { date: new Date(startDate).toISOString() })
+  : {}), // ✅ enquiry has no dates
+
 
   // 🔹 new fields
   createdBy: user?.email || "Unknown",
@@ -507,6 +515,7 @@ quoteUrl: quoteUrlToSave,
     <option value="Confirmed">Confirmed</option>
     <option value="First Pencil">First Pencil</option>
     <option value="Second Pencil">Second Pencil</option>
+      <option value="Enquiry">Enquiry</option>
 
   </select><br />
 
@@ -605,8 +614,18 @@ quoteUrl: quoteUrlToSave,
       marginTop: "0px"}}>
     <h3>Date</h3><br />
       <label><input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} /> Multi-day booking</label><br /><br />
-      <label>{isRange ? "Start Date" : "Date"}</label><br />
-      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required /><br /><br />
+    {status !== "Enquiry" && (
+  <>
+    <label>{isRange ? "Start Date" : "Date"}</label><br />
+    <input
+      type="date"
+      value={startDate}
+      onChange={(e) => setStartDate(e.target.value)}
+      required={status !== "Enquiry"} // ✅ only required if not Enquiry
+    /><br /><br />
+  </>
+)}
+
       {!isRange && startDate && (
   <div style={{ marginBottom: "20px" }}>
     <h4>Note for the Day</h4>
@@ -665,8 +684,18 @@ quoteUrl: quoteUrlToSave,
 
       {isRange && (
         <>
-          <label>End Date</label><br />
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required /><br /><br />
+         {status !== "Enquiry" && isRange && (
+  <>
+    <label>End Date</label><br />
+    <input
+      type="date"
+      value={endDate}
+      onChange={(e) => setEndDate(e.target.value)}
+      required={status !== "Enquiry"} // ✅ only required if not Enquiry
+    /><br /><br />
+  </>
+)}
+
         </>
       )}
       {isRange && startDate && endDate && (
@@ -747,7 +776,8 @@ quoteUrl: quoteUrlToSave,
       {[...employeeList, "Other"].map(name => {
   const isBooked  = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
-  const disabled  = isBooked || isHoliday;
+  const disabled  = isBooked || isHoliday || isCrewed;  // ✅ disable if crewed
+
 
   return (
     <label key={name} style={{ display: "block", marginBottom: 4 ,fontSize: "14px" }}>
@@ -769,6 +799,19 @@ quoteUrl: quoteUrlToSave,
     </label>
   );
 })}
+
+{/* Booking Crewed Toggle */}
+<div style={{ marginTop: 12, marginBottom: 12 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={isCrewed}
+      onChange={(e) => setIsCrewed(e.target.checked)}
+    />{" "}
+    Booking Crewed
+  </label>
+</div>
+
 
 <h3 style={{ marginTop: 10 }}>Freelancers</h3><br />
 {[...freelancerList, "Other"].map(name => {

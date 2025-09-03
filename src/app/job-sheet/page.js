@@ -98,22 +98,31 @@ export default function JobSheetPage() {
     "settled",
   ]);
 
-  const classify = (job) => {
-    const ds = normaliseDates(job);
-    if (!ds.length) return "Upcoming";
+const classify = (job) => {
+  const status = (job.status || "").toLowerCase().trim();
 
-    const anyFutureOrToday = ds.some((d) => {
-      const dd = new Date(d);
-      dd.setHours(0, 0, 0, 0);
-      return dd.getTime() >= todayMidnight.getTime();
-    });
-    if (anyFutureOrToday) return "Upcoming";
+  // 🔹 Direct status-based categories
+  if (/ready\s*to\s*invoice/.test(status)) return "Ready to Invoice";
+  if (status === "paid" || status === "settled") return "Paid";
+  if (status.includes("action")) return "Needs Action";
+if (status.includes("enquiry") || status.includes("inquiry")) return "Enquiries";
 
-    const status = (job.status || "").toLowerCase().trim();
-    const confirmedFlag = job.confirmed === true || job.isConfirmed === true;
-    if (confirmedFlag || CONFIRMED_LIKE.has(status)) return "Complete Jobs";
-    return "Passed — Not Confirmed";
-  };
+  // 🔹 Date-based logic (for Upcoming / Complete / Passed)
+  const ds = normaliseDates(job);
+  if (!ds.length) return "Upcoming";
+
+  const anyFutureOrToday = ds.some((d) => {
+    const dd = new Date(d);
+    dd.setHours(0, 0, 0, 0);
+    return dd.getTime() >= todayMidnight.getTime();
+  });
+  if (anyFutureOrToday) return "Upcoming";
+
+  const confirmedFlag = job.confirmed === true || job.isConfirmed === true;
+  if (confirmedFlag || CONFIRMED_LIKE.has(status)) return "Complete Jobs";
+
+  return "Passed — Not Confirmed";
+};
 
   /* ---------- Realtime listener ---------- */
   useEffect(() => {
@@ -141,13 +150,23 @@ export default function JobSheetPage() {
   }, [bookings, search]);
 
   /* ---------- Grouping ---------- */
-  const groups = useMemo(() => {
-    const grouped = {
-      Upcoming: [],
-      "Complete Jobs": [],
-      "Passed — Not Confirmed": [],
-    };
-    for (const job of filteredBookings) grouped[classify(job)].push(job);
+const groups = useMemo(() => {
+  const grouped = {
+    Upcoming: [],
+    "Complete Jobs": [],
+    "Passed — Not Confirmed": [],
+    "Ready to Invoice": [],
+    Paid: [],
+    "Needs Action": [],
+    Enquiries: [],
+  };
+
+  for (const job of filteredBookings) {
+    const cat = classify(job);
+    if (grouped[cat]) grouped[cat].push(job);
+    else grouped["Upcoming"].push(job); // fallback
+  }
+
 
     grouped.Upcoming.sort((a, b) => {
       const ad = normaliseDates(a)[0] ?? new Date(8640000000000000);
@@ -326,29 +345,38 @@ export default function JobSheetPage() {
           }}
         />
 
-        {/* 🔹 Section Selector */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 30 }}>
-          {["Upcoming", "Passed — Not Confirmed", "Complete Jobs"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setActiveSection(s)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: "8px",
-                border:
-                  activeSection === s
-                    ? "2px solid #2563eb"
-                    : "1px solid #d1d5db",
-                background: activeSection === s ? "#eff6ff" : "#fff",
-                color: activeSection === s ? "#1d4ed8" : "#374151",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+       {/* 🔹 Section Selector with extra categories */}
+<div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 30 }}>
+  {[
+    "Upcoming",
+    "Passed — Not Confirmed",
+    "Complete Jobs",
+    "Ready to Invoice",
+    "Paid",
+    "Needs Action",
+    "Enquiries",
+  ].map((s) => (
+    <button
+      key={s}
+      onClick={() => setActiveSection(s)}
+      style={{
+        padding: "8px 16px",
+        borderRadius: "8px",
+        border:
+          activeSection === s
+            ? "2px solid #2563eb"
+            : "1px solid #d1d5db",
+        background: activeSection === s ? "#eff6ff" : "#fff",
+        color: activeSection === s ? "#1d4ed8" : "#374151",
+        fontWeight: 600,
+        cursor: "pointer",
+      }}
+    >
+      {s}
+    </button>
+  ))}
+</div>
+
 
         {/* 🔹 Show Active Section */}
         {activeSection !== "Complete Jobs" && (

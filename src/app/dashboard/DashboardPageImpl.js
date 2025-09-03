@@ -12,6 +12,8 @@ import { collection, getDocs, addDoc } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { Check } from "lucide-react";
+
 
 
 
@@ -482,74 +484,94 @@ const navButton = {
                     ) : (
 
                       <>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            width: "100%",
-                            marginBottom: "2px"
-                          }}
-                        >
-                          <span
-                            style={{
-                              backgroundColor: "white",
-                              padding: "1px 6px",
-                              borderRadius: "4px",
-                              fontSize: "0.85rem",
-                              fontWeight: "normal",
-                              border: "1px solid #000"
-                            }}
-                          >
-                            {employeeInitials}
-                          </span>
-
-  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-  <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#333" }}>
-    {event.status}
-  </span>
-                                
-<span style={{
-    backgroundColor:
-      event.shootType === "Night"
-        ? "purple"
-        : event.shootType === "Day"
-        ? "white"
-        : "#4caf50", // default green
-    color: event.shootType === "Night" ? "#fff" : "#000",
-    padding: "1px 6px",
-    borderRadius: "4px",
-    fontSize: "1rem",
-    fontWeight: "bold",
-    border: "1px solid #000"
+                       <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: "2px"
   }}
 >
-  {event.jobNumber}
-</span>
+  {/* Left side: employee initials */}
+  <span
+    style={{
+      backgroundColor: "white",
+      padding: "1px 6px",
+      borderRadius: "4px",
+      fontSize: "0.85rem",
+      fontWeight: "normal",
+      border: "1px solid #000"
+    }}
+  >
+    {employeeInitials}
+  </span>
+
+  {/* Right side: status + CREWED + job number */}
+  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+      <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#333" }}>
+        {event.status}
+      </span>
+
+      {/* ✅ CREWED sits directly below status */}
+      {event.isCrewed && (
+        <span
+          style={{
+            fontSize: "0.75rem",
+            fontWeight: "bold",
+            color: "#333",
+            marginTop: "-5px",
+          }}
+        >
+             <Check size={12} strokeWidth={3} /> Crew
+        </span>
+      )}
+    </div>
+
+    <span
+      style={{
+        backgroundColor:
+          event.shootType === "Night"
+            ? "purple"
+            : event.shootType === "Day"
+            ? "white"
+            : "#4caf50",
+        color: event.shootType === "Night" ? "#fff" : "#000",
+        padding: "1px 6px",
+        borderRadius: "4px",
+        fontSize: "1rem",
+        fontWeight: "bold",
+        border: "1px solid #000"
+      }}
+    >
+      {event.jobNumber}
+    </span>
+  </div>
 </div>
 
 
-                        </div>
+
+          
             
-                        <span>{event.client}</span>
-                        {Array.isArray(event.vehicles) && event.vehicles.map((v, i) => (
-                           <span key={i}>{v}</span>
-                           ))}
-                        <span>{event.equipment}</span>
-                        <span>{event.location}</span>
-                        <span
-                          style={{
-                            fontWeight: "normal",
-                       
-                            opacity: 0.8,
-                          }}
-                        >
-                          {event.notes}
-                        </span>
+<span>{event.client}</span>
+{Array.isArray(event.vehicles) && event.vehicles.map((v, i) => (
+   <span key={i}>{v}</span>
+))}
+<span>{event.equipment}</span>
+<span>{event.location}</span>
+<span
+  style={{
+    fontWeight: "normal",
+    opacity: 0.8,
+  }}
+>
+  {event.notes}
+</span>
 
-                        
 
-                        {event.notesByDate && (
+
+{event.notesByDate && (
   <div
     style={{
       display: "flex",
@@ -558,6 +580,7 @@ const navButton = {
       flexWrap: "wrap",
     }}
   >
+
     {Array.from(
       { length: Math.ceil(Object.entries(event.notesByDate).length / 4) },
       (_, colIndex) => {
@@ -858,9 +881,29 @@ const navButton = {
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-            <td style={{ padding: "10px", verticalAlign: "middle" }}>
-              {Array.isArray(b.employees) && b.employees.length > 0 ? b.employees.join(", ") : "—"}
-            </td>
+       <td style={{ padding: "10px", verticalAlign: "middle" }}>
+  {Array.isArray(b.employees) && b.employees.length > 0
+    ? b.employees.join(", ")
+    : "—"}
+
+  {b.isCrewed && (
+    <div
+      style={{
+        marginTop: "4px",
+        display: "inline-block",
+        padding: "2px 6px",
+        backgroundColor: "#4caf50",
+        color: "#fff",
+        borderRadius: "4px",
+        fontSize: "12px",
+        fontWeight: "bold",
+      }}
+    >
+      CREWED
+    </div>
+  )}
+</td>
+
             <td style={{
               padding: "10px",
               verticalAlign: "middle",
@@ -964,9 +1007,29 @@ const navButton = {
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-                  <td style={{ padding: "10px", verticalAlign: "middle" }}>
-                    {Array.isArray(b.employees) && b.employees.length > 0 ? b.employees.join(", ") : "—"}
-                  </td>
+                 <td style={{ padding: "10px", verticalAlign: "middle" }}>
+  {Array.isArray(b.employees) && b.employees.length > 0
+    ? b.employees.join(", ")
+    : "—"}
+
+  {b.isCrewed && (
+    <div
+      style={{
+        marginTop: "4px",
+        display: "inline-block",
+        padding: "2px 6px",
+        backgroundColor: "#4caf50",
+        color: "#fff",
+        borderRadius: "4px",
+        fontSize: "12px",
+        fontWeight: "bold",
+      }}
+    >
+      CREWED
+    </div>
+  )}
+</td>
+
                   <td style={{
                     padding: "10px",
                     verticalAlign: "middle",
