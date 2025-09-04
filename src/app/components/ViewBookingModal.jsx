@@ -67,7 +67,14 @@ export default function ViewBookingModal({ id, onClose }) {
                   : "Not set"
               }
             />
-            <Row label="Employees" value={(booking.employees || []).join(", ")} />
+<Row
+  label="Employees"
+  value={
+    (booking.employees || [])
+      .map(e => (typeof e === "string" ? e : `${e.role} – ${e.name}`))
+      .join(", ") || "None"
+  }
+/>
             <tr>
               <td style={cell}>
                 <strong>Vehicles</strong>

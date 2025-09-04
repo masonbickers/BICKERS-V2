@@ -416,16 +416,27 @@ const fetchBookings = async () => {
               event: ({ event }) => {
                 const note = event.noteToShow;
             
-                const employeeInitials = Array.isArray(event.employees)
-                  ? event.employees
-                      .map(name =>
-                        name
-                          .split(" ")
-                          .map(part => part[0]?.toUpperCase())
-                          .join("")
-                      )
-                      .join(", ")
-                  : "";
+  const employeeInitials = Array.isArray(event.employees)
+  ? event.employees
+      .map(e => {
+        if (typeof e === "string") {
+          return e
+            .split(" ")
+            .map(part => part[0]?.toUpperCase())
+            .join("");
+        }
+        if (e && typeof e === "object" && e.name) {
+          return e.name
+            .split(" ")
+            .map(part => part[0]?.toUpperCase())
+            .join("");
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(", ")
+  : "";
+
             
                 return (
                  <div

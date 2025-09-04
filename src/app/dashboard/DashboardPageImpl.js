@@ -394,16 +394,20 @@ const navButton = {
               event: ({ event }) => {
                 const note = event.noteToShow;
             
-                const employeeInitials = Array.isArray(event.employees)
-                  ? event.employees
-                      .map(name =>
-                        name
-                          .split(" ")
-                          .map(part => part[0]?.toUpperCase())
-                          .join("")
-                      )
-                      .join(", ")
-                  : "";
+          const employeeInitials = Array.isArray(event.employees)
+  ? event.employees
+      .map(emp => {
+        const employeeName =
+          typeof emp === "string" ? emp : emp?.name || "";
+        return employeeName
+          .split(" ")
+          .map(part => part[0]?.toUpperCase())
+          .join("");
+      })
+      .filter(Boolean)
+      .join(", ")
+  : "";
+
             
                 return (
                  <div

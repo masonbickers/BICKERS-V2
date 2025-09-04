@@ -23,7 +23,6 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        {/* ✅ Wrap everything in AuthProvider and protect routes */}
         <AuthProvider>
           <ProtectedLayout>
             {children}
@@ -33,3 +32,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+

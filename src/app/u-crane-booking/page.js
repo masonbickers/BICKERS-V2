@@ -82,6 +82,15 @@ export default function CreateBookingPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
 
+const inputStyle = {
+  width: "90%",
+  height: "28px",
+  marginBottom: "12px",
+  padding: "4px 6px",
+  fontSize: "14px",
+  border: "1px solid #ccc",
+  borderRadius: "4px",
+};
 
 
 
@@ -154,11 +163,26 @@ export default function CreateBookingPage() {
 setEmployeeList(allEmployees);
 
   
-      setFreelancerList(
-        allEmployees
-          .filter(emp => (emp.jobTitle || "").toLowerCase() === "freelancer")
-          .map(emp => emp.name || emp.fullName || emp.id)
-      );
+setFreelancerList(
+  allEmployees
+    .filter(emp => {
+      if (!emp.jobTitle) return false;
+
+      if (Array.isArray(emp.jobTitle)) {
+        return emp.jobTitle.some(
+          jt => jt.toLowerCase().trim() === "freelancer"
+        );
+      }
+
+      if (typeof emp.jobTitle === "string") {
+        return emp.jobTitle.toLowerCase().trim() === "freelancer";
+      }
+
+      return false;
+    })
+    .map(emp => emp.name || emp.fullName || emp.id)
+);
+
 
       const workSnap = await getDocs(collection(db, "workBookings"));
 const maintenanceData = workSnap.docs.map(doc => doc.data());
@@ -166,40 +190,36 @@ setMaintenanceBookings(maintenanceData);
 
 
 
+// 🔹 5. Load and group vehicles
+const vehicleSnap = await getDocs(collection(db, "vehicles"));
+const grouped = {
+  "U-Crane": [],
+  "Transport Lorry": []
+};
 
-      // 🔹 5. Load and group vehicles
-      const vehicleSnap = await getDocs(collection(db, "vehicles"));
-      const grouped = {
-        "Bike": [],
-        "Electric Tracking Vehicles": [],
-        "Small Tracking Vehicles": [],
-        "Large Tracking Vehicles": [],
-        "Low Loaders": [],
-        "Transport Lorry": [],
-        "Transport Van": []
-      };
-      
-      
-      vehicleSnap.docs.forEach(doc => {
-        const data = doc.data();
-        const category = (data.category || "").trim().toLowerCase();
-        const vehicle = {
-          name: data.name,
-          registration: data.registration || "",
-        };
-        
-        if (category.includes("small")) grouped["Small Tracking Vehicles"].push(vehicle);
-        else if (category.includes("bike")) grouped["Bike"].push(vehicle);                    
-        else if (category.includes("electric")) grouped["Electric Tracking Vehicles"].push(vehicle);       
-        else if (category.includes("large")) grouped["Large Tracking Vehicles"].push(vehicle);
-        else if (category.includes("low loader")) grouped["Low Loaders"].push(vehicle);
-        else if (category.includes("lorry")) grouped["Transport Lorry"].push(vehicle);
-        else if (category.includes("van")) grouped["Transport Van"].push(vehicle);
-      });
-      
-      
-  
-      setVehicleGroups(grouped);
+
+vehicleSnap.docs.forEach(doc => {
+  const data = doc.data();
+  console.log("🚗 Vehicle fetched:", data); // ✅ log raw data
+  const category = (data.category || "").trim().toLowerCase();
+  const vehicle = {
+    name: data.name,
+    registration: data.registration || "",
+  };
+
+  if (category.includes("u-crane")) grouped["U-Crane"].push(vehicle);
+else if (category.includes("lorry") && !category.includes("trailer")) {
+  // only include vehicles whose name starts with "U-Crane Lorry"
+  if (vehicle.name && vehicle.name.toLowerCase().startsWith("u-crane lorry")) {
+    grouped["Transport Lorry"].push(vehicle);
+  }
+}
+
+});
+
+console.log("✅ Grouped vehicles:", grouped);
+setVehicleGroups(grouped);
+
     };
   
     // ✅ Call async loader
@@ -295,20 +315,22 @@ if (status !== "Enquiry") {
       (b) => b.jobNumber?.trim().toLowerCase() === jobNumber.trim().toLowerCase()
     );
 
-    const customNames = customEmployee
-      ? customEmployee.split(",").map(name => name.trim())
-      : [];
+const customNames = customEmployee
+  ? customEmployee.split(",").map(name => name.trim())
+  : [];
 
-    const cleanedEmployees = employees
-      .filter(name => name !== "Other")
-      .concat(customNames);
+const cleanedEmployees = employees
+  .filter(e => e.name !== "Other")
+  .map(e => e.name)   // ✅ ensure array of strings
+  .concat(customNames);
 
-    for (const employee of cleanedEmployees) {
-      if (isEmployeeOnHoliday(employee)) {
-        alert(`${employee} is on holiday during the selected dates.`);
-        return;
-      }
-    }
+for (const employee of cleanedEmployees) {
+  if (isEmployeeOnHoliday(employee)) {
+    alert(`${employee} is on holiday during the selected dates.`);
+    return;
+  }
+}
+
 
 let bookingDates = [];
 if (status !== "Enquiry") {
@@ -469,144 +491,270 @@ quoteUrl: quoteUrlToSave,
 <h1 style={{ color: "#111", marginBottom: "20px" }}>➕ Create New Booking</h1>
 
   
-
-<form onSubmit={(e) => { e.preventDefault(); handleSubmit(status); }}>
+<form
+  onSubmit={(e) => {
+    e.preventDefault();
+    handleSubmit(status);
+  }}
+>
   <div
     style={{
       display: "flex",
-      gap: "30px",
+      gap: "40px", // space between columns
       flexWrap: "wrap",
+      alignItems: "flex-start",
       marginTop: "20px",
       backgroundColor: "#f9f9f9",
-      padding: "20px",
-      borderRadius: "8px",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+      padding: "30px",
+      borderRadius: "10px",
+      boxShadow: "0 3px 10px rgba(0, 0, 0, 0.08)",
+      fontSize: "14px",
+      lineHeight: "1.6",
     }}
   >
-    {/* Column 1: Job Info */}
-    <div style={{ flex: "1 1 300px" }}>
-      <h3>Job Number</h3>
-      <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required />
+{/* Column 1: Job Info */}
+<div style={{ flex: "1 1 300px", minWidth: "280px" }}>
+  {/* Job Number */}
+  <h3 style={{ marginBottom: "6px" }}>Job Number</h3>
+  <input
+    value={jobNumber}
+    onChange={(e) => setJobNumber(e.target.value)}
+    required
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  />
 
-      <h3>Production Company</h3>
-      <input value={client} onChange={(e) => setClient(e.target.value)} required />
+  {/* Status Dropdown */}
+  <h3 style={{ marginBottom: "6px" }}>Status</h3>
+  <select
+    value={status}
+    onChange={(e) => setStatus(e.target.value)}
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  >
+    <option value="Confirmed">Confirmed</option>
+    <option value="First Pencil">First Pencil</option>
+    <option value="Second Pencil">Second Pencil</option>
+    <option value="Enquiry">Enquiry</option>
+  </select>
 
-      <h3>Production Name</h3>
-      <input
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        placeholder="Enter production name"
-        required
-      />
+  {/* Shoot Type Dropdown */}
+  <h3 style={{ marginBottom: "6px" }}>Shoot Type</h3>
+  <select
+    value={shootType}
+    onChange={(e) => setShootType(e.target.value)}
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  >
+    <option value="Day">Day</option>
+    <option value="Night">Night</option>
+  </select>
 
-      <h3>Contact Email</h3>
-      <input
-        type="email"
-        value={contactEmail}
-        onChange={(e) => setContactEmail(e.target.value)}
-        required
-      />
+  {/* Production Company */}
+  <h3 style={{ marginBottom: "6px" }}>Production Company</h3>
+  <input
+    value={client}
+    onChange={(e) => setClient(e.target.value)}
+    required
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  />
 
-      <h3>Contact Number</h3>
-      <input
-        type="text"
-        value={contactNumber}
-        onChange={(e) => setContactNumber(e.target.value)}
-        required
-      />
-    </div>
 
-    {/* Column 2: Dates + Crew */}
-    <div style={{ flex: "1 1 300px" }}>
-      <h3>Dates</h3>
-      <label>
-        <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} /> Multi-day
-      </label>
-      <br />
-      <input
-        type="date"
-        value={startDate}
-        onChange={(e) => setStartDate(e.target.value)}
-        required
-      />
-      {isRange && (
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
-      )}
 
-{/* Crew Roles */}
-<h3 style={{ marginTop: "20px" }}>Crew</h3>
+  {/* Contact Email */}
+  <h3 style={{ marginBottom: "6px" }}>Contact Email</h3>
+  <input
+    type="email"
+    value={contactEmail}
+    onChange={(e) => setContactEmail(e.target.value)}
+    required
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  />
 
-{[
-  { role: "Precision Driver", key: "u-crane driver" },
-  { role: "Arm & Head Tech", key: "Head and Arm Tech" },
-  { role: "Arm Operator", key: "arm operator" },
-  { role: "Transport Driver", key: "transport driver" },
-].map(({ role, key }) => (
-  <div key={role} style={{ marginBottom: "15px" }}>
-    <h4>{role}</h4>
-    {employeeList
-      .filter(
-        (emp) =>
-          Array.isArray(emp.jobTitle) &&
-          emp.jobTitle.some(
-            (jt) => jt.toLowerCase().trim() === key.toLowerCase().trim()
+  {/* Contact Number */}
+  <h3 style={{ marginBottom: "6px" }}>Contact Number</h3>
+  <input
+    type="text"
+    value={contactNumber}
+    onChange={(e) => setContactNumber(e.target.value)}
+    required
+    style={{
+      width: "90%",
+      height: "28px",
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+    }}
+  />
+
+  {/* Location */}
+  <h3 style={{ marginBottom: "6px" }}>Location</h3>
+  <textarea
+    value={location}
+    onChange={(e) => setLocation(e.target.value)}
+    rows={2}
+    required
+    style={{
+      width: "90%",
+      minHeight: "40px", // slightly taller than inputs
+      marginBottom: "12px",
+      padding: "4px 6px",
+      fontSize: "14px",
+      resize: "vertical",
+    }}
+  />
+</div>
+
+
+{/* Column 2: Dates + Crew */}
+<div style={{ flex: "1 1 300px", minWidth: "280px" }}>
+  <h3>Dates</h3>
+  <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+    <input
+      type="checkbox"
+      checked={isRange}
+      onChange={() => setIsRange(!isRange)}
+    />
+    Multi-day
+  </label>
+
+  <input
+    type="date"
+    value={startDate}
+    onChange={(e) => setStartDate(e.target.value)}
+    required
+    style={inputStyle}
+  />
+  {isRange && (
+    <input
+      type="date"
+      value={endDate}
+      onChange={(e) => setEndDate(e.target.value)}
+      required
+      style={inputStyle}
+    />
+  )}
+
+  {/* Crew Roles */}
+  <h3 style={{ marginTop: "10px" }}>Crew</h3>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr", // ✅ 2 columns
+      gap: "20px",
+    }}
+  >
+    {[
+      { role: "Precision Driver", key: "u-crane driver" },
+      { role: "Arm Operator", key: "arm operator" },
+      { role: "Arm & Head Tech", key: "Head and Arm Tech" },
+       { role: "Transport Driver", key: "transport driver" },
+           { role: "Camera Operator", key: "camera operator" }, // ✅ new
+
+    ].map(({ role, key }) => (
+      <div key={role} style={{ marginBottom: "1px" }}>
+        <h4 style={{ marginBottom: "6px" }}>{role}</h4>
+        {employeeList
+          .filter(
+            (emp) =>
+              Array.isArray(emp.jobTitle) &&
+              emp.jobTitle.some(
+                (jt) => jt.toLowerCase().trim() === key.toLowerCase().trim()
+              )
           )
-      )
-      .map((emp) => {
-        const isBooked = bookedEmployees.includes(emp.name);
-        const isHoliday = isEmployeeOnHoliday(emp.name);
-        const disabled = isBooked || isHoliday;
+          .map((emp) => {
+            const isBooked = bookedEmployees.includes(emp.name);
+            const isHoliday = isEmployeeOnHoliday(emp.name);
+            const disabled = isBooked || isHoliday;
 
-        return (
-          <label
-            key={emp.id}
-            style={{ display: "block", marginBottom: "4px", fontSize: "14px" }}
-          >
-            <input
-              type="checkbox"
-              value={emp.name}
-              disabled={disabled}
-              checked={employees.some(
-                (e) => e.name === emp.name && e.role === role
-              )}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setEmployees([...employees, { role, name: emp.name }]);
-                } else {
-                  setEmployees(
-                    employees.filter(
-                      (sel) => !(sel.name === emp.name && sel.role === role)
-                    )
-                  );
-                }
-              }}
-            />{" "}
-            <span style={{ color: disabled ? "grey" : "#333" }}>
-              {emp.name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
-            </span>
-          </label>
-        );
-      })}
+            return (
+              <label
+                key={emp.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "6px",
+                  fontSize: "16px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  value={emp.name}
+                  disabled={disabled}
+                  checked={employees.some(
+                    (e) => e.name === emp.name && e.role === role
+                  )}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setEmployees([...employees, { role, name: emp.name }]);
+                    } else {
+                      setEmployees(
+                        employees.filter(
+                          (sel) =>
+                            !(sel.name === emp.name && sel.role === role)
+                        )
+                      );
+                    }
+                  }}
+                />
+                <span style={{ color: disabled ? "grey" : "#333" }}>
+                  {emp.name} {isBooked && "(Booked)"}{" "}
+                  {isHoliday && "(On Holiday)"}
+                </span>
+              </label>
+            );
+          })}
+      </div>
+    ))}
   </div>
-))}
+</div>
 
-
-    </div>
 
     {/* Column 3: Vehicles */}
-    <div style={{ flex: "1 1 300px" }}>
+    <div style={{ flex: "1 1 300px", minWidth: "280px" }}>
       <h3>Vehicles</h3>
-      {Object.entries(vehicleGroups)
-        .filter(([group]) =>
-          ["U-Crane", "Transport Lorry", "Lorry Trailer"].some((allowed) =>
-            group.toLowerCase().includes(allowed.toLowerCase())
-          )
-        )
-        .map(([group, items]) => (
-          <div key={group}>
-            <h4>{group}</h4>
-            {items.map((vehicle) => (
-              <label key={vehicle.name} style={{ display: "block" }}>
+      {["U-Crane", "Transport Lorry"].map((group) => (
+        <div key={group} style={{ marginBottom: "15px" }}>
+          <h4 style={{ marginBottom: "6px" }}>{group}</h4>
+          {vehicleGroups[group]?.length > 0 ? (
+            vehicleGroups[group].map((vehicle) => (
+              <label
+                key={vehicle.name}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "6px",
+                }}
+              >
                 <input
                   type="checkbox"
                   value={vehicle.name}
@@ -619,11 +767,19 @@ quoteUrl: quoteUrlToSave,
                     )
                   }
                 />
-                {vehicle.name} {vehicle.registration && `– ${vehicle.registration}`}
+                <span>
+                  {vehicle.name}{" "}
+                  {vehicle.registration && `– ${vehicle.registration}`}
+                </span>
               </label>
-            ))}
-          </div>
-        ))}
+            ))
+          ) : (
+            <p style={{ fontSize: "12px", color: "#666" }}>
+              No vehicles in this category
+            </p>
+          )}
+        </div>
+      ))}
     </div>
   </div>
 
@@ -634,7 +790,13 @@ quoteUrl: quoteUrlToSave,
       value={notes}
       onChange={(e) => setNotes(e.target.value)}
       rows={4}
-      style={{ width: "100%" }}
+      style={{
+        width: "100%",
+        padding: "8px",
+        fontSize: "16px",
+        border: "1px solid #ccc",
+        borderRadius: "4px",
+      }}
       placeholder="Anything extra to include..."
     />
   </div>
@@ -642,8 +804,12 @@ quoteUrl: quoteUrlToSave,
   {/* Safety + Legal */}
   <div style={{ marginTop: 20 }}>
     <label>
-      <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} /> Health
-      & Safety Completed
+      <input
+        type="checkbox"
+        checked={hasHS}
+        onChange={(e) => setHasHS(e.target.checked)}
+      />{" "}
+      Health & Safety Completed
     </label>
     <br />
     <label>
@@ -680,6 +846,8 @@ quoteUrl: quoteUrlToSave,
 </form>
 
 
+
+
 <div style={{ marginTop: 40, padding: 20, backgroundColor: "#e0f7fa", borderRadius: 8 }}>
   <h2 style={{ marginBottom: 10 }}>Booking Summary</h2>
 
@@ -700,7 +868,18 @@ quoteUrl: quoteUrlToSave,
       : startDate || "N/A"}
   </p>
 
-  <p><strong>Employees:</strong> {employees.concat(customEmployee ? customEmployee.split(",").map(n => n.trim()) : []).join(", ") || "None selected"}</p>
+<p>
+  <strong>Employees:</strong>{" "}
+  {[
+    ...employees.map(e => {
+      if (typeof e === "string") return e; // plain string
+      if (e && typeof e === "object") return `${e.role || "Role"} – ${e.name || "Unknown"}`;
+      return "Unknown";
+    }),
+    ...(customEmployee ? customEmployee.split(",").map(n => n.trim()) : [])
+  ].join(", ") || "None selected"}
+</p>
+
 
   <p><strong>Vehicles:</strong> {vehicles.join(", ") || "None selected"}</p>
 
