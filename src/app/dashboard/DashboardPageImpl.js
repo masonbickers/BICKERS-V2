@@ -72,7 +72,254 @@ const EventNotesButton = ({ show, setShow }) => (
     {show ? "Hide Notes" : "Show Notes"}
   </button>
 );
+function CalendarEvent({ event }) {
+  const [showNotes, setShowNotes] = useState(false);
 
+  const employeeInitials = Array.isArray(event.employees)
+    ? event.employees
+        .map(emp => {
+          const employeeName =
+            typeof emp === "string" ? emp : emp?.name || "";
+          return employeeName
+            .split(" ")
+            .map(part => part[0]?.toUpperCase())
+            .join("");
+        })
+        .filter(Boolean)
+        .join(", ")
+    : "";
+
+  return (
+    <div
+      title={event.noteToShow || ""}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        fontSize: "0.85rem",
+        lineHeight: "1.4",
+        color: "#000",
+        fontWeight: 600,
+        textTransform: "uppercase",
+        fontFamily: "'Montserrat', 'Arial', sans-serif",
+        textAlign: "left",
+        alignItems: "flex-start",
+        padding: "4px",
+        margin: 0,
+        boxSizing: "border-box",
+        whiteSpace: "normal",
+        wordBreak: "break-word",
+        height: "auto",
+        overflow: "visible",
+      }}
+    >
+      {event.status === "Holiday" ? (
+        <>
+          <span>{event.employee}</span>
+          <span style={{ fontStyle: "italic", opacity: 0.7 }}>On Holiday</span>
+        </>
+      ) : event.status === "Maintenance" ? (
+        <>
+          <span style={{ fontWeight: "bold" }}>{event.vehicleName}</span>
+          <span style={{ textTransform: "capitalize" }}>{event.maintenanceType}</span>
+          {event.notes && (
+            <span style={{ fontStyle: "italic", opacity: 0.7 }}>{event.notes}</span>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Top row: initials + status + job number */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              width: "100%",
+              marginBottom: "2px",
+            }}
+          >
+            <span
+              style={{
+                backgroundColor: "white",
+                padding: "1px 6px",
+                borderRadius: "4px",
+                fontSize: "0.85rem",
+                fontWeight: "normal",
+                border: "1px solid #000",
+              }}
+            >
+              {employeeInitials}
+            </span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#333" }}>
+                  {event.status}
+                </span>
+
+                {event.isCrewed && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: "bold",
+                      color: "#333",
+                      marginTop: "-5px",
+                    }}
+                  >
+                    <Check size={12} strokeWidth={3} /> Crew
+                  </span>
+                )}
+              </div>
+
+              <span
+                style={{
+                  backgroundColor:
+                    event.shootType === "Night"
+                      ? "purple"
+                      : event.shootType === "Day"
+                      ? "white"
+                      : "#4caf50",
+                  color: event.shootType === "Night" ? "#fff" : "#000",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  fontWeight: "bold",
+                  border: "1px solid #000",
+                }}
+              >
+                {event.jobNumber}
+              </span>
+            </div>
+          </div>
+
+          {/* Details */}
+          <span>{event.client}</span>
+          {Array.isArray(event.vehicles) &&
+            event.vehicles.map((v, i) => (
+              <span key={i}>
+                {typeof v === "object"
+                  ? `${v.name}${v.registration ? ` – ${v.registration}` : ""}`
+                  : v}
+              </span>
+            ))}
+          <span>{event.equipment}</span>
+          <span>{event.location}</span>
+
+          {/* Notes (only show when toggled on) */}
+          {event.notes && showNotes && (
+            <div style={{ fontStyle: "italic", opacity: 0.8, marginTop: "4px" }}>
+              {event.notes}
+            </div>
+          )}
+
+          {/* Notes by date */}
+          {event.notesByDate && (
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                marginTop: "4px",
+                flexWrap: "wrap",
+              }}
+            >
+              {Array.from(
+                { length: Math.ceil(Object.entries(event.notesByDate).length / 4) },
+                (_, colIndex) => {
+                  const chunk = Object.entries(event.notesByDate)
+                    .sort(([a], [b]) => new Date(a) - new Date(b))
+                    .slice(colIndex * 4, colIndex * 4 + 4);
+
+                  return (
+                    <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+                      {chunk.map(([date, note]) => {
+                        const formattedDate = new Date(date).toLocaleDateString("en-GB", {
+                          weekday: "short",
+                          day: "2-digit",
+                        });
+
+                        return (
+                          <div
+                            key={date}
+                            style={{
+                              fontSize: "0.75rem",
+                              fontStyle: "italic",
+                              fontWeight: 500,
+                              opacity: 0.7,
+                            }}
+                          >
+                            {formattedDate}: {note}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          )}
+
+          {/* Bottom row: H&S + RA + Notes toggle button */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: "6px",
+              width: "100%",
+            }}
+          >
+            <div style={{ display: "flex", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: "normal",
+                  padding: "2px 4px",
+                  borderRadius: "4px",
+                  backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+                  color: "#fff",
+                  border: "1px solid #000",
+                }}
+              >
+                H&S {event.hasHS ? "✓" : "✗"}
+              </span>
+
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: "normal",
+                  padding: "2px 4px",
+                  borderRadius: "4px",
+                  backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+                  color: "#fff",
+                  border: "1px solid #000",
+                }}
+              >
+                RA {event.hasRiskAssessment ? "✓" : "✗"}
+              </span>
+            </div>
+
+            {event.notes && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowNotes(!showNotes);
+                }}
+                style={{
+                  fontSize: "0.7rem",
+                  padding: "2px 6px",
+                  border: "1px solid #000",
+                  background: "transparent",
+                  cursor: "pointer",
+                }}
+              >
+                {showNotes ? "Hide Notes" : "Show Notes"}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 
 
@@ -431,296 +678,10 @@ const navButton = {
 }}
 
             
-            
-            components={{
-              
-              event: ({ event }) => {
-                const note = event.noteToShow;
-          const [showNotes, setShowNotes] = useState(false);
+    components={{
+  event: CalendarEvent
+}}
 
-          
-          const employeeInitials = Array.isArray(event.employees)
-  ? event.employees
-      .map(emp => {
-        const employeeName =
-          typeof emp === "string" ? emp : emp?.name || "";
-        return employeeName
-          .split(" ")
-          .map(part => part[0]?.toUpperCase())
-          .join("");
-      })
-      .filter(Boolean)
-      .join(", ")
-  : "";
-
-            
-                return (
-                 <div
-  title={note || ""}
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    fontSize: "0.85rem",
-    lineHeight: "1.4",
-    color: "#000",
-    fontWeight: 600,
-    textTransform: "uppercase",
-    fontFamily: "'Montserrat', 'Arial', sans-serif",
-    textAlign: "left",
-    alignItems: "flex-start",
-    padding: "4px",
-    margin: 0,
-    boxSizing: "border-box",
-    whiteSpace: "normal",     // ✅ allow wrapping
-    wordBreak: "break-word",  // ✅ break long words
-    height: "auto",           // ✅ let height grow with content
-    overflow: "visible",      // ✅ make sure nothing is clipped
-  }}
->
-
-                   {event.status === "Holiday" ? (
-                      <>
-                       {event.status === "Holiday" ? (
-  <>
-    <span>{event.employee}</span>
-    <span style={{ fontStyle: "italic", opacity: 0.7 }}>On Holiday</span>
-  </>
-) : event.status === "Maintenance" ? (
-  <>
-    <span style={{ fontWeight: "bold" }}>{event.vehicleName}</span>
-    <span style={{ textTransform: "capitalize" }}>{event.maintenanceType}</span>
-    {event.notes && (
-      <span style={{ fontStyle: "italic", opacity: 0.7 }}>{event.notes}</span>
-    )}
-  </>
-)
- : (
-  <>
-
-
-
-    {/* existing booking layout */}
-    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-      <span style={{ fontWeight: "bold" }}>{event.client}</span>
-      <span>{event.jobNumber}</span>
-    </div>
-    {Array.isArray(event.vehicles) && event.vehicles.map((v, i) => (
-  <span key={i}>
-    {typeof v === "object"
-      ? `${v.name}${v.registration ? ` – ${v.registration}` : ""}`
-      : v}
-  </span>
-))}
-
-
-    <span>{event.location}</span>
-<span
-  style={{
-    fontWeight: "normal",
-    fontStyle: "italic",
-    fontSize: "0.85 rem",
-    opacity: 1,
-  }}
->
-  {event.notes}
-</span>
-
-  </>
-)}
-
-
-                      </>
-                    ) : (
-
-                      <>
-                       <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-    marginBottom: "2px"
-  }}
->
-  {/* Left side: employee initials */}
-  <span
-    style={{
-      backgroundColor: "white",
-      padding: "1px 6px",
-      borderRadius: "4px",
-      fontSize: "0.85rem",
-      fontWeight: "normal",
-      border: "1px solid #000"
-    }}
-  >
-    {employeeInitials}
-  </span>
-
-  {/* Right side: status + CREWED + job number */}
-  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-      <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#333" }}>
-        {event.status}
-      </span>
-
-      {/* ✅ CREWED sits directly below status */}
-      {event.isCrewed && (
-        <span
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: "bold",
-            color: "#333",
-            marginTop: "-5px",
-          }}
-        >
-             <Check size={12} strokeWidth={3} /> Crew
-        </span>
-      )}
-    </div>
-
-    <span
-      style={{
-        backgroundColor:
-          event.shootType === "Night"
-            ? "purple"
-            : event.shootType === "Day"
-            ? "white"
-            : "#4caf50",
-        color: event.shootType === "Night" ? "#fff" : "#000",
-        padding: "1px 6px",
-        borderRadius: "4px",
-        fontSize: "1rem",
-        fontWeight: "bold",
-        border: "1px solid #000"
-      }}
-    >
-      {event.jobNumber}
-    </span>
-  </div>
-</div>
-
-
-
-          
-            
-<span>{event.client}</span>
-{Array.isArray(event.vehicles) && event.vehicles.map((v, i) => (
-   <span key={i}>{v}</span>
-))}
-<span>{event.equipment}</span>
-<span>{event.location}</span>
-{event.notes && (
-  <EventNotes notes={event.notes} show={showNotes} />
-)}
-
-
-
-
-{event.notesByDate && (
-  <div
-    style={{
-      display: "flex",
-      gap: "12px",
-      marginTop: "4px",
-      flexWrap: "wrap",
-    }}
-  >
-
-
-
-    {Array.from(
-      { length: Math.ceil(Object.entries(event.notesByDate).length / 4) },
-      (_, colIndex) => {
-        const chunk = Object.entries(event.notesByDate)
-          .sort(([a], [b]) => new Date(a) - new Date(b))
-          .slice(colIndex * 4, colIndex * 4 + 4);
-
-        return (
-          <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
-            {chunk.map(([date, note]) => {
-              const formattedDate = new Date(date).toLocaleDateString("en-GB", {
-                weekday: "short",
-                day: "2-digit",
-              });
-
-              return (
-                <div
-                  key={date}
-                  style={{
-                    fontSize: "0.75rem",
-                    fontStyle: "italic",
-                    fontWeight: 500,
-                    opacity: 0.7,
-                  }}
-                >
-                  {formattedDate}: {note}
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-    )}
-  </div>
-)}
-
-{/* H&S + Risk Assessment indicators */}
-<div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "6px",
-    width: "100%",
-  }}
->
-  {/* Left side: H&S + RA */}
-  <div style={{ display: "flex", gap: "6px" }}>
-    <span
-      style={{
-        fontSize: "0.75rem",
-        fontWeight: "normal",
-        padding: "2px 4px",
-        borderRadius: "4px",
-        backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-        color: "#fff",
-        border: "1px solid #000",
-      }}
-    >
-      H&S {event.hasHS ? "✓" : "✗"}
-    </span>
-
-    <span
-      style={{
-        fontSize: "0.75rem",
-        fontWeight: "normal",
-        padding: "2px 4px",
-        borderRadius: "4px",
-        backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-        color: "#fff",
-        border: "1px solid #000",
-      }}
-    >
-      RA {event.hasRiskAssessment ? "✓" : "✗"}
-    </span>
-  </div>
-
-  {/* Right side: notes toggle button */}
-  {event.notes && (
-    <EventNotesButton show={showNotes} setShow={setShowNotes} />
-  )}
-</div>
-
-
-
-                      </>
-                    )}
-                  </div>
-                );
-              }
-            }}
-            
-            
             
             
             eventPropGetter={(event) => {
