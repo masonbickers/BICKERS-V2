@@ -994,7 +994,7 @@ const fetchBookings = async () => {
                 }}>
                 View
               </button>
-              <button onClick={() => router.push(`/edit-booking/${b.id}`)}
+              <button onClick={() => router.push(`/u-crane-edit/${b.id}`)}
                 style={{
                   padding: "6px 10px",
                   backgroundColor: "#1976d2",

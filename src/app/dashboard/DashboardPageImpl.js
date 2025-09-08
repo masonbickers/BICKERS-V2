@@ -35,6 +35,46 @@ const Dashboard = () => {
     </div>
   );
 };
+const EventNotes = ({ notes, show }) => {
+  if (!show) return null;
+  return (
+    <div
+      style={{
+        fontWeight: "normal",
+        opacity: 0.8,
+        marginTop: "4px",
+        display: "block",
+      }}
+    >
+      {notes}
+    </div>
+  );
+};
+
+const EventNotesButton = ({ show, setShow }) => (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setShow(!show);
+    }}
+    style={{
+      padding: "2px 6px",
+      fontSize: "0.7rem",
+      fontWeight: "normal",
+      backgroundColor: "transparent",  // ✅ blends with block
+      border: "1px solid rgba(0,0,0,0.3)", // ✅ subtle grey border
+      borderRadius: "3px",
+      color: "rgba(0,0,0,0.7)",        // ✅ softer text colour
+      cursor: "pointer",
+      opacity: 0.8,                    // ✅ makes it look lighter
+    }}
+  >
+    {show ? "Hide Notes" : "Show Notes"}
+  </button>
+);
+
+
+
 
 export default function DashboardPage({ bookingSaved }) {
 
@@ -52,6 +92,8 @@ export default function DashboardPage({ bookingSaved }) {
   const [noteDate, setNoteDate] = useState(null);
   const [notes, setNotes] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
+
+
 
 
 const navButton = {
@@ -391,9 +433,12 @@ const navButton = {
             
             
             components={{
+              
               event: ({ event }) => {
                 const note = event.noteToShow;
-            
+          const [showNotes, setShowNotes] = useState(false);
+
+          
           const employeeInitials = Array.isArray(event.employees)
   ? event.employees
       .map(emp => {
@@ -564,14 +609,10 @@ const navButton = {
 ))}
 <span>{event.equipment}</span>
 <span>{event.location}</span>
-<span
-  style={{
-    fontWeight: "normal",
-    opacity: 0.8,
-  }}
->
-  {event.notes}
-</span>
+{event.notes && (
+  <EventNotes notes={event.notes} show={showNotes} />
+)}
+
 
 
 
@@ -627,38 +668,47 @@ const navButton = {
 <div
   style={{
     display: "flex",
-    gap: "6px",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: "6px",
-    alignSelf: "flex-start",
+    width: "100%",
   }}
 >
-  <span
-    style={{
-      fontSize: "0.75rem",
-      fontWeight: "normal",
-      padding: "2px 4px",
-      borderRadius: "4px",
-      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-      color: "#ffffffff",
-      border: "1px solid #000",   // ✅ Black border added
-    }}
-  >
-    H&S {event.hasHS ? "✓" : "✗"}
-  </span>
+  {/* Left side: H&S + RA */}
+  <div style={{ display: "flex", gap: "6px" }}>
+    <span
+      style={{
+        fontSize: "0.75rem",
+        fontWeight: "normal",
+        padding: "2px 4px",
+        borderRadius: "4px",
+        backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid #000",
+      }}
+    >
+      H&S {event.hasHS ? "✓" : "✗"}
+    </span>
 
-  <span
-    style={{
-      fontSize: "0.75rem",
-      fontWeight: "normal",
-      padding: "2px 4px",
-      borderRadius: "4px",
-      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-      color: "#fff",
-      border: "1px solid #000",   // ✅ Black border added
-    }}
-  >
-    RA {event.hasRiskAssessment ? "✓" : "✗"}
-  </span>
+    <span
+      style={{
+        fontSize: "0.75rem",
+        fontWeight: "normal",
+        padding: "2px 4px",
+        borderRadius: "4px",
+        backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid #000",
+      }}
+    >
+      RA {event.hasRiskAssessment ? "✓" : "✗"}
+    </span>
+  </div>
+
+  {/* Right side: notes toggle button */}
+  {event.notes && (
+    <EventNotesButton show={showNotes} setShow={setShowNotes} />
+  )}
 </div>
 
 
