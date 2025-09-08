@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar as BigCalendar, Views } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
-import { collection, getDocs, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -205,11 +205,20 @@ function CalendarEvent({ event }) {
           <span>{event.location}</span>
 
           {/* Notes (only show when toggled on) */}
-          {event.notes && showNotes && (
-            <div style={{ fontStyle: "italic", opacity: 0.8, marginTop: "4px" }}>
-              {event.notes}
-            </div>
-          )}
+{event.notes && showNotes && (
+  <div
+    style={{
+
+      opacity: 0.8,
+      marginTop: "4px",
+      fontWeight: "normal",   // 👈 not bold
+      fontSize: "0.75rem",    // 👈 slightly smaller
+    }}
+  >
+    {event.notes}
+  </div>
+)}
+
 
           {/* Notes by date */}
           {event.notesByDate && (
@@ -221,39 +230,40 @@ function CalendarEvent({ event }) {
                 flexWrap: "wrap",
               }}
             >
-              {Array.from(
-                { length: Math.ceil(Object.entries(event.notesByDate).length / 4) },
-                (_, colIndex) => {
-                  const chunk = Object.entries(event.notesByDate)
-                    .sort(([a], [b]) => new Date(a) - new Date(b))
-                    .slice(colIndex * 4, colIndex * 4 + 4);
+{Array.from(
+  { length: Math.ceil(Object.entries(event.notesByDate).length / 3) }, // 👈 2 instead of 4
+  (_, colIndex) => {
+    const chunk = Object.entries(event.notesByDate)
+      .sort(([a], [b]) => new Date(a) - new Date(b))
+      .slice(colIndex * 3, colIndex * 3 + 3); // 👈 2 instead of 4
 
-                  return (
-                    <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
-                      {chunk.map(([date, note]) => {
-                        const formattedDate = new Date(date).toLocaleDateString("en-GB", {
-                          weekday: "short",
-                          day: "2-digit",
-                        });
+    return (
+      <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+        {chunk.map(([date, note]) => {
+          const formattedDate = new Date(date).toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "2-digit",
+          });
 
-                        return (
-                          <div
-                            key={date}
-                            style={{
-                              fontSize: "0.75rem",
-                              fontStyle: "italic",
-                              fontWeight: 500,
-                              opacity: 0.7,
-                            }}
-                          >
-                            {formattedDate}: {note}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-              )}
+          return (
+            <div
+              key={date}
+              style={{
+                fontSize: "0.75rem",
+                fontStyle: "italic",
+                fontWeight: 500,
+                opacity: 0.7,
+              }}
+            >
+              {formattedDate}: {note}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+)}
+
             </div>
           )}
 
@@ -377,13 +387,64 @@ const navButton = {
 
 
   
-  useEffect(() => {
-    fetchBookings();
-    fetchHolidays();
-    fetchNotes();
-    fetchVehicles();
-  }, []);
-  
+useEffect(() => {
+  // 🔹 Bookings live
+  const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
+    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setBookings(data);
+  });
+
+  // 🔹 Holidays live
+  const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
+    const holidayEvents = snap.docs.map((doc) => {
+      const data = doc.data();
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      return {
+        id: doc.id,
+        title: `${data.employee} - Holiday`,
+        start,
+        end: new Date(end.setDate(end.getDate())),
+        allDay: true,
+        status: "Holiday",
+        employee: data.employee,
+      };
+    });
+    setHolidays(holidayEvents);
+  });
+
+  // 🔹 Notes live
+  const unsubNotes = onSnapshot(collection(db, "notes"), (snap) => {
+    const noteEvents = snap.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.text || "Note",
+        start: new Date(data.date),
+        end: new Date(data.date),
+        allDay: true,
+        status: "Note",
+        employee: data.employee || "",
+      };
+    });
+    setNotes(noteEvents);
+  });
+
+  // 🔹 Vehicles live
+  const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
+    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setVehiclesData(data);
+  });
+
+  // ✅ Cleanup all listeners on unmount
+  return () => {
+    unsubBookings();
+    unsubHolidays();
+    unsubNotes();
+    unsubVehicles();
+  };
+}, []);
+
   
   const handleHome = async () => {
     await signOut(auth);
@@ -396,12 +457,6 @@ const navButton = {
     setBookings(data);
   };
 
-  const saveBooking = async (booking) => {
-    await addDoc(collection(db, "bookings"), booking);
-    setShowModal(false);
-    fetchBookings();
-    alert("Booking added ✅");
-  };
 
   const fetchHolidays = async () => {
     const snapshot = await getDocs(collection(db, "holidays"));
@@ -828,7 +883,7 @@ const navButton = {
             fontSize: "0.85rem",
             lineHeight: "1.4",
             color: "#000",
-            fontWeight: 600,
+            fontWeight: 400,
             textTransform: "uppercase",
             fontFamily: "'Montserrat', 'Arial', sans-serif",
             textAlign: "left",

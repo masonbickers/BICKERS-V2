@@ -54,6 +54,30 @@ export default function JobDetailsPage() {
     });
   };
 
+  const renderEmployees = (employees) => {
+  if (!employees) return null;
+
+  // Case: single string
+  if (typeof employees === "string") {
+    return employees;
+  }
+
+  // Case: array
+  if (Array.isArray(employees)) {
+    return employees
+      .map((emp) => {
+        if (typeof emp === "string") return emp;
+        if (typeof emp === "object") return emp.name || emp.id || "Unknown";
+        return String(emp);
+      })
+      .join(", ");
+  }
+
+  // Fallback
+  return String(employees);
+};
+
+
   const isoKey = (raw) => {
     const d = parseDate(raw);
     if (!d) return null;
@@ -90,6 +114,18 @@ export default function JobDetailsPage() {
     const alt3 = new Date(d).toLocaleDateString("en-GB");
     return notes[alt1] || notes[alt2] || notes[alt3] || "";
   };
+
+
+
+
+// 🔹 Handle job numbers like "2024-001"
+const splitJobNumber = (num) => {
+  if (!num) return { prefix: "—", suffix: "" };
+  const str = num.toString();
+  const [prefix, suffix] = str.split("-");
+  return { prefix, suffix: suffix || "" };
+};
+
 
   const renderDateBlock = (job) => {
     const dates = datesForJob(job);
@@ -211,14 +247,31 @@ export default function JobDetailsPage() {
       }
 
       const jobData = singleDoc.data();
-      const number = jobData.jobNumber || id;
-      setJobNumber(number);
+const number = jobData.jobNumber || id;
+const { prefix } = splitJobNumber(number);
+setJobNumber(number);
 
-      const allJobsSnapshot = await getDocs(collection(db, "bookings"));
-      const allJobs = allJobsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+const allJobsSnapshot = await getDocs(collection(db, "bookings"));
+const allJobs = allJobsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      const matches = allJobs.filter((j) => (j.jobNumber || j.id) === number);
-      setRelatedJobs(matches);
+// 🔹 Group by prefix and sort by suffix (latest first)
+const matches = allJobs
+  .filter((j) => {
+    const { prefix: otherPrefix } = splitJobNumber(j.jobNumber || j.id);
+    return otherPrefix === prefix;
+  })
+.sort((a, b) => {
+  const { suffix: sa } = splitJobNumber(a.jobNumber || a.id);
+  const { suffix: sb } = splitJobNumber(b.jobNumber || b.id);
+
+  // ✅ sort newest first (highest suffix number at the top)
+  return Number(sb) - Number(sa);
+});
+
+
+setRelatedJobs(matches);
+
+
 
       const seededNotes = {};
       const seededStatus = {};
@@ -408,9 +461,27 @@ const uploadPdfForJob = async (jobId) => {
           ← Back to Job Numbers
         </button>
 
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
-          Job #{jobNumber ?? "—"}
-        </h1>
+{(() => {
+  if (!jobNumber) {
+    return (
+      <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
+        Job —
+      </h1>
+    );
+  }
+
+  const str = jobNumber.toString();
+  const prefix = str.split("-")[0]; // only first 4 digits before the dash
+
+  return (
+    <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 30 }}>
+      Job #{prefix}
+    </h1>
+  );
+})()}
+
+
+
 
         {relatedJobs.length === 0 ? (
           <p>No jobs found.</p>
@@ -443,13 +514,18 @@ const uploadPdfForJob = async (jobId) => {
                     backgroundColor: "#fff",
                   }}
                 >
-                  <h4 style={{ marginTop: 0, marginBottom: "10px", display: "flex", alignItems: "center" }}>
-                    Information
-                    <span style={{ marginLeft: 12 }}>
-                      <StatusPill value={currentDbStatus} />
-                    </span>
-                    {isPaid && <PaidPill />}
-                  </h4>
+               <h4 style={{ marginTop: 0, marginBottom: "10px", display: "flex", alignItems: "center" }}>
+  Information
+  <span style={{ marginLeft: 12 }}>
+    <StatusPill value={currentDbStatus} />
+  </span>
+  {isPaid && <PaidPill />}
+</h4>
+
+<div style={{ marginBottom: "10px" }}>
+  <strong>Job Number:</strong> {job.jobNumber || job.id}
+</div>
+
 
                   <div style={{ marginBottom: "10px" }}>
                     <strong>Client:</strong> {job.client}
@@ -466,11 +542,13 @@ const uploadPdfForJob = async (jobId) => {
                       <strong>Vehicles:</strong> {job.vehicles.join(", ")}
                     </div>
                   )}
-                  {job.employees?.length > 0 && (
-                    <div style={{ marginBottom: "10px" }}>
-                      <strong>Team:</strong> {job.employees.join(", ")}
-                    </div>
-                  )}
+        {job.employees && (
+  <div style={{ marginBottom: "10px" }}>
+    <strong>Team:</strong> {renderEmployees(job.employees)}
+  </div>
+)}
+
+           
                   {job.equipment?.length > 0 && (
                     <div style={{ marginBottom: "10px" }}>
                       <strong>Equipment:</strong> {job.equipment.join(", ")}
@@ -622,59 +700,111 @@ const uploadPdfForJob = async (jobId) => {
                     </button>
                   </div>
                 </div>
+{/* Block 2: Job Summary (GENERAL + PO + Important Info) */}
+<div
+  style={{
+    flex: "0.7",
+    backgroundColor: "#f9fafb",
+    padding: "16px",
+    borderRadius: "12px",
+    border: "1px solid #ccc",
+    minWidth: "250px",
+  }}
+>
+  <h4 style={{ marginTop: 0 }}>Extra Information</h4>
 
-                {/* Block 2: Job Summary (GENERAL) */}
-                <div
-                  style={{
-                    flex: "0.7",
-                    backgroundColor: "#f9fafb",
-                    padding: "16px",
-                    borderRadius: "12px",
-                    border: "1px solid #ccc",
-                    minWidth: "250px",
-                  }}
-                >
-                  <h4 style={{ marginTop: 0 }}>Job Summary</h4>
-                  <textarea
-                    rows={4}
-                    value={dayNotes?.[job.id]?.general || ""}
-                    onChange={(e) =>
-                      setDayNotes((prev) => ({
-                        ...prev,
-                        [job.id]: {
-                          ...(prev?.[job.id] || {}),
-                          general: e.target.value,
-                        },
-                      }))
-                    }
-                    placeholder="Add general summary for this job…"
-                    style={{
-                      width: "100%",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 8,
-                      padding: 8,
-                      fontSize: 13,
-                      resize: "vertical",
-                      background: "#fff",
-                      marginTop: 10,
-                    }}
-                  />
-                  <div style={{ marginTop: 12 }}>
-                    <button
-                      onClick={() => saveJobSummary(job.id)}
-                      style={{
-                        backgroundColor: "#16a34a",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Save Summary
-                    </button>
-                  </div>
-                </div>
+  {/* Notes / General Summary */}
+  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+    Notes
+  </label>
+  <textarea
+    rows={4}
+    value={dayNotes?.[job.id]?.general || ""}
+    onChange={(e) =>
+      setDayNotes((prev) => ({
+        ...prev,
+        [job.id]: {
+          ...(prev?.[job.id] || {}),
+          general: e.target.value,
+        },
+      }))
+    }
+    placeholder="Add general summary for this job…"
+    style={{
+      width: "100%",
+      border: "1px solid #d1d5db",
+      borderRadius: 8,
+      padding: 8,
+      fontSize: 13,
+      resize: "vertical",
+      background: "#fff",
+      marginBottom: 12,
+    }}
+  />
+
+  {/* PO Section */}
+  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+    Purchase Order
+  </label>
+  <input
+    type="text"
+    value={job.po || ""}
+    onChange={(e) =>
+      updateDoc(doc(db, "bookings", job.id), { po: e.target.value })
+    }
+    placeholder="Enter PO reference…"
+    style={{
+      width: "100%",
+      border: "1px solid #d1d5db",
+      borderRadius: 8,
+      padding: 8,
+      fontSize: 13,
+      marginBottom: 12,
+      background: "#fff",
+    }}
+  />
+
+  {/* Important Info Box */}
+  <label style={{ fontWeight: 600, display: "block", marginBottom: 6 }}>
+    Important Info
+  </label>
+  <textarea
+    rows={3}
+    value={job.importantInfo || ""}
+    onChange={(e) =>
+      updateDoc(doc(db, "bookings", job.id), { importantInfo: e.target.value })
+    }
+    placeholder="Add urgent notes, damages, restrictions, etc…"
+    style={{
+      width: "100%",
+      border: "1px solid #facc15",
+      borderRadius: 8,
+      padding: 8,
+      fontSize: 13,
+      resize: "vertical",
+      background: "#fefce8", // yellow background
+      marginBottom: 12,
+    }}
+  />
+
+  {/* Save Summary */}
+  <div style={{ marginTop: 12 }}>
+    <button
+      onClick={() => saveJobSummary(job.id)}
+      style={{
+        backgroundColor: "#16a34a",
+        color: "#fff",
+        border: "none",
+        borderRadius: 8,
+        padding: "8px 12px",
+        cursor: "pointer",
+      }}
+    >
+      Save Summary
+    </button>
+  </div>
+</div>
+
 
                 {/* Block 3: Actions */}
                 <div

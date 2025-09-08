@@ -28,6 +28,13 @@ function formatWeekRange(monday) {
   })}`;
 }
 
+/* ---------- Job prefix helper ---------- */
+const getJobPrefix = (job) => {
+  if (!job.jobNumber) return "No Job #";
+  return job.jobNumber.toString().split("-")[0]; // 🔹 take only first 4 digits before dash
+};
+
+
 export default function JobSheetPage() {
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState("");
@@ -44,6 +51,20 @@ export default function JobSheetPage() {
       return null;
     }
   };
+  
+  /* ---------- Group jobs by week ---------- */
+const groupJobsByWeek = (jobs) => {
+  const byWeek = {};
+  for (const job of jobs) {
+    const ds = normaliseDates(job).sort((a, b) => a - b);
+    if (!ds.length) continue;
+    const mondayKey = getMonday(ds[0]).getTime(); // start of week
+    if (!byWeek[mondayKey]) byWeek[mondayKey] = [];
+    byWeek[mondayKey].push(job);
+  }
+  return byWeek;
+};
+
 
   const normaliseDates = (job) => {
     const dates = [];
@@ -379,58 +400,60 @@ const groups = useMemo(() => {
 
 
         {/* 🔹 Show Active Section */}
-        {activeSection !== "Complete Jobs" && (
+{/* 🔹 Week-split layout for all filters except Enquiries */}
+{activeSection !== "Enquiries" &&
+  Object.keys(groupJobsByWeek(groups[activeSection] || []))
+      .sort((a, b) =>
+      activeSection === "Upcoming" ? a - b : b - a
+    ) // 🔹 earliest week first for Upcoming, latest first for others
+    .map((mondayTS) => {
+      const monday = new Date(Number(mondayTS));
+      const weekJobs = groupJobsByWeek(groups[activeSection] || [])[mondayTS];
+      return (
+        <div key={mondayTS} style={{ marginBottom: 40 }}>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              marginBottom: 16,
+              color: "#374151",
+            }}
+          >
+            {formatWeekRange(monday)} ({weekJobs.length})
+          </h2>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-
+              gridTemplateColumns: "repeat(4, 1fr)", // 🔹 4 columns
               gap: "20px",
             }}
           >
-            {groups[activeSection]?.map((job) => (
-              <JobCard key={job.id} job={job} section={activeSection} />
+            {weekJobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                section={activeSection}
+              />
             ))}
           </div>
-        )}
+        </div>
+      );
+    })}
 
-        {activeSection === "Complete Jobs" &&
-          Object.keys(completeJobsByWeek)
-            .sort((a, b) => b - a)
-            .map((mondayTS) => {
-              const monday = new Date(Number(mondayTS));
-              const weekJobs = completeJobsByWeek[mondayTS];
-              return (
-                <div key={mondayTS} style={{ marginBottom: 40 }}>
-                  <h2
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 600,
-                      marginBottom: 16,
-                      color: "#374151",
-                    }}
-                  >
-                    {formatWeekRange(monday)} ({weekJobs.length})
-                  </h2>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fill, minmax(340px,1fr))",
-                      gap: "20px",
-                    }}
-                  >
-                    {weekJobs.map((job) => (
-                      <JobCard
-                        key={job.id}
-                        job={job}
-                        section="Complete Jobs"
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+{activeSection === "Enquiries" && (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)", // still 4 columns
+      gap: "20px",
+    }}
+  >
+    {groups.Enquiries?.map((job) => (
+      <JobCard key={job.id} job={job} section="Enquiries" />
+    ))}
+  </div>
+)}
+
       </div>
     </HeaderSidebarLayout>
   );
