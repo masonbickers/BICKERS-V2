@@ -673,6 +673,8 @@ quoteUrl: quoteUrlToSave,
 <option value="Travel Day">Travel Day</option>
 <option value="Travel Time">Travel Time</option>
 <option value="Turnaround Day">Turnaround Day</option>
+<option value="Recce Day">Recce Day</option>
+
 
     </select>
 
@@ -763,6 +765,8 @@ quoteUrl: quoteUrlToSave,
   <option value="Travel Day">Travel Day</option>
   <option value="Travel Time">Travel Time</option>
   <option value="Turnaround Day">Turnaround Day</option>
+  <option value="Recce Day">Recce Day</option>
+
 </select>
 
           {isOther && (
