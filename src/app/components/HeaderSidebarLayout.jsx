@@ -32,7 +32,7 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "HR", path: "/hr" },
     { label: "Employees", path: "/employee-home" },
     { label: "Maintenance", path: "/vehicle-home" },
-    { label: "Job Sheet", path: "/job-sheet" },
+    { label: "Jobs", path: "/job-sheet" },
     { label: "Finance", path: "/finance-dashboard" },
     { label: "Settings", path: "/settings" },
     { label: "Logout", path: "/login" },

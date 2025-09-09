@@ -737,28 +737,33 @@ quoteUrl: quoteUrlToSave,
         <div key={date} style={{ marginBottom: 10 }}>
           <label>{new Date(date).toDateString()}</label><br />
 
-          <select
-            value={selectedNote}
-            onChange={(e) =>
-              setNotesByDate({ ...notesByDate, [date]: e.target.value })
-            }
-            style={{
-              width: "100%",
-              padding: "8px",
-              fontSize: "14px",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-              marginBottom: isOther ? "8px" : "0"
-            }}
-          >
-            <option value="">Select note</option>
-            <option value="1/2 Day Travel">1/2 Day Travel</option>
-            <option value="Travel Day">Travel Day</option>
-            <option value="On Set">On Set</option>
-            <option value="Night Shoot">Night Shoot</option>
-            <option value="Turnaround Day">Turnaround Day</option>
-            <option value="Other">Other</option>
-          </select>
+       <select
+  value={selectedNote}
+  onChange={(e) =>
+    setNotesByDate({ ...notesByDate, [date]: e.target.value })
+  }
+  style={{
+    width: "100%",
+    padding: "8px",
+    fontSize: "14px",
+    borderRadius: "4px",
+    border: "1px solid #ccc",
+    marginBottom: isOther ? "8px" : "0"
+  }}
+>
+  <option value="">Select note</option>
+  <option value="1/2 Day Travel">1/2 Day Travel</option>
+  <option value="Night Shoot">Night Shoot</option>
+  <option value="On Set">Shoot Day</option>
+  <option value="Other">Other</option>
+  <option value="Rehearsal Day">Rehearsal Day</option>
+  <option value="Rest Day">Rest Day</option>
+  <option value="Rig Day">Rig Day</option>
+  <option value="Standby Day">Standby Day</option>
+  <option value="Travel Day">Travel Day</option>
+  <option value="Travel Time">Travel Time</option>
+  <option value="Turnaround Day">Turnaround Day</option>
+</select>
 
           {isOther && (
             <input
