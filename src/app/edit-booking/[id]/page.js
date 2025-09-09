@@ -104,17 +104,19 @@ setEmployeeList(
 
 setFreelancerList(
   allEmployees
-    .filter(emp =>
-      Array.isArray(emp.jobTitle)
-        ? emp.jobTitle.some(j => j.toLowerCase() === "freelancer")
-        : (emp.jobTitle || "").toLowerCase() === "freelancer"
-    )
+    .filter(emp => {
+      const titles = Array.isArray(emp.jobTitle)
+        ? emp.jobTitle.map(j => j.toLowerCase())
+        : [(emp.jobTitle || "").toLowerCase()];
+      return titles.includes("freelancer") || titles.includes("freelance");
+    })
     .map(emp => ({
       id: emp.id,
       name: emp.name || emp.fullName || emp.id,
       jobTitle: emp.jobTitle
     }))
 );
+
 
   
       // Group vehicles
@@ -996,11 +998,14 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   <p><strong>Location:</strong> {location}</p>
   <p><strong>Dates:</strong> {isRange ? `${startDate} → ${endDate}` : startDate}</p>
 
-<p><strong>Drivers / Freelancers:</strong> {
-  employees.map(e => e.name)
-    .concat(customEmployee ? customEmployee.split(",").map(n => n.trim()) : [])
-    .join(", ") || "None"
+<p><strong>Drivers:</strong> {
+  employees.filter(e => e.role === "Precision Driver").map(e => e.name).join(", ") || "None"
 }</p>
+
+<p><strong>Freelancers:</strong> {
+  employees.filter(e => e.role === "Freelancer").map(e => e.name).join(", ") || "None"
+}</p>
+
 
 <p><strong>Vehicles:</strong> {
   Object.values(vehicleGroups)

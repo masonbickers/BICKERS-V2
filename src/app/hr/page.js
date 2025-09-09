@@ -4,7 +4,6 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-
 export default function HRPage() {
   const router = useRouter();
 
@@ -18,6 +17,11 @@ export default function HRPage() {
       title: "View Holiday Usage",
       description: "Check how much holiday each employee has used.",
       link: "/holiday-usage"
+    },
+    {
+      title: "Timesheets",
+      description: "View, submit, and track weekly timesheets.",
+      link: "/timesheets"   // ✅ adjust to match your timesheet overview route
     },
     {
       title: "Sick Leave Form",
@@ -38,36 +42,29 @@ export default function HRPage() {
 
   return (
     <HeaderSidebarLayout>
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333", fontFamily: "Arial, sans-serif" }}>
+      <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333", fontFamily: "Arial, sans-serif" }}>
+        <main style={{ flex: 1, padding: 40 }}>
+          <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>HR Resources</h1>
 
-
-      <main style={{ flex: 1, padding: 40 }}>
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>HR Resources</h1>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-          {documents.map((doc, idx) => (
-            <div key={idx} style={cardStyle} onClick={() => router.push(doc.link)}>
-              <h2 style={{ marginBottom: 10 }}>{doc.title}</h2>
-              <p>{doc.description}</p>
-            </div>
-          ))}
-        </div>
-      </main>
-    </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+            {documents.map((doc, idx) => (
+              <div
+                key={idx}
+                style={cardStyle}
+                onClick={() => router.push(doc.link)}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-4px)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+              >
+                <h2 style={{ marginBottom: 10 }}>{doc.title}</h2>
+                <p>{doc.description}</p>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
     </HeaderSidebarLayout>
   );
 }
-
-const navButton = {
-  background: "transparent",
-  color: "#fff",
-  border: "none",
-  fontSize: 16,
-  padding: "10px 0",
-  textAlign: "left",
-  cursor: "pointer",
-  borderBottom: "1px solid #333"
-};
 
 const cardStyle = {
   backgroundColor: "#fff",
