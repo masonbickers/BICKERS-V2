@@ -43,7 +43,8 @@ export default function CreateBookingPage() {
     "Large Tracking Vehicles": [],
     "Low Loaders": [],
     "Transport Lorry": [],
-    "Transport Van": []
+    "Transport Van": [],
+    "Other Vehicles": [] 
   });
   const [equipmentGroups, setEquipmentGroups] = useState({});
 const [openEquipGroups, setOpenEquipGroups] = useState({});
@@ -54,7 +55,8 @@ const [openEquipGroups, setOpenEquipGroups] = useState({});
     "Large Tracking Vehicles": false,
     "Low Loaders": false,
     "Transport Lorry": false,
-    "Transport Van": false
+    "Transport Van": false,
+      "Other Vehicles": false
   });
   
   const params = useParams();
@@ -147,6 +149,8 @@ setFreelancerList(
         else if (category.includes("low loader")) grouped["Low Loaders"].push(vehicleInfo);
         else if (category.includes("lorry")) grouped["Transport Lorry"].push(vehicleInfo);
         else if (category.includes("van")) grouped["Transport Van"].push(vehicleInfo);
+          else grouped["Other Vehicles"].push(vehicleInfo);   // ✅ catch-all
+
       });
       
       

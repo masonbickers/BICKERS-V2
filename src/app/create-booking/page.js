@@ -75,7 +75,9 @@ export default function CreateBookingPage() {
     "Large Tracking Vehicles": false,
     "Low Loaders": false,
     "Transport Lorry": false,
-    "Transport Van": false
+    "Transport Van": false,
+    "Other Vehicles": false
+
   });
   
   const [contactNumber, setContactNumber] = useState("");
@@ -190,7 +192,8 @@ setMaintenanceBookings(maintenanceData);
         "Large Tracking Vehicles": [],
         "Low Loaders": [],
         "Transport Lorry": [],
-        "Transport Van": []
+        "Transport Van": [],
+        "Other Vehicles": [] 
       };
       
       
@@ -209,6 +212,7 @@ setMaintenanceBookings(maintenanceData);
         else if (category.includes("low loader")) grouped["Low Loaders"].push(vehicle);
         else if (category.includes("lorry")) grouped["Transport Lorry"].push(vehicle);
         else if (category.includes("van")) grouped["Transport Van"].push(vehicle);
+          else grouped["Other Vehicles"].push(vehicle);   
       });
       
       

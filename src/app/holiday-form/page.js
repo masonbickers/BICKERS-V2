@@ -65,6 +65,8 @@ export default function HolidayForm() {
         paid,        // boolean convenience
         leaveType,   // mirrors paidStatus
         createdAt: new Date(),
+        status: "approved",   // 👈 force auto-approve on web
+
       };
 
       await addDoc(collection(db, "holidays"), holidayData);
