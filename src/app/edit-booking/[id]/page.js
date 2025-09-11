@@ -129,7 +129,8 @@ setFreelancerList(
         "Large Tracking Vehicles": [],
         "Low Loaders": [],
         "Transport Lorry": [],
-        "Transport Van": []
+        "Transport Van": [],
+          "Other Vehicles": []  
       };
 
       vehicleSnap.docs.forEach(doc => {

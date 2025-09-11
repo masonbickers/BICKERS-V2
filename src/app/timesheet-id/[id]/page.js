@@ -93,23 +93,46 @@ export default function TimesheetDetailPage() {
 
         {/* Days */}
         <div style={{ display: "grid", gap: 16 }}>
-          {days.map((day) => {
-            const entry = timesheet.days?.[day];
-            if (!entry) return null;
+{days.map((day) => {
+  const entry = timesheet.days?.[day];
+  if (!entry) return null;
 
-            let hoursWorked = 0;
-            if (entry.mode === "yard") {
-              hoursWorked = calculateHours(entry.leaveTime, entry.arriveBack);
-            } else if (entry.mode === "travel") {
-              hoursWorked = calculateHours(entry.leaveTime, entry.arriveTime);
-            } else if (entry.mode === "onset") {
-              if (entry.callTime && entry.wrapTime) {
-                hoursWorked = calculateHours(entry.callTime, entry.wrapTime);
-              } else if (entry.leaveTime && entry.arriveBack) {
-                hoursWorked = calculateHours(entry.leaveTime, entry.arriveBack);
-              }
-            }
-            totalHours += hoursWorked;
+  // ⬇️ NEW: handle holidays / off days
+  if (entry.mode === "holiday") {
+    return (
+      <div key={day} style={{ background: "#fff3cd", padding: 20, borderRadius: 10 }}>
+        <h3 style={{ margin: 0 }}>{day}</h3>
+        <p style={{ margin: 0, color: "#856404" }}>🌴 Holiday</p>
+      </div>
+    );
+  }
+
+  if (entry.mode === "off") {
+    return (
+      <div key={day} style={{ background: "#f0f0f0", padding: 20, borderRadius: 10 }}>
+        <h3 style={{ margin: 0 }}>{day}</h3>
+        <p style={{ margin: 0, color: "#666" }}>Day Off</p>
+      </div>
+    );
+  }
+
+  // existing hours calculation continues here ⬇️
+  let hoursWorked = 0;
+  if (entry.mode === "yard") {
+    hoursWorked = calculateHours(entry.leaveTime, entry.arriveBack);
+  } else if (entry.mode === "travel") {
+    hoursWorked = calculateHours(entry.leaveTime, entry.arriveTime);
+  } else if (entry.mode === "onset") {
+    if (entry.callTime && entry.wrapTime) {
+      hoursWorked = calculateHours(entry.callTime, entry.wrapTime);
+    } else if (entry.leaveTime && entry.arriveBack) {
+      hoursWorked = calculateHours(entry.leaveTime, entry.arriveBack);
+    } else if (entry.leaveTime && entry.arriveTime) {
+      hoursWorked = calculateHours(entry.leaveTime, entry.arriveTime);
+    }
+  }
+  totalHours += hoursWorked;
+
 
             return (
               <div
