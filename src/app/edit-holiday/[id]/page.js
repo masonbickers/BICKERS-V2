@@ -94,7 +94,10 @@ export default function EditHolidayPage() {
     <div style={mainContainerStyle}>
       <main style={mainContentStyle}>
         <div style={headerStyle}>
-          <button onClick={handleHome} style={backButtonStyle}>Back</button>
+<button onClick={() => router.back()} style={backButtonStyle}>
+  ← Back
+</button>
+
         </div>
 
         <h1 style={pageTitleStyle}>Edit Holiday</h1>
@@ -136,7 +139,7 @@ export default function EditHolidayPage() {
             </div>
 
             <button type="submit" style={buttonStyle}>Update Holiday</button>
-            <button type="button" onClick={handleCancel} style={cancelButtonStyle}>Cancel</button>
+
             <button type="button" onClick={handleDelete} style={{...cancelButtonStyle, backgroundColor: "#888", // Optional: grey styling for delete 
             marginTop: "10px"
   }}

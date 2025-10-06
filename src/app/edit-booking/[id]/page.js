@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
 import { signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, addDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth } from "../../../../firebaseConfig";
@@ -65,7 +65,11 @@ const [openEquipGroups, setOpenEquipGroups] = useState({});
   const [contactNumber, setContactNumber] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   
-  
+  // NEW: status reason state
+const [statusReasons, setStatusReasons] = useState([]);
+const [statusReasonOther, setStatusReasonOther] = useState("");
+
+
 
   const [employeeList, setEmployeeList] = useState([]);
   useEffect(() => {
@@ -180,6 +184,9 @@ setFreelancerList(
           setIsRange(!!b.startDate && !!b.endDate);
           setStartDate((b.startDate || b.date || "").slice(0, 10));
           setEndDate((b.endDate || "").slice(0, 10));
+          setStatusReasons(b.statusReasons || []);
+setStatusReasonOther(b.statusReasonOther || "");
+
           // normalise employees: supports old string data + new object format
 setEmployees(
   (b.employees || []).map(e =>
@@ -264,31 +271,41 @@ setVehicles(b.vehicles || []);
   })
   .flatMap(b => b.vehicles || []);
 
+const bookedEmployees = allBookings
+  .filter(b => {
+    if (bookingId && b.jobNumber === jobNumber) return false; // exclude current booking
 
-    const bookedEmployees = allBookings
-    .filter(b => {
-      if (bookingId && b.jobNumber === jobNumber) return false; // exclude current booking
-  
-      const dateToCheck = startDate;
-      const bDate = b.date?.slice(0, 10);
-      const bStart = b.startDate?.slice(0, 10);
-      const bEnd = b.endDate?.slice(0, 10);
-      if (!dateToCheck) return false;
-  
-      return (
-        (bDate && bDate === dateToCheck) ||
-        (bStart && bEnd && dateToCheck >= bStart && dateToCheck <= bEnd)
-      );
-    })
-    .flatMap(b => b.employees || []);
-  
+    const dateToCheck = startDate;
+    const bDate = b.date?.slice(0, 10);
+    const bStart = b.startDate?.slice(0, 10);
+    const bEnd = b.endDate?.slice(0, 10);
+    if (!dateToCheck) return false;
 
-  const handleSubmit = async (status = "Confirmed") => {
-    console.log("📋 Submitting booking for ID:", bookingId);
-if (status !== "Enquiry") {
-  if (!startDate) return alert("Please select a start date.");
-  if (isRange && !endDate) return alert("Please select an end date.");
-}
+    return (
+      (bDate && bDate === dateToCheck) ||
+      (bStart && bEnd && dateToCheck >= bStart && dateToCheck <= bEnd)
+    );
+  })
+  .flatMap(b => b.employees || [])
+  .map(e => (typeof e === "string" ? e : e.name));
+
+
+const handleSubmit = async () => {
+  console.log("📋 Submitting booking for ID:", bookingId);
+
+  if (status !== "Enquiry") {
+    if (!startDate) return alert("Please select a start date.");
+    if (isRange && !endDate) return alert("Please select an end date.");
+  }
+
+  // ✅ NEW: reason validation goes here
+  const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
+  if (needsReason) {
+    if (!statusReasons.length) return alert("Please choose at least one reason.");
+    if (statusReasons.includes("Other") && !statusReasonOther.trim()) {
+      return alert("Please enter the 'Other' reason.");
+    }
+  }
 
 
     const isDuplicateJobNumber = allBookings.some(
@@ -296,23 +313,31 @@ if (status !== "Enquiry") {
         b.jobNumber?.trim().toLowerCase() === jobNumber.trim().toLowerCase() &&
         (!bookingId || b.id !== bookingId) // ignore current booking when editing
     );
+    if (isDuplicateJobNumber) {
+  alert("That job number already exists. Please choose a unique number.");
+  return;
+}
+
 
     
 
-    const customNames = customEmployee
-      ? customEmployee.split(",").map(name => name.trim())
-      : [];
+const customNames = customEmployee
+  ? customEmployee.split(",").map(name => name.trim()).filter(Boolean)
+  : [];
 
-    const cleanedEmployees = employees
-      .filter(name => name !== "Other")
-      .concat(customNames);
+const cleanedEmployees = [
+  ...employees.filter(e => e.name !== "Other"),
+  ...customNames.map(n => ({ role: "Precision Driver", name: n })),
+];
 
-    for (const employee of cleanedEmployees) {
-      if (isEmployeeOnHoliday(employee)) {
-        alert(`${employee} is on holiday during the selected dates.`);
-        return;
-      }
-    }
+
+for (const employee of cleanedEmployees) {
+  if (isEmployeeOnHoliday(employee.name)) {
+    alert(`${employee.name} is on holiday during the selected dates.`);
+    return;
+  }
+}
+
 
 let bookingDates = [];
 if (status !== "Enquiry") {
@@ -364,22 +389,27 @@ const booking = {
   bookingDates,
   shootType,
   pdfURL: pdfURL || null,
-...(status !== "Enquiry"
-  ? (isRange
-      ? {
-          startDate: new Date(startDate).toISOString(),
-          endDate: new Date(endDate).toISOString(),
-          date: null
-        }
-      : {
-          date: new Date(startDate).toISOString(),
-          startDate: null,
-          endDate: null
-        })
-  : {}), // ✅ Enquiry skips dates
 
+  // Save reasons only when applicable
+  ...(["Lost", "Postponed", "Cancelled"].includes(status) && {
+    statusReasons,
+    statusReasonOther: statusReasons.includes("Other") ? statusReasonOther.trim() : "",
+  }),
 
-  // 🔹 new fields
+  ...(status !== "Enquiry"
+    ? (isRange
+        ? {
+            startDate: new Date(startDate).toISOString(),
+            endDate: new Date(endDate).toISOString(),
+            date: null
+          }
+        : {
+            date: new Date(startDate).toISOString(),
+            startDate: null,
+            endDate: null
+          })
+    : {}),
+
   lastEditedBy: user?.email || "Unknown",
   updatedAt: new Date().toISOString(),
 };
@@ -445,7 +475,8 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
   
 
-<form onSubmit={(e) => { e.preventDefault(); handleSubmit(status); }}>
+<form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+
 <div style={{
   display: "flex",
   gap: "30px",
@@ -465,12 +496,12 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   
   {/* Job Number Field */}
   <h2>Job Number</h2><br />
-  <input 
-  value={jobNumber} 
-  onChange={(e) => setJobNumber(e.target.value)} 
-  required 
-
-  style={{ 
+<input
+  value={jobNumber}
+  onChange={(e) => setJobNumber(e.target.value)}
+  required
+  disabled={!!bookingId}
+  style={{
     width: "100%",
     height: "40px",
     marginBottom: 20,
@@ -479,29 +510,88 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
     backgroundColor: bookingId ? "#eee" : "white",
     color: bookingId ? "#666" : "#000",
     cursor: bookingId ? "not-allowed" : "text"
-  }} 
+  }}
 />
+
 <br />
 
 
   {/* Status Dropdown */}
 <h3>Status</h3><br />
-<select 
+<select
   value={status}
-  onChange={(e) => setStatus(e.target.value)}
-  style={{ 
+  onChange={(e) => {
+    const next = e.target.value;
+    setStatus(next);
+
+    // Clear reasons if moving away from Lost/Postponed/Cancelled
+    if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+      setStatusReasons([]);
+      setStatusReasonOther("");
+    }
+  }}
+  style={{
     width: "100%",
     height: "40px",
     marginBottom: 20,
     padding: "8px",
-    fontSize: "16px"
+    fontSize: "16px",
   }}
 >
   <option value="Confirmed">Confirmed</option>
   <option value="First Pencil">First Pencil</option>
   <option value="Second Pencil">Second Pencil</option>
   <option value="Enquiry">Enquiry</option>
+  <option value="DNH">DNH</option>
+
+  {/* NEW */}
+  <option value="Lost">Lost</option>
+  <option value="Postponed">Postponed</option>
+  <option value="Cancelled">Cancelled</option>
 </select>
+
+{["Lost","Postponed","Cancelled"].includes(status) && (
+  <div
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: 8,
+      padding: 12,
+      marginTop: -10,
+      marginBottom: 20,
+      background: "#fafafa",
+    }}
+  >
+    <h4 style={{ margin: "0 0 10px" }}>Reason</h4>
+
+    {["Cost", "Weather", "Competitor", "DNH", "Other"].map((r) => (
+      <label key={r} style={{ display: "inline-block", marginRight: 16, marginBottom: 8 }}>
+        <input
+          type="checkbox"
+          checked={statusReasons.includes(r)}
+          onChange={() =>
+            setStatusReasons((prev) =>
+              prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+            )
+          }
+        />{" "}
+        {r}
+      </label>
+    ))}
+
+    {statusReasons.includes("Other") && (
+      <div style={{ marginTop: 10 }}>
+        <input
+          type="text"
+          placeholder="Other reason..."
+          value={statusReasonOther}
+          onChange={(e) => setStatusReasonOther(e.target.value)}
+          style={{ width: "100%", padding: 8, fontSize: 14 }}
+        />
+      </div>
+    )}
+  </div>
+)}
+
 
 
   {/* Shoot Type Dropdown */}
@@ -766,7 +856,8 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
 
 
-{employees.includes("Other") && (
+{employees.some(e => e.name === "Other") && (
+
   <div style={{ marginTop: 8 }}>
     <input
       type="text"
@@ -777,26 +868,27 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
     />
 
     {/* Render custom employees as checkboxes */}
-    {customEmployee
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .map((name) => (
-        <label key={name} style={{ display: "block", marginBottom: 5 }}>
-          <input
-            type="checkbox"
-            checked={employees.includes(name)}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setEmployees([...employees, name]);
-              } else {
-                setEmployees(employees.filter((n) => n !== name));
-              }
-            }}
-          />{" "}
-          <span>{name}</span>
-        </label>
-      ))}
+{customEmployee
+  .split(",")
+  .map((name) => name.trim())
+  .filter(Boolean)
+  .map((name) => (
+    <label key={name} style={{ display: "block", marginBottom: 5 }}>
+      <input
+        type="checkbox"
+        checked={employees.some(e => e.role === "Precision Driver" && e.name === name)}
+        onChange={(e) => {
+          if (e.target.checked) {
+            setEmployees([...employees, { role: "Precision Driver", name }]);
+          } else {
+            setEmployees(employees.filter(e => !(e.role === "Precision Driver" && e.name === name)));
+          }
+        }}
+      />{" "}
+      <span>{name}</span>
+    </label>
+  ))}
+
   </div>
 )}
 
