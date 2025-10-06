@@ -119,7 +119,10 @@ export default function HRPage() {
                       <td style={td}>{h.employee || h.employeeCode}</td>
                       <td style={td}>{h.startDate}</td>
                       <td style={td}>{h.endDate}</td>
-                      <td style={td}>{h.leaveType || "Other"}</td>
+<td style={td}>
+  {h.halfDay ? "Half-Day " : ""}
+  {h.leaveType || "Other"}
+</td>
                       <td style={td}>{h.notes || "-"}</td>
                       <td style={td}>
                         <button

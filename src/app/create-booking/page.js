@@ -83,7 +83,32 @@ export default function CreateBookingPage() {
   const [contactNumber, setContactNumber] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  // add with other state
+const [useCustomDates, setUseCustomDates] = useState(false); // toggle for non-consecutive
+const [customDates, setCustomDates] = useState([]);          // array of 'YYYY-MM-DD'
 
+
+// ---- UTC day helpers (put near the top) ----
+const parseYMD_UTC = (ymd) => {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)); // UTC midnight
+};
+const formatYMD_UTC = (dt) => dt.toISOString().slice(0, 10);
+const addDaysUTC = (dt, n) => {
+  const copy = new Date(dt.getTime());
+  copy.setUTCDate(copy.getUTCDate() + n);
+  return copy;
+};
+const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
+  let cur = parseYMD_UTC(startYMD);
+  const end = parseYMD_UTC(endYMD);
+  const out = [];
+  while (cur <= end) {
+    out.push(formatYMD_UTC(cur));
+    cur = addDaysUTC(cur, 1);
+  }
+  return out;
+};
 
 
 
@@ -230,37 +255,45 @@ setMaintenanceBookings(maintenanceData);
 
   
 
-  const isEmployeeOnHoliday = (employeeName) => {
-    const selectedStart = new Date(startDate);
-    const selectedEnd = isRange ? new Date(endDate) : selectedStart;
-
-    
-
-    return holidayBookings.some(h => {
-      if (h.employee !== employeeName) return false;
-      const holidayStart = new Date(h.startDate);
-      const holidayEnd = new Date(h.endDate);
-
-      return (
-        (selectedStart >= holidayStart && selectedStart <= holidayEnd) ||
-        (selectedEnd >= holidayStart && selectedEnd <= holidayEnd) ||
-        (selectedStart <= holidayStart && selectedEnd >= holidayEnd)
-      );
+const isEmployeeOnHoliday = (employeeName) => {
+  if (selectedDates.length === 0) return false;
+  return holidayBookings.some(h => {
+    if (h.employee !== employeeName) return false;
+    const holidayStart = new Date(h.startDate);
+    const holidayEnd   = new Date(h.endDate);
+    return selectedDates.some(d => {
+      const day = new Date(d);
+      return day >= holidayStart && day <= holidayEnd;
     });
+  });
+};
+
+
+
+const selectedDates = (() => {
+  if (useCustomDates) return customDates;          // already 'YYYY-MM-DD'
+  if (!startDate) return [];
+
+  // helper to make a UTC date from 'YYYY-MM-DD'
+  const parseYMD_UTC = (ymd) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
   };
 
-  const selectedDates = (() => {
-    if (!startDate) return [];
-    const dates = [];
-    const start = new Date(startDate);
-    const end = isRange && endDate ? new Date(endDate) : start;
-    const current = new Date(start);
-    while (current <= end) {
-      dates.push(current.toISOString().split("T")[0]);
-      current.setDate(current.getDate() + 1);
+  if (isRange && endDate) {
+    const out = [];
+    let cur = parseYMD_UTC(startDate);
+    const stop = parseYMD_UTC(endDate);
+    while (cur <= stop) {
+      out.push(cur.toISOString().slice(0, 10));    // 'YYYY-MM-DD' in UTC
+      cur.setUTCDate(cur.getUTCDate() + 1);        // ✅ UTC day math
     }
-    return dates;
-  })();
+    return out;
+  }
+
+  return [startDate]; // already 'YYYY-MM-DD'
+})();
+
   
   const bookedVehicles = allBookings
     .filter(b => {
@@ -277,19 +310,31 @@ setMaintenanceBookings(maintenanceData);
   .flatMap(b => b.equipment || []);
 
   
-  const bookedEmployees = allBookings
-    .filter(b => {
-      const dateToCheck = startDate;
-      const bDate = b.date?.slice(0, 10);
-      const bStart = b.startDate?.slice(0, 10);
-      const bEnd = b.endDate?.slice(0, 10);
-      if (!dateToCheck) return false;
-      return (
-        (bDate && bDate === dateToCheck) ||
-        (bStart && bEnd && dateToCheck >= bStart && dateToCheck <= bEnd)
-      );
-    })
-    .flatMap(b => b.employees || []);
+const bookedEmployees = allBookings
+  .filter(b => {
+    // Prefer explicit bookingDates if present
+    const dates = Array.isArray(b.bookingDates) && b.bookingDates.length
+      ? b.bookingDates
+      : (() => {
+          // Fallback for legacy records using date/startDate/endDate
+          const one   = b.date?.slice(0,10);
+          const start = b.startDate?.slice(0,10);
+          const end   = b.endDate?.slice(0,10);
+          if (one) return [one];
+          if (start && end) {
+            const out = [];
+            const cur = new Date(start);
+            const stop = new Date(end);
+            while (cur <= stop) { out.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+            return out;
+          }
+          return [];
+        })();
+
+    return dates.some(d => selectedDates.includes(d));
+  })
+  .flatMap(b => b.employees || []);
+
 
     const maintenanceBookedVehicles = maintenanceBookings
   .filter(b => {
@@ -304,9 +349,14 @@ setMaintenanceBookings(maintenanceData);
 
   const handleSubmit = async (status = "Confirmed") => {
 if (status !== "Enquiry") {
-  if (!startDate) return alert("Please select a start date.");
-  if (isRange && !endDate) return alert("Please select an end date.");
+  if (useCustomDates) {
+    if (customDates.length === 0) return alert("Please select at least one date.");
+  } else {
+    if (!startDate) return alert("Please select a start date.");
+    if (isRange && !endDate) return alert("Please select an end date.");
+  }
 }
+
 
 
     const isDuplicateJobNumber = allBookings.some(
@@ -328,19 +378,11 @@ if (status !== "Enquiry") {
       }
     }
 
-let bookingDates = [];
-if (status !== "Enquiry") {
-  if (isRange && startDate && endDate) {
-    const current = new Date(startDate);
-    const end = new Date(endDate);
-    while (current <= end) {
-      bookingDates.push(current.toISOString().split("T")[0]);
-      current.setDate(current.getDate() + 1);
-    }
-  } else if (startDate) {
-    bookingDates = [new Date(startDate).toISOString().split("T")[0]];
-  }
-}
+const bookingDates = status !== "Enquiry" ? selectedDates : [];
+// Keep notes only for selected dates
+const filteredNotesByDate = {};
+bookingDates.forEach(d => { filteredNotesByDate[d] = notesByDate[d] || ""; });
+
 
 
 // ✅ Upload Excel Quote (resumable, with metadata)
@@ -427,11 +469,12 @@ const booking = {
 
 quoteUrl: quoteUrlToSave,
 
-...(status !== "Enquiry"
+...(status !== "Enquiry" && !useCustomDates
   ? (isRange
-      ? { startDate: new Date(startDate).toISOString(), endDate: new Date(endDate).toISOString() }
-      : { date: new Date(startDate).toISOString() })
-  : {}), // ✅ enquiry has no dates
+      ? { startDate: new Date(startDate).toISOString(), endDate: new Date(endDate).toISOString(), date: null }
+      : { date: new Date(startDate).toISOString(), startDate: null, endDate: null })
+  : { date: null, startDate: null, endDate: null }),
+
 
 
   // 🔹 new fields
@@ -634,19 +677,79 @@ quoteUrl: quoteUrlToSave,
      columnGap: "60px",
       flexWrap: "wrap",
       marginTop: "0px"}}>
-    <h3>Date</h3><br />
-      <label><input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} /> Multi-day booking</label><br /><br />
-    {status !== "Enquiry" && (
+<h3>Date</h3><br />
+
+{/* NEW: toggle for non-consecutive dates */}
+<label>
+  <input
+    type="checkbox"
+    checked={useCustomDates}
+    onChange={(e) => {
+      const on = e.target.checked;
+      setUseCustomDates(on);
+      if (on) setIsRange(false); // can't be both
+    }}
+  /> Select non-consecutive dates
+</label>
+
+{/* Existing range toggle only when NOT using custom dates */}
+{!useCustomDates && (
+  <>
+    <br /><br />
+    <label>
+      <input
+        type="checkbox"
+        checked={isRange}
+        onChange={() => setIsRange(!isRange)}
+      /> Multi-day booking (consecutive)
+    </label>
+    <br /><br />
+  </>
+)}
+
+{/* CUSTOM (non-consecutive) PICKER */}
+{useCustomDates && (
+  <div style={{ marginTop: 10 }}>
+    <DatePicker
+      multiple
+      value={customDates}                 // array of 'YYYY-MM-DD'
+      format="YYYY-MM-DD"
+      onChange={(vals) => {
+        // react-multi-date-picker gives DateObjects; normalise to 'YYYY-MM-DD'
+        const normalised = (Array.isArray(vals) ? vals : [])
+          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+          .sort(); // keep them ordered
+        setCustomDates(normalised);
+      }}
+    />
+  </div>
+)}
+
+{/* EXISTING single/range inputs only when NOT using custom dates */}
+{!useCustomDates && (
   <>
     <label>{isRange ? "Start Date" : "Date"}</label><br />
     <input
       type="date"
       value={startDate}
       onChange={(e) => setStartDate(e.target.value)}
-      required={status !== "Enquiry"} // ✅ only required if not Enquiry
+      required={status !== "Enquiry"}
     /><br /><br />
+
+    {isRange && (
+      <>
+        <label>End Date</label><br />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          required={status !== "Enquiry"}
+        /><br /><br />
+      </>
+    )}
   </>
 )}
+
 
       {!isRange && startDate && (
   <div style={{ marginBottom: "20px" }}>
@@ -1104,12 +1207,13 @@ quoteUrl: quoteUrlToSave,
   <p><strong>Health & Safety:</strong> {hasHS ? "✅ Completed" : "❌ Not Done"}</p>
 <p><strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}</p>
 
-  <p>
-    <strong>Dates:</strong>{" "}
-    {isRange
-      ? `${startDate || "N/A"} → ${endDate || "N/A"}`
-      : startDate || "N/A"}
-  </p>
+<p>
+  <strong>Dates:</strong>{" "}
+  {useCustomDates
+    ? (customDates.length ? customDates.join(", ") : "N/A")
+    : (isRange ? `${startDate || "N/A"} → ${endDate || "N/A"}` : startDate || "N/A")}
+</p>
+
 
   <p><strong>Employees:</strong> {employees.concat(customEmployee ? customEmployee.split(",").map(n => n.trim()) : []).join(", ") || "None selected"}</p>
 

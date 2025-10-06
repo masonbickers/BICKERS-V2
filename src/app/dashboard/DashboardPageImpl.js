@@ -14,8 +14,56 @@ import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { Check } from "lucide-react";
 
+// Always parse an ISO date-only string as LOCAL date at noon (avoids DST jumps)
+const parseLocalDate = (d) => {
+  if (!d) return null;
+  // support both "YYYY-MM-DD" and ISO strings
+  const s = typeof d === "string" ? d : String(d);
+  // prefer YYYY-MM-DD if present
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const y = Number(m[1]), mo = Number(m[2]) - 1, day = Number(m[3]);
+    const dt = new Date(y, mo, day, 12, 0, 0, 0); // noon local
+    return dt;
+  }
+  const dt = new Date(s);
+  dt.setHours(12, 0, 0, 0);
+  return dt;
+};
+
+const startOfLocalDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+const addDays = (d, n) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
 
 
+
+const formatCrew = (employees) => {
+  if (!Array.isArray(employees) || employees.length === 0) return "—";
+  return employees
+    .map((emp) => {
+      if (typeof emp === "string") return emp;
+      if (!emp || typeof emp !== "object") return "";
+      const fromName = emp.name?.toString().trim();
+      if (fromName) return fromName;
+      const firstLast = [emp.firstName, emp.lastName].filter(Boolean).join(" ").trim();
+      if (firstLast) return firstLast;
+      const display = emp.displayName?.toString().trim();
+      if (display) return display;
+      const email = emp.email?.toString().trim();
+      if (email) return email;
+      return "";
+    })
+    .filter(Boolean)
+    .join(", ");
+};
 
 
 
@@ -88,7 +136,29 @@ function CalendarEvent({ event }) {
         .filter(Boolean)
         .join(", ")
     : "";
+    
+    const formatCrew = (employees) => {
+  if (!Array.isArray(employees) || employees.length === 0) return "—";
+  return employees
+    .map((emp) => {
+      if (typeof emp === "string") return emp;
+      if (!emp || typeof emp !== "object") return "";
+      const fromName = emp.name?.toString().trim();
+      if (fromName) return fromName;
+      const firstLast = [emp.firstName, emp.lastName].filter(Boolean).join(" ").trim();
+      if (firstLast) return firstLast;
+      const display = emp.displayName?.toString().trim();
+      if (display) return display;
+      const email = emp.email?.toString().trim();
+      if (email) return email;
+      return "";
+    })
+    .filter(Boolean)
+    .join(", ");
+};
 
+
+    
   return (
     <div
       title={event.noteToShow || ""}
@@ -647,27 +717,30 @@ useEffect(() => {
           {/* Calendar */}
           <BigCalendar
             localizer={localizer}
-            events={[
-              ...bookings.map((b) => {
-                const start = new Date(b.startDate || b.date);
-                const end = new Date(
-                  
-                  b.endDate
-                    ? new Date(new Date(b.endDate).setDate(new Date(b.endDate).getDate()))
-                    : new Date(b.date)
-                );
-            
-                return {
-                  ...b,
-                  title: b.client || "",
-                  start,
-                  end,
-                  allDay: true,
-                  status: b.status || "Confirmed",
-                };
-              }),
-              ...maintenanceBookings,
-            ]}
+events={[
+  ...bookings.map((b) => {
+    // Single continuous block spanning start → end (end is exclusive)
+    const startBase = parseLocalDate(b.startDate || b.date);
+    const endRaw    = b.endDate || b.date || b.startDate; // sensible fallback
+    const endBase   = parseLocalDate(endRaw);
+
+    // guard: if somehow end < start, force end = start
+    const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
+
+    return {
+      ...b,
+      title: b.client || "",
+      start: startOfLocalDay(startBase),
+      end: startOfLocalDay(addDays(safeEndBase, 1)), // exclusive end => includes last day
+      allDay: true,
+      status: b.status || "Confirmed",
+    };
+  }),
+
+  // keep maintenance as-is
+  ...maintenanceBookings,
+]}
+
             
             
             
@@ -749,6 +822,8 @@ useEffect(() => {
                 "Maintenance": "#f97316",
                 "Complete": "#7AFF6E",
                 "Action Required": "##FF973B",
+                "DNH": "#c2c2c2ff",          // ← NEW: grey for DNH
+
 
               }[status] || "#ccc";
             
@@ -990,28 +1065,21 @@ useEffect(() => {
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
             <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-       <td style={{ padding: "10px", verticalAlign: "middle" }}>
-  {Array.isArray(b.employees) && b.employees.length > 0
-    ? b.employees.join(", ")
+<td style={{ padding: "10px", verticalAlign: "middle" }}>
+  {Array.isArray(b.employees) && b.employees.length
+    ? b.employees
+        .map(emp => typeof emp === "string"
+          ? emp
+          : (emp?.name
+             || [emp?.firstName, emp?.lastName].filter(Boolean).join(" ")
+             || emp?.displayName
+             || emp?.email
+             || ""))
+        .filter(Boolean)
+        .join(", ")
     : "—"}
-
-  {b.isCrewed && (
-    <div
-      style={{
-        marginTop: "4px",
-        display: "inline-block",
-        padding: "2px 6px",
-        backgroundColor: "#4caf50",
-        color: "#fff",
-        borderRadius: "4px",
-        fontSize: "12px",
-        fontWeight: "bold",
-      }}
-    >
-      CREWED
-    </div>
-  )}
 </td>
+
 
             <td style={{
               padding: "10px",
@@ -1116,11 +1184,8 @@ useEffect(() => {
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
                   <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-                 <td style={{ padding: "10px", verticalAlign: "middle" }}>
-  {Array.isArray(b.employees) && b.employees.length > 0
-    ? b.employees.join(", ")
-    : "—"}
-
+<td style={{ padding: "10px", verticalAlign: "middle" }}>
+  {formatCrew(b.employees)}
   {b.isCrewed && (
     <div
       style={{
@@ -1138,6 +1203,7 @@ useEffect(() => {
     </div>
   )}
 </td>
+
 
                   <td style={{
                     padding: "10px",
