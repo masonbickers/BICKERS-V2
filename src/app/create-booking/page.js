@@ -869,6 +869,7 @@ quoteUrl: quoteUrlToSave,
   <option value="Rest Day">Rest Day</option>
   <option value="Rig Day">Rig Day</option>
   <option value="Standby Day">Standby Day</option>
+  <option value="Spilt Day">Spilt Day</option> {/* ✅ NEW */}
   <option value="Travel Day">Travel Day</option>
   <option value="Travel Time">Travel Time</option>
   <option value="Turnaround Day">Turnaround Day</option>
