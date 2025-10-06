@@ -13,6 +13,9 @@ export default function HolidayForm() {
   const [holidayReason, setHolidayReason] = useState("");
   const [paidStatus, setPaidStatus] = useState("Paid"); // "Paid" | "Unpaid" | "Accrued"
   const [employees, setEmployees] = useState([]);
+  // state
+const [workedBankHoliday, setWorkedBankHoliday] = useState(false);
+
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -37,6 +40,9 @@ export default function HolidayForm() {
       alert("Please fill in all fields");
       return;
     }
+
+    
+
     // simple date sanity
     const s = new Date(startDate);
     const eDate = new Date(endDate);
@@ -163,6 +169,19 @@ export default function HolidayForm() {
                 <option value="Accrued">Accrued day (TOIL)</option>
               </select>
             </div>
+
+            <div style={inputContainerStyle}>
+  <label style={labelStyle}>
+    <input
+      type="checkbox"
+      checked={workedBankHoliday}
+      onChange={(e) => setWorkedBankHoliday(e.target.checked)}
+      style={{ marginRight: "8px" }}
+    />
+    Worked Bank Holiday (earn 1 day TOIL)
+  </label>
+</div>
+
 
             <button type="submit" style={buttonStyle}>Submit Holiday</button>
             <button type="button" onClick={handleCancel} style={cancelButtonStyle}>Cancel</button>

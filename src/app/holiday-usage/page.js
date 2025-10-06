@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { db, auth } from "../../../firebaseConfig";
+
+
 
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -13,6 +15,8 @@ import getDay from "date-fns/getDay";
 import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+
+
 
 const locales = { "en-GB": enGB };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -71,6 +75,15 @@ export default function HolidayUsagePage() {
   const DEFAULT_ALLOWANCE = 11;
 
   useEffect(() => {
+  const savedScroll = sessionStorage.getItem("dashboardScroll");
+  if (savedScroll) {
+    window.scrollTo(0, parseInt(savedScroll, 10));
+    sessionStorage.removeItem("dashboardScroll");
+  }
+}, []);
+
+
+  useEffect(() => {
     const run = async () => {
       const currentYear = new Date().getFullYear();
 
@@ -86,6 +99,8 @@ export default function HolidayUsagePage() {
           allowMap[name] = Number(x.holidayAllowance ?? DEFAULT_ALLOWANCE);
           carryMap[name] = Number(x.carriedOverDays ?? 0);
         });
+
+
       } catch {}
 
       // -------- Holidays (paid/unpaid/accrued taken)
@@ -95,6 +110,8 @@ export default function HolidayUsagePage() {
       const details = {};
       const events = {};
       const eventList = [];
+
+
 
       const holSnap = await getDocs(collection(db, "holidays"));
 
@@ -108,7 +125,8 @@ export default function HolidayUsagePage() {
         if (!employee || !start || !end) return;
         if (start.getFullYear() !== end.getFullYear() || start.getFullYear() !== currentYear) return;
 
-        const days = countWeekdaysInclusive(start, end);
+let days = countWeekdaysInclusive(start, end);
+if (rec.halfDay) days = 0.5; // 👈 support half-day
 
         // detect flags
         const isAccrued =
@@ -138,25 +156,30 @@ export default function HolidayUsagePage() {
 
         if (!details[employee]) details[employee] = [];
         details[employee].push({
+          id: docSnap.id,
           start,
           end,
           days,
           notes,
           unpaid: isUnpaid,
           accrued: isAccrued,
+           halfDay: rec.halfDay === true,  
         });
 
         const empColor = (events[employee] ||= stringToColour(employee));
-        eventList.push({
-          title: `${employee} Holiday${isUnpaid ? " (Unpaid)" : isAccrued ? " (Accrued)" : ""}`,
-          start,
-          end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
-          allDay: true,
-          employee,
-          unpaid: isUnpaid,
-          accrued: isAccrued,
-          color: empColor,
-        });
+eventList.push({
+  id: docSnap.id,   // ✅ Firestore ID
+  status: "Holiday", // ✅ matches dashboard pattern
+  title: `${employee} Holiday${isUnpaid ? " (Unpaid)" : isAccrued ? " (Accrued)" : ""}`,
+  start,
+  end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+  allDay: true,
+  employee,
+  unpaid: isUnpaid,
+  accrued: isAccrued,
+  color: empColor,
+});
+
       });
 
       // -------- Bookings (accrued earned from weekend work)
@@ -531,19 +554,44 @@ const allNames = Array.from(
                           <td style={td} colSpan={5}>(No leave booked)</td>
                         </tr>
                       ) : (
-                        rows.map((row, i) => {
-                          const typeLabel = row.accrued ? "Accrued" : row.unpaid ? "Unpaid" : "Paid";
-                          const typeColor = row.accrued ? "#0f766e" : row.unpaid ? "#b91c1c" : "#065f46";
-                          return (
-                            <tr key={i}>
-                              <td style={td}>{format(row.start, "EEE d MMM")}</td>
-                              <td style={td}>{format(row.end, "EEE d MMM")}</td>
-                              <td style={{ ...td, textAlign: "center", width: 120 }}>{row.days}</td>
-                              <td style={{ ...td, color: typeColor, fontWeight: 700 }}>{typeLabel}</td>
-                              <td style={td}>{row.notes || ""}</td>
-                            </tr>
-                          );
-                        })
+rows.map((row, i) => {
+  const typeLabel = row.accrued ? "Accrued" : row.unpaid ? "Unpaid" : "Paid";
+  const typeColor = row.accrued ? "#0f766e" : row.unpaid ? "#b91c1c" : "#065f46";
+
+  return (
+<tr
+  key={i}
+onClick={() => {
+  sessionStorage.setItem("dashboardScroll", window.scrollY.toString());
+  router.push(`/edit-holiday/${row.id}`);
+}}
+  style={{
+    cursor: "pointer",
+    backgroundColor: i % 2 === 0 ? "#fff" : "#f9fafb",
+    transition: "background-color 0.2s ease",
+  }}
+  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e0f2fe")}
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.backgroundColor =
+      i % 2 === 0 ? "#fff" : "#f9fafb")
+  }
+>
+  <td style={td}>{format(row.start, "EEE d MMM")}</td>
+  <td style={td}>{format(row.end, "EEE d MMM")}</td>
+<td style={{ ...td, textAlign: "center", width: 120 }}>
+  {row.days}
+  {row.halfDay ? " (½)" : ""}   {/* 👈 show half-day visually */}
+</td>
+<td style={{ ...td, color: typeColor, fontWeight: 700 }}>
+  {row.halfDay ? "Half-Day " : ""}{typeLabel}
+</td>
+
+  <td style={td}>{row.notes || ""}</td>
+</tr>
+
+  );
+})
+
                       )}
                       <tr>
                         <td style={{ ...td, fontWeight: 700 }}>Accrued Balance</td>
