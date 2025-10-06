@@ -256,7 +256,7 @@ setVehicles(b.vehicles || []);
 
   const bookedVehicles = allBookings
   .filter(b => {
-    if (bookingId && b.jobNumber === jobNumber) return false; // exclude current booking
+if (bookingId && b.id === bookingId) return false; // exclude by document id
 
     const dateToCheck = startDate;
     const bDate = b.date?.slice(0, 10);
@@ -273,7 +273,7 @@ setVehicles(b.vehicles || []);
 
 const bookedEmployees = allBookings
   .filter(b => {
-    if (bookingId && b.jobNumber === jobNumber) return false; // exclude current booking
+if (bookingId && b.id === bookingId) return false; // exclude by document id
 
     const dateToCheck = startDate;
     const bDate = b.date?.slice(0, 10);
@@ -308,15 +308,6 @@ const handleSubmit = async () => {
   }
 
 
-    const isDuplicateJobNumber = allBookings.some(
-      (b) =>
-        b.jobNumber?.trim().toLowerCase() === jobNumber.trim().toLowerCase() &&
-        (!bookingId || b.id !== bookingId) // ignore current booking when editing
-    );
-    if (isDuplicateJobNumber) {
-  alert("That job number already exists. Please choose a unique number.");
-  return;
-}
 
 
     
@@ -500,7 +491,6 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   value={jobNumber}
   onChange={(e) => setJobNumber(e.target.value)}
   required
-  disabled={!!bookingId}
   style={{
     width: "100%",
     height: "40px",
