@@ -829,14 +829,8 @@ quoteUrl: quoteUrlToSave,
         <div>
   <h4>Notes for Each Day</h4>
   {(() => {
-    const days = [];
-    const curr = new Date(startDate);
-    const end = new Date(endDate);
-    while (curr <= end) {
-      const dateStr = curr.toISOString().split("T")[0];
-      days.push(dateStr);
-      curr.setDate(curr.getDate() + 1);
-    }
+const days = enumerateDaysYMD_UTC(startDate, endDate); // returns ['YYYY-MM-DD', ...]
+
     return days.map(date => {
       const selectedNote = notesByDate[date] || "";
       const isOther = selectedNote === "Other";

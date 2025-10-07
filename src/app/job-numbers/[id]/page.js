@@ -12,7 +12,10 @@ import {
   updateDoc,
   deleteDoc,
   runTransaction,
+  query,
+  where,
 } from "firebase/firestore";
+
 import { storage } from "../../../../firebaseConfig";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
@@ -30,6 +33,8 @@ export default function JobDetailsPage() {
   const [statusByJob, setStatusByJob] = useState({});
   // Local selection (only saved when clicking "Save Status")
   const [selectedStatusByJob, setSelectedStatusByJob] = useState({});
+  const [timesheetsByJob, setTimesheetsByJob] = useState({}); // { [jobId]: [timesheetDoc, ...] }
+
 
   // ---------- helpers ----------
   const parseDate = (raw) => {
@@ -43,6 +48,31 @@ export default function JobDetailsPage() {
     }
   };
 
+  // ➕ ADD THIS HELPER
+const latestDateOfJob = (job) => {
+  const candidates = [];
+
+  // Primary: booking dates (array or single)
+  const dlist = Array.isArray(job.bookingDates) && job.bookingDates.length
+    ? job.bookingDates
+    : (job.date ? [job.date] : []);
+
+  dlist.forEach((x) => {
+    const d = parseDate(x);
+    if (d) candidates.push(d.getTime());
+  });
+
+  // Secondary: common metadata timestamps
+  ["createdAt","updatedAt","statusUpdatedAt","paidAt","paymentDate","settledAt"].forEach((k) => {
+    const d = parseDate(job[k]);
+    if (d) candidates.push(d.getTime());
+  });
+
+  if (!candidates.length) return null;
+  return new Date(Math.max(...candidates));
+};
+
+
   const formatDate = (raw) => {
     const d = parseDate(raw);
     if (!d) return "TBC";
@@ -53,6 +83,30 @@ export default function JobDetailsPage() {
       year: "numeric",
     });
   };
+
+  const toYMD = (d) => {
+  const x = new Date(d);
+  x.setHours(0,0,0,0);
+  return x.toISOString().slice(0,10);
+};
+
+const weekStartOf = (raw) => {
+  const d = new Date(parseDate(raw) || raw);
+  if (isNaN(d)) return null;
+  // Week starts Monday (UK)
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = (day === 0 ? -6 : 1) - day; // back to Monday
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  monday.setHours(0,0,0,0);
+  return toYMD(monday);
+};
+
+const jobDateKeys = (job) => {
+  const dates = datesForJob(job);
+  return dates.map((d) => toYMD(d));
+};
+
 
   const renderEmployees = (employees) => {
   if (!employees) return null;
@@ -160,6 +214,71 @@ const splitJobNumber = (num) => {
     );
   };
 
+
+  const renderTimesheet = (ts) => {
+  const days = ts?.days || {};
+  const dayOrder = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+  return (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: 12,
+        background: "#fff",
+        marginBottom: 10,
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+        <div><strong>Week start:</strong> {ts.weekStart || "—"}</div>
+        {ts.employeeCode ? <div><strong>Employee:</strong> {ts.employeeCode}</div> : null}
+        <div><strong>Submitted:</strong> {ts.submitted ? "Yes" : "No"}</div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {dayOrder.map((d) => (
+                <th key={d} style={{ textAlign: "left", padding: "8px 6px", borderBottom: "1px solid #e5e7eb" }}>
+                  {d}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {dayOrder.map((d) => {
+                const cell = days[d] || {};
+                return (
+                  <td key={d} style={{ verticalAlign: "top", padding: "8px 6px", borderBottom: "1px solid #f3f4f6" }}>
+                    <div style={{ fontSize: 12, color: "#374151" }}>
+                      <div><strong>Mode:</strong> {cell.mode || "—"}</div>
+                      {cell.dayNotes ? (
+                        <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                          <strong>Notes:</strong> {cell.dayNotes}
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {ts.notes ? (
+        <div style={{ marginTop: 8, fontSize: 13, color: "#111827" }}>
+          <strong>Timesheet Notes:</strong> <span style={{ whiteSpace: "pre-wrap" }}>{ts.notes}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+
+
   const saveJobSummary = async (jobId) => {
     const summary = dayNotes?.[jobId]?.general || "";
     try {
@@ -260,16 +379,88 @@ const matches = allJobs
     const { prefix: otherPrefix } = splitJobNumber(j.jobNumber || j.id);
     return otherPrefix === prefix;
   })
-.sort((a, b) => {
-  const { suffix: sa } = splitJobNumber(a.jobNumber || a.id);
-  const { suffix: sb } = splitJobNumber(b.jobNumber || b.id);
+  .sort((a, b) => {
+    const A = latestDateOfJob(a)?.getTime() ?? -Infinity;
+    const B = latestDateOfJob(b)?.getTime() ?? -Infinity;
+    if (B !== A) return B - A; // newest at the top by most-recent date
 
-  // ✅ sort newest first (highest suffix number at the top)
-  return Number(sb) - Number(sa);
-});
+    // tie-breaker: numeric job-number suffix (e.g. 2025-012 > 2025-009)
+    const { suffix: saRaw } = splitJobNumber(a.jobNumber || a.id);
+    const { suffix: sbRaw } = splitJobNumber(b.jobNumber || b.id);
+    const sa = Number(saRaw) || 0;
+    const sb = Number(sbRaw) || 0;
+    if (sb !== sa) return sb - sa;
+
+    // final fallback: lexicographic
+    return String(b.jobNumber || b.id).localeCompare(String(a.jobNumber || a.id));
+  });
+
+
+const loadTimesheetsForJob = async (job) => {
+  const jobId = job.id;
+  const jobNum = job.jobNumber || job.id;
+  const jobWeeks = Array.from(
+    new Set(
+      jobDateKeys(job)
+        .map(weekStartOf)
+        .filter(Boolean)
+    )
+  );
+
+  const found = [];
+
+  // -- 1) Sub-collection under the booking
+  try {
+    const subSnap = await getDocs(collection(db, "bookings", jobId, "timesheets"));
+    subSnap.forEach((d) => found.push({ id: d.id, ...d.data(), __source: "sub" }));
+  } catch (e) {
+    // ignore
+  }
+
+  // -- 2) Top-level by jobId / jobNumber
+  try {
+    const topRef = collection(db, "timesheets");
+    const queries = [];
+    queries.push(getDocs(query(topRef, where("jobId", "==", jobId))));
+    queries.push(getDocs(query(topRef, where("jobNumber", "==", jobNum))));
+    const results = await Promise.all(queries);
+    results.forEach((snap) => snap.forEach((d) => found.push({ id: d.id, ...d.data(), __source: "top-job" })));
+  } catch (e) {
+    // ignore
+  }
+
+  // -- 3) Fallback: match by weekStart overlapping job dates
+  if (jobWeeks.length) {
+    try {
+      const topRef = collection(db, "timesheets");
+      // Firestore doesn't support "IN" on strings > 10 items; but week count per job will be small.
+      // Do one query per weekStart.
+      const byWeek = await Promise.all(
+        jobWeeks.map((ws) => getDocs(query(topRef, where("weekStart", "==", ws))))
+      );
+      byWeek.forEach((snap) => snap.forEach((d) => found.push({ id: d.id, ...d.data(), __source: "top-week" })));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // De-dup if the same doc came from multiple routes
+  const dedup = Object.values(
+    found.reduce((acc, t) => {
+      acc[t.id] = acc[t.id] || t;
+      return acc;
+    }, {})
+  );
+
+  setTimesheetsByJob((prev) => ({ ...prev, [jobId]: dedup }));
+};
+
 
 
 setRelatedJobs(matches);
+// pull timesheets for each matching job (in parallel)
+await Promise.all(matches.map((j) => loadTimesheetsForJob(j)));
+
 
 
 

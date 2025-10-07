@@ -43,6 +43,60 @@ const addDays = (d, n) => {
   return x;
 };
 
+// --- Job-number sorting helpers ---
+const jobKey = (val) => {
+  const s = (val ?? "").toString().trim();
+  const numMatch = s.match(/\d+/);
+  const num = numMatch ? Number(numMatch[0]) : Number.NaN;
+  const prefix = s.replace(/\d+/g, "").toLowerCase();
+  return { prefix, num, raw: s };
+};
+
+const eventsByJobNumber = (bookings, maintenanceBookings) => {
+  const bookingEvents = bookings.map((b) => {
+    const startBase = parseLocalDate(b.startDate || b.date);
+    const endRaw    = b.endDate || b.date || b.startDate;
+    const endBase   = parseLocalDate(endRaw);
+    const safeEnd   = endBase && startBase && endBase < startBase ? startBase : endBase;
+
+    return {
+      ...b,
+      title: b.client || "",
+      start: startOfLocalDay(startBase),
+      end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive end
+      allDay: true,
+      status: b.status || "Confirmed",
+    };
+  });
+
+  const all = [...bookingEvents, ...(maintenanceBookings || [])];
+
+  all.sort((a, b) => {
+    const ak = jobKey(a.jobNumber);
+    const bk = jobKey(b.jobNumber);
+
+    // 1) Prefix alpha (e.g. BA- before XX-)
+    if (ak.prefix !== bk.prefix) return ak.prefix.localeCompare(bk.prefix);
+
+    // 2) Numeric chunk ascending (NaN sinks)
+    const aNum = Number.isNaN(ak.num) ? Infinity : ak.num;
+    const bNum = Number.isNaN(bk.num) ? Infinity : bk.num;
+    if (aNum !== bNum) return aNum - bNum;
+
+    // 3) Fallback to raw string
+    if (ak.raw !== bk.raw) return ak.raw.localeCompare(bk.raw);
+
+    // 4) Stable tie-breakers
+    if (a.start.getTime() !== b.start.getTime()) return a.start - b.start;
+    const spanA = a.end - a.start, spanB = b.end - b.start;
+    if (spanA !== spanB) return spanB - spanA;
+    return 0;
+  });
+
+  return all;
+};
+
+
 
 
 const formatCrew = (employees) => {
@@ -894,7 +948,10 @@ events={[
 </button>
 
   </div>
+  
 </div>
+
+
   <BigCalendar
     localizer={localizer}
     events={[
