@@ -352,54 +352,19 @@ const weekDatesFrom = (weekStart) => {
 };
 
 // Pull employee codes from a job doc (supports strings/objects)
-// Pull employee codes from a job doc (supports strings/objects) and also resolve by name from "employees" collection
-async function employeeCodesFromJob(job) {
-  const codes = new Set();
-
-  // 1) Any explicit codes already on the job object
+const employeeCodesFromJob = (job) => {
+  const out = new Set();
   const list = Array.isArray(job.employees) ? job.employees : (job.employees ? [job.employees] : []);
   for (const e of list) {
     if (!e) continue;
     if (typeof e === "object") {
-      if (e.userCode) codes.add(String(e.userCode));
-      else if (e.code) codes.add(String(e.code));
-      else if (e.id && /^\w{3,}$/.test(String(e.id))) codes.add(String(e.id)); // fallback
+      if (e.userCode) out.add(String(e.userCode));
+      else if (e.code) out.add(String(e.code));
+      else if (e.id && /^\w{3,}$/.test(String(e.id))) out.add(String(e.id)); // fallback
     }
   }
-
-  // 2) If only names are present, resolve userCode by name from employees collection
-// 2) If only names are present, resolve userCode by name from employees collection
-const names = [];
-for (const e of list) {
-  if (typeof e === "string") {
-    const s = e.trim();
-    // treat pure numeric (or alnum) strings as codes
-    if (/^[A-Za-z0-9]{3,}$/.test(s)) {
-      codes.add(s);
-    } else {
-      names.push(s);
-    }
-  } else if (e && typeof e === "object" && e.name) {
-    names.push(String(e.name).trim());
-  }
-}
-
-
-  if (names.length) {
-    const snap = await getDocs(collection(db, "employees"));
-    snap.forEach((d) => {
-      const emp = d.data() || {};
-      const nm = String(emp.name || "").trim().toLowerCase();
-      if (!nm) return;
-      if (names.some((n) => n.toLowerCase() === nm)) {
-        if (emp.userCode) codes.add(String(emp.userCode));
-      }
-    });
-  }
-
-  return Array.from(codes);
-}
-
+  return Array.from(out);
+};
 
 // Build timesheet doc ID like "EMP123_2025-10-06"
 const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart}`;
@@ -471,48 +436,6 @@ const scoreTimesheetForJob = (ts, job) => {
 
   return score;
 };
-
-// Hoisted so it can be called before its definition// --- REPLACE YOUR loadTimesheetsForJob WITH THIS VERSION ---
-// --- REPLACE your loadTimesheetsForJob WITH THIS VERSION ---
-// --- SUPER SIMPLE LOOKUP: just scan by weekStart(s) the job covers ---
-async function loadTimesheetsForJob(job) {
-  const jobId = job.id;
-
-  // Get all calendar days for the job, then compute unique weekStart Mondays
-  const weeks = Array.from(
-    new Set(
-      (Array.isArray(job.bookingDates) && job.bookingDates.length
-        ? job.bookingDates
-        : [job.startDate || job.date, job.endDate || job.date]
-      )
-      .filter(Boolean)
-      .map((raw) => weekStartOf(raw)) // e.g. "2025-09-29"
-      .filter(Boolean)
-    )
-  );
-
-  // Fetch all timesheets that match those weeks (auto-ID or not)
-  const top = collection(db, "timesheets");
-  const snaps = await Promise.all(
-    weeks.map((wk) => getDocs(query(top, where("weekStart", "==", wk))))
-  );
-
-  const found = [];
-  snaps.forEach((snap) => snap.forEach((d) => found.push({ id: d.id, ...d.data() })));
-
-  // (Optional) keep only those that actually have the same weekStart (already true)
-  // Could also filter by employeeCode later if you want.
-
-  console.log("[TimesheetLookup:simple]", {
-    jobNumber: job.jobNumber || job.id,
-    weeks,
-    count: found.length,
-    ids: found.map((x) => x.id),
-  });
-
-  setTimesheetsByJob((prev) => ({ ...prev, [jobId]: found }));
-}
-
 
 
   const renderDateBlock = (job) => {
@@ -834,54 +757,188 @@ setJobNumber(number);
 const allJobsSnapshot = await getDocs(collection(db, "bookings"));
 const allJobs = allJobsSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-// Helper: safely get a year-like prefix only from real jobNumbers
-const jobPrefixOf = (j) => {
-  const n = j?.jobNumber;
-  if (typeof n === "string" && n.includes("-")) return n.split("-")[0];
-  return null;
-};
-
-let matches = allJobs
-  .filter((j) => jobPrefixOf(j) === prefix)   // only compare real jobNumber prefixes
+const matches = allJobs
+  .filter((j) => {
+    const { prefix: otherPrefix } = splitJobNumber(j.jobNumber || j.id);
+    return otherPrefix === prefix;
+  })
   .sort((a, b) => {
-    const A = latestScheduledDateOfJob(a)?.getTime() ?? -Infinity;
-    const B = latestScheduledDateOfJob(b)?.getTime() ?? -Infinity;
+const A = latestScheduledDateOfJob(a)?.getTime() ?? -Infinity;
+const B = latestScheduledDateOfJob(b)?.getTime() ?? -Infinity;
 
-    if (B !== A) return B - A;
+    if (B !== A) return B - A; // newest at the top by most-recent date
 
+    // tie-breaker: numeric job-number suffix (e.g. 2025-012 > 2025-009)
     const { suffix: saRaw } = splitJobNumber(a.jobNumber || a.id);
     const { suffix: sbRaw } = splitJobNumber(b.jobNumber || b.id);
     const sa = Number(saRaw) || 0;
     const sb = Number(sbRaw) || 0;
     if (sb !== sa) return sb - sa;
 
+    // final fallback: lexicographic
     return String(b.jobNumber || b.id).localeCompare(String(a.jobNumber || a.id));
   });
+const loadTimesheetsForJob = async (job) => {
+  const jobId = job.id;
+  const jobNumStr = String(job.jobNumber ?? job.id);
 
-// Fallback: if nothing matched (e.g., other jobs missing jobNumber), at least show the current job
-if (!matches.length) {
-  matches = [{ id: singleDoc.id, ...jobData }];
-}
+  // All ISO dates the job actually spans (YYYY-MM-DD)
+  const jobIsoDates = Array.from(getJobIsoDates(job)); // you already have getJobIsoDates
+  const jobWeeks = new Set(jobIsoDates.map((d) => weekStartOf(d))); // you already have weekStartOf
 
-// ✅ CRITICAL: actually put them into state so the UI can render
-setRelatedJobs(matches);
+  const found = [];
 
-// Debug: see what weeks we think this job spans
-for (const j of matches) {
-  console.log("[JobPage] viewing job", j.jobNumber || j.id, {
-    bookingDates: j.bookingDates || [],
-    startDate: j.startDate,
-    endDate: j.endDate,
-    computedWeeks: (j.bookingDates && j.bookingDates.length
-      ? j.bookingDates
-      : [j.startDate || j.date, j.endDate || j.date]
-    ).filter(Boolean).map(weekStartOf),
-  });
-}
+  // Helper to push getDocs() results
+  const pushSnap = (snap, source) => {
+    snap.forEach((d) => found.push({ id: d.id, ...d.data(), __source: source }));
+  };
+
+  // ---------- A) FAST PATH: indexed lookup by bookingId ----------
+  try {
+    const top = collection(db, "timesheets");
+    const q1 = query(top, where("jobSnapshot.bookingIds", "array-contains", jobId));
+    const res1 = await getDocs(q1);
+    pushSnap(res1, "index:bookingIds");
+  } catch (e) {
+    console.warn("bookingIds index lookup failed (create index once):", e?.message || e);
+  }
+
+  // ---------- B) EXACT DOC READS: employee × job-date ----------
+  // If employees are on the job, read their week docs directly
+  try {
+    const empCodes = employeeCodesFromJob(job); // helper above
+    const uniquePairs = new Set();
+    empCodes.forEach((code) => {
+      jobIsoDates.forEach((iso) => {
+        const wk = weekStartOf(iso);
+        if (wk) uniquePairs.add(`${code}__${wk}`);
+      });
+    });
+
+    const reads = Array.from(uniquePairs).map(async (key) => {
+      const [code, wk] = key.split("__");
+      const ref = doc(db, "timesheets", timesheetDocId(code, wk));
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const t = snap.data();
+        found.push({ id: snap.id, ...t, __source: "direct:docId" });
+      }
+    });
+
+    await Promise.allSettled(reads);
+  } catch (e) {
+    console.error("direct docId reads failed:", e);
+  }
+
+  // ---------- C) (Optional) direct fields equal lookups ----------
+  try {
+    const top = collection(db, "timesheets");
+    const tasks = [
+      getDocs(query(top, where("jobId", "==", jobId))),
+      getDocs(query(top, where("bookingId", "==", jobId))),
+      getDocs(query(top, where("jobNumber", "==", jobNumStr))),
+    ];
+    const jobNumNum = Number(jobNumStr);
+    if (!Number.isNaN(jobNumNum)) {
+      tasks.push(getDocs(query(top, where("jobNumber", "==", jobNumNum))));
+    }
+    const results = await Promise.allSettled(tasks);
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") pushSnap(r.value, `fields#${i}`);
+    });
+  } catch (e) {
+    console.error("field equality lookups failed:", e);
+  }
+
+  // ---------- D) Dedup ----------
+  const dedup = Object.values(
+    found.reduce((acc, t) => {
+      if (!t?.id) return acc;
+      if (!acc[t.id]) acc[t.id] = t;
+      return acc;
+    }, {})
+  );
+
+  // Pull employee codes from a job doc (supports strings/objects)
+const employeeCodesFromJob = (job) => {
+  const out = new Set();
+  const list = Array.isArray(job.employees) ? job.employees : (job.employees ? [job.employees] : []);
+  for (const e of list) {
+    if (!e) continue;
+    if (typeof e === "object") {
+      if (e.userCode) out.add(String(e.userCode));
+      else if (e.code) out.add(String(e.code));
+      else if (e.id && /^\w{3,}$/.test(String(e.id))) out.add(String(e.id)); // fallback
+    }
+  }
+  return Array.from(out);
+};
+
+// Build timesheet doc ID like "EMP123_2025-10-06"
+const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart}`;
 
 
-// (nice-to-have) Preload timesheets for the visible jobs
-await Promise.allSettled(matches.map((j) => loadTimesheetsForJob(j)));
+  // ---------- E) Keep only relevant weeks OR direct links ----------
+  const tsWeekKey = (t) => {
+    const d =
+      parseDateFlexible(t.weekStart) ??
+      parseDateFlexible(t.week_start) ??
+      parseDateFlexible(t.startOfWeek);
+    return d ? weekStartOf(d) : null;
+  };
+
+  const hasDirectLink = (t) => {
+    if (t.jobId === jobId || t.bookingId === jobId) return true;
+    if (t.jobNumber != null && String(t.jobNumber) === jobNumStr) return true;
+    if (Array.isArray(t.jobs)) {
+      return t.jobs.some(
+        (j) =>
+          j === jobId ||
+          j === jobNumStr ||
+          j?.jobId === jobId ||
+          String(j?.jobNumber) === jobNumStr
+      );
+    }
+    // also accept our denormalised per-day imprint
+    const dmap = normaliseDays(t?.days, t?.weekStart);
+    return Object.values(dmap || {}).some((d) => {
+      const bid = d?.bookingId ?? d?.jobId;
+      const jn  = d?.jobNumber ?? d?.jobNo ?? d?.job;
+      return (bid && String(bid) === String(jobId)) || (jn && String(jn) === jobNumStr);
+    });
+  };
+
+  const scored = dedup
+    .map((t) => ({
+      ...t,
+      __wk: tsWeekKey(t),
+      __direct: hasDirectLink(t),
+      __submittedFlag: t.submitted === true || t.status === "Submitted" || !!t.submittedAt,
+      __score: scoreTimesheetForJob(t, job), // you already have this
+    }))
+    .filter((t) => t.__direct || (t.__wk && jobWeeks.has(t.__wk))) // keep only relevant
+    .sort((a, b) => {
+      if (a.__direct !== b.__direct) return b.__direct ? 1 : -1; // direct first
+      if (a.__submittedFlag !== b.__submittedFlag) return b.__submittedFlag ? 1 : -1;
+      if (b.__score !== a.__score) return b.__score - a.__score;
+      const ad =
+        parseDateFlexible(a.weekStart) ??
+        parseDateFlexible(a.week_start) ??
+        parseDateFlexible(a.startOfWeek) ??
+        new Date(0);
+      const bd =
+        parseDateFlexible(b.weekStart) ??
+        parseDateFlexible(b.week_start) ??
+        parseDateFlexible(b.startOfWeek) ??
+        new Date(0);
+      return bd.getTime() - ad.getTime();
+    });
+
+  // Keep it tidy
+  const finalList = scored.slice(0, 5);
+
+  setTimesheetsByJob((prev) => ({ ...prev, [jobId]: finalList }));
+};
 
 
 

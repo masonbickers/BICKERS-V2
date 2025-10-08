@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar as BigCalendar, Views } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
-import { collection, onSnapshot, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, getDocs } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
 import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -44,12 +44,12 @@ const addDays = (d, n) => {
 };
 
 // --- Job-number sorting helpers ---
+// --- Job-number sorting helpers (DESC: highest → lowest) ---
 const jobKey = (val) => {
   const s = (val ?? "").toString().trim();
   const numMatch = s.match(/\d+/);
   const num = numMatch ? Number(numMatch[0]) : Number.NaN;
-  const prefix = s.replace(/\d+/g, "").toLowerCase();
-  return { prefix, num, raw: s };
+  return { num, raw: s };
 };
 
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
@@ -63,30 +63,30 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
       ...b,
       title: b.client || "",
       start: startOfLocalDay(startBase),
-      end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive end
+      end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive end to include last day
       allDay: true,
       status: b.status || "Confirmed",
     };
   });
 
-  const all = [...bookingEvents, ...(maintenanceBookings || [])];
+  const maintenance = (maintenanceBookings || []).map((m) => ({
+    jobNumber: m.jobNumber ?? "",
+    ...m,
+  }));
 
+  const all = [...bookingEvents, ...maintenance];
+
+  // Sort by numeric chunk of jobNumber: DESC. Non-numeric sink to bottom.
   all.sort((a, b) => {
     const ak = jobKey(a.jobNumber);
     const bk = jobKey(b.jobNumber);
+    const aNum = Number.isNaN(ak.num) ? -Infinity : ak.num;
+    const bNum = Number.isNaN(bk.num) ? -Infinity : bk.num;
 
-    // 1) Prefix alpha (e.g. BA- before XX-)
-    if (ak.prefix !== bk.prefix) return ak.prefix.localeCompare(bk.prefix);
+    if (bNum !== aNum) return bNum - aNum; // ✅ highest → lowest
 
-    // 2) Numeric chunk ascending (NaN sinks)
-    const aNum = Number.isNaN(ak.num) ? Infinity : ak.num;
-    const bNum = Number.isNaN(bk.num) ? Infinity : bk.num;
-    if (aNum !== bNum) return aNum - bNum;
-
-    // 3) Fallback to raw string
-    if (ak.raw !== bk.raw) return ak.raw.localeCompare(bk.raw);
-
-    // 4) Stable tie-breakers
+    // Tie-breakers to keep order stable/readable
+    if ((bk.raw || "") !== (ak.raw || "")) return (bk.raw || "").localeCompare(ak.raw || "");
     if (a.start.getTime() !== b.start.getTime()) return a.start - b.start;
     const spanA = a.end - a.start, spanB = b.end - b.start;
     if (spanA !== spanB) return spanB - spanA;
@@ -315,140 +315,243 @@ function CalendarEvent({ event }) {
             </div>
           </div>
 
-          {/* Details */}
-          <span>{event.client}</span>
-          {Array.isArray(event.vehicles) &&
-            event.vehicles.map((v, i) => (
-              <span key={i}>
-                {typeof v === "object"
-                  ? `${v.name}${v.registration ? ` – ${v.registration}` : ""}`
-                  : v}
-              </span>
-            ))}
-          <span>{event.equipment}</span>
-          <span>{event.location}</span>
+{/* Details */}
+<span>{event.client}</span>
+
+{Array.isArray(event.vehicles) && event.vehicles.length > 0 &&
+  event.vehicles.map((v, i) => {
+    const name =
+      v?.name ||
+      [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
+      String(v || "");
+
+    const plate = v?.registration ? String(v.registration).toUpperCase() : "";
+
+    return (
+      <span key={i}>
+        {name}{plate ? ` – ${plate}` : ""}
+      </span>
+    );
+  })
+}
+
+<span>{event.equipment}</span>
+<span>{event.location}</span>
+
 
           {/* Notes (only show when toggled on) */}
-{event.notes && showNotes && (
-  <div
-    style={{
 
-      opacity: 0.8,
-      marginTop: "4px",
-      fontWeight: "normal",   // 👈 not bold
-      fontSize: "0.75rem",    // 👈 slightly smaller
-    }}
-  >
-    {event.notes}
+
+{/* NOTES SECTION — Day notes always visible; button toggles free-form notes */}
+{(event.notes || (event.notesByDate && Object.keys(event.notesByDate).length > 0)) && (
+  <div style={{ width: "100%", marginTop: 4, marginBottom: 2 }}>
+
+    {/* DAY NOTES (ALWAYS VISIBLE) */}
+    {event.notesByDate && (
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+        {Object.entries(event.notesByDate)
+          .sort(([a], [b]) => new Date(a) - new Date(b))
+          .reduce((cols, entry, i) => {
+            const col = Math.floor(i / 3); // 3 rows per column
+            (cols[col] ||= []).push(entry);
+            return cols;
+          }, [])
+          .map((chunk, colIndex) => (
+            <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+              {chunk.map(([date, note]) => {
+                const formattedDate = new Date(date).toLocaleDateString("en-GB", {
+                  weekday: "short",
+                  day: "2-digit",
+                });
+                return (
+                  <div
+                    key={date}
+                    style={{
+                      fontSize: "0.7rem",
+                      fontStyle: "italic",
+                      fontWeight: 500,
+                      opacity: 0.75,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {formattedDate}: {note}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+      </div>
+    )}
+
+    {/* Toggle button BELOW the day notes (affects only free-form notes) */}
+    {event.notes && (
+      <button
+        onClick={(e) => { e.stopPropagation(); setShowNotes((s) => !s); }}
+        style={{
+          fontSize: "0.65rem",
+          padding: "1px 6px",
+          border: "0.75px solid #000",
+          background: "transparent",
+          cursor: "pointer",
+          borderRadius: "3px",
+          alignSelf: "flex-start",
+          marginTop: 4,
+        }}
+      >
+        {showNotes ? "Hide Notes" : "Show Notes"}
+      </button>
+    )}
+
+    {/* FREE-FORM NOTES (toggleable) */}
+    {showNotes && event.notes && (
+      <div
+        style={{
+          opacity: 0.85,
+          fontWeight: "normal",
+          fontSize: "0.7rem",
+          lineHeight: 1.25,
+          marginTop: 4,
+        }}
+      >
+        {event.notes}
+      </div>
+    )}
   </div>
 )}
 
 
-          {/* Notes by date */}
-          {event.notesByDate && (
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                marginTop: "4px",
-                flexWrap: "wrap",
-              }}
-            >
-{Array.from(
-  { length: Math.ceil(Object.entries(event.notesByDate).length / 3) }, // 👈 2 instead of 4
-  (_, colIndex) => {
-    const chunk = Object.entries(event.notesByDate)
-      .sort(([a], [b]) => new Date(a) - new Date(b))
-      .slice(colIndex * 3, colIndex * 3 + 3); // 👈 2 instead of 4
 
-    return (
-      <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
-        {chunk.map(([date, note]) => {
-          const formattedDate = new Date(date).toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "2-digit",
-          });
+{/* BADGE ROW (single line, left-aligned, compact) */}
+<div
+  style={{
+    display: "flex",
+    gap: "4px",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    marginTop: "4px",
+    width: "100%",
+    flexWrap: "wrap",
+  }}
+>
+  {/* HS */}
+  <span
+    style={{
+      fontSize: "0.7rem",
+      fontWeight: "normal",
+      padding: "1px 4px",
+      borderRadius: "3px",
+      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+      color: "#fff",
+      border: "0.75px solid #000",
+    }}
+  >
+    HS {event.hasHS ? "✓" : "✗"}
+  </span>
 
-          return (
-            <div
-              key={date}
-              style={{
-                fontSize: "0.75rem",
-                fontStyle: "italic",
-                fontWeight: 500,
-                opacity: 0.7,
-              }}
-            >
-              {formattedDate}: {note}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+  {/* RA */}
+  <span
+    style={{
+      fontSize: "0.7rem",
+      fontWeight: "normal",
+      padding: "1px 4px",
+      borderRadius: "3px",
+      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+      color: "#fff",
+      border: "0.75px solid #000",
+    }}
+  >
+    RA {event.hasRiskAssessment ? "✓" : "✗"}
+  </span>
+
+  {/* Hotel (H) */}
+  <span
+    style={{
+      fontSize: "0.7rem",
+      fontWeight: "normal",
+      padding: "1px 4px",
+      borderRadius: "3px",
+      backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
+      color: "#fff",
+      border: "0.75px solid #000",
+    }}
+  >
+    H {event.hasHotel ? "✓" : "✗"}
+  </span>
+
+  {/* UB = Rigging Address */}
+  <span
+    title={event.hasRiggingAddress ? (event.riggingAddress || "") : ""}
+    style={{
+      fontSize: "0.7rem",
+      fontWeight: "normal",
+      padding: "1px 4px",
+      borderRadius: "3px",
+      backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
+      color: "#fff",
+      border: "0.75px solid #000",
+    }}
+  >
+    UB {event.hasRiggingAddress ? "✓" : "✗"}
+  </span>
+
+  {/* Call Time (optional) */}
+  {event.callTime && (
+    <span
+      style={{
+        fontSize: "0.7rem",
+        fontWeight: "normal",
+        padding: "1px 4px",
+        borderRadius: "3px",
+        backgroundColor: "#111",
+        color: "#fff",
+        border: "0.75px solid #000",
+      }}
+      title={`Call Time: ${event.callTime}`}
+    >
+      CT {event.callTime}
+    </span>
+  )}
+</div>
+
+{/* ⚠ RED-REASON BOX — show only when risky */}
+{event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
+  <div style={{ width: "100%", marginTop: 6 }}>
+    <div
+      style={{
+        backgroundColor: "#e53935",
+        color: "#fff",
+        border: "1.5px solid #000",
+        borderRadius: "4px",
+        padding: "3px 6px",
+        fontSize: "0.72rem",
+        fontWeight: 800,
+        letterSpacing: 0.2,
+      }}
+    >
+      VEHICLE COMPLIANCE ISSUE
+    </div>
+    <div
+      style={{
+        marginTop: 4,
+        background: "#ffe6e6",
+        border: "1px dashed #e53935",
+        borderRadius: "4px",
+        padding: "4px 6px",
+        fontSize: "0.7rem",
+        lineHeight: 1.25,
+        color: "#000",
+        fontWeight: 600,
+      }}
+    >
+      {event.riskReasons.map((r, i) => (
+        <div key={i} style={{ marginTop: i ? 3 : 0 }}>{r}</div>
+      ))}
+    </div>
+  </div>
 )}
 
-            </div>
-          )}
 
-          {/* Bottom row: H&S + RA + Notes toggle button */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "6px",
-              width: "100%",
-            }}
-          >
-            <div style={{ display: "flex", gap: "6px" }}>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: "normal",
-                  padding: "2px 4px",
-                  borderRadius: "4px",
-                  backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-                  color: "#fff",
-                  border: "1px solid #000",
-                }}
-              >
-                H&S {event.hasHS ? "✓" : "✗"}
-              </span>
 
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: "normal",
-                  padding: "2px 4px",
-                  borderRadius: "4px",
-                  backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-                  color: "#fff",
-                  border: "1px solid #000",
-                }}
-              >
-                RA {event.hasRiskAssessment ? "✓" : "✗"}
-              </span>
-            </div>
-
-            {event.notes && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowNotes(!showNotes);
-                }}
-                style={{
-                  fontSize: "0.7rem",
-                  padding: "2px 6px",
-                  border: "1px solid #000",
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                {showNotes ? "Hide Notes" : "Show Notes"}
-              </button>
-            )}
-          </div>
         </>
       )}
     </div>
@@ -605,6 +708,52 @@ useEffect(() => {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
 
   const [vehiclesData, setVehiclesData] = useState([]);
+  // ---- Vehicle normalizer (uses vehiclesData from state)
+const normalizeVehicles = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map((v) => {
+    // already an object with enough info
+    if (v && typeof v === "object" && (v.name || v.registration)) return v;
+
+    const needle = String(v ?? "").trim();
+
+    // resolve by id, registration or name from vehiclesData
+    const match =
+      vehiclesData.find((x) => x.id === needle) ||
+      vehiclesData.find((x) => String(x.registration ?? "").trim() === needle) ||
+      vehiclesData.find((x) => String(x.name ?? "").trim() === needle);
+
+    return match || { name: needle };
+  });
+};
+
+// --- derive “why red?” info from a normalized vehicles list
+const getVehicleRisk = (vehicles) => {
+  const reasons = [];
+  const list = Array.isArray(vehicles) ? vehicles : [];
+
+  list.forEach((v) => {
+    if (!v || typeof v !== "object") return;
+
+    const name =
+      v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
+    const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
+
+    const tax = String(v.taxStatus ?? "").trim().toLowerCase();
+    const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
+
+    if (tax === "sorn" || tax === "untaxed" || tax === "no tax") {
+      reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
+    }
+    if (ins === "not insured" || ins === "uninsured" || ins === "no insurance") {
+      reasons.push(`NO INSURANCE: ${name}${plate}`);
+    }
+  });
+
+  return { risky: reasons.length > 0, reasons };
+};
+
+
 
   const fetchVehicles = async () => {
     const snapshot = await getDocs(collection(db, "vehicles"));
@@ -618,6 +767,8 @@ useEffect(() => {
 
 
   const fetchNotes = async () => {
+
+
     const snapshot = await getDocs(collection(db, "notes"));
     const noteEvents = snapshot.docs.map(doc => {
       const data = doc.data();
@@ -772,24 +923,30 @@ useEffect(() => {
           <BigCalendar
             localizer={localizer}
 events={[
-  ...bookings.map((b) => {
-    // Single continuous block spanning start → end (end is exclusive)
-    const startBase = parseLocalDate(b.startDate || b.date);
-    const endRaw    = b.endDate || b.date || b.startDate; // sensible fallback
-    const endBase   = parseLocalDate(endRaw);
+...bookings.map((b) => {
+  const startBase = parseLocalDate(b.startDate || b.date);
+  const endRaw    = b.endDate || b.date || b.startDate;
+  const endBase   = parseLocalDate(endRaw);
+  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
 
-    // guard: if somehow end < start, force end = start
-    const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
+  // normalize vehicles once and compute risk
+  const normalizedVehicles = normalizeVehicles(b.vehicles);
+  const risk = getVehicleRisk(normalizedVehicles);
 
-    return {
-      ...b,
-      title: b.client || "",
-      start: startOfLocalDay(startBase),
-      end: startOfLocalDay(addDays(safeEndBase, 1)), // exclusive end => includes last day
-      allDay: true,
-      status: b.status || "Confirmed",
-    };
-  }),
+  return {
+    ...b,
+    vehicles: normalizedVehicles,
+    isRisky: risk.risky,
+    riskReasons: risk.reasons,
+
+    title: b.client || "",
+    start: startOfLocalDay(startBase),
+    end: startOfLocalDay(addDays(safeEndBase, 1)),
+    allDay: true,
+    status: b.status || "Confirmed",
+  };
+}),
+
 
   // keep maintenance as-is
   ...maintenanceBookings,
@@ -865,53 +1022,40 @@ events={[
 }}
 
             
-            
-            eventPropGetter={(event) => {
-              const status = event.status || "Confirmed";
-              const defaultColor = {
-                "Confirmed": "#f3f970",
-                "First Pencil": "#89caf5",
-                "Second Pencil": "#f73939",
-                "Holiday": "#d3d3d3",
-                "Maintenance": "#f97316",
-                "Complete": "#7AFF6E",
-                "Action Required": "##FF973B",
-                "DNH": "#c2c2c2ff",          // ← NEW: grey for DNH
+eventPropGetter={(event) => {
+  const status = event.status || "Confirmed";
 
+  let bg = ({
+    "Confirmed": "#f3f970",
+    "First Pencil": "#89caf5",
+    "Second Pencil": "#f73939",
+    "Holiday": "#d3d3d3",
+    "Maintenance": "#f97316",
+    "Complete": "#7AFF6E",
+    "Action Required": "#FF973B",  // ← fixed double-# bug
+    "DNH": "#c2c2c2",
+  }[status] || "#ccc");
 
-              }[status] || "#ccc";
-            
-              let highlightColor = defaultColor;
-            
-              // 🔴 Check for non-taxed or non-insured vehicles
-              if (Array.isArray(event.vehicles)) {
-                const risky = event.vehicles.some((v) =>
-                  typeof v === "object" &&
-                  (v.taxStatus?.toLowerCase() !== "Sorn" ||
-                   v.insuranceStatus?.toLowerCase() !== "Not Insured")
-                );
-            
-                if (risky) {
-                  highlightColor = "#e53935"; // red
-                }
-              }
-            
-              return {
-                style: {
-                  backgroundColor: highlightColor,
-                  color: "#fff",
-                  fontWeight: "bold",
-                  padding: "0",
-                  borderRadius: "6px",
-                  border: "2px solid #222",
-                  boxShadow: "0 2px 2px rgba(0,0,0,0.25)",
-                },
-              };
-            }}
-            
-            
-            
-            
+  // Use the enriched flag; if missing, compute quickly from vehicles.
+  let risky = !!event.isRisky;
+  if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
+    risky = getVehicleRisk(event.vehicles).risky;
+  }
+  if (risky) bg = "#e53935";
+
+  return {
+    style: {
+      backgroundColor: bg,
+      color: (bg === "#f3f970" || bg === "#d3d3d3") ? "#000" : "#fff",
+      fontWeight: "bold",
+      padding: 0,
+      borderRadius: "6px",
+      border: "2px solid #222",
+      boxShadow: "0 2px 2px rgba(0,0,0,0.25)",
+    },
+  };
+}}
+
             
           />
         </div>

@@ -10,6 +10,19 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth } from "../../../../firebaseConfig";
 
 
+// 00:00 → 23:45 in 15-min increments
+const buildTimeOptions = () => {
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 15, 30, 45]) {
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+      out.push(`${hh}:${mm}`);
+    }
+  }
+  return out;
+};
+const TIME_OPTIONS = buildTimeOptions();
 
 
 
@@ -68,6 +81,13 @@ const [openEquipGroups, setOpenEquipGroups] = useState({});
   // NEW: status reason state
 const [statusReasons, setStatusReasons] = useState([]);
 const [statusReasonOther, setStatusReasonOther] = useState("");
+
+// NEW: hotel / call time / rigging address
+const [hasHotel, setHasHotel] = useState(false);
+const [callTime, setCallTime] = useState("");          // "HH:MM"
+const [hasRiggingAddress, setHasRiggingAddress] = useState(false);
+const [riggingAddress, setRiggingAddress] = useState("");
+
 
 
 
@@ -206,6 +226,11 @@ setVehicles(b.vehicles || []);
           setIsCrewed(b.isCrewed || false);
           setHasHS(b.hasHS || false);
           setHasRiskAssessment(b.hasRiskAssessment || false);
+          setHasHotel(!!b.hasHotel);
+setCallTime(b.callTime || "");
+setHasRiggingAddress(!!b.hasRiggingAddress);
+setRiggingAddress(b.riggingAddress || "");
+
 
         }
       }
@@ -234,6 +259,14 @@ setVehicles(b.vehicles || []);
     loadData();
   }, [bookingId]);
   
+// keep arrays clean + use stable updates
+const uniq = (arr) => Array.from(new Set(arr.filter(Boolean)));
+
+const toggleVehicle = (name, checked) => {
+  setVehicles(prev =>
+    checked ? uniq([...prev, name]) : prev.filter(v => v !== name)
+  );
+};
 
   
 
@@ -380,6 +413,12 @@ const booking = {
   bookingDates,
   shootType,
   pdfURL: pdfURL || null,
+  hasHotel,
+callTime: callTime || "",
+
+hasRiggingAddress,
+riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
+
 
   // Save reasons only when applicable
   ...(["Lost", "Postponed", "Cancelled"].includes(status) && {
@@ -1054,6 +1093,60 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   </label>
 </div>
 
+{/* Hotel checkbox */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasHotel}
+      onChange={(e) => setHasHotel(e.target.checked)}
+    />{" "}
+    Hotel Booked
+  </label>
+</div>
+
+{/* Call Time dropdown */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+    Call Time
+  </label>
+  <select
+    value={callTime}
+    onChange={(e) => setCallTime(e.target.value)}
+    style={{ width: "220px", height: "40px", padding: "8px", fontSize: "16px" }}
+  >
+    <option value="">-- Select time --</option>
+    {TIME_OPTIONS.map((t) => (
+      <option key={t} value={t}>{t}</option>
+    ))}
+  </select>
+</div>
+
+{/* Rigging Address toggle + input */}
+<div style={{ marginTop: 10 }}>
+  <label style={{ fontWeight: 600 }}>
+    <input
+      type="checkbox"
+      checked={hasRiggingAddress}
+      onChange={(e) => setHasRiggingAddress(e.target.checked)}
+    />{" "}
+    Add Rigging Address
+  </label>
+
+  {hasRiggingAddress && (
+    <div style={{ marginTop: 8 }}>
+      <textarea
+        value={riggingAddress}
+        onChange={(e) => setRiggingAddress(e.target.value)}
+        rows={3}
+        style={{ width: "100%", padding: "8px", fontSize: "16px" }}
+        placeholder="Enter rigging address..."
+      />
+    </div>
+  )}
+</div>
+
+
 
   <div style={{ marginTop: 30, display: "flex", gap: 10 }}>
   <button type="submit" style={buttonStyle}>
@@ -1108,6 +1201,12 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
   <p><strong>Equipment:</strong> {equipment.join(", ") || "None"}</p>
   <p><strong>Notes:</strong> {notes || "None"}</p>
   {pdfFile && <p><strong>PDF:</strong> {pdfFile.name}</p>}
+  <p><strong>Hotel:</strong> {hasHotel ? "Yes" : "No"}</p>
+<p><strong>Call Time:</strong> {callTime || "—"}</p>
+{hasRiggingAddress && (
+  <p><strong>Rigging Address:</strong> {riggingAddress || "—"}</p>
+)}
+
 
   {isRange && Object.keys(notesByDate).length > 0 && (
     <>
