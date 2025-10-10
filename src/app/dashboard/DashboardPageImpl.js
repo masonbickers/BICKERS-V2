@@ -588,9 +588,6 @@ export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-    const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -606,6 +603,10 @@ export default function DashboardPage({ bookingSaved }) {
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
+    // Gate Calendar rendering to client only
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
 
   // same normaliser/risk
   const normalizeVehicles = (list) => {
@@ -960,6 +961,7 @@ eventPropGetter={(event) => {
               </div>
             </div>
 
+{mounted && (
             <BigCalendar
               localizer={localizer}
               events={[
@@ -1052,6 +1054,7 @@ eventPropGetter={(event) => {
                 },
               })}
             />
+            )}
           </section>
 
           {/* Today’s Jobs */}
