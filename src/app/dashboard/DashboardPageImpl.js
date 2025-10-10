@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar as BigCalendar, Views } from "react-big-calendar";
+import { Calendar as BigCalendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
 import { collection, onSnapshot, addDoc, getDocs } from "firebase/firestore";
@@ -14,12 +14,90 @@ import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { Check } from "lucide-react";
 
-// Always parse an ISO date-only string as LOCAL date at noon (avoids DST jumps)
+/* -------------------------- tiny visual tokens only -------------------------- */
+const UI = {
+  text: "#111827",
+  muted: "#6b7280",
+  bg: "#ffffff",
+  border: "1px solid #e5e7eb",
+  radiusLg: 12,
+  radius: 8,
+  radiusSm: 6,
+  shadow: "0 6px 16px rgba(0,0,0,0.06)",
+};
+
+const pageWrap = {
+  display: "flex",
+  minHeight: "100vh",
+  background: "#f3f4f6",
+  fontFamily: "Inter, system-ui, Arial, sans-serif",
+  color: UI.text,
+};
+
+const mainWrap = {
+  flex: 1,
+  maxWidth: 1600,
+  margin: "0 auto",
+  padding: "24px 24px 40px",
+};
+
+const card = {
+  background: UI.bg,
+  border: UI.border,
+  borderRadius: UI.radiusLg,
+  boxShadow: UI.shadow,
+  padding: 16,
+  marginBottom: 16,
+};
+
+const title = { margin: 0, fontSize: 18, fontWeight: 700, color: UI.text };
+
+const btnBase = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 12px",
+  borderRadius: UI.radius,
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  color: UI.text,
+};
+const btnDark = { ...btnBase, background: "#111827", color: "#fff", border: "1px solid #111827" };
+
+const tableWrap = { width: "100%", overflow: "auto", borderRadius: UI.radius, border: UI.border };
+const table = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
+const th = {
+  textAlign: "left",
+  fontWeight: 700,
+  fontSize: 12,
+  color: UI.text,
+  background: "#f3f4f6",
+  padding: "10px",
+  borderBottom: UI.border,
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
+};
+const td = { padding: "10px", verticalAlign: "middle", borderBottom: "1px solid #f1f5f9" };
+
+const successBanner = {
+  background: "#ecfdf5",
+  color: "#065f46",
+  border: "1px solid #10b981",
+  borderRadius: UI.radius,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  marginBottom: 14,
+};
+
+/* ------------------------------- your helpers ------------------------------- */
 const parseLocalDate = (d) => {
   if (!d) return null;
-  // support both "YYYY-MM-DD" and ISO strings
   const s = typeof d === "string" ? d : String(d);
-  // prefer YYYY-MM-DD if present
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) {
     const y = Number(m[1]), mo = Number(m[2]) - 1, day = Number(m[3]);
@@ -37,14 +115,20 @@ const startOfLocalDay = (d) => {
   return x;
 };
 
+const labelFromMins = (mins) => {
+  const n = Number(mins) || 0;
+  const h = Math.floor(n / 60);
+  const m = n % 60;
+  return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
+};
+
 const addDays = (d, n) => {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
 };
 
-// --- Job-number sorting helpers ---
-// --- Job-number sorting helpers (DESC: highest → lowest) ---
+// job sort helpers (unchanged)
 const jobKey = (val) => {
   const s = (val ?? "").toString().trim();
   const numMatch = s.match(/\d+/);
@@ -55,15 +139,15 @@ const jobKey = (val) => {
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
   const bookingEvents = bookings.map((b) => {
     const startBase = parseLocalDate(b.startDate || b.date);
-    const endRaw    = b.endDate || b.date || b.startDate;
-    const endBase   = parseLocalDate(endRaw);
-    const safeEnd   = endBase && startBase && endBase < startBase ? startBase : endBase;
+    const endRaw = b.endDate || b.date || b.startDate;
+    const endBase = parseLocalDate(endRaw);
+    const safeEnd = endBase && startBase && endBase < startBase ? startBase : endBase;
 
     return {
       ...b,
       title: b.client || "",
       start: startOfLocalDay(startBase),
-      end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive end to include last day
+      end: startOfLocalDay(addDays(safeEnd, 1)),
       allDay: true,
       status: b.status || "Confirmed",
     };
@@ -76,16 +160,13 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
 
   const all = [...bookingEvents, ...maintenance];
 
-  // Sort by numeric chunk of jobNumber: DESC. Non-numeric sink to bottom.
   all.sort((a, b) => {
     const ak = jobKey(a.jobNumber);
     const bk = jobKey(b.jobNumber);
     const aNum = Number.isNaN(ak.num) ? -Infinity : ak.num;
     const bNum = Number.isNaN(bk.num) ? -Infinity : bk.num;
 
-    if (bNum !== aNum) return bNum - aNum; // ✅ highest → lowest
-
-    // Tie-breakers to keep order stable/readable
+    if (bNum !== aNum) return bNum - aNum; // DESC
     if ((bk.raw || "") !== (ak.raw || "")) return (bk.raw || "").localeCompare(ak.raw || "");
     if (a.start.getTime() !== b.start.getTime()) return a.start - b.start;
     const spanA = a.end - a.start, spanB = b.end - b.start;
@@ -95,9 +176,6 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
 
   return all;
 };
-
-
-
 
 const formatCrew = (employees) => {
   if (!Array.isArray(employees) || employees.length === 0) return "—";
@@ -119,100 +197,36 @@ const formatCrew = (employees) => {
     .join(", ");
 };
 
-
-
-
-
+/* ---------------------- role gate (unchanged, minimal UI) ------------------- */
 const Dashboard = () => {
   const userRole = useUserRole();
-
   if (!userRole) return <div>Loading...</div>;
-
   return (
-    
-    <div>
-      {userRole === "admin" && <button>Delete Booking</button>}
-      {userRole !== "viewer" && <button>Create Booking</button>}
-      {/* rest of your dashboard */}
-    </div>
-  );
-};
-const EventNotes = ({ notes, show }) => {
-  if (!show) return null;
-  return (
-    <div
-      style={{
-        fontWeight: "normal",
-        opacity: 0.8,
-        marginTop: "4px",
-        display: "block",
-      }}
-    >
-      {notes}
+    <div style={{ display: "flex", gap: 8 }}>
+      {userRole === "admin" && <button style={btnBase}>Delete Booking</button>}
+      {userRole !== "viewer" && <button style={btnDark}>Create Booking</button>}
     </div>
   );
 };
 
-const EventNotesButton = ({ show, setShow }) => (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      setShow(!show);
-    }}
-    style={{
-      padding: "2px 6px",
-      fontSize: "0.7rem",
-      fontWeight: "normal",
-      backgroundColor: "transparent",  // ✅ blends with block
-      border: "1px solid rgba(0,0,0,0.3)", // ✅ subtle grey border
-      borderRadius: "3px",
-      color: "rgba(0,0,0,0.7)",        // ✅ softer text colour
-      cursor: "pointer",
-      opacity: 0.8,                    // ✅ makes it look lighter
-    }}
-  >
-    {show ? "Hide Notes" : "Show Notes"}
-  </button>
-);
+/* --------------------- CalendarEvent (booking block minimal) ----------------- */
+/* Structure & fields UNCHANGED. Only subtle font/padding/border tweaks */
 function CalendarEvent({ event }) {
   const [showNotes, setShowNotes] = useState(false);
 
   const employeeInitials = Array.isArray(event.employees)
     ? event.employees
-        .map(emp => {
-          const employeeName =
-            typeof emp === "string" ? emp : emp?.name || "";
+        .map((emp) => {
+          const employeeName = typeof emp === "string" ? emp : emp?.name || "";
           return employeeName
             .split(" ")
-            .map(part => part[0]?.toUpperCase())
+            .map((part) => part[0]?.toUpperCase())
             .join("");
         })
         .filter(Boolean)
         .join(", ")
     : "";
-    
-    const formatCrew = (employees) => {
-  if (!Array.isArray(employees) || employees.length === 0) return "—";
-  return employees
-    .map((emp) => {
-      if (typeof emp === "string") return emp;
-      if (!emp || typeof emp !== "object") return "";
-      const fromName = emp.name?.toString().trim();
-      if (fromName) return fromName;
-      const firstLast = [emp.firstName, emp.lastName].filter(Boolean).join(" ").trim();
-      if (firstLast) return firstLast;
-      const display = emp.displayName?.toString().trim();
-      if (display) return display;
-      const email = emp.email?.toString().trim();
-      if (email) return email;
-      return "";
-    })
-    .filter(Boolean)
-    .join(", ");
-};
 
-
-    
   return (
     <div
       title={event.noteToShow || ""}
@@ -220,73 +234,77 @@ function CalendarEvent({ event }) {
         display: "flex",
         flexDirection: "column",
         fontSize: "0.85rem",
-        lineHeight: "1.4",
-        color: "#000",
+        lineHeight: 1.2,
+        color: "#0b0b0b",
         fontWeight: 600,
-        textTransform: "uppercase",
-        fontFamily: "'Montserrat', 'Arial', sans-serif",
+        fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
-        padding: "4px",
-        margin: 0,
-        boxSizing: "border-box",
+        padding: 6,           // was 4
+        gap: 2,               // small breathing room
+        borderRadius: 6,      // soften
         whiteSpace: "normal",
         wordBreak: "break-word",
-        height: "auto",
-        overflow: "visible",
+        textTransform: "uppercase",
+letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
+
       }}
     >
       {event.status === "Holiday" ? (
         <>
           <span>{event.employee}</span>
-          <span style={{ fontStyle: "italic", opacity: 0.7 }}>On Holiday</span>
+          <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
         </>
       ) : event.status === "Maintenance" ? (
         <>
-          <span style={{ fontWeight: "bold" }}>{event.vehicleName}</span>
+          <span style={{ fontWeight: 800 }}>{event.vehicleName}</span>
           <span style={{ textTransform: "capitalize" }}>{event.maintenanceType}</span>
           {event.notes && (
-            <span style={{ fontStyle: "italic", opacity: 0.7 }}>{event.notes}</span>
+            <span style={{ fontStyle: "italic", opacity: 0.8 }}>{event.notes}</span>
           )}
         </>
       ) : (
         <>
-          {/* Top row: initials + status + job number */}
+          {/* Top row: initials + status + job number (unchanged order) */}
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               width: "100%",
-              marginBottom: "2px",
+              marginBottom: 2,
+              gap: 6,
             }}
           >
             <span
               style={{
                 backgroundColor: "white",
-                padding: "1px 6px",
-                borderRadius: "4px",
-                fontSize: "0.85rem",
-                fontWeight: "normal",
-                border: "1px solid #000",
+                padding: "2px 8px",          // slightly larger
+                borderRadius: 6,
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                border: "1px solid #0b0b0b",
               }}
             >
               {employeeInitials}
             </span>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#333" }}>
+                <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#111" }}>
                   {event.status}
                 </span>
 
                 {event.isCrewed && (
                   <span
                     style={{
-                      fontSize: "0.75rem",
-                      fontWeight: "bold",
-                      color: "#333",
-                      marginTop: "-5px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: "0.7rem",
+                      fontWeight: 800,
+                      color: "#111",
+                      marginTop: -2,
                     }}
                   >
                     <Check size={12} strokeWidth={3} /> Crew
@@ -303,11 +321,11 @@ function CalendarEvent({ event }) {
                       ? "white"
                       : "#4caf50",
                   color: event.shootType === "Night" ? "#fff" : "#000",
-                  padding: "1px 6px",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                  fontWeight: "bold",
-                  border: "1px solid #000",
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  fontSize: "0.95rem",
+                  fontWeight: 900,
+                  border: "1px solid #0b0b0b",
                 }}
               >
                 {event.jobNumber}
@@ -315,253 +333,252 @@ function CalendarEvent({ event }) {
             </div>
           </div>
 
-{/* Details */}
-<span>{event.client}</span>
+          {/* Details (unchanged fields/order) */}
+          <span>{event.client}</span>
 
-{Array.isArray(event.vehicles) && event.vehicles.length > 0 &&
-  event.vehicles.map((v, i) => {
-    const name =
-      v?.name ||
-      [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
-      String(v || "");
+          {Array.isArray(event.vehicles) &&
+            event.vehicles.length > 0 &&
+            event.vehicles.map((v, i) => {
+              const name =
+                v?.name ||
+                [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
+                String(v || "");
+              const plate = v?.registration ? String(v.registration).toUpperCase() : "";
 
-    const plate = v?.registration ? String(v.registration).toUpperCase() : "";
+              return (
+                <span key={i}>
+                  {name}
+                  {plate ? ` – ${plate}` : ""}
+                </span>
+              );
+            })}
 
-    return (
-      <span key={i}>
-        {name}{plate ? ` – ${plate}` : ""}
-      </span>
-    );
-  })
-}
+          <span>{event.equipment}</span>
+          <span>{event.location}</span>
 
-<span>{event.equipment}</span>
-<span>{event.location}</span>
+          {/* Notes — same behaviour, slightly tidier text */}
+          {(event.notes || (event.notesByDate && Object.keys(event.notesByDate).length > 0)) && (
+            <div style={{ width: "100%", marginTop: 4 }}>
+              {event.notesByDate && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                  {Object.keys(event.notesByDate)
+                    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                    .sort((a, b) => new Date(a) - new Date(b))
+                    .reduce((cols, date, i) => {
+                      const col = Math.floor(i / 3);
+                      (cols[col] ||= []).push(date);
+                      return cols;
+                    }, [])
+                    .map((chunk, colIndex) => (
+                      <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+                        {chunk.map((date) => {
+                          const note = event.notesByDate[date] || "";
+                          const other = event.notesByDate[`${date}-other`];
+                          const tmins = event.notesByDate[`${date}-travelMins`];
 
+                          const extra =
+                            note === "Other" && other
+                              ? ` — ${other}`
+                              : note === "Travel Time" && tmins
+                              ? ` — ${labelFromMins(tmins)}`
+                              : "";
 
-          {/* Notes (only show when toggled on) */}
+                          const formattedDate = new Date(date).toLocaleDateString("en-GB", {
+                            weekday: "short",
+                            day: "2-digit",
+                          });
 
+                          return (
+                            <div
+                              key={date}
+                              style={{
+                                fontSize: "0.72rem",
+                                fontStyle: "italic",
+                                fontWeight: 400,
+                                opacity: 0.8,
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {formattedDate}: {note || "—"}
+                              {extra}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                </div>
+              )}
 
-{/* NOTES SECTION — Day notes always visible; button toggles free-form notes */}
-{(event.notes || (event.notesByDate && Object.keys(event.notesByDate).length > 0)) && (
-  <div style={{ width: "100%", marginTop: 4, marginBottom: 2 }}>
-
-    {/* DAY NOTES (ALWAYS VISIBLE) */}
-    {event.notesByDate && (
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-        {Object.entries(event.notesByDate)
-          .sort(([a], [b]) => new Date(a) - new Date(b))
-          .reduce((cols, entry, i) => {
-            const col = Math.floor(i / 3); // 3 rows per column
-            (cols[col] ||= []).push(entry);
-            return cols;
-          }, [])
-          .map((chunk, colIndex) => (
-            <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
-              {chunk.map(([date, note]) => {
-                const formattedDate = new Date(date).toLocaleDateString("en-GB", {
-                  weekday: "short",
-                  day: "2-digit",
-                });
-                return (
-                  <div
-                    key={date}
+              {event.notes && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowNotes((s) => !s);
+                    }}
                     style={{
                       fontSize: "0.7rem",
-                      fontStyle: "italic",
-                      fontWeight: 500,
-                      opacity: 0.75,
-                      lineHeight: 1.2,
+                      padding: "2px 8px",
+                      border: "1px solid #111",
+                      background: "transparent",
+                      cursor: "pointer",
+                      borderRadius: 6,
                     }}
                   >
-                    {formattedDate}: {note}
-                  </div>
-                );
-              })}
+                    {showNotes ? "Hide Notes" : "Show Notes"}
+                  </button>
+
+                  {showNotes && (
+                    <div
+                      style={{
+                        opacity: 0.9,
+                        fontWeight: 500,
+                        fontSize: "0.75rem",
+                        lineHeight: 1.25,
+                        marginTop: 4,
+                      }}
+                    >
+                      {event.notes}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          ))}
-      </div>
-    )}
+          )}
 
-    {/* Toggle button BELOW the day notes (affects only free-form notes) */}
-    {event.notes && (
-      <button
-        onClick={(e) => { e.stopPropagation(); setShowNotes((s) => !s); }}
-        style={{
-          fontSize: "0.65rem",
-          padding: "1px 6px",
-          border: "0.75px solid #000",
-          background: "transparent",
-          cursor: "pointer",
-          borderRadius: "3px",
-          alignSelf: "flex-start",
-          marginTop: 4,
-        }}
-      >
-        {showNotes ? "Hide Notes" : "Show Notes"}
-      </button>
-    )}
+          {/* Badge row (unchanged content) */}
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              justifyContent: "flex-start",
+              marginTop: 6,
+              width: "100%",
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 400,
+                padding: "2px 6px",
+                borderRadius: 6,
+                backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+                color: "#fff",
+                border: "1px solid rgba(0,0,0,0.8)",
+              }}
+            >
+              HS {event.hasHS ? "✓" : "✗"}
+            </span>
 
-    {/* FREE-FORM NOTES (toggleable) */}
-    {showNotes && event.notes && (
-      <div
-        style={{
-          opacity: 0.85,
-          fontWeight: "normal",
-          fontSize: "0.7rem",
-          lineHeight: 1.25,
-          marginTop: 4,
-        }}
-      >
-        {event.notes}
-      </div>
-    )}
-  </div>
-)}
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 400,
+                padding: "2px 6px",
+                borderRadius: 6,
+                backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+                color: "#fff",
+                border: "1px solid rgba(0,0,0,0.8)",
+              }}
+            >
+              RA {event.hasRiskAssessment ? "✓" : "✗"}
+            </span>
 
+            <span
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 400,
+                padding: "2px 6px",
+                borderRadius: 6,
+                backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
+                color: "#fff",
+                border: "1px solid rgba(0,0,0,0.8)",
+              }}
+            >
+              H {event.hasHotel ? "✓" : "✗"}
+            </span>
 
+            <span
+              title={event.hasRiggingAddress ? (event.riggingAddress || "") : ""}
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 400,
+                padding: "2px 6px",
+                borderRadius: 6,
+                backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
+                color: "#fff",
+                border: "1px solid rgba(0,0,0,0.8)",
+              }}
+            >
+              UB {event.hasRiggingAddress ? "✓" : "✗"}
+            </span>
 
-{/* BADGE ROW (single line, left-aligned, compact) */}
-<div
-  style={{
-    display: "flex",
-    gap: "4px",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    marginTop: "4px",
-    width: "100%",
-    flexWrap: "wrap",
-  }}
->
-  {/* HS */}
-  <span
-    style={{
-      fontSize: "0.7rem",
-      fontWeight: "normal",
-      padding: "1px 4px",
-      borderRadius: "3px",
-      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-      color: "#fff",
-      border: "0.75px solid #000",
-    }}
-  >
-    HS {event.hasHS ? "✓" : "✗"}
-  </span>
+            {event.callTime && (
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 400,
+                  padding: "2px 6px",
+                  borderRadius: 6,
+                  backgroundColor: "#111",
+                  color: "#fff",
+                  border: "1px solid rgba(0,0,0,0.8)",
+                }}
+                title={`Call Time: ${event.callTime}`}
+              >
+                CT {event.callTime}
+              </span>
+            )}
+          </div>
 
-  {/* RA */}
-  <span
-    style={{
-      fontSize: "0.7rem",
-      fontWeight: "normal",
-      padding: "1px 4px",
-      borderRadius: "3px",
-      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-      color: "#fff",
-      border: "0.75px solid #000",
-    }}
-  >
-    RA {event.hasRiskAssessment ? "✓" : "✗"}
-  </span>
-
-  {/* Hotel (H) */}
-  <span
-    style={{
-      fontSize: "0.7rem",
-      fontWeight: "normal",
-      padding: "1px 4px",
-      borderRadius: "3px",
-      backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
-      color: "#fff",
-      border: "0.75px solid #000",
-    }}
-  >
-    H {event.hasHotel ? "✓" : "✗"}
-  </span>
-
-  {/* UB = Rigging Address */}
-  <span
-    title={event.hasRiggingAddress ? (event.riggingAddress || "") : ""}
-    style={{
-      fontSize: "0.7rem",
-      fontWeight: "normal",
-      padding: "1px 4px",
-      borderRadius: "3px",
-      backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
-      color: "#fff",
-      border: "0.75px solid #000",
-    }}
-  >
-    UB {event.hasRiggingAddress ? "✓" : "✗"}
-  </span>
-
-  {/* Call Time (optional) */}
-  {event.callTime && (
-    <span
-      style={{
-        fontSize: "0.7rem",
-        fontWeight: "normal",
-        padding: "1px 4px",
-        borderRadius: "3px",
-        backgroundColor: "#111",
-        color: "#fff",
-        border: "0.75px solid #000",
-      }}
-      title={`Call Time: ${event.callTime}`}
-    >
-      CT {event.callTime}
-    </span>
-  )}
-</div>
-
-{/* ⚠ RED-REASON BOX — show only when risky */}
-{event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
-  <div style={{ width: "100%", marginTop: 6 }}>
-    <div
-      style={{
-        backgroundColor: "#e53935",
-        color: "#fff",
-        border: "1.5px solid #000",
-        borderRadius: "4px",
-        padding: "3px 6px",
-        fontSize: "0.72rem",
-        fontWeight: 800,
-        letterSpacing: 0.2,
-      }}
-    >
-      VEHICLE COMPLIANCE ISSUE
-    </div>
-    <div
-      style={{
-        marginTop: 4,
-        background: "#ffe6e6",
-        border: "1px dashed #e53935",
-        borderRadius: "4px",
-        padding: "4px 6px",
-        fontSize: "0.7rem",
-        lineHeight: 1.25,
-        color: "#000",
-        fontWeight: 600,
-      }}
-    >
-      {event.riskReasons.map((r, i) => (
-        <div key={i} style={{ marginTop: i ? 3 : 0 }}>{r}</div>
-      ))}
-    </div>
-  </div>
-)}
-
-
-
+          {/* Risk box (unchanged behaviour/wording) */}
+          {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
+            <div style={{ width: "100%", marginTop: 6 }}>
+              <div
+                style={{
+                  backgroundColor: "#e53935",
+                  color: "#fff",
+                  border: "1.5px solid #000",
+                  borderRadius: 6,
+                  padding: "4px 6px",
+                  fontSize: "0.74rem",
+                  fontWeight: 900,
+                  letterSpacing: 0.2,
+                }}
+              >
+                VEHICLE COMPLIANCE ISSUE
+              </div>
+              <div
+                style={{
+                  marginTop: 4,
+                  background: "#ffe6e6",
+                  border: "1px dashed #e53935",
+                  borderRadius: 6,
+                  padding: "4px 6px",
+                  fontSize: "0.74rem",
+                  lineHeight: 1.25,
+                  color: "#000",
+                  fontWeight: 700,
+                }}
+              >
+                {event.riskReasons.map((r, i) => (
+                  <div key={i} style={{ marginTop: i ? 3 : 0 }}>
+                    {r}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
   );
 }
 
-
-
+/* ------------------------------- Page component ----------------------------- */
 export default function DashboardPage({ bookingSaved }) {
-
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -577,53 +594,106 @@ export default function DashboardPage({ bookingSaved }) {
   const [notes, setNotes] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
 
+  const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [vehiclesData, setVehiclesData] = useState([]);
 
-
-
-const navButton = {
-  background: "transparent",
-  color: "#fff",
-  border: "none",
-  fontSize: 16,
-  padding: "10px 0",
-  textAlign: "left",
-  cursor: "pointer",
-  borderBottom: "1px solid #333",
-};
-
-  const navButtonStyle = {
-    padding: "6px 12px",
-    backgroundColor: "#505050",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
+  // same normaliser/risk
+  const normalizeVehicles = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list.map((v) => {
+      if (v && typeof v === "object" && (v.name || v.registration)) return v;
+      const needle = String(v ?? "").trim();
+      const match =
+        vehiclesData.find((x) => x.id === needle) ||
+        vehiclesData.find((x) => String(x.registration ?? "").trim() === needle) ||
+        vehiclesData.find((x) => String(x.name ?? "").trim() === needle);
+      return match || { name: needle };
+    });
   };
 
-  // Sidebar item style
-  const sidebarItemStyle = {
-    background: "transparent",
-    color: "#fff",
-    border: "none",
-    fontSize: "16px",
-    padding: "10px 0",
-    textAlign: "left",
-    cursor: "pointer",
+  const getVehicleRisk = (vehicles) => {
+    const reasons = [];
+    const list = Array.isArray(vehicles) ? vehicles : [];
+    list.forEach((v) => {
+      if (!v || typeof v !== "object") return;
+      const name = v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
+      const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
+      const tax = String(v.taxStatus ?? "").trim().toLowerCase();
+      const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
+      if (tax === "sorn" || tax === "untaxed" || tax === "no tax") reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
+      if (ins === "not insured" || ins === "uninsured" || ins === "no insurance") reasons.push(`NO INSURANCE: ${name}${plate}`);
+    });
+    return { risky: reasons.length > 0, reasons };
   };
 
+  // listeners (unchanged)
+  useEffect(() => {
+    const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
+      const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setBookings(data);
+    });
 
+    const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
+      const holidayEvents = snap.docs.map((doc) => {
+        const data = doc.data();
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        return {
+          id: doc.id,
+          title: `${data.employee} - Holiday`,
+          start,
+          end: new Date(end.setDate(end.getDate())),
+          allDay: true,
+          status: "Holiday",
+          employee: data.employee,
+        };
+      });
+      setHolidays(holidayEvents);
+    });
 
-  
-useEffect(() => {
-  // 🔹 Bookings live
-  const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
-    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const unsubNotes = onSnapshot(collection(db, "notes"), (snap) => {
+      const noteEvents = snap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.text || "Note",
+          start: new Date(data.date),
+          end: new Date(data.date),
+          allDay: true,
+          status: "Note",
+          employee: data.employee || "",
+        };
+      });
+      setNotes(noteEvents);
+    });
+
+    const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
+      const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setVehiclesData(data);
+    });
+
+    return () => {
+      unsubBookings();
+      unsubHolidays();
+      unsubNotes();
+      unsubVehicles();
+    };
+  }, []);
+
+  const handleHome = async () => {
+    await signOut(auth);
+    router.push("/home");
+  };
+
+  const fetchBookings = async () => {
+    const snapshot = await getDocs(collection(db, "bookings"));
+    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     setBookings(data);
-  });
+  };
 
-  // 🔹 Holidays live
-  const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
-    const holidayEvents = snap.docs.map((doc) => {
+  const fetchHolidays = async () => {
+    const snapshot = await getDocs(collection(db, "holidays"));
+    const holidayEvents = snapshot.docs.map((doc) => {
       const data = doc.data();
       const start = new Date(data.startDate);
       const end = new Date(data.endDate);
@@ -638,11 +708,17 @@ useEffect(() => {
       };
     });
     setHolidays(holidayEvents);
-  });
+  };
 
-  // 🔹 Notes live
-  const unsubNotes = onSnapshot(collection(db, "notes"), (snap) => {
-    const noteEvents = snap.docs.map((doc) => {
+  const fetchVehicles = async () => {
+    const snapshot = await getDocs(collection(db, "vehicles"));
+    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    setVehiclesData(data);
+  };
+
+  const fetchNotes = async () => {
+    const snapshot = await getDocs(collection(db, "notes"));
+    const noteEvents = snapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -655,143 +731,9 @@ useEffect(() => {
       };
     });
     setNotes(noteEvents);
-  });
-
-  // 🔹 Vehicles live
-  const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
-    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setVehiclesData(data);
-  });
-
-  // ✅ Cleanup all listeners on unmount
-  return () => {
-    unsubBookings();
-    unsubHolidays();
-    unsubNotes();
-    unsubVehicles();
   };
-}, []);
-
-  
-  const handleHome = async () => {
-    await signOut(auth);
-    router.push("/home");
-  };
-
-  const fetchBookings = async () => {
-    const snapshot = await getDocs(collection(db, "bookings"));
-    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setBookings(data);
-  };
-
-
-  const fetchHolidays = async () => {
-    const snapshot = await getDocs(collection(db, "holidays"));
-    const holidayEvents = snapshot.docs.map(doc => {
-      const data = doc.data();
-      const start = new Date(data.startDate);
-      const end = new Date(data.endDate);
-  
-      return {
-        id: doc.id,
-        title: `${data.employee} - Holiday`,
-        start,
-        end: new Date(end.setDate(end.getDate())), // 👈 include full last day
-        allDay: true,
-        status: "Holiday",
-        employee: data.employee,
-      };
-    });
-    setHolidays(holidayEvents);
-  };
-
-  const [maintenanceBookings, setMaintenanceBookings] = useState([]);
-
-  const [vehiclesData, setVehiclesData] = useState([]);
-  // ---- Vehicle normalizer (uses vehiclesData from state)
-const normalizeVehicles = (list) => {
-  if (!Array.isArray(list)) return [];
-  return list.map((v) => {
-    // already an object with enough info
-    if (v && typeof v === "object" && (v.name || v.registration)) return v;
-
-    const needle = String(v ?? "").trim();
-
-    // resolve by id, registration or name from vehiclesData
-    const match =
-      vehiclesData.find((x) => x.id === needle) ||
-      vehiclesData.find((x) => String(x.registration ?? "").trim() === needle) ||
-      vehiclesData.find((x) => String(x.name ?? "").trim() === needle);
-
-    return match || { name: needle };
-  });
-};
-
-// --- derive “why red?” info from a normalized vehicles list
-const getVehicleRisk = (vehicles) => {
-  const reasons = [];
-  const list = Array.isArray(vehicles) ? vehicles : [];
-
-  list.forEach((v) => {
-    if (!v || typeof v !== "object") return;
-
-    const name =
-      v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
-    const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
-
-    const tax = String(v.taxStatus ?? "").trim().toLowerCase();
-    const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
-
-    if (tax === "sorn" || tax === "untaxed" || tax === "no tax") {
-      reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
-    }
-    if (ins === "not insured" || ins === "uninsured" || ins === "no insurance") {
-      reasons.push(`NO INSURANCE: ${name}${plate}`);
-    }
-  });
-
-  return { risky: reasons.length > 0, reasons };
-};
-
-
-
-  const fetchVehicles = async () => {
-    const snapshot = await getDocs(collection(db, "vehicles"));
-    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setVehiclesData(data);
-  };
-  
-  
-  
-  
-
-
-  const fetchNotes = async () => {
-
-
-    const snapshot = await getDocs(collection(db, "notes"));
-    const noteEvents = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        title: data.text || "Note",
-        start: new Date(data.date),
-        end: new Date(data.date),
-        allDay: true,
-        status: "Note",
-        employee: data.employee || ""
-      };
-    });
-    setNotes(noteEvents);
-  };
-  
-  
-  
-
-
 
   const today = new Date().toISOString().split("T")[0];
-
   const todaysJobs = bookings.filter((b) => {
     if (b.bookingDates && Array.isArray(b.bookingDates)) {
       return b.bookingDates.includes(today);
@@ -799,780 +741,583 @@ const getVehicleRisk = (vehicles) => {
     const singleDate = b.date?.split("T")[0];
     const start = b.startDate?.split("T")[0];
     const end = b.endDate?.split("T")[0];
-    return (
-      singleDate === today ||
-      (start && end && today >= start && today <= end)
-    );
+    return singleDate === today || (start && end && today >= start && today <= end);
   });
-
-
 
   return (
     <HeaderSidebarLayout>
-<div
-  style={{
-    display: "flex",
-    minHeight: "100vh",
-    width: "100%",          // ✅ ensures full width
-    overflowX: "hidden",    // ✅ stops sideways scrolling
-    fontFamily: "Arial, sans-serif",
-    backgroundColor: "#f4f4f5",
-  }}
->
+      <div style={pageWrap}>
+        <div style={mainWrap}>
+          {bookingSaved && <div style={successBanner}>✅ Booking saved successfully!</div>}
 
-      {/* ←── Sidebar */}
-           {/* Sidebar */}
+          {/* Work Diary */}
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <h2 style={title}>Work Diary</h2>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  style={btnBase}
+                  onClick={() =>
+                    setCurrentDate((prev) => {
+                      const d = new Date(prev);
+                      d.setDate(d.getDate() - 7);
+                      return d;
+                    })
+                  }
+                >
+                  ← Previous Week
+                </button>
+                <button
+                  style={btnBase}
+                  onClick={() =>
+                    setCurrentDate((prev) => {
+                      const d = new Date(prev);
+                      d.setDate(d.getDate() + 7);
+                      return d;
+                    })
+                  }
+                >
+                  Next Week →
+                </button>
+                <button style={btnDark} onClick={() => router.push("/create-booking")}>
+                  + Add Booking
+                </button>
+              </div>
+            </div>
 
+            <div style={{ textAlign: "center", color: UI.muted, fontWeight: 600, marginBottom: 8 }}>
+              {currentDate.toLocaleDateString("en-GB", { month: "long" })}
+            </div>
 
-      {/* ── Main Container (your original content) */}
-<div
-  style={{
-    flex: 1,
-    padding: "20px 40px",
-    color: "#333",
-    minWidth: 0,           // ✅ allows flexbox to shrink properly
-  }}
->
+            <BigCalendar
+              localizer={localizer}
+              events={[
+                ...bookings.map((b) => {
+                  const startBase = parseLocalDate(b.startDate || b.date);
+                  const endRaw = b.endDate || b.date || b.startDate;
+                  const endBase = parseLocalDate(endRaw);
+                  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
 
-  
+                  const normalizedVehicles = normalizeVehicles(b.vehicles);
+                  const risk = getVehicleRisk(normalizedVehicles);
 
-
-
-
-        {/* Success Banner */}
-        {bookingSaved && (
-          <div style={successBanner}>
-            ✅ Booking saved successfully!
-          </div>
-        )}
-
-        {/* Work Diary / Calendar */}
-        <div style={cardStyle}>
-          <h2 style={cardHeaderStyle}>Work Diary</h2>
-
-        {/* Month + Year title */}
-<h3 style={{ 
-  textAlign: "center", 
-  margin: "0px 0 0px 0", 
-  fontSize: "1.5rem", 
-  fontWeight: "bold" 
-}}>
-  {currentDate.toLocaleDateString("en-GB", { month: "long" })}
-</h3>
-
-        
-
-        
-          
-          
-          {/* Week Nav */}
-          {calendarView === "week" && (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      flexWrap: "wrap",
-      gap: 10,
-      marginBottom: 20,
-    }}
-  >
-    {/* Week navigation buttons */}
-    <div style={{ display: "flex", gap: 10 }}>
-    <button
-  onClick={() =>
-    setCurrentDate(prev => {
-      const newDate = new Date(prev); // create a copy
-      newDate.setDate(newDate.getDate() - 7); // move back 7 days
-      return newDate;
-    })
-  }
-  style={navButtonStyle}
->
-  ← Previous Week
-</button>
-      <button
-  onClick={() =>
-    setCurrentDate(prev => {
-      const newDate = new Date(prev); // create a copy
-      newDate.setDate(newDate.getDate() + 7); // move forward 7 days
-      return newDate;
-    })
-  }
-  style={navButtonStyle}
->
-  Next Week →
-</button>
-
-    </div>
-
-    {/* Add buttons */}
-    <div style={{ display: "flex", gap: 10,  }}>
-      <button style={buttonStyle} onClick={() => router.push("/create-booking")}>
-       + Add Booking
-      </button>
-   
-    </div>
-  </div>
-)}
-
-
-
-
-          {/* Calendar */}
-          <BigCalendar
-            localizer={localizer}
-events={[
-...bookings.map((b) => {
-  const startBase = parseLocalDate(b.startDate || b.date);
-  const endRaw    = b.endDate || b.date || b.startDate;
-  const endBase   = parseLocalDate(endRaw);
-  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
-
-  // normalize vehicles once and compute risk
-  const normalizedVehicles = normalizeVehicles(b.vehicles);
-  const risk = getVehicleRisk(normalizedVehicles);
-
-  return {
-    ...b,
-    vehicles: normalizedVehicles,
-    isRisky: risk.risky,
-    riskReasons: risk.reasons,
-
-    title: b.client || "",
-    start: startOfLocalDay(startBase),
-    end: startOfLocalDay(addDays(safeEndBase, 1)),
-    allDay: true,
-    status: b.status || "Confirmed",
-  };
-}),
-
-
-  // keep maintenance as-is
-  ...maintenanceBookings,
-]}
-
-            
-            
-            
-            
-            
-            
-            view={calendarView}
-            views={["week", "month"]}
-            onView={(v) => setCalendarView(v)}
-            date={currentDate}
-            onNavigate={(d) => setCurrentDate(d)}
-            onSelectSlot={({ start }) => {
-              setNoteDate(start);
-              setNoteText(""); // or load existing note if implemented later
-              setNoteModalOpen(true);
-            }}
-            selectable
-            
-            startAccessor="start"
-            endAccessor="end"
-            popup
-            allDayAccessor={() => true}
-            allDaySlot
-            dayLayoutAlgorithm="no-overlap"
-            toolbar={false}
-            nowIndicator={false} // 
-            getNow={() => new Date(2000, 0, 1)} 
+                  return {
+                    ...b,
+                    vehicles: normalizedVehicles,
+                    isRisky: risk.risky,
+                    riskReasons: risk.reasons,
+                    title: b.client || "",
+                    start: startOfLocalDay(startBase),
+                    end: startOfLocalDay(addDays(safeEndBase, 1)),
+                    allDay: true,
+                    status: b.status || "Confirmed",
+                  };
+                }),
+                ...maintenanceBookings,
+              ]}
+              view={calendarView}
+              views={["week", "month"]}
+              onView={(v) => setCalendarView(v)}
+              date={currentDate}
+              onNavigate={(d) => setCurrentDate(d)}
+              onSelectSlot={({ start }) => {
+                setNoteDate(start);
+                setNoteText("");
+                setNoteModalOpen(true);
+              }}
+              selectable
+              startAccessor="start"
+              endAccessor="end"
+              popup
+              allDayAccessor={() => true}
+              allDaySlot
+              dayLayoutAlgorithm="no-overlap"
+              toolbar={false}
+              nowIndicator={false}
+              getNow={() => new Date(2000, 0, 1)}
               formats={{
-                        dayFormat: (date, culture, localizer) =>
-                          localizer.format(date, "EEEE dd", culture), // ✅ "Monday 25"
-                      }}
-            
-              // ✅ Highlight today's column
-  dayPropGetter={(date) => {
-    const today = new Date();
-    const isToday =
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear();
-
-    return {
-      style: {
-        backgroundColor: isToday ? "rgba(137, 174, 255, 0.3)" : undefined, // light yellow
-        border: isToday ? "1px solid #3f82ffff" : undefined,               // gold border
-      },
-    };
-  }}
-
-            style={{
-  
-              borderRadius: "12px",
-              background: "#fff",
-              padding: "0px",
-            }}
- onSelectEvent={(e) => {
-  if (e.status === "Holiday") {
-    router.push(`/edit-holiday/${e.id}`);
-  } else if (e.status === "Note") {
-    router.push(`/note/${e.id}`);
-  } else if (e.id) {
-    setSelectedBookingId(e.id);
-  }
-}}
-
-            
-    components={{
-  event: CalendarEvent
-}}
-
-            
+                dayFormat: (date, culture, localizer) =>
+                  localizer.format(date, "EEEE dd", culture),
+              }}
+              dayPropGetter={(date) => {
+                const todayD = new Date();
+                const isToday =
+                  date.getDate() === todayD.getDate() &&
+                  date.getMonth() === todayD.getMonth() &&
+                  date.getFullYear() === todayD.getFullYear();
+                return {
+                  style: {
+                    backgroundColor: isToday ? "rgba(137,174,255,0.25)" : undefined,
+                    border: isToday ? "1px solid #3f82ff" : undefined,
+                  },
+                };
+              }}
+              style={{ borderRadius: UI.radiusLg, background: "#fff" }}
+              onSelectEvent={(e) => {
+                if (e.status === "Holiday") {
+                  router.push(`/edit-holiday/${e.id}`);
+                } else if (e.status === "Note") {
+                  router.push(`/note/${e.id}`);
+                } else if (e.id) {
+                  setSelectedBookingId(e.id);
+                }
+              }}
+              components={{ event: CalendarEvent }}
 eventPropGetter={(event) => {
   const status = event.status || "Confirmed";
 
-  let bg = ({
-    "Confirmed": "#f3f970",
-    "First Pencil": "#89caf5",
-    "Second Pencil": "#f73939",
-    "Holiday": "#d3d3d3",
-    "Maintenance": "#f97316",
-    "Complete": "#7AFF6E",
-    "Action Required": "#FF973B",  // ← fixed double-# bug
-    "DNH": "#c2c2c2",
-  }[status] || "#ccc");
+  // existing status colours
+  let bg =
+    {
+      Confirmed: "#f3f970",
+      "First Pencil": "#89caf5",
+      "Second Pencil": "#f73939",
+      Holiday: "#d3d3d3",
+      Maintenance: "#f97316",
+      Complete: "#7AFF6E",
+      "Action Required": "#FF973B",
+      DNH: "#c2c2c2",
+    }[status] || "#ccc";
 
-  // Use the enriched flag; if missing, compute quickly from vehicles.
+  let text = bg === "#f3f970" || bg === "#d3d3d3" ? "#111" : "#fff";
+
+  // existing risk override
   let risky = !!event.isRisky;
   if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
     risky = getVehicleRisk(event.vehicles).risky;
   }
-  if (risky) bg = "#e53935";
+  if (risky) {
+    bg = "#e53935";
+    text = "#fff";
+  }
 
+  // 👉 NIGHT SHOOT OVERRIDE (light purple) — bookings only
+  const shoot = String(event.shootType || "").toLowerCase();
+  const bookingStatuses = new Set([
+    "confirmed",
+    "first pencil",
+    "second pencil",
+    "complete",
+    "action required",
+    "dnh",
+  ]);
+
+  if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
+    bg = "#c596f7ff";        // light purple (Tailwind purple-200)
+    text = "#111";         // dark text for contrast
+    return {
+      style: {
+        backgroundColor: bg,
+        color: text,
+        fontWeight: 700,
+        padding: 0,
+        borderRadius: 8,
+        border: "2px solid #6a24e4ff", // slightly darker purple border
+        boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+      },
+    };
+  }
+
+  // default return (unchanged)
   return {
     style: {
       backgroundColor: bg,
-      color: (bg === "#f3f970" || bg === "#d3d3d3") ? "#000" : "#fff",
-      fontWeight: "bold",
+      color: text,
+      fontWeight: 700,
       padding: 0,
-      borderRadius: "6px",
-      border: "2px solid #222",
-      boxShadow: "0 2px 2px rgba(0,0,0,0.25)",
+      borderRadius: 8,
+      border: "2px solid #0b0b0b",
+      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
     },
   };
 }}
 
-            
-          />
-        </div>
+            />
+          </section>
 
-        <div style={cardStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-  <h2 style={cardHeaderStyle}>Holiday + Notes Calendar</h2>
-  <div style={{ display: "flex", gap: "10px" }}>
-    <button
-      style={{
-        padding: "6px 12px",
-        backgroundColor: "#505050",
-        color: "#fff",
-        border: "none",
-        borderRadius: "4px",
-        cursor: "pointer"
-      }}
-      onClick={() => router.push("/holiday-form")}
-    >
-      + Add Holiday
-    </button>
-    <button
-  style={{
-    padding: "6px 12px",
-    backgroundColor: "#505050",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer"
-  }}
-  onClick={() => router.push("/note-form")}
->
-  + Add Note
-</button>
+          {/* Holiday + Notes Calendar */}
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <h2 style={title}>Holiday + Notes Calendar</h2>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={btnDark} onClick={() => router.push("/holiday-form")}>
+                  + Add Holiday
+                </button>
+                <button style={btnDark} onClick={() => router.push("/note-form")}>
+                  + Add Note
+                </button>
+              </div>
+            </div>
 
-  </div>
-  
-</div>
+            <BigCalendar
+              localizer={localizer}
+              events={[
+                ...holidays.map((h) => ({
+                  ...h,
+                  title: h.title,
+                  start: new Date(h.start),
+                  end: new Date(h.end),
+                  allDay: true,
+                  status: "Holiday",
+                })),
+                ...notes.map((n) => ({
+                  ...n,
+                  title: n.title || "Note",
+                  start: new Date(n.start),
+                  end: new Date(n.end),
+                  allDay: true,
+                  status: "Note",
+                })),
+              ]}
+              view={calendarView}
+              views={["week", "month"]}
+              onView={(v) => setCalendarView(v)}
+              date={currentDate}
+              onNavigate={(d) => setCurrentDate(d)}
+              selectable
+              startAccessor="start"
+              endAccessor="end"
+              popup
+              allDayAccessor={() => true}
+              dayLayoutAlgorithm="overlap"
+              toolbar={false}
+              nowIndicator={false}
+              getNow={() => new Date(2000, 0, 1)}
+              onSelectEvent={(e) => {
+                if (e.status === "Holiday") {
+                  router.push(`/edit-holiday/${e.id}`);
+                } else if (e.status === "Note") {
+                  router.push(`/note/${e.id}`);
+                }
+              }}
+              style={{ borderRadius: UI.radiusLg, background: "#fff" }}
+              components={{
+                event: ({ event }) => (
+                  <div
+                    title={event.title}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      fontSize: "0.85rem",
+                      lineHeight: 1.35,
+                      color: "#0b0b0b",
+                      fontWeight: 600,
+                      fontFamily: "Inter, system-ui, Arial, sans-serif",
+                      textAlign: "left",
+                      padding: 6,
+                      minHeight: 40,
+                    }}
+                  >
+                    {event.status === "Holiday" ? (
+                      <>
+                        <span>{event.employee}</span>
+                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{event.employee}</span>
+                        <span style={{ fontWeight: 800 }}>{event.title}</span>
+                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
+                      </>
+                    )}
+                  </div>
+                ),
+              }}
+              eventPropGetter={(event) => ({
+                style: {
+                  backgroundColor: event.status === "Holiday" ? "#d3d3d3" : "#9e9e9e",
+                  color: "#111",
+                  fontWeight: 700,
+                  padding: 0,
+                  borderRadius: 8,
+                  border: "2px solid #999",
+                  boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                },
+              })}
+              dayPropGetter={() => ({
+                style: {
+                  borderRight: "1px solid #e5e7eb",
+                  borderTop: "1px solid #e5e7eb",
+                },
+              })}
+            />
+          </section>
 
+          {/* Today’s Jobs */}
+          <section style={card}>
+            <h2 style={title}>Today’s Jobs</h2>
+            {todaysJobs.length === 0 ? (
+              <p style={{ color: UI.muted, marginTop: 8 }}>No jobs today.</p>
+            ) : (
+              <div style={tableWrap}>
+                <table style={table}>
+                  <colgroup>
+                    <col style={{ width: "16%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "8%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th style={th}>Date</th>
+                      <th style={th}>Job Number</th>
+                      <th style={th}>Production</th>
+                      <th style={th}>Location</th>
+                      <th style={th}>Crew</th>
+                      <th style={th}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todaysJobs.map((b, i) => (
+                      <tr
+                        key={i}
+                        style={{
+                          background: i % 2 === 0 ? "#fff" : "#fafafa",
+                          transition: "background-color .15s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
+                        }
+                      >
+                        <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
+                        <td style={td}>{b.jobNumber}</td>
+                        <td style={td}>{b.client || "—"}</td>
+                        <td style={td}>{b.location || "—"}</td>
+                        <td style={td}>
+                          {Array.isArray(b.employees) && b.employees.length
+                            ? b.employees
+                                .map((emp) =>
+                                  typeof emp === "string"
+                                    ? emp
+                                    : emp?.name ||
+                                      [emp?.firstName, emp?.lastName].filter(Boolean).join(" ") ||
+                                      emp?.displayName ||
+                                      emp?.email ||
+                                      ""
+                                )
+                                .filter(Boolean)
+                                .join(", ")
+                            : "—"}
+                        </td>
+                        <td style={td}>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              onClick={() => setSelectedBookingId(b.id)}
+                              style={btnBase}
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => router.push(`/edit-booking/${b.id}`)}
+                              style={btnDark}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
-  <BigCalendar
-    localizer={localizer}
-    events={[
-      ...holidays.map((h) => ({
-        ...h,
-        title: h.title,
-        start: new Date(h.start),
-        end: new Date(h.end),
-        allDay: true,
-        status: "Holiday",
-      })),
-      ...notes.map((n) => ({
-        ...n,
-        title: n.title || "Note",
-        start: new Date(n.start),
-        end: new Date(n.end),
-        allDay: true,
-        status: "Note",
-        
-      })),
-    ]}
-    
-    view={calendarView}
-    views={["week", "month"]}
-    onView={(v) => setCalendarView(v)}
-    date={currentDate}
-    onNavigate={(d) => setCurrentDate(d)}
-    selectable
-    startAccessor="start"
-    endAccessor="end"
-    popup
-    allDayAccessor={() => true}
-    allDaySlotsimp
-    dayLayoutAlgorithm="overlap"
-    toolbar={false}
-    nowIndicator={false}
-    getNow={() => new Date(2000, 0, 1)}
-    onSelectEvent={(e) => {
-      if (e.status === "Holiday") {
-        router.push(`/edit-holiday/${e.id}`);
-      } else if (e.status === "Note") {
-        router.push(`/note/${e.id}`);
-      }
-    }}
-    
-    style={{
- 
-      borderRadius: "12px",
-      background: "#fff",
-      padding: "10px",
-    }}
-    components={{
-      event: ({ event }) => (
-        
-        
-        <div
-          title={event.title}
-            style={{
-            display: "flex",
-            flexDirection: "column",
-            fontSize: "0.85rem",
-            lineHeight: "1.4",
-            color: "#000",
-            fontWeight: 400,
-            textTransform: "uppercase",
-            fontFamily: "'Montserrat', 'Arial', sans-serif",
-            textAlign: "left",
-            alignItems: "flex-start",
-            padding: "4px",
-            margin: 0,
-            boxSizing: "border-box",
-            overflow: "visible",           // ✅ allows content to overflow naturally
-            whiteSpace: "normal",          // ✅ allows text wrapping
-            wordBreak: "break-word",       // ✅ breaks long words
-            minHeight: "100px",            // ✅ ensures enough vertical space
-            height: "auto",                // ✅ don't clip based on height
-          }}
+          {/* Upcoming Bookings */}
+          <section style={card}>
+            <h2 style={title}>Upcoming Bookings</h2>
+            {["Confirmed", "First Pencil", "Second Pencil"].map((status) => {
+              const todayDate = new Date().toISOString().split("T")[0];
+              const filtered = bookings
+                .filter((b) => {
+                  const bookingStatus = b.status || "Confirmed";
+                  if (bookingStatus !== status) return false;
+                  const end = b.endDate?.split("T")[0];
+                  const date = b.date?.split("T")[0];
+                  const latestDate = end || date;
+                  return latestDate >= todayDate;
+                })
+                .sort((a, b) => new Date(a.date || a.startDate) - new Date(b.date || b.startDate));
 
-        >
-          {event.status === "Holiday" ? (
-            <>
-              <span>{event.employee}</span>
-              <span style={{ fontStyle: "italic", opacity: 0.7 }}>
-                On Holiday
-              </span>
-            </>
-          ) : (
+              return (
+                <div key={status} style={{ marginTop: 10 }}>
+                  <div style={{ color: UI.muted, fontSize: 12, marginBottom: 6 }}>
+                    {status} — {filtered.length} {filtered.length === 1 ? "item" : "items"}
+                  </div>
 
-            <>
-              <span>{event.employee}</span>
-              <span style={{ fontWeight: "bold" }}>{event.title}</span>
-              <span style={{ fontStyle: "italic", opacity: 0.7 }}>
-                Note
-              </span>
-            </>
-          )}
-      </div>
-  ),
-}}
+                  {filtered.length === 0 ? (
+                    <p style={{ color: UI.muted, marginTop: 8 }}>
+                      No {status.toLowerCase()} bookings.
+                    </p>
+                  ) : (
+                    <div style={tableWrap}>
+                      <table style={table}>
+                        <colgroup>
+                          <col style={{ width: "16%" }} />
+                          <col style={{ width: "14%" }} />
+                          <col style={{ width: "22%" }} />
+                          <col style={{ width: "22%" }} />
+                          <col style={{ width: "18%" }} />
+                          <col style={{ width: "8%" }} />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th style={th}>Date</th>
+                            <th style={th}>Job Number</th>
+                            <th style={th}>Production</th>
+                            <th style={th}>Location</th>
+                            <th style={th}>Crew</th>
+                            <th style={th}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.map((b, i) => (
+                            <tr
+                              key={i}
+                              style={{
+                                background: i % 2 === 0 ? "#fff" : "#fafafa",
+                                transition: "background-color .15s ease",
+                              }}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor = "#f5f6f8")
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                  i % 2 === 0 ? "#fff" : "#fafafa")
+                              }
+                            >
+                              <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
+                              <td style={td}>{b.jobNumber}</td>
+                              <td style={td}>{b.client || "—"}</td>
+                              <td style={td}>{b.location || "—"}</td>
+                              <td style={td}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span>{formatCrew(b.employees)}</span>
+                                  {b.isCrewed && (
+                                    <span
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+                                        padding: "2px 6px",
+                                        borderRadius: 6,
+                                        background: "#16a34a",
+                                        color: "#fff",
+                                        border: "1px solid rgba(0,0,0,0.15)",
+                                      }}
+                                    >
+                                      CREWED
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={td}>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button
+                                    onClick={() => setSelectedBookingId(b.id)}
+                                    style={btnBase}
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => router.push(`/edit-booking/${b.id}`)}
+                                    style={btnDark}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </section>
 
-    eventPropGetter={(event) => ({
-      style: {
-        backgroundColor: event.status === "Holiday" ? "#d3d3d3" : "#9e9e9e", // ← Add note colour
-        color: "#000",
-        fontWeight: "bold",
-        padding: "0",
-        borderRadius: "6px",
-        border: "2px solid #999",
-        boxShadow: "0 2px 2px rgba(0,0,0,0.25)",
-      },
-    })}
-
-    // ✅ ADD THIS JUST BELOW
-    dayPropGetter={(date) => ({
-      style: {
-        borderRight: "1px solid #ccc",  // vertical divider between days
-        borderTop: "1px solid #ccc",    // optional: adds a line under day headers
-      },
-    })}
-  />
-
-</div>
-
-
-{/* Today's Jobs */}
-<div style={{ ...cardStyle, marginTop: "20px" }}>
-  <h2 style={cardHeaderStyle}>Todays Jobs</h2>
-  {todaysJobs.length === 0 ? (
-    <p>No jobs today.</p>
-  ) : (
-    <table style={{
-      width: "100%",
-      borderCollapse: "collapse",
-      marginTop: "1rem",
-      fontFamily: "Arial, sans-serif",
-      fontSize: "14px",
-    }}>
-      <colgroup>
-        <col style={{ width: "15%" }} />
-        <col style={{ width: "15%" }} />
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "20%" }} />
-        <col style={{ width: "10%" }} />
-      </colgroup>
-      <thead style={{ backgroundColor: "#d3d3d3" }}>
-        <tr>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Date</th>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Job Number</th>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Production</th>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Location</th>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Crew</th>
-          <th style={{ textAlign: "left", padding: "12px 10px" }}>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {todaysJobs.map((b, i) => (
-          <tr key={i}
-            style={{
-              borderTop: "1px solid #ddd",
-              backgroundColor: i % 2 === 0 ? "#fff" : "#d3d3d3",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#d3d3d3")}
-          >
-            <td style={{ padding: "10px", verticalAlign: "middle" }}>{new Date(b.date || b.startDate).toDateString()}</td>
-            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
-            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
-            <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-<td style={{ padding: "10px", verticalAlign: "middle" }}>
-  {Array.isArray(b.employees) && b.employees.length
-    ? b.employees
-        .map(emp => typeof emp === "string"
-          ? emp
-          : (emp?.name
-             || [emp?.firstName, emp?.lastName].filter(Boolean).join(" ")
-             || emp?.displayName
-             || emp?.email
-             || ""))
-        .filter(Boolean)
-        .join(", ")
-    : "—"}
-</td>
-
-
-            <td style={{
-              padding: "10px",
-              verticalAlign: "middle",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}>
-              <button onClick={() => setSelectedBookingId(b.id)}
+          {/* Add booking modal (unchanged logic, slight styling) */}
+          {showModal && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 50,
+              }}
+            >
+              <div
                 style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#444",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}>
-                View
-              </button>
-              <button onClick={() => router.push(`/edit-booking/${b.id}`)}
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#1976d2",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}>
-                Edit
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )}
-</div>
-
-{/* Upcoming Bookings */}
-<div style={{ ...cardStyle, marginTop: "40px" }}>
-  <h2 style={cardHeaderStyle}>Upcoming Bookings</h2>
-  {["Confirmed", "First Pencil", "Second Pencil"].map((status) => {
-    const todayDate = new Date().toISOString().split("T")[0];
-    const filtered = bookings
-      .filter((b) => {
-        const bookingStatus = b.status || "Confirmed";
-        if (bookingStatus !== status) return false;
-
-        const end = b.endDate?.split("T")[0];
-        const date = b.date?.split("T")[0];
-        const latestDate = end || date;
-
-        return latestDate >= todayDate;
-      })
-      .sort((a, b) =>
-        new Date(a.date || a.startDate) - new Date(b.date || b.startDate)
-      );
-
-    return (
-      <div key={status} style={{ marginTop: "20px" }}>
-        <h3 style={{ color: "#000000", marginBottom: "10px" }}>{status} Bookings</h3>
-        {filtered.length === 0 ? (
-          <p>No {status.toLowerCase()} bookings.</p>
-        ) : (
-          <table style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "1rem",
-            fontFamily: "Arial, sans-serif",
-            fontSize: "14px",
-          }}>
-            <colgroup>
-              <col style={{ width: "15%" }} />
-              <col style={{ width: "15%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "10%" }} />
-            </colgroup>
-            <thead style={{ backgroundColor: "#d3d3d3" }}>
-              <tr>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Date</th>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Job Number</th>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Production</th>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Location</th>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Crew</th>
-                <th style={{ textAlign: "left", padding: "12px 10px" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((b, i) => (
-                <tr key={i}
-                  style={{
-                    borderTop: "1px solid #ddd",
-                    backgroundColor: i % 2 === 0 ? "#fff" : "#d3d3d3",
-                    transition: "background-color 0.2s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#d3d3d3")}
-                >
-                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{new Date(b.date || b.startDate).toDateString()}</td>
-                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.jobNumber}</td>
-                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.client || "—"}</td>
-                  <td style={{ padding: "10px", verticalAlign: "middle" }}>{b.location || "—"}</td>
-<td style={{ padding: "10px", verticalAlign: "middle" }}>
-  {formatCrew(b.employees)}
-  {b.isCrewed && (
-    <div
-      style={{
-        marginTop: "4px",
-        display: "inline-block",
-        padding: "2px 6px",
-        backgroundColor: "#4caf50",
-        color: "#fff",
-        borderRadius: "4px",
-        fontSize: "12px",
-        fontWeight: "bold",
-      }}
-    >
-      CREWED
-    </div>
-  )}
-</td>
-
-
-                  <td style={{
-                    padding: "10px",
-                    verticalAlign: "middle",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}>
-                    <button onClick={() => setSelectedBookingId(b.id)}
-                      style={{
-                        padding: "6px 10px",
-                        backgroundColor: "#444",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}>
-                      View
-                    </button>
-                    <button onClick={() => router.push(`/edit-booking/${b.id}`)}
-                      style={{
-                        padding: "6px 10px",
-                        backgroundColor: "#1976d2",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}>
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    );
-  })}
-</div>
-
-
-
-
-        {/* Two-column section */}
-        <div style={twoColumnWrapper}>
-          <div style={columnBox}>
-  
-        
-          </div>
-        </div>
-
-        {/* Modal */}
-        {showModal && (
-          <div style={modalBackdrop}>
-            <div style={modalBox}>
-              <h3>Add Booking for {selectedDate?.toDateString()}</h3>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const client = e.target.client.value;
-                  const location = e.target.location.value;
-                  saveBooking({
-                    date: selectedDate.toISOString(),
-                    client,
-                    location,
-                  });
+                  background: "#fff",
+                  borderRadius: UI.radiusLg,
+                  border: UI.border,
+                  boxShadow: UI.shadow,
+                  width: 380,
+                  maxWidth: "92vw",
+                  padding: 16,
                 }}
               >
-                <input name="client" placeholder="Client" required />
-                <br />
-                <br />
-                <input name="location" placeholder="Location" required />
-                <br />
-                <br />
-                <button type="submit">Save</button>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  style={{ marginLeft: 10 }}
+                <h3 style={{ ...title, fontSize: 16 }}>Add Booking for {selectedDate?.toDateString()}</h3>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const client = e.target.client.value;
+                    const location = e.target.location.value;
+                    saveBooking({
+                      date: selectedDate.toISOString(),
+                      client,
+                      location,
+                    });
+                  }}
+                  style={{ display: "grid", gap: 10, marginTop: 10 }}
                 >
-                  Cancel
-                </button>
-              </form>
+                  <input
+                    name="client"
+                    placeholder="Client"
+                    required
+                    style={{
+                      border: UI.border,
+                      borderRadius: UI.radius,
+                      padding: "10px 12px",
+                      fontSize: 14,
+                    }}
+                  />
+                  <input
+                    name="location"
+                    placeholder="Location"
+                    required
+                    style={{
+                      border: UI.border,
+                      borderRadius: UI.radius,
+                      padding: "10px 12px",
+                      fontSize: 14,
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button type="button" onClick={() => setShowModal(false)} style={btnBase}>
+                      Cancel
+                    </button>
+                    <button type="submit" style={btnDark}>
+                      Save
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-    {selectedBookingId && (
-  <ViewBookingModal
-    id={selectedBookingId}
-    onClose={() => setSelectedBookingId(null)}
-  />
-)}
 
+      {selectedBookingId && (
+        <ViewBookingModal id={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
+      )}
     </HeaderSidebarLayout>
- );
+  );
 }
-
-
-// 🔷 Styles
-const cardStyle = {
-  backgroundColor: "#f9f9f9",
-  padding: "20px",
-  borderRadius: "4px",
-  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-  color: "#333",
-  marginBottom: "20px",
-};
-
-const cardHeaderStyle = {
-  marginBottom: "10px",
-  color: "#111",
-};
-
-const buttonStyle = {
-  marginRight: "10px",
-  marginTop: "10px",
-  padding: "8px 12px",
-  backgroundColor: "#505050",
-  color: "#fff",
-  border: "none",
-  borderRadius: "4px",
-  cursor: "pointer",
-};
-
-const HomeButtonStyle = {
-  ...buttonStyle,
-  backgroundColor: "#505050",
-};
-
-const successBanner = {
-  backgroundColor: "#d4edda",
-  color: "#155724",
-  padding: "10px 20px",
-  borderRadius: "5px",
-  marginBottom: "20px",
-  border: "1px solid #c3e6cb",
-};
-
-const twoColumnWrapper = {
-  display: "flex",
-  justifyContent: "space-between",
-  flexWrap: "wrap",
-  gap: "20px",
-};
-
-const columnBox = {
-  flex: "1 1 48%",
-};
-
-const modalBackdrop = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  background: "rgba(0,0,0,0.5)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-};
-
-const modalBox = {
-  background: "#fff",
-  padding: "20px",
-  borderRadius: "8px",
-  width: "300px",
-};
-
