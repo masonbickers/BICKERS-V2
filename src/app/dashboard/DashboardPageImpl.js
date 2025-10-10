@@ -5,8 +5,12 @@ import { useEffect, useState } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar as BigCalendar } from "react-big-calendar";
+import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+const BigCalendar = dynamic(
+   () => import("react-big-calendar").then((m) => m.Calendar),
+   { ssr: false }
+);
 import { localizer } from "../utils/localizer";
 import { collection, onSnapshot, addDoc, getDocs } from "firebase/firestore";
 import useUserRole from "../hooks/useUserRole";
@@ -196,6 +200,8 @@ const formatCrew = (employees) => {
     .filter(Boolean)
     .join(", ");
 };
+
+
 
 /* ---------------------- role gate (unchanged, minimal UI) ------------------- */
 const Dashboard = () => {
@@ -582,6 +588,10 @@ export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+    const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -789,6 +799,7 @@ export default function DashboardPage({ bookingSaved }) {
               {currentDate.toLocaleDateString("en-GB", { month: "long" })}
             </div>
 
+{mounted && (
             <BigCalendar
               localizer={localizer}
               events={[
@@ -932,7 +943,7 @@ eventPropGetter={(event) => {
   };
 }}
 
-            />
+            />)}
           </section>
 
           {/* Holiday + Notes Calendar */}
