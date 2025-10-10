@@ -279,7 +279,7 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
             <span
               style={{
                 backgroundColor: "white",
-                padding: "2px 8px",          // slightly larger
+                padding: "2px 6px",          // slightly larger
                 borderRadius: 6,
                 fontSize: "0.8rem",
                 fontWeight: 600,
