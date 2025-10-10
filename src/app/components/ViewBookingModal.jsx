@@ -1,137 +1,246 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+
+/* ---------- helpers ---------- */
+const fmtDate = (iso) => (iso ? new Date(iso).toDateString() : "Not set");
+const fmtDateRange = (b) => {
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
+    return b.bookingDates.join(", ");
+  }
+  if (b.startDate && b.endDate) return `${fmtDate(b.startDate)} → ${fmtDate(b.endDate)}`;
+  if (b.date) return fmtDate(b.date);
+  return "Not set";
+};
 
 export default function ViewBookingModal({ id, onClose }) {
   const [booking, setBooking] = useState(null);
   const [allVehicles, setAllVehicles] = useState([]);
   const router = useRouter();
 
+  // close on ESC
   useEffect(() => {
-    const fetchBooking = async () => {
+    const onEsc = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [onClose]);
+
+  // load booking
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
       const ref = doc(db, "bookings", id);
       const snap = await getDoc(ref);
-      if (snap.exists()) {
-        setBooking(snap.data());
-      } else {
-        alert("Booking not found");
-      }
-    };
-    fetchBooking();
+      if (!mounted) return;
+      if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
+      else alert("Booking not found");
+    })();
+    return () => (mounted = false);
   }, [id]);
 
+  // load vehicles
   useEffect(() => {
-    const loadVehicles = async () => {
+    let mounted = true;
+    (async () => {
       const snapshot = await getDocs(collection(db, "vehicles"));
-      const vehicles = snapshot.docs.map((doc) => doc.data());
-      setAllVehicles(vehicles);
-    };
-    loadVehicles();
+      if (!mounted) return;
+      setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    })();
+    return () => (mounted = false);
   }, []);
+
+  const normalizedVehicles = useMemo(() => {
+    const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
+    return list.map((v) => {
+      if (v && typeof v === "object" && (v.name || v.registration)) return v;
+      const needle = String(v ?? "").trim();
+      const match =
+        allVehicles.find((x) => x.id === needle) ||
+        allVehicles.find((x) => String(x.registration ?? "").trim() === needle) ||
+        allVehicles.find((x) => String(x.name ?? "").trim() === needle);
+      return match || { name: needle };
+    });
+  }, [booking?.vehicles, allVehicles]);
 
   const handleDelete = async () => {
     const confirmDelete = confirm("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
-
     await deleteDoc(doc(db, "bookings", id));
     alert("Booking deleted");
-    onClose();
+    onClose?.();
   };
 
   if (!booking) return null;
 
+  const employeesPretty =
+    (booking.employees || [])
+      .map((e) => (typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")))
+      .filter(Boolean)
+      .join(", ") || "None";
+
+  const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
+  const reasonsText =
+    Array.isArray(booking.statusReasons) && booking.statusReasons.length
+      ? booking.statusReasons
+          .map((r) => (r === "Other" && booking.statusReasonOther ? `Other: ${booking.statusReasonOther}` : r))
+          .join(", ")
+      : "—";
+
   return (
-    <div style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 style={{ marginBottom: "20px" }}>Booking Details</h2>
-        <table
-          style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.95rem" }}
-        >
-          <tbody>
-            <Row label="Job Number" value={booking.jobNumber} />
-            <Row label="Client" value={booking.client} />
-            <Row label="Email" value={booking.contactEmail || "Not provided"} />
-            <Row label="Mobile" value={booking.contactNumber || "Not provided"} />
-            <Row label="Location" value={booking.location} />
-            <Row
-              label="Date(s)"
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+      <div style={modal}>
+        {/* Header */}
+        <div style={header}>
+          <div>
+            <div style={eyebrow}>Job #{booking.jobNumber || "—"}</div>
+            <h2 style={title}>{booking.client || "Booking Details"}</h2>
+          </div>
+          <span style={{ ...badge, background: statusColor(booking.status), color: onStatusColor(booking.status) }}>
+            {booking.status || "—"}
+          </span>
+        </div>
+
+        {/* Quick chips */}
+        <div style={chipRow}>
+          <Chip good={!!booking.hasHS} label="HS" />
+          <Chip good={!!booking.hasRiskAssessment} label="RA" />
+          <Chip good={!!booking.hasHotel} label="Hotel" />
+          <Chip good={!!booking.hasRiggingAddress} label="Rigging" title={booking.riggingAddress || ""} />
+          {booking.callTime && <Tag dark>Call: {booking.callTime}</Tag>}
+          {booking.isCrewed && <Tag success>CREWED</Tag>}
+          {booking.shootType && <Tag>{booking.shootType}</Tag>}
+        </div>
+
+        {/* Content grid */}
+        <div style={grid}>
+          <Section title="Overview">
+            <Field label="Production" value={booking.client || "—"} />
+            <Field label="Location" value={booking.location || "—"} />
+            <Field label="Date(s)" value={fmtDateRange(booking)} />
+            <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
+            <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
+            {showReasons && <Field label="Status Reason(s)" value={reasonsText} />}
+          </Section>
+
+          <Section title="People & Kit">
+            <Field label="Employees" value={employeesPretty} />
+            <Field
+              label="Vehicles"
               value={
-                booking.startDate && booking.endDate
-                  ? `${new Date(booking.startDate).toDateString()} → ${new Date(
-                      booking.endDate
-                    ).toDateString()}`
-                  : booking.date
-                  ? new Date(booking.date).toDateString()
-                  : "Not set"
+                normalizedVehicles.length
+                  ? (
+                      <div style={tagWrap}>
+                        {normalizedVehicles.map((v, i) => {
+                          const name =
+                            v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(v || "");
+                          const plate = v?.registration ? ` ${String(v.registration).toUpperCase()}` : "";
+                          return (
+                            <span key={`${name}-${i}`} style={tag}>
+                              {name}
+                              {plate && <span style={tagSub}>{plate}</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )
+                  : "None"
               }
             />
-<Row
-  label="Employees"
-  value={
-    (booking.employees || [])
-      .map(e => (typeof e === "string" ? e : `${e.role} – ${e.name}`))
-      .join(", ") || "None"
-  }
-/>
-            <tr>
-              <td style={cell}>
-                <strong>Vehicles</strong>
-              </td>
-              <td style={cell}>
-                {(booking.vehicles || []).map((name, i) => {
-                  const match = allVehicles.find(
-                    (v) => v.name === (typeof name === "object" ? name.name : name)
-                  );
-                  const displayName = typeof name === "object" ? name.name : name;
-                  const registration = name?.registration || match?.registration;
-                  return (
-                    <div key={i}>
-                      {displayName}
-                      {registration ? ` (${registration})` : ""}
-                    </div>
-                  );
-                })}
-              </td>
-            </tr>
-            <Row label="Equipment" value={(booking.equipment || []).join(", ")} />
-            <Row label="Notes" value={booking.notes || "None"} />
-            <Row label="Status" value={booking.status} />
-          </tbody>
-        </table>
+            <Field
+              label="Equipment"
+              value={
+                Array.isArray(booking.equipment) && booking.equipment.length ? (
+                  <div style={tagWrap}>
+                    {booking.equipment.map((e, i) => (
+                      <span key={`${e}-${i}`} style={tag}>{e}</span>
+                    ))}
+                  </div>
+                ) : (
+                  "None"
+                )
+              }
+            />
+          </Section>
 
-        {/* 🔹 Created + Last Edited info */}
-        <div style={{ marginTop: "15px", fontSize: "0.85rem", color: "#444" }}>
+          {/* Day notes (full width) */}
+          {booking.notesByDate && Object.keys(booking.notesByDate).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).length > 0 && (
+            <Section title="Day Notes" full>
+              <div style={notesGrid}>
+                {Object.keys(booking.notesByDate)
+                  .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                  .sort((a, b) => new Date(a) - new Date(b))
+                  .map((date) => {
+                    const note = booking.notesByDate[date] || "—";
+                    const other = booking.notesByDate[`${date}-other`];
+                    const final = note === "Other" && other ? `${note} — ${other}` : note;
+                    const pretty = new Date(date).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+                    return (
+                      <div key={date} style={noteCard}>
+                        <div style={noteDate}>{pretty}</div>
+                        <div style={noteText}>{final}</div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </Section>
+          )}
+
+          {/* Free-form notes (full width) */}
+          {booking.notes && (
+            <Section title="Notes" full>
+              <div style={noteBox}>{booking.notes}</div>
+            </Section>
+          )}
+
+          {/* Attachments (full width) */}
+          {(booking.quoteUrl || booking.pdfURL) && (
+            <Section title="Attachments" full>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {booking.quoteUrl && (
+                  <a href={booking.quoteUrl} target="_blank" rel="noopener noreferrer" style={fileBtn}>
+                    Open Quote
+                  </a>
+                )}
+                {booking.pdfURL && (
+                  <a href={booking.pdfURL} target="_blank" rel="noopener noreferrer" style={fileBtn}>
+                    Open PDF
+                  </a>
+                )}
+              </div>
+            </Section>
+          )}
+        </div>
+
+        {/* Footer meta */}
+        <div style={footerMeta}>
           {booking?.createdBy && (
             <div>
-              Created by <strong>{booking.createdBy}</strong>
-              {booking?.createdAt && (
-                <> on {new Date(booking.createdAt).toLocaleString("en-GB")}</>
-              )}
+              Created by <b>{booking.createdBy}</b>
+              {booking?.createdAt && <> on {new Date(booking.createdAt).toLocaleString("en-GB")}</>}
             </div>
           )}
           {booking?.lastEditedBy && (
-            <div style={{ marginTop: "5px" }}>
-              Last edited by <strong>{booking.lastEditedBy}</strong>
-              {booking?.updatedAt && (
-                <> on {new Date(booking.updatedAt).toLocaleString("en-GB")}</>
-              )}
+            <div>
+              Last edited by <b>{booking.lastEditedBy}</b>
+              {booking?.updatedAt && <> on {new Date(booking.updatedAt).toLocaleString("en-GB")}</>}
             </div>
           )}
         </div>
 
-        <div style={buttonGroupStyle}>
-          <button
-            onClick={() => router.push(`/edit-booking/${id}`)}
-            style={editBtnStyle}
-          >
+        {/* Actions */}
+        <div style={actions}>
+          <button onClick={() => router.push(`/edit-booking/${id}`)} style={{ ...btn, background: "#0d6efd" }}>
             Edit
           </button>
-          <button onClick={handleDelete} style={deleteBtnStyle}>
+          <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
             Delete
           </button>
-          <button onClick={onClose} style={closeBtnStyle}>
+          <button onClick={() => router.push(`/booking/${id}`)} style={{ ...btn, background: "#111" }}>
+            Open full page
+          </button>
+          <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
             Close
           </button>
         </div>
@@ -140,76 +249,206 @@ export default function ViewBookingModal({ id, onClose }) {
   );
 }
 
-function Row({ label, value }) {
+/* ---------- tiny presentational components ---------- */
+function Section({ title, children, full = false }) {
   return (
-    <tr>
-      <td style={cell}>
-        <strong>{label}</strong>
-      </td>
-      <td style={cell}>{value}</td>
-    </tr>
+    <section style={{ gridColumn: full ? "1 / -1" : "auto" }}>
+      <h3 style={sectionTitle}>{title}</h3>
+      <div style={sectionCard}>{children}</div>
+    </section>
   );
 }
 
-const overlayStyle = {
+function Field({ label, value }) {
+  return (
+    <div style={fieldRow}>
+      <div style={fieldLabel}>{label}</div>
+      <div style={fieldValue}>{value || "—"}</div>
+    </div>
+  );
+}
+
+const Chip = ({ good, label, title }) => (
+  <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
+    {label} {good ? "✓" : "✗"}
+  </span>
+);
+
+const Tag = ({ children, dark, success }) => (
+  <span
+    style={{
+      ...tag,
+      background: success ? "#22c55e" : dark ? "#111" : "#f3f4f6",
+      color: success || dark ? "#fff" : "#111",
+      border: success || dark ? "1px solid #111" : "1px solid #e5e7eb",
+    }}
+  >
+    {children}
+  </span>
+);
+
+/* ---------- styles ---------- */
+const overlay = {
   position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.6)",
+  inset: 0,
+  backgroundColor: "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
+  padding: 16,
   zIndex: 9999,
 };
 
-const modalStyle = {
+const modal = {
   background: "#fff",
-  padding: 30,
-  borderRadius: 10,
-  maxWidth: "700px",
-  width: "90%",
-  color: "#000",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+  color: "#111",
+  width: "min(900px, 96vw)",
+  maxHeight: "90vh",
+  overflow: "auto",
+  borderRadius: 12,
+  boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+  padding: 20,
 };
 
-const cell = {
-  padding: "12px 8px",
-  borderBottom: "1px solid #ccc",
-  verticalAlign: "top",
-};
-
-const buttonGroupStyle = {
-  marginTop: 30,
+const header = {
   display: "flex",
-  justifyContent: "center",
-  gap: "12px",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
 };
 
-const editBtnStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#1976d2",
-  color: "#fff",
-  border: "none",
-  borderRadius: "4px",
-  cursor: "pointer",
+const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#6b7280" };
+const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
+
+const badge = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 700,
+  border: "1px solid #111",
 };
 
-const deleteBtnStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#d32f2f",
-  color: "#fff",
-  border: "none",
-  borderRadius: "4px",
-  cursor: "pointer",
+const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 16,
 };
 
-const closeBtnStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#777",
+const sectionTitle = { margin: "0 0 8px 0", fontSize: 14, color: "#374151", textTransform: "uppercase", letterSpacing: 0.6 };
+const sectionCard = {
+  background: "#fafafa",
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: 14,
+};
+
+const fieldRow = {
+  display: "grid",
+  gridTemplateColumns: "160px 1fr",
+  gap: 10,
+  padding: "8px 0",
+  borderBottom: "1px dashed #e5e7eb",
+};
+const fieldLabel = { color: "#6b7280", fontSize: 13 };
+const fieldValue = { color: "#111", fontSize: 14 };
+
+const notesGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+  gap: 10,
+};
+const noteCard = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: 10,
+};
+const noteDate = { fontWeight: 700, fontSize: 13, marginBottom: 4 };
+const noteText = { fontSize: 14, color: "#111" };
+
+const noteBox = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: 12,
+  lineHeight: 1.4,
+};
+
+const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
+const tag = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "4px 8px",
+  background: "#f3f4f6",
+  border: "1px solid #e5e7eb",
+  borderRadius: 999,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+};
+const tagSub = { opacity: 0.7, fontSize: 11 };
+
+const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+
+const fileBtn = {
+  display: "inline-block",
+  padding: "8px 12px",
+  background: "#111",
+  color: "#fff",
+  borderRadius: 8,
+  textDecoration: "none",
+  border: "1px solid #111",
+};
+
+const footerMeta = {
+  marginTop: 12,
+  paddingTop: 12,
+  borderTop: "1px solid #e5e7eb",
+  color: "#6b7280",
+  fontSize: 12,
+  display: "flex",
+  gap: 16,
+  flexWrap: "wrap",
+};
+
+const actions = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "flex-end",
+  marginTop: 14,
+  paddingTop: 12,
+  borderTop: "1px solid #e5e7eb",
+};
+
+const btn = {
+  padding: "10px 14px",
   color: "#fff",
   border: "none",
-  borderRadius: "4px",
+  borderRadius: 8,
   cursor: "pointer",
+  fontWeight: 600,
 };
+
+function statusColor(status = "") {
+  const map = {
+    Confirmed: "#fde047",        // yellow
+    "First Pencil": "#93c5fd",   // blue
+    "Second Pencil": "#ef4444",  // red
+    DNH: "#c2c2c2",
+    Complete: "#22c55e",
+    "Action Required": "#ff7b00",
+    Holiday: "#d1d5db",
+    Maintenance: "#fb923c",
+    Lost: "#ef4444",
+    Postponed: "#f59e0b",
+    Cancelled: "#ef4444",
+  };
+  return map[status] || "#e5e7eb";
+}
+function onStatusColor(status = "") {
+  // dark text for light backgrounds
+  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "#111" : "#fff";
+}
