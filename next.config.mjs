@@ -1,9 +1,11 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // ✅ Skip ESLint during builds so deployment succeeds
+    // Skip ESLint during builds so deployment succeeds
     ignoreDuringBuilds: true,
   },
+  // ...keep any other settings you had here
 };
 
-module.exports = nextConfig;
+export default nextConfig; // ✅ ESM export
