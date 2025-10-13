@@ -4,11 +4,46 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db, auth } from "../../../../firebaseConfig";
 import {
-  doc, getDoc, getDocs, updateDoc, deleteDoc, collection, addDoc,
+doc, getDoc, getDocs, updateDoc, collection, addDoc,
 } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
+// ── Per-item status helpers ────────────────────────────────────────────────
+// ── Per-item status helpers ────────────────────────────────────────────────
+const VEHICLE_STATUSES = [
+  "Confirmed",
+  "First Pencil",
+  "Second Pencil",
+  "Enquiry",
+  "DNH",
+  "Lost",
+  "Postponed",
+  "Cancelled",
+];
+
+const doesBlockStatus = (s = "") =>
+  ["Confirmed", "First Pencil", "Second Pencil"].includes(s.trim());
+
+
+// --- Normalisers (add just after imports) ---
+const normalizeVehicleList = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((v) => (typeof v === "string" ? v : v?.name))
+    .filter(Boolean);
+
+const normalizeEmployeeNames = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((e) => (typeof e === "string" ? e : e?.name))
+    .filter(Boolean);
+
+// NEW: equipment can be strings or objects with { name }
+const normalizeEquipmentList = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((x) => (typeof x === "string" ? x : x?.name))
+    .filter(Boolean);
+
+    
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (layout-only; no logic changed)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -117,6 +152,8 @@ const labelFromMins = (mins) => {
   if (!n) return "—"; return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
 
+
+
 /* ────────────────────────────────────────────────────────────────────────────
    Blocking helpers (unchanged)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -148,6 +185,7 @@ export default function CreateBookingPage() {
   const [customEmployee, setCustomEmployee] = useState("");
   const [vehicles, setVehicles] = useState([]);
   const [equipment, setEquipment] = useState([]);
+  const [vehicleStatus, setVehicleStatus] = useState({});
   const [isSecondPencil, setIsSecondPencil] = useState(false);
   const [isCrewed, setIsCrewed] = useState(false);
   const [notes, setNotes] = useState("");
@@ -172,6 +210,18 @@ export default function CreateBookingPage() {
 
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [openEquipGroups, setOpenEquipGroups] = useState({});
+
+  // NEW: auto-open equipment groups that contain a selected item
+useEffect(() => {
+  const next = { ...openEquipGroups };
+  Object.entries(equipmentGroups).forEach(([group, items]) => {
+    const hasSelected = items?.some((name) => equipment.includes(name));
+    if (hasSelected) next[group] = true;
+  });
+  setOpenEquipGroups(next);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [equipmentGroups, equipment]);
+
 
   const [contactNumber, setContactNumber] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -258,8 +308,11 @@ export default function CreateBookingPage() {
           setStatusReasons(b.statusReasons || []);
           setStatusReasonOther(b.statusReasonOther || "");
           setEmployees((b.employees || []).map(e => (typeof e === "string" ? { role: "Precision Driver", name: e } : e)));
-          setVehicles(b.vehicles || []);
-          setEquipment(b.equipment || []);
+setVehicles(normalizeVehicleList(b.vehicles || []));
+    setEquipment(normalizeEquipmentList(b.equipment || []));
+    setVehicleStatus(b.vehicleStatus || {});
+
+
           setIsSecondPencil(!!b.isSecondPencil);
           setNotes(b.notes || "");
           setNotesByDate(b.notesByDate || {});
@@ -293,9 +346,18 @@ export default function CreateBookingPage() {
   }, [bookingId]);
 
   const uniq = (arr) => Array.from(new Set(arr.filter(Boolean)));
-  const toggleVehicle = (name, checked) => {
-    setVehicles(prev => (checked ? uniq([...prev, name]) : prev.filter(v => v !== name)));
-  };
+const toggleVehicle = (name, checked) => {
+  setVehicles(prev => (checked ? uniq([...prev, name]) : prev.filter(v => v !== name)));
+  setVehicleStatus(prev => {
+    const next = { ...prev };
+    if (checked) {
+      if (!next[name]) next[name] = status; // inherit booking-level status by default
+    } else {
+      delete next[name];
+    }
+    return next;
+  });
+};
 
   const isEmployeeOnHoliday = (employeeName) => {
     const selectedStart = new Date(startDate);
@@ -309,20 +371,59 @@ export default function CreateBookingPage() {
     });
   };
 
-  const bookedVehicles = allBookings
-    .filter(b => !(bookingId && b.id === bookingId) && doesBlock(b) && startDate && datesOverlap(startDate, isRange && endDate ? endDate : startDate, ...getBookingSpan(b)))
-    .flatMap(b => b.vehicles || []);
-  const bookedEmployees = allBookings
-    .filter(b => !(bookingId && b.id === bookingId) && doesBlock(b) && startDate && datesOverlap(startDate, isRange && endDate ? endDate : startDate, ...getBookingSpan(b)))
-    .flatMap(b => b.employees || [])
-    .map(e => (typeof e === "string" ? e : e.name));
-  const heldVehicles = allBookings
-    .filter(b => !(bookingId && b.id === bookingId) && !doesBlock(b) && startDate && datesOverlap(startDate, isRange && endDate ? endDate : startDate, ...getBookingSpan(b)))
-    .flatMap(b => b.vehicles || []);
-  const heldEmployees = allBookings
-    .filter(b => !(bookingId && b.id === bookingId) && !doesBlock(b) && startDate && datesOverlap(startDate, isRange && endDate ? endDate : startDate, ...getBookingSpan(b)))
-    .flatMap(b => b.employees || [])
-    .map(e => (typeof e === "string" ? e : e.name));
+// --- Overlap window for current selection ---
+const selStart = startDate;
+const selEnd   = isRange && endDate ? endDate : startDate;
+
+// --- Only relevant overlapping bookings (excluding self) ---
+const overlapping = allBookings.filter((b) => {
+  if (bookingId && b.id === bookingId) return false;
+  if (!selStart) return false;
+  const [bStart, bEnd] = getBookingSpan(b);
+  if (!bStart || !bEnd) return false;
+  return datesOverlap(selStart, selEnd, bStart, bEnd);
+});
+
+// --- Normalised conflict lists ---
+// Per-vehicle blocking using each booking's vehicleStatus map (fallback to booking.status)
+// Per-vehicle blocking using each booking's vehicleStatus map (fallback to booking.status)
+const bookedVehicles = overlapping.flatMap((b) => {
+  const names = normalizeVehicleList(b.vehicles || []);
+  const vmap  = b.vehicleStatus || {};
+  return names.filter((nm) => {
+    const itemStatus = (vmap && vmap[nm]) != null ? vmap[nm] : (b.status || "");
+    return doesBlockStatus(String(itemStatus).trim());
+  });
+});
+
+const heldVehicles = overlapping.flatMap((b) => {
+  const names = normalizeVehicleList(b.vehicles || []);
+  const vmap  = b.vehicleStatus || {};
+  return names.filter((nm) => {
+    const itemStatus = (vmap && vmap[nm]) != null ? vmap[nm] : (b.status || "");
+    return !doesBlockStatus(String(itemStatus).trim());
+  });
+});
+
+
+
+const bookedEmployees = overlapping
+  .filter(doesBlock)
+  .flatMap((b) => normalizeEmployeeNames(b.employees || []));
+
+const heldEmployees = overlapping
+  .filter((b) => !doesBlock(b))
+  .flatMap((b) => normalizeEmployeeNames(b.employees || []));
+
+  // NEW: equipment conflicts (mirrors vehicles)
+const bookedEquipment = overlapping
+  .filter(doesBlock)
+  .flatMap((b) => normalizeEquipmentList(b.equipment || []));
+
+const heldEquipment = overlapping
+  .filter((b) => !doesBlock(b))
+  .flatMap((b) => normalizeEquipmentList(b.equipment || []));
+
 
   const handleSubmit = async () => {
     if (status !== "Enquiry") {
@@ -379,7 +480,7 @@ export default function CreateBookingPage() {
     const user = auth.currentUser;
     const payload = {
       jobNumber, client, contactNumber, contactEmail, location,
-      employees: cleanedEmployees, vehicles, equipment,
+      employees: cleanedEmployees, vehicles,  vehicleStatus, equipment,
       isSecondPencil, isCrewed, hasHS, hasRiskAssessment, notes,
       notesByDate: filteredNotesByDate, status, bookingDates, shootType,
       pdfURL: pdfURL || null, hasHotel, callTime: callTime || "",
@@ -700,81 +801,119 @@ export default function CreateBookingPage() {
               {/* Column 3: Vehicles + Equipment */}
               <div style={card}>
                 <h3 style={cardTitle}>Vehicles</h3>
-                {Object.entries(vehicleGroups).map(([group, items]) => {
-                  const isOpen = openGroups[group] || false;
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }))}
-                        style={accordionBtn}
-                      >
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
-                      {isOpen && (
-                        <div style={{ padding:"10px 6px" }}>
-                          {items.map(vehicle => {
-                            const isBooked = bookedVehicles.includes(vehicle.name);
-                            const isHeld   = typeof heldVehicles !== "undefined" && heldVehicles.includes(vehicle.name);
-                            const disabled = isBooked;
-                            return (
-                              <label key={vehicle.name} style={{ display:"block", marginBottom: 6 }}>
-                                <input
-                                  type="checkbox"
-                                  value={vehicle.name}
-                                  disabled={disabled}
-                                  checked={vehicles.includes(vehicle.name)}
-                                  onChange={(e) => toggleVehicle(vehicle.name, e.target.checked)}
-                                />{" "}
-                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                                  {vehicle.name}{vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+{Object.entries(vehicleGroups).map(([group, items]) => {
+  const isOpen = openGroups[group] || false;
+
+  return (
+    <div key={group} style={{ marginTop: 10 }}>
+      <button
+        type="button"
+        onClick={() => setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }))}
+        style={accordionBtn}
+      >
+        <span>{isOpen ? "▼" : "►"} {group}</span>
+        <span style={pill}>{items.length}</span>
+      </button>
+
+      {isOpen && (
+        <div style={{ padding: "10px 6px" }}>
+          {items.map((vehicle) => {
+            const name       = vehicle.name;
+            const isBooked   = bookedVehicles.includes(name);
+            const isHeld     = heldVehicles.includes(name);
+            const isSelected = vehicles.includes(name);
+
+return (
+  <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+    <input
+      type="checkbox"
+      checked={isSelected}
+      onChange={(e) => toggleVehicle(name, e.target.checked)}
+    />
+    <span style={{ flex: 1 }}>
+      {vehicle.name}{vehicle.registration ? ` – ${vehicle.registration}` : ""}
+      {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+    </span>
+
+    {isSelected && (
+      <select
+        value={vehicleStatus[name] || status}
+        onChange={(e) => setVehicleStatus(prev => ({ ...prev, [name]: e.target.value }))}
+        style={{ height: 32 }}
+        title="Vehicle status"
+      >
+        {VEHICLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    )}
+  </div>
+);
+
+          })}
+        </div>
+      )}
+    </div>
+  );
+})}
+
 
                 <div style={divider} />
 
-                <h3 style={cardTitle}>Equipment</h3>
-                {Object.entries(equipmentGroups).map(([group, items]) => {
-                  const isOpen = openEquipGroups[group] || false;
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenEquipGroups(prev => ({ ...prev, [group]: !prev[group] }))}
-                        style={accordionBtn}
-                      >
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
-                      {isOpen && (
-                        <div style={{ padding:"10px 6px" }}>
-                          {items.map((item) => (
-                            <label key={item} style={{ display:"block", marginBottom: 6 }}>
-                              <input
-                                type="checkbox"
-                                value={item}
-                                checked={equipment.includes(item)}
-                                onChange={(e) => setEquipment(
-                                  e.target.checked ? [...equipment, item] : equipment.filter(i => i !== item)
-                                )}
-                              />{" "}
-                              <span>{item}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+<h3 style={cardTitle}>Equipment</h3>
+{Object.entries(equipmentGroups).map(([group, items]) => {
+  const isOpen = openEquipGroups[group] || false;
+
+  return (
+    <div key={group} style={{ marginTop: 10 }}>
+      <button
+        type="button"
+        onClick={() =>
+          setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))
+        }
+        style={accordionBtn}
+      >
+        <span>{isOpen ? "▼" : "►"} {group}</span>
+        <span style={pill}>{items.length}</span>
+      </button>
+
+      {isOpen && (
+        <div style={{ padding: "10px 6px" }}>
+          {items.map((name) => {
+            const isBooked   = bookedEquipment.includes(name);
+            const isHeld     = heldEquipment.includes(name);
+            const isSelected = equipment.includes(name);
+            const disabled   = isBooked && !isSelected; // allow changing current selection
+
+            return (
+              <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                <input
+                  type="checkbox"
+                  value={name}
+                  disabled={disabled}
+                  checked={isSelected}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setEquipment((prev) =>
+                        Array.from(new Set([...prev, name]))
+                      );
+                    } else {
+                      setEquipment((prev) => prev.filter((x) => x !== name));
+                    }
+                  }}
+                />{" "}
+                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                  {name}
+                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+})}
+
+
               </div>
 
 
@@ -867,10 +1006,33 @@ export default function CreateBookingPage() {
                   <div style={summaryRow}><div>Dates</div><div>{isRange ? `${startDate || "—"} → ${endDate || "—"}` : (startDate || "—")}</div></div>
                   <div style={summaryRow}><div>Drivers</div><div>{employees.filter(e=>e.role==="Precision Driver").map(e=>e.name).join(", ") || "—"}</div></div>
                   <div style={summaryRow}><div>Freelancers</div><div>{employees.filter(e=>e.role==="Freelancer").map(e=>e.name).join(", ") || "—"}</div></div>
-                  <div style={summaryRow}><div>Vehicles</div><div>{
-                    Object.values(vehicleGroups).flat().filter(v => vehicles.includes(v.name))
-                      .map(v => v.registration ? `${v.name} – ${v.registration}` : v.name).join(", ") || "—"
-                  }</div></div>
+  <div style={summaryRow}>
+  <div>Vehicles</div>
+  <div>
+    {Object.values(vehicleGroups).flat()
+      .filter(v => vehicles.includes(v.name))
+      .map(v => {
+        const vs = vehicleStatus[v.name] || status; // inherit if not overridden
+        const label = v.registration ? `${v.name} – ${v.registration}` : v.name;
+        return (
+          <span key={v.name} style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            border: "1px solid #d1d5db",
+            borderRadius: 999,
+            padding: "2px 8px",
+            marginRight: 6,
+            marginBottom: 6
+          }}>
+            {label} • {vs}
+          </span>
+        );
+      })}
+    {vehicles.length === 0 && "—"}
+  </div>
+</div>
+
                   <div style={summaryRow}><div>Equipment</div><div>{equipment.join(", ") || "—"}</div></div>
                   <div style={summaryRow}><div>Hotel / CT</div><div>{hasHotel ? "Hotel ✓" : "Hotel ✗"}{callTime ? ` • ${callTime}` : ""}</div></div>
                   {hasRiggingAddress && <div style={summaryRow}><div>Rigging Address</div><div>{riggingAddress || "—"}</div></div>}

@@ -9,6 +9,25 @@ import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../../../firebaseConfig";
 
+
+// --- Normalisers (make data shape consistent) ---
+const normalizeVehicleList = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((v) => (typeof v === "string" ? v : v?.id || v?.name))
+    .filter(Boolean);
+
+
+const normalizeEmployeeNames = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((e) => (typeof e === "string" ? e : e?.name))
+    .filter(Boolean);
+
+const normalizeEquipmentList = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((x) => (typeof x === "string" ? x : x?.name))
+    .filter(Boolean);
+
+
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (layout-only; no logic changed)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -375,17 +394,17 @@ export default function CreateBookingPage() {
     });
   };
 
-  const bookedVehicles = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-    .flatMap((b) => b.vehicles || []);
+const bookedVehicles = allBookings
+  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+  .flatMap((b) => normalizeVehicleList(b.vehicles || []));
 
-  const bookedEquipment = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-    .flatMap((b) => b.equipment || []);
+const bookedEquipment = allBookings
+  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+  .flatMap((b) => normalizeEquipmentList(b.equipment || []));
 
-  const bookedEmployees = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-    .flatMap((b) => b.employees || []);
+const bookedEmployees = allBookings
+  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+  .flatMap((b) => normalizeEmployeeNames(b.employees || []));
 
   const maintenanceBookedVehicles = maintenanceBookings
     .filter((b) => {

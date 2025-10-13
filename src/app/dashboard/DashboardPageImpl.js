@@ -30,6 +30,19 @@ const UI = {
   shadow: "0 6px 16px rgba(0,0,0,0.06)",
 };
 
+// ---- status colour map used for per-vehicle pills ----
+const STATUS_COLORS = {
+  Confirmed:         { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
+  "First Pencil":    { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
+  "Second Pencil":   { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
+  Holiday:           { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
+  Maintenance:       { bg: "#f97316", text: "#111", border: "#0b0b0b" },
+  Complete:          { bg: "#7AFF6E", text: "#111", border: "#0b0b0b" },
+  "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
+  DNH:               { bg: "#c2c2c2", text: "#111", border: "#0b0b0b" },
+};
+const getStatusStyle = (s = "") => STATUS_COLORS[s] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+
 const pageWrap = {
   display: "flex",
   minHeight: "100vh",
@@ -342,22 +355,70 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
           {/* Details (unchanged fields/order) */}
           <span>{event.client}</span>
 
-          {Array.isArray(event.vehicles) &&
-            event.vehicles.length > 0 &&
-            event.vehicles.map((v, i) => {
-              const name =
-                v?.name ||
-                [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
-                String(v || "");
-              const plate = v?.registration ? String(v.registration).toUpperCase() : "";
+{Array.isArray(event.vehicles) &&
+  event.vehicles.length > 0 &&
+  event.vehicles.map((v, i) => {
+    const vmap = event.vehicleStatus || {};
 
-              return (
-                <span key={i}>
-                  {name}
-                  {plate ? ` – ${plate}` : ""}
-                </span>
-              );
-            })}
+    const rawName =
+      v?.name ||
+      [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
+      String(v || "");
+    const name = String(rawName).trim();
+    const plate = v?.registration ? String(v.registration).toUpperCase().trim() : "";
+    const idKey = v?.id ? String(v.id).trim() : "";
+    const regKey = v?.registration ? String(v.registration).trim() : "";
+    const nameKey = name;
+
+    // Try all keys: id → registration → name
+    let itemStatusRaw =
+      (idKey && vmap[idKey]) ||
+      (regKey && vmap[regKey]) ||
+      (nameKey && vmap[nameKey]) ||
+      "";
+
+    const norm = (s) => String(s || "").trim();
+    const bookingStatus = norm(event.status);
+    const itemStatus = norm(itemStatusRaw) || bookingStatus;
+
+    const different = itemStatus && itemStatus !== bookingStatus;
+
+if (different) {
+  const { bg, text, border } = getStatusStyle(itemStatus);
+  return (
+    <span
+      key={i}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "0px 0px",
+        borderRadius: 2,
+        backgroundColor: bg,
+        color: text,
+        border: `0px solid ${border}`,
+        marginTop: 2,
+      }}
+      title={`Vehicle status: ${itemStatus}`}
+    >
+      {name}
+      {plate ? ` – ${plate}` : ""}
+    </span>
+  );
+}
+
+
+    // Default when it matches the booking status (no highlight)
+    return (
+      <span key={i}>
+        {name}
+        {plate ? ` – ${plate}` : ""}
+      </span>
+    );
+  })}
+
+
+
 
           <span>{event.equipment}</span>
           <span>{event.location}</span>
@@ -915,7 +976,7 @@ eventPropGetter={(event) => {
   ]);
 
   if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
-    bg = "#c596f7ff";        // light purple (Tailwind purple-200)
+    bg = "#f796dfff";        // light purple (Tailwind purple-200)
     text = "#111";         // dark text for contrast
     return {
       style: {
@@ -924,7 +985,7 @@ eventPropGetter={(event) => {
         fontWeight: 700,
         padding: 0,
         borderRadius: 8,
-        border: "2px solid #6a24e4ff", // slightly darker purple border
+        border: "2px solid #de24e4ff", // slightly darker purple border
         boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
       },
     };
