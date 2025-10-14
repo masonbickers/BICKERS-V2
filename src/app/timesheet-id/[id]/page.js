@@ -7,6 +7,11 @@ import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+// Deduct 30 mins from Yard days
+const LUNCH_DEDUCT_HRS = 0.5;
+
+
+
 
 // Accept DD/MM/YYYY, YYYY-MM-DD, Date, Timestamp, etc.
 function parseDateFlexible(raw) {
@@ -430,9 +435,19 @@ if (!hasJobsToday && !isWeekendDay && mode !== "holiday" && mode !== "off") {
     let segTravelToHrs = 0, segOnSetHrs = 0, segTravelBackHrs = 0;
     let hoursWorked = 0;
 
-    if (mode === "yard") {
-      hoursWorked = calculateHours(leaveTime, arriveBack ?? arriveTime);
-    } else if (mode === "travel") {
+if (mode === "yard") {
+  // Respect Off (Unpaid) on Yard days → counts as 0h
+  if (entry.offUnpaid === true) {
+    hoursWorked = 0;
+  } else {
+    // Normal Yard day: apply 30-min lunch deduction if there's any time
+    hoursWorked = calculateHours(leaveTime, arriveBack ?? arriveTime);
+    if (hoursWorked > 0) {
+      hoursWorked = Math.max(0, hoursWorked - LUNCH_DEDUCT_HRS);
+    }
+  }
+} else if (mode === "travel") {
+
       hoursWorked = calculateHours(leaveTime, arriveTime);
     } else if (mode === "onset") {
       segTravelToHrs   = (leaveTime && arriveTime)  ? calculateHours(leaveTime, arriveTime) : 0;
@@ -559,11 +574,20 @@ if (!hasJobsToday && !isWeekendDay && mode !== "holiday" && mode !== "off") {
 )}
 
 
-        {mode === "yard" ? (
-          <p style={{ margin: 0, color: "#333" }}>
-            <strong>Yard Day:</strong> {(leaveTime ?? "—")} → {(arriveBack ?? arriveTime ?? "—")}
-          </p>
-        ) : mode === "travel" ? (
+{mode === "yard" ? (
+  entry.offUnpaid ? (
+    <p style={{ margin: 0, color: "#666" }}>
+      <strong>Yard Day:</strong> Off (Unpaid)
+    </p>
+  ) : (
+    <p style={{ margin: 0, color: "#333" }}>
+      <strong>Yard Day:</strong> {(leaveTime ?? "—")} → {(arriveBack ?? arriveTime ?? "—")}
+      {" "}
+      <em style={{ color: "#888" }}>(−0.5h lunch)</em>
+    </p>
+  )
+) : mode === "travel" ? (
+
           <p style={{ margin: 0, color: "#333" }}>
             <strong>Travel Day:</strong> Leave {(leaveTime ?? "—")} → Arrive {(arriveTime ?? "—")}
           </p>

@@ -42,6 +42,9 @@ const STATUS_COLORS = {
   DNH:               { bg: "#c2c2c2", text: "#111", border: "#0b0b0b" },
 };
 const getStatusStyle = (s = "") => STATUS_COLORS[s] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+// ---- per-user action blocks ----
+const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
+
 
 const pageWrap = {
   display: "flex",
@@ -110,6 +113,33 @@ const successBanner = {
   fontWeight: 700,
   marginBottom: 14,
 };
+
+  const btnDisabled = {
+    ...btnBase,
+    opacity: 0.45,
+    cursor: "not-allowed",
+    pointerEvents: "none",
+    filter: "grayscale(0.2)",
+  };
+  const btnDarkDisabled = {
+    ...btnDark,
+    opacity: 0.45,
+    cursor: "not-allowed",
+    pointerEvents: "none",
+    filter: "grayscale(0.2)",
+  };
+
+    const goToCreateBooking = () => {
+    if (isRestricted) return; // hard stop
+    router.push("/create-booking");
+  };
+  const goToEditBooking = (id) => {
+    if (isRestricted) return; // hard stop
+    router.push(`/edit-booking/${id}`);
+  };
+
+
+
 
 /* ------------------------------- your helpers ------------------------------- */
 const parseLocalDate = (d) => {
@@ -298,7 +328,7 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
             <span
               style={{
                 backgroundColor: "white",
-                padding: "2px 6px",          // slightly larger
+                padding: "2px 4px",          // slightly larger
                 borderRadius: 6,
                 fontSize: "0.8rem",
                 fontWeight: 600,
@@ -340,7 +370,7 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
                       ? "white"
                       : "#4caf50",
                   color: event.shootType === "Night" ? "#fff" : "#000",
-                  padding: "2px 8px",
+                  padding: "2px 4px",
                   borderRadius: 6,
                   fontSize: "0.95rem",
                   fontWeight: 900,
@@ -668,9 +698,21 @@ export default function DashboardPage({ bookingSaved }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+    const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUserEmail(u?.email?.toLowerCase() || null);
+    });
+    return () => unsub();
+  }, []);
+
+  const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
+
 
   // same normaliser/risk
   const normalizeVehicles = (list) => {
+    
     if (!Array.isArray(list)) return [];
     return list.map((v) => {
       if (v && typeof v === "object" && (v.name || v.registration)) return v;
@@ -851,9 +893,14 @@ export default function DashboardPage({ bookingSaved }) {
                 >
                   Next Week →
                 </button>
-                <button style={btnDark} onClick={() => router.push("/create-booking")}>
-                  + Add Booking
-                </button>
+<button
+  style={isRestricted ? btnDarkDisabled : btnDark}
+   onClick={goToCreateBooking}
+  aria-disabled={isRestricted}
+   title={isRestricted ? "Your account is not allowed to create bookings" : ""}
+ >
++   + Add Booking
++ </button>
               </div>
             </div>
 
@@ -1185,12 +1232,14 @@ eventPropGetter={(event) => {
                             >
                               View
                             </button>
-                            <button
-                              onClick={() => router.push(`/edit-booking/${b.id}`)}
-                              style={btnDark}
-                            >
-                              Edit
-                            </button>
+                     <button
+   onClick={() => goToEditBooking(b.id)}
+   style={isRestricted ? btnDarkDisabled : btnDark}
+  aria-disabled={isRestricted}
+   title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
+ >
++   Edit
++ </button>
                           </div>
                         </td>
                       </tr>
@@ -1297,11 +1346,13 @@ eventPropGetter={(event) => {
                                     View
                                   </button>
                                   <button
-                                    onClick={() => router.push(`/edit-booking/${b.id}`)}
-                                    style={btnDark}
-                                  >
-                                    Edit
-                                  </button>
+   onClick={() => goToEditBooking(b.id)}
+   style={isRestricted ? btnDarkDisabled : btnDark}
+  aria-disabled={isRestricted}
+   title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
+ >
++   Edit
++ </button>
                                 </div>
                               </td>
                             </tr>

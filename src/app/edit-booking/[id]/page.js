@@ -27,21 +27,25 @@ const doesBlockStatus = (s = "") =>
 
 
 // --- Normalisers (add just after imports) ---
+// --- Normalisers (replace your current ones) ---
 const normalizeVehicleList = (list) =>
   (Array.isArray(list) ? list : [])
     .map((v) => (typeof v === "string" ? v : v?.name))
+    .map((s) => String(s || "").trim())
     .filter(Boolean);
 
 const normalizeEmployeeNames = (list) =>
   (Array.isArray(list) ? list : [])
     .map((e) => (typeof e === "string" ? e : e?.name))
+    .map((s) => String(s || "").trim())
     .filter(Boolean);
 
-// NEW: equipment can be strings or objects with { name }
 const normalizeEquipmentList = (list) =>
   (Array.isArray(list) ? list : [])
     .map((x) => (typeof x === "string" ? x : x?.name))
+    .map((s) => String(s || "").trim())
     .filter(Boolean);
+
 
     
 /* ────────────────────────────────────────────────────────────────────────────
@@ -210,6 +214,8 @@ export default function CreateBookingPage() {
 
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [openEquipGroups, setOpenEquipGroups] = useState({});
+  const [allEquipmentNames, setAllEquipmentNames] = useState([]);
+
 
   // NEW: auto-open equipment groups that contain a selected item
 useEffect(() => {
@@ -341,6 +347,14 @@ setVehicles(normalizeVehicleList(b.vehicles || []));
       const openEquip = {};
       Object.keys(groupedEquip).forEach(k => (openEquip[k] = false));
       setOpenEquipGroups(openEquip);
+      setAllEquipmentNames(
+  Object.values(groupedEquip)
+    .flat()
+    .map((s) => String(s || "").trim())
+);
+
+
+
     };
     loadData();
   }, [bookingId]);
@@ -358,6 +372,27 @@ const toggleVehicle = (name, checked) => {
     return next;
   });
 };
+
+// --- Legacy/missing equipment helpers (items that were saved but are no longer in the master list)
+const missingEquipment = equipment.filter(
+  (n) => !allEquipmentNames.includes(String(n || "").trim())
+);
+
+const removeEquipment = (name) => {
+  const key = String(name || "").trim();
+  setEquipment((prev) => prev.filter((x) => x !== key));
+};
+
+const remapEquipment = (oldName, newName) => {
+  const oldKey = String(oldName || "").trim();
+  const newKey = String(newName || "").trim();
+  setEquipment((prev) => {
+    const next = prev.filter((x) => x !== oldKey);
+    if (newKey && !next.includes(newKey)) next.push(newKey);
+    return next;
+  });
+};
+
 
   const isEmployeeOnHoliday = (employeeName) => {
     const selectedStart = new Date(startDate);
@@ -817,38 +852,55 @@ const heldEquipment = overlapping
 
       {isOpen && (
         <div style={{ padding: "10px 6px" }}>
-          {items.map((vehicle) => {
-            const name       = vehicle.name;
-            const isBooked   = bookedVehicles.includes(name);
-            const isHeld     = heldVehicles.includes(name);
-            const isSelected = vehicles.includes(name);
+{items.map((vehicle) => {
+  const name       = vehicle.name;
+  const isBooked   = bookedVehicles.includes(name);
+  const isHeld     = heldVehicles.includes(name);
+  const isSelected = vehicles.includes(name);
 
-return (
-  <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-    <input
-      type="checkbox"
-      checked={isSelected}
-      onChange={(e) => toggleVehicle(name, e.target.checked)}
-    />
-    <span style={{ flex: 1 }}>
-      {vehicle.name}{vehicle.registration ? ` – ${vehicle.registration}` : ""}
-      {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
-    </span>
+  // grey out + disable when booked (unless it's already selected on this booking)
+  const disabled = isBooked && !isSelected;
 
-    {isSelected && (
-      <select
-        value={vehicleStatus[name] || status}
-        onChange={(e) => setVehicleStatus(prev => ({ ...prev, [name]: e.target.value }))}
-        style={{ height: 32 }}
-        title="Vehicle status"
-      >
-        {VEHICLE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-    )}
-  </div>
-);
+  return (
+    <div
+      key={name}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 8,
+        opacity: disabled ? 0.55 : 1,          // ← greyed out row
+        cursor: disabled ? "not-allowed" : "", // ← like employees
+      }}
+      title={disabled ? "Booked on overlapping job" : ""}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        disabled={disabled}
+        onChange={(e) => toggleVehicle(name, e.target.checked)}
+      />
+      <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
+        {vehicle.name}{vehicle.registration ? ` – ${vehicle.registration}` : ""}
+        {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+      </span>
 
-          })}
+      {isSelected && (
+        <select
+          value={vehicleStatus[name] || status}
+          onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [name]: e.target.value }))}
+          style={{ height: 32 }}
+          title="Vehicle status"
+        >
+          {VEHICLE_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+})}
+
         </div>
       )}
     </div>
@@ -858,7 +910,44 @@ return (
 
                 <div style={divider} />
 
+{/* NEW: Legacy equipment (selected on this booking but not in current master list) */}
+{missingEquipment.length > 0 && (
+  <div style={{ ...card, borderColor: "#f59e0b", background: "#FFFBEB", marginTop: 10 }}>
+    <h4 style={{ margin: "0 0 8px" }}>Legacy equipment (renamed or deleted)</h4>
+    <p style={{ marginTop: 0, color: "#92400e" }}>
+      These items are saved on this booking but aren’t in the current equipment list. Remove or remap them:
+    </p>
+    {missingEquipment.map((old) => (
+      <div key={old} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={pill}>{old}</span>
+        <button
+          type="button"
+          onClick={() => removeEquipment(old)}
+          style={{ ...btn, padding: "6px 10px" }}
+          title="Remove from this booking"
+        >
+          Remove
+        </button>
+        <select
+          defaultValue=""
+          onChange={(e) => e.target.value && remapEquipment(old, e.target.value)}
+          style={{ ...field.input, width: 320, height: 34 }}
+          title="Remap to a current equipment name"
+        >
+          <option value="">Remap to…</option>
+          {allEquipmentNames.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+    ))}
+  </div>
+)}
+
+
 <h3 style={cardTitle}>Equipment</h3>
+
+
 {Object.entries(equipmentGroups).map(([group, items]) => {
   const isOpen = openEquipGroups[group] || false;
 
@@ -877,36 +966,36 @@ return (
 
       {isOpen && (
         <div style={{ padding: "10px 6px" }}>
-          {items.map((name) => {
-            const isBooked   = bookedEquipment.includes(name);
-            const isHeld     = heldEquipment.includes(name);
-            const isSelected = equipment.includes(name);
-            const disabled   = isBooked && !isSelected; // allow changing current selection
+{items.map((rawName) => {
+  const name = String(rawName || "").trim();   // 🔧 trim for safety
+  const isBooked   = bookedEquipment.includes(name);
+  const isHeld     = heldEquipment.includes(name);
+  const isSelected = equipment.includes(name);
+  const disabled   = isBooked && !isSelected; // allow changing current selection
 
-            return (
-              <label key={name} style={{ display: "block", marginBottom: 6 }}>
-                <input
-                  type="checkbox"
-                  value={name}
-                  disabled={disabled}
-                  checked={isSelected}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setEquipment((prev) =>
-                        Array.from(new Set([...prev, name]))
-                      );
-                    } else {
-                      setEquipment((prev) => prev.filter((x) => x !== name));
-                    }
-                  }}
-                />{" "}
-                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                  {name}
-                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
-                </span>
-              </label>
-            );
-          })}
+  return (
+    <label key={name} style={{ display: "block", marginBottom: 6 }}>
+      <input
+        type="checkbox"
+        value={name}
+        disabled={disabled}
+        checked={isSelected}
+        onChange={(e) => {
+          if (e.target.checked) {
+            setEquipment((prev) => Array.from(new Set([...prev, name])));
+          } else {
+            setEquipment((prev) => prev.filter((x) => x !== name));
+          }
+        }}
+      />{" "}
+      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+        {name}
+        {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+      </span>
+    </label>
+  );
+})}
+
         </div>
       )}
     </div>

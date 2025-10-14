@@ -1,3 +1,4 @@
+// src/app/vehicles/page.js
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -13,7 +14,7 @@ import {
 } from "recharts";
 import { Calendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { localizer } from "../utils/localizer"; // keep your existing localizer util
+import { localizer } from "../utils/localizer";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
@@ -123,7 +124,7 @@ const modal = {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Helpers for usage calculation (more robust)
+   Date + parsing helpers
 ──────────────────────────────────────────────────────────────────────────── */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
 
@@ -141,6 +142,12 @@ const dateKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
+
+const monthRange = (d) => {
+  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+  const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { monthStart, monthEnd };
+};
 
 // build a list of day keys within [from, to] inclusive
 const daysInRange = (from, to) => {
@@ -171,7 +178,65 @@ const vehicleLabel = (v) => {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Component (logic unchanged except safer usage aggregation)
+   Notes extraction / filtering
+──────────────────────────────────────────────────────────────────────────── */
+const COUNTABLE_NOTES = ["on set", "on-set", "onset", "shoot day", "shoot"];
+
+const isCountableNote = (note) => {
+  if (!note) return false;
+  const n = String(note).toLowerCase();
+  return COUNTABLE_NOTES.some((k) => n.includes(k));
+};
+
+/**
+ * Get the note for a specific day key (YYYY-MM-DD) from a booking.
+ * Tries several common shapes used in your app.
+ */
+const getDayNote = (booking, dayKey) => {
+  // object maps keyed by date
+  let v =
+    booking?.notesByDate?.[dayKey] ??
+    booking?.dayNotes?.[dayKey] ??
+    booking?.dailyNotes?.[dayKey] ??
+    booking?.notesForEachDay?.[dayKey];
+
+  // if object wrapper, try common fields
+  if (v && typeof v === "object") {
+    v = v.note ?? v.text ?? v.value ?? v.label ?? v.name;
+  }
+
+  if (v) return v;
+
+  // array aligned with bookingDates (same index)
+  if (
+    Array.isArray(booking?.bookingDates) &&
+    Array.isArray(booking?.bookingNotes) &&
+    booking.bookingNotes.length === booking.bookingDates.length
+  ) {
+    const idx = booking.bookingDates.findIndex((d) => d === dayKey);
+    if (idx >= 0) return booking.bookingNotes[idx];
+  }
+
+  // single-day fallbacks
+  const single =
+    booking?.noteForTheDay ??
+    booking?.note ??
+    booking?.dayNote ??
+    booking?.dailyNote;
+
+  // only safe to return on single-day bookings
+  if (
+    single &&
+    (Array.isArray(booking.bookingDates) ? booking.bookingDates.length === 1 : true)
+  ) {
+    return single;
+  }
+
+  return null;
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Component
 ──────────────────────────────────────────────────────────────────────────── */
 export default function VehiclesHomePage() {
   const router = useRouter();
@@ -187,9 +252,15 @@ export default function VehiclesHomePage() {
   const [overdueMOTCount, setOverdueMOTCount] = useState(0);
   const [overdueServiceCount, setOverdueServiceCount] = useState(0);
 
+  // NEW: month selector state for the usage chart
+  const [usageMonth, setUsageMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
   useEffect(() => setMounted(true), []);
 
-  // Overdue counters (unchanged)
+  // Overdue counters
   useEffect(() => {
     const fetchVehicleMaintenance = async () => {
       const snapshot = await getDocs(collection(db, "vehicles"));
@@ -213,14 +284,12 @@ export default function VehiclesHomePage() {
     fetchVehicleMaintenance();
   }, []);
 
-  // This-month usage histogram (more robust)
+  // Usage histogram for selected month — counts only "On Set" / "Shoot day"
   useEffect(() => {
     const fetchUsage = async () => {
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const { monthStart, monthEnd } = monthRange(usageMonth);
 
-      // vehicle -> Set of dayKeys used in this month
+      // vehicle -> Set of dayKeys used in this month (filtered by countable notes)
       const usedByDay = new Map();
 
       const snapshot = await getDocs(collection(db, "bookings"));
@@ -231,21 +300,19 @@ export default function VehiclesHomePage() {
         const vehicles = Array.isArray(data.vehicles)
           ? data.vehicles.map(vehicleLabel).filter(Boolean)
           : [];
-
         if (vehicles.length === 0) return;
 
-        // collect day keys within this month for this booking
+        // gather raw dayKeys that fall within selected month
         let dayKeys = [];
 
         if (Array.isArray(data.bookingDates) && data.bookingDates.length > 0) {
-          // filter bookingDates to those within this calendar month
           dayKeys = data.bookingDates
             .map((s) => parseLocalDateOnly(s))
             .filter(Boolean)
             .filter((d) => d >= monthStart && d <= monthEnd)
             .map(dateKey);
         } else {
-          // fall back to date/startDate..endDate
+          // fall back to a range from start/end
           const start =
             parseLocalDateOnly(data.date) ||
             parseLocalDateOnly(data.startDate) ||
@@ -261,7 +328,7 @@ export default function VehiclesHomePage() {
 
           if (!start) return;
 
-          // clamp to current month
+          // clamp to selected month
           const clampedStart = start < monthStart ? monthStart : start;
           const clampedEnd = (end || start) > monthEnd ? monthEnd : (end || start);
 
@@ -270,15 +337,19 @@ export default function VehiclesHomePage() {
 
         if (dayKeys.length === 0) return;
 
+        // FILTER: only keep dayKeys whose note is "On Set" or "Shoot day"
+        const filteredByNote = dayKeys.filter((k) => isCountableNote(getDayNote(data, k)));
+        if (filteredByNote.length === 0) return;
+
         // add each day once per vehicle (avoid duplicates)
         vehicles.forEach((name) => {
           if (!usedByDay.has(name)) usedByDay.set(name, new Set());
           const s = usedByDay.get(name);
-          dayKeys.forEach((k) => s.add(k));
+          filteredByNote.forEach((k) => s.add(k));
         });
       });
 
-      // final counts = number of unique days each vehicle was used this month
+      // final counts = number of unique days each vehicle was used (countable notes only)
       const usageArray = Array.from(usedByDay.entries())
         .map(([name, set]) => ({ name, usage: set.size }))
         .sort((a, b) => b.usage - a.usage);
@@ -287,9 +358,9 @@ export default function VehiclesHomePage() {
     };
 
     fetchUsage();
-  }, []);
+  }, [usageMonth]);
 
-  // Calendar events (MOT & service) — unchanged, just styled differently
+  // Calendar events (MOT & service)
   useEffect(() => {
     const fetchMaintenanceEvents = async () => {
       const snapshot = await getDocs(collection(db, "workBookings"));
@@ -352,6 +423,20 @@ export default function VehiclesHomePage() {
     [overdueMOTCount, overdueServiceCount]
   );
 
+  // Month controls for the usage chart
+  const goPrevMonth = () =>
+    setUsageMonth(
+      (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)
+    );
+  const goNextMonth = () =>
+    setUsageMonth(
+      (d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    );
+
+  const monthInputValue = `${usageMonth.getFullYear()}-${String(
+    usageMonth.getMonth() + 1
+  ).padStart(2, "0")}`;
+
   return (
     <HeaderSidebarLayout>
       <div style={{ display: "flex", ...shell }}>
@@ -387,7 +472,43 @@ export default function VehiclesHomePage() {
 
           {/* Usage chart */}
           <div style={{ marginTop: 28 }}>
-            <h2 style={sectionTitle}>Vehicle Usage (This Month)</h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+              }}
+            >
+              <h2 style={sectionTitle}>Vehicle Usage (Selected Month)</h2>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <ToolbarBtn onClick={goPrevMonth}>← Prev</ToolbarBtn>
+                <input
+                  type="month"
+                  value={monthInputValue}
+                  onChange={(e) => {
+                    const [y, m] = e.target.value.split("-").map(Number);
+                    if (y && m) setUsageMonth(new Date(y, m - 1, 1));
+                  }}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: "6px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    background: "#fff",
+                    color: UI.text,
+                    cursor: "pointer",
+                  }}
+                />
+                <ToolbarBtn onClick={goNextMonth}>Next →</ToolbarBtn>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 8, color: UI.subtext, fontSize: 12 }}>
+              Counting days where note is <strong>“On Set”</strong> or <strong>“Shoot day”</strong>.
+            </div>
+
             <div style={panel}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
@@ -432,7 +553,7 @@ export default function VehiclesHomePage() {
                   onView={(v) => setCalView(v)}
                   date={calDate}
                   onNavigate={(d) => setCalDate(d)}
-                  views={["month", "week", "work_week", "day", "agenda"]}
+                  views={["month", "week", "work_week", "day", "agenda"]} 
                   popup
                   showMultiDayTimes
                   style={{ height: "100%" }}

@@ -9,25 +9,6 @@ import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../../../firebaseConfig";
 
-
-// --- Normalisers (make data shape consistent) ---
-const normalizeVehicleList = (list) =>
-  (Array.isArray(list) ? list : [])
-    .map((v) => (typeof v === "string" ? v : v?.id || v?.name))
-    .filter(Boolean);
-
-
-const normalizeEmployeeNames = (list) =>
-  (Array.isArray(list) ? list : [])
-    .map((e) => (typeof e === "string" ? e : e?.name))
-    .filter(Boolean);
-
-const normalizeEquipmentList = (list) =>
-  (Array.isArray(list) ? list : [])
-    .map((x) => (typeof x === "string" ? x : x?.name))
-    .filter(Boolean);
-
-
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (layout-only; no logic changed)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -252,6 +233,20 @@ export default function CreateBookingPage() {
   const [customDates, setCustomDates] = useState([]);
 
   const [employeeList, setEmployeeList] = useState([]);
+  // helper for required fields
+const REQ = { required: true };
+
+
+  // ── Core field validation ──────────────────────────────────────────
+const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((contactEmail || "").trim());
+const phoneOk = (contactNumber || "").replace(/\D/g, "").length >= 0; // ≥7 digits
+const coreFilled = Boolean(
+  (client || "").trim() &&
+  emailOk &&
+  phoneOk &&
+  (location || "").trim()
+);
+
 
   // load data (logic preserved)
   useEffect(() => {
@@ -394,17 +389,17 @@ export default function CreateBookingPage() {
     });
   };
 
-const bookedVehicles = allBookings
-  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-  .flatMap((b) => normalizeVehicleList(b.vehicles || []));
+  const bookedVehicles = allBookings
+    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .flatMap((b) => b.vehicles || []);
 
-const bookedEquipment = allBookings
-  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-  .flatMap((b) => normalizeEquipmentList(b.equipment || []));
+  const bookedEquipment = allBookings
+    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .flatMap((b) => b.equipment || []);
 
-const bookedEmployees = allBookings
-  .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
-  .flatMap((b) => normalizeEmployeeNames(b.employees || []));
+  const bookedEmployees = allBookings
+    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .flatMap((b) => b.employees || []);
 
   const maintenanceBookedVehicles = maintenanceBookings
     .filter((b) => {
@@ -427,6 +422,18 @@ const bookedEmployees = allBookings
         if (isRange && !endDate) return alert("Please select an end date.");
       }
     }
+
+      // ✅ Block if core fields are missing/invalid
+  if (!coreFilled) {
+    const missing = [];
+    if (!(client || "").trim()) missing.push("Production");
+    if (!emailOk) missing.push("valid Email");
+    if (!phoneOk) missing.push("Contact Number");
+    if (!(location || "").trim()) missing.push("Location");
+    alert("Please provide: " + missing.join(", ") + ".");
+    return;
+  }
+
 
     const customNames = customEmployee ? customEmployee.split(",").map((n) => n.trim()) : [];
     const cleanedEmployees = employees.filter((n) => n !== "Other").concat(customNames);
@@ -571,7 +578,13 @@ const bookedEmployees = allBookings
                 </select>
 
                 <label style={field.label}>Production</label>
-                <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} />
+                <textarea 
+  value={client}
+  onChange={(e) => setClient(e.target.value)}
+  style={field.textarea}
+  {...REQ}
+/>
+
 
                 <label style={field.label}>Contact Email</label>
                 <input
@@ -583,15 +596,25 @@ const bookedEmployees = allBookings
                 />
 
                 <label style={field.label}>Contact Number</label>
-                <input
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                  placeholder="Enter phone number"
-                  style={field.input}
-                />
+               <input
+  type="tel"
+  inputMode="tel"
+  value={contactNumber}
+  onChange={(e) => setContactNumber(e.target.value)}
+  placeholder="Enter phone number"
+  style={field.input}
+  {...REQ}
+/>
+
 
                 <label style={field.label}>Location</label>
-                <textarea value={location} onChange={(e) => setLocation(e.target.value)} style={field.textarea} />
+               <textarea
+  value={location}
+  onChange={(e) => setLocation(e.target.value)}
+  style={field.textarea}
+  {...REQ}
+/>
+
               </div>
 
               {/* Column 2: Dates & People */}
@@ -1028,9 +1051,19 @@ const bookedEmployees = allBookings
               </label>
 
               <div style={actionsRow}>
-                <button type="submit" style={btnPrimary}>
+                <button
+                  type="submit"
+                  disabled={!coreFilled}
+                  title={!coreFilled ? "Fill Production, Email, Number, and Location to save" : ""}
+                  style={{
+                    ...btnPrimary,
+                    opacity: coreFilled ? 1 : 0.5,
+                    cursor: coreFilled ? "pointer" : "not-allowed",
+                  }}
+                >
                   Save Booking
                 </button>
+
                 <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
                   Cancel
                 </button>
