@@ -1,7 +1,7 @@
 // src/app/dashboard/page.js
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -127,15 +127,6 @@ const successBanner = {
     cursor: "not-allowed",
     pointerEvents: "none",
     filter: "grayscale(0.2)",
-  };
-
-    const goToCreateBooking = () => {
-    if (isRestricted) return; // hard stop
-    router.push("/create-booking");
-  };
-  const goToEditBooking = (id) => {
-    if (isRestricted) return; // hard stop
-    router.push(`/edit-booking/${id}`);
   };
 
 
@@ -709,6 +700,17 @@ export default function DashboardPage({ bookingSaved }) {
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
 
+  const goToCreateBooking = useCallback(() => {
+  if (isRestricted) return;
+  router.push("/create-booking");
+}, [isRestricted, router]);
+
+const goToEditBooking = useCallback((id) => {
+  if (isRestricted) return;
+  router.push(`/edit-booking/${id}`);
+}, [isRestricted, router]);
+
+
 
   // same normaliser/risk
   const normalizeVehicles = (list) => {
@@ -895,12 +897,12 @@ export default function DashboardPage({ bookingSaved }) {
                 </button>
 <button
   style={isRestricted ? btnDarkDisabled : btnDark}
-   onClick={goToCreateBooking}
+  onClick={goToCreateBooking}
   aria-disabled={isRestricted}
-   title={isRestricted ? "Your account is not allowed to create bookings" : ""}
- >
-+   + Add Booking
-+ </button>
+  title={isRestricted ? "Your account is not allowed to create bookings" : ""}>
+  + Add Booking
+</button>
+
               </div>
             </div>
 
