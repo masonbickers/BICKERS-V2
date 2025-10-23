@@ -231,6 +231,8 @@ export default function CreateBookingPage() {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [customDates, setCustomDates] = useState([]);
+  const [quoteProgress, setQuoteProgress] = useState(0);
+
 
   const [employeeList, setEmployeeList] = useState([]);
   // helper for required fields
@@ -457,35 +459,56 @@ const coreFilled = Boolean(
     });
 
     // upload quote (unchanged)
-    let quoteUrlToSave = null;
-    if (quoteFile) {
-      try {
-        const storageRef = ref(storage, `quotes/${jobNumber}_${quoteFile.name}`);
-        const metadata = {
-          contentType:
-            quoteFile.type ||
-            (quoteFile.name.endsWith(".csv")
-              ? "text/csv"
-              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        };
-        const uploadTask = uploadBytesResumable(storageRef, quoteFile, metadata);
-        await new Promise((resolve, reject) => {
-          uploadTask.on(
-            "state_changed",
-            () => {},
-            (error) => reject(error),
-            async () => {
-              quoteUrlToSave = await getDownloadURL(uploadTask.snapshot.ref);
-              setQuoteURL(quoteUrlToSave);
-              resolve();
-            }
-          );
-        });
-      } catch (error) {
-        alert("Failed to upload Excel/CSV: " + error.message);
-        return;
-      }
+// upload quote (PDF only)
+let quoteUrlToSave = null;
+
+if (quoteFile) {
+  try {
+    // Guard: must be a PDF
+    const nameIsPdf = /\.pdf$/i.test(quoteFile.name || "");
+    const typeIsPdf = (quoteFile.type || "").toLowerCase() === "application/pdf";
+    if (!nameIsPdf && !typeIsPdf) {
+      alert("Please attach a PDF (.pdf) file.");
+      return;
     }
+
+    // Sanitize + enforce .pdf extension
+    const base = `${jobNumber || "nojob"}_${quoteFile.name}`.replace(/\s+/g, "_");
+    const safeName = base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+
+    // Keep quotes in /quotes
+    const storageRef = ref(storage, `quotes/${safeName}`);
+
+    // Always set the contentType to application/pdf
+    const uploadTask = uploadBytesResumable(storageRef, quoteFile, {
+      contentType: "application/pdf",
+    });
+
+    await new Promise((resolve, reject) => {
+      uploadTask.on(
+        "state_changed",
+        (snap) => {
+          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+          setQuoteProgress(pct);
+        },
+        (err) => {
+          console.error("Upload error:", err);
+          reject(err);
+        },
+        async () => {
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          setQuoteURL(url);
+          quoteUrlToSave = url;
+          resolve();
+        }
+      );
+    });
+  } catch (error) {
+    alert("Failed to upload PDF: " + (error?.message || String(error)));
+    return; // stop save if upload fails
+  }
+}
+
 
     const user = auth.currentUser;
     const booking = {
@@ -1014,16 +1037,17 @@ const coreFilled = Boolean(
             <div style={{ ...card, marginTop: 18 }}>
               <h3 style={cardTitle}>Files & Notes</h3>
 
-              <label style={field.label}>Attach Quote (Excel/CSV)</label>
-              <input
-                type="file"
-                accept=".xls,.xlsx,.csv"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  setQuoteFile(file);
-                }}
-                style={{ ...field.input, height: "auto", padding: 10 }}
-              />
+<label style={field.label}>Attach Quote (PDF)</label>
+<input
+  type="file"
+  accept="application/pdf,.pdf"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    setQuoteFile(file || null);
+  }}
+  style={{ ...field.input, height: "auto", padding: 10 }}
+/>
+
 
               <div style={{ marginTop: 14 }} />
               <label style={field.label}>Job Description</label>

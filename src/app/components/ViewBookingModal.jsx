@@ -15,6 +15,82 @@ const fmtDateRange = (b) => {
   return "Not set";
 };
 
+/* ---------- ATTACHMENTS HELPERS (replaced) ---------- */
+// Normalize any Firebase/HTTP URL to a stable de-dupe key (strip token/query)
+const canonicalKeyFromUrl = (url = "") => {
+  try {
+    const afterO = url.split("/o/")[1];
+    if (afterO) return decodeURIComponent(afterO.split("?")[0]); // Firebase Storage path
+    return url.split("?")[0]; // Non-Firebase: strip query
+  } catch {
+    return url || "";
+  }
+};
+
+// Safe filename from any URL or path
+const getFilenameFromUrl = (url = "") => {
+  try {
+    const key = canonicalKeyFromUrl(url) || url;
+    return (key.split("/").pop() || "file").trim();
+  } catch {
+    return "file";
+  }
+};
+
+// Build a unique, flat list of { url, label } from any schema you may have
+const toAttachmentList = (b = {}) => {
+  const out = [];
+
+  // supports strings, arrays, maps, and objects with url-like fields
+  const add = (val, name) => {
+    if (!val) return;
+
+    // 1) plain string URL
+    if (typeof val === "string") {
+      const url = val;
+      out.push({ url, label: name || getFilenameFromUrl(url) });
+      return;
+    }
+
+    // 2) object: try common URL fields
+    const url =
+      val.url ||
+      val.href ||
+      val.link ||
+      val.downloadURL ||
+      val.downloadUrl ||
+      null;
+
+    if (url) {
+      const label = val.name || name || getFilenameFromUrl(url);
+      out.push({ url, label });
+      return;
+    }
+
+    // 3) object-as-map (legacy): { "<id>": {url:...}, ... }
+    if (typeof val === "object") {
+      Object.values(val).forEach((v) => add(v, name));
+    }
+  };
+
+  // Prefer arrays (new schema) first so their order is kept in UI
+  if (Array.isArray(b.attachments)) b.attachments.forEach((x) => add(x));
+  if (Array.isArray(b.files))       b.files.forEach((x) => add(x));
+
+  // Legacy single fields last (avoid pushing duplicates with arrays)
+  add(b.quoteUrl, "Quote");
+  if (b.pdfURL && b.pdfURL !== b.quoteUrl) add(b.pdfURL);
+
+  // De-dupe by canonical storage/key (handles different Firebase token URLs)
+  const seen = new Set();
+  return out.filter(({ url }) => {
+    const key = canonicalKeyFromUrl(url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 export default function ViewBookingModal({ id, onClose }) {
   const [booking, setBooking] = useState(null);
   const [allVehicles, setAllVehicles] = useState([]);
@@ -194,23 +270,29 @@ export default function ViewBookingModal({ id, onClose }) {
             </Section>
           )}
 
-          {/* Attachments (full width) */}
-          {(booking.quoteUrl || booking.pdfURL) && (
-            <Section title="Attachments" full>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {booking.quoteUrl && (
-                  <a href={booking.quoteUrl} target="_blank" rel="noopener noreferrer" style={fileBtn}>
-                    Open Quote
-                  </a>
-                )}
-                {booking.pdfURL && (
-                  <a href={booking.pdfURL} target="_blank" rel="noopener noreferrer" style={fileBtn}>
-                    Open PDF
-                  </a>
-                )}
-              </div>
-            </Section>
-          )}
+          {/* Attachments (full width) — MULTI-FILE BUTTONS */}
+          {(() => {
+            const files = toAttachmentList(booking);
+            if (!files.length) return null;
+            return (
+              <Section title="Attachments" full>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {files.map((f, i) => (
+                    <a
+                      key={f.url || i}
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={fileBtn}
+                      title={f.label}
+                    >
+                      {f.label}
+                    </a>
+                  ))}
+                </div>
+              </Section>
+            );
+          })()}
         </div>
 
         {/* Footer meta */}

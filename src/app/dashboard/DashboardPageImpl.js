@@ -147,6 +147,8 @@ const parseLocalDate = (d) => {
   return dt;
 };
 
+
+
 const startOfLocalDay = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -215,6 +217,30 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   return all;
 };
 
+
+
+
+// Put grey stuff at the bottom; risky/night/important at the top
+const eventPriority = (event) => {
+  const s = String(event.status || "").toLowerCase();
+
+  // top-most things first
+  if (event.isRisky) return 0;                      // red risk box → top
+  if (String(event.shootType || "").toLowerCase() === "night") return 1;
+  if (s === "action required") return 2;
+  if (s === "second pencil") return 3;
+  if (s === "first pencil") return 4;
+  if (s === "confirmed") return 5;
+  if (s === "maintenance") return 6;
+
+  // GREY / low-priority stuff last
+  if (s === "holiday" || s === "dnh" || s === "note") return 99;
+
+  return 50; // default middle
+};
+
+
+
 const formatCrew = (employees) => {
   if (!Array.isArray(employees) || employees.length === 0) return "—";
   return employees
@@ -252,7 +278,10 @@ const Dashboard = () => {
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
 /* Structure & fields UNCHANGED. Only subtle font/padding/border tweaks */
 function CalendarEvent({ event }) {
+  const router = useRouter();           // ← add this line
   const [showNotes, setShowNotes] = useState(false);
+  const [showRecce, setShowRecce] = useState(false);
+
 
   const employeeInitials = Array.isArray(event.employees)
     ? event.employees
@@ -620,6 +649,51 @@ if (different) {
               </span>
             )}
           </div>
+{/* RECCE LINK ONLY */}
+{event.hasRecce && event.recceId && (
+  <div style={{ width: "100%", marginTop: 6 }}>
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        router.push(`/recce-form/${event.recceId}`);
+      }}
+      title="Open full recce form"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontSize: "0.6rem",
+        fontWeight: 800,
+        border: "1.5px solid #0b0b0b",
+        background: "#111827",
+        color: "#fff",
+      }}
+    >
+      View recce form ↗
+      {event.recceStatus && (
+        <span
+          style={{
+            fontSize: "0.68rem",
+            fontWeight: 900,
+            padding: "2px 6px",
+            borderRadius: 4,
+            background: "#fff",
+            color: "#111",
+            border: "1px solid rgba(0,0,0,0.8)",
+          }}
+        >
+          {(event.recceStatus || "Submitted").toUpperCase()}
+        </span>
+      )}
+    </button>
+  </div>
+)}
+
+
+
 
           {/* Risk box (unchanged behaviour/wording) */}
           {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
@@ -709,6 +783,45 @@ const goToEditBooking = useCallback((id) => {
   if (isRestricted) return;
   router.push(`/edit-booking/${id}`);
 }, [isRestricted, router]);
+// NEW: hold latest recce per booking
+// NEW: hold latest recce per booking
+const [reccesByBooking, setReccesByBooking] = useState({});
+
+useEffect(() => {
+  const unsubRecces = onSnapshot(collection(db, "recces"), (snap) => {
+    const map = {};
+    snap.docs.forEach((d) => {
+      const r = { id: d.id, ...d.data() };
+      const k = r.bookingId;
+      if (!k) return;
+
+      const cur = map[k];
+      const curTs = cur?.createdAt?.seconds || 0;
+      const rTs = r?.createdAt?.seconds || 0;
+
+      if (!cur || rTs >= curTs) {
+        const a = r.answers || {};
+        const notes =
+          a.notes ||
+          a.additionalNotes ||
+          a.accessNotes ||
+          a.risks ||
+          "";
+
+        map[k] = {
+          id: r.id,                         // <-- keep doc id
+          status: r.status || "submitted",
+          notes: String(notes || "").trim(),
+          answers: r.answers || {},         // <-- keep the full form
+          createdAt: r.createdAt || null,   // optional
+        };
+      }
+    });
+    setReccesByBooking(map);
+  });
+
+  return () => unsubRecces();
+}, []);
 
 
 
@@ -915,26 +1028,39 @@ const goToEditBooking = useCallback((id) => {
               localizer={localizer}
               events={[
                 ...bookings.map((b) => {
-                  const startBase = parseLocalDate(b.startDate || b.date);
-                  const endRaw = b.endDate || b.date || b.startDate;
-                  const endBase = parseLocalDate(endRaw);
-                  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
+  const startBase = parseLocalDate(b.startDate || b.date);
+  const endRaw = b.endDate || b.date || b.startDate;
+  const endBase = parseLocalDate(endRaw);
+  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
 
-                  const normalizedVehicles = normalizeVehicles(b.vehicles);
-                  const risk = getVehicleRisk(normalizedVehicles);
+  const normalizedVehicles = normalizeVehicles(b.vehicles);
+  const risk = getVehicleRisk(normalizedVehicles);
 
-                  return {
-                    ...b,
-                    vehicles: normalizedVehicles,
-                    isRisky: risk.risky,
-                    riskReasons: risk.reasons,
-                    title: b.client || "",
-                    start: startOfLocalDay(startBase),
-                    end: startOfLocalDay(addDays(safeEndBase, 1)),
-                    allDay: true,
-                    status: b.status || "Confirmed",
-                  };
-                }),
+  // NEW: pull recce summary for this booking
+  const recce = reccesByBooking[b.id] || null;
+
+  return {
+    ...b,
+    vehicles: normalizedVehicles,
+    isRisky: risk.risky,
+    riskReasons: risk.reasons,
+    title: b.client || "",
+    start: startOfLocalDay(startBase),
+    end: startOfLocalDay(addDays(safeEndBase, 1)),
+    allDay: true,
+    status: b.status || "Confirmed",
+    
+
+    // NEW: fields used by CalendarEvent
+      hasRecce: !!recce,
+  recceStatus: recce?.status || null,
+  recceNotes: recce?.notes || "",
+  recceAnswers: recce?.answers || null,  // <-- full form arrives here
+  recceId: recce?.id || null,            // <-- doc id if you want to deep-link later
+  recceCreatedAt: recce?.createdAt || null,
+  };
+}),
+
                 ...maintenanceBookings,
               ]}
               view={calendarView}

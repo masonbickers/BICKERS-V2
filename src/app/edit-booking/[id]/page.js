@@ -7,7 +7,8 @@ import {
 doc, getDoc, getDocs, updateDoc, collection, addDoc,
 } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+
 
 // ── Per-item status helpers ────────────────────────────────────────────────
 // ── Per-item status helpers ────────────────────────────────────────────────
@@ -45,6 +46,16 @@ const normalizeEquipmentList = (list) =>
     .map((x) => (typeof x === "string" ? x : x?.name))
     .map((s) => String(s || "").trim())
     .filter(Boolean);
+
+// Put this near the top of the file
+const storagePathFromDownloadUrl = (url = "") => {
+  try {
+    // download URLs look like .../o/<ENCODED_PATH>?alt=media&token=...
+    return decodeURIComponent(url.split("/o/")[1].split("?")[0]);
+  } catch {
+    return null;
+  }
+};
 
 
     
@@ -215,6 +226,18 @@ export default function CreateBookingPage() {
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [openEquipGroups, setOpenEquipGroups] = useState({});
   const [allEquipmentNames, setAllEquipmentNames] = useState([]);
+const [pdfURL, setPdfURL] = useState(null);
+const [removePdf, setRemovePdf] = useState(false);   // mark for deletion
+const [pdfProgress, setPdfProgress] = useState(0);   // upload progress (0..100)
+const [deletingFile, setDeletingFile] = useState(false);
+// Multi-file state
+const [attachments, setAttachments] = useState([]); // [{url,name,contentType,size,folder}]
+const [newFiles, setNewFiles] = useState([]);       // File[] selected to upload
+const [deletedUrls, setDeletedUrls] = useState(new Set()); // URLs marked for deletion
+
+
+
+  
 
 
   // NEW: auto-open equipment groups that contain a selected item
@@ -314,10 +337,11 @@ useEffect(() => {
           setStatusReasons(b.statusReasons || []);
           setStatusReasonOther(b.statusReasonOther || "");
           setEmployees((b.employees || []).map(e => (typeof e === "string" ? { role: "Precision Driver", name: e } : e)));
-setVehicles(normalizeVehicleList(b.vehicles || []));
-    setEquipment(normalizeEquipmentList(b.equipment || []));
-    setVehicleStatus(b.vehicleStatus || {});
+          setVehicles(normalizeVehicleList(b.vehicles || []));
+          setEquipment(normalizeEquipmentList(b.equipment || []));
+          setVehicleStatus(b.vehicleStatus || {});
 
+          setPdfURL(b.quoteUrl || b.pdfURL || null);
 
           setIsSecondPencil(!!b.isSecondPencil);
           setNotes(b.notes || "");
@@ -331,6 +355,15 @@ setVehicles(normalizeVehicleList(b.vehicles || []));
           setCallTime(b.callTime || "");
           setHasRiggingAddress(!!b.hasRiggingAddress);
           setRiggingAddress(b.riggingAddress || "");
+          // build attachments list from array (if present) or fall back to legacy single file
+setAttachments(
+  Array.isArray(b.attachments) && b.attachments.length
+    ? b.attachments.filter(a => a?.url)
+    : (b.quoteUrl || b.pdfURL)
+    ? [{ url: b.quoteUrl || b.pdfURL, name: "Attachment" }]
+    : []
+);
+
         }
       }
 
@@ -372,6 +405,47 @@ const toggleVehicle = (name, checked) => {
     return next;
   });
 };
+
+const handleDeleteCurrentFile = async () => {
+  if (!pdfURL) return;
+  const ok = window.confirm(
+    "Delete the current file from Storage and unlink it from this booking?"
+  );
+  if (!ok) return;
+
+  try {
+    setDeletingFile(true);
+
+    const storage = getStorage();
+    const path = storagePathFromDownloadUrl(pdfURL);
+    if (path) {
+      await deleteObject(ref(storage, path));
+    }
+
+    // Clear local UI state
+    setPdfURL(null);
+    setRemovePdf(false);
+    setPdfFile(null);
+    setPdfProgress(0);
+
+    // Persist removal immediately on the booking
+    if (bookingId) {
+      await updateDoc(doc(db, "bookings", bookingId), {
+        quoteUrl: null,
+        pdfURL: null,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    alert("File removed ✅");
+  } catch (e) {
+    console.error("Delete failed:", e);
+    alert("Failed to delete file ❌\n\n" + e.message);
+  } finally {
+    setDeletingFile(false);
+  }
+};
+
 
 // --- Legacy/missing equipment helpers (items that were saved but are no longer in the master list)
 const missingEquipment = equipment.filter(
@@ -496,14 +570,81 @@ const heldEquipment = overlapping
         bookingDates = [new Date(startDate).toISOString().split("T")[0]];
       }
     }
+// ----- FILE CHANGES (multi-file) -----
+const storage = getStorage();
 
-    let pdfURL = null;
-    if (pdfFile) {
-      const storage = getStorage();
-      const storageRef = ref(storage, `booking_pdfs/${Date.now()}_${pdfFile.name}`);
-      const snapshot = await uploadBytes(storageRef, pdfFile);
-      pdfURL = await getDownloadURL(snapshot.ref);
+// 0) Legacy single-file checkbox support (only if no attachments array is in use)
+if ((attachments?.length ?? 0) === 0 && removePdf && pdfURL) {
+  const legacyPath = storagePathFromDownloadUrl(pdfURL);
+  if (legacyPath) {
+    try { await deleteObject(ref(storage, legacyPath)); } catch (e) { console.warn("Legacy delete failed:", e); }
+  }
+  setPdfURL(null);
+}
+
+// 1) Delete files the user marked in the UI (deleted on Save)
+if (deletedUrls.size > 0) {
+  for (const url of deletedUrls) {
+    const path = storagePathFromDownloadUrl(url);
+    if (path) {
+      try { await deleteObject(ref(storage, path)); } catch (e) { console.warn("Delete failed:", e); }
     }
+  }
+}
+
+// Keep only not-deleted attachments currently on the booking
+let nextAttachments = (attachments || []).filter(a => a?.url && !deletedUrls.has(a.url));
+
+// 2) Upload any newly selected files
+if (newFiles.length > 0) {
+  const uploaded = [];
+  for (const file of newFiles) {
+    const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
+    const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
+    const storageRef = ref(storage, `${folder}/${safeName}`);
+
+    const contentType =
+      file.type ||
+      (safeName.endsWith(".pdf")
+        ? "application/pdf"
+        : safeName.endsWith(".xlsx")
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : safeName.endsWith(".xls")
+        ? "application/vnd.ms-excel"
+        : safeName.endsWith(".csv")
+        ? "text/csv"
+        : "application/octet-stream");
+
+    const task = uploadBytesResumable(storageRef, file, { contentType });
+
+    await new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snap) => setPdfProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+        (err) => reject(err),
+        async () => {
+          const url = await getDownloadURL(task.snapshot.ref);
+          uploaded.push({ url, name: file.name, contentType, size: file.size, folder });
+          resolve();
+        }
+      );
+    });
+  }
+
+  nextAttachments = [...nextAttachments, ...uploaded];
+}
+
+// 3) Backwards-compatibility fields (mirror the FIRST file for old screens)
+const firstUrl = nextAttachments[0]?.url || null;
+const fileUrlToSave = firstUrl;
+
+// 4) Clean up UI helper state
+setPdfProgress(0);
+setNewFiles([]);
+setDeletedUrls(new Set());
+setAttachments(nextAttachments);
+setPdfURL(firstUrl);
+
 
     const filteredNotesByDate = {};
     bookingDates.forEach((date) => {
@@ -513,24 +654,66 @@ const heldEquipment = overlapping
     });
 
     const user = auth.currentUser;
-    const payload = {
-      jobNumber, client, contactNumber, contactEmail, location,
-      employees: cleanedEmployees, vehicles,  vehicleStatus, equipment,
-      isSecondPencil, isCrewed, hasHS, hasRiskAssessment, notes,
-      notesByDate: filteredNotesByDate, status, bookingDates, shootType,
-      pdfURL: pdfURL || null, hasHotel, callTime: callTime || "",
-      hasRiggingAddress, riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
-      ...(["Lost","Postponed","Cancelled"].includes(status) && {
-        statusReasons, statusReasonOther: statusReasons.includes("Other") ? statusReasonOther.trim() : "",
-      }),
-      ...(status !== "Enquiry"
-        ? (isRange
-            ? { startDate: new Date(startDate).toISOString(), endDate: new Date(endDate).toISOString(), date: null }
-            : { date: new Date(startDate).toISOString(), startDate: null, endDate: null })
-        : {}),
-      lastEditedBy: user?.email || "Unknown",
-      updatedAt: new Date().toISOString(),
-    };
+const payload = {
+  jobNumber,
+  client,
+  contactNumber,
+  contactEmail,
+  location,
+
+  employees: cleanedEmployees,
+  vehicles,
+  vehicleStatus,
+  equipment,
+
+  isSecondPencil,
+  isCrewed,
+  hasHS,
+  hasRiskAssessment,
+  notes,
+
+  notesByDate: filteredNotesByDate,
+  status,
+  bookingDates,
+  shootType,
+
+  // ✅ persist ALL files
+  attachments: nextAttachments,
+
+  // ✅ legacy mirrors for old views (first file or null)
+  quoteUrl: fileUrlToSave || null,
+  pdfURL: fileUrlToSave || null,
+
+  hasHotel,
+  callTime: callTime || "",
+  hasRiggingAddress,
+  riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
+
+  ...(["Lost", "Postponed", "Cancelled"].includes(status) && {
+    statusReasons,
+    statusReasonOther: statusReasons.includes("Other")
+      ? statusReasonOther.trim()
+      : "",
+  }),
+
+  ...(status !== "Enquiry"
+    ? (isRange
+        ? {
+            startDate: new Date(startDate).toISOString(),
+            endDate: new Date(endDate).toISOString(),
+            date: null,
+          }
+        : {
+            date: new Date(startDate).toISOString(),
+            startDate: null,
+            endDate: null,
+          })
+    : {}),
+
+  lastEditedBy: user?.email || "Unknown",
+  updatedAt: new Date().toISOString(),
+};
+
 
     try {
       if (bookingId) {
@@ -1009,19 +1192,116 @@ const heldEquipment = overlapping
             </div>
 
             {/* Notes + file upload (separate card) */}
-            <div style={{ ...card, marginTop: 18 }}>
-              <h3 style={cardTitle}>Files & Notes</h3>
+            <div style={{ ...card, marginTop: 18 }}><h3 style={cardTitle}>Files & Notes</h3>
 
-              <label style={field.label}>Attach Quote PDF</label>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setPdfFile(e.target.files[0])}
-                style={{ ...field.input, height: "auto", padding: 10 }}
-              />
+{/* Existing attachments (multi-file) */}
+{(() => {
+  const files = (attachments || []).filter(a => a?.url && !deletedUrls.has(a.url));
 
-              <div style={{ marginTop: 14 }} />
-              <label style={field.label}>Additional Notes</label>
+  // If you have modern attachments, show a button per file
+  if (files.length > 0) {
+    return (
+      <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Current files</div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {files.map((a) => (
+            <div key={a.url} style={{ display: "flex", alignItems: "center", gap: 8, border: UI.border, padding: "6px 8px", borderRadius: 8 }}>
+              <a href={a.url} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                {a.name || a.url.split("/").pop()}
+              </a>
+              <button
+                type="button"
+                onClick={() => setDeletedUrls(prev => new Set(prev).add(a.url))}
+                style={{ ...btn, padding: "4px 8px", background: "#fee2e2", borderColor: "#ef4444", color: "#991b1b" }}
+                title="Mark for deletion (deleted on Save)"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {deletedUrls.size > 0 && (
+          <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+            {deletedUrls.size} file{deletedUrls.size > 1 ? "s" : ""} will be deleted from Storage on save.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback to legacy single-file UI if there are no attachments yet
+  if (pdfURL) {
+    return (
+      <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Current file</div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <a href={pdfURL} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+            Open current file
+          </a>
+
+          {/* Optional: keep your immediate delete if you still use it */}
+          <button
+            type="button"
+            onClick={handleDeleteCurrentFile}
+            disabled={deletingFile}
+            style={{ ...btn, background: "#fee2e2", borderColor: "#ef4444", color: "#991b1b", padding: "6px 10px" }}
+            title="Delete from Storage and unlink now"
+          >
+            {deletingFile ? "Deleting…" : "Delete file now"}
+          </button>
+        </div>
+
+        <div style={{ marginTop: 8 }}>
+          <label style={field.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={removePdf}
+              onChange={(e) => setRemovePdf(e.target.checked)}
+              disabled={deletingFile}
+            />
+            Remove current file on save
+          </label>
+          {removePdf && (
+            <div style={{ fontSize: 12, color: UI.muted, marginTop: -6 }}>
+              The file will be deleted from Storage on save.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Nothing attached
+  return <div style={{ fontSize: 12, color: UI.muted, marginBottom: 10 }}>No files attached yet.</div>;
+})()}
+
+{/* Uploader (now supports multiple) */}
+<label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
+<input
+  type="file"
+  multiple
+  accept=".pdf,.xls,.xlsx,.csv"
+  onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+  style={{ ...field.input, height: "auto", padding: 10 }}
+/>
+
+{/* Progress + selection summary */}
+{pdfProgress > 0 && (
+  <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>
+)}
+{newFiles?.length > 0 && (
+  <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+    {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Save.
+  </div>
+)}
+
+
+<div style={{ marginTop: 14 }} />
+<label style={field.label}>Additional Notes</label>
+
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

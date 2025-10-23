@@ -9,7 +9,7 @@ const firebaseConfig = {
   authDomain: "bickers-booking.firebaseapp.com",
   databaseURL: "https://bickers-booking-default-rtdb.firebaseio.com",
   projectId: "bickers-booking",
-  storageBucket: "bickers-booking.appspot.com",
+  storageBucket: "bickers-booking.firebasestorage.app",
   messagingSenderId: "784506946068",
   appId: "1:784506946068:web:7a86167b5f7f4b0b249d01"
 };

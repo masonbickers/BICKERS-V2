@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
-import { db, auth } from "../../../firebaseConfig";
-
-
+import { db } from "../../../firebaseConfig";
+import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -14,12 +13,16 @@ import startOfWeek from "date-fns/startOfWeek";
 import getDay from "date-fns/getDay";
 import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-
-
+/* ── Localiser ─────────────────────────────────────────────────────────── */
 const locales = { "en-GB": enGB };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+/* ── Utils ─────────────────────────────────────────────────────────────── */
+const norm = (v) => String(v ?? "").trim().toLowerCase();
+const truthy = (v) =>
+  v === true || v === 1 || ["true", "1", "yes", "y"].includes(norm(v));
+const AMPM = (v) => (norm(v) === "am" ? "AM" : norm(v) === "pm" ? "PM" : null);
 
 function stringToColour(str) {
   let hash = 0;
@@ -27,9 +30,41 @@ function stringToColour(str) {
   return `hsl(${hash % 360}, 70%, 70%)`;
 }
 
-// Helpers
-const toDate = (v) =>
-  v?.toDate ? v.toDate() : typeof v === "string" || typeof v === "number" ? new Date(v) : null;
+/** Parse "YYYY-MM-DD" safely at local midnight (no TZ shift). */
+function parseYMD(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  if (!m) return null;
+  const [, Y, M, D] = m.map(Number);
+  return new Date(Y, M - 1, D, 0, 0, 0, 0);
+}
+
+/** Convert Firestore value to Date (prefers strict YMD parsing). */
+function toSafeDate(v) {
+  if (!v) return null;
+  if (typeof v === "string") {
+    const strict = parseYMD(v);
+    if (strict) return strict;
+    const d = new Date(v);
+    return isNaN(+d) ? null : d;
+  }
+  if (v?.toDate) {
+    const d = v.toDate();
+    // Firestore Timestamp can hold a YMD string inside another field sometimes;
+    // still normalize to 00:00 for consistency if it looks like a date-only.
+    return d;
+  }
+  if (typeof v === "number") {
+    const d = new Date(v);
+    return isNaN(+d) ? null : d;
+  }
+  return null;
+}
+
+const sameYMD = (a, b) =>
+  a && b &&
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
 const eachDateInclusive = (start, end) => {
   const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
@@ -38,56 +73,64 @@ const eachDateInclusive = (start, end) => {
   for (let d = s; d <= e; d.setDate(d.getDate() + 1)) out.push(new Date(d));
   return out;
 };
-
-const isWeekend = (d) => {
-  const day = d.getDay();
-  return day === 0 || day === 6;
-};
-
+const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
 const countWeekdaysInclusive = (start, end) =>
   eachDateInclusive(start, end).filter((d) => !isWeekend(d)).length;
 
-const text = (v) => (typeof v === "string" ? v.toLowerCase() : "");
+/** Detect single-day half-day using new + legacy fields */
+function getSingleDayHalfMeta(rec, start, end) {
+  const single = sameYMD(start, end);
+  if (!single) return { single: false, half: false, when: null };
 
+  // New schema
+  if (truthy(rec.startHalfDay) && AMPM(rec.startAMPM))
+    return { single: true, half: true, when: AMPM(rec.startAMPM) };
+  if (truthy(rec.endHalfDay) && AMPM(rec.endAMPM))
+    return { single: true, half: true, when: AMPM(rec.endAMPM) };
+
+  // Legacy schema
+  if (truthy(rec.halfDay)) {
+    const when = AMPM(rec.halfDayPeriod || rec.halfDayType);
+    if (when) return { single: true, half: true, when };
+  }
+
+  return { single: true, half: false, when: null };
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────── */
 export default function HolidayUsagePage() {
-  // Totals
+  const router = useRouter();
+
   const [paidDaysByName, setPaidDaysByName] = useState({});
   const [unpaidDaysByName, setUnpaidDaysByName] = useState({});
   const [accruedEarnedByName, setAccruedEarnedByName] = useState({});
   const [accruedTakenByName, setAccruedTakenByName] = useState({});
 
-  // UI data
   const [calendarEvents, setCalendarEvents] = useState([]);
-  const [employeeColours, setEmployeeColours] = useState({});
-  const [byEmployee, setByEmployee] = useState({}); // detail rows
-
-  // Read-only allowances
+  const [byEmployee, setByEmployee] = useState({});
   const [empAllowance, setEmpAllowance] = useState({});
   const [empCarryOver, setEmpCarryOver] = useState({});
 
-  // Filters (✅ top-level hooks)
   const [q, setQ] = useState("");
   const [onlyUnpaid, setOnlyUnpaid] = useState(false);
   const [onlyAccruedPos, setOnlyAccruedPos] = useState(false);
-  const [sortKey, setSortKey] = useState("name"); // name | paid | unpaid | accBal | allowBalAsc | allowBalDesc
+  const [sortKey, setSortKey] = useState("name");
 
-  const router = useRouter();
   const DEFAULT_ALLOWANCE = 11;
 
   useEffect(() => {
-  const savedScroll = sessionStorage.getItem("dashboardScroll");
-  if (savedScroll) {
-    window.scrollTo(0, parseInt(savedScroll, 10));
-    sessionStorage.removeItem("dashboardScroll");
-  }
-}, []);
-
+    const savedScroll = sessionStorage.getItem("dashboardScroll");
+    if (savedScroll) {
+      window.scrollTo(0, parseInt(savedScroll, 10));
+      sessionStorage.removeItem("dashboardScroll");
+    }
+  }, []);
 
   useEffect(() => {
     const run = async () => {
       const currentYear = new Date().getFullYear();
 
-      // -------- Employees (allowances)
+      // Employees (allowances)
       const allowMap = {};
       const carryMap = {};
       try {
@@ -99,60 +142,48 @@ export default function HolidayUsagePage() {
           allowMap[name] = Number(x.holidayAllowance ?? DEFAULT_ALLOWANCE);
           carryMap[name] = Number(x.carriedOverDays ?? 0);
         });
-
-
       } catch {}
 
-      // -------- Holidays (paid/unpaid/accrued taken)
+      // Holidays
       const paid = {};
       const unpaid = {};
       const accruedTaken = {};
       const details = {};
-      const events = {};
-      const eventList = [];
-
-
+      const events = [];
+      const colourByEmp = {};
 
       const holSnap = await getDocs(collection(db, "holidays"));
-
       holSnap.docs.forEach((docSnap) => {
         const rec = docSnap.data() || {};
         const employee = rec.employee;
-        const start = toDate(rec.startDate);
-        const end = toDate(rec.endDate);
+        const start = toSafeDate(rec.startDate);
+        const end = toSafeDate(rec.endDate) || start;
         const notes = rec.notes || rec.holidayReason || "";
 
         if (!employee || !start || !end) return;
         if (start.getFullYear() !== end.getFullYear() || start.getFullYear() !== currentYear) return;
 
-let days = countWeekdaysInclusive(start, end);
-if (rec.halfDay) days = 0.5; // 👈 support half-day
-
-        // detect flags
         const isAccrued =
           rec.isAccrued === true ||
           ["type", "leaveType", "category", "status", "kind", "notes", "holidayReason"]
-            .map((k) => text(rec[k]))
-            .some((t) => t?.includes("accrued") || t?.includes("toil"));
+            .map((k) => norm(rec[k]))
+            .some((t) => t.includes("accrued") || t.includes("toil"));
 
         const isUnpaid =
           !isAccrued &&
           (rec.isUnpaid === true ||
             rec.unpaid === true ||
             rec.paid === false ||
-            ["type", "leaveType", "category", "status", "kind"].some((k) =>
-              text(rec[k])?.includes("unpaid")
-            ));
+            ["type", "leaveType", "category", "status", "kind"].some((k) => norm(rec[k]).includes("unpaid")));
 
         const isPaid = !isUnpaid && !isAccrued;
 
-        if (isPaid) {
-          paid[employee] = (paid[employee] || 0) + days;
-        } else if (isUnpaid) {
-          unpaid[employee] = (unpaid[employee] || 0) + days;
-        } else if (isAccrued) {
-          accruedTaken[employee] = (accruedTaken[employee] || 0) + days;
-        }
+        const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
+        const days = single && half ? 0.5 : countWeekdaysInclusive(start, end);
+
+        if (isPaid) paid[employee] = (paid[employee] || 0) + days;
+        else if (isUnpaid) unpaid[employee] = (unpaid[employee] || 0) + days;
+        else if (isAccrued) accruedTaken[employee] = (accruedTaken[employee] || 0) + days;
 
         if (!details[employee]) details[employee] = [];
         details[employee].push({
@@ -163,26 +194,29 @@ if (rec.halfDay) days = 0.5; // 👈 support half-day
           notes,
           unpaid: isUnpaid,
           accrued: isAccrued,
-           halfDay: rec.halfDay === true,  
+          halfDay: single && half,
+          halfWhen: single && half ? when : null,
         });
 
-        const empColor = (events[employee] ||= stringToColour(employee));
-eventList.push({
-  id: docSnap.id,   // ✅ Firestore ID
-  status: "Holiday", // ✅ matches dashboard pattern
-  title: `${employee} Holiday${isUnpaid ? " (Unpaid)" : isAccrued ? " (Accrued)" : ""}`,
-  start,
-  end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
-  allDay: true,
-  employee,
-  unpaid: isUnpaid,
-  accrued: isAccrued,
-  color: empColor,
-});
-
+        const color = (colourByEmp[employee] ||= stringToColour(employee));
+        events.push({
+          id: docSnap.id,
+          status: "Holiday",
+          title:
+            `${employee} Holiday` +
+            (isUnpaid ? " (Unpaid)" : isAccrued ? " (Accrued)" : "") +
+            (single && half ? ` (½ ${when || ""})` : ""),
+          start,
+          end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+          allDay: true,
+          employee,
+          unpaid: isUnpaid,
+          accrued: isAccrued,
+          color,
+        });
       });
 
-      // -------- Bookings (accrued earned from weekend work)
+      // Accrued earned from weekend bookings
       const accruedEarned = {};
       try {
         const bookSnap = await getDocs(collection(db, "bookings"));
@@ -193,25 +227,22 @@ eventList.push({
 
           let dates = [];
           if (Array.isArray(x.bookingDates) && x.bookingDates.length) {
-            dates = x.bookingDates
-              .map((v) => toDate(v))
-              .filter(Boolean)
-              .filter((dt) => dt.getFullYear() === currentYear);
+            dates = x.bookingDates.map((v) => toSafeDate(v)).filter(Boolean);
           } else {
-            const s = toDate(x.startDate) || toDate(x.date);
-            const e = toDate(x.endDate) || toDate(x.date);
-            if (s && e && s.getFullYear() === currentYear && e.getFullYear() === currentYear) {
-              dates = eachDateInclusive(s, e);
-            }
+            const s = toSafeDate(x.startDate) || toSafeDate(x.date);
+            const e = toSafeDate(x.endDate) || toSafeDate(x.date);
+            if (s && e) dates = eachDateInclusive(s, e);
           }
 
-          dates.forEach((dte) => {
-            if (isWeekend(dte)) {
-              employees.forEach((name) => {
-                accruedEarned[name] = (accruedEarned[name] || 0) + 1;
-              });
-            }
-          });
+          dates
+            .filter((dt) => dt.getFullYear() === currentYear)
+            .forEach((dte) => {
+              if (isWeekend(dte)) {
+                employees.forEach((name) => {
+                  accruedEarned[name] = (accruedEarned[name] || 0) + 1;
+                });
+              }
+            });
         });
       } catch {}
 
@@ -219,11 +250,8 @@ eventList.push({
       setUnpaidDaysByName(unpaid);
       setAccruedTakenByName(accruedTaken);
       setAccruedEarnedByName(accruedEarned);
-
-      setByEmployee(details);
-      setEmployeeColours(events);
-      setCalendarEvents(eventList);
-
+      setByEmployee(Object.fromEntries(Object.entries(details).map(([k, v]) => [k, v.sort((a, b) => a.start - b.start)])));
+      setCalendarEvents(events);
       setEmpAllowance(allowMap);
       setEmpCarryOver(carryMap);
     };
@@ -231,77 +259,33 @@ eventList.push({
     run();
   }, []);
 
-  // Calendar colors
   const eventStyleGetter = (event) => {
     let bg = event.color || "#cbd5e1";
     let textColor = "#000";
     if (event.accrued) {
-      bg = "#ccfbf1"; // teal-100
+      bg = "#ccfbf1";
       textColor = "#134e4a";
     } else if (event.unpaid) {
-      bg = "#fee2e2"; // red-200
+      bg = "#fee2e2";
       textColor = "#7f1d1d";
     }
-    return {
-      style: {
-        backgroundColor: bg,
-        borderRadius: "6px",
-        border: "none",
-        color: textColor,
-        padding: "4px",
-        fontWeight: 600,
-      },
-    };
+    return { style: { backgroundColor: bg, borderRadius: "6px", border: "none", color: textColor, padding: "4px", fontWeight: 600 } };
   };
 
-  // Small badge
-  const Pill = ({ children, tone = "default" }) => {
-    const tones = {
-      default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
-      good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-      warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-      info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-      teal: { bg: "#ccfbf1", fg: "#134e4a", br: "#99f6e4" },
-      gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
-    };
-    const t = tones[tone] || tones.default;
-    return (
-      <span
-        style={{
-          display: "inline-block",
-          padding: "2px 8px",
-          borderRadius: 999,
-          background: t.bg,
-          color: t.fg,
-          border: `1px solid ${t.br}`,
-          fontSize: 12,
-          fontWeight: 700,
-          minWidth: 28,
-          textAlign: "center",
-        }}
-      >
-        {children}
-      </span>
-    );
-  };
+  const allNames = Array.from(
+    new Set([
+      ...Object.keys(byEmployee),
+      ...Object.keys(empAllowance),
+      ...Object.keys(empCarryOver),
+      ...Object.keys(paidDaysByName),
+      ...Object.keys(unpaidDaysByName),
+      ...Object.keys(accruedEarnedByName),
+      ...Object.keys(accruedTakenByName),
+    ])
+  )
+    .filter((name) => (empAllowance[name] ?? 0) > 0)
+    .sort();
 
-const allNames = Array.from(
-  new Set([
-    ...Object.keys(byEmployee),
-    ...Object.keys(empAllowance),
-    ...Object.keys(empCarryOver),
-    ...Object.keys(paidDaysByName),
-    ...Object.keys(unpaidDaysByName),
-    ...Object.keys(accruedEarnedByName),
-    ...Object.keys(accruedTakenByName),
-  ])
-)
-  // ✅ Only keep employees who have a holiday allowance > 0
-  .filter((name) => (empAllowance[name] ?? 0) > 0)
-  .sort();
-
-
-  // quick metric getter (used by sort)
   const metrics = (name) => {
     const paid = paidDaysByName[name] || 0;
     const unpaid = unpaidDaysByName[name] || 0;
@@ -317,51 +301,32 @@ const allNames = Array.from(
     return { paid, unpaid, aEarned, aTaken, aBalance, allowance, carried, totalAllowance, allowBal };
   };
 
-  // filtered + sorted names
+  const [qState, setQState] = useState({}); // prevent uncontrolled warnings (noop)
+
   const namesToShow = allNames
     .filter((n) => n.toLowerCase().includes(q.toLowerCase()))
     .filter((n) => (onlyUnpaid ? (unpaidDaysByName[n] || 0) > 0 : true))
-    .filter((n) =>
-      onlyAccruedPos ? (accruedEarnedByName[n] || 0) - (accruedTakenByName[n] || 0) > 0 : true
-    )
+    .filter((n) => (onlyAccruedPos ? (accruedEarnedByName[n] || 0) - (accruedTakenByName[n] || 0) > 0 : true))
     .sort((a, b) => {
       const A = metrics(a);
       const B = metrics(b);
       switch (sortKey) {
-        case "paid":
-          return B.paid - A.paid; // desc
-        case "unpaid":
-          return B.unpaid - A.unpaid; // desc
-        case "accBal":
-          return B.aBalance - A.aBalance; // desc
-        case "allowBalAsc":
-          return A.allowBal - B.allowBal; // asc
-        case "allowBalDesc":
-          return B.allowBal - A.allowBal; // desc
-        default:
-          return a.localeCompare(b); // name
+        case "paid": return B.paid - A.paid;
+        case "unpaid": return B.unpaid - A.unpaid;
+        case "accBal": return B.aBalance - A.aBalance;
+        case "allowBalAsc": return A.allowBal - B.allowBal;
+        case "allowBalDesc": return B.allowBal - A.allowBal;
+        default: return a.localeCompare(b);
       }
     });
 
   return (
     <HeaderSidebarLayout>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          minHeight: "100vh",
-          backgroundColor: "#f4f4f5",
-          color: "#333",
-          fontFamily: "Arial, sans-serif",
-          padding: 40,
-        }}
-      >
-                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333", fontFamily: "Arial, sans-serif", padding: 40 }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h1 style={{ fontSize: 28, fontWeight: "bold" }}>📅 Holiday & Accrued (TOIL) Overview</h1>
-          <button
-            onClick={() => router.push("/holiday-form")}
-            style={{ backgroundColor: "#333", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "6px", fontSize: 16, cursor: "pointer" }}
-          >
+          <button onClick={() => router.push("/holiday-form")} style={{ backgroundColor: "#333", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "6px", fontSize: 16, cursor: "pointer" }}>
             ➕ Add Holiday
           </button>
         </div>
@@ -381,68 +346,25 @@ const allNames = Array.from(
           />
         </div>
 
-         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h1 style={{ fontSize: 28, fontWeight: "bold" }}>📅 Holiday & Accrued (TOIL) Overview</h1>
- 
-        </div>
-
         {/* Legend */}
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "16px 0 12px" }}>
           <LegendSwatch color="#ccfbf1" label="Accrued leave (taken)" />
           <LegendSwatch color="#fee2e2" label="Unpaid leave" />
           <LegendSwatch color="#cbd5e1" label="Paid leave (per-employee color)" />
         </div>
 
-
         {/* Filters */}
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            flexWrap: "wrap",
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            padding: 12,
-            marginBottom: 12,
-          }}
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search employee…"
-            style={{
-              padding: "8px 10px",
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              minWidth: 220,
-              outline: "none",
-            }}
-          />
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employee…" style={{ padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, minWidth: 220, outline: "none" }} />
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={onlyUnpaid}
-              onChange={(e) => setOnlyUnpaid(e.target.checked)}
-            />
-            Unpaid &gt; 0
+            <input type="checkbox" checked={onlyUnpaid} onChange={(e) => setOnlyUnpaid(e.target.checked)} /> Unpaid &gt; 0
           </label>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <input
-              type="checkbox"
-              checked={onlyAccruedPos}
-              onChange={(e) => setOnlyAccruedPos(e.target.checked)}
-            />
-            Accrued balance &gt; 0
+            <input type="checkbox" checked={onlyAccruedPos} onChange={(e) => setOnlyAccruedPos(e.target.checked)} /> Accrued balance &gt; 0
           </label>
           <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 12, color: "#6b7280" }}>Sort:</span>
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value)}
-              style={{ padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8 }}
-            >
+            <select value={sortKey} onChange={(e) => setSortKey(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8 }}>
               <option value="name">Name (A–Z)</option>
               <option value="paid">Paid used (desc)</option>
               <option value="unpaid">Unpaid (desc)</option>
@@ -450,94 +372,47 @@ const allNames = Array.from(
               <option value="allowBalAsc">Allowance balance (asc)</option>
               <option value="allowBalDesc">Allowance balance (desc)</option>
             </select>
-            <button
-              onClick={() => {
-                setQ("");
-                setOnlyUnpaid(false);
-                setOnlyAccruedPos(false);
-                setSortKey("name");
-              }}
-              style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", background: "#f9fafb" }}
-            >
+            <button onClick={() => { setQ(""); setOnlyUnpaid(false); setOnlyAccruedPos(false); setSortKey("name"); }} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", background: "#f9fafb" }}>
               Reset
             </button>
           </div>
         </div>
 
-        {/* EMPLOYEE DETAIL BLOCKS */}
+        {/* Employee blocks */}
         <div style={{ marginBottom: 28 }}>
           {namesToShow.map((name) => {
-            const paid = paidDaysByName[name] || 0;
-            const unpaid = unpaidDaysByName[name] || 0;
-            const aEarned = accruedEarnedByName[name] || 0;
-            const aTaken = accruedTakenByName[name] || 0;
-            const aBalance = aEarned - aTaken;
-
-            const allowance = Number(empAllowance[name] ?? DEFAULT_ALLOWANCE);
-            const carried = Number(empCarryOver[name] ?? 0);
-            const totalAllowance = allowance + carried;
-            const allowanceBalance = totalAllowance - paid;
-
-            const rows = (byEmployee[name] || []).slice().sort((a, b) => a.start - b.start);
+            const m = metrics(name);
+            const rows = (byEmployee[name] || []).slice();
 
             return (
               <details key={name} style={detailsBox}>
                 <summary style={summaryBar}>
                   <span>{name}</span>
                   <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <Pill tone="info">Paid {paid}/{totalAllowance}</Pill>
-                    <Pill tone="warn">Unpaid {unpaid}</Pill>
-                    <Pill tone="teal">Acc {aEarned}/{aTaken} ({aBalance})</Pill>
-                    <Pill tone="good">Allow Bal {allowanceBalance}</Pill>
+                    <Pill tone="info">Paid {m.paid}/{m.totalAllowance}</Pill>
+                    <Pill tone="warn">Unpaid {m.unpaid}</Pill>
+                    <Pill tone="teal">Acc {m.aEarned}/{m.aTaken} ({m.aBalance})</Pill>
+                    <Pill tone="good">Allow Bal {m.allowBal}</Pill>
                   </span>
                 </summary>
 
                 <div style={sheetBox}>
-                  {/* Top header summary */}
                   <div style={yellowHeader}>
-                    <div>
-                      <strong>Name</strong>
-                      <div style={{ color: "#b91c1c" }}>{name}</div>
-                    </div>
-                    <div>
-                      <strong>Allowance</strong>
-                      <div>{allowance}</div>
-                    </div>
-                    <div>
-                      <strong>Carry Over</strong>
-                      <div>{carried}</div>
-                    </div>
-                    <div>
-                      <strong>Total Allowance</strong>
-                      <div>{totalAllowance}</div>
-                    </div>
+                    <div><strong>Name</strong><div style={{ color: "#b91c1c" }}>{name}</div></div>
+                    <div><strong>Allowance</strong><div>{m.allowance}</div></div>
+                    <div><strong>Carry Over</strong><div>{m.carried}</div></div>
+                    <div><strong>Total Allowance</strong><div>{m.totalAllowance}</div></div>
                   </div>
 
-                  {/* Compact stat grid */}
                   <div style={statsGrid}>
-                    <Stat label="Paid Used">
-                      <Pill tone="info">{paid}</Pill>
-                      <span style={{ opacity: 0.6, margin: "0 6px" }}>/</span>
-                      <Pill tone="gray">{totalAllowance}</Pill>
-                    </Stat>
-                    <Stat label="Unpaid Days">
-                      <Pill tone="warn">{unpaid}</Pill>
-                    </Stat>
-                    <Stat label="Accrued Earned">
-                      <Pill tone="teal">{aEarned}</Pill>
-                    </Stat>
-                    <Stat label="Accrued Taken">
-                      <Pill>{aTaken}</Pill>
-                    </Stat>
-                    <Stat label="Accrued Balance">
-                      <Pill tone="good">{aBalance}</Pill>
-                    </Stat>
-                    <Stat label="Allowance Balance">
-                      <Pill tone="good">{allowanceBalance}</Pill>
-                    </Stat>
+                    <Stat label="Paid Used"><Pill tone="info">{m.paid}</Pill><span style={{ opacity: 0.6, margin: "0 6px" }}>/</span><Pill tone="gray">{m.totalAllowance}</Pill></Stat>
+                    <Stat label="Unpaid Days"><Pill tone="warn">{m.unpaid}</Pill></Stat>
+                    <Stat label="Accrued Earned"><Pill tone="teal">{m.aEarned}</Pill></Stat>
+                    <Stat label="Accrued Taken"><Pill>{m.aTaken}</Pill></Stat>
+                    <Stat label="Accrued Balance"><Pill tone="good">{m.aBalance}</Pill></Stat>
+                    <Stat label="Allowance Balance"><Pill tone="good">{m.allowBal}</Pill></Stat>
                   </div>
 
-                  {/* Detail table */}
                   <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
                     <thead>
                       <tr>
@@ -550,60 +425,48 @@ const allNames = Array.from(
                     </thead>
                     <tbody>
                       {rows.length === 0 ? (
-                        <tr>
-                          <td style={td} colSpan={5}>(No leave booked)</td>
-                        </tr>
+                        <tr><td style={td} colSpan={5}>(No leave booked)</td></tr>
                       ) : (
-rows.map((row, i) => {
-  const typeLabel = row.accrued ? "Accrued" : row.unpaid ? "Unpaid" : "Paid";
-  const typeColor = row.accrued ? "#0f766e" : row.unpaid ? "#b91c1c" : "#065f46";
-
-  return (
-<tr
-  key={i}
-onClick={() => {
-  sessionStorage.setItem("dashboardScroll", window.scrollY.toString());
-  router.push(`/edit-holiday/${row.id}`);
-}}
-  style={{
-    cursor: "pointer",
-    backgroundColor: i % 2 === 0 ? "#fff" : "#f9fafb",
-    transition: "background-color 0.2s ease",
-  }}
-  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e0f2fe")}
-  onMouseLeave={(e) =>
-    (e.currentTarget.style.backgroundColor =
-      i % 2 === 0 ? "#fff" : "#f9fafb")
-  }
->
-  <td style={td}>{format(row.start, "EEE d MMM")}</td>
-  <td style={td}>{format(row.end, "EEE d MMM")}</td>
-<td style={{ ...td, textAlign: "center", width: 120 }}>
-  {row.days}
-  {row.halfDay ? " (½)" : ""}   {/* 👈 show half-day visually */}
-</td>
-<td style={{ ...td, color: typeColor, fontWeight: 700 }}>
-  {row.halfDay ? "Half-Day " : ""}{typeLabel}
-</td>
-
-  <td style={td}>{row.notes || ""}</td>
-</tr>
-
-  );
-})
-
+                        rows.map((row, i) => {
+                          const typeLabel = row.accrued ? "Accrued" : row.unpaid ? "Unpaid" : "Paid";
+                          const typeColor = row.accrued ? "#0f766e" : row.unpaid ? "#b91c1c" : "#065f46";
+                          return (
+                            <tr
+                              key={row.id}
+                              onClick={() => {
+                                sessionStorage.setItem("dashboardScroll", window.scrollY.toString());
+                                router.push(`/edit-holiday/${row.id}`);
+                              }}
+                              style={{ cursor: "pointer", backgroundColor: i % 2 === 0 ? "#fff" : "#f9fafb", transition: "background-color 0.2s ease" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#e0f2fe")}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#f9fafb")}
+                            >
+                              <td style={td}>{format(row.start, "EEE d MMM")}</td>
+                              <td style={td}>{format(row.end, "EEE d MMM")}</td>
+                              <td style={{ ...td, textAlign: "center", width: 120 }}>
+                                {row.days}
+                                {row.halfDay ? " (½)" : ""}
+                              </td>
+                              <td style={{ ...td, color: typeColor, fontWeight: 700 }}>
+                                {row.halfDay ? `Half-Day${row.halfWhen ? ` (${row.halfWhen})` : ""} ` : ""}
+                                {typeLabel}
+                              </td>
+                              <td style={td}>{row.notes || ""}</td>
+                            </tr>
+                          );
+                        })
                       )}
                       <tr>
                         <td style={{ ...td, fontWeight: 700 }}>Accrued Balance</td>
                         <td style={td}></td>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{aBalance}</td>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{metrics(name).aBalance}</td>
                         <td style={td}></td>
                         <td style={td}></td>
                       </tr>
                       <tr>
                         <td style={{ ...td, fontWeight: 700 }}>Allowance Balance</td>
                         <td style={td}></td>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{allowanceBalance}</td>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{metrics(name).allowBal}</td>
                         <td style={td}></td>
                         <td style={td}></td>
                       </tr>
@@ -619,19 +482,28 @@ onClick={() => {
   );
 }
 
+/* Small UI helpers */
+function Pill({ children, tone = "default" }) {
+  const tones = {
+    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
+    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
+    warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
+    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
+    teal: { bg: "#ccfbf1", fg: "#134e4a", br: "#99f6e4" },
+    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+  };
+  const t = tones[tone] || tones.default;
+  return (
+    <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, background: t.bg, color: t.fg, border: `1px solid ${t.br}`, fontSize: 12, fontWeight: 700, minWidth: 28, textAlign: "center" }}>
+      {children}
+    </span>
+  );
+}
+
 function LegendSwatch({ color, label }) {
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <span
-        style={{
-          width: 14,
-          height: 14,
-          background: color,
-          borderRadius: 4,
-          display: "inline-block",
-          border: "1px solid #e5e7eb",
-        }}
-      />
+      <span style={{ width: 14, height: 14, background: color, borderRadius: 4, display: "inline-block", border: "1px solid #e5e7eb" }} />
       <span style={{ fontSize: 13, color: "#374151" }}>{label}</span>
     </div>
   );
@@ -646,27 +518,11 @@ function Stat({ label, children }) {
   );
 }
 
+/* Table styles */
 const th = { textAlign: "left", borderBottom: "2px solid #ccc", padding: "12px", fontWeight: "bold", whiteSpace: "nowrap" };
 const td = { padding: "12px", borderBottom: "1px solid #eee", verticalAlign: "middle" };
-
 const detailsBox = { background: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 12, overflow: "hidden" };
 const summaryBar = { cursor: "pointer", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f3f4f6", fontWeight: 600, gap: 12 };
 const sheetBox = { padding: 16 };
-
-const yellowHeader = {
-  display: "grid",
-  gridTemplateColumns: "1.5fr repeat(3, 1fr)",
-  gap: 16,
-  background: "#fde68a",
-  border: "1px solid #f59e0b",
-  borderRadius: 8,
-  padding: 12,
-  marginBottom: 12,
-};
-
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 12,
-  marginBottom: 10,
-};
+const yellowHeader = { display: "grid", gridTemplateColumns: "1.5fr repeat(3, 1fr)", gap: 16, background: "#fde68a", border: "1px solid #f59e0b", borderRadius: 8, padding: 12, marginBottom: 12 };
+const statsGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 10 };
