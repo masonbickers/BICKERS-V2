@@ -21,7 +21,28 @@ import HeaderSidebarLayout from '../../components/HeaderSidebarLayout';
 import { format, parseISO } from 'date-fns';
 
 /* ────────────────────────────────────────────────────────────
-   Helpers
+   Design tokens + layout
+─────────────────────────────────────────────────────────────*/
+const UI = {
+  radius: 12,
+  border: '1px solid #e5e7eb',
+  text: '#0f172a',
+  muted: '#6b7280',
+  bg: '#ffffff',
+  bgAlt: '#f9fafb',
+  brand: '#2563eb',
+  chipBg: '#f1f5f9',
+  shadow: '0 4px 14px rgba(0,0,0,0.06)',
+};
+
+const LAYOUT = {
+  HEADER_H: 64,   // sticky header height
+  PAGE_PAD_X: 16, // horizontal page padding
+  STICKY_GAP: 12, // gap between sticky header and sticky side column
+};
+
+/* ────────────────────────────────────────────────────────────
+   Helpers (unchanged logic)
 ─────────────────────────────────────────────────────────────*/
 const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
@@ -93,9 +114,9 @@ const Badge = ({ text, bg, fg, border }) => (
       color: fg,
       border: `1px solid ${border}`,
       padding: '2px 6px',
-      borderRadius: 4,
+      borderRadius: 999,
       fontSize: 12,
-      fontWeight: 600,
+      fontWeight: 700,
       whiteSpace: 'nowrap',
     }}
   >
@@ -117,9 +138,8 @@ const StatusPill = ({ value }) => {
 const PaidPill = () => <Badge text="Paid" bg="#bfdbfe" fg="#1d4ed8" border="#60a5fa" />;
 
 /* ────────────────────────────────────────────────────────────
-   NEW: status auto-complete helpers
+   Status auto-complete helpers (unchanged)
 ─────────────────────────────────────────────────────────────*/
-// Local "YYYY-MM-DD" without time-zone surprises
 const toLocalISODate = (d) => {
   const x = new Date(d);
   const y = x.getFullYear();
@@ -134,7 +154,6 @@ const latestOf = (dates = []) =>
     .sort()
     .pop() || null;
 
-// Decide the last date a booking runs: bookingDates[] > endDate > date/startDate
 const getLastBookingDateISO = (b) => {
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
     return latestOf(b.bookingDates);
@@ -145,7 +164,7 @@ const getLastBookingDateISO = (b) => {
 };
 
 /* ────────────────────────────────────────────────────────────
-   Day Details (full info for a single day)
+   Day Details (unchanged logic)
 ─────────────────────────────────────────────────────────────*/
 const DayDetails = ({ day, iso, entry, jobId }) => {
   const hours = getHours(entry);
@@ -154,28 +173,21 @@ const DayDetails = ({ day, iso, entry, jobId }) => {
 
   const Row = ({ label, children }) => (
     <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 8, marginBottom: 6, fontSize: 12 }}>
-      <div style={{ color: '#6b7280' }}>{label}</div>
-      <div style={{ color: '#111827' }}>{children}</div>
+      <div style={{ color: UI.muted }}>{label}</div>
+      <div style={{ color: UI.text }}>{children}</div>
     </div>
   );
 
   return (
-    <div
-      style={{
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        padding: 10,
-        background: '#ffffff',
-      }}
-    >
+    <div style={{ border: UI.border, borderRadius: 8, padding: 10, background: '#ffffff', minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, color: '#111827' }}>{day}</div>
-        <div style={{ color: '#6b7280', fontSize: 12 }}>{iso || '—'}</div>
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#111827', fontWeight: 700 }}>{hours.toFixed(1)}h</div>
+        <div style={{ fontWeight: 700, color: UI.text }}>{day}</div>
+        <div style={{ color: UI.muted, fontSize: 12 }}>{iso || '—'}</div>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: UI.text, fontWeight: 700 }}>{hours.toFixed(1)}h</div>
       </div>
 
       <Row label="Mode">
-        <span style={{ fontWeight: 700, color: explicitlyLinked ? '#059669' : '#111827' }}>
+        <span style={{ fontWeight: 700, color: explicitlyLinked ? '#059669' : UI.text }}>
           {mode || '—'}{explicitlyLinked ? ' *' : ''}
         </span>
       </Row>
@@ -219,14 +231,14 @@ const DayDetails = ({ day, iso, entry, jobId }) => {
 };
 
 /* ────────────────────────────────────────────────────────────
-   Timesheet renderer — ONLY corresponding job days + full info
+   Timesheet renderer — TABLE layout (fills, no overlap)
 ─────────────────────────────────────────────────────────────*/
 const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const dayMap = ts.days || {};
   const jobDates = new Set(Array.isArray(job.bookingDates) ? job.bookingDates : []);
-  const snapshotByDay = ts.jobSnapshot?.byDay || {}; // { Monday: [{bookingId,...}], ... }
+  const snapshotByDay = ts.jobSnapshot?.byDay || {};
 
-  // Build ISO date per weekday for this timesheet
+  // Week ISO map
   const ws = parseDateFlexible(ts.weekStart);
   const isoByDay = {};
   if (ws) {
@@ -237,7 +249,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     }
   }
 
-  // Relevant days = explicit link OR snapshot link OR date match
+  // Relevant days
   const isDayRelevant = (day) => {
     const entry = dayMap[day] || {};
     const iso = isoByDay[day];
@@ -249,40 +261,107 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   };
 
   const daysToRender = onlyJobDays ? dayOrder.filter(isDayRelevant) : dayOrder;
-  if (onlyJobDays && daysToRender.length === 0) return null; // nothing to show for this timesheet
+  if (onlyJobDays && daysToRender.length === 0) return null;
+
+  // Display inference
+  const getDisplay = (day) => {
+    const entry = dayMap[day] || {};
+    const iso = isoByDay[day];
+    const isJobDay = iso ? jobDates.has(iso) : false;
+
+    const explicitlyLinked = entry.bookingId === job.id;
+    const snapshotList = Array.isArray(snapshotByDay[day]) ? snapshotByDay[day] : [];
+    const snapshotHasThisJob = snapshotList.some((j) => j.bookingId === job.id);
+
+    let mode = String(entry?.mode ?? entry?.type ?? '').toLowerCase();
+    const hours = getHours(entry);
+
+    if (explicitlyLinked) {
+      if (!mode || mode === 'off') mode = hours > 0 ? entry.mode || 'work' : 'off';
+    } else if (!mode && (isJobDay || snapshotHasThisJob)) {
+      const snap = snapshotList.find((j) => j.bookingId === job.id);
+      if (snap && snap.location && snap.location.toLowerCase().includes('yard')) {
+        mode = 'yard';
+      } else {
+        mode = 'onset';
+      }
+    }
+    if (!mode) mode = 'off';
+
+    let label = mode;
+    if (mode === 'holiday') label = 'HOL';
+    else if (mode === 'onset' || mode === 'set' || mode === 'work') label = explicitlyLinked ? 'Set*' : 'Set';
+    else if (mode === 'yard') label = explicitlyLinked ? 'Yard*' : 'Yard';
+    else if (mode === 'travel') label = explicitlyLinked ? 'Travel*' : 'Travel';
+    else if (mode === 'off' && hours === 0) label = 'OFF';
+
+    return { entry, iso, modeLabel: label, hours };
+  };
+
+  const rows = daysToRender.map((day) => ({ day, ...getDisplay(day) }));
+  const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
+
+  // Styles (with minWidth: 0 and fixed table layout)
+  const wrap = {
+    border: '1px solid #d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: ts.submitted ? '#f9fafb' : '#fff7ed',
+    minWidth: 0,
+  };
+  const header = {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: 8,
+    minWidth: 0,
+  };
+  const tableWrap = { overflowX: 'auto', marginTop: 8, minWidth: 0 };
+  const table = {
+    width: '100%',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
+    fontSize: 13,
+    tableLayout: 'fixed', // prevents column creep and overflow
+  };
+  const th = {
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderBottom: '1px solid #e5e7eb',
+    background: '#f8fafc',
+    position: 'sticky',
+    top: 0,       // if your page header covers this, change to LAYOUT.HEADER_H + 8
+    zIndex: 1,
+    whiteSpace: 'nowrap',
+  };
+  const td = {
+    padding: '8px 10px',
+    borderBottom: '1px solid #f1f5f9',
+    verticalAlign: 'top',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
+  const tdRight = { ...td, textAlign: 'right', whiteSpace: 'nowrap' };
+  const dayCell = { ...td, fontWeight: 700, whiteSpace: 'nowrap' };
+  const foot = { ...tdRight, fontWeight: 800, background: '#f8fafc' };
+  const notesCell = { overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' };
 
   return (
-    <div
-      style={{
-        border: '1px solid #d1d5db',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 10,
-        backgroundColor: ts.submitted ? '#f9fafb' : '#fff7ed',
-      }}
-    >
+    <div style={wrap}>
       {/* header */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          alignItems: 'center',
-          marginBottom: 8,
-          borderBottom: '1px solid #e5e7eb',
-          paddingBottom: 8,
-        }}
-      >
+      <div style={header}>
         <div style={{ fontSize: 14, fontWeight: 'bold', color: '#1f2937' }}>
           Week of {ws ? format(ws, 'dd/MM/yyyy') : '—'}
         </div>
         <div style={{ fontSize: 14, color: '#4b5563' }}>
           <strong>Emp:</strong> {ts.employeeName || ts.employeeCode || '—'}
         </div>
-        {onlyJobDays && (
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
-            Showing {daysToRender.length} day{daysToRender.length !== 1 ? 's' : ''} for this job
-          </div>
-        )}
+        <div style={{ fontSize: 12, color: '#6b7280' }}>
+          Showing {rows.length} day{rows.length !== 1 ? 's' : ''} for this job
+        </div>
         <div style={{ marginLeft: 'auto' }}>
           {ts.submitted ? (
             <Badge text="Submitted" bg="#dcfce7" fg="#166534" border="#86efac" />
@@ -302,128 +381,75 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
             fontSize: 12,
             textDecoration: 'none',
             color: '#374151',
+            marginLeft: 8,
+            whiteSpace: 'nowrap',
           }}
         >
           Open →
         </a>
       </div>
 
-      {/* compact summary — only relevant days */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${daysToRender.length}, 1fr)`,
-          marginTop: 8,
-          fontSize: 11,
-          textAlign: 'center',
-        }}
-      >
-        {daysToRender.map((day, i) => {
-          const entry = dayMap[day] || {};
-          const iso = isoByDay[day];
-          const isJobDay = iso ? jobDates.has(iso) : false;
-
-          const explicitlyLinked = entry.bookingId === job.id;
-          const snapshotList = Array.isArray(snapshotByDay[day]) ? snapshotByDay[day] : [];
-          const snapshotHasThisJob = snapshotList.some((j) => j.bookingId === job.id);
-
-          let mode = String(entry?.mode ?? entry?.type ?? '').toLowerCase();
-          const hours = getHours(entry);
-
-          if (explicitlyLinked) {
-            if (!mode || mode === 'off') mode = hours > 0 ? entry.mode || 'work' : 'off';
-          } else if (!mode && (isJobDay || snapshotHasThisJob)) {
-            const snap = snapshotList.find((j) => j.bookingId === job.id);
-            if (snap && snap.location && snap.location.toLowerCase().includes('yard')) {
-              mode = 'yard';
-            } else {
-              mode = 'onset';
-            }
-          }
-          if (!mode) mode = 'off';
-
-          let label = mode;
-          let color = '#111827';
-          const emphasise = explicitlyLinked;
-
-          if (mode === 'holiday') {
-            label = 'HOL';
-            color = '#78350f';
-          } else if (mode === 'off' || hours === 0) {
-            label = 'OFF';
-            color = '#4b5563';
-          } else if (mode === 'yard') {
-            label = emphasise ? 'Yard*' : 'Yard';
-            color = emphasise ? '#1050ff' : '#1e40af';
-          } else if (mode === 'travel') {
-            label = emphasise ? 'Travel*' : 'Travel';
-            color = emphasise ? '#068f66' : '#065f46';
-          } else if (mode === 'onset' || mode === 'set' || mode === 'work') {
-            label = emphasise ? 'Set*' : 'Set';
-            color = '#059669';
-          }
-
-          return (
-            <div
-              key={day}
-              style={{
-                padding: '4px 2px',
-                borderRight: i < daysToRender.length - 1 ? '1px dashed #e5e7eb' : 'none',
-                opacity: mode === 'off' ? 0.7 : 1,
-              }}
-            >
-              <div style={{ fontWeight: 600, color }}>
-                {day.slice(0, 3)} <span style={{ color: '#6b7280' }}>({iso || '—'})</span>
-              </div>
-              <div style={{ color, fontWeight: 700, margin: '2px 0' }}>{label}</div>
-              <div style={{ color: hours > 0 ? '#111827' : '#9ca3af' }}>{hours.toFixed(1)}h</div>
-            </div>
-          );
-        })}
+      {/* table */}
+      <div style={tableWrap}>
+        <table style={table}>
+          <colgroup>
+            <col style={{ width: 64 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 90 }} />
+            <col />               {/* Notes grows */}
+            <col style={{ width: 80 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={th}>Day</th>
+              <th style={th}>Date</th>
+              <th style={th}>Mode</th>
+              <th style={th}>Leave</th>
+              <th style={th}>Arrive</th>
+              <th style={th}>Call</th>
+              <th style={th}>Wrap</th>
+              <th style={th}>Arrive Back</th>
+              <th style={th}>Overnight</th>
+              <th style={th}>Lunch Sup</th>
+              <th style={th}>Notes</th>
+              <th style={{ ...th, textAlign: 'right' }}>Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ day, entry, iso, modeLabel, hours }) => (
+              <tr key={day}>
+                <td style={dayCell}>{day.slice(0, 3)}</td>
+                <td style={td}>{iso || '—'}</td>
+                <td style={td}>{modeLabel || '—'}</td>
+                <td style={td}>{entry?.leaveTime || '—'}</td>
+                <td style={td}>{entry?.arriveTime || '—'}</td>
+                <td style={td}>{entry?.callTime || '—'}</td>
+                <td style={td}>{entry?.wrapTime || '—'}</td>
+                <td style={td}>{entry?.arriveBack || '—'}</td>
+                <td style={td}>{entry?.overnight ? 'Yes' : 'No'}</td>
+                <td style={td}>{entry?.lunchSup ? 'Yes' : 'No'}</td>
+                <td style={{ ...td, ...notesCell }}>
+                  {entry?.dayNotes ? entry.dayNotes : '—'}
+                </td>
+                <td style={tdRight}>{hours ? hours.toFixed(1) : '0.0'}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={11} style={{ ...foot, textAlign: 'right' }}>Total</td>
+              <td style={foot}>{totalHours.toFixed(1)}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-
-      {/* full details for each relevant day */}
-      <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-        {daysToRender.map((day) => (
-          <DayDetails
-            key={day}
-            day={day}
-            iso={isoByDay[day]}
-            entry={dayMap[day] || {}}
-            jobId={job.id}
-          />
-        ))}
-      </div>
-
-      {/* job vehicles (kept; detailed list shows in header card) */}
-      {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
-        <div
-          style={{
-            marginTop: 10,
-            paddingTop: 8,
-            borderTop: '1px solid #e5e7eb',
-            fontSize: 12,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 12,
-          }}
-        >
-          <strong style={{ color: '#4b5563' }}>Job Vehicles:</strong>
-          {job.vehicles.map((nameOrObj, idx) => {
-            const key =
-              (nameOrObj && typeof nameOrObj === 'object' && (nameOrObj.id || nameOrObj.registration || nameOrObj.name)) ||
-              (typeof nameOrObj === 'string' ? nameOrObj : '');
-            const v = vehicleMap[key] || (typeof nameOrObj === 'object' ? nameOrObj : { name: String(nameOrObj || '') });
-            const reg = (v.registration || '').toString().toUpperCase();
-            const title = [v.manufacturer, v.model].filter(Boolean).join(' ');
-            return (
-              <span key={idx} style={{ color: '#059669', fontWeight: 700 }}>
-                🚗 {v.name || title || 'Vehicle'} {reg ? `(${reg})` : ''}
-              </span>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
@@ -441,7 +467,7 @@ export default function JobInfoPage() {
   const [statusByJob, setStatusByJob] = useState({});
   const [selectedStatusByJob, setSelectedStatusByJob] = useState({});
   const [dayNotes, setDayNotes] = useState({});
-  const [vehicleMap, setVehicleMap] = useState({}); // ← full vehicle objects by multiple keys
+  const [vehicleMap, setVehicleMap] = useState({});
 
   const [pdfFileByJob, setPdfFileByJob] = useState({});
   const [uploadingByJob, setUploadingByJob] = useState({});
@@ -453,7 +479,6 @@ export default function JobInfoPage() {
     return typeof jobId === 'string' && jobId.length > 5 && jobId.includes('-');
   }, [jobId]);
 
-  // Hydrate job.vehicles with full vehicle objects
   const normalizeVehiclesForJob = (job, vmap) => {
     if (!Array.isArray(job.vehicles)) return job;
     const enriched = job.vehicles.map((v) => {
@@ -476,7 +501,7 @@ export default function JobInfoPage() {
 
     const fetchAll = async () => {
       try {
-        // 1) fetch bookings (main + related by prefix)
+        // bookings (main + related by prefix)
         let mainJob;
         let qJobs;
 
@@ -526,7 +551,7 @@ export default function JobInfoPage() {
         setSelectedStatusByJob(initStatus);
         setDayNotes(initNotes);
 
-        // 2) fetch timesheets (group mapping)
+        // timesheets
         const tsSnap = await getDocs(collection(db, 'timesheets'));
         const allTs = tsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -551,7 +576,7 @@ export default function JobInfoPage() {
         });
         setTimesheetsByJob(map);
 
-        // 3) vehicles map (FULL OBJECTS, keyed by id, name, registration)
+        // vehicles map
         const vSnap = await getDocs(collection(db, 'vehicles'));
         const vMap = vSnap.docs.reduce((acc, d) => {
           const v = { id: d.id, ...d.data() };
@@ -568,15 +593,12 @@ export default function JobInfoPage() {
     fetchAll();
   }, [jobId, isJobNumber]);
 
-  /* ────────────────────────────────────────────────────────────
-     Auto-flip Confirmed → Complete when last date has passed
-  ─────────────────────────────────────────────────────────────*/
+  // Auto-flip Confirmed → Complete after last date
   const [autoCompleteRan, setAutoCompleteRan] = useState(false);
   useEffect(() => {
     if (autoCompleteRan || !relatedJobs.length) return;
 
     const todayISO = toLocalISODate(new Date());
-
     const candidates = relatedJobs.filter((j) => {
       const status = String(j.status || '').trim();
       if (status !== 'Confirmed') return false;
@@ -601,7 +623,6 @@ export default function JobInfoPage() {
         });
         await batch.commit();
 
-        // reflect in UI
         setStatusByJob((prev) => {
           const next = { ...prev };
           candidates.forEach((j) => (next[j.id] = 'Complete'));
@@ -663,7 +684,6 @@ export default function JobInfoPage() {
     setErrorByJob((p) => ({ ...p, [jid]: null }));
   };
 
-  // Upload + save pdfUrl AND push into attachments[]
   const uploadPdfForJob = async (jid) => {
     const file = pdfFileByJob[jid];
     if (!file || uploadingByJob[jid]) return;
@@ -705,10 +725,9 @@ export default function JobInfoPage() {
 
           await updateDoc(doc(db, 'bookings', jid), {
             attachments: arrayUnion(attachment),
-            pdfUrl: url, // keep single field for convenience if you already use it
+            pdfUrl: url,
           });
 
-          // update local state so UI reflects immediately
           setRelatedJobs((prev) =>
             prev.map((j) =>
               j.id !== jid
@@ -716,9 +735,7 @@ export default function JobInfoPage() {
                 : {
                     ...j,
                     pdfUrl: url,
-                    attachments: Array.isArray(j.attachments)
-                      ? [...j.attachments, attachment]
-                      : [attachment],
+                    attachments: Array.isArray(j.attachments) ? [...j.attachments, attachment] : [attachment],
                   }
             )
           );
@@ -755,367 +772,420 @@ export default function JobInfoPage() {
   const mainJob = relatedJobs.find((j) => j.id === jobId) || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
 
+  /* ────────────────────────────────────────────────────────────
+     Render (fills page, no overlaps)
+  ─────────────────────────────────────────────────────────────*/
   return (
     <HeaderSidebarLayout>
-      <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#ffffff', color: '#000', padding: '40px 24px' }}>
-        <button
-          onClick={() => router.back()}
-          style={{ backgroundColor: '#e5e7eb', padding: '8px 16px', borderRadius: 8, marginBottom: 30, border: 'none', cursor: 'pointer', fontSize: 14 }}
+      <div style={{ width: '100%', minHeight: '100vh', backgroundColor: UI.bg, color: UI.text }}>
+        {/* Sticky page header */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 5,
+            background: '#ffffffcc',
+            backdropFilter: 'saturate(180%) blur(6px)',
+            borderBottom: UI.border,
+            height: LAYOUT.HEADER_H,
+          }}
         >
-          ← Back to Job Sheet
-        </button>
-
-        <h1 style={{ fontSize: 32, fontWeight: 'bold', marginBottom: 30 }}>Job #{prefix}</h1>
-
-        {relatedJobs.map((rawJob) => {
-          // Enrich vehicles for display
-          const job = normalizeVehiclesForJob(rawJob, vehicleMap);
-
-          const currentDbStatus = statusByJob[job.id] || 'Pending';
-          const selected = selectedStatusByJob[job.id] ?? currentDbStatus;
-          const isPaid = computeIsPaid(job);
-          const timesheets = (timesheetsByJob[job.id] || []).slice().sort((a, b) => {
-            const t = (v) => parseDateFlexible(v)?.getTime() || 0;
-            return t(b.weekStart) - t(a.weekStart);
-          });
-          const uploadError = errorByJob[job.id];
-          const fileSelected = pdfFileByJob[job.id];
-
-          // Only render timesheet cards that have at least one corresponding job day
-          const cards = timesheets
-            .map((ts) => renderTimesheet(ts, job, vehicleMap, true)) // true = only job days
-            .filter(Boolean);
-
-          // Pull notes variants
-          const jobNotesText = [job.jobNotes, job.notes, job.generalNotes].filter(Boolean).join('\n\n');
-          const hasNotesByDate = job.notesByDate && typeof job.notesByDate === 'object' && Object.keys(job.notesByDate).length > 0;
-
-          return (
-            <div
-              key={job.id}
-              style={{
-                border: job.id === jobId ? '2px solid #2563eb' : '1px solid #e5e7eb',
-                borderRadius: 12,
-                padding: 24,
-                marginBottom: 30,
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: 24,
-                backgroundColor: job.id === jobId ? '#eff6ff' : '#fff',
-              }}
+          <div
+            style={{
+              width: 'min(1400px, 100%)',
+              margin: '0 auto',
+              padding: `0 ${LAYOUT.PAGE_PAD_X}px`,
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              minWidth: 0,
+            }}
+          >
+            <button
+              onClick={() => router.back()}
+              style={{ backgroundColor: UI.chipBg, padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', cursor: 'pointer', fontSize: 14 }}
             >
-              {/* Block 1: Main Job Info (+ full vehicles + job notes display) */}
-              <div
-                style={{
-                  gridColumn: 'span 1',
-                  backgroundColor: '#fff',
-                  padding: 16,
-                  borderRadius: 8,
-                  border: '1px solid #e5e7eb',
-                }}
-              >
-                <h3 style={{ marginTop: 0, marginBottom: 16, display: 'flex', alignItems: 'center', fontSize: 18 }}>
-                  {job.client || 'Booking'} ({job.jobNumber || job.id})
-                  <span style={{ marginLeft: 12 }}>
-                    <StatusPill value={currentDbStatus} />
-                  </span>
-                  {isPaid && <span style={{ marginLeft: 8 }}><PaidPill /></span>}
-                </h3>
-
-                <div style={{ marginBottom: 10 }}>
-                  <strong>Location:</strong> {job.location || '—'}
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <strong>Team:</strong> {renderEmployees(job.employees) || '—'}
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <strong>Dates:</strong>
-                  <div style={{ marginTop: 4 }}>{renderDateBlock(job)}</div>
-                </div>
-
-                {/* Vehicles — full info */}
-                {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>Vehicles (full details)</div>
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      {job.vehicles.map((v, i) => {
-                        const reg = (v.registration || '').toString().toUpperCase();
-                        const title = v.name || [v.manufacturer, v.model].filter(Boolean).join(' ') || 'Vehicle';
-                        const subBits = [
-                          reg && `Reg: ${reg}`,
-                 
-                        ].filter(Boolean);
-                        return (
-                          <div key={i} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, background: '#fafafa' }}>
-                            <div style={{ fontWeight: 700, color: '#111827' }}>🚗 {title}</div>
-                            {subBits.length > 0 && (
-                              <div style={{ color: '#374151', fontSize: 13, marginTop: 4 }}>
-                                {subBits.join(' • ')}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Read-only Job Notes */}
-                {(jobNotesText || hasNotesByDate) && (
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Job Notes (read-only)</div>
-                    {jobNotesText && (
-                      <div style={{ whiteSpace: 'pre-wrap', color: '#111827', fontSize: 14, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 10 }}>
-                        {jobNotesText}
-                      </div>
-                    )}
-                    {hasNotesByDate && (
-                      <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-                        {Object.keys(job.notesByDate)
-                          .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                          .sort()
-                          .map((dateKey) => {
-                            const note = job.notesByDate[dateKey];
-                            if (!note) return null;
-                            const nice = new Date(dateKey).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
-                            return (
-                              <div key={dateKey} style={{ fontSize: 13, color: '#111827' }}>
-                                <strong style={{ color: '#6b7280' }}>{nice}:</strong> {note}
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* PDF upload + list */}
-                <div style={{ marginTop: 20, padding: 12, borderRadius: 8, border: '1px dashed #cbd5e1', background: '#f8fafc' }}>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                    {job.pdfUrl ? 'Job Attachment (PDF)' : 'Upload Job Attachment'}
-                  </div>
-
-                  {job.pdfUrl && (
-                    <div style={{ marginBottom: 8 }}>
-                      <a href={job.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline', fontSize: 14 }}>
-                        View Current PDF
-                      </a>
-                    </div>
-                  )}
-
-                  {Array.isArray(job.attachments) && job.attachments.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 6 }}>Attachments</div>
-                      <ul style={{ margin: 0, paddingLeft: 18 }}>
-                        {job.attachments.map((att, i) => (
-                          <li key={i} style={{ fontSize: 13 }}>
-                            <a href={att.url} target="_blank" rel="noopener noreferrer">
-                              {att.name}
-                            </a>
-                            <span style={{ color: '#6b7280' }}>
-                              {' '}• {(att.size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
-                    style={{ marginBottom: 8, fontSize: 14 }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => uploadPdfForJob(job.id)}
-                    disabled={uploadingByJob[job.id] || !fileSelected}
-                    style={{
-                      backgroundColor: '#111827',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 6,
-                      padding: '8px 12px',
-                      cursor: uploadingByJob[job.id] || !fileSelected ? 'not-allowed' : 'pointer',
-                      opacity: uploadingByJob[job.id] || !fileSelected ? 0.6 : 1,
-                      fontSize: 14,
-                    }}
-                  >
-                    {uploadingByJob[job.id]
-                      ? `Uploading… ${progressByJob[job.id] ?? 0}%`
-                      : fileSelected
-                        ? job.pdfUrl ? 'Replace / Add PDF' : 'Upload PDF'
-                        : 'Select file'}
-                  </button>
-                  {uploadError && <p style={{ color: 'red', fontSize: 12, marginTop: 4 }}>{uploadError}</p>}
-                </div>
-
-                {/* Edit/Delete */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, gap: 8 }}>
-                  <button
-                    onClick={() => router.push(`/edit-booking/${job.id}`)}
-                    style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
-                  >
-                    Edit Booking
-                  </button>
-                  <button
-                    onClick={() => deleteJob(job.id)}
-                    style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {/* Block 2: Notes & PO (editable summary stays the same) */}
-              <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: 24 }}>
-                <div style={{ backgroundColor: '#f9fafb', padding: 16, borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                  <h4 style={{ marginTop: 0, fontSize: 16 }}>Notes & PO</h4>
-
-                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 6, fontSize: 13 }}>General Summary</label>
-                  <textarea
-                    rows={3}
-                    value={dayNotes?.[job.id]?.general || ''}
-                    onChange={(e) =>
-                      setDayNotes((prev) => ({
-                        ...prev,
-                        [job.id]: { ...(prev?.[job.id] || {}), general: e.target.value },
-                      }))
-                    }
-                    placeholder="Add general summary for this job…"
-                    style={{
-                      width: '100%',
-                      border: '1px solid #d1d5db',
-                      borderRadius: 6,
-                      padding: 8,
-                      fontSize: 13,
-                      resize: 'vertical',
-                      background: '#fff',
-                      marginBottom: 12,
-                    }}
-                  />
-                  <button
-                    onClick={() => saveJobSummary(job.id)}
-                    style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 14 }}
-                  >
-                    Save Summary
-                  </button>
-
-                  <div style={{ marginTop: 12 }}>
-                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 6, fontSize: 13 }}>Purchase Order (PO)</label>
-                    <input
-                      type="text"
-                      defaultValue={job.po || ''}
-                      onBlur={(e) => updateDoc(doc(db, 'bookings', job.id), { po: e.target.value })}
-                      placeholder="Enter PO reference…"
-                      style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 6, padding: 8, fontSize: 13, background: '#fff' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Block 3: Status */}
-                <div style={{ backgroundColor: '#eef2ff', padding: 16, borderRadius: 8, border: '1px solid #a5b4fc', flexGrow: 1 }}>
-                  <h4 style={{ marginTop: 0, fontSize: 16 }}>Update Status</h4>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {['Ready to Invoice', 'Needs Action', 'Complete'].map((opt) => {
-                      const active = selected === opt;
-                      const color = statusColor(opt);
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => {
-                            if (!isPaid) setSelectedStatusByJob((prev) => ({ ...prev, [job.id]: opt }));
-                          }}
-                          disabled={isPaid}
-                          style={{
-                            padding: '8px 10px',
-                            borderRadius: 6,
-                            border: active ? `2px solid ${color}` : '1px solid #c7d2fe',
-                            background: active ? `${color}20` : '#eef2ff',
-                            color: active ? color : '#1f2937',
-                            fontWeight: 600,
-                            cursor: isPaid ? 'not-allowed' : 'pointer',
-                            opacity: isPaid ? 0.5 : 1,
-                            fontSize: 13,
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
-                      if (chosen !== currentDbStatus) saveJobStatus(job.id, chosen);
-                    }}
-                    disabled={isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      border: 'none',
-                      background: '#111827',
-                      color: '#fff',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      opacity:
-                        isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus ? 0.5 : 1,
-                      fontSize: 14,
-                    }}
-                  >
-                    Save Status Change
-                  </button>
-                </div>
-              </div>
-
-              {/* Block 4: Linked Timesheets (only corresponding days, with full info) */}
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  backgroundColor: '#ffffff',
-                  padding: 16,
-                  borderRadius: 8,
-                  border: '1px solid #e5e7eb',
-                  marginTop: 8,
-                }}
-              >
-                <h4 style={{ marginTop: 0, marginBottom: 16, fontSize: 18 }}>
-                  Linked Timesheets ⏱️
-                  <span style={{ marginLeft: 8, fontWeight: 500, color: '#6b7280', fontSize: 14 }}>
-                    ({(timesheetsByJob[job.id] || []).length} found)
-                  </span>
-                </h4>
-
-                {(() => {
-                  const cards = (timesheetsByJob[job.id] || [])
-                    .slice()
-                    .sort((a, b) => {
-                      const t = (v) => parseDateFlexible(v)?.getTime() || 0;
-                      return t(b.weekStart) - t(a.weekStart);
-                    })
-                    .map((ts) => renderTimesheet(ts, job, vehicleMap, true))
-                    .filter(Boolean);
-
-                  return cards.length ? (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      {cards.map((card, i) => (
-                        <div key={i}>{card}</div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ color: '#6b7280', padding: 10, border: '1px dashed #d1d5db', borderRadius: 6 }}>
-                      No timesheet days found for this job yet.
-                    </div>
-                  );
-                })()}
-              </div>
+              ← Back
+            </button>
+            <div style={{ fontWeight: 900, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Job Group: {prefix}
             </div>
-          );
-        })}
+          </div>
+        </div>
+
+        {/* Page content (pushed below sticky header) */}
+        <div
+          style={{
+            width: 'min(1600px, 100%)',
+            margin: '0 auto',
+            padding: `16px ${LAYOUT.PAGE_PAD_X}px 48px`,
+            paddingTop: LAYOUT.HEADER_H + 12,
+            minWidth: 0,
+          }}
+        >
+          {relatedJobs.map((rawJob) => {
+            const job = normalizeVehiclesForJob(rawJob, vehicleMap);
+            const currentDbStatus = statusByJob[job.id] || 'Pending';
+            const selected = selectedStatusByJob[job.id] ?? currentDbStatus;
+            const isPaid = computeIsPaid(job);
+            const timesheets = (timesheetsByJob[job.id] || []).slice().sort((a, b) => {
+              const t = (v) => parseDateFlexible(v)?.getTime() || 0;
+              return t(b.weekStart) - t(a.weekStart);
+            });
+            const uploadError = errorByJob[job.id];
+            const fileSelected = pdfFileByJob[job.id];
+
+            const cards = timesheets.map((ts) => renderTimesheet(ts, job, vehicleMap, true)).filter(Boolean);
+
+            const jobNotesText = [job.jobNotes, job.notes, job.generalNotes].filter(Boolean).join('\n\n');
+            const hasNotesByDate = job.notesByDate && typeof job.notesByDate === 'object' && Object.keys(job.notesByDate).length > 0;
+
+            return (
+              <section
+                key={job.id}
+                style={{
+                  border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
+                  borderRadius: 14,
+                  padding: 16,
+                  marginBottom: 24,
+                  boxShadow: UI.shadow,
+                  background: job.id === jobId ? '#f8fbff' : '#fff',
+                  minWidth: 0, // prevents overflow in grid
+                }}
+              >
+                {/* Job strip header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    padding: 10,
+                    borderRadius: 10,
+                    background: UI.bgAlt,
+                    border: UI.border,
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 30,
+                        height: 24,
+                        padding: '0 8px',
+                        borderRadius: 8,
+                        background: '#eef2ff',
+                        border: '1px solid #e5e7eb',
+                        fontWeight: 900,
+                        fontSize: 12,
+                        color: '#3730a3',
+                      }}
+                      title="Job prefix"
+                    >
+                      {splitJobNumber(job.jobNumber || '').prefix || '—'}
+                    </span>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 16,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '50vw',
+                      }}
+                      title={`${job.client || 'Booking'} — #${job.jobNumber || job.id}`}
+                    >
+                      {job.client || 'Booking'} — #{job.jobNumber || job.id}
+                    </div>
+                    <div style={{ marginLeft: 8 }}>
+                      <StatusPill value={currentDbStatus} />
+                    </div>
+                    {isPaid && <div style={{ marginLeft: 6 }}><PaidPill /></div>}
+                  </div>
+
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => router.push(`/edit-booking/${job.id}`)}
+                      style={{ backgroundColor: UI.brand, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteJob(job.id)}
+                      style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {/* Two-column layout (fills page, no overflow) */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)',
+                    gap: 16,
+                    alignItems: 'start',
+                    minWidth: 0,
+                  }}
+                >
+                  {/* LEFT: Overview + Timesheets */}
+                  <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+                    <div style={{ background: '#fff', border: UI.border, borderRadius: UI.radius, padding: 14, minWidth: 0 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(0,1fr)', rowGap: 8, columnGap: 12, fontSize: 14, minWidth: 0 }}>
+                        <div style={{ color: UI.muted, fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>Location</div>
+                        <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{job.location || '—'}</div>
+
+                        <div style={{ color: UI.muted, fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>Team</div>
+                        <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{renderEmployees(job.employees) || '—'}</div>
+
+                        <div style={{ color: UI.muted, fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>Dates</div>
+                        <div style={{ minWidth: 0 }}>{renderDateBlock(job)}</div>
+                      </div>
+
+                      {/* Vehicles */}
+                      {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
+                        <div style={{ marginTop: 14, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, marginBottom: 8 }}>Vehicles</div>
+                          <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
+                            {job.vehicles.map((v, i) => {
+                              const reg = (v.registration || '').toString().toUpperCase();
+                              const title = v.name || [v.manufacturer, v.model].filter(Boolean).join(' ') || 'Vehicle';
+                              const subBits = [reg && `Reg: ${reg}`].filter(Boolean);
+                              return (
+                                <div key={i} style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, color: UI.text, overflowWrap: 'anywhere' }}>🚗 {title}</div>
+                                  {subBits.length > 0 && (
+                                    <div style={{ color: '#374151', fontSize: 13, marginTop: 4, overflowWrap: 'anywhere' }}>
+                                      {subBits.join(' • ')}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Read-only Notes */}
+                      {(jobNotesText || hasNotesByDate) && (
+                        <div style={{ marginTop: 16, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, marginBottom: 6 }}>Job Notes</div>
+                          {jobNotesText && (
+                            <div style={{ whiteSpace: 'pre-wrap', color: UI.text, fontSize: 14, background: UI.bgAlt, border: UI.border, borderRadius: 8, padding: 10, minWidth: 0, overflowWrap: 'anywhere' }}>
+                              {jobNotesText}
+                            </div>
+                          )}
+                          {hasNotesByDate && (
+                            <div style={{ marginTop: 10, display: 'grid', gap: 6, minWidth: 0 }}>
+                              {Object.keys(job.notesByDate)
+                                .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                                .sort()
+                                .map((dateKey) => {
+                                  const note = job.notesByDate[dateKey];
+                                  if (!note) return null;
+                                  const nice = new Date(dateKey).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+                                  return (
+                                    <div key={dateKey} style={{ fontSize: 13, color: UI.text, overflowWrap: 'anywhere' }}>
+                                      <strong style={{ color: UI.muted }}>{nice}:</strong> {note}
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Timesheets */}
+                    <div style={{ background: '#fff', border: UI.border, borderRadius: UI.radius, padding: 14, minWidth: 0 }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: 16 }}>
+                        Linked Timesheets ⏱️
+                        <span style={{ marginLeft: 8, fontWeight: 500, color: UI.muted, fontSize: 13 }}>
+                          ({(timesheetsByJob[job.id] || []).length} found)
+                        </span>
+                      </h4>
+                      {cards.length ? (
+                        <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>{cards.map((card, i) => <div key={i}>{card}</div>)}</div>
+                      ) : (
+                        <div style={{ color: UI.muted, padding: 10, border: '1px dashed #d1d5db', borderRadius: 6 }}>
+                          No timesheet days found for this job yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* RIGHT: Actions (sticky below page header) */}
+                  <div style={{ display: 'grid', gap: 12, alignSelf: 'start', position: 'sticky', top: LAYOUT.HEADER_H + LAYOUT.STICKY_GAP, minWidth: 0 }}>
+                    {/* Status */}
+                    <div style={{ backgroundColor: '#eef2ff', padding: 14, borderRadius: 8, border: '1px solid #a5b4fc', minWidth: 0 }}>
+                      <h4 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>Update Status</h4>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                        {['Ready to Invoice', 'Needs Action', 'Complete'].map((opt) => {
+                          const active = selected === opt;
+                          const color = statusColor(opt);
+                          return (
+                            <button
+                              key={opt}
+                              onClick={() => {
+                                if (!isPaid) setSelectedStatusByJob((prev) => ({ ...prev, [job.id]: opt }));
+                              }}
+                              disabled={isPaid}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 8,
+                                border: active ? `2px solid ${color}` : '1px solid #c7d2fe',
+                                background: active ? `${color}20` : '#eef2ff',
+                                color: active ? color : '#1f2937',
+                                fontWeight: 700,
+                                cursor: isPaid ? 'not-allowed' : 'pointer',
+                                opacity: isPaid ? 0.5 : 1,
+                                fontSize: 13,
+                              }}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          const chosen = selectedStatusByJob[job.id] ?? currentDbStatus;
+                          if (chosen !== currentDbStatus) saveJobStatus(job.id, chosen);
+                        }}
+                        disabled={isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: '#111827',
+                          color: '#fff',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          opacity: isPaid || (selectedStatusByJob[job.id] ?? currentDbStatus) === currentDbStatus ? 0.5 : 1,
+                          fontSize: 14,
+                          width: '100%',
+                        }}
+                      >
+                        Save Status Change
+                      </button>
+                    </div>
+
+                    {/* Notes & PO */}
+                    <div style={{ background: UI.bgAlt, padding: 14, borderRadius: 8, border: UI.border, minWidth: 0 }}>
+                      <h4 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>Notes & PO</h4>
+
+                      <label style={{ fontWeight: 700, display: 'block', marginBottom: 6, fontSize: 12, color: UI.muted }}>General Summary</label>
+                      <textarea
+                        rows={3}
+                        value={dayNotes?.[job.id]?.general || ''}
+                        onChange={(e) =>
+                          setDayNotes((prev) => ({
+                            ...prev,
+                            [job.id]: { ...(prev?.[job.id] || {}), general: e.target.value },
+                          }))
+                        }
+                        placeholder="Add general summary…"
+                        style={{
+                          width: '100%',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 8,
+                          padding: 8,
+                          fontSize: 13,
+                          resize: 'vertical',
+                          background: '#fff',
+                          marginBottom: 10,
+                        }}
+                      />
+                      <button
+                        onClick={() => saveJobSummary(job.id)}
+                        style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 14, width: '100%' }}
+                      >
+                        Save Summary
+                      </button>
+
+                      <div style={{ marginTop: 12 }}>
+                        <label style={{ fontWeight: 700, display: 'block', marginBottom: 6, fontSize: 12, color: UI.muted }}>Purchase Order (PO)</label>
+                        <input
+                          type="text"
+                          defaultValue={job.po || ''}
+                          onBlur={(e) => updateDoc(doc(db, 'bookings', job.id), { po: e.target.value })}
+                          placeholder="Enter PO reference…"
+                          style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: 8, fontSize: 13, background: '#fff' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Attachments */}
+                    <div style={{ background: '#fff', padding: 14, borderRadius: 8, border: UI.border, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>
+                        {job.pdfUrl ? 'Job Attachment (PDF)' : 'Upload Job Attachment'}
+                      </div>
+
+                      {job.pdfUrl && (
+                        <div style={{ marginBottom: 8 }}>
+                          <a href={job.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: UI.brand, textDecoration: 'underline', fontSize: 14 }}>
+                            View Current PDF
+                          </a>
+                        </div>
+                      )}
+
+                      {Array.isArray(job.attachments) && job.attachments.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 6 }}>Attachments</div>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {job.attachments.map((att, i) => (
+                              <li key={i} style={{ fontSize: 13 }}>
+                                <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                  {att.name}
+                                </a>
+                                <span style={{ color: UI.muted }}>
+                                  {' '}• {(att.size / 1024 / 1024).toFixed(2)} MB
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <input type="file" accept="application/pdf" onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])} style={{ marginBottom: 8, fontSize: 14 }} />
+
+                      <button
+                        type="button"
+                        onClick={() => uploadPdfForJob(job.id)}
+                        disabled={uploadingByJob[job.id] || !fileSelected}
+                        style={{
+                          backgroundColor: '#111827',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                          cursor: uploadingByJob[job.id] || !fileSelected ? 'not-allowed' : 'pointer',
+                          opacity: uploadingByJob[job.id] || !fileSelected ? 0.6 : 1,
+                          fontSize: 14,
+                          width: '100%',
+                        }}
+                      >
+                        {uploadingByJob[job.id]
+                          ? `Uploading… ${progressByJob[job.id] ?? 0}%`
+                          : fileSelected
+                            ? job.pdfUrl ? 'Replace / Add PDF' : 'Upload PDF'
+                            : 'Select file'}
+                      </button>
+                      {uploadError && <p style={{ color: 'red', fontSize: 12, marginTop: 4 }}>{uploadError}</p>}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
     </HeaderSidebarLayout>
   );
