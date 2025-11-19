@@ -2,364 +2,531 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { doc, getDoc, collection, getDocs, query, where, documentId } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  updateDoc,
+  addDoc,
+  serverTimestamp,
+  query as fsQuery,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-// Deduct 30 mins from Yard days
+/* -------------------------------------------------------------------------- */
+/*                               HELPERS                                       */
+/* -------------------------------------------------------------------------- */
+
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 const LUNCH_DEDUCT_HRS = 0.5;
 
-// Accept DD/MM/YYYY, YYYY-MM-DD, Date, Timestamp, etc.
+/* Parse Date / Timestamp / String */
 function parseDateFlexible(raw) {
   if (!raw) return null;
   if (typeof raw?.toDate === "function") return raw.toDate();
-  if (typeof raw === "object" && raw !== null && typeof raw.seconds === "number")
-    return new Date(raw.seconds * 1000);
   if (raw instanceof Date) return raw;
+  if (typeof raw === "object" && raw.seconds)
+    return new Date(raw.seconds * 1000);
   if (typeof raw === "string") {
-    const s = raw.trim();
-    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0, 0);
-    m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
-    if (m) return new Date(+m[3], +m[2]-1, +m[1], 12, 0, 0, 0);
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? null : d;
-  }
-  if (typeof raw === "number") {
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
   }
   return null;
 }
 
-// Normalise a timesheet.days shape into an object keyed by Monday..Sunday
-function normaliseDays(daysObjOrArr, baseWeekStart) {
-  const out = {};
-  const title = (x) => x.charAt(0).toUpperCase() + x.slice(1).toLowerCase();
-  const dayFromDate = (dLike) => {
-    const d = parseDateFlexible(dLike);
-    // Ensure day is retrieved safely, handling null date
-    return d ? d.toLocaleDateString("en-GB", { weekday: "long" }) : null;
-  };
-  const mapShort = { Mon:"Monday", Tue:"Tuesday", Wed:"Wednesday", Thu:"Thursday", Fri:"Friday", Sat:"Saturday", Sun:"Sunday" };
-
-  if (Array.isArray(daysObjOrArr)) {
-    for (const it of daysObjOrArr) {
-      if (!it || typeof it !== 'object') continue; // Safety check
-      let key = it?.day || it?.dayName || it?.weekday || null;
-      if (!key && it?.date) key = dayFromDate(it.date);
-      if (!key && baseWeekStart && it?.offset != null) {
-        const d0 = parseDateFlexible(baseWeekStart);
-        if (d0) {
-          const d = new Date(d0);
-          d.setDate(d0.getDate() + Number(it.offset));
-          key = d.toLocaleDateString("en-GB", { weekday: "long" });
-        }
-      }
-      if (!key) continue;
-      key = mapShort[key] || title(String(key));
-      out[key] = it;
-    }
-  } else if (daysObjOrArr && typeof daysObjOrArr === "object") {
-    for (const [k, v] of Object.entries(daysObjOrArr)) {
-      let key = k;
-      // key might be a date string → convert to weekday
-      const wk = dayFromDate(k);
-      if (wk) key = wk;
-      key = mapShort[key] || title(String(key));
-      out[key] = v;
-    }
-  }
-  return out;
-}
-
-
-// 🔹 Coerce any stored time shape → minutes since midnight
+/* HH:mm → minutes */
 function toMinutes(val) {
   if (!val) return null;
-
-  // Firestore Timestamp
-  if (typeof val?.toDate === "function") {
-    const d = val.toDate();
-    return d.getHours() * 60 + d.getMinutes();
-  }
-  if (typeof val === "object" && typeof val.seconds === "number") {
-    const d = new Date(val.seconds * 1000);
-    return d.getHours() * 60 + d.getMinutes();
-  }
-
-  // JS Date
-  if (val instanceof Date) return val.getHours() * 60 + val.getMinutes();
-
-  // Numbers: treat <=1440 as minutes; otherwise try epoch
-  if (typeof val === "number") {
-    if (val <= 1440) return Math.round(val);
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
-    return null;
-  }
-
-  // Strings
   if (typeof val === "string") {
-    const s = val.trim();
-    // HH:mm
-    let m = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
-    // 8 or 8.5 hours
-    const f = parseFloat(s);
-    if (!Number.isNaN(f)) return Math.round(f * 60);
+    const m = val.match(/^(\d{1,2}):(\d{2})$/);
+    if (m) return +m[1] * 60 + +m[2];
   }
   return null;
 }
 
-// 🔹 Hours difference (supports overnight)
-function calculateHours(start, end) {
+/* diff in hours (supports overnight) */
+function diffHours(start, end) {
   const s = toMinutes(start);
   const e = toMinutes(end);
   if (s == null || e == null) return 0;
-  let diff = (e - s) / 60;
-  if (diff < 0) diff += 24;
-  return Math.max(diff, 0);
+
+  let d = (e - s) / 60;
+  if (d < 0) d += 24;
+  return Math.max(0, d);
 }
 
-// Overlap of [start,end] with a window [wStart,wEnd] in hours (handles overnight)
-function clampToWindowHours(start, end, wStart, wEnd) {
-  const s  = toMinutes(start);
-  const e  = toMinutes(end);
-  const ws = toMinutes(wStart);
-  const we = toMinutes(wEnd);
-  if ([s, e, ws, we].some(v => v == null)) return 0;
+/* Convert numeric hours to "X hrs Y min" */
+function formatHoursLabel(hours) {
+  const totalMinutes = Math.round((hours || 0) * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
 
-  // Normalize ranges so end >= start (add 24h when needed)
-  let s1 = s, e1 = e;   if (e1  < s1)  e1  += 1440;
-  let ws1 = ws, we1 = we; if (we1 < ws1) we1 += 1440;
+  const hPart = h > 0 ? `${h} hr${h !== 1 ? "s" : ""}` : "";
+  const mPart = m > 0 ? `${m} min` : "";
 
-  // Shift window forward/back to be near the travel interval
-  while (we1 < s1) { ws1 += 1440; we1 += 1440; }
-  while (ws1 > e1) { ws1 -= 1440; we1 -= 1440; }
-
-  const overlapStart = Math.max(s1, ws1);
-  const overlapEnd   = Math.min(e1, we1);
-  return Math.max(0, (overlapEnd - overlapStart) / 60);
+  if (!hPart && !mPart) return "0 hrs";
+  return [hPart, mPart].filter(Boolean).join(" ");
 }
 
-// Paid travel to set = at most the 60 minutes before call
-function calcPaidTravelTo(leave, arrive, call) {
-  const callMin = toMinutes(call);
-  if (callMin == null) return calculateHours(leave, arrive); // no call → fallback
-  const preStartMin = (callMin - 60 + 1440) % 1440;          // call - 60 mins (wrap overnight)
-  return clampToWindowHours(leave, arrive, preStartMin, callMin);
+/* yard segments extraction */
+function extractYardSegments(entry) {
+  if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
+
+  if (entry?.leaveTime && entry?.arriveBack)
+    return [{ start: entry.leaveTime, end: entry.arriveBack }];
+
+  if (entry?.start && entry?.end)
+    return [{ start: entry.start, end: entry.end }];
+
+  return [];
 }
 
-function isoDateOnly(d) {
-  if (!(d instanceof Date)) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+/* Calculate yard day hours */
+function computeYardHours(entry) {
+  const segs = extractYardSegments(entry);
+  let total = 0;
+  segs.forEach((s) => (total += diffHours(s.start, s.end)));
+
+  if (total > 0) total -= LUNCH_DEDUCT_HRS;
+
+  return Math.max(0, total);
 }
-function getWeekDatesFromWeekStart(weekStartLike) {
-  const d0 = parseDateFlexible(weekStartLike);
-  if (!d0) return [];
+
+/* Travel hours */
+function computeTravelHours(entry) {
+  return diffHours(entry.leaveTime, entry.arriveTime);
+}
+
+/* On-set hours (overall) */
+function computeOnSetHours(entry) {
+  let total = 0;
+
+  const travelTo = diffHours(entry.leaveTime, entry.arriveTime);
+  const onSet = diffHours(entry.callTime, entry.wrapTime);
+  const travelBack = diffHours(entry.wrapTime, entry.arriveBack);
+
+  if (travelTo > 0) total += travelTo;
+  if (onSet > 0) total += onSet;
+  if (travelBack > 0) total += travelBack;
+
+  if (total === 0 && entry.leaveTime && entry.arriveBack)
+    total = diffHours(entry.leaveTime, entry.arriveBack);
+
+  return total;
+}
+
+/* Determine day mode */
+function detectMode(entry, hasJobs, isWeekend) {
+  const raw = String(entry?.mode ?? "").toLowerCase();
+  if (raw === "holiday") return "holiday";
+  if (raw === "off") return "off";
+  if (isWeekend && !hasJobs) return "off";
+  if (raw === "travel") return "travel";
+  if (raw === "onset" || raw === "set") return "onset";
+  return "yard";
+}
+
+/* Normalize days structure to Monday..Sunday */
+function normaliseDays(daysObj) {
+  const out = {};
+  DAYS.forEach((d) => (out[d] = daysObj?.[d] ?? null));
+  return out;
+}
+
+/* Format Pre-Call minutes */
+function formatPrecallMinutes(min) {
+  const value = Number(min);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  if (value < 60) return `${value} min`;
+  const hrs = Math.floor(value / 60);
+  const rem = value % 60;
+  if (rem === 0) return `${hrs} hr${hrs > 1 ? "s" : ""}`;
+  return `${hrs} hr${hrs > 1 ? "s" : ""} ${rem} min`;
+}
+
+/* Expand a holiday start/end into an array of Y-M-D strings */
+function eachDateYMD(startRaw, endRaw) {
+  const start = parseDateFlexible(startRaw);
+  const end = parseDateFlexible(endRaw || startRaw);
+  if (!start || !end) return [];
+
   const out = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(d0);
-    d.setDate(d0.getDate() + i);
-    out.push(isoDateOnly(d));
+  let cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const endDt = new Date(end);
+  endDt.setHours(0, 0, 0, 0);
+
+  while (cur <= endDt) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
   }
   return out;
 }
-function dayNameFromISO(iso) {
-  const d = new Date(iso + "T12:00:00"); // noon avoids TZ issues
-  return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];
-}
 
+/* -------------------------------------------------------------------------- */
+/*                               PAGE                                          */
+/* -------------------------------------------------------------------------- */
 
 export default function TimesheetDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+
   const [timesheet, setTimesheet] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [bookingById, setBookingById] = useState({});
-  const [bookingByJobNumber, setBookingByJobNumber] = useState({});
+
+  // jobsByDay now comes from the app's snapshot + booking docs
   const [jobsByDay, setJobsByDay] = useState({});
-  // NEW STATE: Map of Vehicle Name to Registration
-  const [vehicleRegMap, setVehicleRegMap] = useState({});
+  const [vehicleRegs, setVehicleRegs] = useState({});
 
+  // live holiday docs expanded per day (Y-M-D → [holidayDocs])
+  const [holidaysByDate, setHolidaysByDate] = useState({});
 
-// 1) Fetch Timesheet
-useEffect(() => {
-  if (!id) return;
+  // manager actions
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState("");
+  const [showQueryForm, setShowQueryForm] = useState(false);
+  const [queryDay, setQueryDay] = useState("");
+  const [queryField, setQueryField] = useState("overall");
+  const [queryNote, setQueryNote] = useState("");
+  const [querySubmitting, setQuerySubmitting] = useState(false);
+  const [queryError, setQueryError] = useState("");
+  const [querySuccess, setQuerySuccess] = useState("");
+  const [queries, setQueries] = useState([]);
 
-  const fetchTimesheet = async () => {
-    try {
-      // Fetch timesheet logic remains the same (steps 1, 2, 3, 4)
-      const tsRef = doc(db, "timesheets", id);
-      const tsSnap = await getDoc(tsRef);
-      if (tsSnap.exists()) {
-        setTimesheet({ id: tsSnap.id, ...tsSnap.data() });
-        return;
-      }
-      
-      const isWeekDate = /^\d{4}-\d{2}-\d{2}$/.test(id);
-      if (isWeekDate) {
-        const q1 = query(collection(db, "timesheets"), where("weekStart", "==", id));
-        const qs1 = await getDocs(q1);
-        const list = qs1.docs.map(d => ({ id: d.id, ...d.data() }));
+  /* ----------------------- Load timesheet ----------------------- */
+  useEffect(() => {
+    if (!id) return;
 
-        if (list.length === 1) {
-          setTimesheet(list[0]);
-          return;
+    (async () => {
+      try {
+        const ref = doc(db, "timesheets", id);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          setTimesheet({ id: snap.id, ...snap.data() });
+        } else {
+          setTimesheet(null);
         }
-        if (list.length > 1) {
-          const pick = list
-            .map(t => ({
-              t,
-              score:
-                (t.submitted ? 1 : 0) * 1e13 +
-                (parseDateFlexible(t.updatedAt)?.getTime() ??
-                  parseDateFlexible(t.createdAt)?.getTime() ??
-                  parseDateFlexible(t.weekStart)?.getTime() ?? 0),
-            }))
-            .sort((a,b) => b.score - a.score)[0]?.t;
-          if (pick) {
-            setTimesheet(pick);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  /* ----------------------- Derived flag: approved? ----------------------- */
+  const isApproved =
+    String(timesheet?.status || "").toLowerCase() === "approved" ||
+    timesheet?.approved === true;
+
+  /* ----------------------- Load holidays for this timesheet ----------------------- */
+  useEffect(() => {
+    if (!timesheet) return;
+
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, "holidays"));
+        const map = {};
+
+        snap.docs.forEach((d) => {
+          const h = d.data();
+
+          // ignore soft-deleted / deleted holidays
+          const status = String(h.status || "").toLowerCase();
+          if (h.deleted === true || h.isDeleted === true || status === "deleted") {
             return;
           }
-        }
-      }
 
-      const bookingDoc = await getDoc(doc(db, "bookings", id));
-      if (bookingDoc.exists()) {
-        const sub = await getDocs(collection(db, "bookings", id, "timesheets"));
-        const list = sub.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (list.length) {
-          const pick = list
-            .map(t => ({
-              t,
-              score:
-                (t.submitted ? 1 : 0) * 1e13 +
-                (parseDateFlexible(t.updatedAt)?.getTime() ??
-                  parseDateFlexible(t.createdAt)?.getTime() ??
-                  parseDateFlexible(t.weekStart)?.getTime() ?? 0),
-            }))
-            .sort((a,b) => b.score - a.score)[0].t;
-          setTimesheet(pick);
-          return;
-        }
-      }
+          // match by employee name or code so we only pull relevant holidays
+          const matchesName =
+            timesheet.employeeName && h.employee === timesheet.employeeName;
+          const matchesCode =
+            timesheet.employeeCode && h.employeeCode === timesheet.employeeCode;
 
-      setTimesheet(null);
-    } catch (e) {
-      console.error("Error loading timesheet:", e);
-      setTimesheet(null);
+          if (!matchesName && !matchesCode) return;
+
+          const dates = eachDateYMD(h.startDate, h.endDate);
+          dates.forEach((ymd) => {
+            if (!ymd) return;
+            if (!map[ymd]) map[ymd] = [];
+            map[ymd].push({ id: d.id, ...h });
+          });
+        });
+
+        setHolidaysByDate(map);
+      } catch (e) {
+        console.error("Error loading holidays for timesheet:", e);
+        setHolidaysByDate({});
+      }
+    })();
+  }, [timesheet]);
+
+  /* ----------------------- Load jobs + vehicles based on snapshot ----------------------- */
+  useEffect(() => {
+    if (!timesheet) return;
+
+    (async () => {
+      try {
+        const snapshot = timesheet.jobSnapshot || {};
+        const jobMap = {};
+        DAYS.forEach((d) => (jobMap[d] = []));
+
+        const allBookingIds = new Set();
+
+        // Prefer jobSnapshot.byDay from the app
+        if (snapshot.byDay) {
+          DAYS.forEach((day) => {
+            const arr = Array.isArray(snapshot.byDay[day])
+              ? snapshot.byDay[day]
+              : [];
+            jobMap[day] = arr;
+            arr.forEach((j) => {
+              if (j.bookingId) allBookingIds.add(j.bookingId);
+            });
+          });
+        } else if (timesheet.days) {
+          // Fallback: use days[day].jobs if present
+          DAYS.forEach((day) => {
+            const entry = timesheet.days[day];
+            const arr = Array.isArray(entry?.jobs) ? entry.jobs : [];
+            jobMap[day] = arr;
+            arr.forEach((j) => {
+              if (j.bookingId) allBookingIds.add(j.bookingId);
+            });
+          });
+        }
+
+        // Fetch each booking doc to get vehicles / up-to-date info
+        const bookingDetailsById = {};
+        const usedVehicleNames = new Set();
+
+        for (const bookingId of allBookingIds) {
+          try {
+            const bSnap = await getDoc(doc(db, "bookings", bookingId));
+            if (bSnap.exists()) {
+              const data = { id: bSnap.id, ...bSnap.data() };
+              bookingDetailsById[bookingId] = data;
+
+              if (Array.isArray(data.vehicles)) {
+                data.vehicles.forEach((v) => usedVehicleNames.add(v));
+              }
+            }
+          } catch (e) {
+            console.error("Error loading booking", bookingId, e);
+          }
+        }
+
+        // Fetch vehicle registrations only for used vehicles
+        const regMap = {};
+        if (usedVehicleNames.size > 0) {
+          const vs = await getDocs(collection(db, "vehicles"));
+          vs.docs.forEach((d) => {
+            const v = d.data();
+            const name = v.name || d.id;
+            if (usedVehicleNames.has(name)) {
+              regMap[name] = v.registration || "No Reg";
+            }
+          });
+        }
+
+        // Merge booking details onto snapshot jobs so we have vehicles, etc.
+        const mergedJobMap = {};
+        DAYS.forEach((day) => {
+          const arr = jobMap[day] || [];
+          mergedJobMap[day] = arr.map((j) => {
+            const b = j.bookingId && bookingDetailsById[j.bookingId];
+            if (!b) return j;
+            return {
+              ...j,
+              // Prefer snapshot values, fall back to booking data
+              jobNumber: j.jobNumber || b.jobNumber || "",
+              client: j.client || b.client || "",
+              location: j.location || b.location || "",
+              vehicles: Array.isArray(b.vehicles) ? b.vehicles : [],
+              booking: b,
+            };
+          });
+        });
+
+        setJobsByDay(mergedJobMap);
+        setVehicleRegs(regMap);
+      } catch (err) {
+        console.error("Error building jobsByDay from snapshot:", err);
+        setJobsByDay({});
+        setVehicleRegs({});
+      }
+    })();
+  }, [timesheet]);
+
+  /* ----------------------- Load existing queries for this timesheet ----------------------- */
+  useEffect(() => {
+    if (!timesheet?.id) return;
+
+    (async () => {
+      try {
+        const q = fsQuery(
+          collection(db, "timesheetQueries"),
+          where("timesheetId", "==", timesheet.id)
+        );
+        const snap = await getDocs(q);
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setQueries(rows);
+      } catch (err) {
+        console.error("Error loading timesheet queries:", err);
+        setQueries([]);
+      }
+    })();
+  }, [timesheet?.id]);
+
+  /* ------------------------------ PRINT ----------------------------------- */
+
+  const handlePrint = () => {
+    if (typeof window === "undefined") return;
+
+    const printRoot = document.getElementById("timesheet-print-root");
+    if (!printRoot) {
+      window.print();
+      return;
+    }
+
+    const original = document.body.innerHTML;
+    const printHtml = printRoot.innerHTML;
+
+    document.body.innerHTML = printHtml;
+    window.print();
+    document.body.innerHTML = original;
+    window.location.reload();
+  };
+
+  /* ------------------------------ APPROVE --------------------------------- */
+
+  const handleApprove = async () => {
+    if (!timesheet?.id) return;
+    setApproving(true);
+    setApproveError("");
+
+    try {
+      const ref = doc(db, "timesheets", timesheet.id);
+      await updateDoc(ref, {
+        status: "approved",
+        approvedAt: serverTimestamp(),
+      });
+
+      // optimistic local update
+      setTimesheet((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "approved",
+              approvedAt: new Date(),
+            }
+          : prev
+      );
+
+      // 🔒 Close all queries for this timesheet when approved
+      try {
+        const q = fsQuery(
+          collection(db, "timesheetQueries"),
+          where("timesheetId", "==", timesheet.id)
+        );
+        const snap = await getDocs(q);
+
+        await Promise.all(
+          snap.docs.map((docSnap) =>
+            updateDoc(docSnap.ref, {
+              status: "closed",
+              closedAt: serverTimestamp(),
+            })
+          )
+        );
+
+        // Reload queries into local state so UI shows CLOSED
+        const snap2 = await getDocs(q);
+        setQueries(snap2.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (qErr) {
+        console.error("Error closing timesheet queries on approve:", qErr);
+      }
+    } catch (err) {
+      console.error("Error approving timesheet:", err);
+      setApproveError("Failed to approve timesheet. Please try again.");
     } finally {
-      setLoading(false);
+      setApproving(false);
     }
   };
 
-  fetchTimesheet();
-}, [id]);
+  /* ------------------------------ QUERY ----------------------------------- */
 
-
-// 2) Fetch Related Bookings and Vehicles (Runs after Timesheet is loaded)
-useEffect(() => {
-  if (!timesheet) return;
-
-  const employeeCode = timesheet.employeeCode || timesheet.employee?.userCode || null;
-  const employeeName = timesheet.employeeName || timesheet.employee?.name || null;
-  const weekDates = getWeekDatesFromWeekStart(timesheet.weekStart);
-
-  // Initialise maps
-  const jobMap = { Monday:[], Tuesday:[], Wednesday:[], Thursday:[], Friday:[], Saturday:[], Sunday:[] };
-  const byIdMap = {};
-  const byJobNumberMap = {};
-  const uniqueVehicleNames = new Set(); // To collect all vehicle names used in the week
-
-  (async () => {
-    try {
-      // 1. Load employees (to map name to code)
-      const empSnap = await getDocs(collection(db, "employees"));
-      const allEmployees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const nameToCode = new Map();
-      allEmployees.forEach(e => {
-        if (e?.name) nameToCode.set(String(e.name).trim(), e.userCode || e.code || null);
-      });
-
-      // 2. Load bookings 
-      const jobSnap = await getDocs(collection(db, "bookings"));
-      const allJobs = jobSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      // 3. Filter, Map jobs, and collect vehicle names
-      allJobs.forEach(job => {
-        const empArr = Array.isArray(job.employees) ? job.employees : [];
-        
-        // normalise codes on booking record
-        const jobCodes = empArr.map(e => {
-          if (e?.userCode) return String(e.userCode).trim();
-          if (e?.code)     return String(e.code).trim();
-          if (e?.name && nameToCode.has(String(e.name).trim())) return String(nameToCode.get(String(e.name).trim()));
-          return null;
-        }).filter(Boolean);
-
-        const matchesEmployee =
-          (employeeCode && jobCodes.includes(String(employeeCode).trim())) ||
-          (!employeeCode && employeeName && empArr.some(e => String(e?.name||"").trim() === String(employeeName).trim()));
-
-        if (!matchesEmployee) return;
-
-        // Collect vehicle names
-        if (Array.isArray(job.vehicles)) {
-            job.vehicles.forEach(v => uniqueVehicleNames.add(v));
-        }
-
-        // Populate maps
-        byIdMap[job.id] = job;
-        if (job.jobNumber) byJobNumberMap[String(job.jobNumber).trim()] = job;
-
-        // Map job → day
-        const dates = Array.isArray(job.bookingDates) ? job.bookingDates : [];
-        dates.forEach(dateStr => {
-          const iso = String(dateStr).slice(0,10);
-          if (weekDates.includes(iso)) {
-            const dn = dayNameFromISO(iso);
-            if (jobMap[dn]) jobMap[dn].push(job);
-          }
-        });
-      });
-
-      // 4. Fetch Vehicle Registrations (only for vehicles used this week)
-      const regs = {};
-      if (uniqueVehicleNames.size > 0) {
-        // Since we are likely using the vehicle 'name' as the document ID in 'vehicles'
-        // we can fetch them by ID. If not, a 'where' query on the 'name' field would be needed.
-        // Assuming 'name' is the ID for now.
-        const vehicleSnap = await getDocs(collection(db, "vehicles"));
-        vehicleSnap.docs.forEach(d => {
-            const data = d.data();
-            const vehicleName = data.name || d.id;
-            if (uniqueVehicleNames.has(vehicleName) && data.registration) {
-                regs[vehicleName] = data.registration;
-            }
-        });
-      }
-
-      // 5. Update state
-      setBookingById(byIdMap);
-      setBookingByJobNumber(byJobNumberMap);
-      setJobsByDay(jobMap);
-      setVehicleRegMap(regs); // Set the new map
-    } catch (err) {
-      console.error("Error building jobsByDay and vehicle data:", err);
-      setJobsByDay({});
-      setBookingById({});
-      setBookingByJobNumber({});
-      setVehicleRegMap({});
+  const handleSubmitQuery = async (e) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
     }
-  })();
-}, [timesheet]);
+    if (!timesheet?.id) return;
 
+    setQueryError("");
+    setQuerySuccess("");
+
+    // 🔒 Block sending new queries if timesheet is approved
+    if (isApproved) {
+      setQueryError("This timesheet has been approved. You can no longer send new queries.");
+      return;
+    }
+
+    if (!queryDay) {
+      setQueryError("Please select a day.");
+      return;
+    }
+    if (!queryNote.trim()) {
+      setQueryError("Please enter a note describing the issue.");
+      return;
+    }
+
+    setQuerySubmitting(true);
+    try {
+      await addDoc(collection(db, "timesheetQueries"), {
+        timesheetId: timesheet.id,
+        employeeName: timesheet.employeeName || "",
+        employeeCode: timesheet.employeeCode || "",
+        weekStart: timesheet.weekStart || null,
+        day: queryDay,
+        field: queryField || "overall",
+        note: queryNote.trim(),
+        status: "open",
+        createdAt: serverTimestamp(),
+        createdByRole: "manager",
+      });
+
+      // reload queries list
+      const q = fsQuery(
+        collection(db, "timesheetQueries"),
+        where("timesheetId", "==", timesheet.id)
+      );
+      const snap = await getDocs(q);
+      setQueries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      setQuerySuccess("Query sent to employee.");
+      setQueryNote("");
+    } catch (err) {
+      console.error("Error creating timesheet query:", err);
+      setQueryError("Failed to send query. Please try again.");
+    } finally {
+      setQuerySubmitting(false);
+    }
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   RENDER                                   */
+  /* -------------------------------------------------------------------------- */
 
   if (loading) {
     return (
@@ -379,329 +546,1135 @@ useEffect(() => {
     );
   }
 
-  let totalHours = 0;
+  const dayMap = normaliseDays(timesheet.days);
+  let weeklyTotal = 0;
+  const weekStartDate = parseDateFlexible(timesheet.weekStart);
+
+  let statusLabel = "Draft (not submitted)";
+  let badgeBg = "#fed7aa";
+  let badgeBorder = "#fdba74";
+  let badgeColor = "#7c2d12";
+
+  if (timesheet.submitted && !isApproved) {
+    statusLabel = "Submitted";
+    badgeBg = "#bbf7d0";
+    badgeBorder = "#86efac";
+    badgeColor = "#052e16";
+  }
+  if (isApproved) {
+    statusLabel = "Approved";
+    badgeBg = "#dcfce7";
+    badgeBorder = "#22c55e";
+    badgeColor = "#14532d";
+  }
+
+  const queryDisabledReason = isApproved
+    ? "Timesheet approved – queries are read-only."
+    : "";
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: 40 }}>
-        {/* Back Button */}
-        <button
-          onClick={() => router.back()}
+      <div
+        style={{
+          padding: 24,
+          minHeight: "100vh",
+          backgroundColor: "#f4f4f5",
+          display: "flex",
+          flexDirection: "column",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Controls (not printed) */}
+        <div
           style={{
-            background: "transparent",
-            border: "none",
-            color: "#555",
-            cursor: "pointer",
-            marginBottom: 20,
-            fontSize: 14,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+            gap: 12,
           }}
         >
-          ← Back
-        </button>
+          <button
+            onClick={() => router.back()}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#4b5563",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            ← Back
+          </button>
 
-        {/* Header */}
-        <h1 style={{ fontSize: 26, fontWeight: "bold", marginBottom: 6 }}>
-          Timesheet — {timesheet.employeeName || timesheet.employeeCode}
-        </h1>
-        <p style={{ color: "#666", marginBottom: 30, fontSize: 15 }}>
-          Week starting{" "}
-          <strong>
-            {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString("en-GB") ?? "—"}
-          </strong>
-        </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={handlePrint}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 999,
+                border: "1px solid #0f172a",
+                backgroundColor: "#0f172a",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              🖨 Print Timesheet
+            </button>
 
-        {/* Days */}
-        <div style={{ display: "grid", gap: 16 }}>
-          {(() => {
-            const dayMap = normaliseDays(timesheet.days, timesheet.weekStart);
+            <button
+              onClick={handleApprove}
+              disabled={approving || isApproved}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 999,
+                border: "1px solid #16a34a",
+                backgroundColor: isApproved ? "#bbf7d0" : "#16a34a",
+                color: isApproved ? "#166534" : "#ecfdf5",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: approving || isApproved ? "default" : "pointer",
+                opacity: approving ? 0.7 : 1,
+              }}
+            >
+              {isApproved ? "Approved" : approving ? "Approving…" : "✓ Approve"}
+            </button>
+          </div>
+        </div>
 
-            return days.map((day) => {
-              const entry = dayMap?.[day];
+        {approveError && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "8px 12px",
+              borderRadius: 8,
+              backgroundColor: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#991b1b",
+              fontSize: 13,
+            }}
+          >
+            {approveError}
+          </div>
+        )}
+
+        {/* Printable content */}
+        <div
+          id="timesheet-print-root"
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+            padding: 20,
+            display: "flex",
+            flexDirection: "column",
+            boxSizing: "border-box",
+          }}
+        >
+          {/* Header row */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <h1
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  margin: 0,
+                  marginBottom: 4,
+                }}
+              >
+                Timesheet — {timesheet.employeeName || timesheet.employeeCode}
+              </h1>
+              <p
+                style={{
+                  color: "#4b5563",
+                  margin: 0,
+                  fontSize: 14,
+                }}
+              >
+                Week starting{" "}
+                <strong>
+                  {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString(
+                    "en-GB"
+                  )}
+                </strong>
+              </p>
+            </div>
+
+            <div style={{ textAlign: "right", fontSize: 12 }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  border: "1px solid",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  backgroundColor: badgeBg,
+                  borderColor: badgeBorder,
+                  color: badgeColor,
+                  marginBottom: 4,
+                }}
+              >
+                {statusLabel}
+              </div>
+              {timesheet.submittedAt && (
+                <div style={{ color: "#6b7280" }}>
+                  Submitted:{" "}
+                  {parseDateFlexible(timesheet.submittedAt)?.toLocaleString(
+                    "en-GB"
+                  )}
+                </div>
+              )}
+              {timesheet.approvedAt && (
+                <div style={{ color: "#15803d", marginTop: 2 }}>
+                  Approved:{" "}
+                  {parseDateFlexible(timesheet.approvedAt)?.toLocaleString(
+                    "en-GB"
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 7-day row */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+              gap: 12,
+              alignItems: "stretch",
+              minHeight: "320px",
+              fontSize: 14,
+            }}
+          >
+            {DAYS.map((day) => {
+              const entry = dayMap[day];
               const isWeekend = day === "Saturday" || day === "Sunday";
-              
-              // ... (Hours calculation and mode logic remains the same) ...
+              const rawJobs = jobsByDay[day] || [];
+              const jobsToday = Array.isArray(rawJobs) ? rawJobs : [];
+              const hasJobs = jobsToday.length > 0;
 
-              // If there's no entry at all:
-              if (!entry) {
-                if (isWeekend) {
-                  return (
-                    <div key={day} style={{ background: "#f0f0f0", padding: 20, borderRadius: 10 }}>
-                      <h3 style={{ margin: 0 }}>{day}</h3>
-                      <p style={{ margin: 0, color: "#666" }}>Day Off</p>
+              if (!entry && isWeekend)
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      background: "#f9fafb",
+                      padding: 14,
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      display: "flex",
+                      flexDirection: "column",
+                      fontSize: 15,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {day}
                     </div>
-                  );
-                }
-                return null; // weekdays with no entry → render nothing
-              }
-
-              // Derive fields (support multiple shapes)
-              const leaveTime   = entry.leaveTime  ?? entry.leave ?? entry.start ?? null;
-              const arriveTime  = entry.arriveTime ?? entry.arrive ?? entry.end   ?? null;
-              const arriveBack  = entry.arriveBack ?? entry.back   ?? null;
-              const callTime    = entry.callTime   ?? entry.call   ?? null;
-              const wrapTime    = entry.wrapTime   ?? entry.wrap   ?? null;
-
-              // Normalise mode ("yard" | "travel" | "onset" | "off" | "holiday")
-              const modeRaw = String(entry.mode ?? entry.type ?? "").toLowerCase().trim();
-              let mode = modeRaw;
-
-              // If there are NO jobs for this weekday, default render to Yard (weekday only)
-              const hasJobsToday = Array.isArray(jobsByDay?.[day]) && jobsByDay[day].length > 0;
-              const isWeekendDay = day === "Saturday" || day === "Sunday";
-              if (!hasJobsToday && !isWeekendDay && mode !== "holiday" && mode !== "off") {
-                mode = "yard";
-              }
-
-              const hoursNum      = typeof entry.hours === "number" ? entry.hours : parseFloat(entry.hours);
-              const hoursPositive = Number.isFinite(hoursNum) && hoursNum > 0;
-              const timesPresent  = !!(leaveTime || arriveTime || arriveBack || callTime || wrapTime);
-
-              const explicitWorkMode =
-                ["travel", "onset", "set"].includes(modeRaw) ||
-                (modeRaw === "yard" && (timesPresent || hoursPositive)) ||
-                entry.worked === true;
-
-              if (isWeekend && !explicitWorkMode && modeRaw !== "holiday" && modeRaw !== "off") {
-                mode = "off";
-              }
-
-              // Hours calc
-              let segTravelToHrs = 0, segOnSetHrs = 0, segTravelBackHrs = 0;
-              let hoursWorked = 0;
-
-              if (mode === "yard") {
-                // Respect Off (Unpaid) on Yard days → counts as 0h
-                if (entry.offUnpaid === true) {
-                  hoursWorked = 0;
-                } else {
-                  // Normal Yard day: apply 30-min lunch deduction if there's any time
-                  hoursWorked = calculateHours(leaveTime, arriveBack ?? arriveTime);
-                  if (hoursWorked > 0) {
-                    hoursWorked = Math.max(0, hoursWorked - LUNCH_DEDUCT_HRS);
-                  }
-                }
-              } else if (mode === "travel") {
-                hoursWorked = calculateHours(leaveTime, arriveTime);
-              } else if (mode === "onset") {
-                segTravelToHrs   = (leaveTime && arriveTime)  ? calculateHours(leaveTime, arriveTime) : 0;
-                segOnSetHrs      = (callTime  && wrapTime)    ? calculateHours(callTime,  wrapTime)   : 0;
-                segTravelBackHrs = (wrapTime  && arriveBack)  ? calculateHours(wrapTime,  arriveBack) : 0;
-
-                hoursWorked = segTravelToHrs + segOnSetHrs + segTravelBackHrs;
-
-                if (hoursWorked === 0) {
-                  if (leaveTime && arriveBack) hoursWorked = calculateHours(leaveTime, arriveBack);
-                  else if (leaveTime && arriveTime) hoursWorked = calculateHours(leaveTime, arriveTime);
-                }
-              }
-
-              if (hoursWorked === 0 && Number.isFinite(hoursNum)) {
-                hoursWorked = hoursNum;
-              }
-
-              totalHours += hoursWorked;
-
-              const dayBookingId = entry?.bookingId ?? entry?.jobId ?? timesheet.bookingId ?? null;
-              const dayJobNumberRaw = entry?.jobNumber ?? entry?.jobNo ?? entry?.job ?? timesheet.jobNumber ?? null;
-              const dayJobNumber = dayJobNumberRaw ? String(dayJobNumberRaw).trim() : null;
-              const booking = (dayBookingId && bookingById[dayBookingId]) || (dayJobNumber && bookingByJobNumber[dayJobNumber]) || null;
-              // --------------------------------------------------
-
-              // Render OFF / HOLIDAY first
-              if (mode === "holiday") {
-                return (
-                  <div key={day} style={{ background: "#fff3cd", padding: 20, borderRadius: 10 }}>
-                    <h3 style={{ margin: 0 }}>{day}</h3>
-                    <p style={{ margin: 0, color: "#856404" }}>🌴 Holiday</p>
+                    <div style={{ color: "#6b7280" }}>Day Off</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isApproved) return;
+                        setShowQueryForm(true);
+                        setQueryDay(day);
+                      }}
+                      disabled={isApproved}
+                      title={
+                        isApproved
+                          ? queryDisabledReason
+                          : "Raise a query for this day"
+                      }
+                      style={{
+                        marginTop: "auto",
+                        alignSelf: "flex-start",
+                        fontSize: 11,
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        border: "1px dashed #9ca3af",
+                        background: "#f9fafb",
+                        cursor: isApproved ? "not-allowed" : "pointer",
+                        opacity: isApproved ? 0.5 : 1,
+                      }}
+                    >
+                      ❓ Query this day
+                    </button>
                   </div>
                 );
-              }
-              if (mode === "off") {
-                return (
-                  <div key={day} style={{ background: "#f0f0f0", padding: 20, borderRadius: 10 }}>
-                    <h3 style={{ margin: 0 }}>{day}</h3>
-                    <p style={{ margin: 0, color: "#666" }}>Day Off</p>
-                  </div>
-                );
+
+              if (!entry) return null;
+
+              // work out the actual calendar date (Y-M-D) for this day
+              let ymdForDay = null;
+              if (weekStartDate) {
+                const dayIndex = DAYS.indexOf(day); // 0..6
+                const dt = new Date(weekStartDate);
+                dt.setDate(dt.getDate() + dayIndex);
+                dt.setHours(0, 0, 0, 0);
+                ymdForDay = dt.toISOString().slice(0, 10);
               }
 
-              // Otherwise render the job day
+              // live holiday docs for this date
+              const holidayDocsForDay = ymdForDay
+                ? holidaysByDate[ymdForDay] || []
+                : [];
+              const hasLiveHoliday = holidayDocsForDay.length > 0;
+
+              // derive paid / unpaid / accrued label from holiday docs
+              const paidStatuses = Array.from(
+                new Set(
+                  holidayDocsForDay
+                    .map((h) =>
+                      String(h.paidStatus || h.leaveType || "").trim()
+                    )
+                    .filter(Boolean)
+                )
+              );
+
+              let paidLabel = null;
+              if (paidStatuses.length === 1) {
+                paidLabel = paidStatuses[0]; // e.g. "Paid", "Unpaid", "Accrued"
+              } else if (paidStatuses.length > 1) {
+                paidLabel = paidStatuses.join(" / "); // mixed, rare but handled
+              }
+
+              let mode = detectMode(entry, hasJobs, isWeekend);
+
+              // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
+              if (mode === "holiday" && !hasLiveHoliday) {
+                mode = isWeekend && !hasJobs ? "off" : "yard";
+              }
+
+              let dayHours = 0;
+              if (mode === "yard") dayHours = computeYardHours(entry);
+              if (mode === "travel") dayHours = computeTravelHours(entry);
+              if (mode === "onset") dayHours = computeOnSetHours(entry);
+
+              weeklyTotal += dayHours;
+              const dayTotalLabel = formatHoursLabel(dayHours);
+              const precallLabel = entry.precallDuration
+                ? formatPrecallMinutes(entry.precallDuration)
+                : "";
+
+              // For the breakdown (on-set)
+              const travelToHrs = diffHours(entry.leaveTime, entry.arriveTime);
+              const onSetBlockHrs = diffHours(entry.callTime, entry.wrapTime);
+              const travelBackHrs = diffHours(entry.wrapTime, entry.arriveBack);
+
               return (
                 <div
                   key={day}
                   style={{
-                    background: "#fff",
-                    padding: 20,
+                    background: "#f9fafb",
+                    padding: 14,
                     borderRadius: 10,
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                    border: "1px solid #eee",
+                    border: "1px solid #e5e7eb",
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    boxSizing: "border-box",
+                    fontSize: 15,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <h3 style={{ margin: 0, fontSize: 18 }}>{day}</h3>
-                    {hoursWorked > 0 && (
-                      <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>
-                        ⏱ {hoursWorked.toFixed(1)} hrs
-                      </span>
-                    )}
+                  {/* Day header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 6,
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 650,
+                      }}
+                    >
+                      {day}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isApproved) return;
+                        setShowQueryForm(true);
+                        setQueryDay(day);
+                      }}
+                      disabled={isApproved}
+                      title={
+                        isApproved
+                          ? queryDisabledReason
+                          : "Raise a query for this day"
+                      }
+                      style={{
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        border: "1px dashed #9ca3af",
+                        background: "#f3f4f6",
+                        cursor: isApproved ? "not-allowed" : "pointer",
+                        opacity: isApproved ? 0.5 : 1,
+                      }}
+                    >
+                      ❓ Query this day
+                    </button>
                   </div>
 
-                {/* Jobs for this day (if any) */}
-                {Array.isArray(jobsByDay?.[day]) && jobsByDay[day].length > 0 && (
-                  <div style={{ margin: "6px 0 10px 0", display: "grid", gap: 6 }}>
-                    {jobsByDay[day].map((job) => {
-                      // Format the vehicle and registration string
-                      let vehicleInfo = [];
-                      if (Array.isArray(job.vehicles)) {
-                          job.vehicles.forEach(name => {
-                              const reg = vehicleRegMap[name];
-                              vehicleInfo.push(
-                                  <span key={name} style={{ color: "#059669", fontWeight: 700 }}>
-                                      • 🚗 {name} ({reg || 'No Reg'})
-                                  </span>
-                              );
-                          });
-                      }
-                      
-                      return (
-                        <div
-                          key={job.id}
+                  {/* HOLIDAY / OFF */}
+                  {mode === "holiday" && hasLiveHoliday && (
+                    <div style={{ fontWeight: 600 }}>
+                      <span style={{ color: "#007da3ff" }}>Holiday</span>
+                      {paidLabel && (
+                        <span
                           style={{
-                            padding: "8px 10px",
-                            borderRadius: 10,
-                            background: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            display: "flex",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                            gap: 8,
-                            fontSize: 14 
+                            marginLeft: 6,
+                            color:
+                              paidLabel.toLowerCase() === "unpaid"
+                                ? "#8a8a8aff"
+                                : "#1d4ed8",
                           }}
                         >
-                          <span style={{ fontWeight: 700, color: "#333" }}>
-                            📌 {job.jobNumber || job.id}
-                          </span>
-                          
-                          {/* Display Vehicle and Registration */}
-                          {vehicleInfo}
-                          
-                          {job.client && <span>• {job.client}</span>}
-                          {job.location && <span>• {job.location}</span>}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              router.push(`/view-booking/${job.id}`); 
-                            }}
-                            style={{
-                              marginLeft: "auto",
-                              padding: "4px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #d1d5db",
-                              background: "#fff",
-                              cursor: "pointer",
-                              fontSize: 12
-                            }}
-                          >
-                            View booking
-                          </button>
+                          ({paidLabel})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {mode === "off" && (
+                    <div style={{ color: "#6b7280" }}>Day Off</div>
+                  )}
+
+                  {/* JOB INFO (number, client, location, vehicles) */}
+                  {hasJobs && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {jobsToday.map((job, idx) => (
+                        <div
+                          key={`${job.bookingId || job.id || idx}-${idx}`}
+                          style={{
+                            background: "#fefce8",
+                            border: "1px solid #facc15",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                          }}
+                        >
+                          <div style={{ marginBottom: 4 }}>
+                            <strong style={{ fontSize: 14.5 }}>
+                              📌 {job.jobNumber || job.id || job.bookingId}
+                            </strong>
+
+                            {job.client && (
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  color: "#374151",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                • {job.client}
+                              </span>
+                            )}
+
+                            {job.location && (
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  color: "#6b7280",
+                                }}
+                              >
+                                • {job.location}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* VEHICLES + REG */}
+                          {Array.isArray(job.vehicles) &&
+                            job.vehicles.map((v, vIdx) => (
+                              <div
+                                key={`${job.bookingId || job.id}-vehicle-${v}-${vIdx}`}
+                                style={{
+                                  color: "#047857",
+                                  fontWeight: 600,
+                                  fontSize: 14,
+                                }}
+                              >
+                                🚗 {v} —{" "}
+                                <span
+                                  style={{
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {vehicleRegs[v] || "No Reg"}
+                                </span>
+                              </div>
+                            ))}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
+                  {/* YARD */}
+                  {mode === "yard" && (
+                    <div style={{ fontSize: 14 }}>
+                      <div style={{ fontWeight: 600 }}>Yard:</div>
+                      {extractYardSegments(entry).map((seg, i) => (
+                        <div key={`${day}-seg-${i}`}>
+                          {seg.start} → {seg.end}
+                        </div>
+                      ))}
+                      <div style={{ color: "#9ca3af", fontSize: 12 }}>
+                        (-0.5 hr lunch)
+                      </div>
+                    </div>
+                  )}
 
-                {mode === "yard" ? (
-                  entry.offUnpaid ? (
-                    <p style={{ margin: 0, color: "#666" }}>
-                      <strong>Yard Day:</strong> Off (Unpaid)
-                    </p>
-                  ) : (
-                    <p style={{ margin: 0, color: "#333" }}>
-                      <strong>Yard Day:</strong> {(leaveTime ?? "—")} → {(arriveBack ?? arriveTime ?? "—")}
-                      {" "}
-                      <em style={{ color: "#888" }}>(−0.5h lunch)</em>
-                    </p>
-                  )
-                ) : mode === "travel" ? (
+                  {/* TRAVEL */}
+                  {mode === "travel" && (
+                    <div style={{ fontSize: 14 }}>
+                      <div style={{ fontWeight: 600 }}>Travel:</div>
+                      <div>
+                        {entry.leaveTime ?? "—"} → {entry.arriveTime ?? "—"}
+                      </div>
+                    </div>
+                  )}
 
-                      <p style={{ margin: 0, color: "#333" }}>
-                        <strong>Travel Day:</strong> Leave {(leaveTime ?? "—")} → Arrive {(arriveTime ?? "—")}
-                      </p>
-                    ) : mode === "onset" ? (
-                      <div style={{ fontSize: 14, color: "#333" }}>
-                        <strong>On Set</strong>
-                        <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                          {leaveTime  && <li>Leave: {leaveTime}</li>}
-                          {arriveTime && <li>Arrive: {arriveTime}</li>}
-                          {callTime   && <li>Call: {callTime}</li>}
-                          {wrapTime   && <li>Wrap: {wrapTime}</li>}
-                          {arriveBack && <li>Back: {arriveBack}</li>}
-                          {entry.overnight && <li>Overnight stay</li>}
-                          {entry.lunchSup && <li>Lunch supplied</li>}
-                        </ul>
+                  {/* ON-SET */}
+                  {mode === "onset" && (
+                    <div style={{ marginTop: 4, fontSize: 14 }}>
+                      <div style={{ fontWeight: 600 }}>On Set:</div>
+                      <ul
+                        style={{
+                          marginTop: 4,
+                          marginLeft: 18,
+                          paddingLeft: 0,
+                          listStyle: "disc",
+                        }}
+                      >
+                        {entry.leaveTime && (
+                          <li>Leave: {entry.leaveTime}</li>
+                        )}
+                        {entry.arriveTime && (
+                          <li>Arrive: {entry.arriveTime}</li>
+                        )}
+                        {precallLabel && <li>Pre-Call: {precallLabel}</li>}
+                        {entry.callTime && <li>Unit-Call: {entry.callTime}</li>}
+                        {entry.wrapTime && <li>Wrap: {entry.wrapTime}</li>}
+                        {entry.arriveBack && (
+                          <li>Back: {entry.arriveBack}</li>
+                        )}
+                        {entry.overnight && <li>Overnight stay</li>}
+                        {entry.lunchSup && <li>Lunch supplied</li>}
+                      </ul>
 
-                        <div style={{ marginTop: 6, lineHeight: 1.6 }}>
-                          {segTravelToHrs > 0 && (
-                            <div>🚐 Travel to set: {segTravelToHrs.toFixed(1)} hrs ({leaveTime} → {arriveTime})</div>
-                          )}
-                          {segOnSetHrs > 0 && (
-                            <div>🎬 On set: {segOnSetHrs.toFixed(1)} hrs ({callTime} → {wrapTime})</div>
-                          )}
-                          {segTravelBackHrs > 0 && (
-                            <div>🚐 Travel back: {segTravelBackHrs.toFixed(1)} hrs ({wrapTime} → {arriveBack})</div>
-                          )}
+                      {/* Numeric breakdown for on-set */}
+                      <div style={{ marginTop: 2 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>
+                          Breakdown:
+                        </div>
+                        <div style={{ fontSize: 13 }}>
+                          Travel to: {formatHoursLabel(travelToHrs)}
+                        </div>
+                        <div style={{ fontSize: 13 }}>
+                          On set: {formatHoursLabel(onSetBlockHrs)}
+                        </div>
+                        <div style={{ fontSize: 13 }}>
+                          Travel back: {formatHoursLabel(travelBackHrs)}
                         </div>
                       </div>
-                    ) : (
-                      <p style={{ color: "#888", margin: 0 }}>—</p>
-                    )}
+                    </div>
+                  )}
 
-                {entry.dayNotes && (
-                  <p style={{ marginTop: 10, fontSize: 14, color: "#555", fontStyle: "italic" }}>
-                    📝 {entry.dayNotes}
-                  </p>
-                )}
+                  {/* NOTES */}
+                  {entry.dayNotes && (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 13,
+                        color: "#4b5563",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      📝 {entry.dayNotes}
+                    </div>
+                  )}
+
+                  {/* Daily total at bottom, with compact gap above */}
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      borderTop: "1px solid #e5e7eb",
+                      paddingTop: 10,
+                      fontSize: 13,
+                      color: "#374151",
+                      textAlign: "right",
+                    }}
+                  >
+                    Daily total:{" "}
+                    <strong style={{ fontWeight: 700 }}>
+                      {dayTotalLabel}
+                    </strong>
+                  </div>
                 </div>
               );
-            });
-          })()}
-        </div>
+            })}
+          </div>
 
-
-        {/* Weekly Total */}
-        <div
-          style={{
-            marginTop: 30,
-            background: "#f9fafb",
-            padding: 16,
-            borderRadius: 10,
-            border: "1px solid #eee",
-            fontSize: 16,
-            fontWeight: "600",
-            textAlign: "right",
-          }}
-        >
-          Total Hours: {totalHours.toFixed(1)} hrs
-        </div>
-
-        {/* Notes */}
-        {timesheet.notes && (
+          {/* WEEK TOTAL + NOTES ROW */}
           <div
             style={{
-              marginTop: 20,
-              background: "#fff",
-              padding: 16,
-              borderRadius: 8,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-              border: "1px solid #eee", 
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) 260px",
+              gap: 12,
+              marginTop: 16,
+              alignItems: "stretch",
             }}
           >
-            <h3 style={{ marginBottom: 8 }}>General Notes</h3>
-            <p style={{ margin: 0 }}>{timesheet.notes}</p>
+            {/* General Notes */}
+            <div
+              style={{
+                background: "#f9fafb",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                padding: 12,
+                fontSize: 14,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                General Notes
+              </div>
+              <div style={{ color: "#4b5563", minHeight: 24 }}>
+                {timesheet.notes || "—"}
+              </div>
+            </div>
+
+            {/* Weekly total */}
+            <div
+              style={{
+                background: "#020617",
+                color: "#f9fafb",
+                borderRadius: 8,
+                padding: 12,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "flex-end",
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  opacity: 0.8,
+                  marginBottom: 4,
+                }}
+              >
+                Weekly total
+              </div>
+              <div>{formatHoursLabel(weeklyTotal)}</div>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* MANAGER ACTIONS (NOT PRINTED) */}
+        <div
+          style={{
+            marginTop: 16,
+            background: "#ffffff",
+            borderRadius: 8,
+            padding: 16,
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            fontSize: 14,
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              margin: 0,
+              marginBottom: 8,
+            }}
+          >
+            Manager queries
+          </h2>
+          <p style={{ margin: 0, marginBottom: 10, color: "#4b5563" }}>
+            Select a day from the grid above ({" "}
+            <span style={{ fontStyle: "italic" }}>“❓ Query this day”</span> ) to
+            raise a query. This will create a record against the timesheet which
+            can be shown in the employee app and used to trigger a notification.
+          </p>
+
+          {isApproved && (
+            <div
+              style={{
+                marginBottom: 10,
+                padding: "6px 10px",
+                borderRadius: 6,
+                backgroundColor: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                color: "#1e3a8a",
+                fontSize: 12,
+              }}
+            >
+              This timesheet is approved. Queries are now read-only – you can
+              review existing queries but cannot send new ones.
+            </div>
+          )}
+
+          <form
+            onSubmit={handleSubmitQuery}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "flex-start",
+              marginBottom: 12,
+              opacity: isApproved ? 0.6 : 1,
+            }}
+          >
+            <div style={{ minWidth: 140 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                Day
+              </label>
+              <select
+                value={queryDay}
+                onChange={(e) => setQueryDay(e.target.value)}
+                disabled={isApproved}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                  cursor: isApproved ? "not-allowed" : "pointer",
+                }}
+              >
+                <option value="">Select day…</option>
+                {DAYS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ minWidth: 160 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                What are you querying?
+              </label>
+              <select
+                value={queryField}
+                onChange={(e) => setQueryField(e.target.value)}
+                disabled={isApproved}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                  cursor: isApproved ? "not-allowed" : "pointer",
+                }}
+              >
+                <option value="overall">Overall hours</option>
+                <option value="yard">Yard times</option>
+                <option value="travel">Travel times</option>
+                <option value="onset">On-set times</option>
+                <option value="notes">Notes / comments</option>
+                <option value="holiday">Holiday / day off</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                Query note for employee
+              </label>
+              <textarea
+                value={queryNote}
+                onChange={(e) => setQueryNote(e.target.value)}
+                rows={2}
+                placeholder={
+                  isApproved
+                    ? "Queries are closed on approved timesheets."
+                    : "e.g. Hours seem high on Thursday – can you double-check call and wrap times?"
+                }
+                disabled={isApproved}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  resize: "vertical",
+                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                  cursor: isApproved ? "not-allowed" : "text",
+                }}
+              />
+            </div>
+
+            <div style={{ alignSelf: "flex-end" }}>
+              <button
+                type="submit"
+                disabled={querySubmitting || isApproved}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: "1px solid #0f172a",
+                  backgroundColor: isApproved ? "#9ca3af" : "#0f172a",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor:
+                    querySubmitting || isApproved ? "not-allowed" : "pointer",
+                  opacity: querySubmitting ? 0.7 : 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isApproved
+                  ? "Queries closed"
+                  : querySubmitting
+                  ? "Sending…"
+                  : "Send query to employee"}
+              </button>
+            </div>
+          </form>
+
+          {queryError && (
+            <div
+              style={{
+                marginBottom: 8,
+                padding: "6px 10px",
+                borderRadius: 6,
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#991b1b",
+                fontSize: 12,
+              }}
+            >
+              {queryError}
+            </div>
+          )}
+          {querySuccess && (
+            <div
+              style={{
+                marginBottom: 8,
+                padding: "6px 10px",
+                borderRadius: 6,
+                backgroundColor: "#ecfdf5",
+                border: "1px solid #bbf7d0",
+                color: "#166534",
+                fontSize: 12,
+              }}
+            >
+              {querySuccess}
+            </div>
+          )}
+
+          {/* Existing queries list */}
+          {queries.length > 0 && (
+            <div
+              style={{
+                marginTop: 8,
+                borderTop: "1px solid #e5e7eb",
+                paddingTop: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                Existing queries on this timesheet
+              </div>
+              <ul
+                style={{
+                  listStyle: "none",
+                  paddingLeft: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                {queries.map((q) => (
+                  <li
+                    key={q.id}
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      backgroundColor: "#f9fafb",
+                      border: "1px solid #e5e7eb",
+                      fontSize: 13,
+                    }}
+                  >
+                    <div style={{ marginBottom: 2 }}>
+                      <strong>{q.day}</strong>{" "}
+                      <span style={{ color: "#6b7280" }}>
+                        ({q.field || "overall"})
+                      </span>
+                      {q.status && (
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            fontSize: 11,
+                            padding: "1px 6px",
+                            borderRadius: 999,
+                            backgroundColor:
+                              String(q.status).toLowerCase() === "closed"
+                                ? "#dcfce7"
+                                : "#eef2ff",
+                            color:
+                              String(q.status).toLowerCase() === "closed"
+                                ? "#166534"
+                                : "#3730a3",
+                          }}
+                        >
+                          {String(q.status).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: "#4b5563", marginBottom: 6 }}>
+                      {q.note}
+                    </div>
+
+                    {/* INLINE MESSAGE THREAD FOR THIS QUERY */}
+                    <QueryMessageThread query={q} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+/* ------------------------------------------------------------- */
+/* INLINE QUERY MESSAGE THREAD                                   */
+/* ------------------------------------------------------------- */
+
+function QueryMessageThread({ query }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const isClosed = String(query?.status || "").toLowerCase() === "closed";
+
+  useEffect(() => {
+    if (!query?.id) return;
+
+    const msgRef = fsQuery(
+      collection(db, "timesheetQueries", query.id, "messages")
+    );
+
+    const unsub = onSnapshot(msgRef, (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort(
+          (a, b) =>
+            (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)
+        );
+      setMessages(rows);
+    });
+
+    return () => unsub();
+  }, [query?.id]);
+
+  const handleSend = async () => {
+    if (!input.trim() || !query?.id || isClosed) return;
+    setSending(true);
+    try {
+      await addDoc(
+        collection(db, "timesheetQueries", query.id, "messages"),
+        {
+          text: input.trim(),
+          from: "manager",
+          createdAt: serverTimestamp(),
+        }
+      );
+      setInput("");
+    } catch (err) {
+      console.error("Error sending query message:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: 10,
+        borderRadius: 8,
+        border: "1px solid #e5e7eb",
+        background: "#f9fafb",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          marginBottom: 6,
+          color: "#4b5563",
+        }}
+      >
+        Messages {isClosed && "(read-only)"}
+      </div>
+
+      <div
+        style={{
+          maxHeight: 200,
+          overflowY: "auto",
+          background: "#ffffff",
+          borderRadius: 6,
+          border: "1px solid #e5e7eb",
+          padding: 8,
+          marginBottom: 8,
+          fontSize: 12,
+        }}
+      >
+        {messages.length === 0 && (
+          <div style={{ color: "#9ca3af", textAlign: "center" }}>
+            No messages yet.
+          </div>
+        )}
+
+        {messages.map((m) => {
+          const isManager = m.from === "manager";
+          return (
+            <div
+              key={m.id}
+              style={{
+                marginBottom: 6,
+                textAlign: isManager ? "right" : "left",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-block",
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  backgroundColor: isManager ? "#0f172a" : "#e5e7eb",
+                  color: isManager ? "#f9fafb" : "#111827",
+                }}
+              >
+                {m.text}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {isClosed && (
+        <div
+          style={{
+            fontSize: 11,
+            color: "#6b7280",
+            marginBottom: 6,
+          }}
+        >
+          This query is closed. No further messages can be sent.
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+        }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={
+            isClosed ? "Query closed – replies disabled." : "Reply to this query…"
+          }
+          disabled={isClosed}
+          style={{
+            flex: 1,
+            padding: "6px 8px",
+            borderRadius: 999,
+            border: "1px solid #d1d5db",
+            fontSize: 12,
+            backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
+            cursor: isClosed ? "not-allowed" : "text",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={sending || !input.trim() || isClosed}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 999,
+            border: "1px solid #0f172a",
+            backgroundColor: isClosed ? "#9ca3af" : "#0f172a",
+            color: "#ffffff",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor:
+              sending || !input.trim() || isClosed ? "not-allowed" : "pointer",
+            opacity: sending || !input.trim() || isClosed ? 0.6 : 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sending ? "Sending…" : "Send"}
+        </button>
+      </div>
+    </div>
   );
 }

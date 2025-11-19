@@ -163,6 +163,25 @@ const getLastBookingDateISO = (b) => {
   return end || single || null;
 };
 
+// Build Firestore updates like: { "vehicleStatus.<vehicleName>": "Complete" }
+const buildVehicleNameStatusUpdates = (job, value = "Complete") => {
+  const list = Array.isArray(job?.vehicles) ? job.vehicles : [];
+  const names = list
+    .map((v) => (typeof v === "string" ? v : v?.name))
+    .map((s) => String(s || "").trim())
+    .filter(Boolean);
+
+  // Firestore field path segments cannot include . ~ * / [ ]
+  const safe = (s) => s.replace(/[.~*/\[\]]/g, "_");
+
+  const updates = {};
+  names.forEach((n) => {
+    updates[`vehicleStatus.${safe(n)}`] = value;
+  });
+  return updates;
+};
+
+
 /* ────────────────────────────────────────────────────────────
    Day Details (unchanged logic)
 ─────────────────────────────────────────────────────────────*/
@@ -593,68 +612,33 @@ export default function JobInfoPage() {
     fetchAll();
   }, [jobId, isJobNumber]);
 
-  // Auto-flip Confirmed → Complete after last date
-  const [autoCompleteRan, setAutoCompleteRan] = useState(false);
-  useEffect(() => {
-    if (autoCompleteRan || !relatedJobs.length) return;
 
-    const todayISO = toLocalISODate(new Date());
-    const candidates = relatedJobs.filter((j) => {
-      const status = String(j.status || '').trim();
-      if (status !== 'Confirmed') return false;
-      const lastISO = getLastBookingDateISO(j);
-      return lastISO && lastISO < todayISO;
-    });
-
-    if (!candidates.length) {
-      setAutoCompleteRan(true);
-      return;
-    }
-
-    (async () => {
-      try {
-        const batch = writeBatch(db);
-        candidates.forEach((j) => {
-          batch.update(doc(db, 'bookings', j.id), {
-            status: 'Complete',
-            statusAutoCompletedAt: serverTimestamp(),
-            statusAutoCompletedReason: 'Ended before today (job page auto-complete)',
-          });
-        });
-        await batch.commit();
-
-        setStatusByJob((prev) => {
-          const next = { ...prev };
-          candidates.forEach((j) => (next[j.id] = 'Complete'));
-          return next;
-        });
-        setSelectedStatusByJob((prev) => {
-          const next = { ...prev };
-          candidates.forEach((j) => (next[j.id] = 'Complete'));
-          return next;
-        });
-      } catch (e) {
-        console.error('Auto-complete status update failed:', e);
-      } finally {
-        setAutoCompleteRan(true);
-      }
-    })();
-  }, [relatedJobs, autoCompleteRan]);
 
   const computeIsPaid = (job) =>
     job.status === 'Paid' || (job.invoiceStatus && job.invoiceStatus.toLowerCase().includes('paid'));
 
-  const saveJobStatus = async (id, status) => {
-    try {
-      await updateDoc(doc(db, 'bookings', id), { status });
-      setStatusByJob((p) => ({ ...p, [id]: status }));
-      setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
-      alert(`Status updated to ${status}`);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to update status.');
+const saveJobStatus = async (id, status) => {
+  try {
+    // we need the job to know which vehicles are on it
+    const job = relatedJobs.find((j) => j.id === id);
+    const updates = { status };
+
+    // if setting job to Complete, also Complete all selected vehicles
+    if (status === 'Complete' && job) {
+      Object.assign(updates, buildVehicleNameStatusUpdates(job, 'Complete'));
     }
-  };
+
+    await updateDoc(doc(db, 'bookings', id), updates);
+
+    setStatusByJob((p) => ({ ...p, [id]: status }));
+    setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
+    alert(`Status updated to ${status}`);
+  } catch (e) {
+    console.error(e);
+    alert('Failed to update status.');
+  }
+};
+
 
   const saveJobSummary = async (id) => {
     const notes = dayNotes[id]?.general || '';

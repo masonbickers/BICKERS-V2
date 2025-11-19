@@ -275,7 +275,9 @@ export default function HRPage() {
                             </div>
                           )}
                         </td>
-                        <td style={td}>{(h.notes || "").trim() || "-"}</td>
+                        <td style={td}>
+                          {(h.notes || h.holidayReason || "").trim() || "-"}
+                        </td>
                         <td style={td}>
                           <button
                             style={{ ...btn, backgroundColor: "#22c55e" }}

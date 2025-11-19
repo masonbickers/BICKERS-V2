@@ -8,8 +8,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 const BigCalendar = dynamic(
-   () => import("react-big-calendar").then((m) => m.Calendar),
-   { ssr: false }
+  () => import("react-big-calendar").then((m) => m.Calendar),
+  { ssr: false }
 );
 import { localizer } from "../utils/localizer";
 import { collection, onSnapshot, addDoc, getDocs } from "firebase/firestore";
@@ -32,19 +32,20 @@ const UI = {
 
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
-  Confirmed:         { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
-  "First Pencil":    { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
-  "Second Pencil":   { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
-  Holiday:           { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
-  Maintenance:       { bg: "#f97316", text: "#111", border: "#0b0b0b" },
-  Complete:          { bg: "#7AFF6E", text: "#111", border: "#0b0b0b" },
+  Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
+  "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
+  "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
+  Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
+  Maintenance: { bg: "#f97316", text: "#111", border: "#0b0b0b" },
+  Complete: { bg: "#b5f7afff", text: "#111", border: "#0b0b0b" },
   "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
-  DNH:               { bg: "#c2c2c2", text: "#111", border: "#0b0b0b" },
+  DNH: { bg: "#c2c2c2", text: "#111", border: "#0b0b0b" },
 };
-const getStatusStyle = (s = "") => STATUS_COLORS[s] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+const getStatusStyle = (s = "") =>
+  STATUS_COLORS[s] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
-
 
 const pageWrap = {
   display: "flex",
@@ -85,9 +86,19 @@ const btnBase = {
   background: "#f9fafb",
   color: UI.text,
 };
-const btnDark = { ...btnBase, background: "#111827", color: "#fff", border: "1px solid #111827" };
+const btnDark = {
+  ...btnBase,
+  background: "#111827",
+  color: "#fff",
+  border: "1px solid #111827",
+};
 
-const tableWrap = { width: "100%", overflow: "auto", borderRadius: UI.radius, border: UI.border };
+const tableWrap = {
+  width: "100%",
+  overflow: "auto",
+  borderRadius: UI.radius,
+  border: UI.border,
+};
 const table = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
 const th = {
   textAlign: "left",
@@ -114,23 +125,20 @@ const successBanner = {
   marginBottom: 14,
 };
 
-  const btnDisabled = {
-    ...btnBase,
-    opacity: 0.45,
-    cursor: "not-allowed",
-    pointerEvents: "none",
-    filter: "grayscale(0.2)",
-  };
-  const btnDarkDisabled = {
-    ...btnDark,
-    opacity: 0.45,
-    cursor: "not-allowed",
-    pointerEvents: "none",
-    filter: "grayscale(0.2)",
-  };
-
-
-
+const btnDisabled = {
+  ...btnBase,
+  opacity: 0.45,
+  cursor: "not-allowed",
+  pointerEvents: "none",
+  filter: "grayscale(0.2)",
+};
+const btnDarkDisabled = {
+  ...btnDark,
+  opacity: 0.45,
+  cursor: "not-allowed",
+  pointerEvents: "none",
+  filter: "grayscale(0.2)",
+};
 
 /* ------------------------------- your helpers ------------------------------- */
 const parseLocalDate = (d) => {
@@ -138,7 +146,9 @@ const parseLocalDate = (d) => {
   const s = typeof d === "string" ? d : String(d);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) {
-    const y = Number(m[1]), mo = Number(m[2]) - 1, day = Number(m[3]);
+    const y = Number(m[1]),
+      mo = Number(m[2]) - 1,
+      day = Number(m[3]);
     const dt = new Date(y, mo, day, 12, 0, 0, 0); // noon local
     return dt;
   }
@@ -146,8 +156,6 @@ const parseLocalDate = (d) => {
   dt.setHours(12, 0, 0, 0);
   return dt;
 };
-
-
 
 const startOfLocalDay = (d) => {
   const x = new Date(d);
@@ -209,7 +217,8 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     if (bNum !== aNum) return bNum - aNum; // DESC
     if ((bk.raw || "") !== (ak.raw || "")) return (bk.raw || "").localeCompare(ak.raw || "");
     if (a.start.getTime() !== b.start.getTime()) return a.start - b.start;
-    const spanA = a.end - a.start, spanB = b.end - b.start;
+    const spanA = a.end - a.start,
+      spanB = b.end - b.start;
     if (spanA !== spanB) return spanB - spanA;
     return 0;
   });
@@ -217,15 +226,12 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   return all;
 };
 
-
-
-
 // Put grey stuff at the bottom; risky/night/important at the top
 const eventPriority = (event) => {
   const s = String(event.status || "").toLowerCase();
 
   // top-most things first
-  if (event.isRisky) return 0;                      // red risk box → top
+  if (event.isRisky) return 0; // red risk box → top
   if (String(event.shootType || "").toLowerCase() === "night") return 1;
   if (s === "action required") return 2;
   if (s === "second pencil") return 3;
@@ -238,8 +244,6 @@ const eventPriority = (event) => {
 
   return 50; // default middle
 };
-
-
 
 const formatCrew = (employees) => {
   if (!Array.isArray(employees) || employees.length === 0) return "—";
@@ -261,8 +265,6 @@ const formatCrew = (employees) => {
     .join(", ");
 };
 
-
-
 /* ---------------------- role gate (unchanged, minimal UI) ------------------- */
 const Dashboard = () => {
   const userRole = useUserRole();
@@ -276,12 +278,13 @@ const Dashboard = () => {
 };
 
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
-/* Structure & fields UNCHANGED. Only subtle font/padding/border tweaks */
+/* Maintenance now uses the SAME block as jobs, but:
+   - no HS / RA / H / UB / CT badge row
+   - no per-day notes grid (notesByDate) for maintenance
+*/
 function CalendarEvent({ event }) {
-  const router = useRouter();           // ← add this line
+  const router = useRouter();
   const [showNotes, setShowNotes] = useState(false);
-  const [showRecce, setShowRecce] = useState(false);
-
 
   const employeeInitials = Array.isArray(event.employees)
     ? event.employees
@@ -296,6 +299,10 @@ function CalendarEvent({ event }) {
         .join(", ")
     : "";
 
+  const isMaintenance = event.status === "Maintenance";
+  const hasPerDayCallTimes =
+    event.callTimesByDate && Object.keys(event.callTimesByDate).length > 0;
+
   return (
     <div
       title={event.noteToShow || ""}
@@ -309,14 +316,13 @@ function CalendarEvent({ event }) {
         fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
-        padding: 6,           // was 4
-        gap: 2,               // small breathing room
-        borderRadius: 6,      // soften
+        padding: 6,
+        gap: 2,
+        borderRadius: 6,
         whiteSpace: "normal",
         wordBreak: "break-word",
         textTransform: "uppercase",
-letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
-
+        letterSpacing: "0.02em",
       }}
     >
       {event.status === "Holiday" ? (
@@ -324,17 +330,9 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
           <span>{event.employee}</span>
           <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
         </>
-      ) : event.status === "Maintenance" ? (
-        <>
-          <span style={{ fontWeight: 800 }}>{event.vehicleName}</span>
-          <span style={{ textTransform: "capitalize" }}>{event.maintenanceType}</span>
-          {event.notes && (
-            <span style={{ fontStyle: "italic", opacity: 0.8 }}>{event.notes}</span>
-          )}
-        </>
       ) : (
         <>
-          {/* Top row: initials + status + job number (unchanged order) */}
+          {/* Top row: initials + status + job number */}
           <div
             style={{
               display: "flex",
@@ -345,26 +343,28 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
               gap: 6,
             }}
           >
-            <span
-              style={{
-                backgroundColor: "white",
-                padding: "2px 4px",          // slightly larger
-                borderRadius: 6,
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                border: "1px solid #0b0b0b",
-              }}
-            >
-              {employeeInitials}
-            </span>
+            {employeeInitials && (
+              <span
+                style={{
+                  backgroundColor: "white",
+                  padding: "2px 4px",
+                  borderRadius: 6,
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  border: "1px solid #0b0b0b",
+                }}
+              >
+                {employeeInitials}
+              </span>
+            )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                 <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#111" }}>
                   {event.status}
                 </span>
 
-                {event.isCrewed && (
+                {!isMaintenance && event.isCrewed && (
                   <span
                     style={{
                       display: "inline-flex",
@@ -402,129 +402,141 @@ letterSpacing: "0.02em", // optional: a touch of spacing looks cleaner in caps
             </div>
           </div>
 
-          {/* Details (unchanged fields/order) */}
+          {/* Details (same structure for jobs + maintenance) */}
           <span>{event.client}</span>
 
-{Array.isArray(event.vehicles) &&
-  event.vehicles.length > 0 &&
-  event.vehicles.map((v, i) => {
-    const vmap = event.vehicleStatus || {};
+          {Array.isArray(event.vehicles) &&
+            event.vehicles.length > 0 &&
+            event.vehicles.map((v, i) => {
+              const vmap = event.vehicleStatus || {};
 
-    const rawName =
-      v?.name ||
-      [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
-      String(v || "");
-    const name = String(rawName).trim();
-    const plate = v?.registration ? String(v.registration).toUpperCase().trim() : "";
-    const idKey = v?.id ? String(v.id).trim() : "";
-    const regKey = v?.registration ? String(v.registration).trim() : "";
-    const nameKey = name;
+              const rawName =
+                v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(v || "");
+              const name = String(rawName).trim();
+              const plate = v?.registration ? String(v.registration).toUpperCase().trim() : "";
+              const idKey = v?.id ? String(v.id).trim() : "";
+              const regKey = v?.registration ? String(v.registration).trim() : "";
+              const nameKey = name;
 
-    // Try all keys: id → registration → name
-    let itemStatusRaw =
-      (idKey && vmap[idKey]) ||
-      (regKey && vmap[regKey]) ||
-      (nameKey && vmap[nameKey]) ||
-      "";
+              // Try all keys: id → registration → name
+              let itemStatusRaw =
+                (idKey && vmap[idKey]) ||
+                (regKey && vmap[regKey]) ||
+                (nameKey && vmap[nameKey]) ||
+                "";
 
-    const norm = (s) => String(s || "").trim();
-    const bookingStatus = norm(event.status);
-    const itemStatus = norm(itemStatusRaw) || bookingStatus;
+              const norm = (s) => String(s || "").trim();
+              const bookingStatus = norm(event.status);
+              const itemStatus = norm(itemStatusRaw) || bookingStatus;
 
-    const different = itemStatus && itemStatus !== bookingStatus;
+              const different = itemStatus && itemStatus !== bookingStatus;
 
-if (different) {
-  const { bg, text, border } = getStatusStyle(itemStatus);
-  return (
-    <span
-      key={i}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "0px 0px",
-        borderRadius: 2,
-        backgroundColor: bg,
-        color: text,
-        border: `0px solid ${border}`,
-        marginTop: 2,
-      }}
-      title={`Vehicle status: ${itemStatus}`}
-    >
-      {name}
-      {plate ? ` – ${plate}` : ""}
-    </span>
-  );
-}
+              if (different) {
+                const { bg, text, border } = getStatusStyle(itemStatus);
+                return (
+                  <span
+                    key={i}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "0px 0px",
+                      borderRadius: 2,
+                      backgroundColor: bg,
+                      color: text,
+                      border: `0px solid ${border}`,
+                      marginTop: 2,
+                    }}
+                    title={`Vehicle status: ${itemStatus}`}
+                  >
+                    {name}
+                    {plate ? ` – ${plate}` : ""}
+                  </span>
+                );
+              }
 
-
-    // Default when it matches the booking status (no highlight)
-    return (
-      <span key={i}>
-        {name}
-        {plate ? ` – ${plate}` : ""}
-      </span>
-    );
-  })}
-
-
-
+              // Default when it matches the booking status (no highlight)
+              return (
+                <span key={i}>
+                  {name}
+                  {plate ? ` – ${plate}` : ""}
+                </span>
+              );
+            })}
 
           <span>{event.equipment}</span>
           <span>{event.location}</span>
 
-          {/* Notes — same behaviour, slightly tidier text */}
-          {(event.notes || (event.notesByDate && Object.keys(event.notesByDate).length > 0)) && (
+          {/* Notes:
+              - For jobs: notesByDate grid + notes toggle
+              - For maintenance: ONLY the notes toggle (no day notes) */}
+          {(event.notes ||
+            (!isMaintenance &&
+              event.notesByDate &&
+              Object.keys(event.notesByDate).length > 0)) && (
             <div style={{ width: "100%", marginTop: 4 }}>
-              {event.notesByDate && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-                  {Object.keys(event.notesByDate)
-                    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                    .sort((a, b) => new Date(a) - new Date(b))
-                    .reduce((cols, date, i) => {
-                      const col = Math.floor(i / 3);
-                      (cols[col] ||= []).push(date);
-                      return cols;
-                    }, [])
-                    .map((chunk, colIndex) => (
-                      <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
-                        {chunk.map((date) => {
-                          const note = event.notesByDate[date] || "";
-                          const other = event.notesByDate[`${date}-other`];
-                          const tmins = event.notesByDate[`${date}-travelMins`];
+              {!isMaintenance &&
+                event.notesByDate &&
+                Object.keys(event.notesByDate).length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {Object.keys(event.notesByDate)
+                      .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                      .sort((a, b) => new Date(a) - new Date(b))
+                      .reduce((cols, date, i) => {
+                        const col = Math.floor(i / 3);
+                        (cols[col] ||= []).push(date);
+                        return cols;
+                      }, [])
+                      .map((chunk, colIndex) => (
+                        <div key={colIndex} style={{ display: "flex", flexDirection: "column" }}>
+                          {chunk.map((date) => {
+                            const note = event.notesByDate[date] || "";
+                            const other = event.notesByDate[`${date}-other`];
+                            const tmins = event.notesByDate[`${date}-travelMins`];
 
-                          const extra =
-                            note === "Other" && other
-                              ? ` — ${other}`
-                              : note === "Travel Time" && tmins
-                              ? ` — ${labelFromMins(tmins)}`
-                              : "";
+                            const extra =
+                              note === "Other" && other
+                                ? ` — ${other}`
+                                : note === "Travel Time" && tmins
+                                ? ` — ${labelFromMins(tmins)}`
+                                : "";
 
-                          const formattedDate = new Date(date).toLocaleDateString("en-GB", {
-                            weekday: "short",
-                            day: "2-digit",
-                          });
+                            const callTimeForDay =
+                              (event.callTimesByDate && event.callTimesByDate[date]) || "";
 
-                          return (
-                            <div
-                              key={date}
-                              style={{
-                                fontSize: "0.72rem",
-                                fontStyle: "italic",
-                                fontWeight: 400,
-                                opacity: 0.8,
-                                lineHeight: 1.2,
-                              }}
-                            >
-                              {formattedDate}: {note || "—"}
-                              {extra}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                </div>
-              )}
+                            const formattedDate = new Date(date).toLocaleDateString("en-GB", {
+                              weekday: "short",
+                              day: "2-digit",
+                            });
+
+                            return (
+                              <div
+                                key={date}
+                                style={{
+                                  fontSize: "0.72rem",
+                                  fontStyle: "italic",
+                                  fontWeight: 400,
+                                  opacity: 0.8,
+                                  lineHeight: 1.2,
+                                }}
+                              >
+                                {formattedDate}: {note || "—"}
+                                {extra}
+                                {callTimeForDay ? ` — CT ${callTimeForDay}` : ""}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                  </div>
+                )}
 
               {event.notes && (
                 <>
@@ -562,177 +574,193 @@ if (different) {
               )}
             </div>
           )}
-
-          {/* Badge row (unchanged content) */}
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-              justifyContent: "flex-start",
-              marginTop: 6,
-              width: "100%",
-              flexWrap: "wrap",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "0.72rem",
-                fontWeight: 400,
-                padding: "2px 6px",
-                borderRadius: 6,
-                backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-                color: "#fff",
-                border: "1px solid rgba(0,0,0,0.8)",
-              }}
-            >
-              HS {event.hasHS ? "✓" : "✗"}
-            </span>
-
-            <span
-              style={{
-                fontSize: "0.72rem",
-                fontWeight: 400,
-                padding: "2px 6px",
-                borderRadius: 6,
-                backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-                color: "#fff",
-                border: "1px solid rgba(0,0,0,0.8)",
-              }}
-            >
-              RA {event.hasRiskAssessment ? "✓" : "✗"}
-            </span>
-
-            <span
-              style={{
-                fontSize: "0.72rem",
-                fontWeight: 400,
-                padding: "2px 6px",
-                borderRadius: 6,
-                backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
-                color: "#fff",
-                border: "1px solid rgba(0,0,0,0.8)",
-              }}
-            >
-              H {event.hasHotel ? "✓" : "✗"}
-            </span>
-
-            <span
-              title={event.hasRiggingAddress ? (event.riggingAddress || "") : ""}
-              style={{
-                fontSize: "0.72rem",
-                fontWeight: 400,
-                padding: "2px 6px",
-                borderRadius: 6,
-                backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
-                color: "#fff",
-                border: "1px solid rgba(0,0,0,0.8)",
-              }}
-            >
-              UB {event.hasRiggingAddress ? "✓" : "✗"}
-            </span>
-
-            {event.callTime && (
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 400,
-                  padding: "2px 6px",
-                  borderRadius: 6,
-                  backgroundColor: "#111",
-                  color: "#fff",
-                  border: "1px solid rgba(0,0,0,0.8)",
-                }}
-                title={`Call Time: ${event.callTime}`}
-              >
-                CT {event.callTime}
-              </span>
-            )}
-          </div>
-{/* RECCE LINK ONLY */}
-{event.hasRecce && event.recceId && (
-  <div style={{ width: "100%", marginTop: 6 }}>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        router.push(`/recce-form/${event.recceId}`);
-      }}
-      title="Open full recce form"
+{/* Badge row: HS / RA / H / UB / CT
+    👉 removed for Maintenance */}
+{!isMaintenance && (
+  <div
+    style={{
+      display: "flex",
+      gap: 6,
+      alignItems: "center",
+      justifyContent: "flex-start",
+      marginTop: 6,
+      width: "100%",
+      flexWrap: "wrap",
+    }}
+  >
+    <span
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 10px",
+        fontSize: "0.72rem",
+        fontWeight: 400,
+        padding: "2px 6px",
         borderRadius: 6,
-        cursor: "pointer",
-        fontSize: "0.6rem",
-        fontWeight: 800,
-        border: "1.5px solid #0b0b0b",
-        background: "#111827",
+        backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
         color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
       }}
     >
-      View recce form ↗
-      {event.recceStatus && (
+      HS {event.hasHS ? "✓" : "✗"}
+    </span>
+
+    <span
+      style={{
+        fontSize: "0.72rem",
+        fontWeight: 400,
+        padding: "2px 6px",
+        borderRadius: 6,
+        backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
+      }}
+    >
+      RA {event.hasRiskAssessment ? "✓" : "✗"}
+    </span>
+
+    <span
+      style={{
+        fontSize: "0.72rem",
+        fontWeight: 400,
+        padding: "2px 6px",
+        borderRadius: 6,
+        backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
+      }}
+    >
+      H {event.hasHotel ? "✓" : "✗"}
+    </span>
+
+    <span
+      title={event.hasRiggingAddress ? event.riggingAddress || "" : ""}
+      style={{
+        fontSize: "0.72rem",
+        fontWeight: 400,
+        padding: "2px 6px",
+        borderRadius: 6,
+        backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
+      }}
+    >
+      UB {event.hasRiggingAddress ? "✓" : "✗"}
+    </span>
+
+    {(() => {
+      const hasAnyCallTime =
+        !!event.callTime ||
+        (hasPerDayCallTimes &&
+          Object.values(event.callTimesByDate || {}).some(Boolean));
+
+      return (
         <span
           style={{
-            fontSize: "0.68rem",
-            fontWeight: 900,
+            fontSize: "0.72rem",
+            fontWeight: 400,
             padding: "2px 6px",
-            borderRadius: 4,
-            background: "#fff",
-            color: "#111",
+            borderRadius: 6,
+            backgroundColor: hasAnyCallTime ? "#4caf50" : "#f44336",
+            color: "#fff",
             border: "1px solid rgba(0,0,0,0.8)",
           }}
+          title={
+            hasAnyCallTime
+              ? event.callTime
+                ? `Call Time set: ${event.callTime}`
+                : "Call Time set (per day)"
+              : "No call time set"
+          }
         >
-          {(event.recceStatus || "Submitted").toUpperCase()}
+          CT {hasAnyCallTime ? "✓" : "✗"}
         </span>
-      )}
-    </button>
+      );
+    })()}
   </div>
 )}
 
 
-
-
-          {/* Risk box (unchanged behaviour/wording) */}
-          {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
+          {/* RECCE LINK ONLY (jobs) */}
+          {!isMaintenance && event.hasRecce && event.recceId && (
             <div style={{ width: "100%", marginTop: 6 }}>
-              <div
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/recce-form/${event.recceId}`);
+                }}
+                title="Open full recce form"
                 style={{
-                  backgroundColor: "#e53935",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: "0.6rem",
+                  fontWeight: 800,
+                  border: "1.5px solid #0b0b0b",
+                  background: "#111827",
                   color: "#fff",
-                  border: "1.5px solid #000",
-                  borderRadius: 6,
-                  padding: "4px 6px",
-                  fontSize: "0.74rem",
-                  fontWeight: 900,
-                  letterSpacing: 0.2,
                 }}
               >
-                VEHICLE COMPLIANCE ISSUE
-              </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  background: "#ffe6e6",
-                  border: "1px dashed #e53935",
-                  borderRadius: 6,
-                  padding: "4px 6px",
-                  fontSize: "0.74rem",
-                  lineHeight: 1.25,
-                  color: "#000",
-                  fontWeight: 700,
-                }}
-              >
-                {event.riskReasons.map((r, i) => (
-                  <div key={i} style={{ marginTop: i ? 3 : 0 }}>
-                    {r}
-                  </div>
-                ))}
-              </div>
+                View recce form ↗
+                {event.recceStatus && (
+                  <span
+                    style={{
+                      fontSize: "0.68rem",
+                      fontWeight: 900,
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      background: "#fff",
+                      color: "#111",
+                      border: "1px solid rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {(event.recceStatus || "Submitted").toUpperCase()}
+                  </span>
+                )}
+              </button>
             </div>
           )}
+
+          {/* Risk box (unchanged behaviour/wording) */}
+          {event.isRisky &&
+            Array.isArray(event.riskReasons) &&
+            event.riskReasons.length > 0 && (
+              <div style={{ width: "100%", marginTop: 6 }}>
+                <div
+                  style={{
+                    backgroundColor: "#e53935",
+                    color: "#fff",
+                    border: "1.5px solid #000",
+                    borderRadius: 6,
+                    padding: "4px 6px",
+                    fontSize: "0.74rem",
+                    fontWeight: 900,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  VEHICLE COMPLIANCE ISSUE
+                </div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    background: "#ffe6e6",
+                    border: "1px dashed #e53935",
+                    borderRadius: 6,
+                    padding: "4px 6px",
+                    fontSize: "0.74rem",
+                    lineHeight: 1.25,
+                    color: "#000",
+                    fontWeight: 700,
+                  }}
+                >
+                  {event.riskReasons.map((r, i) => (
+                    <div key={i} style={{ marginTop: i ? 3 : 0 }}>
+                      {r}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
         </>
       )}
     </div>
@@ -743,7 +771,6 @@ if (different) {
 export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -759,11 +786,12 @@ export default function DashboardPage({ bookingSaved }) {
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
-    // Gate Calendar rendering to client only
+
+  // Gate Calendar rendering to client only
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-    const [userEmail, setUserEmail] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -775,66 +803,64 @@ export default function DashboardPage({ bookingSaved }) {
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
 
   const goToCreateBooking = useCallback(() => {
-  if (isRestricted) return;
-  router.push("/create-booking");
-}, [isRestricted, router]);
+    if (isRestricted) return;
+    router.push("/create-booking");
+  }, [isRestricted, router]);
 
-const goToEditBooking = useCallback((id) => {
-  if (isRestricted) return;
-  router.push(`/edit-booking/${id}`);
-}, [isRestricted, router]);
-// NEW: hold latest recce per booking
-// NEW: hold latest recce per booking
-const [reccesByBooking, setReccesByBooking] = useState({});
+  const goToEditBooking = useCallback(
+    (id) => {
+      if (isRestricted) return;
+      router.push(`/edit-booking/${id}`);
+    },
+    [isRestricted, router]
+  );
 
-useEffect(() => {
-  const unsubRecces = onSnapshot(collection(db, "recces"), (snap) => {
-    const map = {};
-    snap.docs.forEach((d) => {
-      const r = { id: d.id, ...d.data() };
-      const k = r.bookingId;
-      if (!k) return;
+  // NEW: hold latest recce per booking
+  const [reccesByBooking, setReccesByBooking] = useState({});
 
-      const cur = map[k];
-      const curTs = cur?.createdAt?.seconds || 0;
-      const rTs = r?.createdAt?.seconds || 0;
+  useEffect(() => {
+    const unsubRecces = onSnapshot(collection(db, "recces"), (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        const r = { id: d.id, ...d.data() };
+        const k = r.bookingId;
+        if (!k) return;
 
-      if (!cur || rTs >= curTs) {
-        const a = r.answers || {};
-        const notes =
-          a.notes ||
-          a.additionalNotes ||
-          a.accessNotes ||
-          a.risks ||
-          "";
+        const cur = map[k];
+        const curTs = cur?.createdAt?.seconds || 0;
+        const rTs = r?.createdAt?.seconds || 0;
 
-        map[k] = {
-          id: r.id,                         // <-- keep doc id
-          status: r.status || "submitted",
-          notes: String(notes || "").trim(),
-          answers: r.answers || {},         // <-- keep the full form
-          createdAt: r.createdAt || null,   // optional
-        };
-      }
+        if (!cur || rTs >= curTs) {
+          const a = r.answers || {};
+          const notes =
+            a.notes || a.additionalNotes || a.accessNotes || a.risks || "";
+
+          map[k] = {
+            id: r.id,
+            status: r.status || "submitted",
+            notes: String(notes || "").trim(),
+            answers: r.answers || {},
+            createdAt: r.createdAt || null,
+          };
+        }
+      });
+      setReccesByBooking(map);
     });
-    setReccesByBooking(map);
-  });
 
-  return () => unsubRecces();
-}, []);
-
-
+    return () => unsubRecces();
+  }, []);
 
   // same normaliser/risk
   const normalizeVehicles = (list) => {
-    
     if (!Array.isArray(list)) return [];
     return list.map((v) => {
       if (v && typeof v === "object" && (v.name || v.registration)) return v;
       const needle = String(v ?? "").trim();
       const match =
         vehiclesData.find((x) => x.id === needle) ||
-        vehiclesData.find((x) => String(x.registration ?? "").trim() === needle) ||
+        vehiclesData.find(
+          (x) => String(x.registration ?? "").trim() === needle
+        ) ||
         vehiclesData.find((x) => String(x.name ?? "").trim() === needle);
       return match || { name: needle };
     });
@@ -845,17 +871,26 @@ useEffect(() => {
     const list = Array.isArray(vehicles) ? vehicles : [];
     list.forEach((v) => {
       if (!v || typeof v !== "object") return;
-      const name = v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
-      const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
+      const name =
+        v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
+      const plate = v.registration
+        ? ` (${String(v.registration).toUpperCase()})`
+        : "";
       const tax = String(v.taxStatus ?? "").trim().toLowerCase();
       const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
-      if (tax === "sorn" || tax === "untaxed" || tax === "no tax") reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
-      if (ins === "not insured" || ins === "uninsured" || ins === "no insurance") reasons.push(`NO INSURANCE: ${name}${plate}`);
+      if (tax === "sorn" || tax === "untaxed" || tax === "no tax")
+        reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
+      if (
+        ins === "not insured" ||
+        ins === "uninsured" ||
+        ins === "no insurance"
+      )
+        reasons.push(`NO INSURANCE: ${name}${plate}`);
     });
     return { risky: reasons.length > 0, reasons };
   };
 
-  // listeners (unchanged)
+  // listeners
   useEffect(() => {
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
       const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -970,18 +1005,30 @@ useEffect(() => {
     const singleDate = b.date?.split("T")[0];
     const start = b.startDate?.split("T")[0];
     const end = b.endDate?.split("T")[0];
-    return singleDate === today || (start && end && today >= start && today <= end);
+    return (
+      singleDate === today || (start && end && today >= start && today <= end)
+    );
   });
 
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          {bookingSaved && <div style={successBanner}>✅ Booking saved successfully!</div>}
+          {bookingSaved && (
+            <div style={successBanner}>✅ Booking saved successfully!</div>
+          )}
 
           {/* Work Diary */}
           <section style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
               <h2 style={title}>Work Diary</h2>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
@@ -1008,288 +1055,322 @@ useEffect(() => {
                 >
                   Next Week →
                 </button>
-<button
-  style={isRestricted ? btnDarkDisabled : btnDark}
-  onClick={goToCreateBooking}
-  aria-disabled={isRestricted}
-  title={isRestricted ? "Your account is not allowed to create bookings" : ""}>
-  + Add Booking
-</button>
-
+                <button
+                  style={isRestricted ? btnDarkDisabled : btnDark}
+                  onClick={goToCreateBooking}
+                  aria-disabled={isRestricted}
+                  title={
+                    isRestricted
+                      ? "Your account is not allowed to create bookings"
+                      : ""
+                  }
+                >
+                  + Add Booking
+                </button>
               </div>
             </div>
 
-            <div style={{ textAlign: "center", color: UI.muted, fontWeight: 600, marginBottom: 8 }}>
+            <div
+              style={{
+                textAlign: "center",
+                color: UI.muted,
+                fontWeight: 600,
+                marginBottom: 8,
+              }}
+            >
               {currentDate.toLocaleDateString("en-GB", { month: "long" })}
             </div>
 
-{mounted && (
-            <BigCalendar
-              localizer={localizer}
-              events={[
-                ...bookings.map((b) => {
-  const startBase = parseLocalDate(b.startDate || b.date);
-  const endRaw = b.endDate || b.date || b.startDate;
-  const endBase = parseLocalDate(endRaw);
-  const safeEndBase = endBase && startBase && endBase < startBase ? startBase : endBase;
+            {mounted && (
+              <BigCalendar
+                localizer={localizer}
+                events={[
+                  ...bookings.map((b) => {
+                    const startBase = parseLocalDate(b.startDate || b.date);
+                    const endRaw = b.endDate || b.date || b.startDate;
+                    const endBase = parseLocalDate(endRaw);
+                    const safeEndBase =
+                      endBase && startBase && endBase < startBase
+                        ? startBase
+                        : endBase;
 
-  const normalizedVehicles = normalizeVehicles(b.vehicles);
-  const risk = getVehicleRisk(normalizedVehicles);
+                    const normalizedVehicles = normalizeVehicles(b.vehicles);
+                    const risk = getVehicleRisk(normalizedVehicles);
 
-  // NEW: pull recce summary for this booking
-  const recce = reccesByBooking[b.id] || null;
+                    const recce = reccesByBooking[b.id] || null;
 
-  return {
-    ...b,
-    vehicles: normalizedVehicles,
-    isRisky: risk.risky,
-    riskReasons: risk.reasons,
-    title: b.client || "",
-    start: startOfLocalDay(startBase),
-    end: startOfLocalDay(addDays(safeEndBase, 1)),
-    allDay: true,
-    status: b.status || "Confirmed",
-    
+                    return {
+                      ...b,
+                      vehicles: normalizedVehicles,
+                      isRisky: risk.risky,
+                      riskReasons: risk.reasons,
+                      title: b.client || "",
+                      start: startOfLocalDay(startBase),
+                      end: startOfLocalDay(addDays(safeEndBase, 1)),
+                      allDay: true,
+                      status: b.status || "Confirmed",
 
-    // NEW: fields used by CalendarEvent
-      hasRecce: !!recce,
-  recceStatus: recce?.status || null,
-  recceNotes: recce?.notes || "",
-  recceAnswers: recce?.answers || null,  // <-- full form arrives here
-  recceId: recce?.id || null,            // <-- doc id if you want to deep-link later
-  recceCreatedAt: recce?.createdAt || null,
-  };
-}),
+                      hasRecce: !!recce,
+                      recceStatus: recce?.status || null,
+                      recceNotes: recce?.notes || "",
+                      recceAnswers: recce?.answers || null,
+                      recceId: recce?.id || null,
+                      recceCreatedAt: recce?.createdAt || null,
+                    };
+                  }),
+                  ...maintenanceBookings,
+                ]}
+                view={calendarView}
+                views={["week", "month"]}
+                onView={(v) => setCalendarView(v)}
+                date={currentDate}
+                onNavigate={(d) => setCurrentDate(d)}
+                onSelectSlot={({ start }) => {
+                  setNoteDate(start);
+                  setNoteText("");
+                  setNoteModalOpen(true);
+                }}
+                selectable
+                startAccessor="start"
+                endAccessor="end"
+                popup
+                allDayAccessor={() => true}
+                allDaySlot
+                dayLayoutAlgorithm="no-overlap"
+                toolbar={false}
+                nowIndicator={false}
+                getNow={() => new Date(2000, 0, 1)}
+                formats={{
+                  dayFormat: (date, culture, localizer) =>
+                    localizer.format(date, "EEEE dd", culture),
+                }}
+                dayPropGetter={(date) => {
+                  const todayD = new Date();
+                  const isToday =
+                    date.getDate() === todayD.getDate() &&
+                    date.getMonth() === todayD.getMonth() &&
+                    date.getFullYear() === todayD.getFullYear();
+                  return {
+                    style: {
+                      backgroundColor: isToday
+                        ? "rgba(137,174,255,0.25)"
+                        : undefined,
+                      border: isToday ? "1px solid #3f82ff" : undefined,
+                    },
+                  };
+                }}
+                style={{ borderRadius: UI.radiusLg, background: "#fff" }}
+                onSelectEvent={(e) => {
+                  if (e.status === "Holiday") {
+                    router.push(`/edit-holiday/${e.id}`);
+                  } else if (e.status === "Note") {
+                    router.push(`/note/${e.id}`);
+                  } else if (e.id) {
+                    setSelectedBookingId(e.id);
+                  }
+                }}
+                components={{ event: CalendarEvent }}
+                eventPropGetter={(event) => {
+                  const status = event.status || "Confirmed";
 
-                ...maintenanceBookings,
-              ]}
-              view={calendarView}
-              views={["week", "month"]}
-              onView={(v) => setCalendarView(v)}
-              date={currentDate}
-              onNavigate={(d) => setCurrentDate(d)}
-              onSelectSlot={({ start }) => {
-                setNoteDate(start);
-                setNoteText("");
-                setNoteModalOpen(true);
-              }}
-              selectable
-              startAccessor="start"
-              endAccessor="end"
-              popup
-              allDayAccessor={() => true}
-              allDaySlot
-              dayLayoutAlgorithm="no-overlap"
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              formats={{
-                dayFormat: (date, culture, localizer) =>
-                  localizer.format(date, "EEEE dd", culture),
-              }}
-              dayPropGetter={(date) => {
-                const todayD = new Date();
-                const isToday =
-                  date.getDate() === todayD.getDate() &&
-                  date.getMonth() === todayD.getMonth() &&
-                  date.getFullYear() === todayD.getFullYear();
-                return {
-                  style: {
-                    backgroundColor: isToday ? "rgba(137,174,255,0.25)" : undefined,
-                    border: isToday ? "1px solid #3f82ff" : undefined,
-                  },
-                };
-              }}
-              style={{ borderRadius: UI.radiusLg, background: "#fff" }}
-              onSelectEvent={(e) => {
-                if (e.status === "Holiday") {
-                  router.push(`/edit-holiday/${e.id}`);
-                } else if (e.status === "Note") {
-                  router.push(`/note/${e.id}`);
-                } else if (e.id) {
-                  setSelectedBookingId(e.id);
-                }
-              }}
-              components={{ event: CalendarEvent }}
-eventPropGetter={(event) => {
-  const status = event.status || "Confirmed";
+                  let bg =
+                    {
+                      Confirmed: "#f3f970",
+                      "First Pencil": "#89caf5",
+                      "Second Pencil": "#f73939",
+                      Holiday: "#d3d3d3",
+                      Maintenance: "#da8e58ff",
+                      Complete: "#7AFF6E",
+                      "Action Required": "#FF973B",
+                      DNH: "#c2c2c2",
+                    }[status] || "#ccc";
 
-  // existing status colours
-  let bg =
-    {
-      Confirmed: "#f3f970",
-      "First Pencil": "#89caf5",
-      "Second Pencil": "#f73939",
-      Holiday: "#d3d3d3",
-      Maintenance: "#f97316",
-      Complete: "#7AFF6E",
-      "Action Required": "#FF973B",
-      DNH: "#c2c2c2",
-    }[status] || "#ccc";
+                  let text =
+                    bg === "#f3f970" || bg === "#d3d3d3" ? "#111" : "#fff";
 
-  let text = bg === "#f3f970" || bg === "#d3d3d3" ? "#111" : "#fff";
+                  let risky = !!event.isRisky;
+                  if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
+                    risky = getVehicleRisk(event.vehicles).risky;
+                  }
+                  if (risky) {
+                    bg = "#e53935";
+                    text = "#fff";
+                  }
 
-  // existing risk override
-  let risky = !!event.isRisky;
-  if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
-    risky = getVehicleRisk(event.vehicles).risky;
-  }
-  if (risky) {
-    bg = "#e53935";
-    text = "#fff";
-  }
+                  const shoot = String(event.shootType || "").toLowerCase();
+                  const bookingStatuses = new Set([
+                    "confirmed",
+                    "first pencil",
+                    "second pencil",
+                    "complete",
+                    "action required",
+                    "dnh",
+                  ]);
 
-  // 👉 NIGHT SHOOT OVERRIDE (light purple) — bookings only
-  const shoot = String(event.shootType || "").toLowerCase();
-  const bookingStatuses = new Set([
-    "confirmed",
-    "first pencil",
-    "second pencil",
-    "complete",
-    "action required",
-    "dnh",
-  ]);
+                  if (
+                    !risky &&
+                    bookingStatuses.has((status || "").toLowerCase()) &&
+                    shoot === "night"
+                  ) {
+                    bg = "#f796dfff";
+                    text = "#111";
+                    return {
+                      style: {
+                        backgroundColor: bg,
+                        color: text,
+                        fontWeight: 700,
+                        padding: 0,
+                        borderRadius: 8,
+                        border: "2px solid #de24e4ff",
+                        boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                      },
+                    };
+                  }
 
-  if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
-    bg = "#f796dfff";        // light purple (Tailwind purple-200)
-    text = "#111";         // dark text for contrast
-    return {
-      style: {
-        backgroundColor: bg,
-        color: text,
-        fontWeight: 700,
-        padding: 0,
-        borderRadius: 8,
-        border: "2px solid #de24e4ff", // slightly darker purple border
-        boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
-      },
-    };
-  }
-
-  // default return (unchanged)
-  return {
-    style: {
-      backgroundColor: bg,
-      color: text,
-      fontWeight: 700,
-      padding: 0,
-      borderRadius: 8,
-      border: "2px solid #0b0b0b",
-      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
-    },
-  };
-}}
-
-            />)}
+                  return {
+                    style: {
+                      backgroundColor: bg,
+                      color: text,
+                      fontWeight: 700,
+                      padding: 0,
+                      borderRadius: 8,
+                      border: "2px solid #0b0b0b",
+                      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                    },
+                  };
+                }}
+              />
+            )}
           </section>
 
           {/* Holiday + Notes Calendar */}
           <section style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
               <h2 style={title}>Holiday + Notes Calendar</h2>
               <div style={{ display: "flex", gap: 8 }}>
-                <button style={btnDark} onClick={() => router.push("/holiday-form")}>
+                <button
+                  style={btnDark}
+                  onClick={() => router.push("/holiday-form")}
+                >
                   + Add Holiday
                 </button>
-                <button style={btnDark} onClick={() => router.push("/note-form")}>
+                <button
+                  style={btnDark}
+                  onClick={() => router.push("/note-form")}
+                >
                   + Add Note
                 </button>
               </div>
             </div>
 
-{mounted && (
-            <BigCalendar
-              localizer={localizer}
-              events={[
-                ...holidays.map((h) => ({
-                  ...h,
-                  title: h.title,
-                  start: new Date(h.start),
-                  end: new Date(h.end),
-                  allDay: true,
-                  status: "Holiday",
-                })),
-                ...notes.map((n) => ({
-                  ...n,
-                  title: n.title || "Note",
-                  start: new Date(n.start),
-                  end: new Date(n.end),
-                  allDay: true,
-                  status: "Note",
-                })),
-              ]}
-              view={calendarView}
-              views={["week", "month"]}
-              onView={(v) => setCalendarView(v)}
-              date={currentDate}
-              onNavigate={(d) => setCurrentDate(d)}
-              selectable
-              startAccessor="start"
-              endAccessor="end"
-              popup
-              allDayAccessor={() => true}
-              dayLayoutAlgorithm="overlap"
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              onSelectEvent={(e) => {
-                if (e.status === "Holiday") {
-                  router.push(`/edit-holiday/${e.id}`);
-                } else if (e.status === "Note") {
-                  router.push(`/note/${e.id}`);
-                }
-              }}
-              style={{ borderRadius: UI.radiusLg, background: "#fff" }}
-              components={{
-                event: ({ event }) => (
-                  <div
-                    title={event.title}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: "0.85rem",
-                      lineHeight: 1.35,
-                      color: "#0b0b0b",
-                      fontWeight: 600,
-                      fontFamily: "Inter, system-ui, Arial, sans-serif",
-                      textAlign: "left",
-                      padding: 6,
-                      minHeight: 40,
-                    }}
-                  >
-                    {event.status === "Holiday" ? (
-                      <>
-                        <span>{event.employee}</span>
-                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{event.employee}</span>
-                        <span style={{ fontWeight: 800 }}>{event.title}</span>
-                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
-                      </>
-                    )}
-                  </div>
-                ),
-              }}
-              eventPropGetter={(event) => ({
-                style: {
-                  backgroundColor: event.status === "Holiday" ? "#d3d3d3" : "#9e9e9e",
-                  color: "#111",
-                  fontWeight: 700,
-                  padding: 0,
-                  borderRadius: 8,
-                  border: "2px solid #999",
-                  boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
-                },
-              })}
-              dayPropGetter={() => ({
-                style: {
-                  borderRight: "1px solid #e5e7eb",
-                  borderTop: "1px solid #e5e7eb",
-                },
-              })}
-            />
+            {mounted && (
+              <BigCalendar
+                localizer={localizer}
+                events={[
+                  ...holidays.map((h) => ({
+                    ...h,
+                    title: h.title,
+                    start: new Date(h.start),
+                    end: new Date(h.end),
+                    allDay: true,
+                    status: "Holiday",
+                  })),
+                  ...notes.map((n) => ({
+                    ...n,
+                    title: n.title || "Note",
+                    start: new Date(n.start),
+                    end: new Date(n.end),
+                    allDay: true,
+                    status: "Note",
+                  })),
+                ]}
+                view={calendarView}
+                views={["week", "month"]}
+                onView={(v) => setCalendarView(v)}
+                date={currentDate}
+                onNavigate={(d) => setCurrentDate(d)}
+                selectable
+                startAccessor="start"
+                endAccessor="end"
+                popup
+                allDayAccessor={() => true}
+                dayLayoutAlgorithm="overlap"
+                toolbar={false}
+                nowIndicator={false}
+                getNow={() => new Date(2000, 0, 1)}
+                onSelectEvent={(e) => {
+                  if (e.status === "Holiday") {
+                    router.push(`/edit-holiday/${e.id}`);
+                  } else if (e.status === "Note") {
+                    router.push(`/note/${e.id}`);
+                  }
+                }}
+                style={{ borderRadius: UI.radiusLg, background: "#fff" }}
+                components={{
+                  event: ({ event }) => (
+                    <div
+                      title={event.title}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        fontSize: "0.85rem",
+                        lineHeight: 1.35,
+                        color: "#0b0b0b",
+                        fontWeight: 600,
+                        fontFamily: "Inter, system-ui, Arial, sans-serif",
+                        textAlign: "left",
+                        padding: 6,
+                        minHeight: 40,
+                      }}
+                    >
+                      {event.status === "Holiday" ? (
+                        <>
+                          <span>{event.employee}</span>
+                          <span style={{ fontStyle: "italic", opacity: 0.75 }}>
+                            On Holiday
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{event.employee}</span>
+                          <span style={{ fontWeight: 800 }}>
+                            {event.title}
+                          </span>
+                          <span style={{ fontStyle: "italic", opacity: 0.75 }}>
+                            Note
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  ),
+                }}
+                eventPropGetter={(event) => ({
+                  style: {
+                    backgroundColor:
+                      event.status === "Holiday" ? "#d3d3d3" : "#9e9e9e",
+                    color: "#111",
+                    fontWeight: 700,
+                    padding: 0,
+                    borderRadius: 8,
+                    border: "2px solid #999",
+                    boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                  },
+                })}
+                dayPropGetter={() => ({
+                  style: {
+                    borderRight: "1px solid #e5e7eb",
+                    borderTop: "1px solid #e5e7eb",
+                  },
+                })}
+              />
             )}
           </section>
 
@@ -1327,12 +1408,17 @@ eventPropGetter={(event) => {
                           background: i % 2 === 0 ? "#fff" : "#fafafa",
                           transition: "background-color .15s ease",
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor = "#f5f6f8")
+                        }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
+                          (e.currentTarget.style.backgroundColor =
+                            i % 2 === 0 ? "#fff" : "#fafafa")
                         }
                       >
-                        <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
+                        <td style={td}>
+                          {new Date(b.date || b.startDate).toDateString()}
+                        </td>
                         <td style={td}>{b.jobNumber}</td>
                         <td style={td}>{b.client || "—"}</td>
                         <td style={td}>{b.location || "—"}</td>
@@ -1343,7 +1429,9 @@ eventPropGetter={(event) => {
                                   typeof emp === "string"
                                     ? emp
                                     : emp?.name ||
-                                      [emp?.firstName, emp?.lastName].filter(Boolean).join(" ") ||
+                                      [emp?.firstName, emp?.lastName]
+                                        .filter(Boolean)
+                                        .join(" ") ||
                                       emp?.displayName ||
                                       emp?.email ||
                                       ""
@@ -1360,14 +1448,18 @@ eventPropGetter={(event) => {
                             >
                               View
                             </button>
-                     <button
-   onClick={() => goToEditBooking(b.id)}
-   style={isRestricted ? btnDarkDisabled : btnDark}
-  aria-disabled={isRestricted}
-   title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
- >
-+   Edit
-+ </button>
+                            <button
+                              onClick={() => goToEditBooking(b.id)}
+                              style={isRestricted ? btnDarkDisabled : btnDark}
+                              aria-disabled={isRestricted}
+                              title={
+                                isRestricted
+                                  ? "Your account is not allowed to edit bookings"
+                                  : ""
+                              }
+                            >
+                              Edit
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1392,12 +1484,23 @@ eventPropGetter={(event) => {
                   const latestDate = end || date;
                   return latestDate >= todayDate;
                 })
-                .sort((a, b) => new Date(a.date || a.startDate) - new Date(b.date || b.startDate));
+                .sort(
+                  (a, b) =>
+                    new Date(a.date || a.startDate) -
+                    new Date(b.date || b.startDate)
+                );
 
               return (
                 <div key={status} style={{ marginTop: 10 }}>
-                  <div style={{ color: UI.muted, fontSize: 12, marginBottom: 6 }}>
-                    {status} — {filtered.length} {filtered.length === 1 ? "item" : "items"}
+                  <div
+                    style={{
+                      color: UI.muted,
+                      fontSize: 12,
+                      marginBottom: 6,
+                    }}
+                  >
+                    {status} — {filtered.length}{" "}
+                    {filtered.length === 1 ? "item" : "items"}
                   </div>
 
                   {filtered.length === 0 ? (
@@ -1434,19 +1537,30 @@ eventPropGetter={(event) => {
                                 transition: "background-color .15s ease",
                               }}
                               onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor = "#f5f6f8")
+                                (e.currentTarget.style.backgroundColor =
+                                  "#f5f6f8")
                               }
                               onMouseLeave={(e) =>
                                 (e.currentTarget.style.backgroundColor =
                                   i % 2 === 0 ? "#fff" : "#fafafa")
                               }
                             >
-                              <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
+                              <td style={td}>
+                                {new Date(
+                                  b.date || b.startDate
+                                ).toDateString()}
+                              </td>
                               <td style={td}>{b.jobNumber}</td>
                               <td style={td}>{b.client || "—"}</td>
                               <td style={td}>{b.location || "—"}</td>
                               <td style={td}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
                                   <span>{formatCrew(b.employees)}</span>
                                   {b.isCrewed && (
                                     <span
@@ -1457,7 +1571,8 @@ eventPropGetter={(event) => {
                                         borderRadius: 6,
                                         background: "#16a34a",
                                         color: "#fff",
-                                        border: "1px solid rgba(0,0,0,0.15)",
+                                        border:
+                                          "1px solid rgba(0,0,0,0.15)",
                                       }}
                                     >
                                       CREWED
@@ -1474,13 +1589,17 @@ eventPropGetter={(event) => {
                                     View
                                   </button>
                                   <button
-   onClick={() => goToEditBooking(b.id)}
-   style={isRestricted ? btnDarkDisabled : btnDark}
-  aria-disabled={isRestricted}
-   title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
- >
-+   Edit
-+ </button>
+                                    onClick={() => goToEditBooking(b.id)}
+                                    style={isRestricted ? btnDarkDisabled : btnDark}
+                                    aria-disabled={isRestricted}
+                                    title={
+                                      isRestricted
+                                        ? "Your account is not allowed to edit bookings"
+                                        : ""
+                                    }
+                                  >
+                                    Edit
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1494,7 +1613,7 @@ eventPropGetter={(event) => {
             })}
           </section>
 
-          {/* Add booking modal (unchanged logic, slight styling) */}
+          {/* Add booking modal */}
           {showModal && (
             <div
               style={{
@@ -1518,7 +1637,9 @@ eventPropGetter={(event) => {
                   padding: 16,
                 }}
               >
-                <h3 style={{ ...title, fontSize: 16 }}>Add Booking for {selectedDate?.toDateString()}</h3>
+                <h3 style={{ ...title, fontSize: 16 }}>
+                  Add Booking for {selectedDate?.toDateString()}
+                </h3>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -1554,8 +1675,18 @@ eventPropGetter={(event) => {
                       fontSize: 14,
                     }}
                   />
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                    <button type="button" onClick={() => setShowModal(false)} style={btnBase}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                      style={btnBase}
+                    >
                       Cancel
                     </button>
                     <button type="submit" style={btnDark}>
@@ -1570,7 +1701,10 @@ eventPropGetter={(event) => {
       </div>
 
       {selectedBookingId && (
-        <ViewBookingModal id={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
+        <ViewBookingModal
+          id={selectedBookingId}
+          onClose={() => setSelectedBookingId(null)}
+        />
       )}
     </HeaderSidebarLayout>
   );

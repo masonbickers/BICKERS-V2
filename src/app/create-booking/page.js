@@ -13,10 +13,15 @@ import { storage, auth } from "../../../firebaseConfig";
    Visual tokens + shared styles (layout-only; no logic changed)
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
-  radius: 10, radiusSm: 8, radiusXs: 6,
+  radius: 10,
+  radiusSm: 8,
+  radiusXs: 6,
   shadow: "0 6px 18px rgba(0,0,0,0.08)",
   border: "1px solid #e5e7eb",
-  bg: "#ffffff", bgAlt: "#f8fafc", text: "#111827", muted: "#6b7280",
+  bg: "#ffffff",
+  bgAlt: "#f8fafc",
+  text: "#111827",
+  muted: "#6b7280",
 };
 
 // page/container sizing
@@ -36,7 +41,13 @@ const mainWrap = {
   padding: "20px 24px",
 };
 
-const h1Style = { color: UI.text, marginBottom: 12, fontSize: 26, fontWeight: 800, letterSpacing: 0.2 };
+const h1Style = {
+  color: UI.text,
+  marginBottom: 12,
+  fontSize: 26,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+};
 
 // ✅ grid snaps to 1/2/3 columns automatically and stays inside the section
 const sectionGrid = {
@@ -46,29 +57,89 @@ const sectionGrid = {
   marginTop: 8,
 };
 
-const card      = { background: UI.bg, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadow, padding: 16 };
+const card = {
+  background: UI.bg,
+  borderRadius: UI.radius,
+  border: UI.border,
+  boxShadow: UI.shadow,
+  padding: 16,
+};
 const cardTitle = { margin: "0 0 10px", fontSize: 15, fontWeight: 700 };
 
 const field = {
-  label: { display: "block", fontWeight: 600, marginBottom: 6, color: UI.text },
-  input: { width: "100%", height: 38, padding: "8px 10px", fontSize: 14, borderRadius: UI.radiusXs, border: "1px solid #d1d5db", background: "#fff" },
-  textarea: { width: "100%", minHeight: 80, padding: "10px 12px", fontSize: 14, borderRadius: UI.radiusXs, border: "1px solid #d1d5db", background: "#fff" },
-  checkboxRow: { display: "flex", alignItems: "center", gap: 8, fontWeight: 600, marginBottom: 8 },
+  label: {
+    display: "block",
+    fontWeight: 600,
+    marginBottom: 6,
+    color: UI.text,
+  },
+  input: {
+    width: "100%",
+    height: 38,
+    padding: "8px 10px",
+    fontSize: 14,
+    borderRadius: UI.radiusXs,
+    border: "1px solid #d1d5db",
+    background: "#fff",
+  },
+  textarea: {
+    width: "100%",
+    minHeight: 80,
+    padding: "10px 12px",
+    fontSize: 14,
+    borderRadius: UI.radiusXs,
+    border: "1px solid #d1d5db",
+    background: "#fff",
+  },
+  checkboxRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 600,
+    marginBottom: 8,
+  },
 };
 
 const accordionBtn = {
-  display: "flex", alignItems: "center", justifyContent: "space-between",
-  width: "100%", padding: "8px 10px", borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db", background: UI.bgAlt, cursor: "pointer", fontWeight: 700
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  width: "100%",
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: "1px solid #d1d5db",
+  background: UI.bgAlt,
+  cursor: "pointer",
+  fontWeight: 700,
 };
 
-const pill     = { display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", fontSize: 12, borderRadius: 999, background: "#e5e7eb", border: "1px solid #d1d5db" };
-const divider  = { height: 1, background: "#e5e7eb", margin: "12px 0" };
-const actionsRow = { display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 };
+const pill = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "2px 8px",
+  fontSize: 12,
+  borderRadius: 999,
+  background: "#e5e7eb",
+  border: "1px solid #d1d5db",
+};
+const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
+const actionsRow = {
+  display: "flex",
+  gap: 10,
+  justifyContent: "flex-end",
+  marginTop: 14,
+};
 
-const btn       = { padding: "9px 13px", borderRadius: UI.radiusXs, border: "1px solid #111", cursor: "pointer", fontWeight: 700 };
+const btn = {
+  padding: "9px 13px",
+  borderRadius: UI.radiusXs,
+  border: "1px solid #111",
+  cursor: "pointer",
+  fontWeight: 700,
+};
 const btnPrimary = { ...btn, background: "#111", color: "#fff" };
-const btnGhost   = { ...btn, background: "#fff", color: "#111" };
+const btnGhost = { ...btn, background: "#fff", color: "#111" };
 
 // ✅ summary won’t overflow; sticks within the section with safe offset
 const summaryCard = {
@@ -90,10 +161,11 @@ const summaryRow = {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   UTC day helpers (unchanged)
+   UTC day helpers
 ──────────────────────────────────────────────────────────────────────────── */
 const parseYMD_UTC = (ymd) => {
-  const [y, m, d] = ymd.split("-").map(Number);
+  const [y, m, d] = (ymd || "").split("-").map(Number);
+  if (!y || !m || !d) return null;
   return new Date(Date.UTC(y, m - 1, d));
 };
 const formatYMD_UTC = (dt) => dt.toISOString().slice(0, 10);
@@ -103,9 +175,11 @@ const addDaysUTC = (dt, n) => {
   return copy;
 };
 const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
-  let cur = parseYMD_UTC(startYMD);
+  const start = parseYMD_UTC(startYMD);
   const end = parseYMD_UTC(endYMD);
+  if (!start || !end) return [];
   const out = [];
+  let cur = start;
   while (cur <= end) {
     out.push(formatYMD_UTC(cur));
     cur = addDaysUTC(cur, 1);
@@ -114,7 +188,7 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Travel helpers (unchanged)
+   Travel helpers
 ──────────────────────────────────────────────────────────────────────────── */
 const buildTravelDurationOptions = () => {
   const out = [];
@@ -136,7 +210,7 @@ const labelFromMins = (mins) => {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Blocking helpers (unchanged)
+   Blocking helpers
 ──────────────────────────────────────────────────────────────────────────── */
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
 const doesBlock = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
@@ -146,22 +220,37 @@ const anyDateOverlap = (datesA, datesB) => {
   return datesB.some((d) => setA.has(d));
 };
 const expandBookingDates = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length)
+    return b.bookingDates;
   const one = (b.date || "").slice(0, 10);
   const start = (b.startDate || "").slice(0, 10);
   const end = (b.endDate || "").slice(0, 10);
   if (one) return [one];
   if (start && end) {
-    let cur = parseYMD_UTC(start);
-    const stop = parseYMD_UTC(end);
-    const out = [];
-    while (cur <= stop) {
-      out.push(formatYMD_UTC(cur));
-      cur = addDaysUTC(cur, 1);
-    }
-    return out;
+    return enumerateDaysYMD_UTC(start, end);
   }
   return [];
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Date & vehicle key helpers for maintenance bookings
+──────────────────────────────────────────────────────────────────────────── */
+const toJsDate = (raw) => {
+  if (!raw) return null;
+  if (raw instanceof Date) return raw;
+  // Firestore Timestamp
+  if (typeof raw?.toDate === "function") return raw.toDate();
+  const s = String(raw);
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+};
+
+/** Prefer registration, else name; all lowercased + trimmed */
+const canonicalVehicleKey = (name, registration) => {
+  const reg = (registration || "").trim().toLowerCase();
+  const nm = (name || "").trim().toLowerCase();
+  return reg || nm || null;
 };
 
 export default function CreateBookingPage() {
@@ -205,7 +294,7 @@ export default function CreateBookingPage() {
   const [status, setStatus] = useState("Confirmed");
   const [shootType, setShootType] = useState("Day");
   const [notesByDate, setNotesByDate] = useState({});
-  const [freelancers, setFreelancers] = useState([]);
+  const [freelancers, setFreelancers] = useState([]); // kept for compatibility
   const [freelancerList, setFreelancerList] = useState([]);
   const [vehicleGroups, setVehicleGroups] = useState({
     Bike: [],
@@ -215,8 +304,10 @@ export default function CreateBookingPage() {
     "Low Loaders": [],
     "Transport Lorry": [],
     "Transport Van": [],
+    "Other Vehicles": [],
   });
   const [openGroups, setOpenGroups] = useState({
+    Bike: false,
     "Electric Tracking Vehicles": false,
     "Small Tracking Vehicles": false,
     "Large Tracking Vehicles": false,
@@ -233,24 +324,37 @@ export default function CreateBookingPage() {
   const [customDates, setCustomDates] = useState([]);
   const [quoteProgress, setQuoteProgress] = useState(0);
 
-
   const [employeeList, setEmployeeList] = useState([]);
-  // helper for required fields
-const REQ = { required: true };
 
+  /* 👇 NEW: name → code map (used only for saving employeeCodes) */
+  const [nameToCode, setNameToCode] = useState({});
+
+  const isMaintenance = status === "Maintenance";
 
   // ── Core field validation ──────────────────────────────────────────
-const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((contactEmail || "").trim());
-const phoneOk = (contactNumber || "").replace(/\D/g, "").length >= 0; // ≥7 digits
-const coreFilled = Boolean(
-  (client || "").trim() &&
-  emailOk &&
-  phoneOk &&
-  (location || "").trim()
-);
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    (contactEmail || "").trim()
+  );
+  const phoneOk = (contactNumber || "").replace(/\D/g, "").length >= 7; // ≥7 digits
 
+  const coreFilled = isMaintenance
+    ? Boolean((location || "").trim())
+    : Boolean(
+        (client || "").trim() &&
+          emailOk &&
+          phoneOk &&
+          (location || "").trim()
+      );
 
-  // load data (logic preserved)
+  const saveTooltip = isMaintenance
+    ? !coreFilled
+      ? "Fill Location to save"
+      : ""
+    : !coreFilled
+    ? "Fill Production, Email, Number, and Location to save"
+    : "";
+
+  // load data
   useEffect(() => {
     const loadData = async () => {
       // 1) bookings
@@ -289,7 +393,8 @@ const coreFilled = Boolean(
         if (groupedEquip[category]) {
           groupedEquip[category].push(name);
         } else {
-          if (!groupedEquip["Uncategorised"]) groupedEquip["Uncategorised"] = [];
+          if (!groupedEquip["Uncategorised"])
+            groupedEquip["Uncategorised"] = [];
           if (!openEquip["Uncategorised"]) openEquip["Uncategorised"] = false;
           groupedEquip["Uncategorised"].push(name);
         }
@@ -303,13 +408,20 @@ const coreFilled = Boolean(
 
       // 4) employees/freelancers
       const empSnap = await getDocs(collection(db, "employees"));
-      const allEmployees = empSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
+      const allEmployees = empSnap.docs.map((docu) => ({
+        id: docu.id,
+        ...docu.data(),
+      }));
 
       setEmployeeList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
-            return titles.some((t) => (t || "").toLowerCase() === "driver");
+            const titles = Array.isArray(emp.jobTitle)
+              ? emp.jobTitle
+              : [emp.jobTitle];
+            return titles.some(
+              (t) => (t || "").toLowerCase() === "driver"
+            );
           })
           .map((emp) => emp.name || emp.fullName || emp.id)
       );
@@ -317,13 +429,27 @@ const coreFilled = Boolean(
       setFreelancerList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
-            return titles.some(
-              (t) => (t || "").toLowerCase() === "freelance" || (t || "").toLowerCase() === "freelancer"
-            );
+            const titles = Array.isArray(emp.jobTitle)
+              ? emp.jobTitle
+              : [emp.jobTitle];
+            return titles.some((t) => {
+              const val = (t || "").toLowerCase();
+              return val === "freelance" || val === "freelancer";
+            });
           })
           .map((emp) => emp.name || emp.fullName || emp.id)
       );
+
+      // 👇 NEW: build plain object map { lowercasedName: userCode }
+      const map = {};
+      for (const emp of allEmployees) {
+        const name = String(emp.name || emp.fullName || "")
+          .trim()
+          .toLowerCase();
+        const code = String(emp.userCode || "").trim();
+        if (name && code) map[name] = code;
+      }
+      setNameToCode(map);
 
       // 5) maintenance/work bookings
       const workSnap = await getDocs(collection(db, "workBookings"));
@@ -344,15 +470,24 @@ const coreFilled = Boolean(
       vehicleSnap.docs.forEach((docu) => {
         const data = docu.data();
         const category = (data.category || "").trim().toLowerCase();
-        const vehicle = { name: data.name, registration: data.registration || "" };
+        const vehicle = {
+          name: data.name,
+          registration: data.registration || "",
+        };
 
-        if (category.includes("small")) grouped["Small Tracking Vehicles"].push(vehicle);
+        if (category.includes("small"))
+          grouped["Small Tracking Vehicles"].push(vehicle);
         else if (category.includes("bike")) grouped["Bike"].push(vehicle);
-        else if (category.includes("electric")) grouped["Electric Tracking Vehicles"].push(vehicle);
-        else if (category.includes("large")) grouped["Large Tracking Vehicles"].push(vehicle);
-        else if (category.includes("low loader")) grouped["Low Loaders"].push(vehicle);
-        else if (category.includes("lorry")) grouped["Transport Lorry"].push(vehicle);
-        else if (category.includes("van")) grouped["Transport Van"].push(vehicle);
+        else if (category.includes("electric"))
+          grouped["Electric Tracking Vehicles"].push(vehicle);
+        else if (category.includes("large"))
+          grouped["Large Tracking Vehicles"].push(vehicle);
+        else if (category.includes("low loader"))
+          grouped["Low Loaders"].push(vehicle);
+        else if (category.includes("lorry"))
+          grouped["Transport Lorry"].push(vehicle);
+        else if (category.includes("van"))
+          grouped["Transport Van"].push(vehicle);
         else grouped["Other Vehicles"].push(vehicle);
       });
       setVehicleGroups(grouped);
@@ -361,7 +496,7 @@ const coreFilled = Boolean(
     loadData();
   }, []);
 
-  // selections / blocking (logic preserved)
+  // selections / blocking
   const selectedDates = (() => {
     if (useCustomDates) return customDates;
     if (!startDate) return [];
@@ -369,6 +504,7 @@ const coreFilled = Boolean(
       const out = [];
       let cur = parseYMD_UTC(startDate);
       const stop = parseYMD_UTC(endDate);
+      if (!cur || !stop) return [];
       while (cur <= stop) {
         out.push(cur.toISOString().slice(0, 10));
         cur.setUTCDate(cur.getUTCDate() + 1);
@@ -379,66 +515,131 @@ const coreFilled = Boolean(
   })();
 
   const isEmployeeOnHoliday = (employeeName) => {
-    if (selectedDates.length === 0) return false;
+    if (!employeeName || selectedDates.length === 0) return false;
     return holidayBookings.some((h) => {
       if (h.employee !== employeeName) return false;
       const holidayStart = new Date(h.startDate);
       const holidayEnd = new Date(h.endDate);
-      return selectedDates.some((d) => {
-        const day = new Date(d);
-        return day >= holidayStart && day <= holidayEnd;
+      return selectedDates.some((dStr) => {
+        const d = new Date(dStr);
+        return d >= holidayStart && d <= holidayEnd;
       });
     });
   };
 
   const bookedVehicles = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .filter(
+      (b) =>
+        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
+    )
     .flatMap((b) => b.vehicles || []);
 
   const bookedEquipment = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .filter(
+      (b) =>
+        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
+    )
     .flatMap((b) => b.equipment || []);
 
   const bookedEmployees = allBookings
-    .filter((b) => doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates))
+    .filter(
+      (b) =>
+        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
+    )
     .flatMap((b) => b.employees || []);
 
-  const maintenanceBookedVehicles = maintenanceBookings
-    .filter((b) => {
-      const start = new Date(b.startDate);
-      const end = new Date(b.endDate || b.startDate);
-      return selectedDates.some((dateStr) => {
-        const d = new Date(dateStr);
+  // 🔧 Build a set of canonical keys for vehicles that are off for maintenance
+  // on any of the selected dates.
+  const maintenanceVehicleKeySet = new Set(
+    maintenanceBookings.flatMap((b) => {
+      const start =
+        toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
+      const end =
+        toJsDate(b.endDate || b.end || b.endDate) ||
+        start ||
+        toJsDate(b.date);
+
+      if (!start || !end) return [];
+
+      const overlaps = selectedDates.some((dateStr) => {
+        const d = new Date(dateStr + "T00:00:00");
         return d >= start && d <= end;
       });
-    })
-    .map((b) => b.vehicleName);
+      if (!overlaps) return [];
 
-  // submit (logic preserved)
+      const keys = [];
+
+      // If work bookings store an array of vehicles
+      if (Array.isArray(b.vehicles) && b.vehicles.length) {
+        b.vehicles.forEach((v) => {
+          if (typeof v === "string") {
+            const key = canonicalVehicleKey(v, null);
+            if (key) keys.push(key);
+          } else if (v && typeof v === "object") {
+            const key = canonicalVehicleKey(
+              v.name || v.vehicleName,
+              v.registration || v.reg || v.vehicleReg
+            );
+            if (key) keys.push(key);
+          }
+        });
+      } else {
+        // Single fields
+        const key = canonicalVehicleKey(
+          b.vehicleName || b.vehicle,
+          b.vehicleReg || b.registration || b.reg
+        );
+        if (key) keys.push(key);
+      }
+
+      return keys;
+    })
+  );
+
+  // submit (logic preserved, + save employeeCodes)
   const handleSubmit = async (submitStatus = "Confirmed") => {
+    const submitIsMaintenance = submitStatus === "Maintenance";
+
     if (submitStatus !== "Enquiry") {
       if (useCustomDates) {
-        if (customDates.length === 0) return alert("Please select at least one date.");
+        if (customDates.length === 0)
+          return alert("Please select at least one date.");
       } else {
         if (!startDate) return alert("Please select a start date.");
-        if (isRange && !endDate) return alert("Please select an end date.");
+        if (isRange && !endDate)
+          return alert("Please select an end date.");
       }
     }
 
-      // ✅ Block if core fields are missing/invalid
-  if (!coreFilled) {
-    const missing = [];
-    if (!(client || "").trim()) missing.push("Production");
-    if (!emailOk) missing.push("valid Email");
-    if (!phoneOk) missing.push("Contact Number");
-    if (!(location || "").trim()) missing.push("Location");
-    alert("Please provide: " + missing.join(", ") + ".");
-    return;
-  }
+    // ✅ Block if core fields are missing/invalid
+    const normalCoreFilled = Boolean(
+      (client || "").trim() &&
+        emailOk &&
+        phoneOk &&
+        (location || "").trim()
+    );
+    const maintenanceCoreFilled = Boolean((location || "").trim());
+    const effectiveFilled = submitIsMaintenance
+      ? maintenanceCoreFilled
+      : normalCoreFilled;
 
+    if (!effectiveFilled) {
+      const missing = [];
+      if (!submitIsMaintenance && !(client || "").trim())
+        missing.push("Production");
+      if (!submitIsMaintenance && !emailOk) missing.push("valid Email");
+      if (!submitIsMaintenance && !phoneOk) missing.push("Contact Number");
+      if (!(location || "").trim()) missing.push("Location");
+      alert("Please provide: " + missing.join(", ") + ".");
+      return;
+    }
 
-    const customNames = customEmployee ? customEmployee.split(",").map((n) => n.trim()) : [];
-    const cleanedEmployees = employees.filter((n) => n !== "Other").concat(customNames);
+    const customNames = customEmployee
+      ? customEmployee.split(",").map((n) => n.trim())
+      : [];
+    const cleanedEmployees = employees
+      .filter((n) => n !== "Other")
+      .concat(customNames);
 
     for (const employee of cleanedEmployees) {
       if (isEmployeeOnHoliday(employee)) {
@@ -455,60 +656,77 @@ const coreFilled = Boolean(
       if (typeof notesByDate[`${d}-other`] !== "undefined")
         filteredNotesByDate[`${d}-other`] = notesByDate[`${d}-other`];
       if (typeof notesByDate[`${d}-travelMins`] !== "undefined")
-        filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
+        filteredNotesByDate[`${d}-travelMins`] =
+          notesByDate[`${d}-travelMins`];
     });
 
-    // upload quote (unchanged)
-// upload quote (PDF only)
-let quoteUrlToSave = null;
+    // upload quote (PDF only)
+    let quoteUrlToSave = null;
 
-if (quoteFile) {
-  try {
-    // Guard: must be a PDF
-    const nameIsPdf = /\.pdf$/i.test(quoteFile.name || "");
-    const typeIsPdf = (quoteFile.type || "").toLowerCase() === "application/pdf";
-    if (!nameIsPdf && !typeIsPdf) {
-      alert("Please attach a PDF (.pdf) file.");
-      return;
+    if (quoteFile) {
+      try {
+        // Guard: must be a PDF
+        const nameIsPdf = /\.pdf$/i.test(quoteFile.name || "");
+        const typeIsPdf =
+          (quoteFile.type || "").toLowerCase() === "application/pdf";
+        if (!nameIsPdf && !typeIsPdf) {
+          alert("Please attach a PDF (.pdf) file.");
+          return;
+        }
+
+        // Sanitize + enforce .pdf extension
+        const base = `${jobNumber || "nojob"}_${quoteFile.name}`.replace(
+          /\s+/g,
+          "_"
+        );
+        const safeName = base.toLowerCase().endsWith(".pdf")
+          ? base
+          : `${base}.pdf`;
+
+        // Keep quotes in /quotes
+        const storageRef = ref(storage, `quotes/${safeName}`);
+
+        // Always set the contentType to application/pdf
+        const uploadTask = uploadBytesResumable(storageRef, quoteFile, {
+          contentType: "application/pdf",
+        });
+
+        await new Promise((resolve, reject) => {
+          uploadTask.on(
+            "state_changed",
+            (snap) => {
+              const pct = Math.round(
+                (snap.bytesTransferred / snap.totalBytes) * 100
+              );
+              setQuoteProgress(pct);
+            },
+            (err) => {
+              console.error("Upload error:", err);
+              reject(err);
+            },
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              setQuoteURL(url);
+              quoteUrlToSave = url;
+              resolve();
+            }
+          );
+        });
+      } catch (error) {
+        alert(
+          "Failed to upload PDF: " + (error?.message || String(error))
+        );
+        return; // stop save if upload fails
+      }
     }
 
-    // Sanitize + enforce .pdf extension
-    const base = `${jobNumber || "nojob"}_${quoteFile.name}`.replace(/\s+/g, "_");
-    const safeName = base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
-
-    // Keep quotes in /quotes
-    const storageRef = ref(storage, `quotes/${safeName}`);
-
-    // Always set the contentType to application/pdf
-    const uploadTask = uploadBytesResumable(storageRef, quoteFile, {
-      contentType: "application/pdf",
-    });
-
-    await new Promise((resolve, reject) => {
-      uploadTask.on(
-        "state_changed",
-        (snap) => {
-          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-          setQuoteProgress(pct);
-        },
-        (err) => {
-          console.error("Upload error:", err);
-          reject(err);
-        },
-        async () => {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          setQuoteURL(url);
-          quoteUrlToSave = url;
-          resolve();
-        }
-      );
-    });
-  } catch (error) {
-    alert("Failed to upload PDF: " + (error?.message || String(error)));
-    return; // stop save if upload fails
-  }
-}
-
+    // 👇 NEW: derive codes from selected names (keeps employees as names)
+    const employeeCodes = cleanedEmployees
+      .map(
+        (n) =>
+          nameToCode[String(n || "").trim().toLowerCase()]
+      )
+      .filter(Boolean);
 
     const user = auth.currentUser;
     const booking = {
@@ -517,7 +735,8 @@ if (quoteFile) {
       contactNumber,
       contactEmail,
       location,
-      employees: cleanedEmployees,
+      employees: cleanedEmployees, // ← unchanged (names)
+      employeeCodes, // ← NEW (for array-contains queries)
       vehicles,
       equipment,
       isSecondPencil,
@@ -584,30 +803,43 @@ if (quoteFile) {
                 <h3 style={cardTitle}>Job Info</h3>
 
                 <label style={field.label}>Job Number</label>
-                <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
+                <input
+                  value={jobNumber}
+                  onChange={(e) => setJobNumber(e.target.value)}
+                  required
+                  style={field.input}
+                />
 
                 <label style={field.label}>Status</label>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} style={field.input}>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  style={field.input}
+                >
                   <option value="Confirmed">Confirmed</option>
                   <option value="First Pencil">First Pencil</option>
                   <option value="Second Pencil">Second Pencil</option>
                   <option value="Enquiry">Enquiry</option>
+                  <option value="Maintenance">Maintenance</option>
                 </select>
 
                 <label style={field.label}>Shoot Type</label>
-                <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
+                <select
+                  value={shootType}
+                  onChange={(e) => setShootType(e.target.value)}
+                  style={field.input}
+                >
                   <option value="Day">Day</option>
                   <option value="Night">Night</option>
                 </select>
 
                 <label style={field.label}>Production</label>
-                <textarea 
-  value={client}
-  onChange={(e) => setClient(e.target.value)}
-  style={field.textarea}
-  {...REQ}
-/>
-
+                <textarea
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  style={field.textarea}
+                  required={status !== "Maintenance"}
+                />
 
                 <label style={field.label}>Contact Email</label>
                 <input
@@ -619,25 +851,23 @@ if (quoteFile) {
                 />
 
                 <label style={field.label}>Contact Number</label>
-               <input
-  type="tel"
-  inputMode="tel"
-  value={contactNumber}
-  onChange={(e) => setContactNumber(e.target.value)}
-  placeholder="Enter phone number"
-  style={field.input}
-  {...REQ}
-/>
-
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  placeholder="Enter phone number"
+                  style={field.input}
+                  required={status !== "Maintenance"}
+                />
 
                 <label style={field.label}>Location</label>
-               <textarea
-  value={location}
-  onChange={(e) => setLocation(e.target.value)}
-  style={field.textarea}
-  {...REQ}
-/>
-
+                <textarea
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  style={field.textarea}
+                  required
+                />
               </div>
 
               {/* Column 2: Dates & People */}
@@ -659,7 +889,11 @@ if (quoteFile) {
 
                 {!useCustomDates && (
                   <label style={field.checkboxRow}>
-                    <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                    <input
+                      type="checkbox"
+                      checked={isRange}
+                      onChange={() => setIsRange(!isRange)}
+                    />
                     Multi-day booking (consecutive)
                   </label>
                 )}
@@ -672,16 +906,28 @@ if (quoteFile) {
                       format="YYYY-MM-DD"
                       onChange={(vals) => {
                         const normalised = (Array.isArray(vals) ? vals : [])
-                          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                          .map((v) =>
+                            typeof v?.format === "function"
+                              ? v.format("YYYY-MM-DD")
+                              : String(v)
+                          )
                           .sort();
                         setCustomDates(normalised);
                       }}
                     />
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isRange ? "1fr 1fr" : "1fr",
+                      gap: 12,
+                    }}
+                  >
                     <div>
-                      <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
+                      <label style={field.label}>
+                        {isRange ? "Start Date" : "Date"}
+                      </label>
                       <input
                         type="date"
                         value={startDate}
@@ -711,7 +957,12 @@ if (quoteFile) {
                     <h4 style={{ margin: "8px 0" }}>Note for the Day</h4>
                     <select
                       value={notesByDate[startDate] || ""}
-                      onChange={(e) => setNotesByDate({ ...notesByDate, [startDate]: e.target.value })}
+                      onChange={(e) =>
+                        setNotesByDate({
+                          ...notesByDate,
+                          [startDate]: e.target.value,
+                        })
+                      }
                       style={field.input}
                     >
                       <option value="">Select note</option>
@@ -749,7 +1000,14 @@ if (quoteFile) {
 
                     {notesByDate[startDate] === "Travel Time" && (
                       <div style={{ marginTop: 8 }}>
-                        <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
+                        <label
+                          style={{
+                            ...field.label,
+                            marginBottom: 6,
+                          }}
+                        >
+                          Travel duration
+                        </label>
                         <select
                           value={notesByDate[`${startDate}-travelMins`] || ""}
                           onChange={(e) =>
@@ -780,82 +1038,134 @@ if (quoteFile) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))",
+                        gridTemplateColumns:
+                          "repeat(auto-fit,minmax(320px,1fr))",
                         gap: 12,
                       }}
                     >
-                      {enumerateDaysYMD_UTC(startDate, endDate).map((date) => {
-                        const selectedNote = notesByDate[date] || "";
-                        const isOther = selectedNote === "Other";
-                        const customOtherValue = notesByDate[`${date}-other`] || "";
-                        return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
-                            <select
-                              value={selectedNote}
-                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
-                              style={field.input}
+                      {enumerateDaysYMD_UTC(startDate, endDate).map(
+                        (date) => {
+                          const selectedNote = notesByDate[date] || "";
+                          const isOther = selectedNote === "Other";
+                          const customOtherValue =
+                            notesByDate[`${date}-other`] || "";
+                          return (
+                            <div
+                              key={date}
+                              style={{
+                                border: UI.border,
+                                borderRadius: UI.radiusSm,
+                                padding: 10,
+                                background: UI.bgAlt,
+                              }}
                             >
-                              <option value="">Select note</option>
-                              <option value="1/2 Day Travel">1/2 Day Travel</option>
-                              <option value="Night Shoot">Night Shoot</option>
-                              <option value="On Set">Shoot Day</option>
-                              <option value="Other">Other</option>
-                              <option value="Rehearsal Day">Rehearsal Day</option>
-                              <option value="Rest Day">Rest Day</option>
-                              <option value="Rig Day">Rig Day</option>
-                              <option value="Standby Day">Standby Day</option>
-                              <option value="Spilt Day">Spilt Day</option>
-                              <option value="Travel Day">Travel Day</option>
-                              <option value="Travel Time">Travel Time</option>
-                              <option value="Turnaround Day">Turnaround Day</option>
-                              <option value="Recce Day">Recce Day</option>
-                            </select>
-
-                            {isOther && (
-                              <div style={{ marginTop: 8 }}>
-                                <input
-                                  type="text"
-                                  placeholder="Enter custom note"
-                                  value={customOtherValue}
-                                  onChange={(e) =>
-                                    setNotesByDate({
-                                      ...notesByDate,
-                                      [date]: "Other",
-                                      [`${date}-other`]: e.target.value,
-                                    })
-                                  }
-                                  style={field.input}
-                                />
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  marginBottom: 8,
+                                }}
+                              >
+                                {new Date(date).toDateString()}
                               </div>
-                            )}
+                              <select
+                                value={selectedNote}
+                                onChange={(e) =>
+                                  setNotesByDate({
+                                    ...notesByDate,
+                                    [date]: e.target.value,
+                                  })
+                                }
+                                style={field.input}
+                              >
+                                <option value="">Select note</option>
+                                <option value="1/2 Day Travel">
+                                  1/2 Day Travel
+                                </option>
+                                <option value="Night Shoot">
+                                  Night Shoot
+                                </option>
+                                <option value="On Set">Shoot Day</option>
+                                <option value="Other">Other</option>
+                                <option value="Rehearsal Day">
+                                  Rehearsal Day
+                                </option>
+                                <option value="Rest Day">Rest Day</option>
+                                <option value="Rig Day">Rig Day</option>
+                                <option value="Standby Day">
+                                  Standby Day
+                                </option>
+                                <option value="Spilt Day">Spilt Day</option>
+                                <option value="Travel Day">
+                                  Travel Day
+                                </option>
+                                <option value="Travel Time">
+                                  Travel Time
+                                </option>
+                                <option value="Turnaround Day">
+                                  Turnaround Day
+                                </option>
+                                <option value="Recce Day">Recce Day</option>
+                              </select>
 
-                            {selectedNote === "Travel Time" && (
-                              <div style={{ marginTop: 8 }}>
-                                <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
-                                <select
-                                  value={notesByDate[`${date}-travelMins`] || ""}
-                                  onChange={(e) =>
-                                    setNotesByDate({
-                                      ...notesByDate,
-                                      [date]: "Travel Time",
-                                      [`${date}-travelMins`]: e.target.value,
-                                    })
-                                  }
-                                  style={field.input}
-                                >
-                                  <option value="">Select duration</option>
-                                  {TRAVEL_DURATION_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {isOther && (
+                                <div style={{ marginTop: 8 }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Enter custom note"
+                                    value={customOtherValue}
+                                    onChange={(e) =>
+                                      setNotesByDate({
+                                        ...notesByDate,
+                                        [date]: "Other",
+                                        [`${date}-other`]: e.target.value,
+                                      })
+                                    }
+                                    style={field.input}
+                                  />
+                                </div>
+                              )}
+
+                              {selectedNote === "Travel Time" && (
+                                <div style={{ marginTop: 8 }}>
+                                  <label
+                                    style={{
+                                      ...field.label,
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    Travel duration
+                                  </label>
+                                  <select
+                                    value={
+                                      notesByDate[`${date}-travelMins`] ||
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      setNotesByDate({
+                                        ...notesByDate,
+                                        [date]: "Travel Time",
+                                        [`${date}-travelMins`]:
+                                          e.target.value,
+                                      })
+                                    }
+                                    style={field.input}
+                                  >
+                                    <option value="">Select duration</option>
+                                    {TRAVEL_DURATION_OPTIONS.map((opt) => (
+                                      <option
+                                        key={opt.value}
+                                        value={opt.value}
+                                      >
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                      )}
                     </div>
                   </div>
                 )}
@@ -868,18 +1178,30 @@ if (quoteFile) {
                   const isHoliday = isEmployeeOnHoliday(name);
                   const disabled = isBooked || isHoliday || isCrewed;
                   return (
-                    <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                    <label
+                      key={name}
+                      style={{ display: "block", marginBottom: 6 }}
+                    >
                       <input
                         type="checkbox"
                         value={name}
                         disabled={disabled}
                         checked={employees.includes(name)}
                         onChange={(e) =>
-                          setEmployees(e.target.checked ? [...employees, name] : employees.filter((n) => n !== name))
+                          setEmployees(
+                            e.target.checked
+                              ? [...employees, name]
+                              : employees.filter((n) => n !== name)
+                          )
                         }
                       />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
+                      <span
+                        style={{
+                          color: disabled ? "#9ca3af" : UI.text,
+                        }}
+                      >
+                        {name} {isBooked && "(Booked)"}{" "}
+                        {isHoliday && "(On Holiday)"}
                       </span>
                     </label>
                   );
@@ -887,8 +1209,12 @@ if (quoteFile) {
 
                 <div style={{ marginTop: 8, marginBottom: 8 }}>
                   <label style={{ fontWeight: 700 }}>
-                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking
-                    Crewed
+                    <input
+                      type="checkbox"
+                      checked={isCrewed}
+                      onChange={(e) => setIsCrewed(e.target.checked)}
+                    />{" "}
+                    Booking Crewed
                   </label>
                 </div>
 
@@ -898,18 +1224,30 @@ if (quoteFile) {
                   const isHoliday = isEmployeeOnHoliday(name);
                   const disabled = isBooked || isHoliday;
                   return (
-                    <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                    <label
+                      key={name}
+                      style={{ display: "block", marginBottom: 6 }}
+                    >
                       <input
                         type="checkbox"
                         value={name}
                         disabled={disabled}
                         checked={employees.includes(name)}
                         onChange={(e) =>
-                          setEmployees(e.target.checked ? [...employees, name] : employees.filter((n) => n !== name))
+                          setEmployees(
+                            e.target.checked
+                              ? [...employees, name]
+                              : employees.filter((n) => n !== name)
+                          )
                         }
                       />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
+                      <span
+                        style={{
+                          color: disabled ? "#9ca3af" : UI.text,
+                        }}
+                      >
+                        {name} {isBooked && "(Booked)"}{" "}
+                        {isHoliday && "(On Holiday)"}
                       </span>
                     </label>
                   );
@@ -937,7 +1275,12 @@ if (quoteFile) {
                     <div key={group} style={{ marginTop: 10 }}>
                       <button
                         type="button"
-                        onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                        onClick={() =>
+                          setOpenGroups((prev) => ({
+                            ...prev,
+                            [group]: !prev[group],
+                          }))
+                        }
                         style={accordionBtn}
                       >
                         <span>
@@ -948,11 +1291,32 @@ if (quoteFile) {
                       {isOpen && (
                         <div style={{ padding: "10px 6px" }}>
                           {items.map((vehicle) => {
-                            const isBooked = bookedVehicles.includes(vehicle.name);
-                            const isMaintenance = maintenanceBookedVehicles.includes(vehicle.name);
+                            const isBooked = bookedVehicles.includes(
+                              vehicle.name
+                            );
+
+                            const vehicleKey = canonicalVehicleKey(
+                              vehicle.name,
+                              vehicle.registration
+                            );
+                            const isMaintenance = vehicleKey
+                              ? maintenanceVehicleKeySet.has(vehicleKey)
+                              : false;
+
                             const disabled = isBooked || isMaintenance;
+
                             return (
-                              <label key={vehicle.name} style={{ display: "block", marginBottom: 6 }}>
+                              <label
+                                key={
+                                  vehicle.registration
+                                    ? `${vehicle.name}-${vehicle.registration}`
+                                    : vehicle.name
+                                }
+                                style={{
+                                  display: "block",
+                                  marginBottom: 6,
+                                }}
+                              >
                                 <input
                                   type="checkbox"
                                   value={vehicle.name}
@@ -962,14 +1326,23 @@ if (quoteFile) {
                                     setVehicles(
                                       e.target.checked
                                         ? [...vehicles, vehicle.name]
-                                        : vehicles.filter((v) => v !== vehicle.name)
+                                        : vehicles.filter(
+                                            (v) => v !== vehicle.name
+                                          )
                                     )
                                   }
                                 />{" "}
-                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                <span
+                                  style={{
+                                    color: disabled ? "#9ca3af" : UI.text,
+                                  }}
+                                >
                                   {vehicle.name}
-                                  {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isBooked && " (Booked)"} {isMaintenance && " (Maintenance)"}
+                                  {vehicle.registration
+                                    ? ` – ${vehicle.registration}`
+                                    : ""}
+                                  {isBooked && " (Booked)"}{" "}
+                                  {isMaintenance && " (Maintenance)"}
                                 </span>
                               </label>
                             );
@@ -989,7 +1362,12 @@ if (quoteFile) {
                     <div key={group} style={{ marginTop: 10 }}>
                       <button
                         type="button"
-                        onClick={() => setOpenEquipmentGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                        onClick={() =>
+                          setOpenEquipmentGroups((prev) => ({
+                            ...prev,
+                            [group]: !prev[group],
+                          }))
+                        }
                         style={accordionBtn}
                       >
                         <span>
@@ -1000,10 +1378,17 @@ if (quoteFile) {
                       {isOpen && (
                         <div style={{ padding: "10px 6px" }}>
                           {items.map((item) => {
-                            const isBooked = bookedEquipment.includes(item);
+                            const isBooked =
+                              bookedEquipment.includes(item);
                             const disabled = isBooked;
                             return (
-                              <label key={item} style={{ display: "block", marginBottom: 6 }}>
+                              <label
+                                key={item}
+                                style={{
+                                  display: "block",
+                                  marginBottom: 6,
+                                }}
+                              >
                                 <input
                                   type="checkbox"
                                   value={item}
@@ -1013,11 +1398,17 @@ if (quoteFile) {
                                     setEquipment(
                                       e.target.checked
                                         ? [...equipment, item]
-                                        : equipment.filter((i) => i !== item)
+                                        : equipment.filter(
+                                            (i) => i !== item
+                                          )
                                     )
                                   }
                                 />{" "}
-                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                <span
+                                  style={{
+                                    color: disabled ? "#9ca3af" : UI.text,
+                                  }}
+                                >
                                   {item} {isBooked && "(Booked)"}
                                 </span>
                               </label>
@@ -1029,25 +1420,34 @@ if (quoteFile) {
                   );
                 })}
               </div>
-
-
             </div>
 
             {/* Files & Notes (separate card) */}
             <div style={{ ...card, marginTop: 18 }}>
               <h3 style={cardTitle}>Files & Notes</h3>
 
-<label style={field.label}>Attach Quote (PDF)</label>
-<input
-  type="file"
-  accept="application/pdf,.pdf"
-  onChange={(e) => {
-    const file = e.target.files?.[0];
-    setQuoteFile(file || null);
-  }}
-  style={{ ...field.input, height: "auto", padding: 10 }}
-/>
+              <label style={field.label}>Attach Quote (PDF)</label>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  setQuoteFile(file || null);
+                }}
+                style={{ ...field.input, height: "auto", padding: 10 }}
+              />
 
+              {quoteProgress > 0 && quoteProgress < 100 && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    color: UI.muted,
+                  }}
+                >
+                  Uploading: {quoteProgress}%
+                </div>
+              )}
 
               <div style={{ marginTop: 14 }} />
               <label style={field.label}>Job Description</label>
@@ -1062,7 +1462,11 @@ if (quoteFile) {
               <div style={divider} />
 
               <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={hasHS}
+                  onChange={(e) => setHasHS(e.target.checked)}
+                />
                 Health & Safety Completed
               </label>
               <label style={field.checkboxRow}>
@@ -1078,7 +1482,7 @@ if (quoteFile) {
                 <button
                   type="submit"
                   disabled={!coreFilled}
-                  title={!coreFilled ? "Fill Production, Email, Number, and Location to save" : ""}
+                  title={saveTooltip}
                   style={{
                     ...btnPrimary,
                     opacity: coreFilled ? 1 : 0.5,
@@ -1088,75 +1492,91 @@ if (quoteFile) {
                   Save Booking
                 </button>
 
-                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard")}
+                  style={btnGhost}
+                >
                   Cancel
                 </button>
               </div>
             </div>
 
-                        {/* Summary row */}
-              <div style={{ gridColumn: "1 / -1" }}>
-                <div style={summaryCard}>
-                  <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>📋 Summary</h3>
-                  <div style={summaryRow}>
-                    <div>Job Number</div>
-                    <div>{jobNumber || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Status</div>
-                    <div>{status || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Shoot Type</div>
-                    <div>{shootType || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Production</div>
-                    <div>{client || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Contact</div>
-                    <div>
-                      {contactEmail || "—"}
-                      {contactNumber ? ` • ${contactNumber}` : ""}
-                    </div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Location</div>
-                    <div>{location || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Dates</div>
-                    <div>
-                      {useCustomDates
-                        ? customDates.length
-                          ? customDates.join(", ")
-                          : "—"
-                        : isRange
-                        ? `${startDate || "—"} → ${endDate || "—"}`
-                        : startDate || "—"}
-                    </div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>People</div>
-                    <div>
-                      {employees
-                        .concat(customEmployee ? customEmployee.split(",").map((n) => n.trim()) : [])
-                        .join(", ") || "—"}
-                    </div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Vehicles</div>
-                    <div>{vehicles.join(", ") || "—"}</div>
-                  </div>
-                  <div style={summaryRow}>
-                    <div>Equipment</div>
-                    <div>{equipment.join(", ") || "—"}</div>
+            {/* Summary row */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={summaryCard}>
+                <h3
+                  style={{
+                    margin: "0 0 10px",
+                    fontSize: 16,
+                    fontWeight: 800,
+                  }}
+                >
+                  📋 Summary
+                </h3>
+                <div style={summaryRow}>
+                  <div>Job Number</div>
+                  <div>{jobNumber || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Status</div>
+                  <div>{status || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Shoot Type</div>
+                  <div>{shootType || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Production</div>
+                  <div>{client || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Contact</div>
+                  <div>
+                    {contactEmail || "—"}
+                    {contactNumber ? ` • ${contactNumber}` : ""}
                   </div>
                 </div>
+                <div style={summaryRow}>
+                  <div>Location</div>
+                  <div>{location || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Dates</div>
+                  <div>
+                    {useCustomDates
+                      ? customDates.length
+                        ? customDates.join(", ")
+                        : "—"
+                      : isRange
+                      ? `${startDate || "—"} → ${endDate || "—"}`
+                      : startDate || "—"}
+                  </div>
+                </div>
+                <div style={summaryRow}>
+                  <div>People</div>
+                  <div>
+                    {employees
+                      .concat(
+                        customEmployee
+                          ? customEmployee
+                              .split(",")
+                              .map((n) => n.trim())
+                          : []
+                      )
+                      .join(", ") || "—"}
+                  </div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Vehicles</div>
+                  <div>{vehicles.join(", ") || "—"}</div>
+                </div>
+                <div style={summaryRow}>
+                  <div>Equipment</div>
+                  <div>{equipment.join(", ") || "—"}</div>
+                </div>
               </div>
-
-
+            </div>
           </form>
         </div>
       </div>
