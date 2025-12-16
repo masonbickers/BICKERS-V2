@@ -55,7 +55,12 @@ const shell = {
   fontFamily:
     "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
 };
-const main = { flex: 1, padding: "28px 28px 40px", maxWidth: 1600, margin: "0 auto" };
+const main = {
+  flex: 1,
+  padding: "28px 28px 40px",
+  maxWidth: 1600,
+  margin: "0 auto",
+};
 
 const h1 = {
   fontSize: 28,
@@ -90,7 +95,12 @@ const card = {
 };
 
 const cardTitle = { margin: 0, fontSize: 16, fontWeight: 700, color: UI.text };
-const cardDesc = { marginTop: 6, fontSize: 13, color: UI.subtext, lineHeight: 1.4 };
+const cardDesc = {
+  marginTop: 6,
+  fontSize: 13,
+  color: UI.subtext,
+  lineHeight: 1.4,
+};
 
 const sectionTitle = {
   fontSize: 22,
@@ -132,7 +142,12 @@ const modal = {
 };
 
 const table = { width: "100%", borderCollapse: "collapse" };
-const thtd = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "top" };
+const thtd = {
+  padding: "10px 12px",
+  fontSize: 13,
+  borderBottom: "1px solid #eef2f7",
+  verticalAlign: "top",
+};
 
 const actionBtn = (bg, fg) => ({
   display: "inline-flex",
@@ -214,7 +229,9 @@ const getDayNote = (booking, dayKey) => {
 
   if (
     single &&
-    (Array.isArray(booking.bookingDates) ? booking.bookingDates.length === 1 : true)
+    (Array.isArray(booking.bookingDates)
+      ? booking.bookingDates.length === 1
+      : true)
   ) {
     return single;
   }
@@ -222,28 +239,45 @@ const getDayNote = (booking, dayKey) => {
   return null;
 };
 
-const vehicleLabel = (v) => {
+/* General label builder for a vehicle object */
+const buildVehicleLabelFromObject = (v) => {
   if (!v) return "";
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "object") {
-    return (
-      v.name?.toString().trim() ||
-      [v.manufacturer, v.model].filter(Boolean).join(" ").trim() ||
-      v.displayName?.toString().trim() ||
-      v.registration?.toString().trim().toUpperCase() ||
-      ""
-    );
-  }
-  return String(v).trim();
+
+  if (typeof v === "string") return v.trim(); // fallback
+
+  const base =
+    v.name ??
+    v.vehicleName ??
+    v.label ??
+    v.title ??
+    v.displayName ??
+    v.vehicle ??
+    v.model ??
+    v.type ??
+    "";
+
+  const reg =
+    v.registration ??
+    v.reg ??
+    v.regNumber ??
+    v.regNo ??
+    v.plate ??
+    v.numberPlate ??
+    "";
+
+  const baseClean = String(base || "").trim();
+  const regClean = String(reg || "").trim().toUpperCase();
+
+  if (baseClean && regClean) return `${baseClean} (${regClean})`;
+  if (baseClean) return baseClean;
+  if (regClean) return regClean;
+  return "";
 };
 
 /* ───────────────── Defect utilities ───────────────── */
-/* ───────────────── Defect helpers ───────────────── */
-/* ───────────────── Defect helpers ───────────────── */
 const isDefectItem = (it) => it?.status === "defect";
 const isPendingDefect = (it) => !it?.review?.status; // pending = no review yet
 
-// ✅ ADD THIS
 function extractPendingDefects(checkDocs) {
   const out = [];
   for (const c of checkDocs) {
@@ -267,14 +301,11 @@ function extractPendingDefects(checkDocs) {
       }
     });
   }
-  // newest first by date if present
-  out.sort((a, b) => (a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0));
+  out.sort((a, b) =>
+    a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0
+  );
   return out;
 }
-
-
-
-
 
 /* ───────────────── Component ───────────────── */
 export default function VehiclesHomePage() {
@@ -297,6 +328,9 @@ export default function VehiclesHomePage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
+  // Vehicle ID → label map
+  const [vehicleNameMap, setVehicleNameMap] = useState({});
+
   // Defect queue state
   const [checkDocs, setCheckDocs] = useState([]);
   const [pendingDefects, setPendingDefects] = useState([]);
@@ -304,6 +338,34 @@ export default function VehiclesHomePage() {
   const [actionModal, setActionModal] = useState(null); // {defect, decision, comment, category?}
 
   useEffect(() => setMounted(true), []);
+
+  /* ───────── Load all vehicles for name lookups ───────── */
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      const snap = await getDocs(collection(db, "vehicles"));
+      const map = {};
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        const label = buildVehicleLabelFromObject({
+          name:
+            data.name ||
+            data.vehicleName ||
+            data.displayName ||
+            data.model ||
+            "",
+          registration:
+            data.registration ||
+            data.reg ||
+            data.regNumber ||
+            data.regNo ||
+            "",
+        });
+        map[d.id] = label || d.id; // fallback to id if truly no label
+      });
+      setVehicleNameMap(map);
+    };
+    fetchVehicles();
+  }, []);
 
   // Overdue counters
   useEffect(() => {
@@ -329,7 +391,7 @@ export default function VehiclesHomePage() {
     fetchVehicleMaintenance();
   }, []);
 
-  // Usage histogram
+  /* ───────── Usage histogram (now with proper names) ───────── */
   useEffect(() => {
     const fetchUsage = async () => {
       const { monthStart, monthEnd } = monthRange(usageMonth);
@@ -338,8 +400,23 @@ export default function VehiclesHomePage() {
       const snapshot = await getDocs(collection(db, "bookings"));
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+
+        // Map booking vehicles → human-friendly names
+        const mapVehicleFromBooking = (entry) => {
+          if (!entry) return "";
+          if (typeof entry === "string") {
+            // string could be a vehicle doc ID
+            if (vehicleNameMap[entry]) return vehicleNameMap[entry];
+            return entry; // fallback
+          }
+          if (entry.id && vehicleNameMap[entry.id]) {
+            return vehicleNameMap[entry.id];
+          }
+          return buildVehicleLabelFromObject(entry) || "";
+        };
+
         const vehicles = Array.isArray(data.vehicles)
-          ? data.vehicles.map(vehicleLabel).filter(Boolean)
+          ? data.vehicles.map(mapVehicleFromBooking).filter(Boolean)
           : [];
         if (vehicles.length === 0) return;
 
@@ -367,14 +444,17 @@ export default function VehiclesHomePage() {
           if (!start) return;
 
           const clampedStart = start < monthStart ? monthStart : start;
-          const clampedEnd = (end || start) > monthEnd ? monthEnd : (end || start);
+          const clampedEnd =
+            (end || start) > monthEnd ? monthEnd : end || start;
 
           dayKeys = daysInRange(clampedStart, clampedEnd);
         }
 
         if (dayKeys.length === 0) return;
 
-        const filteredByNote = dayKeys.filter((k) => isCountableNote(getDayNote(data, k)));
+        const filteredByNote = dayKeys.filter((k) =>
+          isCountableNote(getDayNote(data, k))
+        );
         if (filteredByNote.length === 0) return;
 
         vehicles.forEach((name) => {
@@ -392,7 +472,7 @@ export default function VehiclesHomePage() {
     };
 
     fetchUsage();
-  }, [usageMonth]);
+  }, [usageMonth, vehicleNameMap]);
 
   // Calendar events (MOT & service)
   useEffect(() => {
@@ -434,7 +514,12 @@ export default function VehiclesHomePage() {
 
   // Defect action handlers
   const openApprove = (defect) =>
-  setActionModal({ defect, decision: "approved", comment: "", category: "general" });
+    setActionModal({
+      defect,
+      decision: "approved",
+      comment: "",
+      category: "general",
+    });
 
   const openDecline = (defect) =>
     setActionModal({ defect, decision: "declined", comment: "" });
@@ -449,42 +534,45 @@ export default function VehiclesHomePage() {
         auth?.currentUser?.email ||
         "Supervisor";
 
-      // If approving, require route
       if (decision === "approved" && !category) {
-        alert("Choose where to route this defect: General Maintenance or Immediate Defects.");
+        alert(
+          "Choose where to route this defect: General Maintenance or Immediate Defects."
+        );
         setActionLoading(false);
         return;
       }
 
       const path = `items.${defect.defectIndex}.review`;
-const reviewPayload = {
-  status: decision,
-  reviewedBy: reviewer,
-  reviewedAt: serverTimestamp(),
-  comment: (comment || "").trim(),
-};
+      const reviewPayload = {
+        status: decision,
+        reviewedBy: reviewer,
+        reviewedAt: serverTimestamp(),
+        comment: (comment || "").trim(),
+      };
 
-if (decision === "approved") {
-  reviewPayload.category = String(category || "").trim().toLowerCase(); // 👈 normalize
-}
+      if (decision === "approved") {
+        reviewPayload.category = String(category || "")
+          .trim()
+          .toLowerCase();
+      }
 
-await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
-  [path]: reviewPayload,
-  updatedAt: serverTimestamp(),
-});
+      await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
+        [path]: reviewPayload,
+        updatedAt: serverTimestamp(),
+      });
 
-
-      // Remove from local queue
       setPendingDefects((prev) =>
         prev.filter(
-          (d) => !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex)
+          (d) =>
+            !(
+              d.checkId === defect.checkId &&
+              d.defectIndex === defect.defectIndex
+            )
         )
       );
 
-      // Close modal
       setActionModal(null);
 
-      // Navigate
       if (decision === "approved") {
         if (category === "immediate") {
           router.push(IMMEDIATE_DEFECTS_PATH);
@@ -504,25 +592,55 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
 
   const handleSelectEvent = (event) => setSelectedEvent(event);
 
-  // Quick links tiles (includes the new three)
+  // Quick links tiles
   const vehicleSections = useMemo(
     () => [
-      { title: "General Maintenance", description: "Approved, non-urgent defects to plan and schedule.", link: GENERAL_DEFECTS_PATH },
-      { title: "Immediate Defects", description: "Approved urgent issues that need action now.", link: IMMEDIATE_DEFECTS_PATH },
-      { title: "Declined Defects", description: "Defects that were reviewed and declined.", link: DECLINED_DEFECTS_PATH },
       {
-        title: `MOT Schedule` + (overdueMOTCount > 0 ? ` — ${overdueMOTCount} overdue` : ""),
+        title: "General Maintenance",
+        description: "Approved, non-urgent defects to plan and schedule.",
+        link: GENERAL_DEFECTS_PATH,
+      },
+      {
+        title: "Immediate Defects",
+        description: "Approved urgent issues that need action now.",
+        link: IMMEDIATE_DEFECTS_PATH,
+      },
+      {
+        title: "Declined Defects",
+        description: "Defects that were reviewed and declined.",
+        link: DECLINED_DEFECTS_PATH,
+      },
+      {
+        title:
+          `MOT Schedule` +
+          (overdueMOTCount > 0 ? ` — ${overdueMOTCount} overdue` : ""),
         description: "View and manage MOT due dates for all vehicles.",
         link: "/mot-overview",
       },
       {
-        title: `Service History` + (overdueServiceCount > 0 ? ` — ${overdueServiceCount} overdue` : ""),
+        title:
+          `Service History` +
+          (overdueServiceCount > 0
+            ? ` — ${overdueServiceCount} overdue`
+            : ""),
         description: "Track past and upcoming vehicle servicing.",
         link: "/service-overview",
       },
-      { title: "Vehicle Usage Logs", description: "Monitor vehicle usage across bookings and trips.", link: "/usage-overview" },
-      { title: "Vehicle List", description: "View, edit or delete vehicles currently in the system.", link: "/vehicles" },
-      { title: "Equipment List", description: "View, edit or delete equipment currently in the system.", link: "/equipment" },
+      {
+        title: "Vehicle Usage Logs",
+        description: "Monitor vehicle usage across bookings and trips.",
+        link: "/usage-overview",
+      },
+      {
+        title: "Vehicle List",
+        description: "View, edit or delete vehicles currently in the system.",
+        link: "/vehicles",
+      },
+      {
+        title: "Equipment List",
+        description: "View, edit or delete equipment currently in the system.",
+        link: "/equipment",
+      },
     ],
     [overdueMOTCount, overdueServiceCount]
   );
@@ -565,8 +683,15 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
           <div style={{ marginTop: 28 }}>
             <h2 style={sectionTitle}>Defect Review</h2>
             <div style={{ ...panel, overflow: "hidden" }}>
-              <div style={{ marginBottom: 10, fontSize: 12, color: UI.subtext }}>
-                Pending approval for submitted checks. Approve and route to the correct bucket; Decline to mark as not actionable.
+              <div
+                style={{
+                  marginBottom: 10,
+                  fontSize: 12,
+                  color: UI.subtext,
+                }}
+              >
+                Pending approval for submitted checks. Approve and route to the
+                correct bucket; Decline to mark as not actionable.
               </div>
 
               <table style={table}>
@@ -584,7 +709,14 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                 <tbody>
                   {pendingDefects.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ ...thtd, textAlign: "center", color: UI.subtext }}>
+                      <td
+                        colSpan={8}
+                        style={{
+                          ...thtd,
+                          textAlign: "center",
+                          color: UI.subtext,
+                        }}
+                      >
                         No pending defects. 🎉
                       </td>
                     </tr>
@@ -597,14 +729,16 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                           <strong>#{d.defectIndex + 1}</strong> — {d.itemLabel}
                         </td>
                         <td style={{ ...thtd, maxWidth: 360 }}>
-                          <div style={{
-                            whiteSpace: "pre-wrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                          }}>
+                          <div
+                            style={{
+                              whiteSpace: "pre-wrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                            }}
+                          >
                             {d.defectNote || "—"}
                           </div>
                         </td>
@@ -615,13 +749,19 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                         <td style={{ ...thtd, textAlign: "right" }}>
                           <a
                             href={CHECK_DETAIL_PATH(d.checkId)}
-                            style={{ ...actionBtn("#fff", "#111827"), marginRight: 6 }}
+                            style={{
+                              ...actionBtn("#fff", "#111827"),
+                              marginRight: 6,
+                            }}
                           >
                             View check →
                           </a>
                           <button
                             onClick={() => openApprove(d)}
-                            style={{ ...actionBtn("#ecfdf5", "#065f46"), marginRight: 6 }}
+                            style={{
+                              ...actionBtn("#ecfdf5", "#065f46"),
+                              marginRight: 6,
+                            }}
                           >
                             Approve
                           </button>
@@ -652,10 +792,20 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
             >
               <h2 style={sectionTitle}>Vehicle Usage (Selected Month)</h2>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <ToolbarBtn onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>← Prev</ToolbarBtn>
+                <ToolbarBtn
+                  onClick={() =>
+                    setUsageMonth(
+                      (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)
+                    )
+                  }
+                >
+                  ← Prev
+                </ToolbarBtn>
                 <input
                   type="month"
-                  value={`${usageMonth.getFullYear()}-${String(usageMonth.getMonth() + 1).padStart(2, "0")}`}
+                  value={`${usageMonth.getFullYear()}-${String(
+                    usageMonth.getMonth() + 1
+                  ).padStart(2, "0")}`}
                   onChange={(e) => {
                     const [y, m] = e.target.value.split("-").map(Number);
                     if (y && m) setUsageMonth(new Date(y, m - 1, 1));
@@ -671,17 +821,29 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                     cursor: "pointer",
                   }}
                 />
-                <ToolbarBtn onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>Next →</ToolbarBtn>
+                <ToolbarBtn
+                  onClick={() =>
+                    setUsageMonth(
+                      (d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)
+                    )
+                  }
+                >
+                  Next →
+                </ToolbarBtn>
               </div>
             </div>
 
             <div style={{ marginBottom: 8, color: UI.subtext, fontSize: 12 }}>
-              Counting days where note is <strong>“On Set”</strong> or <strong>“Shoot day”</strong>.
+              Counting days where note is <strong>“On Set”</strong> or{" "}
+              <strong>“Shoot day”</strong>.
             </div>
 
             <div style={panel}>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={usageData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <BarChart
+                  data={usageData}
+                  margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis
                     dataKey="name"
@@ -696,8 +858,14 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                     tickLine={{ stroke: "#e5e7eb" }}
                   />
                   <Tooltip
-                    wrapperStyle={{ borderRadius: 8, border: "1px solid #e5e7eb" }}
-                    contentStyle={{ borderRadius: 8, boxShadow: UI.shadowSm }}
+                    wrapperStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                    }}
+                    contentStyle={{
+                      borderRadius: 8,
+                      boxShadow: UI.shadowSm,
+                    }}
                   />
                   <Bar dataKey="usage" fill="#2563eb" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -723,7 +891,12 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                   popup
                   showMultiDayTimes
                   style={{ height: "100%" }}
-                  dayPropGetter={() => ({ style: { minHeight: "110px", borderRight: "1px solid #eef2f7" } })}
+                  dayPropGetter={() => ({
+                    style: {
+                      minHeight: "110px",
+                      borderRight: "1px solid #eef2f7",
+                    },
+                  })}
                   eventPropGetter={() => ({
                     style: {
                       borderRadius: 8,
@@ -752,7 +925,13 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                       >
                         <span>{event.title}</span>
                         {event.allDay && (
-                          <span style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.8 }}>
+                          <span
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              opacity: 0.8,
+                            }}
+                          >
                             All Day
                           </span>
                         )}
@@ -767,18 +946,60 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                           marginBottom: 8,
                         }}
                       >
-                        <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            letterSpacing: 0.2,
+                          }}
+                        >
                           {props.label}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <ToolbarBtn onClick={() => props.onNavigate("PREV")}>←</ToolbarBtn>
-                          <ToolbarBtn onClick={() => props.onNavigate("TODAY")}>Today</ToolbarBtn>
-                          <ToolbarBtn onClick={() => props.onNavigate("NEXT")}>→</ToolbarBtn>
-                          <ToolbarBtn active={props.view === "month"} onClick={() => props.onView("month")}>Month</ToolbarBtn>
-                          <ToolbarBtn active={props.view === "week"} onClick={() => props.onView("week")}>Week</ToolbarBtn>
-                          <ToolbarBtn active={props.view === "work_week"} onClick={() => props.onView("work_week")}>Work Week</ToolbarBtn>
-                          <ToolbarBtn active={props.view === "day"} onClick={() => props.onView("day")}>Day</ToolbarBtn>
-                          <ToolbarBtn active={props.view === "agenda"} onClick={() => props.onView("agenda")}>Agenda</ToolbarBtn>
+                          <ToolbarBtn
+                            onClick={() => props.onNavigate("PREV")}
+                          >
+                            ←
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            onClick={() => props.onNavigate("TODAY")}
+                          >
+                            Today
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            onClick={() => props.onNavigate("NEXT")}
+                          >
+                            →
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            active={props.view === "month"}
+                            onClick={() => props.onView("month")}
+                          >
+                            Month
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            active={props.view === "week"}
+                            onClick={() => props.onView("week")}
+                          >
+                            Week
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            active={props.view === "work_week"}
+                            onClick={() => props.onView("work_week")}
+                          >
+                            Work Week
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            active={props.view === "day"}
+                            onClick={() => props.onView("day")}
+                          >
+                            Day
+                          </ToolbarBtn>
+                          <ToolbarBtn
+                            active={props.view === "agenda"}
+                            onClick={() => props.onView("agenda")}
+                          >
+                            Agenda
+                          </ToolbarBtn>
                         </div>
                       </div>
                     ),
@@ -791,14 +1012,25 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
 
           {selectedEvent && (
             <div style={modal}>
-              <h3 style={{ marginTop: 0, marginBottom: 8, fontWeight: 800 }}>
+              <h3
+                style={{
+                  marginTop: 0,
+                  marginBottom: 8,
+                  fontWeight: 800,
+                }}
+              >
                 {selectedEvent.title}
               </h3>
               <p style={{ margin: 0, color: UI.subtext }}>
                 <strong style={{ color: UI.text }}>Start:</strong>{" "}
                 {selectedEvent.start.toLocaleDateString()}
               </p>
-              <p style={{ margin: "6px 0 12px", color: UI.subtext }}>
+              <p
+                style={{
+                  margin: "6px 0 12px",
+                  color: UI.subtext,
+                }}
+              >
                 <strong style={{ color: UI.text }}>End:</strong>{" "}
                 {selectedEvent.end.toLocaleDateString()}
               </p>
@@ -825,46 +1057,95 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
           {/* Decision modal */}
           {actionModal && (
             <div style={{ ...modal, top: 120 }}>
-              <h3 style={{ margin: "0 0 8px", fontWeight: 800 }}>
-                {actionModal.decision === "approved" ? "Approve defect" : "Decline defect"}
+              <h3
+                style={{
+                  margin: "0 0 8px",
+                  fontWeight: 800,
+                }}
+              >
+                {actionModal.decision === "approved"
+                  ? "Approve defect"
+                  : "Decline defect"}
               </h3>
-              <div style={{ fontSize: 13, color: UI.subtext, marginBottom: 10 }}>
-                <div><strong>Date:</strong> {actionModal.defect.dateISO}</div>
-                <div><strong>Job:</strong> {actionModal.defect.jobLabel || actionModal.defect.jobId}</div>
-                <div><strong>Vehicle:</strong> {actionModal.defect.vehicle}</div>
-                <div><strong>Item:</strong> #{actionModal.defect.defectIndex + 1} — {actionModal.defect.itemLabel}</div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: UI.subtext,
+                  marginBottom: 10,
+                }}
+              >
+                <div>
+                  <strong>Date:</strong> {actionModal.defect.dateISO}
+                </div>
+                <div>
+                  <strong>Job:</strong>{" "}
+                  {actionModal.defect.jobLabel || actionModal.defect.jobId}
+                </div>
+                <div>
+                  <strong>Vehicle:</strong> {actionModal.defect.vehicle}
+                </div>
+                <div>
+                  <strong>Item:</strong> #
+                  {actionModal.defect.defectIndex + 1} —{" "}
+                  {actionModal.defect.itemLabel}
+                </div>
                 {actionModal.defect.defectNote ? (
                   <div style={{ marginTop: 6 }}>
                     <strong>Note:</strong>
-                    <div style={{
-                      whiteSpace: "pre-wrap",
-                      background: "#fafafa",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
-                      padding: 10,
-                      marginTop: 4,
-                    }}>
+                    <div
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        background: "#fafafa",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: 10,
+                        marginTop: 4,
+                      }}
+                    >
                       {actionModal.defect.defectNote}
                     </div>
                   </div>
                 ) : null}
               </div>
 
-              {/* Category chooser for approved flow */}
               {actionModal.decision === "approved" && (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: UI.subtext, marginBottom: 6 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: UI.subtext,
+                      marginBottom: 6,
+                    }}
+                  >
                     Route approved defect to:
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <button
                       type="button"
-                      onClick={() => setActionModal((m) => ({ ...m, category: "general" }))}
+                      onClick={() =>
+                        setActionModal((m) => ({
+                          ...m,
+                          category: "general",
+                        }))
+                      }
                       style={{
                         ...actionBtn("#fff", "#111827"),
-                        borderColor: actionModal.category === "general" ? "#111827" : "#e5e7eb",
-                        boxShadow: actionModal.category === "general" ? "0 2px 6px rgba(2,6,23,0.12)" : "none",
+                        borderColor:
+                          actionModal.category === "general"
+                            ? "#111827"
+                            : "#e5e7eb",
+                        boxShadow:
+                          actionModal.category === "general"
+                            ? "0 2px 6px rgba(2,6,23,0.12)"
+                            : "none",
                       }}
                       disabled={actionLoading}
                     >
@@ -873,11 +1154,22 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
 
                     <button
                       type="button"
-                      onClick={() => setActionModal((m) => ({ ...m, category: "immediate" }))}
+                      onClick={() =>
+                        setActionModal((m) => ({
+                          ...m,
+                          category: "immediate",
+                        }))
+                      }
                       style={{
                         ...actionBtn("#fff", "#111827"),
-                        borderColor: actionModal.category === "immediate" ? "#111827" : "#e5e7eb",
-                        boxShadow: actionModal.category === "immediate" ? "0 2px 6px rgba(2,6,23,0.12)" : "none",
+                        borderColor:
+                          actionModal.category === "immediate"
+                            ? "#111827"
+                            : "#e5e7eb",
+                        boxShadow:
+                          actionModal.category === "immediate"
+                            ? "0 2px 6px rgba(2,6,23,0.12)"
+                            : "none",
                       }}
                       disabled={actionLoading}
                     >
@@ -885,18 +1177,38 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                     </button>
                   </div>
 
-                  <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
-                    Pick <strong>Immediate</strong> for safety-critical issues; otherwise use <strong>General</strong>.
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: UI.subtext,
+                    }}
+                  >
+                    Pick <strong>Immediate</strong> for safety-critical issues;
+                    otherwise use <strong>General</strong>.
                   </div>
                 </div>
               )}
 
-              <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.subtext, marginBottom: 6 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: UI.subtext,
+                  marginBottom: 6,
+                }}
+              >
                 Resolution comment (optional)
               </label>
               <textarea
                 value={actionModal.comment}
-                onChange={(e) => setActionModal((m) => ({ ...m, comment: e.target.value }))}
+                onChange={(e) =>
+                  setActionModal((m) => ({
+                    ...m,
+                    comment: e.target.value,
+                  }))
+                }
                 rows={4}
                 placeholder="e.g., Minor scratch; safe to operate. Logged for bodyshop visit."
                 style={{
@@ -909,7 +1221,13 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                 }}
               />
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  justifyContent: "flex-end",
+                }}
+              >
                 <button
                   onClick={() => setActionModal(null)}
                   style={actionBtn("#fff", "#111827")}
@@ -926,14 +1244,15 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
                   }
                   disabled={
                     actionLoading ||
-                    (actionModal.decision === "approved" && !actionModal.category)
+                    (actionModal.decision === "approved" &&
+                      !actionModal.category)
                   }
                 >
                   {actionLoading
                     ? "Saving…"
                     : actionModal.decision === "approved"
-                      ? "Approve"
-                      : "Decline"}
+                    ? "Approve"
+                    : "Decline"}
                 </button>
               </div>
             </div>
@@ -943,10 +1262,17 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
 
       {/* Tiny global polish for RBC */}
       <style jsx global>{`
-        .rbc-today { background: rgba(37, 99, 235, 0.08) !important; }
-        .rbc-off-range-bg { background: #fafafa !important; }
-        .rbc-month-view, .rbc-time-view, .rbc-agenda-view {
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        .rbc-today {
+          background: rgba(37, 99, 235, 0.08) !important;
+        }
+        .rbc-off-range-bg {
+          background: #fafafa !important;
+        }
+        .rbc-month-view,
+        .rbc-time-view,
+        .rbc-agenda-view {
+          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+            sans-serif;
         }
         .rbc-header {
           padding: 8px 6px;
@@ -954,8 +1280,12 @@ await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
           color: #0f172a;
           border-bottom: 1px solid #e5e7eb !important;
         }
-        .rbc-time-content > * + * > * { border-left: 1px solid #eef2f7 !important; }
-        .rbc-event { overflow: visible !important; }
+        .rbc-time-content > * + * > * {
+          border-left: 1px solid #eef2f7 !important;
+        }
+        .rbc-event {
+          overflow: visible !important;
+        }
       `}</style>
     </HeaderSidebarLayout>
   );

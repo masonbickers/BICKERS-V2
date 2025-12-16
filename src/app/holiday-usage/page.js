@@ -49,8 +49,6 @@ function toSafeDate(v) {
   }
   if (v?.toDate) {
     const d = v.toDate();
-    // Firestore Timestamp can hold a YMD string inside another field sometimes;
-    // still normalize to 00:00 for consistency if it looks like a date-only.
     return d;
   }
   if (typeof v === "number") {
@@ -61,7 +59,8 @@ function toSafeDate(v) {
 }
 
 const sameYMD = (a, b) =>
-  a && b &&
+  a &&
+  b &&
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
@@ -103,8 +102,6 @@ export default function HolidayUsagePage() {
 
   const [paidDaysByName, setPaidDaysByName] = useState({});
   const [unpaidDaysByName, setUnpaidDaysByName] = useState({});
-  const [accruedEarnedByName, setAccruedEarnedByName] = useState({});
-  const [accruedTakenByName, setAccruedTakenByName] = useState({});
 
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [byEmployee, setByEmployee] = useState({});
@@ -113,7 +110,6 @@ export default function HolidayUsagePage() {
 
   const [q, setQ] = useState("");
   const [onlyUnpaid, setOnlyUnpaid] = useState(false);
-  const [onlyAccruedPos, setOnlyAccruedPos] = useState(false);
   const [sortKey, setSortKey] = useState("name");
 
   const DEFAULT_ALLOWANCE = 11;
@@ -129,8 +125,9 @@ export default function HolidayUsagePage() {
   useEffect(() => {
     const run = async () => {
       const currentYear = new Date().getFullYear();
+      const yearKey = String(currentYear);
 
-      // Employees (allowances)
+      // Employees (allowances) — ✅ per-year aware
       const allowMap = {};
       const carryMap = {};
       try {
@@ -139,15 +136,20 @@ export default function HolidayUsagePage() {
           const x = d.data() || {};
           const name = x.name || x.fullName || x.employee || x.employeeName || x.displayName;
           if (!name) return;
-          allowMap[name] = Number(x.holidayAllowance ?? DEFAULT_ALLOWANCE);
-          carryMap[name] = Number(x.carriedOverDays ?? 0);
+
+          allowMap[name] =
+            x.holidayAllowances?.[yearKey] ??
+            Number(x.holidayAllowance ?? DEFAULT_ALLOWANCE);
+
+          carryMap[name] =
+            x.carryOverByYear?.[yearKey] ??
+            Number(x.carriedOverDays ?? 0);
         });
       } catch {}
 
-      // Holidays
+      // Holidays (Paid/Unpaid only — Accrued removed)
       const paid = {};
       const unpaid = {};
-      const accruedTaken = {};
       const details = {};
       const events = [];
       const colourByEmp = {};
@@ -163,27 +165,25 @@ export default function HolidayUsagePage() {
         if (!employee || !start || !end) return;
         if (start.getFullYear() !== end.getFullYear() || start.getFullYear() !== currentYear) return;
 
+        // ❌ Accrued/TOIL removed: ignore these records completely
         const isAccrued =
           rec.isAccrued === true ||
           ["type", "leaveType", "category", "status", "kind", "notes", "holidayReason"]
             .map((k) => norm(rec[k]))
             .some((t) => t.includes("accrued") || t.includes("toil"));
+        if (isAccrued) return;
 
         const isUnpaid =
-          !isAccrued &&
-          (rec.isUnpaid === true ||
-            rec.unpaid === true ||
-            rec.paid === false ||
-            ["type", "leaveType", "category", "status", "kind"].some((k) => norm(rec[k]).includes("unpaid")));
-
-        const isPaid = !isUnpaid && !isAccrued;
+          rec.isUnpaid === true ||
+          rec.unpaid === true ||
+          rec.paid === false ||
+          ["type", "leaveType", "category", "status", "kind"].some((k) => norm(rec[k]).includes("unpaid"));
 
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
         const days = single && half ? 0.5 : countWeekdaysInclusive(start, end);
 
-        if (isPaid) paid[employee] = (paid[employee] || 0) + days;
-        else if (isUnpaid) unpaid[employee] = (unpaid[employee] || 0) + days;
-        else if (isAccrued) accruedTaken[employee] = (accruedTaken[employee] || 0) + days;
+        if (isUnpaid) unpaid[employee] = (unpaid[employee] || 0) + days;
+        else paid[employee] = (paid[employee] || 0) + days;
 
         if (!details[employee]) details[employee] = [];
         details[employee].push({
@@ -193,7 +193,6 @@ export default function HolidayUsagePage() {
           days,
           notes,
           unpaid: isUnpaid,
-          accrued: isAccrued,
           halfDay: single && half,
           halfWhen: single && half ? when : null,
         });
@@ -204,53 +203,24 @@ export default function HolidayUsagePage() {
           status: "Holiday",
           title:
             `${employee} Holiday` +
-            (isUnpaid ? " (Unpaid)" : isAccrued ? " (Accrued)" : "") +
+            (isUnpaid ? " (Unpaid)" : "") +
             (single && half ? ` (½ ${when || ""})` : ""),
           start,
           end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
           allDay: true,
           employee,
           unpaid: isUnpaid,
-          accrued: isAccrued,
           color,
         });
       });
 
-      // Accrued earned from weekend bookings
-      const accruedEarned = {};
-      try {
-        const bookSnap = await getDocs(collection(db, "bookings"));
-        bookSnap.docs.forEach((d) => {
-          const x = d.data() || {};
-          const employees = Array.isArray(x.employees) ? x.employees : [];
-          if (!employees.length) return;
-
-          let dates = [];
-          if (Array.isArray(x.bookingDates) && x.bookingDates.length) {
-            dates = x.bookingDates.map((v) => toSafeDate(v)).filter(Boolean);
-          } else {
-            const s = toSafeDate(x.startDate) || toSafeDate(x.date);
-            const e = toSafeDate(x.endDate) || toSafeDate(x.date);
-            if (s && e) dates = eachDateInclusive(s, e);
-          }
-
-          dates
-            .filter((dt) => dt.getFullYear() === currentYear)
-            .forEach((dte) => {
-              if (isWeekend(dte)) {
-                employees.forEach((name) => {
-                  accruedEarned[name] = (accruedEarned[name] || 0) + 1;
-                });
-              }
-            });
-        });
-      } catch {}
-
       setPaidDaysByName(paid);
       setUnpaidDaysByName(unpaid);
-      setAccruedTakenByName(accruedTaken);
-      setAccruedEarnedByName(accruedEarned);
-      setByEmployee(Object.fromEntries(Object.entries(details).map(([k, v]) => [k, v.sort((a, b) => a.start - b.start)])));
+      setByEmployee(
+        Object.fromEntries(
+          Object.entries(details).map(([k, v]) => [k, v.sort((a, b) => a.start - b.start)])
+        )
+      );
       setCalendarEvents(events);
       setEmpAllowance(allowMap);
       setEmpCarryOver(carryMap);
@@ -262,14 +232,20 @@ export default function HolidayUsagePage() {
   const eventStyleGetter = (event) => {
     let bg = event.color || "#cbd5e1";
     let textColor = "#000";
-    if (event.accrued) {
-      bg = "#ccfbf1";
-      textColor = "#134e4a";
-    } else if (event.unpaid) {
+    if (event.unpaid) {
       bg = "#fee2e2";
       textColor = "#7f1d1d";
     }
-    return { style: { backgroundColor: bg, borderRadius: "6px", border: "none", color: textColor, padding: "4px", fontWeight: 600 } };
+    return {
+      style: {
+        backgroundColor: bg,
+        borderRadius: "6px",
+        border: "none",
+        color: textColor,
+        padding: "4px",
+        fontWeight: 600,
+      },
+    };
   };
 
   const allNames = Array.from(
@@ -279,8 +255,6 @@ export default function HolidayUsagePage() {
       ...Object.keys(empCarryOver),
       ...Object.keys(paidDaysByName),
       ...Object.keys(unpaidDaysByName),
-      ...Object.keys(accruedEarnedByName),
-      ...Object.keys(accruedTakenByName),
     ])
   )
     .filter((name) => (empAllowance[name] ?? 0) > 0)
@@ -289,16 +263,13 @@ export default function HolidayUsagePage() {
   const metrics = (name) => {
     const paid = paidDaysByName[name] || 0;
     const unpaid = unpaidDaysByName[name] || 0;
-    const aEarned = accruedEarnedByName[name] || 0;
-    const aTaken = accruedTakenByName[name] || 0;
-    const aBalance = aEarned - aTaken;
 
     const allowance = Number(empAllowance[name] ?? DEFAULT_ALLOWANCE);
     const carried = Number(empCarryOver[name] ?? 0);
     const totalAllowance = allowance + carried;
     const allowBal = totalAllowance - paid;
 
-    return { paid, unpaid, aEarned, aTaken, aBalance, allowance, carried, totalAllowance, allowBal };
+    return { paid, unpaid, allowance, carried, totalAllowance, allowBal };
   };
 
   const [qState, setQState] = useState({}); // prevent uncontrolled warnings (noop)
@@ -306,26 +277,26 @@ export default function HolidayUsagePage() {
   const namesToShow = allNames
     .filter((n) => n.toLowerCase().includes(q.toLowerCase()))
     .filter((n) => (onlyUnpaid ? (unpaidDaysByName[n] || 0) > 0 : true))
-    .filter((n) => (onlyAccruedPos ? (accruedEarnedByName[n] || 0) - (accruedTakenByName[n] || 0) > 0 : true))
     .sort((a, b) => {
       const A = metrics(a);
       const B = metrics(b);
       switch (sortKey) {
         case "paid": return B.paid - A.paid;
         case "unpaid": return B.unpaid - A.unpaid;
-        case "accBal": return B.aBalance - A.aBalance;
         case "allowBalAsc": return A.allowBal - B.allowBal;
         case "allowBalDesc": return B.allowBal - A.allowBal;
         default: return a.localeCompare(b);
       }
     });
 
+  const currentYearLabel = new Date().getFullYear();
+
   return (
     <HeaderSidebarLayout>
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333", fontFamily: "Arial, sans-serif", padding: 40 }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h1 style={{ fontSize: 28, fontWeight: "bold" }}>📅 Holiday & Accrued (TOIL) Overview</h1>
+          <h1 style={{ fontSize: 28, fontWeight: "bold" }}>📅 Holiday Overview</h1>
           <button onClick={() => router.push("/holiday-form")} style={{ backgroundColor: "#333", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "6px", fontSize: 16, cursor: "pointer" }}>
             ➕ Add Holiday
           </button>
@@ -346,9 +317,8 @@ export default function HolidayUsagePage() {
           />
         </div>
 
-        {/* Legend */}
+        {/* Legend (Accrued removed, style unchanged) */}
         <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "16px 0 12px" }}>
-          <LegendSwatch color="#ccfbf1" label="Accrued leave (taken)" />
           <LegendSwatch color="#fee2e2" label="Unpaid leave" />
           <LegendSwatch color="#cbd5e1" label="Paid leave (per-employee color)" />
         </div>
@@ -359,20 +329,16 @@ export default function HolidayUsagePage() {
           <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <input type="checkbox" checked={onlyUnpaid} onChange={(e) => setOnlyUnpaid(e.target.checked)} /> Unpaid &gt; 0
           </label>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <input type="checkbox" checked={onlyAccruedPos} onChange={(e) => setOnlyAccruedPos(e.target.checked)} /> Accrued balance &gt; 0
-          </label>
           <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 12, color: "#6b7280" }}>Sort:</span>
             <select value={sortKey} onChange={(e) => setSortKey(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8 }}>
               <option value="name">Name (A–Z)</option>
               <option value="paid">Paid used (desc)</option>
               <option value="unpaid">Unpaid (desc)</option>
-              <option value="accBal">Accrued balance (desc)</option>
               <option value="allowBalAsc">Allowance balance (asc)</option>
               <option value="allowBalDesc">Allowance balance (desc)</option>
             </select>
-            <button onClick={() => { setQ(""); setOnlyUnpaid(false); setOnlyAccruedPos(false); setSortKey("name"); }} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", background: "#f9fafb" }}>
+            <button onClick={() => { setQ(""); setOnlyUnpaid(false); setSortKey("name"); }} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", background: "#f9fafb" }}>
               Reset
             </button>
           </div>
@@ -391,7 +357,6 @@ export default function HolidayUsagePage() {
                   <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <Pill tone="info">Paid {m.paid}/{m.totalAllowance}</Pill>
                     <Pill tone="warn">Unpaid {m.unpaid}</Pill>
-                    <Pill tone="teal">Acc {m.aEarned}/{m.aTaken} ({m.aBalance})</Pill>
                     <Pill tone="good">Allow Bal {m.allowBal}</Pill>
                   </span>
                 </summary>
@@ -407,9 +372,6 @@ export default function HolidayUsagePage() {
                   <div style={statsGrid}>
                     <Stat label="Paid Used"><Pill tone="info">{m.paid}</Pill><span style={{ opacity: 0.6, margin: "0 6px" }}>/</span><Pill tone="gray">{m.totalAllowance}</Pill></Stat>
                     <Stat label="Unpaid Days"><Pill tone="warn">{m.unpaid}</Pill></Stat>
-                    <Stat label="Accrued Earned"><Pill tone="teal">{m.aEarned}</Pill></Stat>
-                    <Stat label="Accrued Taken"><Pill>{m.aTaken}</Pill></Stat>
-                    <Stat label="Accrued Balance"><Pill tone="good">{m.aBalance}</Pill></Stat>
                     <Stat label="Allowance Balance"><Pill tone="good">{m.allowBal}</Pill></Stat>
                   </div>
 
@@ -428,8 +390,8 @@ export default function HolidayUsagePage() {
                         <tr><td style={td} colSpan={5}>(No leave booked)</td></tr>
                       ) : (
                         rows.map((row, i) => {
-                          const typeLabel = row.accrued ? "Accrued" : row.unpaid ? "Unpaid" : "Paid";
-                          const typeColor = row.accrued ? "#0f766e" : row.unpaid ? "#b91c1c" : "#065f46";
+                          const typeLabel = row.unpaid ? "Unpaid" : "Paid";
+                          const typeColor = row.unpaid ? "#b91c1c" : "#065f46";
                           return (
                             <tr
                               key={row.id}
@@ -456,13 +418,6 @@ export default function HolidayUsagePage() {
                           );
                         })
                       )}
-                      <tr>
-                        <td style={{ ...td, fontWeight: 700 }}>Accrued Balance</td>
-                        <td style={td}></td>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{metrics(name).aBalance}</td>
-                        <td style={td}></td>
-                        <td style={td}></td>
-                      </tr>
                       <tr>
                         <td style={{ ...td, fontWeight: 700 }}>Allowance Balance</td>
                         <td style={td}></td>

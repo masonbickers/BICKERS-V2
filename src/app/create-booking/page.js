@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { db } from "../../../firebaseConfig";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  setDoc,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DatePicker from "react-multi-date-picker";
@@ -253,6 +259,32 @@ const canonicalVehicleKey = (name, registration) => {
   return reg || nm || null;
 };
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Contacts helpers
+──────────────────────────────────────────────────────────────────────────── */
+const FILM_DEPARTMENTS = [
+  "Production",
+  "Director",
+  "Assistant Director",
+  "Locations",
+  "Art Department",
+  "Camera",
+  "Grip",
+  "Electric",
+  "Costume",
+  "Makeup & Hair",
+  "Stunts",
+  "Sound",
+  "Post-Production",
+  "Other",
+];
+
+const contactIdFromEmail = (email) =>
+  (email || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_") || null;
+
 export default function CreateBookingPage() {
   const router = useRouter();
 
@@ -317,8 +349,6 @@ export default function CreateBookingPage() {
     "Other Vehicles": false,
   });
 
-  const [contactNumber, setContactNumber] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [customDates, setCustomDates] = useState([]);
@@ -331,27 +361,22 @@ export default function CreateBookingPage() {
 
   const isMaintenance = status === "Maintenance";
 
-  // ── Core field validation ──────────────────────────────────────────
-  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    (contactEmail || "").trim()
-  );
-  const phoneOk = (contactNumber || "").replace(/\D/g, "").length >= 7; // ≥7 digits
+  // NEW: contacts
+  const [additionalContacts, setAdditionalContacts] = useState([]);
+  const [savedContacts, setSavedContacts] = useState([]);
+  const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
 
+  // ── Core field validation (now *only* Production + Location) ─────────────
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
-    : Boolean(
-        (client || "").trim() &&
-          emailOk &&
-          phoneOk &&
-          (location || "").trim()
-      );
+    : Boolean((client || "").trim() && (location || "").trim());
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
       : ""
     : !coreFilled
-    ? "Fill Production, Email, Number, and Location to save"
+    ? "Fill Production and Location to save"
     : "";
 
   // load data
@@ -491,6 +516,14 @@ export default function CreateBookingPage() {
         else grouped["Other Vehicles"].push(vehicle);
       });
       setVehicleGroups(grouped);
+
+      // 7) saved contacts (for reuse in later bookings)
+      const contactsSnap = await getDocs(collection(db, "contacts"));
+      const contacts = contactsSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+      setSavedContacts(contacts);
     };
 
     loadData();
@@ -596,7 +629,54 @@ export default function CreateBookingPage() {
     })
   );
 
-  // submit (logic preserved, + save employeeCodes)
+  // helpers for additional contacts
+  const handleAddContactRow = () => {
+    setAdditionalContacts((prev) => [
+      ...prev,
+      {
+        department: "",
+        departmentOther: "",
+        name: "",
+        email: "",
+        phone: "",
+      },
+    ]);
+  };
+
+  const handleUpdateContactRow = (index, key, value) => {
+    setAdditionalContacts((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              [key]: value,
+            }
+          : row
+      )
+    );
+  };
+
+  const handleRemoveContactRow = (index) => {
+    setAdditionalContacts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleQuickAddSavedContact = (id) => {
+    if (!id) return;
+    const found = savedContacts.find((c) => c.id === id);
+    if (!found) return;
+    setAdditionalContacts((prev) => [
+      ...prev,
+      {
+        department: found.department || "",
+        departmentOther: "",
+        name: found.name || "",
+        email: found.email || "",
+        phone: found.phone || found.number || "",
+      },
+    ]);
+  };
+
+  // submit (logic preserved, + save employeeCodes + contacts)
   const handleSubmit = async (submitStatus = "Confirmed") => {
     const submitIsMaintenance = submitStatus === "Maintenance";
 
@@ -611,12 +691,9 @@ export default function CreateBookingPage() {
       }
     }
 
-    // ✅ Block if core fields are missing/invalid
+    // ✅ Block if core fields are missing/invalid (now no contact email/number)
     const normalCoreFilled = Boolean(
-      (client || "").trim() &&
-        emailOk &&
-        phoneOk &&
-        (location || "").trim()
+      (client || "").trim() && (location || "").trim()
     );
     const maintenanceCoreFilled = Boolean((location || "").trim());
     const effectiveFilled = submitIsMaintenance
@@ -627,8 +704,6 @@ export default function CreateBookingPage() {
       const missing = [];
       if (!submitIsMaintenance && !(client || "").trim())
         missing.push("Production");
-      if (!submitIsMaintenance && !emailOk) missing.push("valid Email");
-      if (!submitIsMaintenance && !phoneOk) missing.push("Contact Number");
       if (!(location || "").trim()) missing.push("Location");
       alert("Please provide: " + missing.join(", ") + ".");
       return;
@@ -728,12 +803,27 @@ export default function CreateBookingPage() {
       )
       .filter(Boolean);
 
+    // normalise additional contacts for saving
+    const additionalContactsToSave = additionalContacts
+      .map((c) => ({
+        department:
+          c.department === "Other" && c.departmentOther
+            ? c.departmentOther
+            : c.department || "",
+        name: (c.name || "").trim(),
+        email: (c.email || "").trim(),
+        phone: (c.phone || "").trim(),
+      }))
+      // filter out completely empty rows
+      .filter(
+        (c) =>
+          c.name || c.email || c.phone || c.department
+      );
+
     const user = auth.currentUser;
     const booking = {
       jobNumber,
       client,
-      contactNumber,
-      contactEmail,
       location,
       employees: cleanedEmployees, // ← unchanged (names)
       employeeCodes, // ← NEW (for array-contains queries)
@@ -749,6 +839,7 @@ export default function CreateBookingPage() {
       hasHS,
       hasRiskAssessment,
       quoteUrl: quoteUrlToSave,
+      additionalContacts: additionalContactsToSave, // NEW
       ...(submitStatus !== "Enquiry" && !useCustomDates
         ? isRange
           ? {
@@ -777,6 +868,29 @@ export default function CreateBookingPage() {
 
     try {
       await addDoc(collection(db, "bookings"), booking);
+
+      // NEW: upsert contacts into a separate "contacts" collection
+      // (Only from the additional contacts now)
+      const contactsToUpsert = [...additionalContactsToSave];
+
+      for (const c of contactsToUpsert) {
+        const id = contactIdFromEmail(c.email);
+        if (!id) continue;
+        const refDoc = doc(db, "contacts", id);
+        await setDoc(
+          refDoc,
+          {
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            number: c.phone,           // ❗ ensure number field as well
+            department: c.department,  // e.g. "Production"
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
+
       alert("Booking Saved ✅");
       router.push("/dashboard?saved=true");
     } catch (err) {
@@ -841,25 +955,275 @@ export default function CreateBookingPage() {
                   required={status !== "Maintenance"}
                 />
 
-                <label style={field.label}>Contact Email</label>
-                <input
-                  type="email"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="Enter email address"
-                  style={field.input}
-                />
+                {/* Contacts section */}
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
+                    background: UI.bgAlt,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                      }}
+                    >
+                      Contacts
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddContactRow}
+                      style={{
+                        ...btn,
+                        padding: "4px 8px",
+                        fontSize: 12,
+                        borderRadius: 999,
+                      }}
+                    >
+                      + Add contact
+                    </button>
+                  </div>
+                  {additionalContacts.length === 0 && (
+                    <p
+                      style={{
+                        fontSize: 12,
+                        color: UI.muted,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Add production contacts (e.g. Production, Locations, AD,
+                      line producer, stunts).
+                    </p>
+                  )}
 
-                <label style={field.label}>Contact Number</label>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                  placeholder="Enter phone number"
-                  style={field.input}
-                  required={status !== "Maintenance"}
-                />
+                  {additionalContacts.map((row, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        marginBottom: 8,
+                        padding: 8,
+                        borderRadius: UI.radiusXs,
+                        background: "#ffffff",
+                        border: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Department
+                          </label>
+                          <select
+                            value={row.department}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "department",
+                                e.target.value
+                              )
+                            }
+                            style={field.input}
+                          >
+                            <option value="">Select department</option>
+                            {FILM_DEPARTMENTS.map((dep) => (
+                              <option key={dep} value={dep}>
+                                {dep}
+                              </option>
+                            ))}
+                          </select>
+                          {row.department === "Other" && (
+                            <input
+                              type="text"
+                              placeholder="Custom department"
+                              value={row.departmentOther || ""}
+                              onChange={(e) =>
+                                handleUpdateContactRow(
+                                  idx,
+                                  "departmentOther",
+                                  e.target.value
+                                )
+                              }
+                              style={{
+                                ...field.input,
+                                marginTop: 6,
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            value={row.name}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                            style={field.input}
+                            placeholder="Contact name"
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            value={row.email}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "email",
+                                e.target.value
+                              )
+                            }
+                            style={field.input}
+                            placeholder="Email"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Number
+                          </label>
+                          <input
+                            type="tel"
+                            value={row.phone}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "phone",
+                                e.target.value
+                              )
+                            }
+                            style={field.input}
+                            placeholder="Phone number"
+                          />
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                          display: "flex",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveContactRow(idx)}
+                          style={{
+                            ...btn,
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            borderRadius: 999,
+                            borderColor: "#dc2626",
+                            color: "#dc2626",
+                            background: "#fff",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {savedContacts.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      <label
+                        style={{
+                          ...field.label,
+                          fontWeight: 500,
+                          marginBottom: 4,
+                        }}
+                      >
+                        Quick add from saved contacts
+                      </label>
+                      <select
+                        value={selectedSavedContactId}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedSavedContactId(val);
+                          if (val) {
+                            handleQuickAddSavedContact(val);
+                            // reset selection
+                            setSelectedSavedContactId("");
+                          }
+                        }}
+                        style={field.input}
+                      >
+                        <option value="">Select saved contact</option>
+                        {savedContacts.map((c) => {
+                          const labelBase = c.name || c.email || "Unnamed";
+                          const deptLabel = c.department
+                            ? ` – ${c.department}`
+                            : "";
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {labelBase}
+                              {deptLabel}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+                </div>
 
                 <label style={field.label}>Location</label>
                 <textarea
@@ -1492,94 +1856,109 @@ export default function CreateBookingPage() {
                   Save Booking
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                  style={btnGhost}
-                >
-                  Cancel
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                style={btnGhost}
+              >
+                Cancel
+              </button>
             </div>
+          </div>
 
-            {/* Summary row */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={summaryCard}>
-                <h3
-                  style={{
-                    margin: "0 0 10px",
-                    fontSize: 16,
-                    fontWeight: 800,
-                  }}
-                >
-                  📋 Summary
-                </h3>
-                <div style={summaryRow}>
-                  <div>Job Number</div>
-                  <div>{jobNumber || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Status</div>
-                  <div>{status || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Shoot Type</div>
-                  <div>{shootType || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Production</div>
-                  <div>{client || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Contact</div>
-                  <div>
-                    {contactEmail || "—"}
-                    {contactNumber ? ` • ${contactNumber}` : ""}
-                  </div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Location</div>
-                  <div>{location || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Dates</div>
-                  <div>
-                    {useCustomDates
-                      ? customDates.length
-                        ? customDates.join(", ")
-                        : "—"
-                      : isRange
-                      ? `${startDate || "—"} → ${endDate || "—"}`
-                      : startDate || "—"}
-                  </div>
-                </div>
-                <div style={summaryRow}>
-                  <div>People</div>
-                  <div>
-                    {employees
-                      .concat(
-                        customEmployee
-                          ? customEmployee
-                              .split(",")
-                              .map((n) => n.trim())
-                          : []
-                      )
-                      .join(", ") || "—"}
-                  </div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Vehicles</div>
-                  <div>{vehicles.join(", ") || "—"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Equipment</div>
-                  <div>{equipment.join(", ") || "—"}</div>
+          {/* Summary row */}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <div style={summaryCard}>
+              <h3
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: 16,
+                  fontWeight: 800,
+                }}
+              >
+                📋 Summary
+              </h3>
+              <div style={summaryRow}>
+                <div>Job Number</div>
+                <div>{jobNumber || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Status</div>
+                <div>{status || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Shoot Type</div>
+                <div>{shootType || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Production</div>
+                <div>{client || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Contacts</div>
+                <div>
+                  {additionalContacts.length
+                    ? additionalContacts
+                        .map((c) => {
+                          const dept =
+                            c.department === "Other" &&
+                            c.departmentOther
+                              ? c.departmentOther
+                              : c.department;
+                          return [
+                            c.name || c.email || "Unnamed",
+                            dept ? `(${dept})` : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
+                        })
+                        .join(", ")
+                    : "—"}
                 </div>
               </div>
+              <div style={summaryRow}>
+                <div>Location</div>
+                <div>{location || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Dates</div>
+                <div>
+                  {useCustomDates
+                    ? customDates.length
+                      ? customDates.join(", ")
+                      : "—"
+                    : isRange
+                    ? `${startDate || "—"} → ${endDate || "—"}`
+                    : startDate || "—"}
+                </div>
+              </div>
+              <div style={summaryRow}>
+                <div>People</div>
+                <div>
+                  {employees
+                    .concat(
+                      customEmployee
+                        ? customEmployee
+                            .split(",")
+                            .map((n) => n.trim())
+                        : []
+                    )
+                    .join(", ") || "—"}
+                </div>
+              </div>
+              <div style={summaryRow}>
+                <div>Vehicles</div>
+                <div>{vehicles.join(", ") || "—"}</div>
+              </div>
+              <div style={summaryRow}>
+                <div>Equipment</div>
+                <div>{equipment.join(", ") || "—"}</div>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
-    </HeaderSidebarLayout>
+    </div>
+  </HeaderSidebarLayout>
   );
 }

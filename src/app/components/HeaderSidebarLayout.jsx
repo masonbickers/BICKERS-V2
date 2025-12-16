@@ -25,9 +25,9 @@ export default function HeaderSidebarLayout({ children }) {
   ];
   const sidebarItems = [
     { label: "Home", path: "/home" },
-    { label: "Tracking", path: "/dashboard" },
+    { label: "Diary", path: "/dashboard" },
     { label: "U-Crane", path: "/u-crane" }, 
-    { label: "Stunts", path: "/stunts" }, 
+
     { label: "Bookings", path: "/booking-page" },
     { label: "HR / Timesheets", path: "/hr" },
     { label: "Employees", path: "/employee-home" },

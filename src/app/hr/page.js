@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  LabelList,
+} from "recharts";
 
 /* ───────── helpers ───────── */
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -152,9 +162,24 @@ function buildBreakdown(h, includeWeekends = false) {
     .filter(Boolean);
 }
 
+/** Convert a holiday record to numeric days (excl. weekends). */
+function daysForHoliday(h) {
+  const breakdown = buildBreakdown(h, false);
+  let total = 0;
+  for (const row of breakdown) {
+    if (!row) continue;
+    const lbl = String(row.label || "").toLowerCase();
+    if (lbl.startsWith("full day")) total += 1;
+    else if (lbl.startsWith("half day")) total += 0.5;
+  }
+  return total;
+}
+
+/* ───────── page ───────── */
 export default function HRPage() {
   const router = useRouter();
   const [requestedHolidays, setRequestedHolidays] = useState([]);
+  const [usageData, setUsageData] = useState([]); // for the graph
 
   useEffect(() => {
     fetchHolidays();
@@ -164,10 +189,37 @@ export default function HRPage() {
     try {
       const snap = await getDocs(collection(db, "holidays"));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
       const pending = all.filter(
         (h) => !h.status || String(h.status).toLowerCase() === "requested"
       );
       setRequestedHolidays(pending);
+
+      // Build usage only from approved holidays
+      const approved = all.filter(
+        (h) => String(h.status || "").toLowerCase() === "approved"
+      );
+
+      const usageByEmp = new Map(); // name -> days
+      approved.forEach((h) => {
+        const name =
+          (h.employee && String(h.employee)) ||
+          (h.employeeCode && String(h.employeeCode)) ||
+          "Unknown";
+        const key = name.trim() || "Unknown";
+        const days = daysForHoliday(h);
+        if (!usageByEmp.has(key)) usageByEmp.set(key, 0);
+        usageByEmp.set(key, usageByEmp.get(key) + days);
+      });
+
+      const usageArr = Array.from(usageByEmp.entries())
+        .map(([name, days]) => ({
+          name,
+          days: Number(days.toFixed(2)),
+        }))
+        .sort((a, b) => b.days - a.days);
+
+      setUsageData(usageArr);
     } catch (err) {
       console.error("Error fetching holidays:", err);
     }
@@ -186,13 +238,56 @@ export default function HRPage() {
   };
 
   const documents = [
-    { title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
-    { title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
-    { title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
-    { title: "Sick Leave Form", description: "Report absences due to illness.", link: "/sick-leave" },
-    { title: "HR Policy Manual", description: "View company policies and employee handbook.", link: "/hr-policies" },
-    { title: "Contract Upload", description: "Upload new starter contracts and documentation.", link: "/upload-contract" },
+    {
+      title: "Holiday Request Form",
+      description: "Submit and track time off requests.",
+      link: "/holiday-form",
+    },
+    {
+      title: "View Holiday Usage",
+      description: "Check how much holiday each employee has used.",
+      link: "/holiday-usage",
+    },
+    {
+      title: "Timesheets",
+      description: "View, submit, and track weekly timesheets.",
+      link: "/timesheets",
+    },
+    {
+      title: "Sick Leave Form",
+      description: "Report absences due to illness.",
+      link: "/sick-leave",
+    },
+    {
+      title: "HR Policy Manual",
+      description: "View company policies and employee handbook.",
+      link: "/hr-policies",
+    },
+    {
+      title: "Contract Upload",
+      description: "Upload new starter contracts and documentation.",
+      link: "/upload-contract",
+    },
   ];
+
+  const renderLabel = (props) => {
+    const { x, y, width, value } = props;
+    if (value == null) return null;
+    const v = Number(value);
+    const text =
+      Math.abs(v - Math.round(v)) < 1e-6 ? v.toFixed(0) : v.toFixed(2);
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 4}
+        textAnchor="middle"
+        fill="#0f172a"
+        style={{ fontSize: 11, fontWeight: 700 }}
+      >
+        {text}
+      </text>
+    );
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -206,7 +301,94 @@ export default function HRPage() {
         }}
       >
         <main style={{ flex: 1, padding: 40 }}>
-          <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>HR Resources</h1>
+          <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>
+            HR Resources
+          </h1>
+
+          {/* 📊 Employee Holiday Usage Graph */}
+          <div
+            style={{
+              backgroundColor: "#fff",
+              padding: 20,
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              marginBottom: 30,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                marginBottom: 8,
+              }}
+            >
+              Employee Holiday Usage
+            </h2>
+            <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+              Total approved holiday taken per employee (weekdays only). Half
+              days count as <b>0.5</b>.
+            </p>
+
+            {usageData.length === 0 ? (
+              <p style={{ color: "#666", fontSize: 14 }}>
+                No approved holidays yet, so there’s nothing to chart.
+              </p>
+            ) : (
+              <div style={{ width: "100%", height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={usageData}
+                    margin={{ top: 16, right: 24, left: 0, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 12, fill: "#6b7280" }}
+                      axisLine={{ stroke: "#e5e7eb" }}
+                      tickLine={{ stroke: "#e5e7eb" }}
+                      interval={0}
+                      angle={-25}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      allowDecimals
+                      tick={{ fontSize: 12, fill: "#6b7280" }}
+                      axisLine={{ stroke: "#e5e7eb" }}
+                      tickLine={{ stroke: "#e5e7eb" }}
+                      label={{
+                        value: "Days used",
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 8,
+                        style: { fontSize: 12, fill: "#6b7280" },
+                      }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                        fontSize: 12,
+                      }}
+                      formatter={(value, _name, props) => {
+                        const num = Number(value);
+                        const v =
+                          Math.abs(num - Math.round(num)) < 1e-6
+                            ? num.toFixed(0)
+                            : num.toFixed(2);
+                        return [`${v} days`, props?.payload?.name || ""];
+                      }}
+                    />
+                    <Bar dataKey="days" fill="#2563eb" radius={[6, 6, 0, 0]}>
+                      <LabelList dataKey="days" content={renderLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
 
           {/* 📌 Requested Holidays Section */}
           <div
@@ -218,7 +400,15 @@ export default function HRPage() {
               marginBottom: 30,
             }}
           >
-            <h2 style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12 }}>Requested Holidays</h2>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                marginBottom: 12,
+              }}
+            >
+              Requested Holidays
+            </h2>
             {requestedHolidays.length === 0 ? (
               <p style={{ color: "#666" }}>No pending holiday requests.</p>
             ) : (
@@ -239,7 +429,10 @@ export default function HRPage() {
                     const fromD = toDate(h.startDate);
                     const toD = toDate(h.endDate) || fromD;
                     const type = String(h.leaveType || h.paidStatus || "Other");
-                    const breakdown = buildBreakdown(h, /* includeWeekends */ false);
+                    const breakdown = buildBreakdown(
+                      h,
+                      /* includeWeekends */ false
+                    );
 
                     // Append a concise half hint in Type when present
                     const { single, start, end } = getHalfInfo(h);
@@ -248,8 +441,16 @@ export default function HRPage() {
                       typeHint = ` • Half (${start.when || end.when || ""})`.trim();
                     } else if (!single && (start.half || end.half)) {
                       const bits = [];
-                      if (start.half) bits.push(`Start half${start.when ? ` (${start.when})` : ""}`);
-                      if (end.half) bits.push(`End half${end.when ? ` (${end.when})` : ""}`);
+                      if (start.half)
+                        bits.push(
+                          `Start half${
+                            start.when ? ` (${start.when})` : ""
+                          }`
+                        );
+                      if (end.half)
+                        bits.push(
+                          `End half${end.when ? ` (${end.when})` : ""}`
+                        );
                       typeHint = bits.length ? ` • ${bits.join(", ")}` : "";
                     }
 
@@ -258,7 +459,10 @@ export default function HRPage() {
                         <td style={td}>{h.employee || h.employeeCode}</td>
                         <td style={td}>{fmt(fromD)}</td>
                         <td style={td}>{fmt(toD)}</td>
-                        <td style={td}>{type}{typeHint}</td>
+                        <td style={td}>
+                          {type}
+                          {typeHint}
+                        </td>
                         <td style={td}>
                           {breakdown.length === 0 ? (
                             <span style={{ color: "#777" }}>—</span>
@@ -266,8 +470,13 @@ export default function HRPage() {
                             <div style={breakdownWrap}>
                               <ul style={breakdownList}>
                                 {breakdown.map((row) => (
-                                  <li key={row.key} style={row.muted ? mutedItem : normalItem}>
-                                    <span style={{ fontWeight: 600 }}>{row.date}</span>{" "}
+                                  <li
+                                    key={row.key}
+                                    style={row.muted ? mutedItem : normalItem}
+                                  >
+                                    <span style={{ fontWeight: 600 }}>
+                                      {row.date}
+                                    </span>{" "}
                                     <span>— {row.label}</span>
                                   </li>
                                 ))}
@@ -313,8 +522,12 @@ export default function HRPage() {
                 key={idx}
                 style={cardStyle}
                 onClick={() => router.push(doc.link)}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-4px)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = "translateY(-4px)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = "translateY(0)")
+                }
               >
                 <h2 style={{ marginBottom: 10 }}>{doc.title}</h2>
                 <p>{doc.description}</p>
@@ -333,7 +546,11 @@ const th = {
   borderBottom: "2px solid #ddd",
   fontWeight: "bold",
 };
-const td = { padding: "10px", borderBottom: "1px solid #eee", verticalAlign: "top" };
+const td = {
+  padding: "10px",
+  borderBottom: "1px solid #eee",
+  verticalAlign: "top",
+};
 
 const btn = {
   border: "none",
