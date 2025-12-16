@@ -465,7 +465,7 @@ export default function JobHomePage() {
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{reviewQueueCount}</div>
               </div>
               <div style={{ ...card, padding: 12 }}>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Ready to Quote</div>
+                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Ready to Invoice</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{financeReadyCount}</div>
               </div>
               <div style={{ ...card, padding: 12 }}>
@@ -486,7 +486,7 @@ export default function JobHomePage() {
           {/* Row 1: Review Queue, Ready to Quote, Invoiced, Paid */}
           <div style={grid(4)}>
             {navCard("/review-queue", "Review Queue", "Fill Notes • PO • Invoice details", `${reviewQueueCount}`)}
-            {navCard("/finance-queue", "Ready to Quote", "Price it & send quote/invoice", `${financeReadyCount}`)}
+            {navCard("/finance-queue", "Ready to Invoice", "Price it & send quote/invoice", `${financeReadyCount}`)}
             {navCard("/invoiced", "Invoiced", "Invoiced, awaiting payment", `${invoicedCount}`)}
             {navCard("/paid", "Paid", "Jobs marked as paid", `${paidCount}`)}
           </div>
@@ -543,7 +543,7 @@ export default function JobHomePage() {
           {/* Finance queue preview */}
           <div style={{ ...surface, padding: 14, minHeight: 200 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Ready to Quote</div>
+              <div style={{ fontWeight: 900, fontSize: 16 }}>Ready to Invoice</div>
               <Link href="/finance-queue" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
                 Open queue →
               </Link>

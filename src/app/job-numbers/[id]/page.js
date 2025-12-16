@@ -11,8 +11,6 @@ import {
   where,
   updateDoc,
   deleteDoc,
-  writeBatch,
-  serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -36,7 +34,7 @@ const UI = {
 };
 
 const LAYOUT = {
-  HEADER_H: 64,   // sticky header height
+  HEADER_H: 64, // sticky header height
   PAGE_PAD_X: 16, // horizontal page padding
   STICKY_GAP: 12, // gap between sticky header and sticky side column
 };
@@ -44,7 +42,7 @@ const LAYOUT = {
 /* ────────────────────────────────────────────────────────────
    Helpers (unchanged logic)
 ─────────────────────────────────────────────────────────────*/
-const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const parseDateFlexible = (dateStr) => {
   try {
@@ -65,7 +63,12 @@ const splitJobNumber = (jobNumber) => {
 };
 
 const renderEmployees = (employees) =>
-  Array.isArray(employees) && employees.length ? employees.map((e) => e.name || e.displayName || e.email || '').filter(Boolean).join(', ') : null;
+  Array.isArray(employees) && employees.length
+    ? employees
+        .map((e) => e.name || e.displayName || e.email || '')
+        .filter(Boolean)
+        .join(', ')
+    : null;
 
 const renderDateBlock = (job) => {
   if (!Array.isArray(job.bookingDates) || job.bookingDates.length === 0) return 'No dates scheduled.';
@@ -140,39 +143,14 @@ const PaidPill = () => <Badge text="Paid" bg="#bfdbfe" fg="#1d4ed8" border="#60a
 /* ────────────────────────────────────────────────────────────
    Status auto-complete helpers (unchanged)
 ─────────────────────────────────────────────────────────────*/
-const toLocalISODate = (d) => {
-  const x = new Date(d);
-  const y = x.getFullYear();
-  const m = x.getMonth();
-  const day = x.getDate();
-  return new Date(y, m, day).toISOString().slice(0, 10);
-};
-const latestOf = (dates = []) =>
-  dates
-    .map(toLocalISODate)
-    .filter(Boolean)
-    .sort()
-    .pop() || null;
-
-const getLastBookingDateISO = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
-    return latestOf(b.bookingDates);
-  }
-  const end = b.endDate ? toLocalISODate(b.endDate) : null;
-  const single = (b.date || b.startDate) ? toLocalISODate(b.date || b.startDate) : null;
-  return end || single || null;
-};
-
-// Build Firestore updates like: { "vehicleStatus.<vehicleName>": "Complete" }
-const buildVehicleNameStatusUpdates = (job, value = "Complete") => {
+const buildVehicleNameStatusUpdates = (job, value = 'Complete') => {
   const list = Array.isArray(job?.vehicles) ? job.vehicles : [];
   const names = list
-    .map((v) => (typeof v === "string" ? v : v?.name))
-    .map((s) => String(s || "").trim())
+    .map((v) => (typeof v === 'string' ? v : v?.name))
+    .map((s) => String(s || '').trim())
     .filter(Boolean);
 
-  // Firestore field path segments cannot include . ~ * / [ ]
-  const safe = (s) => s.replace(/[.~*/\[\]]/g, "_");
+  const safe = (s) => s.replace(/[.~*/\[\]]/g, '_');
 
   const updates = {};
   names.forEach((n) => {
@@ -180,7 +158,6 @@ const buildVehicleNameStatusUpdates = (job, value = "Complete") => {
   });
   return updates;
 };
-
 
 /* ────────────────────────────────────────────────────────────
    Day Details (unchanged logic)
@@ -207,7 +184,8 @@ const DayDetails = ({ day, iso, entry, jobId }) => {
 
       <Row label="Mode">
         <span style={{ fontWeight: 700, color: explicitlyLinked ? '#059669' : UI.text }}>
-          {mode || '—'}{explicitlyLinked ? ' *' : ''}
+          {mode || '—'}
+          {explicitlyLinked ? ' *' : ''}
         </span>
       </Row>
 
@@ -216,7 +194,13 @@ const DayDetails = ({ day, iso, entry, jobId }) => {
           {Array.isArray(entry?.yardSegments) && entry.yardSegments.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {entry.yardSegments.map((seg, i) => (
-                <div key={i} style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
+                <div
+                  key={i}
+                  style={{
+                    fontFamily:
+                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  }}
+                >
                   {seg.start || '—'} → {seg.end || '—'}
                 </div>
               ))}
@@ -257,7 +241,6 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const jobDates = new Set(Array.isArray(job.bookingDates) ? job.bookingDates : []);
   const snapshotByDay = ts.jobSnapshot?.byDay || {};
 
-  // Week ISO map
   const ws = parseDateFlexible(ts.weekStart);
   const isoByDay = {};
   if (ws) {
@@ -268,7 +251,6 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     }
   }
 
-  // Relevant days
   const isDayRelevant = (day) => {
     const entry = dayMap[day] || {};
     const iso = isoByDay[day];
@@ -282,7 +264,6 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const daysToRender = onlyJobDays ? dayOrder.filter(isDayRelevant) : dayOrder;
   if (onlyJobDays && daysToRender.length === 0) return null;
 
-  // Display inference
   const getDisplay = (day) => {
     const entry = dayMap[day] || {};
     const iso = isoByDay[day];
@@ -320,7 +301,6 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const rows = daysToRender.map((day) => ({ day, ...getDisplay(day) }));
   const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
 
-  // Styles (with minWidth: 0 and fixed table layout)
   const wrap = {
     border: '1px solid #d1d5db',
     borderRadius: 8,
@@ -344,7 +324,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     borderCollapse: 'separate',
     borderSpacing: 0,
     fontSize: 13,
-    tableLayout: 'fixed', // prevents column creep and overflow
+    tableLayout: 'fixed',
   };
   const th = {
     textAlign: 'left',
@@ -352,7 +332,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     borderBottom: '1px solid #e5e7eb',
     background: '#f8fafc',
     position: 'sticky',
-    top: 0,       // if your page header covers this, change to LAYOUT.HEADER_H + 8
+    top: 0,
     zIndex: 1,
     whiteSpace: 'nowrap',
   };
@@ -370,11 +350,8 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
 
   return (
     <div style={wrap}>
-      {/* header */}
       <div style={header}>
-        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#1f2937' }}>
-          Week of {ws ? format(ws, 'dd/MM/yyyy') : '—'}
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#1f2937' }}>Week of {ws ? format(ws, 'dd/MM/yyyy') : '—'}</div>
         <div style={{ fontSize: 14, color: '#4b5563' }}>
           <strong>Emp:</strong> {ts.employeeName || ts.employeeCode || '—'}
         </div>
@@ -408,7 +385,6 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
         </a>
       </div>
 
-      {/* table */}
       <div style={tableWrap}>
         <table style={table}>
           <colgroup>
@@ -422,7 +398,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
             <col style={{ width: 110 }} />
             <col style={{ width: 90 }} />
             <col style={{ width: 90 }} />
-            <col />               {/* Notes grows */}
+            <col />
             <col style={{ width: 80 }} />
           </colgroup>
           <thead>
@@ -454,16 +430,16 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
                 <td style={td}>{entry?.arriveBack || '—'}</td>
                 <td style={td}>{entry?.overnight ? 'Yes' : 'No'}</td>
                 <td style={td}>{entry?.lunchSup ? 'Yes' : 'No'}</td>
-                <td style={{ ...td, ...notesCell }}>
-                  {entry?.dayNotes ? entry.dayNotes : '—'}
-                </td>
+                <td style={{ ...td, ...notesCell }}>{entry?.dayNotes ? entry.dayNotes : '—'}</td>
                 <td style={tdRight}>{hours ? hours.toFixed(1) : '0.0'}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={11} style={{ ...foot, textAlign: 'right' }}>Total</td>
+              <td colSpan={11} style={{ ...foot, textAlign: 'right' }}>
+                Total
+              </td>
               <td style={foot}>{totalHours.toFixed(1)}</td>
             </tr>
           </tfoot>
@@ -520,17 +496,12 @@ export default function JobInfoPage() {
 
     const fetchAll = async () => {
       try {
-        // bookings (main + related by prefix)
         let mainJob;
         let qJobs;
 
         if (isJobNumber) {
           const prefix = splitJobNumber(jobId).prefix;
-          qJobs = query(
-            collection(db, 'bookings'),
-            where('jobNumber', '>=', prefix),
-            where('jobNumber', '<', prefix + '\uf8ff')
-          );
+          qJobs = query(collection(db, 'bookings'), where('jobNumber', '>=', prefix), where('jobNumber', '<', prefix + '\uf8ff'));
           const snap = await getDocs(qJobs);
           const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
           mainJob = jobs[0] || null;
@@ -542,12 +513,9 @@ export default function JobInfoPage() {
             return;
           }
           mainJob = { id: docSnap.id, ...docSnap.data() };
+
           const prefix = splitJobNumber(mainJob.jobNumber).prefix;
-          qJobs = query(
-            collection(db, 'bookings'),
-            where('jobNumber', '>=', prefix),
-            where('jobNumber', '<', prefix + '\uf8ff')
-          );
+          qJobs = query(collection(db, 'bookings'), where('jobNumber', '>=', prefix), where('jobNumber', '<', prefix + '\uf8ff'));
           const snap = await getDocs(qJobs);
           const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
           if (!jobs.find((j) => j.id === mainJob.id)) jobs.unshift(mainJob);
@@ -556,7 +524,6 @@ export default function JobInfoPage() {
 
         if (!mainJob) return;
 
-        // init UI state
         const initStatus = {};
         const initNotes = {};
         setRelatedJobs((jobs) => {
@@ -570,12 +537,11 @@ export default function JobInfoPage() {
         setSelectedStatusByJob(initStatus);
         setDayNotes(initNotes);
 
-        // timesheets
         const tsSnap = await getDocs(collection(db, 'timesheets'));
         const allTs = tsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        const jobsToIndex = (await getDocs(qJobs)).docs.map(d => ({ id: d.id, ...d.data() }));
-        const ids = new Set(jobsToIndex.map(j => j.id));
+        const jobsToIndex = (await getDocs(qJobs)).docs.map((d) => ({ id: d.id, ...d.data() }));
+        const ids = new Set(jobsToIndex.map((j) => j.id));
 
         const map = {};
         allTs.forEach((ts) => {
@@ -595,7 +561,6 @@ export default function JobInfoPage() {
         });
         setTimesheetsByJob(map);
 
-        // vehicles map
         const vSnap = await getDocs(collection(db, 'vehicles'));
         const vMap = vSnap.docs.reduce((acc, d) => {
           const v = { id: d.id, ...d.data() };
@@ -612,33 +577,67 @@ export default function JobInfoPage() {
     fetchAll();
   }, [jobId, isJobNumber]);
 
+  // ✅ NEW: if URL has #job-<id> (or other section id), scroll to it with sticky-header offset
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const scrollToHash = (attempt = 0) => {
+    const hash = window.location.hash || "";
+    if (!hash) return;
+
+    const id = decodeURIComponent(hash.slice(1));
+    if (!id) return;
+
+    const el = document.getElementById(id);
+
+    // If the element isn't on the page yet (async load), retry a few times
+    if (!el) {
+      if (attempt < 30) setTimeout(() => scrollToHash(attempt + 1), 50);
+      return;
+    }
+
+    // Prefer scrollIntoView + scrollMarginTop (you already set scrollMarginTop on the section)
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Extra safety: nudge up for sticky header (some browsers ignore scrollMarginTop inconsistently)
+    setTimeout(() => {
+      window.scrollBy({ top: -(LAYOUT.HEADER_H + 12), left: 0, behavior: "instant" });
+    }, 50);
+  };
+
+  // Run after jobs render
+  if (relatedJobs?.length) scrollToHash(0);
+
+  // Also handle manual hash changes (or in-page jumps)
+  const onHashChange = () => scrollToHash(0);
+  window.addEventListener("hashchange", onHashChange);
+
+  return () => window.removeEventListener("hashchange", onHashChange);
+}, [relatedJobs]);
 
 
   const computeIsPaid = (job) =>
     job.status === 'Paid' || (job.invoiceStatus && job.invoiceStatus.toLowerCase().includes('paid'));
 
-const saveJobStatus = async (id, status) => {
-  try {
-    // we need the job to know which vehicles are on it
-    const job = relatedJobs.find((j) => j.id === id);
-    const updates = { status };
+  const saveJobStatus = async (id, status) => {
+    try {
+      const job = relatedJobs.find((j) => j.id === id);
+      const updates = { status };
 
-    // if setting job to Complete, also Complete all selected vehicles
-    if (status === 'Complete' && job) {
-      Object.assign(updates, buildVehicleNameStatusUpdates(job, 'Complete'));
+      if (status === 'Complete' && job) {
+        Object.assign(updates, buildVehicleNameStatusUpdates(job, 'Complete'));
+      }
+
+      await updateDoc(doc(db, 'bookings', id), updates);
+
+      setStatusByJob((p) => ({ ...p, [id]: status }));
+      setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
+      alert(`Status updated to ${status}`);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update status.');
     }
-
-    await updateDoc(doc(db, 'bookings', id), updates);
-
-    setStatusByJob((p) => ({ ...p, [id]: status }));
-    setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
-    alert(`Status updated to ${status}`);
-  } catch (e) {
-    console.error(e);
-    alert('Failed to update status.');
-  }
-};
-
+  };
 
   const saveJobSummary = async (id) => {
     const notes = dayNotes[id]?.general || '';
@@ -756,14 +755,12 @@ const saveJobStatus = async (id, status) => {
   const mainJob = relatedJobs.find((j) => j.id === jobId) || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
 
-  /* ────────────────────────────────────────────────────────────
-     Render (fills page, no overlaps)
-  ─────────────────────────────────────────────────────────────*/
   return (
     <HeaderSidebarLayout>
       <div style={{ width: '100%', minHeight: '100vh', backgroundColor: UI.bg, color: UI.text }}>
         {/* Sticky page header */}
         <div
+          id="page-top"
           style={{
             position: 'sticky',
             top: 0,
@@ -788,7 +785,14 @@ const saveJobStatus = async (id, status) => {
           >
             <button
               onClick={() => router.back()}
-              style={{ backgroundColor: UI.chipBg, padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb', cursor: 'pointer', fontSize: 14 }}
+              style={{
+                backgroundColor: UI.chipBg,
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                cursor: 'pointer',
+                fontSize: 14,
+              }}
             >
               ← Back
             </button>
@@ -798,7 +802,7 @@ const saveJobStatus = async (id, status) => {
           </div>
         </div>
 
-        {/* Page content (pushed below sticky header) */}
+        {/* Page content */}
         <div
           style={{
             width: 'min(1600px, 100%)',
@@ -810,13 +814,24 @@ const saveJobStatus = async (id, status) => {
         >
           {relatedJobs.map((rawJob) => {
             const job = normalizeVehiclesForJob(rawJob, vehicleMap);
+
+            // ✅ NEW: stable ids for every job + sub-sections
+            const JOB_SECTION_ID = `job-${job.id}`;
+            const OVERVIEW_ID = `${JOB_SECTION_ID}-overview`;
+            const TIMESHEETS_ID = `${JOB_SECTION_ID}-timesheets`;
+            const STATUS_ID = `${JOB_SECTION_ID}-status`;
+            const NOTES_PO_ID = `${JOB_SECTION_ID}-notes-po`;
+            const ATTACHMENTS_ID = `${JOB_SECTION_ID}-attachments`;
+
             const currentDbStatus = statusByJob[job.id] || 'Pending';
             const selected = selectedStatusByJob[job.id] ?? currentDbStatus;
             const isPaid = computeIsPaid(job);
+
             const timesheets = (timesheetsByJob[job.id] || []).slice().sort((a, b) => {
               const t = (v) => parseDateFlexible(v)?.getTime() || 0;
               return t(b.weekStart) - t(a.weekStart);
             });
+
             const uploadError = errorByJob[job.id];
             const fileSelected = pdfFileByJob[job.id];
 
@@ -828,6 +843,7 @@ const saveJobStatus = async (id, status) => {
             return (
               <section
                 key={job.id}
+                id={JOB_SECTION_ID} // ✅ NEW
                 style={{
                   border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
                   borderRadius: 14,
@@ -835,7 +851,8 @@ const saveJobStatus = async (id, status) => {
                   marginBottom: 24,
                   boxShadow: UI.shadow,
                   background: job.id === jobId ? '#f8fbff' : '#fff',
-                  minWidth: 0, // prevents overflow in grid
+                  minWidth: 0,
+                  scrollMarginTop: LAYOUT.HEADER_H + 16, // ✅ helps native hash scrolling too
                 }}
               >
                 {/* Job strip header */}
@@ -873,6 +890,7 @@ const saveJobStatus = async (id, status) => {
                     >
                       {splitJobNumber(job.jobNumber || '').prefix || '—'}
                     </span>
+
                     <div
                       style={{
                         fontWeight: 900,
@@ -886,10 +904,15 @@ const saveJobStatus = async (id, status) => {
                     >
                       {job.client || 'Booking'} — #{job.jobNumber || job.id}
                     </div>
+
                     <div style={{ marginLeft: 8 }}>
                       <StatusPill value={currentDbStatus} />
                     </div>
-                    {isPaid && <div style={{ marginLeft: 6 }}><PaidPill /></div>}
+                    {isPaid && (
+                      <div style={{ marginLeft: 6 }}>
+                        <PaidPill />
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -908,7 +931,7 @@ const saveJobStatus = async (id, status) => {
                   </div>
                 </div>
 
-                {/* Two-column layout (fills page, no overflow) */}
+                {/* Two-column layout */}
                 <div
                   style={{
                     display: 'grid',
@@ -918,9 +941,20 @@ const saveJobStatus = async (id, status) => {
                     minWidth: 0,
                   }}
                 >
-                  {/* LEFT: Overview + Timesheets */}
+                  {/* LEFT */}
                   <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
-                    <div style={{ background: '#fff', border: UI.border, borderRadius: UI.radius, padding: 14, minWidth: 0 }}>
+                    {/* Overview */}
+                    <div
+                      id={OVERVIEW_ID} // ✅ NEW
+                      style={{
+                        background: '#fff',
+                        border: UI.border,
+                        borderRadius: UI.radius,
+                        padding: 14,
+                        minWidth: 0,
+                        scrollMarginTop: LAYOUT.HEADER_H + 16,
+                      }}
+                    >
                       <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(0,1fr)', rowGap: 8, columnGap: 12, fontSize: 14, minWidth: 0 }}>
                         <div style={{ color: UI.muted, fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>Location</div>
                         <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{job.location || '—'}</div>
@@ -945,9 +979,7 @@ const saveJobStatus = async (id, status) => {
                                 <div key={i} style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt, minWidth: 0 }}>
                                   <div style={{ fontWeight: 700, color: UI.text, overflowWrap: 'anywhere' }}>🚗 {title}</div>
                                   {subBits.length > 0 && (
-                                    <div style={{ color: '#374151', fontSize: 13, marginTop: 4, overflowWrap: 'anywhere' }}>
-                                      {subBits.join(' • ')}
-                                    </div>
+                                    <div style={{ color: '#374151', fontSize: 13, marginTop: 4, overflowWrap: 'anywhere' }}>{subBits.join(' • ')}</div>
                                   )}
                                 </div>
                               );
@@ -961,7 +993,19 @@ const saveJobStatus = async (id, status) => {
                         <div style={{ marginTop: 16, minWidth: 0 }}>
                           <div style={{ fontWeight: 800, marginBottom: 6 }}>Job Notes</div>
                           {jobNotesText && (
-                            <div style={{ whiteSpace: 'pre-wrap', color: UI.text, fontSize: 14, background: UI.bgAlt, border: UI.border, borderRadius: 8, padding: 10, minWidth: 0, overflowWrap: 'anywhere' }}>
+                            <div
+                              style={{
+                                whiteSpace: 'pre-wrap',
+                                color: UI.text,
+                                fontSize: 14,
+                                background: UI.bgAlt,
+                                border: UI.border,
+                                borderRadius: 8,
+                                padding: 10,
+                                minWidth: 0,
+                                overflowWrap: 'anywhere',
+                              }}
+                            >
                               {jobNotesText}
                             </div>
                           )}
@@ -987,27 +1031,48 @@ const saveJobStatus = async (id, status) => {
                     </div>
 
                     {/* Timesheets */}
-                    <div style={{ background: '#fff', border: UI.border, borderRadius: UI.radius, padding: 14, minWidth: 0 }}>
+                    <div
+                      id={TIMESHEETS_ID} // ✅ NEW
+                      style={{
+                        background: '#fff',
+                        border: UI.border,
+                        borderRadius: UI.radius,
+                        padding: 14,
+                        minWidth: 0,
+                        scrollMarginTop: LAYOUT.HEADER_H + 16,
+                      }}
+                    >
                       <h4 style={{ margin: '0 0 12px 0', fontSize: 16 }}>
                         Linked Timesheets ⏱️
-                        <span style={{ marginLeft: 8, fontWeight: 500, color: UI.muted, fontSize: 13 }}>
-                          ({(timesheetsByJob[job.id] || []).length} found)
-                        </span>
+                        <span style={{ marginLeft: 8, fontWeight: 500, color: UI.muted, fontSize: 13 }}>({(timesheetsByJob[job.id] || []).length} found)</span>
                       </h4>
+
                       {cards.length ? (
-                        <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>{cards.map((card, i) => <div key={i}>{card}</div>)}</div>
-                      ) : (
-                        <div style={{ color: UI.muted, padding: 10, border: '1px dashed #d1d5db', borderRadius: 6 }}>
-                          No timesheet days found for this job yet.
+                        <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+                          {cards.map((card, i) => (
+                            <div key={i}>{card}</div>
+                          ))}
                         </div>
+                      ) : (
+                        <div style={{ color: UI.muted, padding: 10, border: '1px dashed #d1d5db', borderRadius: 6 }}>No timesheet days found for this job yet.</div>
                       )}
                     </div>
                   </div>
 
-                  {/* RIGHT: Actions (sticky below page header) */}
+                  {/* RIGHT: Actions */}
                   <div style={{ display: 'grid', gap: 12, alignSelf: 'start', position: 'sticky', top: LAYOUT.HEADER_H + LAYOUT.STICKY_GAP, minWidth: 0 }}>
                     {/* Status */}
-                    <div style={{ backgroundColor: '#eef2ff', padding: 14, borderRadius: 8, border: '1px solid #a5b4fc', minWidth: 0 }}>
+                    <div
+                      id={STATUS_ID} // ✅ NEW
+                      style={{
+                        backgroundColor: '#eef2ff',
+                        padding: 14,
+                        borderRadius: 8,
+                        border: '1px solid #a5b4fc',
+                        minWidth: 0,
+                        scrollMarginTop: LAYOUT.HEADER_H + 16,
+                      }}
+                    >
                       <h4 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>Update Status</h4>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                         {['Ready to Invoice', 'Needs Action', 'Complete'].map((opt) => {
@@ -1062,7 +1127,17 @@ const saveJobStatus = async (id, status) => {
                     </div>
 
                     {/* Notes & PO */}
-                    <div style={{ background: UI.bgAlt, padding: 14, borderRadius: 8, border: UI.border, minWidth: 0 }}>
+                    <div
+                      id={NOTES_PO_ID} // ✅ NEW
+                      style={{
+                        background: UI.bgAlt,
+                        padding: 14,
+                        borderRadius: 8,
+                        border: UI.border,
+                        minWidth: 0,
+                        scrollMarginTop: LAYOUT.HEADER_H + 16,
+                      }}
+                    >
                       <h4 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>Notes & PO</h4>
 
                       <label style={{ fontWeight: 700, display: 'block', marginBottom: 6, fontSize: 12, color: UI.muted }}>General Summary</label>
@@ -1089,7 +1164,16 @@ const saveJobStatus = async (id, status) => {
                       />
                       <button
                         onClick={() => saveJobSummary(job.id)}
-                        style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 14, width: '100%' }}
+                        style={{
+                          backgroundColor: '#16a34a',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 8,
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          width: '100%',
+                        }}
                       >
                         Save Summary
                       </button>
@@ -1101,16 +1185,31 @@ const saveJobStatus = async (id, status) => {
                           defaultValue={job.po || ''}
                           onBlur={(e) => updateDoc(doc(db, 'bookings', job.id), { po: e.target.value })}
                           placeholder="Enter PO reference…"
-                          style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: 8, fontSize: 13, background: '#fff' }}
+                          style={{
+                            width: '100%',
+                            border: '1px solid #d1d5db',
+                            borderRadius: 8,
+                            padding: 8,
+                            fontSize: 13,
+                            background: '#fff',
+                          }}
                         />
                       </div>
                     </div>
 
                     {/* Attachments */}
-                    <div style={{ background: '#fff', padding: 14, borderRadius: 8, border: UI.border, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, marginBottom: 8 }}>
-                        {job.pdfUrl ? 'Job Attachment (PDF)' : 'Upload Job Attachment'}
-                      </div>
+                    <div
+                      id={ATTACHMENTS_ID} // ✅ NEW
+                      style={{
+                        background: '#fff',
+                        padding: 14,
+                        borderRadius: 8,
+                        border: UI.border,
+                        minWidth: 0,
+                        scrollMarginTop: LAYOUT.HEADER_H + 16,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, marginBottom: 8 }}>{job.pdfUrl ? 'Job Attachment (PDF)' : 'Upload Job Attachment'}</div>
 
                       {job.pdfUrl && (
                         <div style={{ marginBottom: 8 }}>
@@ -1129,9 +1228,7 @@ const saveJobStatus = async (id, status) => {
                                 <a href={att.url} target="_blank" rel="noopener noreferrer">
                                   {att.name}
                                 </a>
-                                <span style={{ color: UI.muted }}>
-                                  {' '}• {(att.size / 1024 / 1024).toFixed(2)} MB
-                                </span>
+                                <span style={{ color: UI.muted }}> • {(att.size / 1024 / 1024).toFixed(2)} MB</span>
                               </li>
                             ))}
                           </ul>
@@ -1159,9 +1256,12 @@ const saveJobStatus = async (id, status) => {
                         {uploadingByJob[job.id]
                           ? `Uploading… ${progressByJob[job.id] ?? 0}%`
                           : fileSelected
-                            ? job.pdfUrl ? 'Replace / Add PDF' : 'Upload PDF'
-                            : 'Select file'}
+                          ? job.pdfUrl
+                            ? 'Replace / Add PDF'
+                            : 'Upload PDF'
+                          : 'Select file'}
                       </button>
+
                       {uploadError && <p style={{ color: 'red', fontSize: 12, marginTop: 4 }}>{uploadError}</p>}
                     </div>
                   </div>

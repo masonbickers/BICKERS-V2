@@ -20,20 +20,70 @@ const UI = {
   muted: "#64748b",
   brand: "#1d4ed8",
 };
+
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
+const headerBar = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 16,
+};
 const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const select = { padding: "8px 10px", borderRadius: 10, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, minWidth: 150 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 700 };
+const select = {
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  fontSize: 13,
+  minWidth: 150,
+};
+const chip = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#f1f5f9",
+  color: UI.text,
+  fontSize: 12,
+  fontWeight: 700,
+};
 
 const tableWrap = { ...surface, overflow: "auto" };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const tableEl = {
+  width: "100%",
+  borderCollapse: "separate",
+  borderSpacing: 0,
+  fontSize: 13.5,
+  tableLayout: "fixed", // ✅ keeps columns aligned across all tables
+};
+const th = {
+  textAlign: "left",
+  padding: "10px 12px",
+  borderBottom: "1px solid #e5e7eb",
+  position: "sticky",
+  top: 0,
+  background: "#f8fafc",
+  zIndex: 1,
+  whiteSpace: "nowrap",
+};
+const td = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #f1f5f9",
+  verticalAlign: "top",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+const tdNoWrap = { ...td, whiteSpace: "nowrap" };
+const tdWrap = { ...td, whiteSpace: "normal", overflowWrap: "anywhere" };
 
-const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "22px 2px 10px" };
+const sectionHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  margin: "22px 2px 10px",
+};
 const weekTitle = { fontSize: 15, fontWeight: 900, color: UI.text, letterSpacing: "-0.01em" };
 const tinyHint = { color: UI.muted, fontSize: 12 };
 
@@ -48,6 +98,7 @@ const parseDate = (raw) => {
     return null;
   }
 };
+
 const normaliseDates = (job) => {
   const arr = [];
   if (Array.isArray(job.bookingDates) && job.bookingDates.length) {
@@ -61,13 +112,16 @@ const normaliseDates = (job) => {
   }
   return arr;
 };
+
 const isFourDigitJob = (job) => /^\d{4}$/.test(String(job.jobNumber ?? "").trim());
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—");
+
 const isPaid = (job) => {
   const s = String(job.status || "").toLowerCase();
   const inv = String(job.invoiceStatus || "").toLowerCase();
   return s === "paid" || s === "settled" || inv.includes("paid");
 };
+
 const prettifyStatus = (raw) => {
   const s = (raw || "").toLowerCase().trim();
   if (/ready\s*[-_\s]*to\s*[-_\s]*invoice/.test(s)) return "Ready to Invoice";
@@ -117,6 +171,8 @@ const StatusBadge = ({ value }) => {
         color: c.text,
         fontWeight: 900,
         whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
       }}
     >
       {value}
@@ -136,15 +192,38 @@ function getMonday(d) {
 function formatWeekRange(monday) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
+  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString(
+    "en-GB",
+    { day: "2-digit", month: "short", year: "numeric" }
+  )}`;
 }
+
+// date helpers for filters
+const startOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const endOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+};
 
 export default function ReviewQueuePage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // existing filters
   const [clientFilter, setClientFilter] = useState("all");
   const [search, setSearch] = useState("");
   const searchRef = useRef(null);
+
+  // ✅ NEW filters
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
@@ -172,9 +251,6 @@ export default function ReviewQueuePage() {
     return lastMid.getTime() < todayMidnight.getTime();
   };
 
-  // Review queue rule:
-  // (Confirmed/Complete and finished) OR (status = Ready to Invoice)
-  // AND not paid
   const queue = useMemo(() => {
     return jobs4
       .filter((j) => {
@@ -190,17 +266,50 @@ export default function ReviewQueuePage() {
       });
   }, [jobs4, todayMidnight]);
 
-  // Facet
   const clients = useMemo(
     () => ["all", ...Array.from(new Set(queue.map((j) => j.client).filter(Boolean))).sort()],
     [queue]
   );
 
-  // Filter + search
+  // ✅ NEW: statuses list for dropdown (only those you care about)
+  const statusOptions = useMemo(
+    () => ["all", "Ready to Invoice", "Confirmed", "Complete", "Action Required"],
+    []
+  );
+
+  // ✅ UPDATED filtered with more filters
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
+
+    const from = fromDate ? startOfDay(new Date(fromDate)) : null;
+    const to = toDate ? endOfDay(new Date(toDate)) : null;
+
     return queue.filter((j) => {
+      // client
       if (clientFilter !== "all" && (j.client || "") !== clientFilter) return false;
+
+      // status
+      if (statusFilter !== "all") {
+        const pretty = prettifyStatus(j.status);
+        if (pretty !== statusFilter) return false;
+      }
+
+      // overdue only
+      if (overdueOnly && !beforeToday(j)) return false;
+
+      // date range
+      if (from || to) {
+        const ds = normaliseDates(j);
+        if (!ds.length) return false;
+
+        const minT = Math.min(...ds.map((d) => d.getTime()));
+        const maxT = Math.max(...ds.map((d) => d.getTime()));
+
+        if (from && maxT < from.getTime()) return false;
+        if (to && minT > to.getTime()) return false;
+      }
+
+      // search
       if (!s) return true;
       return (
         String(j.jobNumber || "").toLowerCase().includes(s) ||
@@ -209,9 +318,8 @@ export default function ReviewQueuePage() {
         String(j.notes || "").toLowerCase().includes(s)
       );
     });
-  }, [queue, clientFilter, search]);
+  }, [queue, clientFilter, statusFilter, overdueOnly, fromDate, toDate, search, todayMidnight]);
 
-  /* ---------- Group by week (Mon–Sun) ---------- */
   const { weekGroups, weekKeys, noDate } = useMemo(() => {
     const groups = {};
     const noDateJobs = [];
@@ -227,7 +335,7 @@ export default function ReviewQueuePage() {
     }
     const keys = Object.keys(groups)
       .map((k) => Number(k))
-      .sort((a, b) => b - a); // most recent week first
+      .sort((a, b) => b - a);
     return { weekGroups: groups, weekKeys: keys, noDate: noDateJobs };
   }, [filtered]);
 
@@ -243,13 +351,26 @@ export default function ReviewQueuePage() {
     <section style={{ marginBottom: 28 }}>
       <div style={sectionHeader}>
         <h2 style={weekTitle}>
-          {title} {sub ? <span style={{ color: UI.muted, fontWeight: 600 }}>({sub})</span> : null}
+          {title}{" "}
+          {sub ? <span style={{ color: UI.muted, fontWeight: 600 }}>({sub})</span> : null}
         </h2>
-        <span style={tinyHint}>{jobs.length} job{jobs.length !== 1 ? "s" : ""}</span>
+        <span style={tinyHint}>
+          {jobs.length} job{jobs.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       <div style={tableWrap}>
         <table style={tableEl} aria-label={title}>
+          {/* ✅ fixed column widths so every table aligns */}
+          <colgroup>
+            <col style={{ width: 120 }} />
+            <col style={{ width: 220 }} />
+            <col />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 170 }} />
+            <col style={{ width: 140 }} />
+          </colgroup>
+
           <thead>
             <tr>
               <th style={th}>Job #</th>
@@ -260,22 +381,29 @@ export default function ReviewQueuePage() {
               <th style={th}>Action</th>
             </tr>
           </thead>
+
           <tbody>
             {jobs.map((j) => {
               const pretty = prettifyStatus(j.status);
+              const href = `/job-numbers/${j.id}#job-${j.id}`;
+
               return (
                 <tr key={j.id}>
-                  <td style={td}>
-                    <Link href={`/job-numbers/${j.id}`} style={{ textDecoration: "none", color: UI.text, fontWeight: 800 }}>
+                  <td style={tdNoWrap}>
+                    <Link href={href} style={{ textDecoration: "none", color: UI.text, fontWeight: 800 }}>
                       #{j.jobNumber || j.id}
                     </Link>
                   </td>
-                  <td style={td}>{j.client || "—"}</td>
-                  <td style={td}>{j.location || "—"}</td>
-                  <td style={td}><DatesCell job={j} /></td>
-                  <td style={td}><StatusBadge value={pretty} /></td>
-                  <td style={td}>
-                    <Link href={`/job-numbers/${j.id}`} style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
+                  <td style={tdWrap}>{j.client || "—"}</td>
+                  <td style={tdWrap}>{j.location || "—"}</td>
+                  <td style={tdNoWrap}>
+                    <DatesCell job={j} />
+                  </td>
+                  <td style={tdNoWrap}>
+                    <StatusBadge value={pretty} />
+                  </td>
+                  <td style={tdNoWrap}>
+                    <Link href={href} style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
                       Fill details →
                     </Link>
                   </td>
@@ -288,6 +416,16 @@ export default function ReviewQueuePage() {
     </section>
   );
 
+  const resetFilters = () => {
+    setSearch("");
+    setClientFilter("all");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+    setOverdueOnly(false);
+    if (searchRef.current) searchRef.current.focus();
+  };
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -298,53 +436,38 @@ export default function ReviewQueuePage() {
               Jobs that just finished or marked <b>Ready to Invoice</b>, not yet paid. Grouped by week.
             </div>
           </div>
-        <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} jobs`}</div>
+          <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} jobs`}</div>
         </div>
 
-        {/* Filters */}
+        {/* ✅ Filters (expanded) */}
         <div
           style={{
             ...surface,
             padding: 12,
             display: "grid",
-            gridTemplateColumns: "1fr auto auto",
+            gridTemplateColumns: "1fr auto auto auto auto auto auto",
             gap: 10,
             alignItems: "center",
             marginBottom: 14,
           }}
         >
-          <div style={{ position: "relative" }}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              style={{ position: "absolute", left: 10, top: 10, width: 18, height: 18, opacity: 0.6 }}
-              aria-hidden
-            >
-              <path
-                d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search by job #, client, location, or notes…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 42px 10px 36px",
-                borderRadius: 10,
-                border: "1px solid #d1d5db",
-                fontSize: 14,
-                outline: "none",
-                background: "#fff",
-              }}
-            />
-          </div>
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Search by job #, client, location, or notes…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "1px solid #d1d5db",
+              fontSize: 14,
+              outline: "none",
+              background: "#fff",
+            }}
+          />
+
           <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={select}>
             {clients.map((c) => (
               <option key={c} value={c}>
@@ -352,7 +475,58 @@ export default function ReviewQueuePage() {
               </option>
             ))}
           </select>
-          <Link href="/job-home" style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
+
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={select}>
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s === "all" ? "Status: All" : s}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            style={select}
+            aria-label="From date"
+            title="From date"
+          />
+
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            style={select}
+            aria-label="To date"
+            title="To date"
+          />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: UI.text, whiteSpace: "nowrap" }}>
+            <input
+              type="checkbox"
+              checked={overdueOnly}
+              onChange={(e) => setOverdueOnly(e.target.checked)}
+            />
+            Overdue only
+          </label>
+
+          <button
+            onClick={resetFilters}
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: 10,
+              padding: "8px 12px",
+              background: "#fff",
+              fontWeight: 800,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Reset
+          </button>
+
+          <Link href="/job-home" style={{ textDecoration: "none", fontWeight: 800, color: UI.brand, whiteSpace: "nowrap" }}>
             Home →
           </Link>
         </div>
@@ -374,9 +548,7 @@ export default function ReviewQueuePage() {
               return <SectionTable key={mondayTS} jobs={jobs} title={title} sub={subSpan} />;
             })}
 
-            {noDate.length > 0 && (
-              <SectionTable jobs={noDate} title="No Dates" sub="Jobs without booking dates" />
-            )}
+            {noDate.length > 0 && <SectionTable jobs={noDate} title="No Dates" sub="Jobs without booking dates" />}
           </>
         )}
       </div>
