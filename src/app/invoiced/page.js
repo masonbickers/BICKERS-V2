@@ -44,7 +44,15 @@ const toolbar = {
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", padding: "10px 44px 10px 36px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", fontSize: 14, outline: "none", background: "#fff" };
+const searchInput = {
+  width: "100%",
+  padding: "10px 44px 10px 36px",
+  borderRadius: UI.radiusSm,
+  border: "1px solid #d1d5db",
+  fontSize: 14,
+  outline: "none",
+  background: "#fff",
+};
 const searchIcon = { position: "absolute", left: 10, width: 18, height: 18, opacity: 0.6 };
 
 const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, minWidth: 140 };
@@ -56,9 +64,21 @@ const tinyHint = { color: UI.muted, fontSize: 12 };
 
 /* Table styles (match) */
 const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
+const tableEl = {
+  width: "100%",
+  tableLayout: "fixed", // ✅ lock column widths so everything lines up
+  borderCollapse: "separate",
+  borderSpacing: 0,
+  fontSize: 13.5,
+};
 const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const td = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #f1f5f9",
+  verticalAlign: "top",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
 
 /* ───────────────────────────────────────────
    Helpers
@@ -101,10 +121,7 @@ const getMillis = (v) => {
 
 /* Prefer invoicedAt for grouping; fall back to first booking date */
 const getInvoicedOrFirstDate = (job) => {
-  const ts =
-    getMillis(job?.finance?.invoicedAt) ??
-    getMillis(job?.invoicedAt) ??
-    null;
+  const ts = getMillis(job?.finance?.invoicedAt) ?? getMillis(job?.invoicedAt) ?? null;
   if (ts) return new Date(ts);
 
   const ds = normaliseDates(job).sort((a, b) => a - b);
@@ -141,11 +158,13 @@ const prettifyStatus = (raw) => {
   if (s === "confirmed") return "Confirmed";
   if (s === "first pencil") return "First Pencil";
   if (s === "second pencil") return "Second Pencil";
-  return s
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC";
+  return (
+    s
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC"
+  );
 };
 
 const statusColors = (label) => {
@@ -232,7 +251,11 @@ function getMonday(d) {
 function formatWeekRange(monday) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
+  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}`;
 }
 
 /* ───────────────────────────────────────────
@@ -297,11 +320,11 @@ export default function InvoicedTablePage() {
   // Group by week (use invoicedAt if present)
   const { weekGroups, weekKeys, noDate } = useMemo(() => {
     const groups = {};
-    const noDate = [];
+    const noDateArr = [];
     for (const j of filtered) {
       const when = getInvoicedOrFirstDate(j);
       if (!when) {
-        noDate.push(j);
+        noDateArr.push(j);
         continue;
       }
       const mondayKey = getMonday(when).getTime();
@@ -311,56 +334,78 @@ export default function InvoicedTablePage() {
     const keys = Object.keys(groups)
       .map(Number)
       .sort((a, b) => b - a); // newest week first
-    return { weekGroups: groups, weekKeys: keys, noDate };
+    return { weekGroups: groups, weekKeys: keys, noDate: noDateArr };
   }, [filtered]);
 
-  /* ---------- Table (same columns/layout) ---------- */
-  const Table = ({ jobs }) => (
-    <div style={tableWrap}>
-      <table style={tableEl} aria-label="Invoiced (awaiting payment)">
-        <thead>
-          <tr>
-            <th style={th}>Job #</th>
-            <th style={th}>Client</th>
-            <th style={th}>Location</th>
-            <th style={th}>Dates</th>
-            <th style={th}>Employees</th>
-            <th style={th}>Vehicles</th>
-            <th style={th}>Status</th>
-            <th style={th}>Action</th>
+const COLS = ["90px", "180px", "160px", "140px", "120px", "220px", "140px", "90px"];
+
+const Table = ({ jobs }) => (
+  <div style={tableWrap}>
+    <table style={tableEl} aria-label="Paid jobs">
+      <colgroup>
+        {COLS.map((w, i) => (
+          <col key={i} style={{ width: w }} />
+        ))}
+      </colgroup>
+
+      <thead>
+        <tr>
+          <th style={th}>Job #</th>
+          <th style={th}>Client</th>
+          <th style={th}>Location</th>
+          <th style={th}>Dates</th>
+          <th style={th}>Employees</th>
+          <th style={th}>Vehicles</th>
+          <th style={th}>Status</th>
+          <th style={th}>Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {jobs.map((job) => (
+          <tr key={job.id}>
+            <td style={{ ...td, whiteSpace: "nowrap" }}>
+              <Link
+                href={`/job-numbers/${job.id}`}
+                style={{ fontWeight: 800, textDecoration: "none", color: UI.text }}
+              >
+                #{job.jobNumber || job.id}
+              </Link>
+            </td>
+
+            <td style={td} title={job.client || ""}>{job.client || "—"}</td>
+            <td style={td} title={job.location || ""}>{job.location || "—"}</td>
+            <td style={td}>{dateRangeLabel(job)}</td>
+
+            <td style={td} title={crewInitials(job.employees) === "—" ? "" : crewInitials(job.employees)}>
+              {crewInitials(job.employees)}
+            </td>
+
+            <td style={td} title={vehiclesList(job.vehicles) === "—" ? "" : vehiclesList(job.vehicles)}>
+              {vehiclesList(job.vehicles)}
+            </td>
+
+            <td style={{ ...td, whiteSpace: "nowrap" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <StatusCell raw={job.status || "Paid"} />
+              </div>
+            </td>
+
+            <td style={{ ...td, whiteSpace: "nowrap" }}>
+              <Link
+                href={`/job-numbers/${job.id}`}
+                style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}
+              >
+                View →
+              </Link>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => (
-            <tr key={job.id}>
-              <td style={td}>
-                <Link href={`/job-numbers/${job.id}`} style={{ fontWeight: 800, textDecoration: "none", color: UI.text }}>
-                  #{job.jobNumber || job.id}
-                </Link>
-              </td>
-              <td style={td}>{job.client || "—"}</td>
-              <td style={td}>{job.location || "—"}</td>
-              <td style={td}>{dateRangeLabel(job)}</td>
-              <td style={td}>{crewInitials(job.employees)}</td>
-              <td style={td}>{vehiclesList(job.vehicles)}</td>
-              <td style={td}>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <StatusCell raw={job.status} />
-                  {/* You can surface invoice #/amount here if you store them:
-                      <span>#{job.finance?.invoiceNumber}</span> <span>£{job.finance?.total}</span> */}
-                </div>
-              </td>
-              <td style={td}>
-                <Link href={`/invoice/${job.id}`} style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
-                  View →
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
 
   return (
     <HeaderSidebarLayout>
@@ -369,7 +414,9 @@ export default function InvoicedTablePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Invoiced</h1>
-            <div style={sub}>Jobs marked <strong>Invoiced</strong> and not yet paid. Grouped by the week they were invoiced (fallback: first booking date).</div>
+            <div style={sub}>
+              Jobs marked <strong>Invoiced</strong> and not yet paid. Grouped by the week they were invoiced (fallback: first booking date).
+            </div>
           </div>
           <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} shown`}</div>
         </div>
@@ -378,7 +425,13 @@ export default function InvoicedTablePage() {
         <div style={toolbar}>
           <div style={searchWrap} title="Press / to focus">
             <svg viewBox="0 0 24 24" fill="none" style={searchIcon} aria-hidden>
-              <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             <input
               ref={searchRef}
@@ -393,7 +446,9 @@ export default function InvoicedTablePage() {
 
           <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={select} aria-label="Filter by client">
             {clients.map((c) => (
-              <option key={c} value={c}>{c === "all" ? "Client: All" : c}</option>
+              <option key={c} value={c}>
+                {c === "all" ? "Client: All" : c}
+              </option>
             ))}
           </select>
 
@@ -416,7 +471,9 @@ export default function InvoicedTablePage() {
                 return (
                   <section key={mondayTS} style={{ marginBottom: 28 }}>
                     <div style={sectionHeader}>
-                      <h2 style={weekTitle}>{formatWeekRange(monday)} ({jobs.length})</h2>
+                      <h2 style={weekTitle}>
+                        {formatWeekRange(monday)} ({jobs.length})
+                      </h2>
                       <span style={tinyHint}>
                         {new Date(Number(mondayTS)).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                         {" – "}

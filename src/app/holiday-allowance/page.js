@@ -37,7 +37,6 @@ const PATTERN_LABEL = {
 
 function entitlementFor(pattern) {
   const v = ENTITLEMENT[pattern] ?? ENTITLEMENT.full_time;
-  // rounded to whole days (change to Math.round(v * 2)/2 if you want halves)
   return Math.round(v);
 }
 
@@ -56,14 +55,7 @@ function countWeekdays(start, end) {
 }
 
 function pickName(x = {}) {
-  return (
-    x.name ||
-    x.fullName ||
-    x.employee ||
-    x.employeeName ||
-    x.displayName ||
-    ""
-  );
+  return x.name || x.fullName || x.employee || x.employeeName || x.displayName || "";
 }
 
 const asNum = (v, fallback = 0) => {
@@ -72,6 +64,155 @@ const asNum = (v, fallback = 0) => {
 };
 
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+/* ────────────────────────────────────────────────────────────────
+   MINI DESIGN SYSTEM (matches your newer pages)
+──────────────────────────────────────────────────────────────── */
+const UI = {
+  radius: 14,
+  radiusSm: 10,
+  gap: 18,
+  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
+  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
+  border: "1px solid #e5e7eb",
+  bg: "#f8fafc",
+  card: "#ffffff",
+  text: "#0f172a",
+  muted: "#64748b",
+  brand: "#1d4ed8",
+  brandSoft: "#eff6ff",
+  danger: "#ef4444",
+};
+
+const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" };
+const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+
+const card = {
+  background: UI.card,
+  borderRadius: UI.radius,
+  border: UI.border,
+  boxShadow: UI.shadowSm,
+};
+
+const cardPad = { padding: 14 };
+
+const chip = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "6px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#f1f5f9",
+  color: UI.text,
+  fontSize: 12,
+  fontWeight: 900,
+};
+
+const input = {
+  width: "100%",
+  border: "1px solid #d1d5db",
+  borderRadius: UI.radiusSm,
+  padding: "10px 12px",
+  outline: "none",
+  background: "#fff",
+  fontSize: 14,
+};
+
+const inputNum = { ...input, width: 140 };
+
+const select = { ...input, fontWeight: 800 };
+
+const btn = (kind = "primary") => {
+  if (kind === "ghost") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #d1d5db",
+      background: "#fff",
+      color: UI.text,
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    };
+  }
+  if (kind === "danger") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #fecaca",
+      background: "#fee2e2",
+      color: "#7f1d1d",
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    };
+  }
+  return {
+    padding: "10px 12px",
+    borderRadius: UI.radiusSm,
+    border: `1px solid ${UI.brand}`,
+    background: UI.brand,
+    color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+};
+
+function Pill({ tone = "default", children }) {
+  const tones = {
+    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
+    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
+    warn: { bg: "#fff7ed", fg: "#7c2d12", br: "#fed7aa" },
+    bad: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
+    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
+    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+  };
+  const t = tones[tone] || tones.default;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "4px 10px",
+        borderRadius: 999,
+        background: t.bg,
+        color: t.fg,
+        border: `1px solid ${t.br}`,
+        fontSize: 12,
+        fontWeight: 900,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function StatTile({ label, value, tone = "default" }) {
+  const tones = {
+    default: { bg: "#fff", br: "#e5e7eb" },
+    soft: { bg: UI.brandSoft, br: "#dbeafe" },
+    warn: { bg: "#fff7ed", br: "#fed7aa" },
+  };
+  const t = tones[tone] || tones.default;
+  return (
+    <div style={{ background: t.bg, border: `1px solid ${t.br}`, borderRadius: 12, padding: 12 }}>
+      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 20, fontWeight: 950, color: UI.text }}>{value}</div>
+    </div>
+  );
+}
+
+function balanceTone(bal) {
+  if (bal < 0) return "bad";
+  if (bal <= 2) return "warn";
+  return "good";
+}
 
 /* ────────────────────────────────────────────────────────────────
    PAGE
@@ -83,11 +224,11 @@ export default function EmployeesAdminPage() {
   const [yearView, setYearView] = useState(thisYear);
 
   // Employees list (raw rows from Firestore, normalised)
-  const [rows, setRows] = useState([]); // [{id,name,workPattern,holidayAllowances,carryOverByYear,holidayAllowance,carriedOverDays}]
-  const [saving, setSaving] = useState({}); // { [id]: bool }
+  const [rows, setRows] = useState([]);
+  const [saving, setSaving] = useState({});
 
   // Edit buffer
-  const [edits, setEdits] = useState({}); // { [id]: { name, workPattern, byYear: { [year]: { holidayAllowance, carriedOverDays } } } }
+  const [edits, setEdits] = useState({});
 
   // Holiday usage per year per name: { [year]: { [employeeName]: usedDays } }
   const [usedByYearName, setUsedByYearName] = useState({});
@@ -106,7 +247,6 @@ export default function EmployeesAdminPage() {
     const load = async () => {
       setLoading(true);
       try {
-        // Employees
         const empSnap = await getDocs(collection(db, "employees"));
         const list = empSnap.docs.map((d) => {
           const x = d.data() || {};
@@ -121,12 +261,11 @@ export default function EmployeesAdminPage() {
             carriedOverDays: asNum(x.carriedOverDays, 0),
 
             // per-year maps
-            holidayAllowances: x.holidayAllowances || {}, // { "2025": 22, ... }
-            carryOverByYear: x.carryOverByYear || {}, // { "2025": 2, ... }
+            holidayAllowances: x.holidayAllowances || {},
+            carryOverByYear: x.carryOverByYear || {},
           };
         });
 
-        // Holidays usage for thisYear + nextYear
         const holSnap = await getDocs(collection(db, "holidays"));
         const used = { [thisYear]: {}, [nextYear]: {} };
 
@@ -138,7 +277,6 @@ export default function EmployeesAdminPage() {
           const start = new Date(x.startDate);
           const end = new Date(x.endDate);
 
-          // ignore cross-year items
           if (start.getFullYear() !== end.getFullYear()) return;
 
           const yr = start.getFullYear();
@@ -151,7 +289,6 @@ export default function EmployeesAdminPage() {
         setRows(list);
         setUsedByYearName(used);
 
-        // Seed edits buffer
         const seed = {};
         for (const r of list) {
           const pattern = r.workPattern || DEFAULT_PATTERN;
@@ -172,15 +309,11 @@ export default function EmployeesAdminPage() {
               ? asNum(r.holidayAllowances[String(nextYear)], base)
               : base;
 
-          // next-year carry defaults to auto-derive from days left this year,
-          // but we *allow editing*, so initial value uses:
-          // stored next-year carry OR auto-derive (capped)
           const storedNextCarry =
             r.carryOverByYear?.[String(nextYear)] !== undefined
               ? asNum(r.carryOverByYear[String(nextYear)], 0)
               : undefined;
 
-          // compute auto carry based on this year's balance (using *stored* values)
           const usedThis = used[thisYear]?.[r.name] || 0;
           const balThis = allowThis + carryThis - usedThis;
           const autoNextCarry = clamp(balThis, 0, MAX_CARRY);
@@ -193,9 +326,7 @@ export default function EmployeesAdminPage() {
               [nextYear]: {
                 holidayAllowance: allowNext,
                 carriedOverDays:
-                  storedNextCarry !== undefined
-                    ? clamp(storedNextCarry, 0, MAX_CARRY)
-                    : autoNextCarry,
+                  storedNextCarry !== undefined ? clamp(storedNextCarry, 0, MAX_CARRY) : autoNextCarry,
               },
             },
           };
@@ -236,7 +367,7 @@ export default function EmployeesAdminPage() {
     return asNum(r.holidayAllowance, fallback);
   };
 
-  /* ---------------- carry getter (editable buffer first) ---------------- */
+  /* ---------------- carry getter ---------------- */
   const getCarryForYear = (r, yr) => {
     const slot = edits?.[r.id]?.byYear?.[yr] || {};
     if (slot.carriedOverDays !== undefined) return asNum(slot.carriedOverDays, 0);
@@ -257,10 +388,7 @@ export default function EmployeesAdminPage() {
 
   /* ---------------- edits ---------------- */
   const onEditName = (id, val) => {
-    setEdits((p) => ({
-      ...p,
-      [id]: { ...(p[id] || {}), name: val },
-    }));
+    setEdits((p) => ({ ...p, [id]: { ...(p[id] || {}), name: val } }));
   };
 
   const onEditPattern = (r, pattern) => {
@@ -271,18 +399,10 @@ export default function EmployeesAdminPage() {
       const prev = p[id] || {};
       const byYear = { ...(prev.byYear || {}) };
 
-      // When pattern changes, set both years’ allowance to derived (still manually editable after)
       byYear[thisYear] = { ...(byYear[thisYear] || {}), holidayAllowance: derived };
       byYear[nextYear] = { ...(byYear[nextYear] || {}), holidayAllowance: derived };
 
-      return {
-        ...p,
-        [id]: {
-          ...prev,
-          workPattern: pattern,
-          byYear,
-        },
-      };
+      return { ...p, [id]: { ...prev, workPattern: pattern, byYear } };
     });
   };
 
@@ -303,12 +423,10 @@ export default function EmployeesAdminPage() {
     }));
   };
 
-  // ✅ now editable for next year too (but capped at 5)
   const onEditCarry = (r, val) => {
     const yr = yearView;
     let nextVal = asNum(val, 0);
 
-    // cap carry over for ANY year? only next year needs hard cap at 5 per your rule
     if (yr === nextYear) nextVal = clamp(nextVal, 0, MAX_CARRY);
     else nextVal = Math.max(0, nextVal);
 
@@ -348,11 +466,7 @@ export default function EmployeesAdminPage() {
       const nextAllowances = { ...(r.holidayAllowances || {}), [yrKey]: allowance };
       const nextCarry = { ...(r.carryOverByYear || {}), [yrKey]: carry };
 
-      // legacy sync only for current year (keeps other pages working)
-      const legacyPatch =
-        yearView === thisYear
-          ? { holidayAllowance: allowance, carriedOverDays: carry }
-          : {};
+      const legacyPatch = yearView === thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {};
 
       await updateDoc(fsDoc(db, "employees", r.id), {
         name,
@@ -371,9 +485,7 @@ export default function EmployeesAdminPage() {
                 workPattern: pattern,
                 holidayAllowances: nextAllowances,
                 carryOverByYear: nextCarry,
-                ...(yearView === thisYear
-                  ? { holidayAllowance: allowance, carriedOverDays: carry }
-                  : {}),
+                ...(yearView === thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {}),
               }
             : row
         )
@@ -469,34 +581,51 @@ export default function EmployeesAdminPage() {
     }
   };
 
+  /* ---------------- derived KPIs ---------------- */
+  const kpis = useMemo(() => {
+    const totalPeople = filteredRows.length;
+    let totalAllowance = 0;
+    let totalCarry = 0;
+    let totalUsed = 0;
+
+    filteredRows.forEach((r) => {
+      totalAllowance += getAllowanceForYear(r, yearView);
+      totalCarry += getCarryForYear(r, yearView);
+      totalUsed += usedForYearByName(yearView, r.name);
+    });
+
+    const total = totalAllowance + totalCarry;
+    const totalBalance = total - totalUsed;
+
+    return {
+      people: totalPeople,
+      totalAllowance: Number(totalAllowance.toFixed(0)),
+      totalCarry: Number(totalCarry.toFixed(0)),
+      totalUsed: Number(totalUsed.toFixed(0)),
+      totalBalance: Number(totalBalance.toFixed(0)),
+    };
+  }, [filteredRows, yearView, edits, usedByYearName]);
+
   /* ---------------- render ---------------- */
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: 32, minHeight: "100vh", background: "#f4f4f5" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+      <div style={pageWrap}>
+        {/* Header */}
+        <div style={headerBar}>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>
-              Employees — Holiday Allowances
-            </h1>
-            <div style={{ color: "#6b7280" }}>
-              Work pattern sets base allowance (Full time = 22). Carry over is capped at {MAX_CARRY} days. Next-year carry is editable.
+            <h1 style={h1}>Employees — Holiday Allowances</h1>
+            <div style={sub}>
+              Work pattern sets base allowance (<b>Full time = 22</b>). Carry over is capped at <b>{MAX_CARRY}</b> days.
+              Next-year carry is editable.
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ color: "#6b7280" }}>Viewing Year</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <span style={chip}>Viewing: {yearView}</span>
             <select
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
-              style={{ ...inputText, padding: "8px 10px", minWidth: 160 }}
+              style={{ ...select, width: 180 }}
             >
               <option value={thisYear}>{thisYear} (Current)</option>
               <option value={nextYear}>{nextYear} (Next)</option>
@@ -504,226 +633,250 @@ export default function EmployeesAdminPage() {
           </div>
         </div>
 
-        {/* Add employee */}
-        <div style={{ ...card, marginTop: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Add Employee</h3>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Name"
-              style={inputText}
-            />
-
-            <select
-              value={newPattern}
-              onChange={(e) => setNewPattern(e.target.value)}
-              style={{ ...inputText, minWidth: 180 }}
-            >
-              <option value="full_time">{PATTERN_LABEL.full_time}</option>
-              <option value="four_days">{PATTERN_LABEL.four_days}</option>
-              <option value="three_days">{PATTERN_LABEL.three_days}</option>
-            </select>
-
-            <div style={{ color: "#6b7280", fontSize: 13 }}>
-              Base allowance: <strong>{entitlementFor(newPattern)}</strong>
+        {/* Top grid: Add + Filters + KPI */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.9fr)",
+            gap: UI.gap,
+            marginTop: 14,
+            alignItems: "start",
+          }}
+        >
+          {/* Add employee */}
+          <div style={{ ...card, ...cardPad }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 950, color: UI.text }}>Add employee</div>
+              <Pill tone="info">Base: {entitlementFor(newPattern)} days</Pill>
             </div>
 
-            <input
-              type="number"
-              min={0}
-              value={newCarry}
-              onChange={(e) => setNewCarry(e.target.value)}
-              placeholder={`Carried Over (${thisYear})`}
-              style={inputNum}
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: 12 }}>
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" style={input} />
+              <select value={newPattern} onChange={(e) => setNewPattern(e.target.value)} style={select}>
+                <option value="full_time">{PATTERN_LABEL.full_time}</option>
+                <option value="four_days">{PATTERN_LABEL.four_days}</option>
+                <option value="three_days">{PATTERN_LABEL.three_days}</option>
+              </select>
 
-            <button onClick={addEmployee} disabled={adding} style={btnPrimary}>
-              {adding ? "Adding…" : "Add"}
-            </button>
+              <input
+                type="number"
+                min={0}
+                value={newCarry}
+                onChange={(e) => setNewCarry(e.target.value)}
+                placeholder={`Carry (${thisYear})`}
+                style={inputNum}
+              />
+
+              <button onClick={addEmployee} disabled={adding} style={btn()}>
+                {adding ? "Adding…" : "Add"}
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, color: UI.muted, fontSize: 12, lineHeight: 1.4 }}>
+              Adds per-year values for {thisYear}. You can pre-fill {nextYear} by switching year view and saving.
+            </div>
           </div>
-        </div>
 
-        {/* Search */}
-        <div style={{ ...card, marginTop: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search employees…"
-              style={{ ...inputText, maxWidth: 360 }}
-            />
-            <div style={{ color: "#6b7280" }}>
-              Showing usage for: <strong>{yearView}</strong>
+          {/* Filters + KPIs */}
+          <div style={{ display: "grid", gap: UI.gap }}>
+            <div style={{ ...card, ...cardPad }}>
+              <div style={{ fontWeight: 950, color: UI.text, marginBottom: 10 }}>Search</div>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees…" style={input} />
+              <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
+                Showing <b>{filteredRows.length}</b> employee{filteredRows.length === 1 ? "" : "s"}.
+              </div>
+            </div>
+
+            <div style={{ ...card, ...cardPad }}>
+              <div style={{ fontWeight: 950, color: UI.text, marginBottom: 10 }}>Totals ({yearView})</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                <StatTile label="People" value={kpis.people} tone="soft" />
+                <StatTile label="Used" value={kpis.totalUsed} />
+                <StatTile label="Allowance" value={kpis.totalAllowance} />
+                <StatTile label="Carry" value={kpis.totalCarry} tone="warn" />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <StatTile label="Total balance" value={kpis.totalBalance} tone={kpis.totalBalance < 0 ? "warn" : "soft"} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div style={{ ...card, marginTop: 16, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1180 }}>
-            <thead>
-              <tr>
-                <th style={th}>Name</th>
-                <th style={th}>Work Pattern</th>
-                <th style={th}>Allowance ({yearView})</th>
-                <th style={th}>Carry Over ({yearView})</th>
-                <th style={th}>Total</th>
-                <th style={th}>Used ({yearView})</th>
-                <th style={th}>Balance</th>
-                <th style={th}>Actions</th>
-              </tr>
-            </thead>
+        <div style={{ ...card, marginTop: UI.gap }}>
+          <div style={{ padding: 14, borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 950, color: UI.text }}>Allowances table</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <span style={chip}>Carry cap: {MAX_CARRY}</span>
+              <span style={chip}>Base FT: {BASE_FULL_TIME}</span>
+            </div>
+          </div>
 
-            <tbody>
-              {loading ? (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1180 }}>
+              <thead>
                 <tr>
-                  <td style={td} colSpan={8}>
-                    Loading…
-                  </td>
+                  <th style={th}>Name</th>
+                  <th style={th}>Work Pattern</th>
+                  <th style={th}>Allowance</th>
+                  <th style={th}>Carry</th>
+                  <th style={th}>Total</th>
+                  <th style={th}>Used</th>
+                  <th style={th}>Balance</th>
+                  <th style={th}>Actions</th>
                 </tr>
-              ) : filteredRows.length === 0 ? (
-                <tr>
-                  <td style={td} colSpan={8}>
-                    No employees found.
-                  </td>
-                </tr>
-              ) : (
-                filteredRows.map((r) => {
-                  const e = edits?.[r.id] || {};
-                  const name = e.name ?? r.name;
+              </thead>
 
-                  const pattern = e.workPattern ?? r.workPattern ?? DEFAULT_PATTERN;
-                  const allowance = getAllowanceForYear(r, yearView);
-                  const carry = getCarryForYear(r, yearView);
-                  const used = usedForYearByName(yearView, r.name);
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td style={td} colSpan={8}>
+                      Loading…
+                    </td>
+                  </tr>
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td style={td} colSpan={8}>
+                      No employees found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRows.map((r, idx) => {
+                    const e = edits?.[r.id] || {};
+                    const name = e.name ?? r.name;
 
-                  const total = allowance + carry;
-                  const balance = total - used;
+                    const pattern = e.workPattern ?? r.workPattern ?? DEFAULT_PATTERN;
+                    const allowance = getAllowanceForYear(r, yearView);
+                    const carry = getCarryForYear(r, yearView);
+                    const used = usedForYearByName(yearView, r.name);
 
-                  // show what their days-left-this-year are, and recommended carry
-                  const balThis = balanceForYear(r, thisYear);
-                  const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
+                    const total = allowance + carry;
+                    const balance = total - used;
 
-                  return (
-                    <tr key={r.id}>
-                      <td style={td}>
-                        <input
-                          value={name}
-                          onChange={(ev) => onEditName(r.id, ev.target.value)}
-                          style={{ ...inputText, minWidth: 200 }}
-                        />
-                      </td>
+                    const balThis = balanceForYear(r, thisYear);
+                    const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
 
-                      <td style={td}>
-                        <select
-                          value={pattern}
-                          onChange={(ev) => onEditPattern(r, ev.target.value)}
-                          style={{ ...inputText, minWidth: 180 }}
-                        >
-                          <option value="full_time">{PATTERN_LABEL.full_time}</option>
-                          <option value="four_days">{PATTERN_LABEL.four_days}</option>
-                          <option value="three_days">{PATTERN_LABEL.three_days}</option>
-                        </select>
-                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
-                          Base: <strong>{entitlementFor(pattern)}</strong> days
-                        </div>
-                      </td>
+                    const zebra = idx % 2 === 0 ? "#fff" : "#f8fafc";
 
-                      <td style={td}>
-                        <input
-                          type="number"
-                          min={0}
-                          value={allowance}
-                          onChange={(ev) => onEditAllowance(r.id, ev.target.value)}
-                          style={inputNum}
-                        />
-                      </td>
+                    return (
+                      <tr key={r.id} style={{ background: zebra }}>
+                        <td style={td}>
+                          <input
+                            value={name}
+                            onChange={(ev) => onEditName(r.id, ev.target.value)}
+                            style={{ ...input, minWidth: 220 }}
+                          />
+                        </td>
 
-                      <td style={td}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <td style={td}>
+                          <select
+                            value={pattern}
+                            onChange={(ev) => onEditPattern(r, ev.target.value)}
+                            style={{ ...select, minWidth: 190 }}
+                          >
+                            <option value="full_time">{PATTERN_LABEL.full_time}</option>
+                            <option value="four_days">{PATTERN_LABEL.four_days}</option>
+                            <option value="three_days">{PATTERN_LABEL.three_days}</option>
+                          </select>
+
+                          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <Pill tone="gray">Base {entitlementFor(pattern)}</Pill>
+                            {pattern !== "full_time" ? <Pill tone="info">Pro-rata</Pill> : <Pill tone="good">FT</Pill>}
+                          </div>
+                        </td>
+
+                        <td style={td}>
                           <input
                             type="number"
                             min={0}
-                            max={yearView === nextYear ? MAX_CARRY : undefined}
-                            value={carry}
-                            onChange={(ev) => onEditCarry(r, ev.target.value)}
+                            value={allowance}
+                            onChange={(ev) => onEditAllowance(r.id, ev.target.value)}
                             style={inputNum}
                           />
-                          {yearView === nextYear && (
-                            <div style={{ fontSize: 12, color: "#6b7280" }}>
-                              Recommended (from {thisYear} balance): <strong>{recommendedCarry}</strong>{" "}
-                              <span style={{ marginLeft: 6 }}>
-                                (balance {thisYear}: {balThis})
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                        </td>
 
-                      <td style={td}>{total}</td>
-                      <td style={td}>{used}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{balance}</td>
+                        <td style={td}>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <input
+                              type="number"
+                              min={0}
+                              max={yearView === nextYear ? MAX_CARRY : undefined}
+                              value={carry}
+                              onChange={(ev) => onEditCarry(r, ev.target.value)}
+                              style={inputNum}
+                            />
 
-                      <td style={td}>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button
-                            onClick={() => saveRow(r)}
-                            disabled={!!saving[r.id]}
-                            style={btnPrimary}
-                          >
-                            {saving[r.id] ? "Saving…" : `Save (${yearView})`}
-                          </button>
-                          <button
-                            onClick={() => deleteRow(r)}
-                            disabled={!!saving[r.id]}
-                            style={btnDanger}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                            {yearView === nextYear ? (
+                              <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.35 }}>
+                                Recommended (from {thisYear} balance): <b>{recommendedCarry}</b> • {thisYear} bal: <b>{balThis}</b>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 12, color: UI.muted }}>
+                                {yearView === thisYear ? "Current-year carry" : "Carry"}
+                              </div>
+                            )}
+                          </div>
+                        </td>
 
-          <div style={{ marginTop: 10, color: "#6b7280", fontSize: 12, lineHeight: 1.5 }}>
+                        <td style={td}>
+                          <Pill tone="info">{total}</Pill>
+                        </td>
+
+                        <td style={td}>
+                          <Pill tone="gray">{used}</Pill>
+                        </td>
+
+                        <td style={td}>
+                          <Pill tone={balanceTone(balance)}>{balance}</Pill>
+                        </td>
+
+                        <td style={td}>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            <button onClick={() => saveRow(r)} disabled={!!saving[r.id]} style={btn()}>
+                              {saving[r.id] ? "Saving…" : `Save (${yearView})`}
+                            </button>
+
+                            <button onClick={() => deleteRow(r)} disabled={!!saving[r.id]} style={btn("danger")}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ padding: 14, borderTop: "1px solid #e5e7eb", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
             <div>
-              Tip: “Used” is calculated from the <code>holidays</code> collection (Mon–Fri only). Ensure <code>holidays.employee</code> matches the employee’s <code>name</code> exactly.
+              Tip: “Used” is calculated from the <code>holidays</code> collection (Mon–Fri only). Ensure{" "}
+              <code>holidays.employee</code> matches the employee <code>name</code> exactly.
             </div>
             <div>
-              Carry over into next year is capped at <strong>{MAX_CARRY}</strong> days. You can edit it (e.g. override the recommended amount).
+              Carry into next year is capped at <b>{MAX_CARRY}</b> days. You can override the recommended amount.
             </div>
           </div>
         </div>
 
-        {/* What happens when next year comes */}
-        <div style={{ ...card, marginTop: 16 }}>
-          <h3 style={{ marginTop: 0 }}>What happens when the year changes?</h3>
-          <div style={{ color: "#374151", lineHeight: 1.6 }}>
-            <div style={{ marginBottom: 10 }}>
-              On <strong>1 January {nextYear}</strong>, the page automatically treats {nextYear} as the “current year”
-              (because <code>thisYear</code> is based on <code>new Date().getFullYear()</code>).
-            </div>
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
+        {/* Year rollover info */}
+        <div style={{ ...card, marginTop: UI.gap, ...cardPad }}>
+          <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>What happens when the year changes?</div>
+          <div style={{ color: "#374151", fontSize: 13, lineHeight: 1.6 }}>
+            On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the “current year”.
+            It will read/write:
+            <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
               <li>
-                Your saved values in <code>employees.holidayAllowances["{nextYear}"]</code> and{" "}
-                <code>employees.carryOverByYear["{nextYear}"]</code> become the active allowance + carry for that year.
+                <code>employees.holidayAllowances["{nextYear}"]</code> and <code>employees.carryOverByYear["{nextYear}"]</code>
               </li>
               <li>
-                The dropdown will then show <strong>{nextYear}</strong> as “Current” and <strong>{nextYear + 1}</strong> as “Next”.
-              </li>
-              <li>
-                You can pre-fill {nextYear + 1} at the end of {nextYear} the same way you’re doing now.
+                The dropdown becomes <b>{nextYear}</b> (Current) and <b>{nextYear + 1}</b> (Next)
               </li>
             </ul>
-            <div style={{ marginTop: 10, color: "#6b7280" }}>
-              Note: your other pages that still rely on the legacy fields (<code>holidayAllowance</code>,{" "}
-              <code>carriedOverDays</code>) will only stay correct if they’re updated to read from the per-year maps too.
-              Right now this page only keeps legacy fields in sync for the current year you’re editing.
+            <div style={{ marginTop: 10, color: UI.muted }}>
+              Legacy fields (<code>holidayAllowance</code>, <code>carriedOverDays</code>) are only kept in sync when saving the
+              “current year” (for compatibility with older pages).
             </div>
           </div>
         </div>
@@ -733,57 +886,23 @@ export default function EmployeesAdminPage() {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   STYLES
+   TABLE STYLES
 ──────────────────────────────────────────────────────────────── */
-const card = {
-  background: "#fff",
-  borderRadius: 10,
-  border: "1px solid #e5e7eb",
-  padding: 16,
-};
-
 const th = {
   textAlign: "left",
-  borderBottom: "2px solid #e5e7eb",
-  padding: 10,
-  fontWeight: 700,
-  whiteSpace: "nowrap",
+  padding: "10px 12px",
+  borderBottom: "1px solid #e5e7eb",
   background: "#f8fafc",
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
+  fontWeight: 950,
+  color: "#0f172a",
+  whiteSpace: "nowrap",
 };
 
 const td = {
+  padding: "10px 12px",
   borderBottom: "1px solid #f1f5f9",
-  padding: 10,
-  verticalAlign: "middle",
-};
-
-const inputText = {
-  border: "1px solid #d1d5db",
-  borderRadius: 6,
-  padding: "8px 10px",
-  outline: "none",
-  background: "#fff",
-};
-
-const inputNum = {
-  ...inputText,
-  width: 160,
-};
-
-const btnPrimary = {
-  background: "#111827",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 12px",
-  cursor: "pointer",
-};
-
-const btnDanger = {
-  background: "#ef4444",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 12px",
-  cursor: "pointer",
+  verticalAlign: "top",
 };

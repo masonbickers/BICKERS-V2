@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { db } from "../../../firebaseConfig";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-} from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import DatePicker from "react-multi-date-picker";
+import { db, auth, storage as storageInstance } from "../../../firebaseConfig";
+import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage, auth } from "../../../firebaseConfig";
+import DatePicker from "react-multi-date-picker";
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Visual tokens + shared styles (layout-only; no logic changed)
+   Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
   radius: 10,
@@ -30,7 +23,6 @@ const UI = {
   muted: "#6b7280",
 };
 
-// page/container sizing
 const pageWrap = {
   display: "flex",
   minHeight: "100vh",
@@ -38,7 +30,6 @@ const pageWrap = {
   background: "#f1f5f9",
 };
 
-// ✅ keep the content inside the layout’s “page section”
 const mainWrap = {
   flex: 1,
   color: UI.text,
@@ -55,7 +46,6 @@ const h1Style = {
   letterSpacing: 0.2,
 };
 
-// ✅ grid snaps to 1/2/3 columns automatically and stays inside the section
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
@@ -129,7 +119,9 @@ const pill = {
   background: "#e5e7eb",
   border: "1px solid #d1d5db",
 };
+
 const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
+
 const actionsRow = {
   display: "flex",
   gap: 10,
@@ -147,7 +139,6 @@ const btn = {
 const btnPrimary = { ...btn, background: "#111", color: "#fff" };
 const btnGhost = { ...btn, background: "#fff", color: "#111" };
 
-// ✅ summary won’t overflow; sticks within the section with safe offset
 const summaryCard = {
   ...card,
   position: "sticky",
@@ -164,6 +155,29 @@ const summaryRow = {
   gap: 10,
   padding: "6px 0",
   borderBottom: "1px dashed rgba(255,255,255,0.08)",
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Status + blocking
+──────────────────────────────────────────────────────────────────────────── */
+const VEHICLE_STATUSES = [
+  "Confirmed",
+  "First Pencil",
+  "Second Pencil",
+  "Enquiry",
+  "Maintenance",
+  "DNH",
+  "Lost",
+  "Postponed",
+  "Cancelled",
+  "Complete",
+];
+
+const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
+const doesBlockBooking = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
+const isVehicleBlockingStatus = (status) => {
+  const s = (status || "").trim();
+  return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -193,8 +207,25 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
   return out;
 };
 
+const expandBookingDates = (b) => {
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+  const one = (b.date || "").slice(0, 10);
+  const s = (b.startDate || "").slice(0, 10);
+  const e = (b.endDate || "").slice(0, 10);
+  if (one) return [one];
+  if (s && e) return enumerateDaysYMD_UTC(s, e);
+  return [];
+};
+
+const anyDateOverlap = (datesA, datesB) => {
+  if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
+  if (!datesA.length || !datesB.length) return false;
+  const setA = new Set(datesA);
+  return datesB.some((d) => setA.has(d));
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
-   Travel helpers
+   Travel + time options
 ──────────────────────────────────────────────────────────────────────────── */
 const buildTravelDurationOptions = () => {
   const out = [];
@@ -207,57 +238,17 @@ const buildTravelDurationOptions = () => {
   return out;
 };
 const TRAVEL_DURATION_OPTIONS = buildTravelDurationOptions();
-const labelFromMins = (mins) => {
-  const n = Number(mins) || 0;
-  const h = Math.floor(n / 60);
-  const m = n % 60;
-  if (!n) return "—";
-  return h > 0 ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
-};
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Blocking helpers
-──────────────────────────────────────────────────────────────────────────── */
-const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
-const doesBlock = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
-const anyDateOverlap = (datesA, datesB) => {
-  if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
-  const setA = new Set(datesA);
-  return datesB.some((d) => setA.has(d));
-};
-const expandBookingDates = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length)
-    return b.bookingDates;
-  const one = (b.date || "").slice(0, 10);
-  const start = (b.startDate || "").slice(0, 10);
-  const end = (b.endDate || "").slice(0, 10);
-  if (one) return [one];
-  if (start && end) {
-    return enumerateDaysYMD_UTC(start, end);
+const buildTimeOptions = () => {
+  const out = [];
+  for (let h = 0; h < 24; h++) {
+    for (const m of [0, 15, 30, 45]) {
+      out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
   }
-  return [];
+  return out;
 };
-
-/* ────────────────────────────────────────────────────────────────────────────
-   Date & vehicle key helpers for maintenance bookings
-──────────────────────────────────────────────────────────────────────────── */
-const toJsDate = (raw) => {
-  if (!raw) return null;
-  if (raw instanceof Date) return raw;
-  // Firestore Timestamp
-  if (typeof raw?.toDate === "function") return raw.toDate();
-  const s = String(raw);
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d;
-  return null;
-};
-
-/** Prefer registration, else name; all lowercased + trimmed */
-const canonicalVehicleKey = (name, registration) => {
-  const reg = (registration || "").trim().toLowerCase();
-  const nm = (name || "").trim().toLowerCase();
-  return reg || nm || null;
-};
+const TIME_OPTIONS = buildTimeOptions();
 
 /* ────────────────────────────────────────────────────────────────────────────
    Contacts helpers
@@ -285,49 +276,129 @@ const contactIdFromEmail = (email) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_") || null;
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Employee helpers
+──────────────────────────────────────────────────────────────────────────── */
+const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
+
+const employeesKey = (e) => `${e?.role || ""}::${e?.name || ""}`;
+
+const uniqEmpObjects = (arr) => {
+  const seen = new Set();
+  const out = [];
+  (arr || []).forEach((e) => {
+    if (!e?.name || !e?.role) return;
+    const k = employeesKey(e);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ role: e.role, name: e.name });
+  });
+  return out;
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Vehicle lookup: id / reg / name
+──────────────────────────────────────────────────────────────────────────── */
+const normalizeVehicleKeysListForLookup = (list, lookup) => {
+  if (!Array.isArray(list) || !list.length) return [];
+  const { byId = {}, byReg = {}, byName = {} } = lookup || {};
+  const out = [];
+
+  list.forEach((raw) => {
+    let match = null;
+
+    if (raw && typeof raw === "object") {
+      const id = raw.id || raw.vehicleId;
+      const reg = raw.registration;
+      const nm = raw.name;
+
+      if (id && byId[id]) match = byId[id];
+      else if (reg && byReg[String(reg).toUpperCase()]) match = byReg[String(reg).toUpperCase()];
+      else if (nm && byName[String(nm).toLowerCase()]) match = byName[String(nm).toLowerCase()];
+    } else {
+      const s = String(raw || "").trim();
+      if (!s) return;
+      if (byId[s]) match = byId[s];
+      else if (byReg[s.toUpperCase()]) match = byReg[s.toUpperCase()];
+      else if (byName[s.toLowerCase()]) match = byName[s.toLowerCase()];
+    }
+
+    if (match?.id) out.push(match.id);
+  });
+
+  return Array.from(new Set(out));
+};
+
+const toJsDate = (raw) => {
+  if (!raw) return null;
+  if (raw instanceof Date) return raw;
+  if (typeof raw?.toDate === "function") return raw.toDate();
+  const d = new Date(String(raw));
+  return isNaN(d.getTime()) ? null : d;
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Create Booking Page
+──────────────────────────────────────────────────────────────────────────── */
 export default function CreateBookingPage() {
   const router = useRouter();
 
-  // state (logic preserved)
-  const [equipment, setEquipment] = useState([]);
+  // Core fields
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
+
+  const [status, setStatus] = useState("Confirmed");
+  const [shootType, setShootType] = useState("Day");
+
+  const [statusReasons, setStatusReasons] = useState([]);
+  const [statusReasonOther, setStatusReasonOther] = useState("");
+
+  // Dates
   const [isRange, setIsRange] = useState(false);
+  const [useCustomDates, setUseCustomDates] = useState(false);
+  const [customDates, setCustomDates] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [employees, setEmployees] = useState([]);
-  const [customEmployee, setCustomEmployee] = useState("");
-  const [vehicles, setVehicles] = useState([]);
-  const [equipmentGroups, setEquipmentGroups] = useState({
-    "A-Frame": [],
-    Trailer: [],
-    Battery: [],
-    "Tow Dolly": [],
-    "Lorry Trailer": [],
-  });
-  const [openEquipmentGroups, setOpenEquipmentGroups] = useState({
-    "A-Frame": false,
-    Trailer: false,
-    Battery: false,
-    "Tow Dolly": false,
-    "Lorry Trailer": false,
-  });
 
+  // Notes per day
+  const [notesByDate, setNotesByDate] = useState({});
+  const [notes, setNotes] = useState("");
+
+  // Call times
+  const [callTime, setCallTime] = useState("");
+  const [callTimesByDate, setCallTimesByDate] = useState({});
+
+  // Hotel / rigging
+  const [hasHotel, setHasHotel] = useState(false);
+  const [hasRiggingAddress, setHasRiggingAddress] = useState(false);
+  const [riggingAddress, setRiggingAddress] = useState("");
+
+  // Flags
   const [isSecondPencil, setIsSecondPencil] = useState(false);
   const [isCrewed, setIsCrewed] = useState(false);
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [quoteFile, setQuoteFile] = useState(null);
-  const [quoteURL, setQuoteURL] = useState(null);
+
+  // Employees
+  const [employees, setEmployees] = useState([]); // [{role,name}]
+  const [employeesByDate, setEmployeesByDate] = useState({});
+  const [customEmployee, setCustomEmployee] = useState("");
+
+  // Vehicles
+  const [vehicles, setVehicles] = useState([]); // vehicleIds
+  const [vehicleStatus, setVehicleStatus] = useState({}); // {vehicleId: status}
+
+  // Equipment
+  const [equipment, setEquipment] = useState([]);
+
+  // Data lists
   const [allBookings, setAllBookings] = useState([]);
   const [holidayBookings, setHolidayBookings] = useState([]);
-  const [status, setStatus] = useState("Confirmed");
-  const [shootType, setShootType] = useState("Day");
-  const [notesByDate, setNotesByDate] = useState({});
-  const [freelancers, setFreelancers] = useState([]); // kept for compatibility
-  const [freelancerList, setFreelancerList] = useState([]);
+
+  const [employeeList, setEmployeeList] = useState([]); // [{id,name}]
+  const [freelancerList, setFreelancerList] = useState([]); // [{id,name}]
+
   const [vehicleGroups, setVehicleGroups] = useState({
     Bike: [],
     "Electric Tracking Vehicles": [],
@@ -349,24 +420,38 @@ export default function CreateBookingPage() {
     "Other Vehicles": false,
   });
 
+  const [equipmentGroups, setEquipmentGroups] = useState({});
+  const [openEquipGroups, setOpenEquipGroups] = useState({});
+
+  // Lookups
+  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
+
+  // Maintenance bookings
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
-  const [useCustomDates, setUseCustomDates] = useState(false);
-  const [customDates, setCustomDates] = useState([]);
-  const [quoteProgress, setQuoteProgress] = useState(0);
 
-  const [employeeList, setEmployeeList] = useState([]);
-
-  /* 👇 NEW: name → code map (used only for saving employeeCodes) */
+  // Employee code map
   const [nameToCode, setNameToCode] = useState({});
 
-  const isMaintenance = status === "Maintenance";
-
-  // NEW: contacts
+  // Contacts block (only)
   const [additionalContacts, setAdditionalContacts] = useState([]);
   const [savedContacts, setSavedContacts] = useState([]);
   const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
 
-  // ── Core field validation (now *only* Production + Location) ─────────────
+  // Files
+  const [attachments, setAttachments] = useState([]);
+  const [newFiles, setNewFiles] = useState([]);
+  const [pdfProgress, setPdfProgress] = useState(0);
+
+  const isMaintenance = status === "Maintenance";
+
+  // Derived dates
+  const selectedDates = useMemo(() => {
+    if (useCustomDates) return customDates;
+    if (!startDate) return [];
+    if (isRange && endDate) return enumerateDaysYMD_UTC(startDate, endDate);
+    return [startDate];
+  }, [useCustomDates, customDates, startDate, isRange, endDate]);
+
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
     : Boolean((client || "").trim() && (location || "").trim());
@@ -379,109 +464,65 @@ export default function CreateBookingPage() {
     ? "Fill Production and Location to save"
     : "";
 
-  // load data
+  /* ────────────────────────────────────────────────────────────
+     Load all data
+  ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const loadData = async () => {
-      // 1) bookings
-      const bookingSnap = await getDocs(collection(db, "bookings"));
-      const bookings = bookingSnap.docs.map((docu) => docu.data());
+      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, workSnap, contactsSnap] =
+        await Promise.all([
+          getDocs(collection(db, "bookings")),
+          getDocs(collection(db, "holidays")),
+          getDocs(collection(db, "employees")),
+          getDocs(collection(db, "vehicles")),
+          getDocs(collection(db, "equipment")),
+          getDocs(collection(db, "workBookings")),
+          getDocs(collection(db, "contacts")),
+        ]);
+
+      const bookings = bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setAllBookings(bookings);
 
-      // auto job number
       const jobNumbers = bookings
         .map((b) => b.jobNumber)
         .filter((jn) => /^\d+$/.test(jn))
         .map((jn) => parseInt(jn, 10));
-      const max = jobNumbers.length > 0 ? Math.max(...jobNumbers) : 0;
+      const max = jobNumbers.length ? Math.max(...jobNumbers) : 0;
       setJobNumber(String(max + 1).padStart(4, "0"));
 
-      // 2) equipment
-      const equipmentSnap = await getDocs(collection(db, "equipment"));
-      const groupedEquip = {
-        "A-Frame": [],
-        Trailer: [],
-        Battery: [],
-        "Tow Dolly": [],
-        "Lorry Trailer": [],
-      };
-      const openEquip = {
-        "A-Frame": false,
-        Trailer: false,
-        Battery: false,
-        "Tow Dolly": false,
-        "Lorry Trailer": false,
-      };
-      equipmentSnap.docs.forEach((docu) => {
-        const data = docu.data();
-        const category = data.category || "Uncategorised";
-        const name = data.name || data.label || "Unnamed Equipment";
-        if (groupedEquip[category]) {
-          groupedEquip[category].push(name);
-        } else {
-          if (!groupedEquip["Uncategorised"])
-            groupedEquip["Uncategorised"] = [];
-          if (!openEquip["Uncategorised"]) openEquip["Uncategorised"] = false;
-          groupedEquip["Uncategorised"].push(name);
-        }
-      });
-      setEquipmentGroups(groupedEquip);
-      setOpenEquipmentGroups(openEquip);
-
-      // 3) holidays
-      const holidaySnap = await getDocs(collection(db, "holidays"));
       setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
 
-      // 4) employees/freelancers
-      const empSnap = await getDocs(collection(db, "employees"));
-      const allEmployees = empSnap.docs.map((docu) => ({
-        id: docu.id,
-        ...docu.data(),
-      }));
+      const allEmployees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       setEmployeeList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle)
-              ? emp.jobTitle
-              : [emp.jobTitle];
-            return titles.some(
-              (t) => (t || "").toLowerCase() === "driver"
-            );
+            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+            return titles.some((t) => (t || "").toLowerCase() === "driver");
           })
-          .map((emp) => emp.name || emp.fullName || emp.id)
+          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
       );
 
       setFreelancerList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle)
-              ? emp.jobTitle
-              : [emp.jobTitle];
+            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
             return titles.some((t) => {
               const val = (t || "").toLowerCase();
               return val === "freelance" || val === "freelancer";
             });
           })
-          .map((emp) => emp.name || emp.fullName || emp.id)
+          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
       );
 
-      // 👇 NEW: build plain object map { lowercasedName: userCode }
       const map = {};
       for (const emp of allEmployees) {
-        const name = String(emp.name || emp.fullName || "")
-          .trim()
-          .toLowerCase();
+        const nm = String(emp.name || emp.fullName || "").trim().toLowerCase();
         const code = String(emp.userCode || "").trim();
-        if (name && code) map[name] = code;
+        if (nm && code) map[nm] = code;
       }
       setNameToCode(map);
 
-      // 5) maintenance/work bookings
-      const workSnap = await getDocs(collection(db, "workBookings"));
-      setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
-
-      // 6) vehicles
-      const vehicleSnap = await getDocs(collection(db, "vehicles"));
       const grouped = {
         Bike: [],
         "Electric Tracking Vehicles": [],
@@ -492,167 +533,259 @@ export default function CreateBookingPage() {
         "Transport Van": [],
         "Other Vehicles": [],
       };
+
+      const byId = {};
+      const byReg = {};
+      const byName = {};
+
       vehicleSnap.docs.forEach((docu) => {
-        const data = docu.data();
-        const category = (data.category || "").trim().toLowerCase();
-        const vehicle = {
-          name: data.name,
-          registration: data.registration || "",
-        };
+        const v = docu.data();
+        const id = docu.id;
+        const category = (v.category || "").trim().toLowerCase();
+        const name = (v.name || "").trim();
+        const registration = (v.registration || "").trim();
+        if (!name && !registration) return;
 
-        if (category.includes("small"))
-          grouped["Small Tracking Vehicles"].push(vehicle);
-        else if (category.includes("bike")) grouped["Bike"].push(vehicle);
-        else if (category.includes("electric"))
-          grouped["Electric Tracking Vehicles"].push(vehicle);
-        else if (category.includes("large"))
-          grouped["Large Tracking Vehicles"].push(vehicle);
-        else if (category.includes("low loader"))
-          grouped["Low Loaders"].push(vehicle);
-        else if (category.includes("lorry"))
-          grouped["Transport Lorry"].push(vehicle);
-        else if (category.includes("van"))
-          grouped["Transport Van"].push(vehicle);
-        else grouped["Other Vehicles"].push(vehicle);
+        const info = { id, name, registration };
+        if (id) byId[id] = info;
+        if (registration) byReg[registration.toUpperCase()] = info;
+        if (name) byName[name.toLowerCase()] = info;
+
+        if (category.includes("bike")) grouped["Bike"].push(info);
+        else if (category.includes("electric")) grouped["Electric Tracking Vehicles"].push(info);
+        else if (category.includes("small")) grouped["Small Tracking Vehicles"].push(info);
+        else if (category.includes("large")) grouped["Large Tracking Vehicles"].push(info);
+        else if (category.includes("low loader")) grouped["Low Loaders"].push(info);
+        else if (category.includes("lorry")) grouped["Transport Lorry"].push(info);
+        else if (category.includes("van")) grouped["Transport Van"].push(info);
+        else grouped["Other Vehicles"].push(info);
       });
-      setVehicleGroups(grouped);
 
-      // 7) saved contacts (for reuse in later bookings)
-      const contactsSnap = await getDocs(collection(db, "contacts"));
-      const contacts = contactsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setSavedContacts(contacts);
+      setVehicleGroups(grouped);
+      setVehicleLookup({ byId, byReg, byName });
+
+      const groupedEquip = {};
+      equipSnap.docs.forEach((d) => {
+        const e = d.data();
+        const cat = (e.category || "Other").trim();
+        const nm = (e.name || e.label || "").trim();
+        if (!nm) return;
+        if (!groupedEquip[cat]) groupedEquip[cat] = [];
+        groupedEquip[cat].push(nm);
+      });
+      setEquipmentGroups(groupedEquip);
+
+      const openEquip = {};
+      Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
+      setOpenEquipGroups(openEquip);
+
+      setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
+
+      setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
 
     loadData();
   }, []);
 
-  // selections / blocking
-  const selectedDates = (() => {
-    if (useCustomDates) return customDates;
-    if (!startDate) return [];
-    if (isRange && endDate) {
-      const out = [];
-      let cur = parseYMD_UTC(startDate);
-      const stop = parseYMD_UTC(endDate);
-      if (!cur || !stop) return [];
-      while (cur <= stop) {
-        out.push(cur.toISOString().slice(0, 10));
-        cur.setUTCDate(cur.getUTCDate() + 1);
-      }
-      return out;
-    }
-    return [startDate];
-  })();
+  /* ────────────────────────────────────────────────────────────
+     Conflicts
+  ───────────────────────────────────────────────────────────── */
+  const overlapping = useMemo(() => {
+    if (!selectedDates.length) return [];
+    return allBookings.filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
+  }, [allBookings, selectedDates]);
 
-  const isEmployeeOnHoliday = (employeeName) => {
-    if (!employeeName || selectedDates.length === 0) return false;
-    return holidayBookings.some((h) => {
-      if (h.employee !== employeeName) return false;
-      const holidayStart = new Date(h.startDate);
-      const holidayEnd = new Date(h.endDate);
-      return selectedDates.some((dStr) => {
-        const d = new Date(dStr);
-        return d >= holidayStart && d <= holidayEnd;
+  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById } = useMemo(() => {
+    const blockingById = {};
+    const booked = [];
+    const held = [];
+
+    overlapping.forEach((b) => {
+      const keys = normalizeVehicleKeysListForLookup(b.vehicles || [], vehicleLookup);
+      const vmap = b.vehicleStatus || {};
+
+      keys.forEach((vid) => {
+        const itemStatus = (vmap[vid] ?? b.status) || "";
+        if (!itemStatus) return;
+
+        if (isVehicleBlockingStatus(itemStatus)) {
+          if (!blockingById[vid]) {
+            blockingById[vid] = itemStatus;
+            booked.push(vid);
+          }
+        } else {
+          if (!held.includes(vid)) held.push(vid);
+        }
       });
     });
-  };
 
-  const bookedVehicles = allBookings
-    .filter(
-      (b) =>
-        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
-    )
-    .flatMap((b) => b.vehicles || []);
+    return {
+      bookedVehicleIds: booked,
+      heldVehicleIds: held,
+      vehicleBlockingStatusById: blockingById,
+    };
+  }, [overlapping, vehicleLookup]);
 
-  const bookedEquipment = allBookings
-    .filter(
-      (b) =>
-        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
-    )
-    .flatMap((b) => b.equipment || []);
+  const bookedEquipment = useMemo(() => {
+    return overlapping
+      .filter(doesBlockBooking)
+      .flatMap((b) => (Array.isArray(b.equipment) ? b.equipment : []))
+      .map((x) => (typeof x === "string" ? x : x?.name))
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+  }, [overlapping]);
 
-  const bookedEmployees = allBookings
-    .filter(
-      (b) =>
-        doesBlock(b) && anyDateOverlap(expandBookingDates(b), selectedDates)
-    )
-    .flatMap((b) => b.employees || []);
+  const heldEquipment = useMemo(() => {
+    return overlapping
+      .filter((b) => !doesBlockBooking(b))
+      .flatMap((b) => (Array.isArray(b.equipment) ? b.equipment : []))
+      .map((x) => (typeof x === "string" ? x : x?.name))
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+  }, [overlapping]);
 
-  // 🔧 Build a set of canonical keys for vehicles that are off for maintenance
-  // on any of the selected dates.
-  const maintenanceVehicleKeySet = new Set(
-    maintenanceBookings.flatMap((b) => {
-      const start =
-        toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
-      const end =
-        toJsDate(b.endDate || b.end || b.endDate) ||
-        start ||
-        toJsDate(b.date);
+  const bookedEmployeeNames = useMemo(() => {
+    return overlapping
+      .filter(doesBlockBooking)
+      .flatMap((b) => (Array.isArray(b.employees) ? b.employees : []))
+      .map((e) => (typeof e === "string" ? e : e?.name))
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+  }, [overlapping]);
 
-      if (!start || !end) return [];
+  const heldEmployeeNames = useMemo(() => {
+    return overlapping
+      .filter((b) => !doesBlockBooking(b))
+      .flatMap((b) => (Array.isArray(b.employees) ? b.employees : []))
+      .map((e) => (typeof e === "string" ? e : e?.name))
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+  }, [overlapping]);
+
+  const maintenanceVehicleIdSet = useMemo(() => {
+    const ids = [];
+
+    maintenanceBookings.forEach((b) => {
+      const start = toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
+      const end = toJsDate(b.endDate || b.end || b.endDate) || start || toJsDate(b.date);
+      if (!start || !end) return;
 
       const overlaps = selectedDates.some((dateStr) => {
         const d = new Date(dateStr + "T00:00:00");
         return d >= start && d <= end;
       });
-      if (!overlaps) return [];
+      if (!overlaps) return;
 
-      const keys = [];
-
-      // If work bookings store an array of vehicles
       if (Array.isArray(b.vehicles) && b.vehicles.length) {
         b.vehicles.forEach((v) => {
-          if (typeof v === "string") {
-            const key = canonicalVehicleKey(v, null);
-            if (key) keys.push(key);
-          } else if (v && typeof v === "object") {
-            const key = canonicalVehicleKey(
-              v.name || v.vehicleName,
-              v.registration || v.reg || v.vehicleReg
-            );
-            if (key) keys.push(key);
-          }
+          const resolved = normalizeVehicleKeysListForLookup([v], vehicleLookup);
+          resolved.forEach((id) => ids.push(id));
         });
       } else {
-        // Single fields
-        const key = canonicalVehicleKey(
-          b.vehicleName || b.vehicle,
-          b.vehicleReg || b.registration || b.reg
-        );
-        if (key) keys.push(key);
+        const candidate = b.vehicleId || b.vehicle || b.vehicleName || b.registration || b.reg;
+        const resolved = normalizeVehicleKeysListForLookup([candidate], vehicleLookup);
+        resolved.forEach((id) => ids.push(id));
       }
+    });
 
-      return keys;
-    })
-  );
+    return new Set(ids);
+  }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
-  // helpers for additional contacts
+  /* ────────────────────────────────────────────────────────────
+     Holiday checks
+  ───────────────────────────────────────────────────────────── */
+  const isEmployeeOnHolidayForDates = (employeeName, dates) => {
+    if (!employeeName || !dates?.length) return false;
+    return holidayBookings.some((h) => {
+      if (h.employee !== employeeName) return false;
+      const hs = new Date(h.startDate);
+      const he = new Date(h.endDate);
+      return dates.some((dStr) => {
+        const d = new Date(dStr);
+        return d >= hs && d <= he;
+      });
+    });
+  };
+
+  /* ────────────────────────────────────────────────────────────
+     Options that include custom “Other” names so they stay selectable
+  ───────────────────────────────────────────────────────────── */
+  const uniqStrings = (arr) =>
+    Array.from(new Set((arr || []).map((s) => String(s || "").trim()).filter(Boolean)));
+
+  const selectedNamesByRole = (role) =>
+    uniqStrings(
+      employees
+        .filter((e) => e?.role === role)
+        .map((e) => e?.name)
+        .filter((n) => n && n !== "Other")
+    );
+
+  const driverOptions = useMemo(() => {
+    const base = employeeList.map((e) => e?.name).filter(Boolean);
+    const selected = selectedNamesByRole("Precision Driver");
+    const customSelected = selected.filter((n) => !base.includes(n));
+    return [...uniqStrings([...base, ...customSelected]), "Other"];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeList, employees]);
+
+  const freelancerOptions = useMemo(() => {
+    const base = freelancerList.map((e) => e?.name).filter(Boolean);
+    const selected = selectedNamesByRole("Freelancer");
+    const customSelected = selected.filter((n) => !base.includes(n));
+    return [...uniqStrings([...base, ...customSelected]), "Other"];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freelancerList, employees]);
+
+  /* ────────────────────────────────────────────────────────────
+     Employee schedule helpers (per-day)
+  ───────────────────────────────────────────────────────────── */
+  const upsertEmployeeDates = (role, name, add) => {
+    setEmployeesByDate((prev) => {
+      const next = { ...prev };
+      if (add) {
+        selectedDates.forEach((d) => {
+          if (!d) return;
+          const list = Array.isArray(next[d]) ? next[d] : [];
+          const exists = list.some((e) => e.name === name && e.role === role);
+          if (!exists) next[d] = [...list, { role, name }];
+        });
+      } else {
+        Object.keys(next).forEach((d) => {
+          const list = Array.isArray(next[d]) ? next[d] : [];
+          const filtered = list.filter((e) => !(e.name === name && e.role === role));
+          if (filtered.length) next[d] = filtered;
+          else delete next[d];
+        });
+      }
+      return next;
+    });
+  };
+
+  // Auto-open groups containing selected equipment
+  useEffect(() => {
+    const next = { ...openEquipGroups };
+    Object.entries(equipmentGroups).forEach(([group, items]) => {
+      const hasSelected = items?.some((name) => equipment.includes(name));
+      if (hasSelected) next[group] = true;
+    });
+    setOpenEquipGroups(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipmentGroups, equipment]);
+
+  /* ────────────────────────────────────────────────────────────
+     Contacts actions
+  ───────────────────────────────────────────────────────────── */
   const handleAddContactRow = () => {
     setAdditionalContacts((prev) => [
       ...prev,
-      {
-        department: "",
-        departmentOther: "",
-        name: "",
-        email: "",
-        phone: "",
-      },
+      { department: "", departmentOther: "", name: "", email: "", phone: "" },
     ]);
   };
 
   const handleUpdateContactRow = (index, key, value) => {
     setAdditionalContacts((prev) =>
-      prev.map((row, i) =>
-        i === index
-          ? {
-              ...row,
-              [key]: value,
-            }
-          : row
-      )
+      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
     );
   };
 
@@ -676,54 +809,59 @@ export default function CreateBookingPage() {
     ]);
   };
 
-  // submit (logic preserved, + save employeeCodes + contacts)
-  const handleSubmit = async (submitStatus = "Confirmed") => {
-    const submitIsMaintenance = submitStatus === "Maintenance";
+  /* ────────────────────────────────────────────────────────────
+     Vehicle toggle
+  ───────────────────────────────────────────────────────────── */
+  const toggleVehicle = (vehicleId, checked) => {
+    setVehicles((prev) => (checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)));
+    setVehicleStatus((prev) => {
+      const next = { ...prev };
+      if (checked) {
+        if (!next[vehicleId]) next[vehicleId] = status;
+      } else {
+        delete next[vehicleId];
+      }
+      return next;
+    });
+  };
 
-    if (submitStatus !== "Enquiry") {
+  /* ────────────────────────────────────────────────────────────
+     Submit (contacts-only: remove contactEmail/contactNumber)
+  ───────────────────────────────────────────────────────────── */
+  const handleSubmit = async () => {
+    if (status !== "Enquiry") {
       if (useCustomDates) {
-        if (customDates.length === 0)
-          return alert("Please select at least one date.");
+        if (!customDates.length) return alert("Please select at least one date.");
       } else {
         if (!startDate) return alert("Please select a start date.");
-        if (isRange && !endDate)
-          return alert("Please select an end date.");
+        if (isRange && !endDate) return alert("Please select an end date.");
       }
     }
 
-    // ✅ Block if core fields are missing/invalid (now no contact email/number)
-    const normalCoreFilled = Boolean(
-      (client || "").trim() && (location || "").trim()
-    );
-    const maintenanceCoreFilled = Boolean((location || "").trim());
-    const effectiveFilled = submitIsMaintenance
-      ? maintenanceCoreFilled
-      : normalCoreFilled;
-
-    if (!effectiveFilled) {
+    if (!coreFilled) {
       const missing = [];
-      if (!submitIsMaintenance && !(client || "").trim())
-        missing.push("Production");
+      if (!isMaintenance && !(client || "").trim()) missing.push("Production");
       if (!(location || "").trim()) missing.push("Location");
-      alert("Please provide: " + missing.join(", ") + ".");
-      return;
+      return alert("Please provide: " + missing.join(", ") + ".");
+    }
+
+    const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
+    if (needsReason) {
+      if (!statusReasons.length) return alert("Please choose at least one reason.");
+      if (statusReasons.includes("Other") && !statusReasonOther.trim())
+        return alert("Please enter the 'Other' reason.");
     }
 
     const customNames = customEmployee
-      ? customEmployee.split(",").map((n) => n.trim())
+      ? customEmployee.split(",").map((n) => n.trim()).filter(Boolean)
       : [];
-    const cleanedEmployees = employees
-      .filter((n) => n !== "Other")
-      .concat(customNames);
 
-    for (const employee of cleanedEmployees) {
-      if (isEmployeeOnHoliday(employee)) {
-        alert(`${employee} is on holiday during the selected dates.`);
-        return;
-      }
-    }
+    const cleanedEmployees = uniqEmpObjects([
+      ...employees.filter((e) => e?.name && e.name !== "Other"),
+      ...customNames.map((n) => ({ role: "Precision Driver", name: n })),
+    ]);
 
-    const bookingDates = submitStatus !== "Enquiry" ? selectedDates : [];
+    const bookingDates = status !== "Enquiry" ? selectedDates : [];
 
     const filteredNotesByDate = {};
     bookingDates.forEach((d) => {
@@ -731,128 +869,161 @@ export default function CreateBookingPage() {
       if (typeof notesByDate[`${d}-other`] !== "undefined")
         filteredNotesByDate[`${d}-other`] = notesByDate[`${d}-other`];
       if (typeof notesByDate[`${d}-travelMins`] !== "undefined")
-        filteredNotesByDate[`${d}-travelMins`] =
-          notesByDate[`${d}-travelMins`];
+        filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
     });
 
-    // upload quote (PDF only)
-    let quoteUrlToSave = null;
+    const cleanedSet = new Set(cleanedEmployees.map(employeesKey));
+    let employeesByDatePayload = {};
 
-    if (quoteFile) {
-      try {
-        // Guard: must be a PDF
-        const nameIsPdf = /\.pdf$/i.test(quoteFile.name || "");
-        const typeIsPdf =
-          (quoteFile.type || "").toLowerCase() === "application/pdf";
-        if (!nameIsPdf && !typeIsPdf) {
-          alert("Please attach a PDF (.pdf) file.");
-          return;
-        }
+    if (bookingDates.length && cleanedEmployees.length) {
+      bookingDates.forEach((date) => {
+        const fromState = employeesByDate[date];
+        const baseList = Array.isArray(fromState) && fromState.length ? fromState : cleanedEmployees;
+        const filtered = baseList.filter((e) => cleanedSet.has(employeesKey(e)));
+        if (filtered.length) employeesByDatePayload[date] = filtered;
+      });
 
-        // Sanitize + enforce .pdf extension
-        const base = `${jobNumber || "nojob"}_${quoteFile.name}`.replace(
-          /\s+/g,
-          "_"
-        );
-        const safeName = base.toLowerCase().endsWith(".pdf")
-          ? base
-          : `${base}.pdf`;
-
-        // Keep quotes in /quotes
-        const storageRef = ref(storage, `quotes/${safeName}`);
-
-        // Always set the contentType to application/pdf
-        const uploadTask = uploadBytesResumable(storageRef, quoteFile, {
-          contentType: "application/pdf",
+      if (!Object.keys(employeesByDatePayload).length) {
+        bookingDates.forEach((date) => {
+          employeesByDatePayload[date] = [...cleanedEmployees];
         });
+      }
+    }
+
+    for (const employee of cleanedEmployees) {
+      const datesForEmp = bookingDates.filter((d) => {
+        const list = employeesByDatePayload[d] || [];
+        return list.some((e) => e.name === employee.name && e.role === employee.role);
+      });
+      if (datesForEmp.length && isEmployeeOnHolidayForDates(employee.name, datesForEmp)) {
+        alert(`${employee.name} is on holiday for one or more selected dates.`);
+        return;
+      }
+    }
+
+    const employeeCodes = cleanedEmployees
+      .map((e) => nameToCode[String(e?.name || "").trim().toLowerCase()])
+      .filter(Boolean);
+
+    const callTimesByDatePayload = {};
+    if (bookingDates.length) {
+      bookingDates.forEach((d) => {
+        if (callTimesByDate[d]) callTimesByDatePayload[d] = callTimesByDate[d];
+      });
+    }
+
+    let nextAttachments = [...(attachments || [])];
+
+    if (newFiles.length > 0) {
+      const uploaded = [];
+      for (const file of newFiles) {
+        const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
+        const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
+        const storageRef = ref(storageInstance, `${folder}/${safeName}`);
+
+        const contentType =
+          file.type ||
+          (safeName.toLowerCase().endsWith(".pdf")
+            ? "application/pdf"
+            : safeName.toLowerCase().endsWith(".xlsx")
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : safeName.toLowerCase().endsWith(".xls")
+            ? "application/vnd.ms-excel"
+            : safeName.toLowerCase().endsWith(".csv")
+            ? "text/csv"
+            : "application/octet-stream");
+
+        const task = uploadBytesResumable(storageRef, file, { contentType });
 
         await new Promise((resolve, reject) => {
-          uploadTask.on(
+          task.on(
             "state_changed",
-            (snap) => {
-              const pct = Math.round(
-                (snap.bytesTransferred / snap.totalBytes) * 100
-              );
-              setQuoteProgress(pct);
-            },
-            (err) => {
-              console.error("Upload error:", err);
-              reject(err);
-            },
+            (snap) => setPdfProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+            (err) => reject(err),
             async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              setQuoteURL(url);
-              quoteUrlToSave = url;
+              const url = await getDownloadURL(task.snapshot.ref);
+              uploaded.push({
+                url,
+                name: file.name,
+                contentType,
+                size: file.size,
+                folder,
+              });
               resolve();
             }
           );
         });
-      } catch (error) {
-        alert(
-          "Failed to upload PDF: " + (error?.message || String(error))
-        );
-        return; // stop save if upload fails
       }
+
+      nextAttachments = [...nextAttachments, ...uploaded];
     }
 
-    // 👇 NEW: derive codes from selected names (keeps employees as names)
-    const employeeCodes = cleanedEmployees
-      .map(
-        (n) =>
-          nameToCode[String(n || "").trim().toLowerCase()]
-      )
-      .filter(Boolean);
+    const firstUrl = nextAttachments[0]?.url || null;
 
-    // normalise additional contacts for saving
-    const additionalContactsToSave = additionalContacts
+    const additionalContactsToSave = (additionalContacts || [])
       .map((c) => ({
         department:
-          c.department === "Other" && c.departmentOther
-            ? c.departmentOther
-            : c.department || "",
+          c.department === "Other" && c.departmentOther ? c.departmentOther : c.department || "",
         name: (c.name || "").trim(),
         email: (c.email || "").trim(),
         phone: (c.phone || "").trim(),
       }))
-      // filter out completely empty rows
-      .filter(
-        (c) =>
-          c.name || c.email || c.phone || c.department
-      );
+      .filter((c) => c.name || c.email || c.phone || c.department);
 
     const user = auth.currentUser;
-    const booking = {
+
+    const payload = {
       jobNumber,
       client,
       location,
-      employees: cleanedEmployees, // ← unchanged (names)
-      employeeCodes, // ← NEW (for array-contains queries)
+
+      employees: cleanedEmployees,
+      employeesByDate: employeesByDatePayload,
+      employeeCodes,
+
       vehicles,
+      vehicleStatus,
       equipment,
+
       isSecondPencil,
       isCrewed,
-      notes,
-      notesByDate: filteredNotesByDate,
-      status: submitStatus,
-      bookingDates,
-      shootType,
       hasHS,
       hasRiskAssessment,
-      quoteUrl: quoteUrlToSave,
-      additionalContacts: additionalContactsToSave, // NEW
-      ...(submitStatus !== "Enquiry" && !useCustomDates
+      notes,
+
+      notesByDate: filteredNotesByDate,
+      status,
+      bookingDates,
+      shootType,
+
+      attachments: nextAttachments,
+      quoteUrl: firstUrl || null,
+      pdfURL: firstUrl || null,
+
+      hasHotel,
+      callTime: (!isRange && !useCustomDates ? callTime || "" : ""),
+      ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
+
+      hasRiggingAddress,
+      riggingAddress: hasRiggingAddress ? riggingAddress || "" : "",
+
+      ...(needsReason && {
+        statusReasons,
+        statusReasonOther: statusReasons.includes("Other") ? statusReasonOther.trim() : "",
+      }),
+
+      additionalContacts: additionalContactsToSave,
+
+      ...(status !== "Enquiry" && !useCustomDates
         ? isRange
           ? {
               startDate: new Date(startDate).toISOString(),
               endDate: new Date(endDate).toISOString(),
               date: null,
             }
-          : {
-              date: new Date(startDate).toISOString(),
-              startDate: null,
-              endDate: null,
-            }
+          : { date: new Date(startDate).toISOString(), startDate: null, endDate: null }
         : { date: null, startDate: null, endDate: null }),
+
       createdBy: user?.email || "Unknown",
       lastEditedBy: user?.email || "Unknown",
       createdAt: new Date().toISOString(),
@@ -867,30 +1038,27 @@ export default function CreateBookingPage() {
     };
 
     try {
-      await addDoc(collection(db, "bookings"), booking);
+      await addDoc(collection(db, "bookings"), payload);
 
-      // NEW: upsert contacts into a separate "contacts" collection
-      // (Only from the additional contacts now)
-      const contactsToUpsert = [...additionalContactsToSave];
-
-      for (const c of contactsToUpsert) {
+      for (const c of additionalContactsToSave) {
         const id = contactIdFromEmail(c.email);
         if (!id) continue;
-        const refDoc = doc(db, "contacts", id);
         await setDoc(
-          refDoc,
+          doc(db, "contacts", id),
           {
             name: c.name,
             email: c.email,
             phone: c.phone,
-            number: c.phone,           // ❗ ensure number field as well
-            department: c.department,  // e.g. "Production"
+            number: c.phone,
+            department: c.department,
             updatedAt: new Date().toISOString(),
           },
           { merge: true }
         );
       }
 
+      setPdfProgress(0);
+      setNewFiles([]);
       alert("Booking Saved ✅");
       router.push("/dashboard?saved=true");
     } catch (err) {
@@ -898,6 +1066,9 @@ export default function CreateBookingPage() {
       alert("Failed to save booking ❌\n\n" + err.message);
     }
   };
+
+  const isEmployeeBooked = (name) => bookedEmployeeNames.includes(name);
+  const isEmployeeHeld = (name) => heldEmployeeNames.includes(name);
 
   return (
     <HeaderSidebarLayout>
@@ -908,7 +1079,7 @@ export default function CreateBookingPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleSubmit(status);
+              handleSubmit();
             }}
           >
             <div style={sectionGrid}>
@@ -917,45 +1088,86 @@ export default function CreateBookingPage() {
                 <h3 style={cardTitle}>Job Info</h3>
 
                 <label style={field.label}>Job Number</label>
-                <input
-                  value={jobNumber}
-                  onChange={(e) => setJobNumber(e.target.value)}
-                  required
-                  style={field.input}
-                />
+                <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
 
                 <label style={field.label}>Status</label>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setStatus(next);
+                    if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+                      setStatusReasons([]);
+                      setStatusReasonOther("");
+                    }
+                  }}
                   style={field.input}
                 >
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="First Pencil">First Pencil</option>
-                  <option value="Second Pencil">Second Pencil</option>
-                  <option value="Enquiry">Enquiry</option>
-                  <option value="Maintenance">Maintenance</option>
+                  {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
 
+                {["Lost", "Postponed", "Cancelled"].includes(status) && (
+                  <div
+                    style={{
+                      border: UI.border,
+                      borderRadius: UI.radiusSm,
+                      padding: 12,
+                      marginTop: 10,
+                      background: UI.bgAlt,
+                    }}
+                  >
+                    <h4 style={{ margin: "0 0 10px" }}>Reason</h4>
+                    {["Cost", "Weather", "Competitor", "DNH", "Other"].map((r) => (
+                      <label
+                        key={r}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          marginRight: 16,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={statusReasons.includes(r)}
+                          onChange={() =>
+                            setStatusReasons((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]))
+                          }
+                        />
+                        {r}
+                      </label>
+                    ))}
+                    {statusReasons.includes("Other") && (
+                      <div style={{ marginTop: 8 }}>
+                        <input
+                          type="text"
+                          placeholder="Other reason..."
+                          value={statusReasonOther}
+                          onChange={(e) => setStatusReasonOther(e.target.value)}
+                          style={field.input}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={divider} />
+
                 <label style={field.label}>Shoot Type</label>
-                <select
-                  value={shootType}
-                  onChange={(e) => setShootType(e.target.value)}
-                  style={field.input}
-                >
+                <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
                   <option value="Day">Day</option>
                   <option value="Night">Night</option>
                 </select>
 
                 <label style={field.label}>Production</label>
-                <textarea
-                  value={client}
-                  onChange={(e) => setClient(e.target.value)}
-                  style={field.textarea}
-                  required={status !== "Maintenance"}
-                />
+                <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} required={!isMaintenance} />
 
-                {/* Contacts section */}
+                {/* Contacts block only */}
                 <div
                   style={{
                     marginTop: 12,
@@ -965,45 +1177,16 @@ export default function CreateBookingPage() {
                     background: UI.bgAlt,
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 13,
-                      }}
-                    >
-                      Contacts
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleAddContactRow}
-                      style={{
-                        ...btn,
-                        padding: "4px 8px",
-                        fontSize: 12,
-                        borderRadius: 999,
-                      }}
-                    >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
+                    <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
                       + Add contact
                     </button>
                   </div>
+
                   {additionalContacts.length === 0 && (
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: UI.muted,
-                        marginBottom: 6,
-                      }}
-                    >
-                      Add production contacts (e.g. Production, Locations, AD,
-                      line producer, stunts).
+                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 6 }}>
+                      Add production contacts (e.g. Production, Locations, AD, line producer, stunts).
                     </p>
                   )}
 
@@ -1018,35 +1201,10 @@ export default function CreateBookingPage() {
                         border: "1px solid #e5e7eb",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: 8,
-                          marginBottom: 8,
-                        }}
-                      >
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <div>
-                          <label
-                            style={{
-                              ...field.label,
-                              fontWeight: 500,
-                              marginBottom: 4,
-                            }}
-                          >
-                            Department
-                          </label>
-                          <select
-                            value={row.department}
-                            onChange={(e) =>
-                              handleUpdateContactRow(
-                                idx,
-                                "department",
-                                e.target.value
-                              )
-                            }
-                            style={field.input}
-                          >
+                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Department</label>
+                          <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={field.input}>
                             <option value="">Select department</option>
                             {FILM_DEPARTMENTS.map((dep) => (
                               <option key={dep} value={dep}>
@@ -1059,111 +1217,30 @@ export default function CreateBookingPage() {
                               type="text"
                               placeholder="Custom department"
                               value={row.departmentOther || ""}
-                              onChange={(e) =>
-                                handleUpdateContactRow(
-                                  idx,
-                                  "departmentOther",
-                                  e.target.value
-                                )
-                              }
-                              style={{
-                                ...field.input,
-                                marginTop: 6,
-                              }}
+                              onChange={(e) => handleUpdateContactRow(idx, "departmentOther", e.target.value)}
+                              style={{ ...field.input, marginTop: 6 }}
                             />
                           )}
                         </div>
+
                         <div>
-                          <label
-                            style={{
-                              ...field.label,
-                              fontWeight: 500,
-                              marginBottom: 4,
-                            }}
-                          >
-                            Name
-                          </label>
-                          <input
-                            type="text"
-                            value={row.name}
-                            onChange={(e) =>
-                              handleUpdateContactRow(
-                                idx,
-                                "name",
-                                e.target.value
-                              )
-                            }
-                            style={field.input}
-                            placeholder="Contact name"
-                          />
+                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Name</label>
+                          <input type="text" value={row.name} onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)} style={field.input} placeholder="Contact name" />
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr",
-                          gap: 8,
-                          alignItems: "center",
-                        }}
-                      >
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <div>
-                          <label
-                            style={{
-                              ...field.label,
-                              fontWeight: 500,
-                              marginBottom: 4,
-                            }}
-                          >
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            value={row.email}
-                            onChange={(e) =>
-                              handleUpdateContactRow(
-                                idx,
-                                "email",
-                                e.target.value
-                              )
-                            }
-                            style={field.input}
-                            placeholder="Email"
-                          />
+                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Email</label>
+                          <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={field.input} placeholder="Email" />
                         </div>
                         <div>
-                          <label
-                            style={{
-                              ...field.label,
-                              fontWeight: 500,
-                              marginBottom: 4,
-                            }}
-                          >
-                            Number
-                          </label>
-                          <input
-                            type="tel"
-                            value={row.phone}
-                            onChange={(e) =>
-                              handleUpdateContactRow(
-                                idx,
-                                "phone",
-                                e.target.value
-                              )
-                            }
-                            style={field.input}
-                            placeholder="Phone number"
-                          />
+                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Number</label>
+                          <input type="tel" value={row.phone} onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)} style={field.input} placeholder="Phone number" />
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          marginTop: 6,
-                          display: "flex",
-                          justifyContent: "flex-end",
-                        }}
-                      >
+                      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="button"
                           onClick={() => handleRemoveContactRow(idx)}
@@ -1185,15 +1262,7 @@ export default function CreateBookingPage() {
 
                   {savedContacts.length > 0 && (
                     <div style={{ marginTop: 6 }}>
-                      <label
-                        style={{
-                          ...field.label,
-                          fontWeight: 500,
-                          marginBottom: 4,
-                        }}
-                      >
-                        Quick add from saved contacts
-                      </label>
+                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Quick add from saved contacts</label>
                       <select
                         value={selectedSavedContactId}
                         onChange={(e) => {
@@ -1201,7 +1270,6 @@ export default function CreateBookingPage() {
                           setSelectedSavedContactId(val);
                           if (val) {
                             handleQuickAddSavedContact(val);
-                            // reset selection
                             setSelectedSavedContactId("");
                           }
                         }}
@@ -1210,9 +1278,7 @@ export default function CreateBookingPage() {
                         <option value="">Select saved contact</option>
                         {savedContacts.map((c) => {
                           const labelBase = c.name || c.email || "Unnamed";
-                          const deptLabel = c.department
-                            ? ` – ${c.department}`
-                            : "";
+                          const deptLabel = c.department ? ` – ${c.department}` : "";
                           return (
                             <option key={c.id} value={c.id}>
                               {labelBase}
@@ -1226,12 +1292,7 @@ export default function CreateBookingPage() {
                 </div>
 
                 <label style={field.label}>Location</label>
-                <textarea
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  style={field.textarea}
-                  required
-                />
+                <textarea value={location} onChange={(e) => setLocation(e.target.value)} style={field.textarea} required />
               </div>
 
               {/* Column 2: Dates & People */}
@@ -1253,11 +1314,7 @@ export default function CreateBookingPage() {
 
                 {!useCustomDates && (
                   <label style={field.checkboxRow}>
-                    <input
-                      type="checkbox"
-                      checked={isRange}
-                      onChange={() => setIsRange(!isRange)}
-                    />
+                    <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
                     Multi-day booking (consecutive)
                   </label>
                 )}
@@ -1270,266 +1327,105 @@ export default function CreateBookingPage() {
                       format="YYYY-MM-DD"
                       onChange={(vals) => {
                         const normalised = (Array.isArray(vals) ? vals : [])
-                          .map((v) =>
-                            typeof v?.format === "function"
-                              ? v.format("YYYY-MM-DD")
-                              : String(v)
-                          )
+                          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
                           .sort();
                         setCustomDates(normalised);
                       }}
                     />
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: isRange ? "1fr 1fr" : "1fr",
-                      gap: 12,
-                    }}
-                  >
+                  <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
                     <div>
-                      <label style={field.label}>
-                        {isRange ? "Start Date" : "Date"}
-                      </label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        required={status !== "Enquiry"}
-                        style={field.input}
-                      />
+                      <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
+                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
                     </div>
                     {isRange && (
                       <div>
                         <label style={field.label}>End Date</label>
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          required={status !== "Enquiry"}
-                          style={field.input}
-                        />
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Notes single-day */}
-                {!isRange && startDate && !useCustomDates && (
+                {selectedDates.length > 0 && (
                   <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "8px 0" }}>Note for the Day</h4>
-                    <select
-                      value={notesByDate[startDate] || ""}
-                      onChange={(e) =>
-                        setNotesByDate({
-                          ...notesByDate,
-                          [startDate]: e.target.value,
-                        })
-                      }
-                      style={field.input}
-                    >
-                      <option value="">Select note</option>
-                      <option value="1/2 Day Travel">1/2 Day Travel</option>
-                      <option value="Night Shoot">Night Shoot</option>
-                      <option value="On Set">Shoot Day</option>
-                      <option value="Other">Other</option>
-                      <option value="Rehearsal Day">Rehearsal Day</option>
-                      <option value="Rest Day">Rest Day</option>
-                      <option value="Rig Day">Rig Day</option>
-                      <option value="Standby Day">Standby Day</option>
-                      <option value="Travel Day">Travel Day</option>
-                      <option value="Travel Time">Travel Time</option>
-                      <option value="Turnaround Day">Turnaround Day</option>
-                      <option value="Recce Day">Recce Day</option>
-                    </select>
+                    <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
 
-                    {notesByDate[startDate] === "Other" && (
-                      <div style={{ marginTop: 8 }}>
-                        <input
-                          type="text"
-                          placeholder="Enter custom note"
-                          value={notesByDate[`${startDate}-other`] || ""}
-                          onChange={(e) =>
-                            setNotesByDate({
-                              ...notesByDate,
-                              [startDate]: "Other",
-                              [`${startDate}-other`]: e.target.value,
-                            })
-                          }
-                          style={field.input}
-                        />
-                      </div>
-                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+                      {selectedDates.map((date) => {
+                        const selectedNote = notesByDate[date] || "";
+                        const isOther = selectedNote === "Other";
+                        const customOtherValue = notesByDate[`${date}-other`] || "";
+                        return (
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
 
-                    {notesByDate[startDate] === "Travel Time" && (
-                      <div style={{ marginTop: 8 }}>
-                        <label
-                          style={{
-                            ...field.label,
-                            marginBottom: 6,
-                          }}
-                        >
-                          Travel duration
-                        </label>
-                        <select
-                          value={notesByDate[`${startDate}-travelMins`] || ""}
-                          onChange={(e) =>
-                            setNotesByDate({
-                              ...notesByDate,
-                              [startDate]: "Travel Time",
-                              [`${startDate}-travelMins`]: e.target.value,
-                            })
-                          }
-                          style={field.input}
-                        >
-                          <option value="">Select duration</option>
-                          {TRAVEL_DURATION_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes per-day for range */}
-                {isRange && startDate && endDate && !useCustomDates && (
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "8px 0" }}>Notes for Each Day</h4>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit,minmax(320px,1fr))",
-                        gap: 12,
-                      }}
-                    >
-                      {enumerateDaysYMD_UTC(startDate, endDate).map(
-                        (date) => {
-                          const selectedNote = notesByDate[date] || "";
-                          const isOther = selectedNote === "Other";
-                          const customOtherValue =
-                            notesByDate[`${date}-other`] || "";
-                          return (
-                            <div
-                              key={date}
-                              style={{
-                                border: UI.border,
-                                borderRadius: UI.radiusSm,
-                                padding: 10,
-                                background: UI.bgAlt,
-                              }}
+                            <select
+                              value={selectedNote}
+                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
+                              style={field.input}
                             >
-                              <div
-                                style={{
-                                  fontWeight: 700,
-                                  marginBottom: 8,
-                                }}
-                              >
-                                {new Date(date).toDateString()}
+                              <option value="">Select note</option>
+                              <option value="1/2 Day Travel">1/2 Day Travel</option>
+                              <option value="Night Shoot">Night Shoot</option>
+                              <option value="On Set">Shoot Day</option>
+                              <option value="Other">Other</option>
+                              <option value="Rehearsal Day">Rehearsal Day</option>
+                              <option value="Rest Day">Rest Day</option>
+                              <option value="Rig Day">Rig Day</option>
+                              <option value="Standby Day">Standby Day</option>
+                              <option value="Spilt Day">Spilt Day</option>
+                              <option value="Travel Day">Travel Day</option>
+                              <option value="Travel Time">Travel Time</option>
+                              <option value="Turnaround Day">Turnaround Day</option>
+                              <option value="Recce Day">Recce Day</option>
+                            </select>
+
+                            {isOther && (
+                              <div style={{ marginTop: 8 }}>
+                                <input
+                                  type="text"
+                                  placeholder="Enter custom note"
+                                  value={customOtherValue}
+                                  onChange={(e) =>
+                                    setNotesByDate({
+                                      ...notesByDate,
+                                      [date]: "Other",
+                                      [`${date}-other`]: e.target.value,
+                                    })
+                                  }
+                                  style={field.input}
+                                />
                               </div>
-                              <select
-                                value={selectedNote}
-                                onChange={(e) =>
-                                  setNotesByDate({
-                                    ...notesByDate,
-                                    [date]: e.target.value,
-                                  })
-                                }
-                                style={field.input}
-                              >
-                                <option value="">Select note</option>
-                                <option value="1/2 Day Travel">
-                                  1/2 Day Travel
-                                </option>
-                                <option value="Night Shoot">
-                                  Night Shoot
-                                </option>
-                                <option value="On Set">Shoot Day</option>
-                                <option value="Other">Other</option>
-                                <option value="Rehearsal Day">
-                                  Rehearsal Day
-                                </option>
-                                <option value="Rest Day">Rest Day</option>
-                                <option value="Rig Day">Rig Day</option>
-                                <option value="Standby Day">
-                                  Standby Day
-                                </option>
-                                <option value="Spilt Day">Spilt Day</option>
-                                <option value="Travel Day">
-                                  Travel Day
-                                </option>
-                                <option value="Travel Time">
-                                  Travel Time
-                                </option>
-                                <option value="Turnaround Day">
-                                  Turnaround Day
-                                </option>
-                                <option value="Recce Day">Recce Day</option>
-                              </select>
+                            )}
 
-                              {isOther && (
-                                <div style={{ marginTop: 8 }}>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter custom note"
-                                    value={customOtherValue}
-                                    onChange={(e) =>
-                                      setNotesByDate({
-                                        ...notesByDate,
-                                        [date]: "Other",
-                                        [`${date}-other`]: e.target.value,
-                                      })
-                                    }
-                                    style={field.input}
-                                  />
-                                </div>
-                              )}
-
-                              {selectedNote === "Travel Time" && (
-                                <div style={{ marginTop: 8 }}>
-                                  <label
-                                    style={{
-                                      ...field.label,
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    Travel duration
-                                  </label>
-                                  <select
-                                    value={
-                                      notesByDate[`${date}-travelMins`] ||
-                                      ""
-                                    }
-                                    onChange={(e) =>
-                                      setNotesByDate({
-                                        ...notesByDate,
-                                        [date]: "Travel Time",
-                                        [`${date}-travelMins`]:
-                                          e.target.value,
-                                      })
-                                    }
-                                    style={field.input}
-                                  >
-                                    <option value="">Select duration</option>
-                                    {TRAVEL_DURATION_OPTIONS.map((opt) => (
-                                      <option
-                                        key={opt.value}
-                                        value={opt.value}
-                                      >
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-                      )}
+                            {selectedNote === "Travel Time" && (
+                              <div style={{ marginTop: 8 }}>
+                                <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
+                                <select
+                                  value={notesByDate[`${date}-travelMins`] || ""}
+                                  onChange={(e) =>
+                                    setNotesByDate({
+                                      ...notesByDate,
+                                      [date]: "Travel Time",
+                                      [`${date}-travelMins`]: e.target.value,
+                                    })
+                                  }
+                                  style={field.input}
+                                >
+                                  <option value="">Select duration</option>
+                                  {TRAVEL_DURATION_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1537,35 +1433,34 @@ export default function CreateBookingPage() {
                 <div style={divider} />
 
                 <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
-                {[...employeeList, "Other"].map((name) => {
-                  const isBooked = bookedEmployees.includes(name);
-                  const isHoliday = isEmployeeOnHoliday(name);
-                  const disabled = isBooked || isHoliday || isCrewed;
+                {driverOptions.map((name) => {
+                  const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
+                  const isBooked = isEmployeeBooked(name);
+                  const isHeld = isEmployeeHeld(name);
+                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                  const disabled = (isBooked || isHoliday || isCrewed) && !isSelected;
+
                   return (
-                    <label
-                      key={name}
-                      style={{ display: "block", marginBottom: 6 }}
-                    >
+                    <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
                       <input
                         type="checkbox"
                         value={name}
                         disabled={disabled}
-                        checked={employees.includes(name)}
-                        onChange={(e) =>
-                          setEmployees(
-                            e.target.checked
-                              ? [...employees, name]
-                              : employees.filter((n) => n !== name)
-                          )
-                        }
-                      />{" "}
-                      <span
-                        style={{
-                          color: disabled ? "#9ca3af" : UI.text,
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
+                            setEmployees(next);
+                            upsertEmployeeDates("Precision Driver", name, true);
+                          } else {
+                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
+                            setEmployees(next);
+                            upsertEmployeeDates("Precision Driver", name, false);
+                          }
                         }}
-                      >
-                        {name} {isBooked && "(Booked)"}{" "}
-                        {isHoliday && "(On Holiday)"}
+                      />{" "}
+                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
                       </span>
                     </label>
                   );
@@ -1573,142 +1468,166 @@ export default function CreateBookingPage() {
 
                 <div style={{ marginTop: 8, marginBottom: 8 }}>
                   <label style={{ fontWeight: 700 }}>
-                    <input
-                      type="checkbox"
-                      checked={isCrewed}
-                      onChange={(e) => setIsCrewed(e.target.checked)}
-                    />{" "}
-                    Booking Crewed
+                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking Crewed
                   </label>
                 </div>
 
                 <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
-                {[...freelancerList, "Other"].map((name) => {
-                  const isBooked = bookedEmployees.includes(name);
-                  const isHoliday = isEmployeeOnHoliday(name);
-                  const disabled = isBooked || isHoliday;
+                {freelancerOptions.map((name) => {
+                  const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
+                  const isBooked = isEmployeeBooked(name);
+                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                  const disabled = (isBooked || isHoliday) && !isSelected;
+
                   return (
-                    <label
-                      key={name}
-                      style={{ display: "block", marginBottom: 6 }}
-                    >
+                    <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
                       <input
                         type="checkbox"
                         value={name}
                         disabled={disabled}
-                        checked={employees.includes(name)}
-                        onChange={(e) =>
-                          setEmployees(
-                            e.target.checked
-                              ? [...employees, name]
-                              : employees.filter((n) => n !== name)
-                          )
-                        }
-                      />{" "}
-                      <span
-                        style={{
-                          color: disabled ? "#9ca3af" : UI.text,
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
+                            setEmployees(next);
+                            upsertEmployeeDates("Freelancer", name, true);
+                          } else {
+                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
+                            setEmployees(next);
+                            upsertEmployeeDates("Freelancer", name, false);
+                          }
                         }}
-                      >
-                        {name} {isBooked && "(Booked)"}{" "}
-                        {isHoliday && "(On Holiday)"}
+                      />{" "}
+                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
                       </span>
                     </label>
                   );
                 })}
 
-                {employees.includes("Other") && (
+                {employees.some((e) => e.name === "Other") && (
                   <div style={{ marginTop: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="Other employee(s), comma-separated"
-                      value={customEmployee}
-                      onChange={(e) => setCustomEmployee(e.target.value)}
-                      style={field.input}
-                    />
+                    <input type="text" placeholder="Other employee(s), comma-separated" value={customEmployee} onChange={(e) => setCustomEmployee(e.target.value)} style={field.input} />
                   </div>
+                )}
+
+                {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
+                  <>
+                    <div style={divider} />
+                    <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
+                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>Default = everyone works every selected day. Use this grid to fine-tune.</p>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+                      {selectedDates.map((date) => {
+                        const assigned = employeesByDate[date] || [];
+                        const pretty = new Date(date).toDateString();
+
+                        return (
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                            <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
+
+                            {employees
+                              .filter((e) => e.name && e.name !== "Other")
+                              .map((emp) => {
+                                const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
+
+                                return (
+                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isOnDay}
+                                      onChange={() =>
+                                        setEmployeesByDate((prev) => {
+                                          const next = { ...prev };
+                                          const list = Array.isArray(next[date]) ? next[date] : [];
+                                          const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
+                                          if (exists) {
+                                            const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
+                                            if (filtered.length) next[date] = filtered;
+                                            else delete next[date];
+                                          } else {
+                                            next[date] = [...list, { role: emp.role, name: emp.name }];
+                                          }
+                                          return next;
+                                        })
+                                      }
+                                    />{" "}
+                                    {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
               <div style={card}>
                 <h3 style={cardTitle}>Vehicles</h3>
+
                 {Object.entries(vehicleGroups).map(([group, items]) => {
                   const isOpen = openGroups[group] || false;
+
                   return (
                     <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenGroups((prev) => ({
-                            ...prev,
-                            [group]: !prev[group],
-                          }))
-                        }
-                        style={accordionBtn}
-                      >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
-                        </span>
+                      <button type="button" onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
+                        <span>{isOpen ? "▼" : "►"} {group}</span>
                         <span style={pill}>{items.length}</span>
                       </button>
+
                       {isOpen && (
                         <div style={{ padding: "10px 6px" }}>
                           {items.map((vehicle) => {
-                            const isBooked = bookedVehicles.includes(
-                              vehicle.name
-                            );
+                            const key = vehicle.id;
+                            const isBooked = bookedVehicleIds.includes(key);
+                            const blockedStatus = vehicleBlockingStatusById[key];
+                            const isHeld = heldVehicleIds.includes(key);
+                            const isSelected = vehicles.includes(key);
 
-                            const vehicleKey = canonicalVehicleKey(
-                              vehicle.name,
-                              vehicle.registration
-                            );
-                            const isMaintenance = vehicleKey
-                              ? maintenanceVehicleKeySet.has(vehicleKey)
-                              : false;
-
-                            const disabled = isBooked || isMaintenance;
+                            const isMaintBlocked = maintenanceVehicleIdSet.has(key);
+                            const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
                             return (
-                              <label
-                                key={
-                                  vehicle.registration
-                                    ? `${vehicle.name}-${vehicle.registration}`
-                                    : vehicle.name
-                                }
+                              <div
+                                key={key}
                                 style={{
-                                  display: "block",
-                                  marginBottom: 6,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  marginBottom: 8,
+                                  opacity: disabled ? 0.55 : 1,
+                                  cursor: disabled ? "not-allowed" : "",
                                 }}
+                                title={
+                                  disabled
+                                    ? isMaintBlocked
+                                      ? "Vehicle is on maintenance (work booking) during selected date(s)"
+                                      : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
+                                    : ""
+                                }
                               >
-                                <input
-                                  type="checkbox"
-                                  value={vehicle.name}
-                                  disabled={disabled}
-                                  checked={vehicles.includes(vehicle.name)}
-                                  onChange={(e) =>
-                                    setVehicles(
-                                      e.target.checked
-                                        ? [...vehicles, vehicle.name]
-                                        : vehicles.filter(
-                                            (v) => v !== vehicle.name
-                                          )
-                                    )
-                                  }
-                                />{" "}
-                                <span
-                                  style={{
-                                    color: disabled ? "#9ca3af" : UI.text,
-                                  }}
-                                >
+                                <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
+                                <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                   {vehicle.name}
-                                  {vehicle.registration
-                                    ? ` – ${vehicle.registration}`
-                                    : ""}
-                                  {isBooked && " (Booked)"}{" "}
-                                  {isMaintenance && " (Maintenance)"}
+                                  {vehicle.registration ? ` – ${vehicle.registration}` : ""}
+                                  {isMaintBlocked && !isBooked && " (Maintenance)"}
+                                  {isBooked && ` (${blockedStatus || "Blocked"})`}
+                                  {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>
-                              </label>
+
+                                {isSelected && (
+                                  <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: 32 }} title="Vehicle status">
+                                    {VEHICLE_STATUSES.map((s) => (
+                                      <option key={s} value={s}>
+                                        {s}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -1720,60 +1639,41 @@ export default function CreateBookingPage() {
                 <div style={divider} />
 
                 <h3 style={cardTitle}>Equipment</h3>
+
                 {Object.entries(equipmentGroups).map(([group, items]) => {
-                  const isOpen = openEquipmentGroups[group] || false;
+                  const isOpen = openEquipGroups[group] || false;
+
                   return (
                     <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenEquipmentGroups((prev) => ({
-                            ...prev,
-                            [group]: !prev[group],
-                          }))
-                        }
-                        style={accordionBtn}
-                      >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
-                        </span>
+                      <button type="button" onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
+                        <span>{isOpen ? "▼" : "►"} {group}</span>
                         <span style={pill}>{items.length}</span>
                       </button>
+
                       {isOpen && (
                         <div style={{ padding: "10px 6px" }}>
-                          {items.map((item) => {
-                            const isBooked =
-                              bookedEquipment.includes(item);
-                            const disabled = isBooked;
+                          {items.map((rawName) => {
+                            const name = String(rawName || "").trim();
+                            const isBooked = bookedEquipment.includes(name);
+                            const isHeld = heldEquipment.includes(name);
+                            const isSelected = equipment.includes(name);
+                            const disabled = isBooked && !isSelected;
+
                             return (
-                              <label
-                                key={item}
-                                style={{
-                                  display: "block",
-                                  marginBottom: 6,
-                                }}
-                              >
+                              <label key={name} style={{ display: "block", marginBottom: 6 }}>
                                 <input
                                   type="checkbox"
-                                  value={item}
+                                  value={name}
                                   disabled={disabled}
-                                  checked={equipment.includes(item)}
-                                  onChange={(e) =>
-                                    setEquipment(
-                                      e.target.checked
-                                        ? [...equipment, item]
-                                        : equipment.filter(
-                                            (i) => i !== item
-                                          )
-                                    )
-                                  }
-                                />{" "}
-                                <span
-                                  style={{
-                                    color: disabled ? "#9ca3af" : UI.text,
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
+                                    else setEquipment((prev) => prev.filter((x) => x !== name));
                                   }}
-                                >
-                                  {item} {isBooked && "(Booked)"}
+                                />{" "}
+                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                  {name}
+                                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
                                 </span>
                               </label>
                             );
@@ -1786,60 +1686,93 @@ export default function CreateBookingPage() {
               </div>
             </div>
 
-            {/* Files & Notes (separate card) */}
+            {/* Files & Notes */}
             <div style={{ ...card, marginTop: 18 }}>
               <h3 style={cardTitle}>Files & Notes</h3>
 
-              <label style={field.label}>Attach Quote (PDF)</label>
+              <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
               <input
                 type="file"
-                accept="application/pdf,.pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  setQuoteFile(file || null);
-                }}
+                multiple
+                accept=".pdf,.xls,.xlsx,.csv"
+                onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
                 style={{ ...field.input, height: "auto", padding: 10 }}
               />
 
-              {quoteProgress > 0 && quoteProgress < 100 && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: UI.muted,
-                  }}
-                >
-                  Uploading: {quoteProgress}%
+              {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+              {newFiles?.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Save.
                 </div>
               )}
 
               <div style={{ marginTop: 14 }} />
-              <label style={field.label}>Job Description</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                style={field.textarea}
-                placeholder="Anything extra to include for this booking..."
-              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={field.label}>Call Time</label>
+
+                  {selectedDates.length > 1 ? (
+                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
+                      {selectedDates.map((d) => {
+                        const pretty = new Date(d).toDateString();
+                        const value = callTimesByDate[d] || "";
+                        return (
+                          <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                            <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>{pretty}</span>
+                            <select value={value} onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [d]: e.target.value }))} style={field.input}>
+                              <option value="">-- Select time --</option>
+                              {TIME_OPTIONS.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <select value={callTime} onChange={(e) => setCallTime(e.target.value)} style={field.input}>
+                      <option value="">-- Select time --</option>
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label style={field.label}>Rigging Address</label>
+                  <div style={field.checkboxRow}>
+                    <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
+                    Add Rigging Address
+                  </div>
+                  {hasRiggingAddress && <textarea value={riggingAddress} onChange={(e) => setRiggingAddress(e.target.value)} rows={3} style={field.textarea} placeholder="Enter rigging address..." />}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14 }} />
+              <label style={field.label}>Additional Notes</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={field.textarea} placeholder="Anything extra to include for this booking..." />
 
               <div style={divider} />
 
               <label style={field.checkboxRow}>
-                <input
-                  type="checkbox"
-                  checked={hasHS}
-                  onChange={(e) => setHasHS(e.target.checked)}
-                />
+                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
                 Health & Safety Completed
               </label>
+
               <label style={field.checkboxRow}>
-                <input
-                  type="checkbox"
-                  checked={hasRiskAssessment}
-                  onChange={(e) => setHasRiskAssessment(e.target.checked)}
-                />
+                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
                 Risk Assessment Completed
+              </label>
+
+              <label style={field.checkboxRow}>
+                <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
+                Hotel Booked
               </label>
 
               <div style={actionsRow}>
@@ -1847,118 +1780,133 @@ export default function CreateBookingPage() {
                   type="submit"
                   disabled={!coreFilled}
                   title={saveTooltip}
-                  style={{
-                    ...btnPrimary,
-                    opacity: coreFilled ? 1 : 0.5,
-                    cursor: coreFilled ? "pointer" : "not-allowed",
-                  }}
+                  style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
                 >
                   Save Booking
                 </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                style={btnGhost}
-              >
-                Cancel
-              </button>
+                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Summary row */}
-          <div style={{ gridColumn: "1 / -1" }}>
-            <div style={summaryCard}>
-              <h3
-                style={{
-                  margin: "0 0 10px",
-                  fontSize: 16,
-                  fontWeight: 800,
-                }}
-              >
-                📋 Summary
-              </h3>
-              <div style={summaryRow}>
-                <div>Job Number</div>
-                <div>{jobNumber || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Status</div>
-                <div>{status || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Shoot Type</div>
-                <div>{shootType || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Production</div>
-                <div>{client || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Contacts</div>
-                <div>
-                  {additionalContacts.length
-                    ? additionalContacts
-                        .map((c) => {
-                          const dept =
-                            c.department === "Other" &&
-                            c.departmentOther
-                              ? c.departmentOther
-                              : c.department;
-                          return [
-                            c.name || c.email || "Unnamed",
-                            dept ? `(${dept})` : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ");
-                        })
-                        .join(", ")
-                    : "—"}
+            {/* Summary */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={summaryCard}>
+                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>📋 Summary</h3>
+
+                <div style={summaryRow}>
+                  <div>Job Number</div>
+                  <div>{jobNumber || "—"}</div>
                 </div>
-              </div>
-              <div style={summaryRow}>
-                <div>Location</div>
-                <div>{location || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Dates</div>
-                <div>
-                  {useCustomDates
-                    ? customDates.length
-                      ? customDates.join(", ")
-                      : "—"
-                    : isRange
-                    ? `${startDate || "—"} → ${endDate || "—"}`
-                    : startDate || "—"}
+                <div style={summaryRow}>
+                  <div>Status</div>
+                  <div>{status || "—"}</div>
                 </div>
-              </div>
-              <div style={summaryRow}>
-                <div>People</div>
-                <div>
-                  {employees
-                    .concat(
-                      customEmployee
-                        ? customEmployee
-                            .split(",")
-                            .map((n) => n.trim())
-                        : []
-                    )
-                    .join(", ") || "—"}
+                <div style={summaryRow}>
+                  <div>Shoot Type</div>
+                  <div>{shootType || "—"}</div>
                 </div>
-              </div>
-              <div style={summaryRow}>
-                <div>Vehicles</div>
-                <div>{vehicles.join(", ") || "—"}</div>
-              </div>
-              <div style={summaryRow}>
-                <div>Equipment</div>
-                <div>{equipment.join(", ") || "—"}</div>
+                <div style={summaryRow}>
+                  <div>Client</div>
+                  <div>{client || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Contacts</div>
+                  <div>
+                    {additionalContacts.length
+                      ? additionalContacts
+                          .map((c) => {
+                            const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
+                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
+                          })
+                          .join(", ")
+                      : "—"}
+                  </div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Location</div>
+                  <div>{location || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Dates</div>
+                  <div>
+                    {useCustomDates ? (customDates.length ? customDates.join(", ") : "—") : isRange ? `${startDate || "—"} → ${endDate || "—"}` : startDate || "—"}
+                  </div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Drivers</div>
+                  <div>{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Freelancers</div>
+                  <div>{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Vehicles</div>
+                  <div>
+                    {Object.values(vehicleGroups)
+                      .flat()
+                      .filter((v) => vehicles.includes(v.id))
+                      .map((v) => {
+                        const vs = vehicleStatus[v.id] || status;
+                        const label = v.registration ? `${v.name} – ${v.registration}` : v.name;
+                        return (
+                          <span
+                            key={v.id}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 999,
+                              padding: "2px 8px",
+                              marginRight: 6,
+                              marginBottom: 6,
+                            }}
+                          >
+                            {label} • {vs}
+                          </span>
+                        );
+                      })}
+                    {vehicles.length === 0 && "—"}
+                  </div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Equipment</div>
+                  <div>{equipment.join(", ") || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Hotel / CT</div>
+                  <div>
+                    {hasHotel ? "Hotel ✓" : "Hotel ✗"}
+                    {" • "}
+                    {selectedDates.length > 1
+                      ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "—"}`).join(" | ")
+                      : callTime || "—"}
+                  </div>
+                </div>
+
+                {hasRiggingAddress && (
+                  <div style={summaryRow}>
+                    <div>Rigging Address</div>
+                    <div>{riggingAddress || "—"}</div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
-  </HeaderSidebarLayout>
+    </HeaderSidebarLayout>
   );
 }

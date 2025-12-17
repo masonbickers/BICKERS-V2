@@ -318,8 +318,8 @@ export default function EmployeesHomePage() {
           const booking = docSnap.data() || {};
           const status = String(booking.status || "").trim();
 
-          // Only Confirmed bookings
-          if (status !== "Confirmed") return;
+if (status !== "Confirmed" && status !== "Complete") return;
+
 
           // employees array (strings or objects)
           const employeeListRaw = booking.employees || [];

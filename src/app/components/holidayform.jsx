@@ -1,4 +1,4 @@
-// src/app/components/create-note.jsx
+// src/app/components/holidayform.jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,16 +6,19 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 
-export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
+export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
 
   const [employee, setEmployee] = useState("");
-  const [noteText, setNoteText] = useState("");
 
-  const [isMultiDay, setIsMultiDay] = useState(false);
-  const [noteDate, setNoteDate] = useState(defaultDate || ""); // yyyy-mm-dd
-  const [startDate, setStartDate] = useState(""); // yyyy-mm-dd
-  const [endDate, setEndDate] = useState(""); // yyyy-mm-dd
+  const [isMultiDay, setIsMultiDay] = useState(true);
+
+  const [holidayDate, setHolidayDate] = useState(defaultDate || ""); // yyyy-mm-dd (single)
+  const [startDate, setStartDate] = useState(defaultDate || ""); // yyyy-mm-dd
+  const [endDate, setEndDate] = useState(defaultDate || ""); // yyyy-mm-dd
+
+  const [holidayReason, setHolidayReason] = useState("");
+  const [paidStatus, setPaidStatus] = useState("Paid");
 
   const [employees, setEmployees] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -36,102 +39,74 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
     fetchEmployees();
   }, []);
 
-  /* ---------------- Helpers ---------------- */
-  const getDateRange = (start, end) => {
-    const arr = [];
-    const d = new Date(start);
-    const last = new Date(end);
-
-    // normalise to local midnight to avoid DST weirdness
-    d.setHours(0, 0, 0, 0);
-    last.setHours(0, 0, 0, 0);
-
-    while (d <= last) {
-      arr.push(d.toISOString().split("T")[0]);
-      d.setDate(d.getDate() + 1);
-    }
-    return arr;
-  };
-
-  const canSubmit = useMemo(() => {
-    if (saving) return false;
-    if (!noteText.trim()) return false;
-
-    if (isMultiDay) return !!startDate && !!endDate;
-    return !!noteDate;
-  }, [saving, noteText, isMultiDay, startDate, endDate, noteDate]);
-
   const handleBack = () => {
     if (typeof onClose === "function") return onClose();
     router.push("/dashboard");
   };
 
-  /* ---------------- Save note(s) ---------------- */
+  const canSubmit = useMemo(() => {
+    if (saving) return false;
+    if (!employee) return false;
+    if (!holidayReason.trim()) return false;
+    if (!paidStatus) return false;
+
+    if (isMultiDay) return !!startDate && !!endDate;
+    return !!holidayDate;
+  }, [saving, employee, holidayReason, paidStatus, isMultiDay, startDate, endDate, holidayDate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!noteText.trim()) {
-      alert("Note text cannot be empty.");
-      return;
-    }
+    if (!employee) return alert("Please select an employee.");
+    if (!holidayReason.trim()) return alert("Please enter a reason.");
+    if (!paidStatus) return alert("Please select paid status.");
 
     setSaving(true);
+
     try {
-      /* MULTI-DAY NOTE ----------------------------------------------------- */
+      // Validate dates
+      let finalStart = "";
+      let finalEnd = "";
+
       if (isMultiDay) {
         if (!startDate || !endDate) {
-          alert("Select both start and end dates.");
           setSaving(false);
-          return;
+          return alert("Select both start and end dates.");
         }
 
         const s = new Date(startDate);
         const ed = new Date(endDate);
-        if (isNaN(+s) || isNaN(+ed) || s > ed) {
-          alert("End date must be the same or after start date.");
+        if (Number.isNaN(+s) || Number.isNaN(+ed) || s > ed) {
           setSaving(false);
-          return;
+          return alert("End date must be the same or after start date.");
         }
 
-        const range = getDateRange(startDate, endDate);
-
-        for (const date of range) {
-          await addDoc(collection(db, "notes"), {
-            employee: employee || "",
-            date,
-            text: noteText.trim(),
-            startDate,
-            endDate,
-            isMultiDay: true,
-            createdAt: new Date(),
-          });
+        finalStart = startDate;
+        finalEnd = endDate;
+      } else {
+        if (!holidayDate) {
+          setSaving(false);
+          return alert("Please select a date.");
         }
+        finalStart = holidayDate;
+        finalEnd = holidayDate;
       }
 
-      /* SINGLE DAY NOTE ---------------------------------------------------- */
-      else {
-        if (!noteDate) {
-          alert("Please select a date.");
-          setSaving(false);
-          return;
-        }
-
-        await addDoc(collection(db, "notes"), {
-          employee: employee || "",
-          date: noteDate,
-          text: noteText.trim(),
-          isMultiDay: false,
-          createdAt: new Date(),
-        });
-      }
+      await addDoc(collection(db, "holidays"), {
+        employee,
+        startDate: finalStart,
+        endDate: finalEnd,
+        holidayReason: holidayReason.trim(),
+        paidStatus,
+        createdAt: new Date(),
+      });
 
       if (typeof onSaved === "function") onSaved();
-
       if (typeof onClose === "function") onClose();
       else router.push("/dashboard");
     } catch (err) {
-      console.error("Error saving note:", err);
-      alert("Failed to save note. Please try again.");
+      console.error("Error saving holiday:", err);
+      alert("Failed to save holiday. Please try again.");
       setSaving(false);
     }
   };
@@ -141,7 +116,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
       <div style={modal}>
         {/* Header */}
         <div style={headerRow}>
-          <h2 style={modalTitle}>Add Note</h2>
+          <h2 style={modalTitle}>Add Holiday</h2>
           <button onClick={handleBack} style={closeBtn} aria-label="Close">
             ✕
           </button>
@@ -150,13 +125,14 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
           {/* Employee */}
           <div>
-            <label style={label}>Employee (optional)</label>
+            <label style={label}>Employee</label>
             <select
               value={employee}
               onChange={(e) => setEmployee(e.target.value)}
               style={input}
+              required
             >
-              <option value="">No one specific</option>
+              <option value="">Select employee…</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.name}>
                   {emp.name}
@@ -167,7 +143,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
 
           {/* Type toggle */}
           <div>
-            <label style={label}>Note Type</label>
+            <label style={label}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
               onChange={(e) => setIsMultiDay(e.target.value === "multi")}
@@ -178,14 +154,14 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             </select>
           </div>
 
-          {/* Date fields */}
+          {/* Dates */}
           {!isMultiDay ? (
             <div>
               <label style={label}>Date</label>
               <input
                 type="date"
-                value={noteDate}
-                onChange={(e) => setNoteDate(e.target.value)}
+                value={holidayDate}
+                onChange={(e) => setHolidayDate(e.target.value)}
                 required
                 style={input}
               />
@@ -216,17 +192,26 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             </>
           )}
 
-          {/* Text */}
+          {/* Reason */}
           <div>
-            <label style={label}>Note</label>
+            <label style={label}>Reason</label>
             <textarea
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={4}
-              placeholder="Write note..."
+              value={holidayReason}
+              onChange={(e) => setHolidayReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Family holiday / Sick / Appointment..."
               required
-              style={{ ...input, resize: "vertical", paddingTop: 12 }}
+              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: 12 }}
             />
+          </div>
+
+          {/* Paid vs unpaid */}
+          <div>
+            <label style={label}>Paid status</label>
+            <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} style={input}>
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+            </select>
           </div>
 
           <button
@@ -238,7 +223,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
               cursor: canSubmit ? "pointer" : "not-allowed",
             }}
           >
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? "Saving..." : "Save holiday"}
           </button>
 
           <button type="button" onClick={handleBack} style={dangerBtn}>
@@ -250,7 +235,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   );
 }
 
-/* -------------------- styles to match HolidayForm -------------------- */
+/* -------------------- styles (same as your create-note) -------------------- */
 
 const overlay = {
   position: "fixed",
@@ -307,26 +292,19 @@ const label = {
   marginBottom: 6,
 };
 
-/**
- * ✅ Fixes your “dropdown colour clash”:
- * - keep field text white
- * - give selects/inputs a consistent translucent bg
- * - explicitly style option background/text so they’re readable
- */
 const input = {
   width: "100%",
   padding: "12px 12px",
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.10)",
   backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff", // ✅ readable always
+  color: "#fff",
   outline: "none",
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
 };
 
-/* Extra: makes dropdown options readable across browsers */
 const globalOptionCSS = `
 select option {
   background: #0b0b0b !important;
@@ -334,11 +312,9 @@ select option {
 }
 `;
 
-// If you don’t want to rely on global CSS, add this once in your app.
-// For now, we inject it locally:
-if (typeof document !== "undefined" && !document.getElementById("create-note-option-css")) {
+if (typeof document !== "undefined" && !document.getElementById("holiday-form-option-css")) {
   const style = document.createElement("style");
-  style.id = "create-note-option-css";
+  style.id = "holiday-form-option-css";
   style.innerHTML = globalOptionCSS;
   document.head.appendChild(style);
 }

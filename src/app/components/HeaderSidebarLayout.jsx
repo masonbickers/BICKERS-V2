@@ -28,7 +28,6 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "Diary", path: "/dashboard" },
     { label: "U-Crane", path: "/u-crane" }, 
 
-    { label: "Bookings", path: "/booking-page" },
     { label: "HR / Timesheets", path: "/hr" },
     { label: "Employees", path: "/employee-home" },
     { label: "Vehicles & Equip", path: "/vehicle-home" },

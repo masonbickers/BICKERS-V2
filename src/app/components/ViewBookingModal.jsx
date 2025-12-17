@@ -1,22 +1,85 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
-import { db } from "../../../firebaseConfig";
-import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
+import { db, auth } from "../../../firebaseConfig";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  collection,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 /* ---------- helpers ---------- */
-const fmtDate = (iso) => (iso ? new Date(iso).toDateString() : "Not set");
+const toDateSafe = (v) => {
+  try {
+    if (!v) return null;
+    if (v?.toDate && typeof v.toDate === "function") return v.toDate(); // Firestore Timestamp
+    if (v instanceof Date) return v;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+  } catch {
+    return null;
+  }
+};
+
+const fmtGB = (d) => {
+  if (!d) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+};
+
+const fmtDate = (iso) => {
+  const d = toDateSafe(iso);
+  return d ? fmtGB(d) : "—";
+};
+
 const fmtDateRange = (b) => {
+  if (!b) return "—";
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
-    return b.bookingDates.join(", ");
+    return b.bookingDates
+      .map((x) => {
+        const d = toDateSafe(x);
+        return d ? fmtGB(d) : String(x);
+      })
+      .join(", ");
   }
   if (b.startDate && b.endDate) return `${fmtDate(b.startDate)} → ${fmtDate(b.endDate)}`;
   if (b.date) return fmtDate(b.date);
-  return "Not set";
+  if (b.startDate) return fmtDate(b.startDate);
+  return "—";
 };
 
-/* ---------- ATTACHMENTS HELPERS (replaced) ---------- */
-// Normalize any Firebase/HTTP URL to a stable de-dupe key (strip token/query)
+const listBookingDaysYMD = (b) => {
+  const keys = Object.keys(b?.notesByDate || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  if (keys.length) return keys.sort((a, c) => new Date(a) - new Date(c));
+  if (Array.isArray(b?.bookingDates) && b.bookingDates.length) {
+    return [...b.bookingDates].sort((a, c) => new Date(a) - new Date(c));
+  }
+  // last resort: derive from start/end/date
+  const s = (b?.startDate || "").slice?.(0, 10);
+  const e = (b?.endDate || "").slice?.(0, 10);
+  const one = (b?.date || "").slice?.(0, 10) || (b?.startDate || "").slice?.(0, 10);
+  if (s && e) {
+    const out = [];
+    let cur = new Date(`${s}T00:00:00Z`);
+    const end = new Date(`${e}T00:00:00Z`);
+    while (cur <= end) {
+      out.push(cur.toISOString().slice(0, 10));
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    return out;
+  }
+  return one ? [one] : [];
+};
+
+/* ---------- ATTACHMENTS HELPERS ---------- */
 const canonicalKeyFromUrl = (url = "") => {
   try {
     const afterO = url.split("/o/")[1];
@@ -27,7 +90,6 @@ const canonicalKeyFromUrl = (url = "") => {
   }
 };
 
-// Safe filename from any URL or path
 const getFilenameFromUrl = (url = "") => {
   try {
     const key = canonicalKeyFromUrl(url) || url;
@@ -37,22 +99,18 @@ const getFilenameFromUrl = (url = "") => {
   }
 };
 
-// Build a unique, flat list of { url, label } from any schema you may have
 const toAttachmentList = (b = {}) => {
   const out = [];
 
-  // supports strings, arrays, maps, and objects with url-like fields
   const add = (val, name) => {
     if (!val) return;
 
-    // 1) plain string URL
     if (typeof val === "string") {
       const url = val;
       out.push({ url, label: name || getFilenameFromUrl(url) });
       return;
     }
 
-    // 2) object: try common URL fields
     const url =
       val.url ||
       val.href ||
@@ -67,21 +125,17 @@ const toAttachmentList = (b = {}) => {
       return;
     }
 
-    // 3) object-as-map (legacy): { "<id>": {url:...}, ... }
     if (typeof val === "object") {
       Object.values(val).forEach((v) => add(v, name));
     }
   };
 
-  // Prefer arrays (new schema) first so their order is kept in UI
   if (Array.isArray(b.attachments)) b.attachments.forEach((x) => add(x));
-  if (Array.isArray(b.files))       b.files.forEach((x) => add(x));
+  if (Array.isArray(b.files)) b.files.forEach((x) => add(x));
 
-  // Legacy single fields last (avoid pushing duplicates with arrays)
   add(b.quoteUrl, "Quote");
   if (b.pdfURL && b.pdfURL !== b.quoteUrl) add(b.pdfURL);
 
-  // De-dupe by canonical storage/key (handles different Firebase token URLs)
   const seen = new Set();
   return out.filter(({ url }) => {
     const key = canonicalKeyFromUrl(url);
@@ -91,7 +145,36 @@ const toAttachmentList = (b = {}) => {
   });
 };
 
-export default function ViewBookingModal({ id, onClose }) {
+/* ---------- employees helpers ---------- */
+const prettyEmployees = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((e) => (typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")))
+    .filter(Boolean)
+    .join(", ") || "None";
+
+const groupEmployeesByRole = (list) => {
+  const arr = Array.isArray(list) ? list : [];
+  const map = {};
+  arr.forEach((e) => {
+    const role = (typeof e === "string" ? "Employee" : e?.role) || "Employee";
+    const name = typeof e === "string" ? e : e?.name;
+    const key = String(role || "Employee");
+    if (!name) return;
+    if (!map[key]) map[key] = [];
+    map[key].push(String(name));
+  });
+  Object.keys(map).forEach((k) => {
+    map[k] = Array.from(new Set(map[k])).sort((a, b) => a.localeCompare(b));
+  });
+  return map;
+};
+
+export default function ViewBookingModal({
+  id,
+  onClose,
+  fromDeleted = false,
+  deletedId = null,
+}) {
   const [booking, setBooking] = useState(null);
   const [allVehicles, setAllVehicles] = useState([]);
   const router = useRouter();
@@ -103,18 +186,59 @@ export default function ViewBookingModal({ id, onClose }) {
     return () => window.removeEventListener("keydown", onEsc);
   }, [onClose]);
 
-  // load booking
+  // load booking (normal OR deleted)
   useEffect(() => {
     let mounted = true;
+
     (async () => {
-      const ref = doc(db, "bookings", id);
-      const snap = await getDoc(ref);
-      if (!mounted) return;
-      if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
-      else alert("Booking not found");
+      try {
+        setBooking(null);
+
+        if (fromDeleted) {
+          const delRef = doc(db, "deletedBookings", String(deletedId || id));
+          const delSnap = await getDoc(delRef);
+
+          if (!mounted) return;
+
+          if (!delSnap.exists()) {
+            alert("Deleted booking not found");
+            onClose?.();
+            return;
+          }
+
+          const raw = delSnap.data() || {};
+          const payload = raw.data || raw.payload || raw.booking || raw || {};
+
+          setBooking({
+            id: raw.originalId || id,
+            __deletedDocId: delSnap.id,
+            __deletedMeta: {
+              deletedAt: raw.deletedAt || null,
+              deletedBy: raw.deletedBy || "",
+              originalCollection: raw.originalCollection || "bookings",
+              originalId: raw.originalId || id,
+            },
+            ...payload,
+          });
+
+          return;
+        }
+
+        const ref = doc(db, "bookings", String(id));
+        const snap = await getDoc(ref);
+
+        if (!mounted) return;
+
+        if (snap.exists()) setBooking({ id: snap.id, ...snap.data() });
+        else alert("Booking not found");
+      } catch (e) {
+        console.error("Load booking failed:", e);
+        alert("Failed to load booking. Check console.");
+      }
     })();
+
     return () => (mounted = false);
-  }, [id]);
+  }, [id, fromDeleted, deletedId, onClose]);
 
   // load vehicles
   useEffect(() => {
@@ -130,39 +254,131 @@ export default function ViewBookingModal({ id, onClose }) {
   const normalizedVehicles = useMemo(() => {
     const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
     return list.map((v) => {
-      if (v && typeof v === "object" && (v.name || v.registration)) return v;
+      if (v && typeof v === "object" && (v.name || v.registration || v.id)) return v;
+
       const needle = String(v ?? "").trim();
       const match =
         allVehicles.find((x) => x.id === needle) ||
         allVehicles.find((x) => String(x.registration ?? "").trim() === needle) ||
         allVehicles.find((x) => String(x.name ?? "").trim() === needle);
-      return match || { name: needle };
+
+      return match || { id: needle, name: needle };
     });
   }, [booking?.vehicles, allVehicles]);
 
+  // show vehicle statuses when vehicles are stored as IDs
+  const vehicleStatusById = booking?.vehicleStatus || {};
+
+  const vehiclesPrettyWithStatus = useMemo(() => {
+    if (!normalizedVehicles.length) return [];
+    return normalizedVehicles.map((v) => {
+      const vid = v?.id || v?.vehicleId || "";
+      const status = (vid && vehicleStatusById?.[vid]) || booking?.status || "";
+      const name =
+        v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(vid || "");
+      const plate = v?.registration ? String(v.registration).toUpperCase() : "";
+      return { id: vid || `${name}-${plate}`, name, plate, status };
+    });
+  }, [normalizedVehicles, vehicleStatusById, booking?.status]);
+
+  const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
+
+  const employeesByDate = booking?.employeesByDate || {};
+  const hasEmployeesByDate = useMemo(() => {
+    return !!employeesByDate && Object.keys(employeesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  }, [employeesByDate]);
+
+  const callTimesByDate = booking?.callTimesByDate || {};
+  const hasCallTimesByDate = useMemo(() => {
+    return !!callTimesByDate && Object.keys(callTimesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  }, [callTimesByDate]);
+
+  // ✅ delete (store copy -> delete original)
   const handleDelete = async () => {
     const confirmDelete = confirm("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
-    await deleteDoc(doc(db, "bookings", id));
-    alert("Booking deleted");
-    onClose?.();
+
+    try {
+      const bookingRef = doc(db, "bookings", String(id));
+      const snap = await getDoc(bookingRef);
+
+      if (!snap.exists()) {
+        alert("Booking not found (already deleted?)");
+        onClose?.();
+        return;
+      }
+
+      const data = snap.data();
+
+      await setDoc(doc(db, "deletedBookings", String(id)), {
+        originalCollection: "bookings",
+        originalId: String(id),
+        deletedAt: serverTimestamp(),
+        deletedBy: auth?.currentUser?.email || "",
+        data,
+      });
+
+      await deleteDoc(bookingRef);
+
+      alert("Booking deleted (stored in Deleted Bookings)");
+      onClose?.();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Delete failed. Check console.");
+    }
+  };
+
+  // ✅ restore (deleted -> bookings) — STRIP deleted meta before saving back
+  const handleRestore = async () => {
+    if (!fromDeleted) return;
+
+    const ok = confirm("Restore this booking back into Bookings?");
+    if (!ok) return;
+
+    try {
+      const originalId = booking?.__deletedMeta?.originalId || booking?.id || id;
+
+      const { __deletedDocId, __deletedMeta, ...clean } = booking || {};
+
+      await setDoc(
+        doc(db, "bookings", String(originalId)),
+        {
+          ...clean,
+          restoredAt: serverTimestamp(),
+          restoredBy: auth?.currentUser?.email || "",
+        },
+        { merge: true }
+      );
+
+      const delDocId = booking?.__deletedDocId || deletedId || id;
+      await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
+
+      alert("Restored ✅");
+      onClose?.();
+    } catch (e) {
+      console.error("Restore failed:", e);
+      alert("Restore failed. Check console.");
+    }
   };
 
   if (!booking) return null;
 
-  const employeesPretty =
-    (booking.employees || [])
-      .map((e) => (typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")))
-      .filter(Boolean)
-      .join(", ") || "None";
+  const employeesPretty = prettyEmployees(booking.employees || []);
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
   const reasonsText =
     Array.isArray(booking.statusReasons) && booking.statusReasons.length
       ? booking.statusReasons
-          .map((r) => (r === "Other" && booking.statusReasonOther ? `Other: ${booking.statusReasonOther}` : r))
+          .map((r) =>
+            r === "Other" && booking.statusReasonOther ? `Other: ${booking.statusReasonOther}` : r
+          )
           .join(", ")
       : "—";
+
+  // additionalContacts (unified)
+  const additionalContacts = Array.isArray(booking.additionalContacts)
+    ? booking.additionalContacts
+    : [];
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
@@ -172,6 +388,12 @@ export default function ViewBookingModal({ id, onClose }) {
           <div>
             <div style={eyebrow}>Job #{booking.jobNumber || "—"}</div>
             <h2 style={title}>{booking.client || "Booking Details"}</h2>
+            {fromDeleted && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+                Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
+                {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
+              </div>
+            )}
           </div>
           <span style={{ ...badge, background: statusColor(booking.status), color: onStatusColor(booking.status) }}>
             {booking.status || "—"}
@@ -195,42 +417,70 @@ export default function ViewBookingModal({ id, onClose }) {
             <Field label="Production" value={booking.client || "—"} />
             <Field label="Location" value={booking.location || "—"} />
             <Field label="Date(s)" value={fmtDateRange(booking)} />
+
             <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
             <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
+
+            {additionalContacts.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {additionalContacts.map((c, idx) => {
+                    const name = c?.name || "Contact";
+                    const email = c?.email || "";
+                    const phone = c?.phone || "";
+                    const role = c?.role || "";
+                    return (
+                      <div key={idx} style={miniCard}>
+                        <div style={{ fontWeight: 800, fontSize: 13 }}>
+                          {name} {role ? <span style={{ opacity: 0.7, fontWeight: 700 }}>({role})</span> : null}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#111" }}>
+                          {email ? <div>Email: {email}</div> : null}
+                          {phone ? <div>Phone: {phone}</div> : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {showReasons && <Field label="Status Reason(s)" value={reasonsText} />}
           </Section>
 
           <Section title="People & Kit">
             <Field label="Employees" value={employeesPretty} />
+
+            {/* Vehicle list WITH status pills */}
             <Field
               label="Vehicles"
               value={
-                normalizedVehicles.length
-                  ? (
-                      <div style={tagWrap}>
-                        {normalizedVehicles.map((v, i) => {
-                          const name =
-                            v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || String(v || "");
-                          const plate = v?.registration ? ` ${String(v.registration).toUpperCase()}` : "";
-                          return (
-                            <span key={`${name}-${i}`} style={tag}>
-                              {name}
-                              {plate && <span style={tagSub}>{plate}</span>}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )
-                  : "None"
+                vehiclesPrettyWithStatus.length ? (
+                  <div style={tagWrap}>
+                    {vehiclesPrettyWithStatus.map((v, i) => (
+                      <span key={`${v.id}-${i}`} style={tag}>
+                        {v.name}
+                        {v.plate && <span style={tagSub}>{v.plate}</span>}
+                        {v.status && <span style={tagStatus}>{v.status}</span>}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  "None"
+                )
               }
             />
+
             <Field
               label="Equipment"
               value={
                 Array.isArray(booking.equipment) && booking.equipment.length ? (
                   <div style={tagWrap}>
                     {booking.equipment.map((e, i) => (
-                      <span key={`${e}-${i}`} style={tag}>{e}</span>
+                      <span key={`${e}-${i}`} style={tag}>
+                        {e}
+                      </span>
                     ))}
                   </div>
                 ) : (
@@ -240,28 +490,99 @@ export default function ViewBookingModal({ id, onClose }) {
             />
           </Section>
 
-          {/* Day notes (full width) */}
-          {booking.notesByDate && Object.keys(booking.notesByDate).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).length > 0 && (
-            <Section title="Day Notes" full>
+          {/* Employees by day (full width) */}
+          {hasEmployeesByDate && dayKeys.length > 0 && (
+            <Section title="Employees by Day" full>
               <div style={notesGrid}>
-                {Object.keys(booking.notesByDate)
-                  .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-                  .sort((a, b) => new Date(a) - new Date(b))
-                  .map((date) => {
-                    const note = booking.notesByDate[date] || "—";
-                    const other = booking.notesByDate[`${date}-other`];
-                    const final = note === "Other" && other ? `${note} — ${other}` : note;
-                    const pretty = new Date(date).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
-                    return (
-                      <div key={date} style={noteCard}>
-                        <div style={noteDate}>{pretty}</div>
-                        <div style={noteText}>{final}</div>
-                      </div>
-                    );
-                  })}
+                {dayKeys.map((date) => {
+                  const list = employeesByDate?.[date] || [];
+                  const grouped = groupEmployeesByRole(list);
+                  const d = toDateSafe(date);
+                  const pretty = d
+                    ? d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
+                    : date;
+
+                  return (
+                    <div key={date} style={noteCard}>
+                      <div style={noteDate}>{pretty}</div>
+
+                      {Object.keys(grouped).length ? (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {Object.entries(grouped).map(([role, names]) => (
+                            <div key={role} style={{ fontSize: 13 }}>
+                              <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
+                              <div style={{ color: "#111" }}>{names.join(", ")}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, color: "#6b7280" }}>No one assigned.</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Section>
           )}
+
+          {/* Call times by day (full width) */}
+          {hasCallTimesByDate && dayKeys.length > 0 && (
+            <Section title="Call Times by Day" full>
+              <div style={notesGrid}>
+                {dayKeys.map((d) => {
+                  const pretty = toDateSafe(d)
+                    ? toDateSafe(d).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
+                    : d;
+                  return (
+                    <div key={d} style={noteCard}>
+                      <div style={noteDate}>{pretty}</div>
+                      <div style={noteText}>{callTimesByDate?.[d] || "—"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* Day notes (full width) */}
+          {booking.notesByDate &&
+            Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length > 0 && (
+              <Section title="Day Notes" full>
+                <div style={notesGrid}>
+                  {Object.keys(booking.notesByDate)
+                    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+                    .sort((a, b) => new Date(a) - new Date(b))
+                    .map((date) => {
+                      const note = booking.notesByDate[date] || "—";
+                      const other = booking.notesByDate[`${date}-other`];
+                      const mins = booking.notesByDate[`${date}-travelMins`];
+
+                      const final =
+                        note === "Other" && other
+                          ? `${note} — ${other}`
+                          : note === "Travel Time" && mins
+                          ? `Travel Time — ${mins} mins`
+                          : note;
+
+                      const d = toDateSafe(date);
+                      const pretty = d
+                        ? d.toLocaleDateString("en-GB", {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "short",
+                          })
+                        : date;
+
+                      return (
+                        <div key={date} style={noteCard}>
+                          <div style={noteDate}>{pretty}</div>
+                          <div style={noteText}>{final}</div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </Section>
+            )}
 
           {/* Free-form notes (full width) */}
           {booking.notes && (
@@ -270,7 +591,7 @@ export default function ViewBookingModal({ id, onClose }) {
             </Section>
           )}
 
-          {/* Attachments (full width) — MULTI-FILE BUTTONS */}
+          {/* Attachments (full width) */}
           {(() => {
             const files = toAttachmentList(booking);
             if (!files.length) return null;
@@ -300,31 +621,49 @@ export default function ViewBookingModal({ id, onClose }) {
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
-              {booking?.createdAt && <> on {new Date(booking.createdAt).toLocaleString("en-GB")}</>}
+              {booking?.createdAt && (
+                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "—"}</>
+              )}
             </div>
           )}
           {booking?.lastEditedBy && (
             <div>
               Last edited by <b>{booking.lastEditedBy}</b>
-              {booking?.updatedAt && <> on {new Date(booking.updatedAt).toLocaleString("en-GB")}</>}
+              {booking?.updatedAt && (
+                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "—"}</>
+              )}
             </div>
           )}
         </div>
 
         {/* Actions */}
         <div style={actions}>
-          <button onClick={() => router.push(`/edit-booking/${id}`)} style={{ ...btn, background: "#0d6efd" }}>
-            Edit
-          </button>
-          <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
-            Delete
-          </button>
-          <button onClick={() => router.push(`/booking/${id}`)} style={{ ...btn, background: "#111" }}>
-            Open full page
-          </button>
-          <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
-            Close
-          </button>
+          {fromDeleted ? (
+            <>
+              <button onClick={handleRestore} style={{ ...btn, background: "#111827" }}>
+                Restore
+              </button>
+              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+                Close
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => router.push(`/edit-booking/${id}`)}
+                style={{ ...btn, background: "#0d6efd" }}
+              >
+                Edit
+              </button>
+              <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
+                Delete
+              </button>
+     
+              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+                Close
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -419,13 +758,14 @@ const grid = {
   gap: 16,
 };
 
-const sectionTitle = { margin: "0 0 8px 0", fontSize: 14, color: "#374151", textTransform: "uppercase", letterSpacing: 0.6 };
-const sectionCard = {
-  background: "#fafafa",
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 14,
+const sectionTitle = {
+  margin: "0 0 8px 0",
+  fontSize: 14,
+  color: "#374151",
+  textTransform: "uppercase",
+  letterSpacing: 0.6,
 };
+const sectionCard = { background: "#fafafa", border: "1px solid #e5e7eb", borderRadius: 10, padding: 14 };
 
 const fieldRow = {
   display: "grid",
@@ -437,27 +777,12 @@ const fieldRow = {
 const fieldLabel = { color: "#6b7280", fontSize: 13 };
 const fieldValue = { color: "#111", fontSize: 14 };
 
-const notesGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-  gap: 10,
-};
-const noteCard = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 10,
-};
-const noteDate = { fontWeight: 700, fontSize: 13, marginBottom: 4 };
+const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
+const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 };
+const noteDate = { fontWeight: 800, fontSize: 13, marginBottom: 6 };
 const noteText = { fontSize: 14, color: "#111" };
 
-const noteBox = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 12,
-  lineHeight: 1.4,
-};
+const noteBox = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, lineHeight: 1.4 };
 
 const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
 const tag = {
@@ -472,6 +797,15 @@ const tag = {
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
+const tagStatus = {
+  marginLeft: 6,
+  padding: "2px 6px",
+  borderRadius: 999,
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  fontSize: 11,
+  fontWeight: 800,
+};
 
 const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
 
@@ -514,11 +848,18 @@ const btn = {
   fontWeight: 600,
 };
 
+const miniCard = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: 10,
+};
+
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",        // yellow
-    "First Pencil": "#93c5fd",   // blue
-    "Second Pencil": "#ef4444",  // red
+    Confirmed: "#fde047",
+    "First Pencil": "#93c5fd",
+    "Second Pencil": "#ef4444",
     DNH: "#c2c2c2",
     Complete: "#22c55e",
     "Action Required": "#ff7b00",
@@ -527,10 +868,10 @@ function statusColor(status = "") {
     Lost: "#ef4444",
     Postponed: "#f59e0b",
     Cancelled: "#ef4444",
+    Enquiry: "#e5e7eb",
   };
   return map[status] || "#e5e7eb";
 }
 function onStatusColor(status = "") {
-  // dark text for light backgrounds
   return ["Confirmed", "DNH", "Holiday"].includes(status) ? "#111" : "#fff";
 }
