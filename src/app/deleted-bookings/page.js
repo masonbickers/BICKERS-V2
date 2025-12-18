@@ -12,16 +12,14 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import ViewBookingModal from "../components/ViewBookingModal";
-import {
-  Lock,
-  Unlock,
-  RotateCcw,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Search,
-} from "lucide-react";
+import { RotateCcw, Trash2, ChevronDown, ChevronUp, Search } from "lucide-react";
+
+/* ───────────────────────────────────────────
+   Admin gate (ONLY these emails)
+─────────────────────────────────────────── */
+const ADMIN_EMAILS = ["mason@bickers.co.uk", "paul@bickers.co.uk"];
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = {
@@ -143,7 +141,7 @@ const pill = (bg, color = "#111") => ({
 /* ------------------------------- helpers ------------------------------- */
 const toDateSafe = (v) => {
   if (!v) return null;
-  if (v?.toDate && typeof v.toDate === "function") return v.toDate(); // Firestore Timestamp
+  if (v?.toDate && typeof v.toDate === "function") return v.toDate();
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 };
@@ -159,12 +157,9 @@ const fmtGB = (v) => {
 
 const fmtDateRange = (b) => {
   if (!b) return "—";
-
-  // bookingDates array (often "YYYY-MM-DD")
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
     return b.bookingDates.map((x) => fmtGB(x)).join(", ");
   }
-
   if (b.startDate && b.endDate) return `${fmtGB(b.startDate)} → ${fmtGB(b.endDate)}`;
   if (b.date) return fmtGB(b.date);
   if (b.startDate) return fmtGB(b.startDate);
@@ -191,14 +186,6 @@ const formatCrew = (employees) => {
     .join(", ");
 };
 
-/**
- * ✅ vehicle resolver
- * vehicles can be:
- *  - strings (vehicle doc id)
- *  - strings (registration)
- *  - strings (name)
- *  - objects {name, registration}
- */
 const vehiclesPretty = (vehicles, vehiclesIndex) => {
   if (!Array.isArray(vehicles) || vehicles.length === 0) return "—";
 
@@ -210,34 +197,24 @@ const vehiclesPretty = (vehicles, vehiclesIndex) => {
     .map((v) => {
       if (!v) return "";
 
-      // already object with info
       if (typeof v === "object") {
         const name =
-          v?.name ||
-          [v?.manufacturer, v?.model].filter(Boolean).join(" ") ||
-          "Vehicle";
+          v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || "Vehicle";
         const plate = v?.registration ? String(v.registration).toUpperCase() : "";
         return plate ? `${name} – ${plate}` : name;
       }
 
-      // string: attempt to resolve
       const needle = String(v).trim();
       const match =
-        byId[needle] ||
-        byReg[needle.toUpperCase()] ||
-        byName[needle.toLowerCase()] ||
-        null;
+        byId[needle] || byReg[needle.toUpperCase()] || byName[needle.toLowerCase()] || null;
 
       if (match) {
         const name =
-          match?.name ||
-          [match?.manufacturer, match?.model].filter(Boolean).join(" ") ||
-          "Vehicle";
+          match?.name || [match?.manufacturer, match?.model].filter(Boolean).join(" ") || "Vehicle";
         const plate = match?.registration ? String(match.registration).toUpperCase() : "";
         return plate ? `${name} – ${plate}` : name;
       }
 
-      // fallback
       return needle;
     })
     .filter(Boolean)
@@ -282,12 +259,7 @@ const toAttachmentList = (b = {}) => {
     }
 
     const url =
-      val.url ||
-      val.href ||
-      val.link ||
-      val.downloadURL ||
-      val.downloadUrl ||
-      null;
+      val.url || val.href || val.link || val.downloadURL || val.downloadUrl || null;
 
     if (url) {
       const label = val.name || name || getFilenameFromUrl(url);
@@ -361,10 +333,8 @@ const normaliseDeleted = (id, raw) => {
 export default function DeletedBookingsPage() {
   const router = useRouter();
 
-  const PIN = process.env.NEXT_PUBLIC_DELETED_BOOKINGS_PIN
-
-  const [unlocked, setUnlocked] = useState(false);
-  const [pin, setPin] = useState("");
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [rows, setRows] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
@@ -379,13 +349,34 @@ export default function DeletedBookingsPage() {
   // ✅ vehicles lookup for name+reg rendering
   const [vehiclesIndex, setVehiclesIndex] = useState({ byId: {}, byReg: {}, byName: {} });
 
+  /* ───────────────────────────────────────────
+     Admin gate (email allowlist)
+  ──────────────────────────────────────────── */
   useEffect(() => {
-    const ok = sessionStorage.getItem("deletedBookingsUnlocked") === "1";
-    if (ok) setUnlocked(true);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      try {
+        if (!u) {
+          router.push("/login");
+          return;
+        }
+        const email = (u.email || "").toLowerCase();
+        const ok = ADMIN_EMAILS.includes(email);
+        setIsAdmin(ok);
+        if (!ok) {
+          router.push("/home"); // or "/dashboard"
+        }
+      } finally {
+        setCheckingAccess(false);
+      }
+    });
+
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* Only subscribe if admin */
   useEffect(() => {
-    if (!unlocked) return;
+    if (checkingAccess || !isAdmin) return;
 
     const unsub = onSnapshot(collection(db, "deletedBookings"), (snap) => {
       const list = snap.docs.map((d) => normaliseDeleted(d.id, d.data()));
@@ -393,11 +384,10 @@ export default function DeletedBookingsPage() {
     });
 
     return () => unsub();
-  }, [unlocked]);
+  }, [checkingAccess, isAdmin]);
 
-  // ✅ load all vehicles for resolving ids -> name/reg
   useEffect(() => {
-    if (!unlocked) return;
+    if (checkingAccess || !isAdmin) return;
 
     const unsub = onSnapshot(collection(db, "vehicles"), (snap) => {
       const byId = {};
@@ -419,7 +409,7 @@ export default function DeletedBookingsPage() {
     });
 
     return () => unsub();
-  }, [unlocked]);
+  }, [checkingAccess, isAdmin]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -461,21 +451,6 @@ export default function DeletedBookingsPage() {
 
     return list;
   }, [rows, query, sortMode]);
-
-  const unlock = () => {
-    if (pin === PIN) {
-      sessionStorage.setItem("deletedBookingsUnlocked", "1");
-      setUnlocked(true);
-      setPin("");
-      return;
-    }
-    alert("Incorrect PIN.");
-  };
-
-  const lock = () => {
-    sessionStorage.removeItem("deletedBookingsUnlocked");
-    setUnlocked(false);
-  };
 
   const toggleExpand = (id) => {
     setExpanded((prev) => {
@@ -527,6 +502,20 @@ export default function DeletedBookingsPage() {
     setSelectedBookingId(row.originalId || row.id);
   };
 
+  /* ───────────────────────────────────────────
+     Render
+  ──────────────────────────────────────────── */
+  if (checkingAccess) {
+    return (
+      <HeaderSidebarLayout>
+        <div style={{ padding: 22, color: UI.muted }}>Checking admin access…</div>
+      </HeaderSidebarLayout>
+    );
+  }
+
+  // Non-admins get redirected; render nothing to avoid flash
+  if (!isAdmin) return null;
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -537,326 +526,281 @@ export default function DeletedBookingsPage() {
               <div>
                 <h2 style={title}>Deleted Bookings</h2>
                 <div style={{ color: UI.muted, fontWeight: 600, marginTop: 4 }}>
-                  Click a row to view full details. Restore from the modal or table.
+                  Admin only. Click a row to view full details. Restore from the modal or table.
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button style={btnBase} type="button" onClick={() => router.push("/dashboard")}>
-                  ← Back to Dashboard
+                <button style={btnBase} type="button" onClick={() => router.push("/admin")}>
+                  ← Back to Admin
                 </button>
 
-                {unlocked ? (
-                  <button style={btnDark} type="button" onClick={lock}>
-                    <Lock size={16} /> Lock
-                  </button>
-                ) : (
-                  <span style={pill("#fff7ed")}>
-                    <Lock size={14} style={{ marginRight: 6 }} />
-                    PIN required
-                  </span>
-                )}
+                <button style={btnBase} type="button" onClick={() => router.push("/dashboard")}>
+                  Dashboard
+                </button>
               </div>
             </div>
           </section>
 
-          {/* PIN gate */}
-          {!unlocked ? (
-            <section style={card}>
-              <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
-                <div style={{ fontWeight: 800 }}>Enter PIN to open Deleted Bookings</div>
-
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="PIN"
+          {/* Controls */}
+          <section style={card}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
+                <Search
+                  size={16}
                   style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    opacity: 0.65,
+                  }}
+                />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search job number, production, location, status…"
+                  style={{
+                    width: "100%",
                     border: UI.border,
                     borderRadius: UI.radius,
-                    padding: "10px 12px",
+                    padding: "10px 12px 10px 34px",
                     fontSize: 14,
                     background: "#fff",
                   }}
-                  onKeyDown={(e) => e.key === "Enter" && unlock()}
                 />
-
-                <button style={btnDark} type="button" onClick={unlock}>
-                  <Unlock size={16} /> Unlock
-                </button>
-
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700 }}>
-                  Env: <span style={mono}>NEXT_PUBLIC_DELETED_BOOKINGS_PIN</span>
-                </div>
               </div>
-            </section>
-          ) : (
-            <>
-              {/* Controls */}
-              <section style={card}>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
-                    <Search
-                      size={16}
-                      style={{
-                        position: "absolute",
-                        left: 10,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        opacity: 0.65,
-                      }}
-                    />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search job number, production, location, status…"
-                      style={{
-                        width: "100%",
-                        border: UI.border,
-                        borderRadius: UI.radius,
-                        padding: "10px 12px 10px 34px",
-                        fontSize: 14,
-                        background: "#fff",
-                      }}
-                    />
-                  </div>
 
-                  <select
-                    value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value)}
-                    style={{
-                      border: UI.border,
-                      borderRadius: UI.radius,
-                      padding: "10px 12px",
-                      fontSize: 14,
-                      background: "#fff",
-                      fontWeight: 700,
-                      color: UI.text,
-                    }}
-                  >
-                    <option value="deletedDesc">Sort: Deleted (new → old)</option>
-                    <option value="deletedAsc">Sort: Deleted (old → new)</option>
-                    <option value="jobDesc">Sort: Job No (high → low)</option>
-                    <option value="jobAsc">Sort: Job No (low → high)</option>
-                  </select>
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value)}
+                style={{
+                  border: UI.border,
+                  borderRadius: UI.radius,
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  background: "#fff",
+                  fontWeight: 700,
+                  color: UI.text,
+                }}
+              >
+                <option value="deletedDesc">Sort: Deleted (new → old)</option>
+                <option value="deletedAsc">Sort: Deleted (old → new)</option>
+                <option value="jobDesc">Sort: Job No (high → low)</option>
+                <option value="jobAsc">Sort: Job No (low → high)</option>
+              </select>
 
-                  <div style={pill("#eef2ff")}>Total: {filtered.length}</div>
-                </div>
-              </section>
+              <div style={pill("#eef2ff")}>Total: {filtered.length}</div>
+            </div>
+          </section>
 
-              {/* TABLE */}
-              <section style={card}>
-                <div style={tableWrap}>
-                  <table style={table}>
-                    <colgroup>
-                      <col style={{ width: "12%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "14%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "10%" }} />
-                    </colgroup>
+          {/* TABLE */}
+          <section style={card}>
+            <div style={tableWrap}>
+              <table style={table}>
+                <colgroup>
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "10%" }} />
+                </colgroup>
 
-                    <thead>
-                      <tr>
-                        <th style={th}>Deleted</th>
-                        <th style={th}>Date(s)</th>
-                        <th style={th}>Job Number</th>
-                        <th style={th}>Status</th>
-                        <th style={th}>Production</th>
-                        <th style={th}>Location</th>
-                        <th style={th}>Crew</th>
-                        <th style={th}>Actions</th>
-                      </tr>
-                    </thead>
+                <thead>
+                  <tr>
+                    <th style={th}>Deleted</th>
+                    <th style={th}>Date(s)</th>
+                    <th style={th}>Job Number</th>
+                    <th style={th}>Status</th>
+                    <th style={th}>Production</th>
+                    <th style={th}>Location</th>
+                    <th style={th}>Crew</th>
+                    <th style={th}>Actions</th>
+                  </tr>
+                </thead>
 
-                    <tbody>
-                      {filtered.length === 0 ? (
-                        <tr>
-                          <td style={{ ...td, color: UI.muted }} colSpan={8}>
-                            No deleted bookings found.
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td style={{ ...td, color: UI.muted }} colSpan={8}>
+                        No deleted bookings found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((r, i) => {
+                      const isOpen = expanded.has(r.id);
+                      const ss = getStatusStyle(r.status);
+
+                      return (
+                        <tr
+                          key={r.id}
+                          onClick={() => openDeletedBooking(r)}
+                          style={{
+                            background: i % 2 === 0 ? "#fff" : "#fafafa",
+                            transition: "background-color .15s ease",
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
+                          }
+                        >
+                          <td style={td}>
+                            <div style={{ fontWeight: 800 }}>{fmtGB(r.deletedAt)}</div>
+                            {r.deletedBy ? (
+                              <div style={{ fontSize: 12, color: UI.muted, fontWeight: 700 }}>
+                                by {r.deletedBy}
+                              </div>
+                            ) : null}
                           </td>
-                        </tr>
-                      ) : (
-                        filtered.map((r, i) => {
-                          const isOpen = expanded.has(r.id);
-                          const ss = getStatusStyle(r.status);
 
-                          return (
-                            <tr
-                              key={r.id}
-                              onClick={() => openDeletedBooking(r)}
+                          <td style={td}>{r.dateRange}</td>
+
+                          <td style={{ ...td, fontWeight: 900 }}>{r.jobNumber || "—"}</td>
+
+                          <td style={td}>
+                            <span
                               style={{
-                                background: i % 2 === 0 ? "#fff" : "#fafafa",
-                                transition: "background-color .15s ease",
-                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                background: ss.bg,
+                                color: ss.text,
+                                border: `1px solid ${ss.border}`,
+                                fontWeight: 900,
+                                fontSize: 12,
                               }}
-                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
-                              }
                             >
-                              <td style={td}>
-                                <div style={{ fontWeight: 800 }}>{fmtGB(r.deletedAt)}</div>
-                                {r.deletedBy ? (
-                                  <div style={{ fontSize: 12, color: UI.muted, fontWeight: 700 }}>
-                                    by {r.deletedBy}
+                              {r.status || "—"}
+                            </span>
+
+                            {r.attachments?.length ? (
+                              <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800 }}>
+                                📎 {r.attachments.length}
+                              </div>
+                            ) : null}
+                          </td>
+
+                          <td style={td}>
+                            <div style={{ fontWeight: 800 }}>{r.client || "—"}</div>
+                            <div style={{ marginTop: 6, fontSize: 12, color: UI.muted, fontWeight: 700 }}>
+                              <div style={{ whiteSpace: "normal" }}>
+                                <b>Vehicles:</b> {vehiclesPretty(r.vehicles, vehiclesIndex)}
+                              </div>
+                              <div style={{ whiteSpace: "normal", marginTop: 4 }}>
+                                <b>Equipment:</b> {equipmentPretty(r.equipment)}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td style={td}>{r.location || "—"}</td>
+
+                          <td style={td}>
+                            {Array.isArray(r.employees) && r.employees.length ? formatCrew(r.employees) : "—"}
+                          </td>
+
+                          <td style={td}>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                style={btnDark}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  restore(r);
+                                }}
+                              >
+                                <RotateCcw size={16} /> Restore
+                              </button>
+
+                              <button
+                                style={btnBase}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpand(r.id);
+                                }}
+                              >
+                                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                Details
+                              </button>
+
+                              <button
+                                style={btnDanger}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  purge(r);
+                                }}
+                              >
+                                <Trash2 size={16} /> Purge
+                              </button>
+                            </div>
+
+                            {isOpen && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  marginTop: 10,
+                                  border: UI.border,
+                                  borderRadius: UI.radius,
+                                  background: "#fff",
+                                  padding: 10,
+                                }}
+                              >
+                                {r.attachments?.length ? (
+                                  <div style={{ marginBottom: 10 }}>
+                                    <div style={{ fontWeight: 900, marginBottom: 6 }}>Attachments</div>
+                                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                      {r.attachments.map((f, idx) => (
+                                        <a
+                                          key={f.url || idx}
+                                          href={f.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{ ...btnBase, textDecoration: "none", fontWeight: 800 }}
+                                          title={f.label}
+                                        >
+                                          📎 {f.label}
+                                        </a>
+                                      ))}
+                                    </div>
                                   </div>
                                 ) : null}
-                              </td>
 
-                              <td style={td}>{r.dateRange}</td>
-
-                              <td style={{ ...td, fontWeight: 900 }}>{r.jobNumber || "—"}</td>
-
-                              <td style={td}>
-                                <span
+                                <div style={{ fontWeight: 900, marginBottom: 6 }}>Payload</div>
+                                <pre
                                   style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    padding: "2px 8px",
-                                    borderRadius: 999,
-                                    background: ss.bg,
-                                    color: ss.text,
-                                    border: `1px solid ${ss.border}`,
-                                    fontWeight: 900,
+                                    ...mono,
                                     fontSize: 12,
+                                    margin: 0,
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-word",
+                                    background: "#0b1220",
+                                    color: "#e5e7eb",
+                                    borderRadius: UI.radius,
+                                    padding: 10,
+                                    overflow: "auto",
+                                    maxHeight: 260,
                                   }}
                                 >
-                                  {r.status || "—"}
-                                </span>
-
-                                {r.attachments?.length ? (
-                                  <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800 }}>
-                                    📎 {r.attachments.length}
-                                  </div>
-                                ) : null}
-                              </td>
-
-                              <td style={td}>
-                                <div style={{ fontWeight: 800 }}>{r.client || "—"}</div>
-                                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted, fontWeight: 700 }}>
-                                  <div style={{ whiteSpace: "normal" }}>
-                                    <b>Vehicles:</b> {vehiclesPretty(r.vehicles, vehiclesIndex)}
-                                  </div>
-                                  <div style={{ whiteSpace: "normal", marginTop: 4 }}>
-                                    <b>Equipment:</b> {equipmentPretty(r.equipment)}
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td style={td}>{r.location || "—"}</td>
-
-                              <td style={td}>
-                                {Array.isArray(r.employees) && r.employees.length ? formatCrew(r.employees) : "—"}
-                              </td>
-
-                              <td style={td}>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button
-                                    style={btnDark}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      restore(r);
-                                    }}
-                                  >
-                                    <RotateCcw size={16} /> Restore
-                                  </button>
-
-                                  <button
-                                    style={btnBase}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleExpand(r.id);
-                                    }}
-                                  >
-                                    {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                    Details
-                                  </button>
-
-                                  <button
-                                    style={btnDanger}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      purge(r);
-                                    }}
-                                  >
-                                    <Trash2 size={16} /> Purge
-                                  </button>
-                                </div>
-
-                                {isOpen && (
-                                  <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{
-                                      marginTop: 10,
-                                      border: UI.border,
-                                      borderRadius: UI.radius,
-                                      background: "#fff",
-                                      padding: 10,
-                                    }}
-                                  >
-                                    {r.attachments?.length ? (
-                                      <div style={{ marginBottom: 10 }}>
-                                        <div style={{ fontWeight: 900, marginBottom: 6 }}>Attachments</div>
-                                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                          {r.attachments.map((f, idx) => (
-                                            <a
-                                              key={f.url || idx}
-                                              href={f.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              onClick={(e) => e.stopPropagation()}
-                                              style={{
-                                                ...btnBase,
-                                                textDecoration: "none",
-                                                fontWeight: 800,
-                                              }}
-                                              title={f.label}
-                                            >
-                                              📎 {f.label}
-                                            </a>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ) : null}
-
-                                    <div style={{ fontWeight: 900, marginBottom: 6 }}>Payload</div>
-                                    <pre
-                                      style={{
-                                        ...mono,
-                                        fontSize: 12,
-                                        margin: 0,
-                                        whiteSpace: "pre-wrap",
-                                        wordBreak: "break-word",
-                                        background: "#0b1220",
-                                        color: "#e5e7eb",
-                                        borderRadius: UI.radius,
-                                        padding: 10,
-                                        overflow: "auto",
-                                        maxHeight: 260,
-                                      }}
-                                    >
-                                      {JSON.stringify(r.payload || {}, null, 2)}
-                                    </pre>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </>
-          )}
+                                  {JSON.stringify(r.payload || {}, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
 

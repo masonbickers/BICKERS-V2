@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { db, auth } from "../../../firebaseConfig";
 import HolidayForm from "@/app/components/holidayform";
 
 import {
@@ -17,6 +17,15 @@ import {
   CartesianGrid,
   LabelList,
 } from "recharts";
+
+/* ───────────────────────────────────────────
+   Admin allow-list
+─────────────────────────────────────────── */
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adma@bickers.co.uk",
+];
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -312,9 +321,35 @@ function daysForHoliday(h) {
   return total;
 }
 
+/** Determine year bucket for holiday (only count if start and end are within same year) */
+function holidayYear(h) {
+  const s = toDate(h.startDate);
+  const e = toDate(h.endDate) || s;
+  if (!s || !e) return null;
+  if (s.getFullYear() !== e.getFullYear()) return null;
+  return s.getFullYear();
+}
+
+/** ✅ Only count PAID holidays (strict: must be explicitly marked as paid) */
+const isPaidHoliday = (h = {}) => {
+  const ps = String(h.paidStatus ?? h.paid ?? h.isPaid ?? "").trim().toLowerCase();
+  const lt = String(h.leaveType ?? h.type ?? "").trim().toLowerCase();
+
+  if (h.isPaid === true || h.paid === true || h.paid === 1) return true;
+
+  if (ps.includes("unpaid") || lt.includes("unpaid")) return false;
+
+  if (ps.includes("paid")) return true;
+  if (lt.includes("paid")) return true;
+
+  // default: don't count unless explicitly paid
+  return false;
+};
+
 /* ───────── page ───────── */
 export default function HRPage() {
   const router = useRouter();
+
   const [requestedHolidays, setRequestedHolidays] = useState([]);
   const [usageData, setUsageData] = useState([]); // for the graph
   const [loading, setLoading] = useState(true);
@@ -322,10 +357,23 @@ export default function HRPage() {
   // ✅ Open your existing HolidayForm component (modal inside component)
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
+  // ✅ admin gating for approve/decline
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // ✅ year view
+  const THIS_YEAR = new Date().getFullYear();
+  const NEXT_YEAR = THIS_YEAR + 1;
+  const [yearView, setYearView] = useState(THIS_YEAR);
+
+  useEffect(() => {
+    const email = (auth?.currentUser?.email || "").toLowerCase();
+    setIsAdmin(ADMIN_EMAILS.includes(email));
+  }, []);
+
   useEffect(() => {
     fetchHolidays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [yearView]);
 
   const fetchHolidays = async () => {
     setLoading(true);
@@ -333,24 +381,74 @@ export default function HRPage() {
       const snap = await getDocs(collection(db, "holidays"));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      const pending = all.filter((h) => !h.status || String(h.status).toLowerCase() === "requested");
+      // Requested for selected year (and paid only)
+      const pending = all.filter((h) => {
+        const st = String(h.status || "").toLowerCase();
+        const y = holidayYear(h);
+        return (st === "requested" || !h.status) && y === yearView && isPaidHoliday(h);
+      });
       setRequestedHolidays(pending);
 
-      const approved = all.filter((h) => String(h.status || "").toLowerCase() === "approved");
+      // Approved usage for selected year (and paid only)
+      const approved = all.filter((h) => {
+        const st = String(h.status || "").toLowerCase();
+        const y = holidayYear(h);
+        return st === "approved" && y === yearView && isPaidHoliday(h);
+      });
 
       const usageByEmp = new Map(); // name -> days
       approved.forEach((h) => {
-        const name = (h.employee && String(h.employee)) || (h.employeeCode && String(h.employeeCode)) || "Unknown";
+        const name =
+          (h.employee && String(h.employee)) ||
+          (h.employeeCode && String(h.employeeCode)) ||
+          "Unknown";
         const key = name.trim() || "Unknown";
         const days = daysForHoliday(h);
         usageByEmp.set(key, (usageByEmp.get(key) || 0) + days);
       });
 
+      // Build data for graph with allowance overlay
       const usageArr = Array.from(usageByEmp.entries())
-        .map(([name, days]) => ({ name, days: Number(days.toFixed(2)) }))
-        .sort((a, b) => b.days - a.days);
+        .map(([name, days]) => ({ name, used: Number(days.toFixed(2)) }))
+        .sort((a, b) => b.used - a.used);
 
-      setUsageData(usageArr);
+      // Load allowances from employees and merge (by name)
+      const empSnap = await getDocs(collection(db, "employees"));
+      const employees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const allowByName = new Map();
+      employees.forEach((e) => {
+        const name = String(e.name || e.fullName || e.employeeName || "").trim();
+        if (!name) return;
+
+        const yrKey = String(yearView);
+        const fromMap = e?.holidayAllowances?.[yrKey];
+        const legacy = e?.holidayAllowance;
+        const fallback = typeof legacy === "number" ? legacy : 0;
+        const allowance = typeof fromMap === "number" ? fromMap : typeof legacy === "number" ? legacy : fallback;
+
+        allowByName.set(name, Number(allowance || 0));
+      });
+
+      // Include people who have allowance but 0 used (still show on chart)
+      const allNames = new Set([...usageArr.map((x) => x.name), ...Array.from(allowByName.keys())]);
+
+      const merged = Array.from(allNames).map((name) => {
+        const used = usageByEmp.get(name) || 0;
+        const allowance = allowByName.get(name) || 0;
+        const remaining = Number((allowance - used).toFixed(2));
+        return {
+          name,
+          used: Number(used.toFixed(2)),
+          allowance: Number(allowance.toFixed(0)),
+          remaining: remaining < 0 ? 0 : remaining,
+        };
+      });
+
+      // Sort by used desc
+      merged.sort((a, b) => b.used - a.used);
+
+      setUsageData(merged);
     } catch (err) {
       console.error("Error fetching holidays:", err);
     } finally {
@@ -359,9 +457,13 @@ export default function HRPage() {
   };
 
   const updateStatus = async (id, status) => {
+    if (!isAdmin) {
+      alert("Only admins can approve or decline holidays.");
+      return;
+    }
     try {
       const ref = doc(db, "holidays", id);
-      await updateDoc(ref, { status });
+      await updateDoc(ref, { status, decidedBy: auth?.currentUser?.email || "" });
       await fetchHolidays();
     } catch (err) {
       console.error("Error updating status:", err);
@@ -370,7 +472,6 @@ export default function HRPage() {
   };
 
   const documents = [
-    // ✅ Make this open the modal instead of routing
     { key: "holidayForm", title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
     { key: "holidayUsage", title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
     { key: "timesheets", title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
@@ -391,6 +492,23 @@ export default function HRPage() {
     );
   };
 
+  // Labels for allowance (grey)
+  const renderAllowanceLabel = (props) => {
+    const { x, y, width, value } = props;
+    if (value == null) return null;
+    return (
+      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#64748b" style={{ fontSize: 11, fontWeight: 800 }}>
+        {Number(value).toFixed(0)}
+      </text>
+    );
+  };
+
+  const maxY = useMemo(() => {
+    if (!usageData.length) return undefined;
+    const m = Math.max(...usageData.map((r) => Math.max(Number(r.used || 0), Number(r.allowance || 0))));
+    return Math.max(5, Math.ceil(m + 1));
+  }, [usageData]);
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -410,12 +528,37 @@ export default function HRPage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>HR</h1>
-            <div style={sub}>Holiday usage, approvals and HR shortcuts.</div>
+            <div style={sub}>
+              Holiday usage (paid only), approvals and HR shortcuts.
+              {!isAdmin ? (
+                <span style={{ marginLeft: 10, fontWeight: 900, color: UI.muted }}>
+                  (View only — admin required to approve/decline)
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+            <select
+              value={yearView}
+              onChange={(e) => setYearView(Number(e.target.value))}
+              style={{
+                padding: "10px 12px",
+                borderRadius: UI.radiusSm,
+                border: UI.border,
+                background: UI.card,
+                fontWeight: 900,
+                color: UI.text,
+              }}
+              title="Select year"
+            >
+              <option value={THIS_YEAR}>{THIS_YEAR}</option>
+              <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
+            </select>
+
             <div style={chip}>{loading ? "Loading…" : `${requestedHolidays.length} requests`}</div>
             <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
-              Approved usage: <b style={{ marginLeft: 6 }}>{usageData.length}</b>
+              Paid usage entries: <b style={{ marginLeft: 6 }}>{usageData.length}</b>
             </div>
           </div>
         </div>
@@ -426,18 +569,20 @@ export default function HRPage() {
           <section style={card}>
             <div style={sectionHeader}>
               <div>
-                <h2 style={titleMd}>Employee holiday usage</h2>
-                <div style={hint}>Approved holiday taken per employee (weekdays only). Half days = 0.5.</div>
+                <h2 style={titleMd}>Employee holiday usage ({yearView})</h2>
+                <div style={hint}>
+                  Approved <b>paid</b> holiday taken per employee (weekdays only). Half days = 0.5. Also shows allowance.
+                </div>
               </div>
               <div style={chip}>Chart</div>
             </div>
 
             {usageData.length === 0 ? (
               <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
-                No approved holidays yet, so there’s nothing to chart.
+                No approved paid holidays yet for {yearView}, so there’s nothing to chart.
               </div>
             ) : (
-              <div style={{ width: "100%", height: 320 }}>
+              <div style={{ width: "100%", height: 340 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={usageData} margin={{ top: 16, right: 24, left: 0, bottom: 24 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -452,12 +597,13 @@ export default function HRPage() {
                       height={60}
                     />
                     <YAxis
+                      domain={[0, maxY]}
                       allowDecimals
                       tick={{ fontSize: 12, fill: "#6b7280" }}
                       axisLine={{ stroke: "#e5e7eb" }}
                       tickLine={{ stroke: "#e5e7eb" }}
                       label={{
-                        value: "Days used",
+                        value: "Days",
                         angle: -90,
                         position: "insideLeft",
                         offset: 8,
@@ -473,14 +619,24 @@ export default function HRPage() {
                         fontSize: 12,
                         color: UI.text,
                       }}
-                      formatter={(value, _name, props) => {
+                      formatter={(value, name, props) => {
                         const num = Number(value);
                         const v = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
-                        return [`${v} days`, props?.payload?.name || ""];
+                        if (name === "used") return [`${v} used`, props?.payload?.name || ""];
+                        if (name === "allowance") return [`${v} allowance`, props?.payload?.name || ""];
+                        return [`${v}`, props?.payload?.name || ""];
                       }}
+                      labelFormatter={(label) => label}
                     />
-                    <Bar dataKey="days" fill={UI.brand} radius={[8, 8, 0, 0]}>
-                      <LabelList dataKey="days" content={renderLabel} />
+
+                    {/* Allowance (grey) */}
+                    <Bar dataKey="allowance" fill="#94a3b8" radius={[8, 8, 0, 0]}>
+                      <LabelList dataKey="allowance" content={renderAllowanceLabel} />
+                    </Bar>
+
+                    {/* Used (brand) */}
+                    <Bar dataKey="used" fill={UI.brand} radius={[8, 8, 0, 0]}>
+                      <LabelList dataKey="used" content={renderLabel} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -492,14 +648,22 @@ export default function HRPage() {
           <section style={card}>
             <div style={sectionHeader}>
               <div>
-                <h2 style={titleMd}>Requested holidays</h2>
-                <div style={hint}>Approve or decline pending requests.</div>
+                <h2 style={titleMd}>Requested holidays ({yearView})</h2>
+                <div style={hint}>
+                  Pending requests for the selected year. <b>Paid only</b>.
+                </div>
               </div>
               <div style={chip}>{requestedHolidays.length}</div>
             </div>
 
+            {!isAdmin ? (
+              <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
+                You can view requests, but only admins can approve/decline.
+              </div>
+            ) : null}
+
             {requestedHolidays.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending holiday requests.</div>
+              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending paid holiday requests.</div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {requestedHolidays.slice(0, 6).map((h) => {
@@ -531,10 +695,30 @@ export default function HRPage() {
                       </div>
 
                       <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button style={btn("approve")} onClick={() => updateStatus(h.id, "approved")} type="button">
+                        <button
+                          style={{
+                            ...btn("approve"),
+                            opacity: isAdmin ? 1 : 0.45,
+                            cursor: isAdmin ? "pointer" : "not-allowed",
+                          }}
+                          onClick={() => isAdmin && updateStatus(h.id, "approved")}
+                          type="button"
+                          disabled={!isAdmin}
+                          title={!isAdmin ? "Admin only" : "Approve"}
+                        >
                           Approve
                         </button>
-                        <button style={btn("decline")} onClick={() => updateStatus(h.id, "declined")} type="button">
+                        <button
+                          style={{
+                            ...btn("decline"),
+                            opacity: isAdmin ? 1 : 0.45,
+                            cursor: isAdmin ? "pointer" : "not-allowed",
+                          }}
+                          onClick={() => isAdmin && updateStatus(h.id, "declined")}
+                          type="button"
+                          disabled={!isAdmin}
+                          title={!isAdmin ? "Admin only" : "Decline"}
+                        >
                           Decline
                         </button>
                         <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
@@ -559,8 +743,10 @@ export default function HRPage() {
         <section style={{ ...card, marginTop: UI.gap }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>All requested holidays</h2>
-              <div style={hint}>Full breakdown per request (weekdays only).</div>
+              <h2 style={titleMd}>All requested holidays ({yearView})</h2>
+              <div style={hint}>
+                Full breakdown per request (weekdays only). <b>Paid only</b>. Admins can approve/decline.
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button style={btn("ghost")} onClick={fetchHolidays} type="button">
@@ -575,7 +761,7 @@ export default function HRPage() {
           </div>
 
           {requestedHolidays.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No pending holiday requests.</div>
+            <div style={{ color: UI.muted, fontSize: 13 }}>No pending paid holiday requests.</div>
           ) : (
             <div style={tableWrap}>
               <table style={tableEl}>
@@ -641,10 +827,30 @@ export default function HRPage() {
                         </td>
                         <td style={td}>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button style={btn("approve")} onClick={() => updateStatus(h.id, "approved")} type="button">
+                            <button
+                              style={{
+                                ...btn("approve"),
+                                opacity: isAdmin ? 1 : 0.45,
+                                cursor: isAdmin ? "pointer" : "not-allowed",
+                              }}
+                              onClick={() => isAdmin && updateStatus(h.id, "approved")}
+                              type="button"
+                              disabled={!isAdmin}
+                              title={!isAdmin ? "Admin only" : "Approve"}
+                            >
                               Approve
                             </button>
-                            <button style={btn("decline")} onClick={() => updateStatus(h.id, "declined")} type="button">
+                            <button
+                              style={{
+                                ...btn("decline"),
+                                opacity: isAdmin ? 1 : 0.45,
+                                cursor: isAdmin ? "pointer" : "not-allowed",
+                              }}
+                              onClick={() => isAdmin && updateStatus(h.id, "declined")}
+                              type="button"
+                              disabled={!isAdmin}
+                              title={!isAdmin ? "Admin only" : "Decline"}
+                            >
                               Decline
                             </button>
                           </div>
