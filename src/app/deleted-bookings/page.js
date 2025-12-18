@@ -361,7 +361,7 @@ const normaliseDeleted = (id, raw) => {
 export default function DeletedBookingsPage() {
   const router = useRouter();
 
-  const PIN = process.env.NEXT_PUBLIC_DELETED_BOOKINGS_PIN || "1234";
+  const PIN = process.env.NEXT_PUBLIC_DELETED_BOOKINGS_PIN
 
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");

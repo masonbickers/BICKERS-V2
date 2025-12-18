@@ -3,96 +3,217 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import {
-  collection,
-  getDocs,
-  updateDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
 
-/* ───────────────── Visual tokens ──────────────── */
+/* ───────────────────────────────────────────
+   Mini design system (MATCHES YOUR JOBS HOME)
+─────────────────────────────────────────── */
 const UI = {
-  page: "#f3f4f6",
+  radius: 14,
+  radiusSm: 10,
+  gap: 18,
+  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
+  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
+  border: "1px solid #e5e7eb",
+  bg: "#f8fafc",
   card: "#ffffff",
   text: "#0f172a",
-  subtext: "#64748b",
+  muted: "#64748b",
+  brand: "#1d4ed8",
+  brandSoft: "#eff6ff",
+  danger: "#dc2626",
+};
+
+const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
+const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const cardBase = {
+  ...surface,
+  padding: 16,
+  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
+};
+const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
+
+const sectionHeader = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 };
+const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+
+const chip = {
+  padding: "6px 10px",
+  borderRadius: 999,
   border: "1px solid #e5e7eb",
-  radius: 12,
-  radiusSm: 8,
-  shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
-  shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
-};
-
-const shell = {
-  minHeight: "100vh",
-  background: UI.page,
+  background: "#f1f5f9",
   color: UI.text,
-  fontFamily:
-    "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+const chipSoft = { ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand };
+
+const btn = (kind = "primary") => {
+  if (kind === "ghost") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #d1d5db",
+      background: "#fff",
+      color: UI.text,
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    };
+  }
+  if (kind === "pill") {
+    return {
+      padding: "8px 10px",
+      borderRadius: 999,
+      border: "1px solid #d1d5db",
+      background: "#fff",
+      color: UI.text,
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    };
+  }
+  if (kind === "success") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #bbf7d0",
+      background: "#ecfdf5",
+      color: "#065f46",
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    };
+  }
+  if (kind === "danger") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #fecaca",
+      background: "#fef2f2",
+      color: "#991b1b",
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+      textDecoration: "none",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    };
+  }
+  return {
+    padding: "10px 12px",
+    borderRadius: UI.radiusSm,
+    border: `1px solid ${UI.brand}`,
+    background: UI.brand,
+    color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  };
 };
 
-const main = { flex: 1, padding: "28px 28px 40px", maxWidth: 1600, margin: "0 auto" };
-const h1 = { fontSize: 28, lineHeight: "34px", fontWeight: 800, marginBottom: 12 };
-const subbar = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 };
+const inputBase = {
+  width: "100%",
+  padding: "9px 10px",
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  outline: "none",
+  fontSize: 13.5,
+  background: "#fff",
+};
 
-const panel = {
-  background: UI.card,
+const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+
+/* table */
+const tableWrap = { ...surface, overflow: "hidden" };
+const thtd = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "top" };
+const theadTh = {
+  ...thtd,
+  fontWeight: 900,
+  color: UI.text,
+  background: "#f8fafc",
+  fontSize: 12,
+  letterSpacing: ".04em",
+  textTransform: "uppercase",
+};
+
+/* modal */
+const modalOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(15,23,42,0.35)",
+  zIndex: 999,
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "center",
+  padding: "90px 18px 18px",
+};
+const modalCard = {
+  width: "min(92vw, 560px)",
+  background: "#fff",
   border: UI.border,
   borderRadius: UI.radius,
-  boxShadow: UI.shadowSm,
+  boxShadow: UI.shadowHover,
   padding: 16,
 };
 
-const filtersRow = { display: "flex", gap: 10, flexWrap: "wrap" };
-const input = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: "8px 10px",
-  fontSize: 13,
-  minWidth: 220,
-  background: "#fff",
-};
-const select = { ...input, minWidth: 160 };
-const table = { width: "100%", borderCollapse: "collapse", marginTop: 12 };
-const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid #eef2f7", textAlign: "left" };
-const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
-
-const badge = (bg, fg) => ({
-  display: "inline-block",
-  padding: "2px 8px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 800,
-  background: bg,
-  color: fg,
-});
-
-const btn = (bg = "#fff", fg = "#111827") => ({
+/* immediate status badges */
+const pill = (bg, fg, borderColor = "#e5e7eb") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
+  padding: "5px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
   background: bg,
   color: fg,
-  fontWeight: 800,
-  cursor: "pointer",
+  border: `1px solid ${borderColor}`,
 });
-
-const linkBtn = { ...btn(), textDecoration: "none" };
+const maintenanceBadge = (m) => {
+  if (!m) return pill("#fef2f2", "#991b1b", "#fecaca"); // urgent / pending
+  if (m === "in_progress") return pill("#fff7ed", "#9a3412", "#fed7aa");
+  if (m === "resolved") return pill("#ecfdf5", "#065f46", "#bbf7d0");
+  if (m === "scheduled") return pill("#eef2ff", "#3730a3", "#c7d2fe");
+  return pill("#f8fafc", "#111827", "#e5e7eb");
+};
 
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 const GENERAL_DEFECTS_PATH = "/defects/general";
 
 /* ───────────────── Utilities ──────────────── */
-const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
 const fmtDate = (s) => {
   if (!s) return "—";
   const d = s?.toDate ? s.toDate() : new Date(s);
-  if (isNaN(d)) return s;
+  if (Number.isNaN(+d)) return "—";
   return d.toLocaleDateString();
 };
 
@@ -101,8 +222,9 @@ function extractApprovedImmediate(checkDocs) {
   for (const c of checkDocs) {
     if (!Array.isArray(c.items)) continue;
     c.items.forEach((it, idx) => {
-      const r = it?.review;
-      if (r?.status === "approved" && r?.category === "immediate") {
+      const r = it?.review || {};
+      const cat = String(r.category || "").trim().toLowerCase();
+      if (r.status === "approved" && cat === "immediate") {
         rows.push({
           checkId: c.id,
           defectIndex: idx,
@@ -115,13 +237,12 @@ function extractApprovedImmediate(checkDocs) {
           note: it.note || "",
           photos: Array.isArray(c.photos) ? c.photos : [],
           review: r,
-          maintenance: it.maintenance || null, // {status: 'in_progress'|'resolved'|'scheduled', note?, updatedAt?, updatedBy?}
+          maintenance: it.maintenance || null, // {status:'in_progress'|'resolved'|'scheduled', note?, updatedAt?, updatedBy?}
         });
       }
     });
   }
 
-  // newest first by dateISO if possible
   rows.sort((a, b) => {
     const ad = new Date(a.dateISO || 0).getTime();
     const bd = new Date(b.dateISO || 0).getTime();
@@ -134,21 +255,28 @@ function extractApprovedImmediate(checkDocs) {
 /* ───────────────── Page ──────────────── */
 export default function ImmediateDefectsPage() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
+
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pending' | 'in_progress' | 'resolved'
+  const [statusFilter, setStatusFilter] = useState("all"); // all | pending | in_progress | resolved | scheduled
+
   const [savingId, setSavingId] = useState(null);
   const [notesModal, setNotesModal] = useState(null); // {row, newStatus, note}
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const snap = await getDocs(collection(db, "vehicleChecks"));
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const list = extractApprovedImmediate(docs);
-      setRows(list);
-      setLoading(false);
+      try {
+        const snap = await getDocs(collection(db, "vehicleChecks"));
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRows(extractApprovedImmediate(docs));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -166,19 +294,14 @@ export default function ImmediateDefectsPage() {
     }
 
     if (statusFilter !== "all") {
-      if (statusFilter === "pending") {
-        data = data.filter((r) => !r.maintenance?.status);
-      } else {
-        data = data.filter((r) => r.maintenance?.status === statusFilter);
-      }
+      if (statusFilter === "pending") data = data.filter((r) => !r.maintenance?.status);
+      else data = data.filter((r) => r.maintenance?.status === statusFilter);
     }
 
     return data;
   }, [rows, q, statusFilter]);
 
-  const openStatusModal = (row, newStatus) => {
-    setNotesModal({ row, newStatus, note: "" });
-  };
+  const openStatusModal = (row, newStatus) => setNotesModal({ row, newStatus, note: "" });
 
   const saveMaintenanceStatus = async () => {
     if (!notesModal?.row || !notesModal?.newStatus) return;
@@ -186,16 +309,14 @@ export default function ImmediateDefectsPage() {
 
     const key = `${row.checkId}:${row.defectIndex}`;
     setSavingId(key);
-    try {
-      const who =
-        auth?.currentUser?.displayName ||
-        auth?.currentUser?.email ||
-        "Supervisor";
 
+    try {
+      const who = auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
       const path = `items.${row.defectIndex}.maintenance`;
+
       await updateDoc(doc(db, "vehicleChecks", row.checkId), {
         [path]: {
-          status: newStatus, // 'in_progress' | 'resolved' | 'scheduled'
+          status: newStatus, // in_progress | resolved | scheduled
           note: (note || "").trim(),
           updatedAt: serverTimestamp(),
           updatedBy: who,
@@ -203,7 +324,6 @@ export default function ImmediateDefectsPage() {
         updatedAt: serverTimestamp(),
       });
 
-      // update local
       setRows((prev) =>
         prev.map((r) =>
           r.checkId === row.checkId && r.defectIndex === row.defectIndex
@@ -219,6 +339,7 @@ export default function ImmediateDefectsPage() {
             : r
         )
       );
+
       setNotesModal(null);
     } catch (e) {
       console.error(e);
@@ -229,13 +350,12 @@ export default function ImmediateDefectsPage() {
   };
 
   const rerouteToGeneral = async (row) => {
-    const ok = confirm(
-      "Move this defect to General Maintenance? This will change its category to 'general'."
-    );
+    const ok = confirm("Move this defect to General Maintenance? This will change its category to 'general'.");
     if (!ok) return;
 
     const key = `${row.checkId}:${row.defectIndex}`;
     setSavingId(key);
+
     try {
       const path = `items.${row.defectIndex}.review.category`;
       await updateDoc(doc(db, "vehicleChecks", row.checkId), {
@@ -243,15 +363,9 @@ export default function ImmediateDefectsPage() {
         updatedAt: serverTimestamp(),
       });
 
-      // remove from local list (no longer immediate)
-      setRows((prev) =>
-        prev.filter(
-          (r) => !(r.checkId === row.checkId && r.defectIndex === row.defectIndex)
-        )
-      );
-
-      // take them to General list (nice flow)
+      setRows((prev) => prev.filter((r) => !(r.checkId === row.checkId && r.defectIndex === row.defectIndex)));
       router.push(GENERAL_DEFECTS_PATH);
+      router.refresh?.();
     } catch (e) {
       console.error(e);
       alert("Could not re-route. Please try again.");
@@ -259,83 +373,127 @@ export default function ImmediateDefectsPage() {
     }
   };
 
+  const urgentCount = useMemo(() => rows.filter((r) => !r.maintenance?.status).length, [rows]);
+  const inProgCount = useMemo(() => rows.filter((r) => r.maintenance?.status === "in_progress").length, [rows]);
+  const resolvedCount = useMemo(() => rows.filter((r) => r.maintenance?.status === "resolved").length, [rows]);
+
   return (
     <HeaderSidebarLayout>
-      <div style={{ display: "flex", ...shell }}>
-        <main style={main}>
-          <div style={subbar}>
-            <div>
-              <h1 style={h1}>Immediate Defects</h1>
-              <div style={{ fontSize: 12, color: UI.subtext }}>
-                Approved defects routed to <strong>Immediate</strong> that require urgent action.
-              </div>
+      {/* subtle focus ring */}
+      <style>{`
+        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+      `}</style>
+
+      <div style={pageWrap}>
+        {/* Header */}
+        <div style={headerBar}>
+          <div>
+            <h1 style={h1}>Immediate Defects</h1>
+            <div style={sub}>
+              Approved defects routed to <b>Immediate</b> that require urgent action.
             </div>
           </div>
 
-          <div style={panel}>
-            <div style={filtersRow}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <span style={chip}>Urgent: <b style={{ marginLeft: 6 }}>{urgentCount}</b></span>
+            <span style={chipSoft}>In progress: <b style={{ marginLeft: 6 }}>{inProgCount}</b></span>
+            <span style={chip}>Resolved: <b style={{ marginLeft: 6 }}>{resolvedCount}</b></span>
+          </div>
+        </div>
+
+        {/* Filters + table */}
+        <section style={cardBase}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Queue</h2>
+              <div style={hint}>Track urgent issues, add notes, and move items into General if needed.</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={chipSoft}>Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {rows.length}</span>
+              <button type="button" style={btn("ghost")} onClick={() => { setQ(""); setStatusFilter("all"); }}>
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12, background: "#fff" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 10 }}>
               <input
                 type="search"
                 placeholder="Search vehicle, defect, note, driver, job…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                style={input}
+                style={inputBase}
               />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                style={select}
-              >
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={inputBase}>
                 <option value="all">All statuses</option>
-                <option value="pending">Pending status</option>
+                <option value="pending">Urgent (no status)</option>
                 <option value="in_progress">In progress</option>
                 <option value="resolved">Resolved</option>
+                <option value="scheduled">Scheduled</option>
               </select>
-              <div style={{ marginLeft: "auto", fontSize: 12, color: UI.subtext, display: "flex", alignItems: "center", gap: 8 }}>
-                <span>Showing</span>
-                <strong style={{ color: UI.text }}>{filtered.length}</strong>
-                <span>of {rows.length}</span>
-              </div>
             </div>
 
-            <table style={table}>
+            <div style={divider} />
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12, color: UI.muted }}>
+              <span style={maintenanceBadge(null)}>Urgent</span>
+              <span style={maintenanceBadge("in_progress")}>In progress</span>
+              <span style={maintenanceBadge("resolved")}>Resolved</span>
+              <span style={maintenanceBadge("scheduled")}>Scheduled</span>
+              <span style={{ marginLeft: 6 }}>Use “Start work” / “Resolve” with a note for audit trail.</span>
+            </div>
+          </div>
+
+          <div style={{ ...tableWrap, marginTop: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={th}>Date</th>
-                  <th style={th}>Vehicle</th>
-                  <th style={th}>Defect</th>
-                  <th style={th}>Note</th>
-                  <th style={th}>Driver</th>
-                  <th style={{ ...th, textAlign: "center" }}>Photos</th>
-                  <th style={th}>Status</th>
-                  <th style={{ ...th, textAlign: "right" }}>Actions</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Date</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Vehicle</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Defect</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Note</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Driver</th>
+                  <th style={{ ...theadTh, textAlign: "center" }}>Photos</th>
+                  <th style={{ ...theadTh, textAlign: "left" }}>Status</th>
+                  <th style={{ ...theadTh, textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.subtext }}>
+                    <td colSpan={8} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
                       Loading…
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.subtext }}>
+                    <td colSpan={8} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
                       No immediate defects found.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((r) => {
+                  filtered.map((r, idx) => {
                     const key = `${r.checkId}:${r.defectIndex}`;
                     const m = r.maintenance?.status;
+
                     return (
-                      <tr key={key}>
-                        <td style={td}>{fmtDate(r.dateISO)}</td>
-                        <td style={td}>{r.vehicle || "—"}</td>
-                        <td style={td} title={r.itemLabel}>
+                      <tr key={key} style={{ background: idx % 2 ? "#ffffff" : "#fcfdff" }}>
+                        <td style={thtd}>{fmtDate(r.dateISO)}</td>
+
+                        <td style={thtd}>
+                          <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle || "—"}</div>
+                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel}</div>
+                        </td>
+
+                        <td style={thtd} title={r.itemLabel}>
                           <strong>#{r.defectIndex + 1}</strong> — {r.itemLabel}
                         </td>
-                        <td style={{ ...td, maxWidth: 380 }}>
+
+                        <td style={{ ...thtd, maxWidth: 420 }}>
                           <div
                             style={{
                               whiteSpace: "pre-wrap",
@@ -349,32 +507,29 @@ export default function ImmediateDefectsPage() {
                             {r.note || "—"}
                           </div>
                         </td>
-                        <td style={td}>{r.driverName || "—"}</td>
-                        <td style={{ ...td, textAlign: "center" }}>
-                          {r.photos?.length ? r.photos.length : 0}
+
+                        <td style={thtd}>{r.driverName || "—"}</td>
+
+                        <td style={{ ...thtd, textAlign: "center" }}>
+                          <span style={chip}>{r.photos?.length ? r.photos.length : 0}</span>
                         </td>
-                        <td style={td}>
-                          {!m && <span style={badge("#fee2e2", "#991b1b")}>Urgent</span>}
-                          {m === "in_progress" && <span style={badge("#fef9c3", "#854d0e")}>In progress</span>}
-                          {m === "resolved" && <span style={badge("#ecfdf5", "#065f46")}>Resolved</span>}
+
+                        <td style={thtd}>
+                          <span style={maintenanceBadge(m)}>{m ? m.replace(/_/g, " ").toUpperCase() : "URGENT"}</span>
                           {r.maintenance?.note ? (
-                            <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
+                            <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
                               {r.maintenance.note}
                             </div>
                           ) : null}
                         </td>
-                        <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                          <a
-                            href={CHECK_DETAIL_PATH(r.checkId)}
-                            style={{ ...linkBtn, marginRight: 6 }}
-                            title="View full vehicle check"
-                          >
+
+                        <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
+                          <a href={CHECK_DETAIL_PATH(r.checkId)} style={{ ...btn("pill"), marginRight: 6 }} title="View full vehicle check">
                             View →
                           </a>
 
-                          {/* Start work (in_progress) */}
                           <button
-                            style={{ ...btn("#fff"), marginRight: 6 }}
+                            style={{ ...btn("pill"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "in_progress")}
                             disabled={savingId === key}
                             title="Mark as In Progress"
@@ -382,9 +537,8 @@ export default function ImmediateDefectsPage() {
                             Start work
                           </button>
 
-                          {/* Resolve */}
                           <button
-                            style={{ ...btn("#ecfdf5", "#065f46"), marginRight: 6 }}
+                            style={{ ...btn("success"), marginRight: 6, padding: "8px 10px", borderRadius: 999 }}
                             onClick={() => openStatusModal(r, "resolved")}
                             disabled={savingId === key}
                             title="Mark as Resolved"
@@ -392,9 +546,8 @@ export default function ImmediateDefectsPage() {
                             Resolve
                           </button>
 
-                          {/* Re-route to General */}
                           <button
-                            style={btn("#f0f9ff", "#075985")}
+                            style={{ ...btn("ghost"), padding: "8px 10px", borderRadius: 999 }}
                             onClick={() => rerouteToGeneral(r)}
                             disabled={savingId === key}
                             title="Move to General Maintenance"
@@ -409,92 +562,65 @@ export default function ImmediateDefectsPage() {
               </tbody>
             </table>
           </div>
-        </main>
+        </section>
+
+        {/* Notes Modal */}
+        {notesModal && (
+          <div style={modalOverlay} onMouseDown={() => setNotesModal(null)}>
+            <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>
+                    {notesModal.newStatus === "in_progress" ? "Mark as In progress" : "Mark as Resolved"}
+                  </div>
+                  <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
+                    {notesModal.row.vehicle || "—"} · {notesModal.row.jobLabel} · #{notesModal.row.defectIndex + 1}
+                  </div>
+                </div>
+                <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)}>
+                  Close
+                </button>
+              </div>
+
+              <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12, background: "#fff" }}>
+                <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                  Note (optional)
+                </div>
+
+                <textarea
+                  value={notesModal.note}
+                  onChange={(e) => setNotesModal((m) => ({ ...m, note: e.target.value }))}
+                  rows={4}
+                  placeholder={
+                    notesModal.newStatus === "in_progress"
+                      ? "e.g., Isolated vehicle; ordering replacement part."
+                      : "e.g., Fixed + safety check passed."
+                  }
+                  style={{ ...inputBase, marginTop: 8, resize: "vertical" }}
+                />
+
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+                  <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)} disabled={!!savingId}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    style={notesModal.newStatus === "resolved" ? btn("success") : btn("primary")}
+                    onClick={saveMaintenanceStatus}
+                    disabled={!!savingId}
+                  >
+                    {savingId ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Notes / status modal */}
-      {notesModal && (
-        <NotesModal
-          notesModal={notesModal}
-          onClose={() => setNotesModal(null)}
-          onSave={saveMaintenanceStatus}
-          setNotesModal={setNotesModal}
-        />
-      )}
+      <style jsx global>{`
+        table thead th { border-bottom: 1px solid #e5e7eb !important; }
+      `}</style>
     </HeaderSidebarLayout>
-  );
-}
-
-/* ───────────────── Notes Modal ──────────────── */
-function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15, 23, 42, 0.32)",
-        zIndex: 1000,
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
-      }}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        style={{
-          width: "min(92vw, 560px)",
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          boxShadow: UI.shadowMd,
-          padding: 18,
-        }}
-      >
-        <h3 style={{ margin: "2px 0 10px", fontWeight: 800 }}>
-          {notesModal.newStatus === "in_progress" ? "Mark as In Progress" : "Mark as Resolved"}
-        </h3>
-        <div style={{ fontSize: 13, color: UI.subtext, marginBottom: 10 }}>
-          <div><strong>Vehicle:</strong> {notesModal.row.vehicle || "—"}</div>
-          <div><strong>Item:</strong> #{notesModal.row.defectIndex + 1} — {notesModal.row.itemLabel}</div>
-          <div><strong>Date:</strong> {fmtDate(notesModal.row.dateISO)}</div>
-        </div>
-
-        <label
-          style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.subtext, marginBottom: 6 }}
-        >
-          {notesModal.newStatus === "in_progress"
-            ? "Work note (optional)"
-            : "Resolution note (optional)"}
-        </label>
-        <textarea
-          rows={4}
-          value={notesModal.note}
-          onChange={(e) => setNotesModal((m) => ({ ...m, note: e.target.value }))}
-          placeholder={
-            notesModal.newStatus === "in_progress"
-              ? "e.g., Isolated vehicle; ordering replacement part."
-              : "e.g., Replaced brake hose; safety check passed."
-          }
-          style={{
-            width: "100%",
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            padding: 10,
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        />
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={btn("#fff", "#111827")}>
-            Cancel
-          </button>
-          <button onClick={onSave} style={btn("#111827", "#fff")}>
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

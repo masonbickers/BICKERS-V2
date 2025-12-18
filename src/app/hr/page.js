@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
+import HolidayForm from "@/app/components/holidayform";
+
 import {
   BarChart,
   Bar,
@@ -144,14 +146,6 @@ const th = {
   whiteSpace: "nowrap",
 };
 const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
-
-const listReset = { listStyle: "none", padding: 0, margin: 0 };
-const liItem = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: "8px 10px",
-  background: "#fff",
-};
 
 /* breakdown cell styles */
 const breakdownWrap = {
@@ -325,6 +319,9 @@ export default function HRPage() {
   const [usageData, setUsageData] = useState([]); // for the graph
   const [loading, setLoading] = useState(true);
 
+  // ✅ Open your existing HolidayForm component (modal inside component)
+  const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+
   useEffect(() => {
     fetchHolidays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,12 +370,13 @@ export default function HRPage() {
   };
 
   const documents = [
-    { title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
-    { title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
-    { title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
-    { title: "Sick Leave Form", description: "Report absences due to illness.", link: "/sick-leave" },
-    { title: "HR Policy Manual", description: "View company policies and employee handbook.", link: "/hr-policies" },
-    { title: "Contract Upload", description: "Upload new starter contracts and documentation.", link: "/upload-contract" },
+    // ✅ Make this open the modal instead of routing
+    { key: "holidayForm", title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
+    { key: "holidayUsage", title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
+    { key: "timesheets", title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
+    { key: "sick", title: "Sick Leave Form", description: "Report absences due to illness.", link: "/sick-leave" },
+    { key: "policy", title: "HR Policy Manual", description: "View company policies and employee handbook.", link: "/hr-policies" },
+    { key: "contracts", title: "Contract Upload", description: "Upload new starter contracts and documentation.", link: "/upload-contract" },
   ];
 
   const renderLabel = (props) => {
@@ -387,13 +385,7 @@ export default function HRPage() {
     const v = Number(value);
     const text = Math.abs(v - Math.round(v)) < 1e-6 ? v.toFixed(0) : v.toFixed(2);
     return (
-      <text
-        x={x + width / 2}
-        y={y - 4}
-        textAnchor="middle"
-        fill="#0f172a"
-        style={{ fontSize: 11, fontWeight: 800 }}
-      >
+      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#0f172a" style={{ fontSize: 11, fontWeight: 800 }}>
         {text}
       </text>
     );
@@ -402,6 +394,18 @@ export default function HRPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
+        {/* ✅ Render YOUR HolidayForm directly (no extra wrapper scroll / no extra close) */}
+        {holidayModalOpen && (
+          <HolidayForm
+            defaultDate={new Date().toISOString().split("T")[0]}
+            onClose={() => setHolidayModalOpen(false)}
+            onSaved={() => {
+              setHolidayModalOpen(false);
+              fetchHolidays();
+            }}
+          />
+        )}
+
         {/* Header */}
         <div style={headerBar}>
           <div>
@@ -517,9 +521,7 @@ export default function HRPage() {
                   return (
                     <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                        <div style={{ fontWeight: 900, color: UI.text }}>
-                          {h.employee || h.employeeCode || "Unknown"}
-                        </div>
+                        <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
                         <span style={chip}>{type}</span>
                       </div>
 
@@ -535,11 +537,7 @@ export default function HRPage() {
                         <button style={btn("decline")} onClick={() => updateStatus(h.id, "declined")} type="button">
                           Decline
                         </button>
-                        <button
-                          style={btn("ghost")}
-                          onClick={() => router.push("/holiday-usage")}
-                          type="button"
-                        >
+                        <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
                           View usage →
                         </button>
                       </div>
@@ -568,7 +566,9 @@ export default function HRPage() {
               <button style={btn("ghost")} onClick={fetchHolidays} type="button">
                 Refresh
               </button>
-              <button style={btn()} onClick={() => router.push("/holiday-form")} type="button">
+
+              {/* ✅ Open HolidayForm component instead of routing */}
+              <button style={btn()} onClick={() => setHolidayModalOpen(true)} type="button">
                 Holiday form →
               </button>
             </div>
@@ -670,12 +670,20 @@ export default function HRPage() {
               <div
                 key={idx}
                 style={card}
-                onClick={() => router.push(d.link)}
+                onClick={() => {
+                  if (d.key === "holidayForm") return setHolidayModalOpen(true);
+                  router.push(d.link);
+                }}
                 onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
                 onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? router.push(d.link) : null)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    if (d.key === "holidayForm") return setHolidayModalOpen(true);
+                    router.push(d.link);
+                  }
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>{d.title}</div>

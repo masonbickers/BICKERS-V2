@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { Calendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -32,113 +33,173 @@ const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 const DECLINED_DEFECTS_PATH = "/defects/declined";
 
-/* ───────────────── Visual tokens ──────────────── */
+/* ───────────────────────────────────────────
+   Mini design system (MATCHES YOUR EMPLOYEES PAGE)
+─────────────────────────────────────────── */
 const UI = {
-  page: "#f3f4f6",
+  radius: 14,
+  radiusSm: 10,
+  gap: 18,
+  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
+  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
+  border: "1px solid #e5e7eb",
+  bg: "#f8fafc",
   card: "#ffffff",
   text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
-  radius: 12,
-  radiusSm: 8,
-  shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
-  shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
-  green: "#16a34a",
-  red: "#dc2626",
+  muted: "#64748b",
+  brand: "#1d4ed8",
+  brandSoft: "#eff6ff",
+  danger: "#dc2626",
   amber: "#d97706",
+  green: "#16a34a",
 };
 
-const shell = {
+const pageWrap = {
+  padding: "24px 18px 40px",
+  background: UI.bg,
   minHeight: "100vh",
-  background: UI.page,
-  color: UI.text,
-  fontFamily:
-    "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
 };
-const main = {
-  flex: 1,
-  padding: "28px 28px 40px",
-  maxWidth: 1600,
-  margin: "0 auto",
-};
-
-const h1 = {
-  fontSize: 28,
-  lineHeight: "34px",
-  fontWeight: 800,
-  marginBottom: 16,
-  color: UI.text,
-  letterSpacing: 0.2,
-};
-
-const subbar = {
+const headerBar = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "baseline",
   justifyContent: "space-between",
-  marginBottom: 22,
+  gap: 12,
+  marginBottom: 16,
 };
-
-const grid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-  gap: 16,
-};
-
-const card = {
-  background: UI.card,
-  border: UI.border,
-  borderRadius: UI.radius,
-  boxShadow: UI.shadowSm,
-  padding: 16,
-  cursor: "pointer",
-  transition: "transform .08s ease, box-shadow .2s ease",
-};
-
-const cardTitle = { margin: 0, fontSize: 16, fontWeight: 700, color: UI.text };
-const cardDesc = {
-  marginTop: 6,
-  fontSize: 13,
-  color: UI.subtext,
-  lineHeight: 1.4,
-};
-
-const sectionTitle = {
-  fontSize: 22,
-  lineHeight: "28px",
-  fontWeight: 800,
-  marginBottom: 10,
+const h1 = {
   color: UI.text,
+  fontSize: 26,
+  lineHeight: 1.15,
+  fontWeight: 900,
+  letterSpacing: "-0.01em",
+  margin: 0,
 };
+const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
 
-const panel = {
+const surface = {
   background: UI.card,
-  border: UI.border,
   borderRadius: UI.radius,
+  border: UI.border,
   boxShadow: UI.shadowSm,
+};
+const cardBase = {
+  ...surface,
   padding: 16,
+  transition:
+    "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
+};
+const cardHover = {
+  transform: "translateY(-2px)",
+  boxShadow: UI.shadowHover,
+  borderColor: "#dbeafe",
 };
 
-const calendarWrap = {
-  height: "calc(100vh - 260px)",
-  background: UI.card,
-  border: UI.border,
-  borderRadius: UI.radius,
-  boxShadow: UI.shadowSm,
-  padding: 12,
+const grid = (cols = 4) => ({
+  display: "grid",
+  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+  gap: UI.gap,
+});
+
+const sectionHeader = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
 };
+const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+
+const chip = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#f1f5f9",
+  color: UI.text,
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+const chipSoft = {
+  ...chip,
+  background: UI.brandSoft,
+  borderColor: "#dbeafe",
+  color: UI.brand,
+};
+
+const badge = (bg, fg) => ({
+  padding: "4px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: bg,
+  color: fg,
+  fontSize: 12,
+  fontWeight: 950,
+  whiteSpace: "nowrap",
+  lineHeight: "18px",
+});
+
+const btn = (kind = "primary") => {
+  if (kind === "ghost") {
+    return {
+      padding: "10px 12px",
+      borderRadius: UI.radiusSm,
+      border: "1px solid #d1d5db",
+      background: "#fff",
+      color: UI.text,
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    };
+  }
+  if (kind === "pill") {
+    return {
+      padding: "8px 10px",
+      borderRadius: 999,
+      border: "1px solid #d1d5db",
+      background: "#fff",
+      color: UI.text,
+      fontWeight: 900,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
+    };
+  }
+  return {
+    padding: "10px 12px",
+    borderRadius: UI.radiusSm,
+    border: `1px solid ${UI.brand}`,
+    background: UI.brand,
+    color: "#fff",
+    fontWeight: 900,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+};
+
+const inputBase = {
+  width: "100%",
+  padding: "9px 10px",
+  borderRadius: 12,
+  border: "1px solid #e5e7eb",
+  outline: "none",
+  fontSize: 13.5,
+  background: "#fff",
+};
+
+const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
 
 const modal = {
   position: "fixed",
-  top: 100,
+  top: 110,
   left: "50%",
   transform: "translateX(-50%)",
   background: UI.card,
   border: UI.border,
   borderRadius: UI.radius,
   padding: 18,
-  boxShadow: UI.shadowMd,
+  boxShadow: UI.shadowHover,
   zIndex: 1000,
-  width: "min(92vw, 520px)",
+  width: "min(92vw, 560px)",
 };
 
 const table = { width: "100%", borderCollapse: "collapse" };
@@ -149,18 +210,25 @@ const thtd = {
   verticalAlign: "top",
 };
 
-const actionBtn = (bg, fg) => ({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  background: bg,
-  color: fg,
-  fontWeight: 800,
-  cursor: "pointer",
-});
+const actionBtn = (kind = "ghost") => {
+  if (kind === "approve") {
+    return {
+      ...btn("pill"),
+      borderColor: "#bbf7d0",
+      background: "#ecfdf5",
+      color: "#065f46",
+    };
+  }
+  if (kind === "decline") {
+    return {
+      ...btn("pill"),
+      borderColor: "#fecaca",
+      background: "#fef2f2",
+      color: "#991b1b",
+    };
+  }
+  return { ...btn("pill") };
+};
 
 /* ───────────────── Date helpers ───────────────── */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
@@ -201,15 +269,15 @@ const isCountableNote = (note) => {
   const n = String(note).toLowerCase();
   return COUNTABLE_NOTES.some((k) => n.includes(k));
 };
+
 const getDayNote = (booking, dayKey) => {
   let v =
     booking?.notesByDate?.[dayKey] ??
     booking?.dayNotes?.[dayKey] ??
     booking?.dailyNotes?.[dayKey] ??
     booking?.notesForEachDay?.[dayKey];
-  if (v && typeof v === "object") {
+  if (v && typeof v === "object")
     v = v.note ?? v.text ?? v.value ?? v.label ?? v.name;
-  }
   if (v) return v;
 
   if (
@@ -222,28 +290,20 @@ const getDayNote = (booking, dayKey) => {
   }
 
   const single =
-    booking?.noteForTheDay ??
-    booking?.note ??
-    booking?.dayNote ??
-    booking?.dailyNote;
-
+    booking?.noteForTheDay ?? booking?.note ?? booking?.dayNote ?? booking?.dailyNote;
   if (
     single &&
-    (Array.isArray(booking.bookingDates)
-      ? booking.bookingDates.length === 1
-      : true)
-  ) {
+    (Array.isArray(booking.bookingDates) ? booking.bookingDates.length === 1 : true)
+  )
     return single;
-  }
 
   return null;
 };
 
-/* General label builder for a vehicle object */
+/* Vehicle label helper */
 const buildVehicleLabelFromObject = (v) => {
   if (!v) return "";
-
-  if (typeof v === "string") return v.trim(); // fallback
+  if (typeof v === "string") return v.trim();
 
   const base =
     v.name ??
@@ -276,7 +336,7 @@ const buildVehicleLabelFromObject = (v) => {
 
 /* ───────────────── Defect utilities ───────────────── */
 const isDefectItem = (it) => it?.status === "defect";
-const isPendingDefect = (it) => !it?.review?.status; // pending = no review yet
+const isPendingDefect = (it) => !it?.review?.status;
 
 function extractPendingDefects(checkDocs) {
   const out = [];
@@ -301,9 +361,7 @@ function extractPendingDefects(checkDocs) {
       }
     });
   }
-  out.sort((a, b) =>
-    a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0
-  );
+  out.sort((a, b) => (a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0));
   return out;
 }
 
@@ -319,8 +377,10 @@ export default function VehiclesHomePage() {
   const [workBookings, setWorkBookings] = useState([]);
   const [usageData, setUsageData] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [overdueMOTCount, setOverdueMOTCount] = useState(0);
-  const [overdueServiceCount, setOverdueServiceCount] = useState(0);
+
+  // Counters
+  const [motCounts, setMotCounts] = useState({ overdue: 0, soon: 0, ok: 0, total: 0 });
+  const [serviceCounts, setServiceCounts] = useState({ overdue: 0, soon: 0, ok: 0, total: 0 });
 
   // Usage month
   const [usageMonth, setUsageMonth] = useState(() => {
@@ -360,32 +420,48 @@ export default function VehiclesHomePage() {
             data.regNo ||
             "",
         });
-        map[d.id] = label || d.id; // fallback to id if truly no label
+        map[d.id] = label || d.id;
       });
       setVehicleNameMap(map);
     };
     fetchVehicles();
   }, []);
 
-  // Overdue counters
+  /* ───────── MOT + Service counters (FIXED field names) ─────────
+     Uses vehicles.nextMOT and vehicles.nextService (Timestamp or ISO)
+     and calculates overdue / due soon (≤21 days) / ok.
+  */
   useEffect(() => {
     const fetchVehicleMaintenance = async () => {
       const snapshot = await getDocs(collection(db, "vehicles"));
-      const vehicles = snapshot.docs.map((d) => d.data());
+      const vehicles = snapshot.docs.map((d) => d.data() || {});
       const today = new Date();
+      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-      let motOverdue = 0;
-      let serviceOverdue = 0;
+      const calcCounts = (dateValueList) => {
+        let overdue = 0;
+        let soon = 0;
+        let ok = 0;
+        let total = 0;
 
-      vehicles.forEach((vehicle) => {
-        const motDate = toDate(vehicle.motDate);
-        const serviceDate = toDate(vehicle.serviceDate);
-        if (motDate && motDate < today) motOverdue++;
-        if (serviceDate && serviceDate < today) serviceOverdue++;
-      });
+        dateValueList.forEach((raw) => {
+          const dt = toDate(raw);
+          if (!dt || isNaN(dt.getTime())) return;
 
-      setOverdueMOTCount(motOverdue);
-      setOverdueServiceCount(serviceOverdue);
+          const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+          const diffDays = Math.floor((d - todayMidnight) / (1000 * 60 * 60 * 24));
+
+          total += 1;
+          if (diffDays < 0) overdue += 1;
+          else if (diffDays <= 21) soon += 1;
+          else ok += 1;
+        });
+
+        return { overdue, soon, ok, total };
+      };
+
+      setMotCounts(calcCounts(vehicles.map((v) => v.nextMOT ?? v.motDate ?? v.motDue)));
+      setServiceCounts(calcCounts(vehicles.map((v) => v.nextService ?? v.serviceDate ?? v.serviceDue)));
     };
 
     fetchVehicleMaintenance();
@@ -401,17 +477,13 @@ export default function VehiclesHomePage() {
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
 
-        // Map booking vehicles → human-friendly names
         const mapVehicleFromBooking = (entry) => {
           if (!entry) return "";
           if (typeof entry === "string") {
-            // string could be a vehicle doc ID
             if (vehicleNameMap[entry]) return vehicleNameMap[entry];
-            return entry; // fallback
+            return entry;
           }
-          if (entry.id && vehicleNameMap[entry.id]) {
-            return vehicleNameMap[entry.id];
-          }
+          if (entry.id && vehicleNameMap[entry.id]) return vehicleNameMap[entry.id];
           return buildVehicleLabelFromObject(entry) || "";
         };
 
@@ -444,17 +516,14 @@ export default function VehiclesHomePage() {
           if (!start) return;
 
           const clampedStart = start < monthStart ? monthStart : start;
-          const clampedEnd =
-            (end || start) > monthEnd ? monthEnd : end || start;
+          const clampedEnd = (end || start) > monthEnd ? monthEnd : end || start;
 
           dayKeys = daysInRange(clampedStart, clampedEnd);
         }
 
         if (dayKeys.length === 0) return;
 
-        const filteredByNote = dayKeys.filter((k) =>
-          isCountableNote(getDayNote(data, k))
-        );
+        const filteredByNote = dayKeys.filter((k) => isCountableNote(getDayNote(data, k)));
         if (filteredByNote.length === 0) return;
 
         vehicles.forEach((name) => {
@@ -474,7 +543,7 @@ export default function VehiclesHomePage() {
     fetchUsage();
   }, [usageMonth, vehicleNameMap]);
 
-  // Calendar events (MOT & service)
+  // Calendar events (MOT & service) from workBookings
   useEffect(() => {
     const fetchMaintenanceEvents = async () => {
       const snapshot = await getDocs(collection(db, "workBookings"));
@@ -486,7 +555,7 @@ export default function VehiclesHomePage() {
           if (!start || !end) return null;
 
           return {
-            title: `${data.vehicleName} - ${data.maintenanceType}`,
+            title: `${data.vehicleName || "Vehicle"} - ${data.maintenanceType || "Maintenance"}`,
             start,
             end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
             allDay: true,
@@ -521,8 +590,7 @@ export default function VehiclesHomePage() {
       category: "general",
     });
 
-  const openDecline = (defect) =>
-    setActionModal({ defect, decision: "declined", comment: "" });
+  const openDecline = (defect) => setActionModal({ defect, decision: "declined", comment: "" });
 
   const performDecision = async () => {
     if (!actionModal?.defect || !actionModal?.decision) return;
@@ -530,14 +598,10 @@ export default function VehiclesHomePage() {
     try {
       const { defect, decision, comment, category } = actionModal;
       const reviewer =
-        auth?.currentUser?.displayName ||
-        auth?.currentUser?.email ||
-        "Supervisor";
+        auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
 
       if (decision === "approved" && !category) {
-        alert(
-          "Choose where to route this defect: General Maintenance or Immediate Defects."
-        );
+        alert("Choose where to route this defect: General Maintenance or Immediate Defects.");
         setActionLoading(false);
         return;
       }
@@ -551,9 +615,7 @@ export default function VehiclesHomePage() {
       };
 
       if (decision === "approved") {
-        reviewPayload.category = String(category || "")
-          .trim()
-          .toLowerCase();
+        reviewPayload.category = String(category || "").trim().toLowerCase();
       }
 
       await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
@@ -563,22 +625,15 @@ export default function VehiclesHomePage() {
 
       setPendingDefects((prev) =>
         prev.filter(
-          (d) =>
-            !(
-              d.checkId === defect.checkId &&
-              d.defectIndex === defect.defectIndex
-            )
+          (d) => !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex)
         )
       );
 
       setActionModal(null);
 
       if (decision === "approved") {
-        if (category === "immediate") {
-          router.push(IMMEDIATE_DEFECTS_PATH);
-        } else {
-          router.push(GENERAL_DEFECTS_PATH);
-        }
+        if (category === "immediate") router.push(IMMEDIATE_DEFECTS_PATH);
+        else router.push(GENERAL_DEFECTS_PATH);
       } else {
         router.push(DECLINED_DEFECTS_PATH);
       }
@@ -592,691 +647,604 @@ export default function VehiclesHomePage() {
 
   const handleSelectEvent = (event) => setSelectedEvent(event);
 
-  // Quick links tiles
+  const usageMonthLabel = `${usageMonth.getFullYear()}-${String(
+    usageMonth.getMonth() + 1
+  ).padStart(2, "0")}`;
+  const kpiPending = pendingDefects.length;
+
+  const renderUsageLabel = (props) => {
+    const { x = 0, y = 0, width = 0, value = 0 } = props || {};
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 4}
+        textAnchor="middle"
+        fill={UI.text}
+        style={{ fontSize: 11, fontWeight: 900 }}
+      >
+        {Number(value || 0)}
+      </text>
+    );
+  };
+
+  // Tiles with proper numeric badges (what you asked for)
   const vehicleSections = useMemo(
     () => [
       {
         title: "General Maintenance",
         description: "Approved, non-urgent defects to plan and schedule.",
         link: GENERAL_DEFECTS_PATH,
+        rightBadges: [],
       },
       {
         title: "Immediate Defects",
         description: "Approved urgent issues that need action now.",
         link: IMMEDIATE_DEFECTS_PATH,
+        rightBadges: [],
       },
       {
         title: "Declined Defects",
         description: "Defects that were reviewed and declined.",
         link: DECLINED_DEFECTS_PATH,
+        rightBadges: [],
       },
       {
-        title:
-          `MOT Schedule` +
-          (overdueMOTCount > 0 ? ` — ${overdueMOTCount} overdue` : ""),
+        title: "MOT Schedule",
         description: "View and manage MOT due dates for all vehicles.",
         link: "/mot-overview",
+        rightBadges: [
+          motCounts.overdue > 0 ? { label: `Overdue ${motCounts.overdue}`, tone: "danger" } : null,
+          motCounts.soon > 0 ? { label: `Due soon ${motCounts.soon}`, tone: "amber" } : null,
+          motCounts.total > 0 ? { label: `Total ${motCounts.total}`, tone: "soft" } : null,
+        ].filter(Boolean),
       },
       {
-        title:
-          `Service History` +
-          (overdueServiceCount > 0
-            ? ` — ${overdueServiceCount} overdue`
-            : ""),
+        title: "Service Overview",
         description: "Track past and upcoming vehicle servicing.",
         link: "/service-overview",
+        rightBadges: [
+          serviceCounts.overdue > 0 ? { label: `Overdue ${serviceCounts.overdue}`, tone: "danger" } : null,
+          serviceCounts.soon > 0 ? { label: `Due soon ${serviceCounts.soon}`, tone: "amber" } : null,
+          serviceCounts.total > 0 ? { label: `Total ${serviceCounts.total}`, tone: "soft" } : null,
+        ].filter(Boolean),
       },
       {
         title: "Vehicle Usage Logs",
         description: "Monitor vehicle usage across bookings and trips.",
         link: "/usage-overview",
+        rightBadges: [],
       },
       {
         title: "Vehicle List",
         description: "View, edit or delete vehicles currently in the system.",
         link: "/vehicles",
+        rightBadges: [],
       },
       {
         title: "Equipment List",
         description: "View, edit or delete equipment currently in the system.",
         link: "/equipment",
+        rightBadges: [],
+      },
+      {
+        title: "Add Vehicle / Equipment",
+        description: "Add new vehicles and equipment in the system.",
+        link: "/add-vehicle",
+        rightBadges: [],
       },
     ],
-    [overdueMOTCount, overdueServiceCount]
+    [motCounts, serviceCounts]
   );
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ display: "flex", ...shell }}>
-        <main style={main}>
-          <div style={subbar}>
+      {/* subtle focus ring */}
+      <style>{`
+        input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+      `}</style>
+
+      <div style={pageWrap}>
+        {/* Header */}
+        <div style={headerBar}>
+          <div>
             <h1 style={h1}>Vehicle Management</h1>
-            <div style={{ fontSize: 12, color: UI.subtext }}>
-              Overview • Usage • MOT • Service
+            <div style={sub}>Overview • Defects • Usage • MOT • Service</div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+            }}
+          >
+            <div style={chip}>
+              Pending defects: <b style={{ marginLeft: 6 }}>{kpiPending}</b>
+            </div>
+            <div style={chipSoft}>
+              MOT overdue: <b style={{ marginLeft: 6 }}>{motCounts.overdue}</b>
+            </div>
+            <div style={chipSoft}>
+              Service overdue: <b style={{ marginLeft: 6 }}>{serviceCounts.overdue}</b>
             </div>
           </div>
+        </div>
 
-          {/* Quick links */}
-          <div style={grid}>
-            <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
-            {vehicleSections.map((section, idx) => (
-              <div
-                key={idx}
-                style={card}
-                onClick={() => router.push(section.link)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = UI.shadowMd;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0px)";
-                  e.currentTarget.style.boxShadow = UI.shadowSm;
-                }}
-              >
-                <h2 style={cardTitle}>{section.title}</h2>
-                <p style={cardDesc}>{section.description}</p>
+        {/* Quick links */}
+        <div style={grid(5)}>
+          <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+
+          {vehicleSections.map((section, idx) => (
+            <Tile
+              key={idx}
+              title={section.title}
+              description={section.description}
+              rightBadges={section.rightBadges}
+              onClick={() => router.push(section.link)}
+            />
+          ))}
+        </div>
+
+        {/* Defect Review */}
+        <section style={{ ...cardBase, marginTop: UI.gap, overflow: "hidden" }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Defect review</h2>
+              <div style={hint}>
+                Pending approval for submitted checks. Approve and route to the correct bucket; decline to mark as not
+                actionable.
               </div>
-            ))}
-          </div>
-
-          {/* ───────────── Defect Review Queue ───────────── */}
-          <div style={{ marginTop: 28 }}>
-            <h2 style={sectionTitle}>Defect Review</h2>
-            <div style={{ ...panel, overflow: "hidden" }}>
-              <div
-                style={{
-                  marginBottom: 10,
-                  fontSize: 12,
-                  color: UI.subtext,
-                }}
-              >
-                Pending approval for submitted checks. Approve and route to the
-                correct bucket; Decline to mark as not actionable.
-              </div>
-
-              <table style={table}>
-                <thead>
-                  <tr style={{ background: "#fafafa" }}>
-                    <th style={{ ...thtd, textAlign: "left" }}>Date</th>
-                    <th style={{ ...thtd, textAlign: "left" }}>Vehicle</th>
-                    <th style={{ ...thtd, textAlign: "left" }}>Defect</th>
-                    <th style={{ ...thtd, textAlign: "left" }}>Note</th>
-                    <th style={{ ...thtd, textAlign: "left" }}>Driver</th>
-                    <th style={{ ...thtd, textAlign: "center" }}>Photos</th>
-                    <th style={{ ...thtd, textAlign: "right" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingDefects.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        style={{
-                          ...thtd,
-                          textAlign: "center",
-                          color: UI.subtext,
-                        }}
-                      >
-                        No pending defects. 🎉
-                      </td>
-                    </tr>
-                  ) : (
-                    pendingDefects.map((d, i) => (
-                      <tr key={`${d.checkId}-${d.defectIndex}-${i}`}>
-                        <td style={thtd}>{d.dateISO || "—"}</td>
-                        <td style={thtd}>{d.vehicle || "—"}</td>
-                        <td style={thtd} title={d.itemLabel}>
-                          <strong>#{d.defectIndex + 1}</strong> — {d.itemLabel}
-                        </td>
-                        <td style={{ ...thtd, maxWidth: 360 }}>
-                          <div
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical",
-                            }}
-                          >
-                            {d.defectNote || "—"}
-                          </div>
-                        </td>
-                        <td style={thtd}>{d.driverName || "—"}</td>
-                        <td style={{ ...thtd, textAlign: "center" }}>
-                          {d.photos?.length ? d.photos.length : 0}
-                        </td>
-                        <td style={{ ...thtd, textAlign: "right" }}>
-                          <a
-                            href={CHECK_DETAIL_PATH(d.checkId)}
-                            style={{
-                              ...actionBtn("#fff", "#111827"),
-                              marginRight: 6,
-                            }}
-                          >
-                            View check →
-                          </a>
-                          <button
-                            onClick={() => openApprove(d)}
-                            style={{
-                              ...actionBtn("#ecfdf5", "#065f46"),
-                              marginRight: 6,
-                            }}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => openDecline(d)}
-                            style={actionBtn("#fef2f2", "#991b1b")}
-                          >
-                            Decline
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
             </div>
-          </div>
 
-          {/* Usage chart */}
-          <div style={{ marginTop: 28 }}>
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 10,
+                gap: 10,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
               }}
             >
-              <h2 style={sectionTitle}>Vehicle Usage (Selected Month)</h2>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <ToolbarBtn
-                  onClick={() =>
-                    setUsageMonth(
-                      (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1)
-                    )
-                  }
-                >
-                  ← Prev
-                </ToolbarBtn>
-                <input
-                  type="month"
-                  value={`${usageMonth.getFullYear()}-${String(
-                    usageMonth.getMonth() + 1
-                  ).padStart(2, "0")}`}
-                  onChange={(e) => {
-                    const [y, m] = e.target.value.split("-").map(Number);
-                    if (y && m) setUsageMonth(new Date(y, m - 1, 1));
-                  }}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: "6px 10px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    background: "#fff",
-                    color: UI.text,
-                    cursor: "pointer",
-                  }}
-                />
-                <ToolbarBtn
-                  onClick={() =>
-                    setUsageMonth(
-                      (d) => new Date(d.getFullYear(), d.getMonth() + 1, 1)
-                    )
-                  }
-                >
-                  Next →
-                </ToolbarBtn>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 8, color: UI.subtext, fontSize: 12 }}>
-              Counting days where note is <strong>“On Set”</strong> or{" "}
-              <strong>“Shoot day”</strong>.
-            </div>
-
-            <div style={panel}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={usageData}
-                  margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 12, fill: UI.subtext }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 12, fill: UI.subtext }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
-                  />
-                  <Tooltip
-                    wrapperStyle={{
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                    }}
-                    contentStyle={{
-                      borderRadius: 8,
-                      boxShadow: UI.shadowSm,
-                    }}
-                  />
-                  <Bar dataKey="usage" fill="#2563eb" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Calendar */}
-          <div style={{ marginTop: 28 }}>
-            <h2 style={sectionTitle}>MOT & Service Calendar</h2>
-            <div style={calendarWrap}>
-              {mounted && (
-                <Calendar
-                  localizer={localizer}
-                  events={workBookings}
-                  startAccessor="start"
-                  endAccessor="end"
-                  view={calView}
-                  onView={(v) => setCalView(v)}
-                  date={calDate}
-                  onNavigate={(d) => setCalDate(d)}
-                  views={["month", "week", "work_week", "day", "agenda"]}
-                  popup
-                  showMultiDayTimes
-                  style={{ height: "100%" }}
-                  dayPropGetter={() => ({
-                    style: {
-                      minHeight: "110px",
-                      borderRight: "1px solid #eef2f7",
-                    },
-                  })}
-                  eventPropGetter={() => ({
-                    style: {
-                      borderRadius: 8,
-                      border: "1.5px solid #1f2937",
-                      background: "#e5e7eb",
-                      color: "#111827",
-                      padding: 0,
-                      boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
-                    },
-                  })}
-                  components={{
-                    event: ({ event }) => (
-                      <div
-                        title={event.title}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                          fontSize: 13,
-                          lineHeight: 1.3,
-                          fontWeight: 700,
-                          padding: 6,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.02em",
-                        }}
-                      >
-                        <span>{event.title}</span>
-                        {event.allDay && (
-                          <span
-                            style={{
-                              fontSize: 11.5,
-                              fontWeight: 600,
-                              opacity: 0.8,
-                            }}
-                          >
-                            All Day
-                          </span>
-                        )}
-                      </div>
-                    ),
-                    toolbar: (props) => (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          marginBottom: 8,
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontWeight: 800,
-                            letterSpacing: 0.2,
-                          }}
-                        >
-                          {props.label}
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <ToolbarBtn
-                            onClick={() => props.onNavigate("PREV")}
-                          >
-                            ←
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            onClick={() => props.onNavigate("TODAY")}
-                          >
-                            Today
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            onClick={() => props.onNavigate("NEXT")}
-                          >
-                            →
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            active={props.view === "month"}
-                            onClick={() => props.onView("month")}
-                          >
-                            Month
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            active={props.view === "week"}
-                            onClick={() => props.onView("week")}
-                          >
-                            Week
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            active={props.view === "work_week"}
-                            onClick={() => props.onView("work_week")}
-                          >
-                            Work Week
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            active={props.view === "day"}
-                            onClick={() => props.onView("day")}
-                          >
-                            Day
-                          </ToolbarBtn>
-                          <ToolbarBtn
-                            active={props.view === "agenda"}
-                            onClick={() => props.onView("agenda")}
-                          >
-                            Agenda
-                          </ToolbarBtn>
-                        </div>
-                      </div>
-                    ),
-                  }}
-                  onSelectEvent={handleSelectEvent}
-                />
-              )}
-            </div>
-          </div>
-
-          {selectedEvent && (
-            <div style={modal}>
-              <h3
-                style={{
-                  marginTop: 0,
-                  marginBottom: 8,
-                  fontWeight: 800,
-                }}
-              >
-                {selectedEvent.title}
-              </h3>
-              <p style={{ margin: 0, color: UI.subtext }}>
-                <strong style={{ color: UI.text }}>Start:</strong>{" "}
-                {selectedEvent.start.toLocaleDateString()}
-              </p>
-              <p
-                style={{
-                  margin: "6px 0 12px",
-                  color: UI.subtext,
-                }}
-              >
-                <strong style={{ color: UI.text }}>End:</strong>{" "}
-                {selectedEvent.end.toLocaleDateString()}
-              </p>
-              <button
-                onClick={() => setSelectedEvent(null)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 12px",
-                  borderRadius: UI.radiusSm,
-                  cursor: "pointer",
-                  border: "1px solid #e5e7eb",
-                  background: "#f8fafc",
-                  color: UI.text,
-                  fontWeight: 700,
-                }}
-              >
-                Close
+              <span style={chipSoft}>{pendingDefects.length} pending</span>
+              <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
+                Open checks
               </button>
             </div>
-          )}
+          </div>
 
-          {/* Decision modal */}
-          {actionModal && (
-            <div style={{ ...modal, top: 120 }}>
-              <h3
-                style={{
-                  margin: "0 0 8px",
-                  fontWeight: 800,
-                }}
-              >
-                {actionModal.decision === "approved"
-                  ? "Approve defect"
-                  : "Decline defect"}
-              </h3>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: UI.subtext,
-                  marginBottom: 10,
-                }}
-              >
-                <div>
-                  <strong>Date:</strong> {actionModal.defect.dateISO}
-                </div>
-                <div>
-                  <strong>Job:</strong>{" "}
-                  {actionModal.defect.jobLabel || actionModal.defect.jobId}
-                </div>
-                <div>
-                  <strong>Vehicle:</strong> {actionModal.defect.vehicle}
-                </div>
-                <div>
-                  <strong>Item:</strong> #
-                  {actionModal.defect.defectIndex + 1} —{" "}
-                  {actionModal.defect.itemLabel}
-                </div>
-                {actionModal.defect.defectNote ? (
-                  <div style={{ marginTop: 6 }}>
-                    <strong>Note:</strong>
-                    <div
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        background: "#fafafa",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: 10,
-                        marginTop: 4,
-                      }}
-                    >
-                      {actionModal.defect.defectNote}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+          <div style={divider} />
 
-              {actionModal.decision === "approved" && (
-                <div style={{ marginBottom: 12 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      color: UI.subtext,
-                      marginBottom: 6,
-                    }}
-                  >
-                    Route approved defect to:
-                  </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={table}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Date</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Vehicle</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Defect</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Note</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Driver</th>
+                  <th style={{ ...thtd, textAlign: "center", fontWeight: 900, color: UI.text }}>Photos</th>
+                  <th style={{ ...thtd, textAlign: "right", fontWeight: 900, color: UI.text }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingDefects.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
+                      No pending defects.
+                    </td>
+                  </tr>
+                ) : (
+                  pendingDefects.map((d, i) => (
+                    <tr key={`${d.checkId}-${d.defectIndex}-${i}`}>
+                      <td style={thtd}>{d.dateISO || "—"}</td>
+                      <td style={thtd}>{d.vehicle || "—"}</td>
+                      <td style={thtd} title={d.itemLabel}>
+                        <strong>#{d.defectIndex + 1}</strong> — {d.itemLabel}
+                      </td>
+                      <td style={{ ...thtd, maxWidth: 360 }}>
+                        <div
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            color: d.defectNote ? UI.text : UI.muted,
+                          }}
+                        >
+                          {d.defectNote || "—"}
+                        </div>
+                      </td>
+                      <td style={thtd}>{d.driverName || "—"}</td>
+                      <td style={{ ...thtd, textAlign: "center" }}>
+                        {d.photos?.length ? d.photos.length : 0}
+                      </td>
+                      <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
+                        <a
+                          href={CHECK_DETAIL_PATH(d.checkId)}
+                          style={{
+                            ...actionBtn("ghost"),
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          View check →
+                        </a>
+                        <span style={{ display: "inline-block", width: 8 }} />
+                        <button onClick={() => openApprove(d)} style={actionBtn("approve")}>
+                          Approve
+                        </button>
+                        <span style={{ display: "inline-block", width: 8 }} />
+                        <button onClick={() => openDecline(d)} style={actionBtn("decline")}>
+                          Decline
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setActionModal((m) => ({
-                          ...m,
-                          category: "general",
-                        }))
-                      }
-                      style={{
-                        ...actionBtn("#fff", "#111827"),
-                        borderColor:
-                          actionModal.category === "general"
-                            ? "#111827"
-                            : "#e5e7eb",
-                        boxShadow:
-                          actionModal.category === "general"
-                            ? "0 2px 6px rgba(2,6,23,0.12)"
-                            : "none",
-                      }}
-                      disabled={actionLoading}
-                    >
-                      General Maintenance
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setActionModal((m) => ({
-                          ...m,
-                          category: "immediate",
-                        }))
-                      }
-                      style={{
-                        ...actionBtn("#fff", "#111827"),
-                        borderColor:
-                          actionModal.category === "immediate"
-                            ? "#111827"
-                            : "#e5e7eb",
-                        boxShadow:
-                          actionModal.category === "immediate"
-                            ? "0 2px 6px rgba(2,6,23,0.12)"
-                            : "none",
-                      }}
-                      disabled={actionLoading}
-                    >
-                      Immediate Defects
-                    </button>
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: UI.subtext,
-                    }}
-                  >
-                    Pick <strong>Immediate</strong> for safety-critical issues;
-                    otherwise use <strong>General</strong>.
-                  </div>
-                </div>
-              )}
-
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: UI.subtext,
-                  marginBottom: 6,
-                }}
-              >
-                Resolution comment (optional)
-              </label>
-              <textarea
-                value={actionModal.comment}
-                onChange={(e) =>
-                  setActionModal((m) => ({
-                    ...m,
-                    comment: e.target.value,
-                  }))
-                }
-                rows={4}
-                placeholder="e.g., Minor scratch; safe to operate. Logged for bodyshop visit."
-                style={{
-                  width: "100%",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 8,
-                  padding: 10,
-                  fontSize: 13,
-                  marginBottom: 12,
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  onClick={() => setActionModal(null)}
-                  style={actionBtn("#fff", "#111827")}
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={performDecision}
-                  style={
-                    actionModal.decision === "approved"
-                      ? actionBtn("#ecfdf5", "#065f46")
-                      : actionBtn("#fef2f2", "#991b1b")
-                  }
-                  disabled={
-                    actionLoading ||
-                    (actionModal.decision === "approved" &&
-                      !actionModal.category)
-                  }
-                >
-                  {actionLoading
-                    ? "Saving…"
-                    : actionModal.decision === "approved"
-                    ? "Approve"
-                    : "Decline"}
-                </button>
+        {/* Usage chart */}
+        <section style={{ ...cardBase, marginTop: UI.gap }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Vehicle usage</h2>
+              <div style={hint}>
+                Counting days where note contains <b>“On Set”</b> or <b>“Shoot day”</b>.
               </div>
             </div>
-          )}
-        </main>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
+                style={btn("pill")}
+                onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+              >
+                ← Prev
+              </button>
+
+              <input
+                type="month"
+                value={usageMonthLabel}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split("-").map(Number);
+                  if (y && m) setUsageMonth(new Date(y, m - 1, 1));
+                }}
+                style={{ ...inputBase, width: 170, cursor: "pointer" }}
+              />
+
+              <button
+                type="button"
+                style={btn("pill")}
+                onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+              >
+                Next →
+              </button>
+
+              <span style={chipSoft}>{usageData.length} vehicles</span>
+            </div>
+          </div>
+
+          <div style={{ height: 320, marginTop: 10 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: UI.muted, fontSize: 12 }}
+                  axisLine={{ stroke: "#e5e7eb" }}
+                  tickLine={{ stroke: "#e5e7eb" }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fill: UI.muted, fontSize: 12 }}
+                  axisLine={{ stroke: "#e5e7eb" }}
+                  tickLine={{ stroke: "#e5e7eb" }}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                    fontSize: 12,
+                    color: UI.text,
+                  }}
+                  formatter={(value) => [`${Number(value || 0)} days`, "Usage"]}
+                />
+                <Bar dataKey="usage" fill={UI.brand} radius={[8, 8, 0, 0]}>
+                  <LabelList dataKey="usage" position="top" content={renderUsageLabel} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Calendar */}
+        <section style={{ ...cardBase, marginTop: UI.gap }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>MOT & service calendar</h2>
+              <div style={hint}>
+                Work bookings from <code>workBookings</code>.
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={chipSoft}>{calView}</span>
+              <button type="button" style={btn("ghost")} onClick={() => setCalDate(new Date())}>
+                Today
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...surface,
+              boxShadow: "none",
+              padding: 12,
+              borderRadius: 12,
+              height: "calc(100vh - 340px)",
+            }}
+          >
+            {mounted && (
+              <Calendar
+                localizer={localizer}
+                events={workBookings}
+                startAccessor="start"
+                endAccessor="end"
+                view={calView}
+                onView={(v) => setCalView(v)}
+                date={calDate}
+                onNavigate={(d) => setCalDate(d)}
+                views={["month", "week", "work_week", "day", "agenda"]}
+                popup
+                showMultiDayTimes
+                style={{ height: "100%" }}
+                dayPropGetter={() => ({
+                  style: { minHeight: "110px", borderRight: "1px solid #eef2f7" },
+                })}
+                eventPropGetter={() => ({
+                  style: {
+                    borderRadius: 10,
+                    border: "1px solid #bfdbfe",
+                    background: UI.brandSoft,
+                    color: UI.text,
+                    padding: 0,
+                    boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
+                  },
+                })}
+                components={{
+                  event: ({ event }) => (
+                    <div
+                      title={event.title}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        fontSize: 12.5,
+                        lineHeight: 1.3,
+                        fontWeight: 900,
+                        padding: 8,
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>Maintenance</span>
+                      <span style={{ color: UI.text }}>{event.title}</span>
+                      {event.allDay && (
+                        <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>All day</span>
+                      )}
+                    </div>
+                  ),
+                  toolbar: (props) => (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 8,
+                        gap: 10,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, color: UI.text }}>{props.label}</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <ToolbarBtn onClick={() => props.onNavigate("PREV")}>←</ToolbarBtn>
+                        <ToolbarBtn onClick={() => props.onNavigate("TODAY")}>Today</ToolbarBtn>
+                        <ToolbarBtn onClick={() => props.onNavigate("NEXT")}>→</ToolbarBtn>
+
+                        <ToolbarBtn active={props.view === "month"} onClick={() => props.onView("month")}>
+                          Month
+                        </ToolbarBtn>
+                        <ToolbarBtn active={props.view === "week"} onClick={() => props.onView("week")}>
+                          Week
+                        </ToolbarBtn>
+                        <ToolbarBtn active={props.view === "work_week"} onClick={() => props.onView("work_week")}>
+                          Work Week
+                        </ToolbarBtn>
+                        <ToolbarBtn active={props.view === "day"} onClick={() => props.onView("day")}>
+                          Day
+                        </ToolbarBtn>
+                        <ToolbarBtn active={props.view === "agenda"} onClick={() => props.onView("agenda")}>
+                          Agenda
+                        </ToolbarBtn>
+                      </div>
+                    </div>
+                  ),
+                }}
+                onSelectEvent={handleSelectEvent}
+              />
+            )}
+          </div>
+        </section>
+
+        {/* Event modal */}
+        {selectedEvent && (
+          <div style={modal}>
+            <h3 style={{ marginTop: 0, marginBottom: 8, fontWeight: 900, color: UI.text }}>
+              {selectedEvent.title}
+            </h3>
+            <p style={{ margin: 0, color: UI.muted, fontSize: 13 }}>
+              <strong style={{ color: UI.text }}>Start:</strong> {selectedEvent.start.toLocaleDateString()}
+            </p>
+            <p style={{ margin: "6px 0 12px", color: UI.muted, fontSize: 13 }}>
+              <strong style={{ color: UI.text }}>End:</strong> {selectedEvent.end.toLocaleDateString()}
+            </p>
+            <button onClick={() => setSelectedEvent(null)} style={btn("ghost")}>
+              Close
+            </button>
+          </div>
+        )}
+
+        {/* Decision modal */}
+        {actionModal && (
+          <div style={{ ...modal, top: 130 }}>
+            <h3 style={{ margin: "0 0 8px", fontWeight: 900, color: UI.text }}>
+              {actionModal.decision === "approved" ? "Approve defect" : "Decline defect"}
+            </h3>
+
+            <div style={{ fontSize: 13, color: UI.muted, marginBottom: 10, lineHeight: 1.45 }}>
+              <div>
+                <strong style={{ color: UI.text }}>Date:</strong> {actionModal.defect.dateISO}
+              </div>
+              <div>
+                <strong style={{ color: UI.text }}>Job:</strong>{" "}
+                {actionModal.defect.jobLabel || actionModal.defect.jobId}
+              </div>
+              <div>
+                <strong style={{ color: UI.text }}>Vehicle:</strong> {actionModal.defect.vehicle}
+              </div>
+              <div>
+                <strong style={{ color: UI.text }}>Item:</strong> #{actionModal.defect.defectIndex + 1} —{" "}
+                {actionModal.defect.itemLabel}
+              </div>
+
+              {actionModal.defect.defectNote ? (
+                <div style={{ marginTop: 10 }}>
+                  <strong style={{ color: UI.text }}>Note:</strong>
+                  <div
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      background: "#f8fafc",
+                      border: UI.border,
+                      borderRadius: 12,
+                      padding: 12,
+                      marginTop: 6,
+                      color: UI.text,
+                    }}
+                  >
+                    {actionModal.defect.defectNote}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {actionModal.decision === "approved" && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
+                  Route approved defect to:
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal((m) => ({ ...m, category: "general" }))}
+                    style={{
+                      ...btn("pill"),
+                      borderColor: actionModal.category === "general" ? "#bfdbfe" : "#d1d5db",
+                      background: actionModal.category === "general" ? UI.brandSoft : "#fff",
+                      color: actionModal.category === "general" ? UI.brand : UI.text,
+                    }}
+                    disabled={actionLoading}
+                  >
+                    General Maintenance
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActionModal((m) => ({ ...m, category: "immediate" }))}
+                    style={{
+                      ...btn("pill"),
+                      borderColor: actionModal.category === "immediate" ? "#bfdbfe" : "#d1d5db",
+                      background: actionModal.category === "immediate" ? UI.brandSoft : "#fff",
+                      color: actionModal.category === "immediate" ? UI.brand : UI.text,
+                    }}
+                    disabled={actionLoading}
+                  >
+                    Immediate Defects
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                  Pick <strong style={{ color: UI.text }}>Immediate</strong> for safety-critical issues; otherwise use{" "}
+                  <strong style={{ color: UI.text }}>General</strong>.
+                </div>
+              </div>
+            )}
+
+            <label style={{ display: "block", fontSize: 12, fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
+              Resolution comment (optional)
+            </label>
+            <textarea
+              value={actionModal.comment}
+              onChange={(e) => setActionModal((m) => ({ ...m, comment: e.target.value }))}
+              rows={4}
+              placeholder="e.g., Minor scratch; safe to operate. Logged for bodyshop visit."
+              style={{ ...inputBase, minHeight: 96, marginBottom: 12, resize: "vertical" }}
+            />
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setActionModal(null)} style={btn("ghost")} disabled={actionLoading}>
+                Cancel
+              </button>
+
+              <button
+                onClick={performDecision}
+                style={
+                  actionModal.decision === "approved"
+                    ? { ...btn("primary") }
+                    : { ...btn("primary"), background: UI.danger, borderColor: UI.danger }
+                }
+                disabled={actionLoading || (actionModal.decision === "approved" && !actionModal.category)}
+              >
+                {actionLoading ? "Saving…" : actionModal.decision === "approved" ? "Approve" : "Decline"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Tiny global polish for RBC */}
+      {/* Global polish for RBC to match your style */}
       <style jsx global>{`
         .rbc-today {
-          background: rgba(37, 99, 235, 0.08) !important;
+          background: rgba(29, 78, 216, 0.08) !important;
         }
         .rbc-off-range-bg {
-          background: #fafafa !important;
+          background: #f8fafc !important;
         }
         .rbc-month-view,
         .rbc-time-view,
         .rbc-agenda-view {
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
-            sans-serif;
+          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
         }
         .rbc-header {
           padding: 8px 6px;
-          font-weight: 800;
+          font-weight: 900;
           color: #0f172a;
           border-bottom: 1px solid #e5e7eb !important;
         }
@@ -1286,27 +1254,25 @@ export default function VehiclesHomePage() {
         .rbc-event {
           overflow: visible !important;
         }
+        .rbc-toolbar button {
+          border-radius: 999px !important;
+        }
       `}</style>
     </HeaderSidebarLayout>
   );
 }
 
-/* ───────── toolbar + tile ───────── */
+/* ───────── toolbar + tiles ───────── */
 function ToolbarBtn({ children, onClick, active }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       style={{
-        appearance: "none",
-        border: "1px solid #e5e7eb",
-        background: active ? "#111827" : "#ffffff",
-        color: active ? "#ffffff" : "#111827",
-        padding: "6px 10px",
-        borderRadius: 8,
-        fontSize: 13,
-        fontWeight: 800,
-        cursor: "pointer",
-        boxShadow: active ? "0 2px 6px rgba(2,6,23,0.12)" : "none",
+        ...btn("pill"),
+        borderColor: active ? "#bfdbfe" : "#d1d5db",
+        background: active ? UI.brandSoft : "#fff",
+        color: active ? UI.brand : UI.text,
       }}
       onMouseEnter={(e) => {
         if (!active) e.currentTarget.style.background = "#f8fafc";
@@ -1320,51 +1286,87 @@ function ToolbarBtn({ children, onClick, active }) {
   );
 }
 
+function Tile({ title, description, onClick, rightBadges = [] }) {
+  return (
+    <div
+      style={cardBase}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
+      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+      onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>{title}</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {rightBadges.map((b, idx) => {
+            const tone = b.tone || "soft";
+            const s =
+              tone === "danger"
+                ? badge("#fef2f2", "#991b1b")
+                : tone === "amber"
+                ? badge("#fff7ed", "#9a3412")
+                : badge(UI.brandSoft, UI.brand);
+            return (
+              <span key={idx} style={s}>
+                {b.label}
+              </span>
+            );
+          })}
+
+        </div>
+      </div>
+
+      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{description}</div>
+      <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>
+    </div>
+  );
+}
+
 function VehicleCheckTile({ onClick }) {
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      aria-label="Open Vehicle Check"
-      style={{
-        ...card,
-        width: "100%",
-        textAlign: "left",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        cursor: "pointer",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = UI.shadowMd;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0px)";
-        e.currentTarget.style.boxShadow = UI.shadowSm;
-      }}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
+      style={cardBase}
+      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
+      onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 6,
-          border: "2px solid #111827",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 14,
-          fontWeight: 900,
-          lineHeight: 1,
-          userSelect: "none",
-        }}
-      >
-        ✓
-      </span>
-      <div>
-        <h2 style={{ ...cardTitle, marginBottom: 2 }}>Vehicle Check</h2>
-        <p style={cardDesc}>Open today’s pre-use vehicle check form.</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 10,
+            border: "2px solid #bfdbfe",
+            background: UI.brandSoft,
+            color: UI.brand,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            fontWeight: 900,
+            lineHeight: 1,
+            userSelect: "none",
+          }}
+        >
+          ✓
+        </span>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 900, fontSize: 16, color: UI.text, marginBottom: 2 }}>
+            Vehicle Check
+          </div>
+          <div style={{ color: UI.muted, fontSize: 13 }}>Open today’s pre-use vehicle check form.</div>
+        </div>
+
       </div>
-    </button>
+
+      <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>
+    </div>
   );
 }

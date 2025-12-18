@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
@@ -7,7 +8,7 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -32,21 +33,53 @@ export default function LoginPage() {
     return regex.test(password);
   };
 
+  // ✅ Safe upsert: never overwrites existing mfaSecret unless you explicitly set it elsewhere
+  const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    const baseIfNew = snap.exists()
+      ? {}
+      : {
+          createdAt: serverTimestamp(),
+          isEnabled: true,
+          role: "user",
+          mfaSecret: null, // default for new users only
+        };
+
+    await setDoc(
+      ref,
+      {
+        ...baseIfNew,
+        uid: user.uid,
+        email: (user.email || "").toLowerCase(),
+        name: snap.exists() ? (snap.data()?.name || fullName || "") : (fullName || ""),
+        phone: snap.exists() ? (snap.data()?.phone || phoneNumber || "") : (phoneNumber || ""),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return ref;
+  };
+
   // ✅ Handle Login / Signup
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
+      const cleanEmail = (email || "").trim().toLowerCase();
+
       // 🚨 Restrict to company emails only
-      if (!email.endsWith("@bickers.co.uk")) {
+      if (!cleanEmail.endsWith("@bickers.co.uk")) {
         setError("Only @bickers.co.uk emails are allowed.");
         return;
       }
 
       if (isLogin) {
         // LOGIN
-        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
         const user = cred.user;
 
         if (!user.emailVerified) {
@@ -54,8 +87,10 @@ export default function LoginPage() {
           return;
         }
 
+        // ✅ Make sure the UID user doc exists + updatedAt is refreshed (won't wipe mfaSecret)
+        const ref = await upsertUserDoc(user);
+
         // ✅ Fetch MFA secret
-        const ref = doc(db, "users", user.uid);
         const snap = await getDoc(ref);
 
         if (!snap.exists() || !snap.data().mfaSecret) {
@@ -84,20 +119,13 @@ export default function LoginPage() {
 
         const userCredential = await createUserWithEmailAndPassword(
           auth,
-          email,
+          cleanEmail,
           password
         );
         const user = userCredential.user;
 
-        // ✅ Save user details in Firestore
-        await setDoc(doc(db, "users", user.uid), {
-          name,
-          phone,
-          email: user.email,
-          role: "user",
-          createdAt: new Date(),
-          mfaSecret: null,
-        });
+        // ✅ Create/merge user doc using UID as docId (prevents duplicates forever)
+        await upsertUserDoc(user, { name, phone });
 
         // ✅ Send verification
         await sendEmailVerification(user);
@@ -105,7 +133,7 @@ export default function LoginPage() {
         setIsLogin(true);
       }
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || "Login error");
     }
   };
 
@@ -136,13 +164,10 @@ export default function LoginPage() {
                 {isLogin ? "Welcome back" : "Create your account"}
               </h1>
               <p style={styles.subtitle}>
-                {isLogin
-                  ? "Please enter your details"
-                  : "Fill in your details to sign up"}
+                {isLogin ? "Please enter your details" : "Fill in your details to sign up"}
               </p>
 
               <form onSubmit={handleSubmit}>
-                {/* Extra fields only for signup */}
                 {!isLogin && (
                   <>
                     <label style={styles.label}>Full Name</label>

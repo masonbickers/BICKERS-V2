@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
-import { addDoc, collection, getDocs } from "firebase/firestore";
+import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -17,11 +17,29 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const [startDate, setStartDate] = useState(defaultDate || ""); // yyyy-mm-dd
   const [endDate, setEndDate] = useState(defaultDate || ""); // yyyy-mm-dd
 
+  // ✅ Half-day support (matches your HR page parser)
+  const [startHalfDay, setStartHalfDay] = useState(false);
+  const [startAMPM, setStartAMPM] = useState("AM");
+  const [endHalfDay, setEndHalfDay] = useState(false);
+  const [endAMPM, setEndAMPM] = useState("PM");
+
   const [holidayReason, setHolidayReason] = useState("");
   const [paidStatus, setPaidStatus] = useState("Paid");
 
   const [employees, setEmployees] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  /* ---------------- helpers ---------------- */
+  const ymdToDate = (ymd) => {
+    if (!ymd) return null;
+    const [y, m, d] = String(ymd).split("-").map((x) => Number(x));
+    if (!y || !m || !d) return null;
+    const dt = new Date(y, m - 1, d);
+    return Number.isNaN(+dt) ? null : dt;
+  };
+
+  const sameYMD = (a, b) =>
+    a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
   /* ---------------- Fetch employees ---------------- */
   useEffect(() => {
@@ -43,6 +61,15 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     if (typeof onClose === "function") return onClose();
     router.push("/dashboard");
   };
+
+  // If single-day, keep end half settings aligned with start (so HR renders consistently)
+  useEffect(() => {
+    if (!isMultiDay) {
+      setEndHalfDay(startHalfDay);
+      setEndAMPM(startAMPM);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiDay, startHalfDay, startAMPM]);
 
   const canSubmit = useMemo(() => {
     if (saving) return false;
@@ -92,14 +119,37 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         finalEnd = holidayDate;
       }
 
-      await addDoc(collection(db, "holidays"), {
+      // ✅ store as Date objects so your HR page breakdown works
+      const startAsDate = ymdToDate(finalStart);
+      const endAsDate = ymdToDate(finalEnd);
+
+      // ✅ if single-day, only allow one half-day flag (we store it as startHalfDay/startAMPM)
+      const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
+
+      // Optional validation: if user sets end half day but no end date, etc.
+      // (kept simple & safe)
+      const payload = {
         employee,
-        startDate: finalStart,
-        endDate: finalEnd,
+
+        startDate: startAsDate,
+        endDate: endAsDate,
+
+        // ✅ Half-day fields your HR page already supports
+        startHalfDay: !!startHalfDay,
+        startAMPM: startHalfDay ? startAMPM : null,
+        endHalfDay: single ? false : !!endHalfDay,
+        endAMPM: single ? null : endHalfDay ? endAMPM : null,
+
         holidayReason: holidayReason.trim(),
         paidStatus,
-        createdAt: new Date(),
-      });
+
+        // ✅ important for your HR pending filter
+        status: "requested",
+
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "holidays"), payload);
 
       if (typeof onSaved === "function") onSaved();
       if (typeof onClose === "function") onClose();
@@ -117,7 +167,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         {/* Header */}
         <div style={headerRow}>
           <h2 style={modalTitle}>Add Holiday</h2>
-          <button onClick={handleBack} style={closeBtn} aria-label="Close">
+          <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
             ✕
           </button>
         </div>
@@ -126,12 +176,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           {/* Employee */}
           <div>
             <label style={label}>Employee</label>
-            <select
-              value={employee}
-              onChange={(e) => setEmployee(e.target.value)}
-              style={input}
-              required
-            >
+            <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input} required>
               <option value="">Select employee…</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.name}>
@@ -170,27 +215,102 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             <>
               <div>
                 <label style={label}>Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                  style={input}
-                />
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={input} />
               </div>
 
               <div>
                 <label style={label}>End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                  style={input}
-                />
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={input} />
               </div>
             </>
           )}
+
+          {/* ✅ Half day controls */}
+          <div style={halfWrap}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>Half day</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+                  {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
+                </div>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={startHalfDay}
+                  onChange={(e) => setStartHalfDay(e.target.checked)}
+                />
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
+                  {isMultiDay ? "Start half" : "Half day"}
+                </span>
+              </label>
+            </div>
+
+            {startHalfDay ? (
+              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                <div>
+                  <label style={label}>Start AM / PM</label>
+                  <select value={startAMPM} onChange={(e) => setStartAMPM(e.target.value)} style={input}>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+
+                {isMultiDay ? (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                      <label style={{ ...label, marginBottom: 0 }}>End half day</label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={endHalfDay}
+                          onChange={(e) => setEndHalfDay(e.target.checked)}
+                        />
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                      </label>
+                    </div>
+
+                    {endHalfDay ? (
+                      <div style={{ marginTop: 8 }}>
+                        <label style={label}>End AM / PM</label>
+                        <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
+                          <option value="AM">AM</option>
+                          <option value="PM">PM</option>
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              // still allow end half for multi-day even if startHalf isn't ticked
+              isMultiDay ? (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <label style={{ ...label, marginBottom: 0 }}>End half day</label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={endHalfDay}
+                        onChange={(e) => setEndHalfDay(e.target.checked)}
+                      />
+                      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                    </label>
+                  </div>
+
+                  {endHalfDay ? (
+                    <div style={{ marginTop: 8 }}>
+                      <label style={label}>End AM / PM</label>
+                      <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null
+            )}
+          </div>
 
           {/* Reason */}
           <div>
@@ -253,8 +373,7 @@ const modal = {
   borderRadius: 16,
   padding: 18,
   color: "#fff",
-  background:
-    "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
+  background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
   backdropFilter: "blur(10px)",
@@ -303,6 +422,13 @@ const input = {
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
+};
+
+const halfWrap = {
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.08)",
+  borderRadius: 12,
+  padding: 12,
 };
 
 const globalOptionCSS = `

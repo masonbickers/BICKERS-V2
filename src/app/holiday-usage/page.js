@@ -15,8 +15,9 @@ import getDay from "date-fns/getDay";
 import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// ✅ overlay form
+// ✅ overlay forms
 import HolidayForm from "@/app/components/holidayform";
+import EditHolidayForm from "@/app/components/EditHolidayForm";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -370,8 +371,9 @@ export default function HolidayUsagePage() {
 
   const DEFAULT_ALLOWANCE = 11;
 
-  // ✅ modal overlay
+  // ✅ modal overlays
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
+  const [editHolidayId, setEditHolidayId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   // ✅ Year is *selectable* and drives allowances + holiday filtering
@@ -672,7 +674,7 @@ export default function HolidayUsagePage() {
               </option>
             </select>
 
-            {/* ✅ opens overlay */}
+            {/* opens overlay */}
             <button type="button" onClick={() => setHolidayModalOpen(true)} style={btn()}>
               + Add Holiday
             </button>
@@ -707,7 +709,14 @@ export default function HolidayUsagePage() {
                   Paid leave is per-employee colour. Unpaid leave is red.
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                }}
+              >
                 <LegendSwatch color="#fee2e2" label="Unpaid" />
                 <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
               </div>
@@ -1053,13 +1062,11 @@ export default function HolidayUsagePage() {
                               </div>
                             </td>
                             <td style={td}>
+                              {/* ✅ now opens overlay instead of routing */}
                               <button
                                 style={btn("ghost")}
                                 type="button"
-                                onClick={() => {
-                                  sessionStorage.setItem("dashboardScroll", window.scrollY.toString());
-                                  router.push(`/edit-holiday/${row.id}`);
-                                }}
+                                onClick={() => setEditHolidayId(row.id)}
                               >
                                 Edit →
                               </button>
@@ -1098,7 +1105,7 @@ export default function HolidayUsagePage() {
         </Drawer>
       </div>
 
-      {/* ✅ Holiday overlay (renders over page) */}
+      {/* ✅ Add Holiday overlay */}
       {holidayModalOpen && (
         <div
           style={{
@@ -1129,11 +1136,23 @@ export default function HolidayUsagePage() {
               onClose={() => setHolidayModalOpen(false)}
               onSaved={() => {
                 setHolidayModalOpen(false);
-                setReloadKey((k) => k + 1); // ✅ reload holidays + KPIs
+                setReloadKey((k) => k + 1);
               }}
             />
           </div>
         </div>
+      )}
+
+      {/* ✅ Edit Holiday overlay (opened from Edit → button) */}
+      {editHolidayId && (
+        <EditHolidayForm
+          holidayId={editHolidayId}
+          onClose={() => setEditHolidayId(null)}
+          onSaved={() => {
+            setEditHolidayId(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
       )}
     </HeaderSidebarLayout>
   );
