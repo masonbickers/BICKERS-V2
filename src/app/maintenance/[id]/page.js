@@ -194,6 +194,18 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
   return out;
 };
 
+// ✅ checks if a YMD list is fully consecutive day-by-day
+const isConsecutiveYMDList = (dates = []) => {
+  if (!Array.isArray(dates) || dates.length <= 1) return true;
+  const sorted = dates.slice().sort();
+  const expected = enumerateDaysYMD_UTC(sorted[0], sorted[sorted.length - 1]);
+  if (expected.length !== sorted.length) return false;
+  for (let i = 0; i < expected.length; i++) {
+    if (expected[i] !== sorted[i]) return false;
+  }
+  return true;
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
    Travel helpers (same as booking page)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -245,6 +257,7 @@ export default function MaintenanceFormPage() {
   const [loading, setLoading] = useState(!isNew);
 
   const [jobNumber, setJobNumber] = useState("");
+  const [jobUnlocked, setJobUnlocked] = useState(false); // ✅ unlock toggle
   const [maintenanceType, setMaintenanceType] = useState("Service");
   const [maintenanceTypeOther, setMaintenanceTypeOther] = useState("");
 
@@ -310,6 +323,11 @@ export default function MaintenanceFormPage() {
   // core validation
   const coreFilled = Boolean((location || "").trim());
   const saveTooltip = !coreFilled ? "Fill Location to save" : "";
+
+  // ✅ default unlock behaviour: only unlocked on NEW
+  useEffect(() => {
+    setJobUnlocked(isNew);
+  }, [isNew]);
 
   /* ────────────────────────────────────────────────────────────────────────────
      Derived: selectedDates (same approach as booking page)
@@ -419,6 +437,7 @@ export default function MaintenanceFormPage() {
 
   /* ────────────────────────────────────────────────────────────────────────────
      Load existing doc (on EDIT)
+     ✅ Fixes non-consecutive hydration: decide from bookingDates continuity
   ───────────────────────────────────────────────────────────────────────────── */
   useEffect(() => {
     if (isNew) return;
@@ -447,30 +466,53 @@ export default function MaintenanceFormPage() {
         setNotesByDate(d.notesByDate || {});
         setQuoteUrl(d.quoteUrl || null);
 
-        // hydrate date mode from saved data
+        // ✅ HYDRATE DATE MODE (correctly handles non-consecutive)
         if (Array.isArray(d.bookingDates) && d.bookingDates.length) {
-          // if non-consecutive, store as custom dates
-          // (simple heuristic: if start/end exists and matches consecutive, we keep range; else custom)
-          const s = (d.startDate || "").slice(0, 10);
-          const e = (d.endDate || "").slice(0, 10);
+          const sortedDates = d.bookingDates.slice().sort();
+          const consecutive = isConsecutiveYMDList(sortedDates);
 
-          if (s && e) {
-            setUseCustomDates(false);
-            setIsRange(true);
-            setStartDate(s);
-            setEndDate(e);
-          } else if (d.date) {
-            setUseCustomDates(false);
-            setIsRange(false);
-            setStartDate(String(d.date).slice(0, 10));
-          } else {
-            // fall back to custom
+          if (!consecutive) {
             setUseCustomDates(true);
-            setCustomDates(d.bookingDates.slice().sort());
+            setCustomDates(sortedDates);
             setIsRange(false);
             setStartDate("");
             setEndDate("");
+          } else {
+            if (sortedDates.length === 1) {
+              setUseCustomDates(false);
+              setIsRange(false);
+              setStartDate(sortedDates[0]);
+              setEndDate("");
+            } else {
+              setUseCustomDates(false);
+              setIsRange(true);
+              setStartDate(sortedDates[0]);
+              setEndDate(sortedDates[sortedDates.length - 1]);
+            }
+            setCustomDates([]);
           }
+        } else if (d.startDate && d.endDate) {
+          const s = String(d.startDate).slice(0, 10);
+          const e = String(d.endDate).slice(0, 10);
+          setUseCustomDates(false);
+          setIsRange(true);
+          setStartDate(s);
+          setEndDate(e);
+          setCustomDates([]);
+        } else if (d.date) {
+          const one = String(d.date).slice(0, 10);
+          setUseCustomDates(false);
+          setIsRange(false);
+          setStartDate(one);
+          setEndDate("");
+          setCustomDates([]);
+        } else {
+          // nothing saved
+          setUseCustomDates(false);
+          setIsRange(false);
+          setStartDate("");
+          setEndDate("");
+          setCustomDates([]);
         }
 
         setLoading(false);
@@ -493,7 +535,7 @@ export default function MaintenanceFormPage() {
       return;
     }
 
-    // Dates validation (keep same behaviour as booking: require dates unless you want to allow blank)
+    // Dates validation (keep same behaviour as booking: require dates)
     if (!useCustomDates) {
       if (!startDate) return alert("Please select a start date.");
       if (isRange && !endDate) return alert("Please select an end date.");
@@ -501,7 +543,7 @@ export default function MaintenanceFormPage() {
       if (customDates.length === 0) return alert("Please select at least one date.");
     }
 
-    // Filter notesByDate to only selectedDates (same idea as booking page)
+    // Filter notesByDate to only selectedDates
     const filteredNotesByDate = {};
     selectedDates.forEach((d) => {
       filteredNotesByDate[d] = notesByDate[d] || "";
@@ -511,7 +553,7 @@ export default function MaintenanceFormPage() {
         filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
     });
 
-    // Upload PDF (PDF only) — same guard style
+    // Upload PDF (PDF only)
     let quoteUrlToSave = quoteUrl || null;
 
     if (quoteFile) {
@@ -664,9 +706,29 @@ export default function MaintenanceFormPage() {
                 <h3 style={cardTitle}>Maintenance Info</h3>
 
                 <label style={field.label}>Job Number</label>
-                <input value={jobNumber} disabled style={field.input} />
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <input
+                    value={jobNumber}
+                    onChange={(e) => setJobNumber(e.target.value)}
+                    disabled={!jobUnlocked}
+                    style={{
+                      ...field.input,
+                      flex: 1,
+                      opacity: jobUnlocked ? 1 : 0.7,
+                      cursor: jobUnlocked ? "text" : "not-allowed",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setJobUnlocked((v) => !v)}
+                    style={btnGhost}
+                    title={jobUnlocked ? "Lock job number" : "Unlock job number"}
+                  >
+                    {jobUnlocked ? "Lock" : "Unlock"}
+                  </button>
+                </div>
 
-                <label style={field.label}>Maintenance Type</label>
+                <label style={{ ...field.label, marginTop: 12 }}>Maintenance Type</label>
                 <select
                   value={maintenanceType}
                   onChange={(e) => setMaintenanceType(e.target.value)}
@@ -721,14 +783,24 @@ export default function MaintenanceFormPage() {
                     checked={useCustomDates}
                     onChange={(e) => {
                       const on = e.target.checked;
-                      setUseCustomDates(on);
+
                       if (on) {
+                        // ✅ seed custom dates from current selection (nice UX)
+                        const seed = selectedDates?.length ? selectedDates.slice() : [];
+                        setCustomDates(seed);
                         setIsRange(false);
                         setStartDate("");
                         setEndDate("");
                       } else {
+                        // turning off custom -> start from first selected date (if any)
+                        const first = (customDates?.[0] || "").slice(0, 10);
+                        setStartDate(first || "");
+                        setEndDate("");
+                        setIsRange(false);
                         setCustomDates([]);
                       }
+
+                      setUseCustomDates(on);
                     }}
                   />
                   Select non-consecutive dates

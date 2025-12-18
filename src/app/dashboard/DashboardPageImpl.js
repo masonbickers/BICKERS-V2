@@ -296,18 +296,58 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   });
 
   // maintenance bookings → full events
-  const maintenanceEvents = (maintenanceBookings || [])
-    .map((m) => {
-      const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
-      if (!startBase) return null;
+// maintenance bookings → full events
+const maintenanceEvents = (maintenanceBookings || [])
+  .flatMap((m) => {
+    const dates = Array.isArray(m.bookingDates) ? m.bookingDates.slice().sort() : [];
 
-      const endRaw = m.endDate || m.end || m.date || m.startDate || m.start || m.startDay;
-      const endBase = parseLocalDate(endRaw);
-      const safeEnd = endBase && endBase >= startBase ? endBase : startBase;
+    // ✅ If bookingDates exists, create one all-day event per selected day
+    if (dates.length) {
+      return dates
+        .map((ymd) => {
+          const startBase = parseLocalDate(ymd);
+          if (!startBase) return null;
 
-      return {
+          return {
+            ...m,
+            __collection: "maintenanceBookings",
+            __parentId: m.id,       // ✅ link back to true doc id
+            __occurrence: ymd,      // optional: which day this is
+            id: `${m.id}__${ymd}`,  // ✅ unique per-day id for calendar rendering
+
+            jobNumber: m.jobNumber ?? "",
+            title: m.jobNumber || m.title || "Maintenance",
+            maintenanceType: m.maintenanceType || "",
+            maintenanceTypeOther: m.maintenanceTypeOther || "",
+            maintenanceTypeLabel:
+              m.maintenanceTypeLabel ||
+              (m.maintenanceType === "Other"
+                ? m.maintenanceTypeOther || "Other"
+                : m.maintenanceType || "Maintenance"),
+
+            start: startOfLocalDay(startBase),
+            end: startOfLocalDay(addDays(startBase, 1)),
+            allDay: true,
+            status: "Maintenance",
+          };
+        })
+        .filter(Boolean);
+    }
+
+    // ✅ Fallback for older docs that don’t have bookingDates
+    const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
+    if (!startBase) return [];
+
+    const endRaw = m.endDate || m.end || m.date || m.startDate || m.start || m.startDay;
+    const endBase = parseLocalDate(endRaw);
+    const safeEnd = endBase && endBase >= startBase ? endBase : startBase;
+
+    return [
+      {
         ...m,
         __collection: "maintenanceBookings",
+        __parentId: m.id,
+        id: m.id,
         jobNumber: m.jobNumber ?? "",
         title: m.jobNumber || m.title || m.vehicleName || "Maintenance",
         maintenanceType: m.maintenanceType || "",
@@ -321,9 +361,10 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
         end: startOfLocalDay(addDays(safeEnd, 1)),
         allDay: true,
         status: "Maintenance",
-      };
-    })
-    .filter(Boolean);
+      },
+    ];
+  });
+
 
   const all = [...bookingEvents, ...maintenanceEvents];
 
@@ -475,7 +516,7 @@ function CalendarEvent({ event }) {
                       ? "purple"
                       : event.shootType === "Day"
                       ? "white"
-                      : "#4caf50",
+                      : "#ffffffff",
                   color: event.shootType === "Night" ? "#fff" : "#000",
                   padding: "2px 4px",
                   borderRadius: 6,
@@ -1617,11 +1658,12 @@ export default function DashboardPage({ bookingSaved }) {
               nowIndicator={false}
               getNow={() => new Date(2000, 0, 1)}
               components={{ event: CalendarEvent }}
-              onSelectEvent={(e) => {
-                if (!e?.id) return;
-                const col = e.__collection || (e.status === "Maintenance" ? "maintenanceBookings" : "bookings");
-                setSelectedMaintenance({ id: e.id, collection: col });
-              }}
+onSelectEvent={(e) => {
+  if (!e) return;
+  const realId = e.__parentId || e.id; // ✅ convert abc__2025-12-18 back to abc
+  setSelectedMaintenance({ id: realId, collection: "maintenanceBookings" });
+}}
+
               eventPropGetter={() => ({
                 style: {
                   backgroundColor: "#da8e58ff",
