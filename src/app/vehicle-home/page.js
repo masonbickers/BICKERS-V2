@@ -233,6 +233,7 @@ const actionBtn = (kind = "ghost") => {
 /* ───────────────── Date helpers ───────────────── */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
 
+// ✅ Parse YYYY-MM-DD as LOCAL (avoids UTC date shift)
 const parseLocalDateOnly = (s) => {
   if (!s) return null;
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -260,6 +261,15 @@ const daysInRange = (from, to) => {
   const out = [];
   for (let d = a; d <= b; d.setDate(d.getDate() + 1)) out.push(dateKey(d));
   return out;
+};
+
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const daysUntil = (d) => {
+  if (!d) return null;
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
 };
 
 /* Notes helpers for Usage chart */
@@ -365,6 +375,34 @@ function extractPendingDefects(checkDocs) {
   return out;
 }
 
+/* ───────────────── Calendar event helpers ───────────────── */
+const dueDateFromVehicleField = (raw) => {
+  // vehicle dates can be Firestore Timestamp OR "YYYY-MM-DD" string OR full ISO
+  return parseLocalDateOnly(raw) || toDate(raw);
+};
+
+const buildDueEvent = ({ vehicleId, label, kind, due }) => {
+  if (!due) return null;
+  const start = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  return {
+    title: `${label} • ${kind} due`,
+    start,
+    end: addDays(start, 1), // RBC exclusive end for all-day
+    allDay: true,
+    kind, // "MOT" | "SERVICE" | "MAINTENANCE"
+    vehicleId,
+    dueDate: start,
+  };
+};
+
+const dueTone = (dueDate) => {
+  const diff = daysUntil(dueDate);
+  if (diff == null) return "soft";
+  if (diff < 0) return "overdue";
+  if (diff <= 21) return "soon";
+  return "ok";
+};
+
 /* ───────────────── Component ───────────────── */
 export default function VehiclesHomePage() {
   const router = useRouter();
@@ -374,9 +412,13 @@ export default function VehiclesHomePage() {
   const [calDate, setCalDate] = useState(new Date());
 
   const [mounted, setMounted] = useState(false);
-  const [workBookings, setWorkBookings] = useState([]);
+  const [workBookings, setWorkBookings] = useState([]); // maintenance bookings from workBookings
   const [usageData, setUsageData] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // Vehicles (for due-date events + labels + counts)
+  const [vehiclesRaw, setVehiclesRaw] = useState([]);
+  const [vehicleNameMap, setVehicleNameMap] = useState({});
 
   // Counters
   const [motCounts, setMotCounts] = useState({ overdue: 0, soon: 0, ok: 0, total: 0 });
@@ -388,9 +430,6 @@ export default function VehiclesHomePage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
-  // Vehicle ID → label map
-  const [vehicleNameMap, setVehicleNameMap] = useState({});
-
   // Defect queue state
   const [checkDocs, setCheckDocs] = useState([]);
   const [pendingDefects, setPendingDefects] = useState([]);
@@ -399,75 +438,59 @@ export default function VehiclesHomePage() {
 
   useEffect(() => setMounted(true), []);
 
-  /* ───────── Load all vehicles for name lookups ───────── */
+  /* ───────── Load all vehicles ONCE for name + due date lookups ───────── */
   useEffect(() => {
     const fetchVehicles = async () => {
       const snap = await getDocs(collection(db, "vehicles"));
+      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+
       const map = {};
-      snap.forEach((d) => {
-        const data = d.data() || {};
+      for (const v of list) {
         const label = buildVehicleLabelFromObject({
-          name:
-            data.name ||
-            data.vehicleName ||
-            data.displayName ||
-            data.model ||
-            "",
-          registration:
-            data.registration ||
-            data.reg ||
-            data.regNumber ||
-            data.regNo ||
-            "",
+          name: v.name || v.vehicleName || v.displayName || v.model || "",
+          registration: v.registration || v.reg || v.regNumber || v.regNo || "",
         });
-        map[d.id] = label || d.id;
-      });
+        map[v.id] = label || v.id;
+      }
+
+      setVehiclesRaw(list);
       setVehicleNameMap(map);
     };
     fetchVehicles();
   }, []);
 
-  /* ───────── MOT + Service counters (FIXED field names) ─────────
-     Uses vehicles.nextMOT and vehicles.nextService (Timestamp or ISO)
-     and calculates overdue / due soon (≤21 days) / ok.
-  */
+  /* ───────── MOT + Service counters (uses vehiclesRaw) ───────── */
   useEffect(() => {
-    const fetchVehicleMaintenance = async () => {
-      const snapshot = await getDocs(collection(db, "vehicles"));
-      const vehicles = snapshot.docs.map((d) => d.data() || {});
-      const today = new Date();
-      const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-      const calcCounts = (dateValueList) => {
-        let overdue = 0;
-        let soon = 0;
-        let ok = 0;
-        let total = 0;
+    const calcCounts = (dateValueList) => {
+      let overdue = 0;
+      let soon = 0;
+      let ok = 0;
+      let total = 0;
 
-        dateValueList.forEach((raw) => {
-          const dt = toDate(raw);
-          if (!dt || isNaN(dt.getTime())) return;
+      dateValueList.forEach((raw) => {
+        const dt = dueDateFromVehicleField(raw);
+        if (!dt || isNaN(dt.getTime())) return;
 
-          const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-          const diffDays = Math.floor((d - todayMidnight) / (1000 * 60 * 60 * 24));
+        const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+        const diffDays = Math.floor((d - todayMidnight) / (1000 * 60 * 60 * 24));
 
-          total += 1;
-          if (diffDays < 0) overdue += 1;
-          else if (diffDays <= 21) soon += 1;
-          else ok += 1;
-        });
+        total += 1;
+        if (diffDays < 0) overdue += 1;
+        else if (diffDays <= 21) soon += 1;
+        else ok += 1;
+      });
 
-        return { overdue, soon, ok, total };
-      };
-
-      setMotCounts(calcCounts(vehicles.map((v) => v.nextMOT ?? v.motDate ?? v.motDue)));
-      setServiceCounts(calcCounts(vehicles.map((v) => v.nextService ?? v.serviceDate ?? v.serviceDue)));
+      return { overdue, soon, ok, total };
     };
 
-    fetchVehicleMaintenance();
-  }, []);
+    setMotCounts(calcCounts(vehiclesRaw.map((v) => v.nextMOT ?? v.motDate ?? v.motDue)));
+    setServiceCounts(calcCounts(vehiclesRaw.map((v) => v.nextService ?? v.serviceDate ?? v.serviceDue)));
+  }, [vehiclesRaw]);
 
-  /* ───────── Usage histogram (now with proper names) ───────── */
+  /* ───────── Usage histogram (vehicle usage from bookings) ───────── */
   useEffect(() => {
     const fetchUsage = async () => {
       const { monthStart, monthEnd } = monthRange(usageMonth);
@@ -543,7 +566,7 @@ export default function VehiclesHomePage() {
     fetchUsage();
   }, [usageMonth, vehicleNameMap]);
 
-  // Calendar events (MOT & service) from workBookings
+  /* ───────── Calendar events: maintenance bookings from workBookings ───────── */
   useEffect(() => {
     const fetchMaintenanceEvents = async () => {
       const snapshot = await getDocs(collection(db, "workBookings"));
@@ -554,11 +577,16 @@ export default function VehiclesHomePage() {
           const end = toDate(data.endDate || data.startDate);
           if (!start || !end) return null;
 
+          const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
           return {
             title: `${data.vehicleName || "Vehicle"} - ${data.maintenanceType || "Maintenance"}`,
-            start,
-            end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
+            start: s,
+            end: addDays(e, 1),
             allDay: true,
+            kind: "MAINTENANCE",
+            vehicleId: data.vehicleId || null,
           };
         })
         .filter(Boolean);
@@ -568,6 +596,33 @@ export default function VehiclesHomePage() {
 
     fetchMaintenanceEvents();
   }, []);
+
+  /* ───────── Build MOT + Service due-date events from vehicles collection ───────── */
+  const motServiceEvents = useMemo(() => {
+    if (!vehiclesRaw.length) return [];
+    const events = [];
+
+    for (const v of vehiclesRaw) {
+      const label = vehicleNameMap[v.id] || buildVehicleLabelFromObject(v) || v.id;
+
+      const motDue = dueDateFromVehicleField(v.nextMOT ?? v.motDate ?? v.motDue);
+      const svcDue = dueDateFromVehicleField(v.nextService ?? v.serviceDate ?? v.serviceDue);
+
+      const motEv = buildDueEvent({ vehicleId: v.id, label, kind: "MOT", due: motDue });
+      const svcEv = buildDueEvent({ vehicleId: v.id, label, kind: "SERVICE", due: svcDue });
+
+      if (motEv) events.push(motEv);
+      if (svcEv) events.push(svcEv);
+    }
+
+    return events;
+  }, [vehiclesRaw, vehicleNameMap]);
+
+  /* ───────── Combined calendar events ───────── */
+  const calendarEvents = useMemo(() => {
+    // Merge maintenance bookings + due events
+    return [...(workBookings || []), ...(motServiceEvents || [])];
+  }, [workBookings, motServiceEvents]);
 
   // Load submitted checks (for defects queue)
   useEffect(() => {
@@ -645,7 +700,14 @@ export default function VehiclesHomePage() {
     }
   };
 
-  const handleSelectEvent = (event) => setSelectedEvent(event);
+  const handleSelectEvent = (event) => {
+    // If it's a due-date event and we have a vehicleId, open the vehicle edit directly
+    if (event?.vehicleId && (event.kind === "MOT" || event.kind === "SERVICE")) {
+      router.push(`/vehicle-edit/${encodeURIComponent(event.vehicleId)}`);
+      return;
+    }
+    setSelectedEvent(event);
+  };
 
   const usageMonthLabel = `${usageMonth.getFullYear()}-${String(
     usageMonth.getMonth() + 1
@@ -735,6 +797,56 @@ export default function VehiclesHomePage() {
     ],
     [motCounts, serviceCounts]
   );
+
+  const eventPropGetter = (event) => {
+    const kind = event?.kind || "MAINTENANCE";
+
+    // Base palettes per kind
+    let baseBg = UI.brandSoft;
+    let baseBorder = "#bfdbfe";
+    let baseText = UI.text;
+
+    if (kind === "MOT") {
+      baseBg = "#fff7ed";
+      baseBorder = "#fed7aa";
+      baseText = "#7c2d12";
+    }
+    if (kind === "SERVICE") {
+      baseBg = "#ecfdf5";
+      baseBorder = "#bbf7d0";
+      baseText = "#065f46";
+    }
+    if (kind === "MAINTENANCE") {
+      baseBg = UI.brandSoft;
+      baseBorder = "#bfdbfe";
+      baseText = UI.text;
+    }
+
+    // Escalate based on due date
+    const dd = event?.dueDate ? new Date(event.dueDate) : null;
+    const tone = dd ? dueTone(dd) : "soft";
+    if (tone === "overdue") {
+      baseBg = "#fef2f2";
+      baseBorder = "#fecaca";
+      baseText = "#991b1b";
+    } else if (tone === "soon") {
+      baseBg = "#fff7ed";
+      baseBorder = "#fed7aa";
+      baseText = "#9a3412";
+    }
+
+    return {
+      style: {
+        borderRadius: 10,
+        border: `1px solid ${baseBorder}`,
+        background: baseBg,
+        color: baseText,
+        padding: 0,
+        boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
+        overflow: "hidden",
+      },
+    };
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -981,12 +1093,16 @@ export default function VehiclesHomePage() {
             <div>
               <h2 style={titleMd}>MOT & service calendar</h2>
               <div style={hint}>
-                Work bookings from <code>workBookings</code>.
+                Shows: <b>workBookings</b> maintenance blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b>.
+                Click a MOT/Service event to open that vehicle.
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               <span style={chipSoft}>{calView}</span>
+              <span style={badge("#fff7ed", "#9a3412")}>MOT</span>
+              <span style={badge("#ecfdf5", "#065f46")}>Service</span>
+              <span style={badge(UI.brandSoft, UI.brand)}>Maintenance</span>
               <button type="button" style={btn("ghost")} onClick={() => setCalDate(new Date())}>
                 Today
               </button>
@@ -1005,7 +1121,7 @@ export default function VehiclesHomePage() {
             {mounted && (
               <Calendar
                 localizer={localizer}
-                events={workBookings}
+                events={calendarEvents}
                 startAccessor="start"
                 endAccessor="end"
                 view={calView}
@@ -1019,38 +1135,42 @@ export default function VehiclesHomePage() {
                 dayPropGetter={() => ({
                   style: { minHeight: "110px", borderRight: "1px solid #eef2f7" },
                 })}
-                eventPropGetter={() => ({
-                  style: {
-                    borderRadius: 10,
-                    border: "1px solid #bfdbfe",
-                    background: UI.brandSoft,
-                    color: UI.text,
-                    padding: 0,
-                    boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
-                  },
-                })}
+                eventPropGetter={eventPropGetter}
                 components={{
-                  event: ({ event }) => (
-                    <div
-                      title={event.title}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                        fontSize: 12.5,
-                        lineHeight: 1.3,
-                        fontWeight: 900,
-                        padding: 8,
-                        letterSpacing: "0.01em",
-                      }}
-                    >
-                      <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>Maintenance</span>
-                      <span style={{ color: UI.text }}>{event.title}</span>
-                      {event.allDay && (
-                        <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>All day</span>
-                      )}
-                    </div>
-                  ),
+                  event: ({ event }) => {
+                    const kind = event?.kind || "MAINTENANCE";
+                    const label =
+                      kind === "MOT" ? "MOT" : kind === "SERVICE" ? "Service" : "Maintenance";
+
+                    const dd = event?.dueDate ? new Date(event.dueDate) : null;
+                    const tone = dd ? dueTone(dd) : "soft";
+                    const toneText =
+                      tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+
+                    return (
+                      <div
+                        title={event.title}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                          fontSize: 12.5,
+                          lineHeight: 1.3,
+                          fontWeight: 900,
+                          padding: 8,
+                          letterSpacing: "0.01em",
+                        }}
+                      >
+                        <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
+                        <span style={{ color: UI.text }}>{event.title}</span>
+                        {toneText ? (
+                          <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>
+                            {toneText}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  },
                   toolbar: (props) => (
                     <div
                       style={{
@@ -1093,21 +1213,32 @@ export default function VehiclesHomePage() {
           </div>
         </section>
 
-        {/* Event modal */}
+        {/* Event modal (only for non MOT/SERVICE due events, since those route directly) */}
         {selectedEvent && (
           <div style={modal}>
             <h3 style={{ marginTop: 0, marginBottom: 8, fontWeight: 900, color: UI.text }}>
               {selectedEvent.title}
             </h3>
             <p style={{ margin: 0, color: UI.muted, fontSize: 13 }}>
-              <strong style={{ color: UI.text }}>Start:</strong> {selectedEvent.start.toLocaleDateString()}
+              <strong style={{ color: UI.text }}>Start:</strong> {selectedEvent.start.toLocaleDateString("en-GB")}
             </p>
             <p style={{ margin: "6px 0 12px", color: UI.muted, fontSize: 13 }}>
-              <strong style={{ color: UI.text }}>End:</strong> {selectedEvent.end.toLocaleDateString()}
+              <strong style={{ color: UI.text }}>End:</strong> {selectedEvent.end.toLocaleDateString("en-GB")}
             </p>
-            <button onClick={() => setSelectedEvent(null)} style={btn("ghost")}>
-              Close
-            </button>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              {selectedEvent?.vehicleId ? (
+                <button
+                  onClick={() => router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)}
+                  style={btn("primary")}
+                >
+                  Open vehicle →
+                </button>
+              ) : null}
+              <button onClick={() => setSelectedEvent(null)} style={btn("ghost")}>
+                Close
+              </button>
+            </div>
           </div>
         )}
 
@@ -1314,7 +1445,6 @@ function Tile({ title, description, onClick, rightBadges = [] }) {
               </span>
             );
           })}
-
         </div>
       </div>
 
@@ -1363,7 +1493,6 @@ function VehicleCheckTile({ onClick }) {
           </div>
           <div style={{ color: UI.muted, fontSize: 13 }}>Open today’s pre-use vehicle check form.</div>
         </div>
-
       </div>
 
       <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>

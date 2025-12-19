@@ -92,6 +92,13 @@ const fmtDDMMYY = (d) => {
   return `${dd}/${mm}/${yy}`;
 };
 
+const isoDay = (d) => {
+  if (!d) return "";
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
 const normaliseJobDates = (job) => {
   // Prefer bookingDates array of "YYYY-MM-DD"
   const out = [];
@@ -121,6 +128,7 @@ const normaliseJobDates = (job) => {
     const d = parseDate(job.startDate);
     if (d) out.push(d);
   }
+
   // De-dupe by day
   const seen = new Set();
   return out
@@ -150,6 +158,7 @@ const prettifyStatus = (raw) => {
   if (s === "confirmed") return "Confirmed";
   if (s === "first pencil") return "First Pencil";
   if (s === "second pencil") return "Second Pencil";
+  if (s === "dnh") return "DNH";
   if (s.includes("cancel")) return "Cancelled";
   if (s.includes("postpon")) return "Postponed";
   if (s.includes("lost")) return "Lost";
@@ -161,18 +170,30 @@ const prettifyStatus = (raw) => {
 
 const statusColors = (label) => {
   switch (label) {
-    case "Ready to Invoice": return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
-    case "Invoiced": return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
-    case "Paid": return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
-    case "Action Required": return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
-    case "Complete": return { bg: "#dbeafe", border: "#bfdbfe", text: "#1e3a8a" };
-    case "Confirmed": return { bg: "#fffd98", border: "#c7d134", text: "#504c1a" };
-    case "First Pencil": return { bg: "#e0f2fe", border: "#bae6fd", text: "#075985" };
-    case "Second Pencil": return { bg: "#fee2e2", border: "#fecaca", text: "#7f1d1d" };
-    case "Cancelled": return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
-    case "Enquiry": return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
-    case "TBC": return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
-    default: return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+    case "Ready to Invoice":
+      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+    case "Invoiced":
+      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+    case "Paid":
+      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+    case "Action Required":
+      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+    case "Complete":
+      return { bg: "#dbeafe", border: "#bfdbfe", text: "#1e3a8a" };
+    case "Confirmed":
+      return { bg: "#fffd98", border: "#c7d134", text: "#504c1a" };
+    case "First Pencil":
+      return { bg: "#e0f2fe", border: "#bae6fd", text: "#075985" };
+    case "Second Pencil":
+      return { bg: "#fee2e2", border: "#fecaca", text: "#7f1d1d" };
+    case "Cancelled":
+      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+    case "Enquiry":
+      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+    case "TBC":
+      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+    default:
+      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
   }
 };
 
@@ -247,6 +268,74 @@ const toEquipmentTokens = (equipment) => {
   if (Array.isArray(equipment)) return equipment.map((x) => String(x || "").trim()).filter(Boolean);
   if (typeof equipment === "string") return [equipment.trim()].filter(Boolean);
   return [];
+};
+
+/* ───────────────────────────────────────────
+   Shoot-day detection (robust to different schemas)
+─────────────────────────────────────────── */
+const getNoteForISODate = (job, iso) => {
+  if (!job || !iso) return "";
+
+  // Common shapes you’ve used across pages:
+  // - notesByDate: { "YYYY-MM-DD": "On Set" }
+  // - dayNotes: { "YYYY-MM-DD": "Travel Day" }
+  // - notesForEachDay: [{ date:"YYYY-MM-DD", note:"On Set" }, ...]
+  // - dailyNotes: same idea
+  // - noteForDay (single-day)
+  const direct =
+    (job.notesByDate && job.notesByDate[iso]) ||
+    (job.dayNotes && job.dayNotes[iso]) ||
+    (job.noteByDate && job.noteByDate[iso]) ||
+    "";
+
+  if (direct) return String(direct);
+
+  const scanArrays = (arr) => {
+    if (!Array.isArray(arr)) return "";
+    const hit = arr.find((x) => {
+      const d = x?.date || x?.day || x?.iso || "";
+      return String(d).slice(0, 10) === iso;
+    });
+    return hit ? String(hit.note || hit.value || hit.label || "") : "";
+  };
+
+  const a =
+    scanArrays(job.notesForEachDay) ||
+    scanArrays(job.dailyNotes) ||
+    scanArrays(job.notesPerDay) ||
+    "";
+
+  if (a) return a;
+
+  // Single-day fallback
+  return String(job.noteForDay || job.note || "");
+};
+
+const isShootNote = (note) => {
+  const s = norm(note);
+  // Your dropdown options include: "On Set", "Night Shoot"
+  // (We treat both as shoot days)
+  if (!s) return false;
+  if (s === "on set") return true;
+  if (s.includes("on set")) return true;
+  if (s === "night shoot") return true;
+  if (s.includes("night shoot")) return true;
+
+  // Soft fallback if someone typed custom:
+  if (s.includes("shoot day")) return true;
+  if (s === "shoot") return true;
+
+  return false;
+};
+
+const shouldCountShootFromStatus = (prettyStatus) => {
+  const s = norm(prettyStatus);
+  // Don’t count shoot days for clearly dead jobs
+  if (s.includes("cancel")) return false;
+  if (s.includes("lost")) return false;
+  if (s.includes("postpon")) return false;
+  if (s === "dnh") return false;
+  return true;
 };
 
 /* ───────────────────────────────────────────
@@ -380,7 +469,7 @@ export default function StatisticsPage() {
     }
     const byName = vehicles.find((v) => String(v.name || "").trim().toLowerCase() === needle.toLowerCase());
     if (byName) {
-      const name = byName.name || [byName.manufacturer, byName.model].filter(Boolean).join(" ").trim() || "Vehicle";
+      const name = byName.name || [byId?.manufacturer, byId?.model].filter(Boolean).join(" ").trim() || "Vehicle";
       const reg = byName.registration ? String(byName.registration).toUpperCase() : "";
       return reg ? `${name} – ${reg}` : name;
     }
@@ -462,11 +551,8 @@ export default function StatisticsPage() {
       if (j.hasRiskAssessment === false) missingRA++;
     }
 
-    // Deleted stats (not range filtered – usually you want the truth)
     const deletedTotal = deletedBookings.length;
-    const restoredTotal = deletedBookings.filter((d) => !!d?.restoredAt).length; // if you ever set it
-    // NOTE: in your restore you delete the deleted doc, so "restoredAt" won't exist.
-    // We'll compute "restored" as 0 and keep "deletedTotal" only, unless you keep restore logs.
+    const restoredTotal = deletedBookings.filter((d) => !!d?.restoredAt).length;
 
     return {
       totalJobs,
@@ -498,6 +584,55 @@ export default function StatisticsPage() {
     const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     return entries.slice(-12).map(([label, value]) => ({ label: monthLabel(label), value }));
   }, [jobsFiltered]);
+
+  // ✅ NEW: shoot days per month (based on per-day note: "On Set" / "Night Shoot")
+  const shootDaysByMonth = useMemo(() => {
+    const m = new Map();
+    for (const j of jobsFiltered) {
+      const pretty = prettifyStatus(j.status || "");
+      if (!shouldCountShootFromStatus(pretty)) continue;
+
+      const ds = normaliseJobDates(j);
+      for (const d of ds) {
+        const iso = isoDay(d);
+        const note = getNoteForISODate(j, iso);
+        if (isShootNote(note)) inc(m, yyyymm(d), 1);
+      }
+    }
+    const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.slice(-12).map(([label, value]) => ({ label: monthLabel(label), value }));
+  }, [jobsFiltered]);
+
+  const shootKpis = useMemo(() => {
+    const monthKeyNow = yyyymm(todayMidnight);
+
+    // Total shoot days in the filtered set (within range logic already applied by jobsFiltered)
+    let totalShootDays = 0;
+    const monthMap = new Map();
+
+    for (const j of jobsFiltered) {
+      const pretty = prettifyStatus(j.status || "");
+      if (!shouldCountShootFromStatus(pretty)) continue;
+
+      const ds = normaliseJobDates(j);
+      for (const d of ds) {
+        const iso = isoDay(d);
+        const note = getNoteForISODate(j, iso);
+        if (!isShootNote(note)) continue;
+        totalShootDays += 1;
+        inc(monthMap, yyyymm(d), 1);
+      }
+    }
+
+    const thisMonth = monthMap.get(monthKeyNow) || 0;
+
+    // Average per month across months that actually appear (prevents weird averages when there are gaps)
+    const monthsWithData = [...monthMap.keys()];
+    const denom = Math.max(1, monthsWithData.length);
+    const avgPerMonth = Math.round((totalShootDays / denom) * 10) / 10;
+
+    return { totalShootDays, thisMonth, avgPerMonth, monthsWithDataCount: monthsWithData.length };
+  }, [jobsFiltered, todayMidnight]);
 
   const topClients = useMemo(() => {
     const m = new Map();
@@ -559,11 +694,7 @@ export default function StatisticsPage() {
     const last = ds[ds.length - 1] || null;
 
     const datesLabel =
-      first && last
-        ? `${fmtDDMMYY(first)} – ${fmtDDMMYY(last)}`
-        : first
-        ? fmtDDMMYY(first)
-        : "TBC";
+      first && last ? `${fmtDDMMYY(first)} – ${fmtDDMMYY(last)}` : first ? fmtDDMMYY(first) : "TBC";
 
     const pretty = prettifyStatus(j.status || "");
 
@@ -610,6 +741,13 @@ export default function StatisticsPage() {
       <div style={{ marginTop: 10, fontWeight: 800, color: UI.brand }}>Open →</div>
     </Link>
   );
+
+  // Slightly more flexible KPI grid so adding blocks won’t crush the layout
+  const kpiGrid = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
+    gap: UI.gap,
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -734,14 +872,11 @@ export default function StatisticsPage() {
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontWeight: 900, fontSize: 16 }}>At a glance</div>
             <div style={{ color: UI.muted, fontSize: 12 }}>
-              Range start:{" "}
-              <span style={mono}>
-                {rangeStart ? fmtDDMMYY(rangeStart) : "All time"}
-              </span>
+              Range start: <span style={mono}>{rangeStart ? fmtDDMMYY(rangeStart) : "All time"}</span>
             </div>
           </div>
 
-          <div style={grid(6)}>
+          <div style={kpiGrid}>
             <div style={{ ...card, padding: 12 }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Jobs</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.totalJobs}</div>
@@ -752,6 +887,15 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Booking days</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.totalDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Sum of dates</div>
+            </div>
+
+            {/* ✅ NEW BLOCK: Shoot days per month */}
+            <div style={{ ...card, padding: 12, borderColor: "#dbeafe" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Shoot days / month</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{shootKpis.avgPerMonth}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Avg across <b>{shootKpis.monthsWithDataCount}</b> month(s) • This month: <b>{shootKpis.thisMonth}</b>
+              </div>
             </div>
 
             <div style={{ ...card, padding: 12 }}>
@@ -790,6 +934,9 @@ export default function StatisticsPage() {
               <span style={{ ...chip, background: "#f3f4f6" }}>
                 Cancelled: <b style={{ marginLeft: 6 }}>{kpis.cancelledJobs}</b>
               </span>
+              <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
+                Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
+              </span>
             </div>
           </div>
         </div>
@@ -802,22 +949,30 @@ export default function StatisticsPage() {
             data={jobsByMonth}
             rightLabel="Days"
           />
+          <BarChart
+            title="Shoot days per month"
+            subtitle="Counts days where the per-day note is On Set / Night Shoot"
+            data={shootDaysByMonth}
+            rightLabel="Shoot"
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Status breakdown" subtitle="Filtered set" data={statusBreakdown.slice(0, 10)} rightLabel="Jobs" />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top vehicles" subtitle="Resolved to Name – REG where possible" data={topVehicles} rightLabel="Jobs" />
-          <BarChart title="Top crew" subtitle="From booking.employees" data={topCrew} rightLabel="Bookings" />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <BarChart title="Top crew" subtitle="From booking.employees" data={topCrew} rightLabel="Bookings" />
           <BarChart title="Top clients" subtitle="Production / client" data={topClients} rightLabel="Jobs" />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top locations" subtitle="Location field" data={topLocations} rightLabel="Jobs" />
+          <BarChart title="Top equipment" subtitle="From booking.equipment" data={topEquipment} rightLabel="Mentions" />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
-          <BarChart title="Top equipment" subtitle="From booking.equipment" data={topEquipment} rightLabel="Mentions" />
-
           {/* Upcoming preview */}
           <div style={{ ...surface, padding: 14, minHeight: 220 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -834,6 +989,18 @@ export default function StatisticsPage() {
               ) : (
                 <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>No upcoming jobs in current filters.</div>
               )}
+            </div>
+          </div>
+
+          {/* Quick explainer */}
+          <div style={{ ...surface, padding: 14, minHeight: 220 }}>
+            <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>How “shoot days” are counted</div>
+            <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
+              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or <b>Night Shoot</b>
+              (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
+              <br />
+              <br />
+              We also exclude obvious dead statuses (Cancelled / Lost / Postponed / DNH) from shoot-day counting.
             </div>
           </div>
         </div>
