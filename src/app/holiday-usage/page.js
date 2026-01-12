@@ -182,8 +182,6 @@ const eachDateInclusive = (start, end) => {
 };
 
 const isWeekend = (d) => d.getDay() === 0 || d.getDay() === 6;
-const countWeekdaysInclusive = (start, end) =>
-  eachDateInclusive(start, end).filter((d) => !isWeekend(d)).length;
 
 /** Detect single-day half-day using new + legacy fields */
 function getSingleDayHalfMeta(rec, start, end) {
@@ -202,6 +200,39 @@ function getSingleDayHalfMeta(rec, start, end) {
     if (when) return { single: true, half: true, when };
   }
   return { single: true, half: false, when: null };
+}
+
+/* ✅ Count chargeable days (weekdays only, excludes bank holidays, supports multi-day half days) */
+function countChargeableDays(rec, start, end, isBankHoliday) {
+  const days = eachDateInclusive(start, end);
+
+  const startIsHalf = truthy(rec.startHalfDay);
+  const endIsHalf = truthy(rec.endHalfDay);
+
+  const single = sameYMD(start, end);
+
+  let total = 0;
+
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    if (isWeekend(d)) continue;
+    if (isBankHoliday?.(d)) continue;
+
+    let inc = 1;
+
+    // Single-day half: count 0.5 if marked
+    if (single) {
+      if (startIsHalf || endIsHalf || truthy(rec.halfDay)) inc = 0.5;
+    } else {
+      // Multi-day half-days: start and/or end can be 0.5
+      if (i === 0 && startIsHalf) inc = 0.5;
+      if (i === days.length - 1 && endIsHalf) inc = 0.5;
+    }
+
+    total += inc;
+  }
+
+  return Number(total.toFixed(2));
 }
 
 function Pill({ children, tone = "default" }) {
@@ -395,6 +426,10 @@ export default function HolidayUsagePage() {
   const [paidDaysByName, setPaidDaysByName] = useState({});
   const [unpaidDaysByName, setUnpaidDaysByName] = useState({});
   const [calendarEvents, setCalendarEvents] = useState([]);
+
+  // ✅ bank holidays (separate so "leave entries" count stays the same)
+  const [bankHolidayEvents, setBankHolidayEvents] = useState([]);
+
   const [byEmployee, setByEmployee] = useState({});
   const [empAllowance, setEmpAllowance] = useState({});
   const [empCarryOver, setEmpCarryOver] = useState({});
@@ -411,6 +446,79 @@ export default function HolidayUsagePage() {
       sessionStorage.removeItem("dashboardScroll");
     }
   }, []);
+
+  // ✅ Load UK bank holidays for the selected year (Gov.uk JSON)
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        // Region options in the JSON: "england-and-wales", "scotland", "northern-ireland"
+        const REGION = "england-and-wales";
+
+        const res = await fetch("https://www.gov.uk/bank-holidays.json", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Bank holidays fetch failed: ${res.status}`);
+
+        const json = await res.json();
+        const list = json?.[REGION]?.events || [];
+
+        const events = list
+          .map((ev, idx) => {
+            const d = parseYMD(ev?.date);
+            if (!d) return null;
+            if (d.getFullYear() !== Number(yearView)) return null;
+
+            return {
+              id: `bank-${REGION}-${ev.date}-${idx}`,
+              title: ev.title || "Bank Holiday",
+              start: d,
+              end: new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1),
+              allDay: true,
+              bankHoliday: true,
+              region: REGION,
+            };
+          })
+          .filter(Boolean);
+
+        setBankHolidayEvents(events);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        console.warn("Bank holidays unavailable:", e);
+        setBankHolidayEvents([]);
+      }
+    };
+
+    run();
+    return () => controller.abort();
+  }, [yearView]);
+
+  /* ✅ Build a lookup so allowance calculations can exclude bank holidays */
+  const bankHolidaySet = useMemo(() => {
+    return new Set(
+      (bankHolidayEvents || [])
+        .map((e) => e?.start)
+        .filter(Boolean)
+        .map((d) => {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        })
+    );
+  }, [bankHolidayEvents]);
+
+  const isBankHoliday = useCallback(
+    (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return bankHolidaySet.has(`${y}-${m}-${day}`);
+    },
+    [bankHolidaySet]
+  );
 
   // ✅ Load data whenever yearView changes (and after save)
   useEffect(() => {
@@ -477,7 +585,9 @@ export default function HolidayUsagePage() {
           );
 
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
-        const days = single && half ? 0.5 : countWeekdaysInclusive(start, end);
+
+        // ✅ UPDATED: exclude bank holidays from used days + support multi-day half days
+        const days = countChargeableDays(rec, start, end, isBankHoliday);
 
         if (isUnpaid) unpaid[employee] = (unpaid[employee] || 0) + days;
         else paid[employee] = (paid[employee] || 0) + days;
@@ -532,9 +642,23 @@ export default function HolidayUsagePage() {
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearView, reloadKey]);
+  }, [yearView, reloadKey, isBankHoliday]);
 
   const eventStyleGetter = useCallback((event) => {
+    // ✅ Bank holiday style
+    if (event?.bankHoliday) {
+      return {
+        style: {
+          backgroundColor: "#e5e7eb",
+          borderRadius: "8px",
+          border: "1px solid rgba(15,23,42,0.14)",
+          color: "#111827",
+          padding: "4px 6px",
+          fontWeight: 900,
+        },
+      };
+    }
+
     let bg = event.color || "#cbd5e1";
     let textColor = "#0f172a";
     if (event.unpaid) {
@@ -626,6 +750,12 @@ export default function HolidayUsagePage() {
     };
   }, [namesToShow, byEmployee, metrics]);
 
+  // ✅ calendar uses both leave + bank holidays (leave counts remain unchanged elsewhere)
+  const calendarEventsWithBankHolidays = useMemo(
+    () => [...bankHolidayEvents, ...calendarEvents],
+    [bankHolidayEvents, calendarEvents]
+  );
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -706,7 +836,7 @@ export default function HolidayUsagePage() {
                   Leave calendar
                 </div>
                 <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
-                  Paid leave is per-employee colour. Unpaid leave is red.
+                  Paid leave is per-employee colour. Unpaid leave is red. Bank holidays are grey.
                 </div>
               </div>
               <div
@@ -717,6 +847,7 @@ export default function HolidayUsagePage() {
                   justifyContent: "flex-end",
                 }}
               >
+                <LegendSwatch color="#e5e7eb" label="Bank holiday" />
                 <LegendSwatch color="#fee2e2" label="Unpaid" />
                 <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
               </div>
@@ -733,7 +864,7 @@ export default function HolidayUsagePage() {
             >
               <Calendar
                 localizer={localizer}
-                events={calendarEvents}
+                events={calendarEventsWithBankHolidays}
                 startAccessor="start"
                 endAccessor="end"
                 views={["month", "week"]}
@@ -747,6 +878,8 @@ export default function HolidayUsagePage() {
                   if (y !== yearView) setYearView(y);
                 }}
                 onSelectEvent={(e) => {
+                  // ✅ ignore bank holidays
+                  if (e?.bankHoliday) return;
                   if (e?.employee) setSelectedName(String(e.employee));
                 }}
               />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
@@ -193,12 +193,36 @@ const ampm = (v) => {
   return null;
 };
 
-function toDate(v) {
-  if (!v) return null;
-  if (typeof v?.toDate === "function") return v.toDate();
-  const d = new Date(v);
-  return Number.isNaN(+d) ? null : d;
+/** Parse "YYYY-MM-DD" safely at local midnight (no TZ shift). */
+function parseYMD(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  if (!m) return null;
+  const [, Y, M, D] = m.map(Number);
+  return new Date(Y, M - 1, D, 0, 0, 0, 0);
 }
+
+/** Convert Firestore value to Date (prefers strict YMD parsing). */
+function toSafeDate(v) {
+  if (!v) return null;
+  if (typeof v === "string") {
+    const strict = parseYMD(v);
+    if (strict) return strict;
+    const d = new Date(v);
+    return Number.isNaN(+d) ? null : d;
+  }
+  if (typeof v?.toDate === "function") return v.toDate();
+  if (typeof v === "number") {
+    const d = new Date(v);
+    return Number.isNaN(+d) ? null : d;
+  }
+  return null;
+}
+
+function toDate(v) {
+  // keep existing signature, but improve safety:
+  return toSafeDate(v);
+}
+
 function sameYMD(a, b) {
   return (
     a &&
@@ -278,8 +302,27 @@ function getHalfInfo(h) {
   return { single, start, end };
 }
 
-/** Build a per-day breakdown. Weekends omitted by default. */
-function buildBreakdown(h, includeWeekends = false) {
+/* ✅ Bank holiday support (UK Gov JSON), scoped to selected year */
+async function fetchUkBankHolidaysForYear(year, region = "england-and-wales") {
+  const res = await fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" });
+  if (!res.ok) throw new Error(`Bank holidays fetch failed: ${res.status}`);
+  const json = await res.json();
+  const list = json?.[region]?.events || [];
+  return list
+    .map((ev) => {
+      const d = parseYMD(ev?.date);
+      if (!d) return null;
+      if (d.getFullYear() !== Number(year)) return null;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    })
+    .filter(Boolean);
+}
+
+/** ✅ Build a per-day breakdown. Weekends omitted by default. Bank holidays excluded (treated like weekends). */
+function buildBreakdown(h, includeWeekends = false, isBankHolidayFn = null) {
   const s = toDate(h.startDate);
   const e = toDate(h.endDate) || s;
   if (!s || !e) return [];
@@ -290,9 +333,13 @@ function buildBreakdown(h, includeWeekends = false) {
   return days
     .map((d, idx) => {
       const weekend = isWeekend(d);
-      if (!includeWeekends && weekend) return null;
+      const bankHoliday = isBankHolidayFn ? isBankHolidayFn(d) : false;
+
+      // ✅ omit bank holidays by default (same behaviour as weekends)
+      if (!includeWeekends && (weekend || bankHoliday)) return null;
 
       let label = "Full day";
+
       if (single) {
         if (start.half || end.half) {
           const when = start.when || end.when;
@@ -301,17 +348,18 @@ function buildBreakdown(h, includeWeekends = false) {
       } else {
         if (idx === 0 && start.half) label = `Half day${start.when ? ` (${start.when})` : ""}`;
         else if (idx === days.length - 1 && end.half) label = `Half day${end.when ? ` (${end.when})` : ""}`;
-        else label = weekend ? "Weekend (ignored)" : "Full day";
+        else label = bankHoliday ? "Bank holiday (ignored)" : weekend ? "Weekend (ignored)" : "Full day";
       }
 
-      return { key: d.toISOString(), date: fmtShort(d), label, muted: weekend };
+      const muted = weekend || bankHoliday;
+      return { key: d.toISOString(), date: fmtShort(d), label, muted };
     })
     .filter(Boolean);
 }
 
-/** Convert a holiday record to numeric days (excl. weekends). */
-function daysForHoliday(h) {
-  const breakdown = buildBreakdown(h, false);
+/** ✅ Convert a holiday record to numeric days (excl. weekends AND bank holidays). */
+function daysForHoliday(h, isBankHolidayFn = null) {
+  const breakdown = buildBreakdown(h, false, isBankHolidayFn);
   let total = 0;
   for (const row of breakdown) {
     const lbl = String(row.label || "").toLowerCase();
@@ -365,15 +413,43 @@ export default function HRPage() {
   const NEXT_YEAR = THIS_YEAR + 1;
   const [yearView, setYearView] = useState(THIS_YEAR);
 
+  /* ✅ bank holidays for selected year */
+  const [bankHolidaySet, setBankHolidaySet] = useState(() => new Set());
+
+  const isBankHoliday = useCallback(
+    (d) => {
+      if (!d) return false;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return bankHolidaySet.has(`${y}-${m}-${day}`);
+    },
+    [bankHolidaySet]
+  );
+
   useEffect(() => {
     const email = (auth?.currentUser?.email || "").toLowerCase();
     setIsAdmin(ADMIN_EMAILS.includes(email));
   }, []);
 
   useEffect(() => {
+    // load bank holidays first (so usage counting can exclude them)
+    const run = async () => {
+      try {
+        const dates = await fetchUkBankHolidaysForYear(yearView, "england-and-wales");
+        setBankHolidaySet(new Set(dates));
+      } catch (e) {
+        console.warn("Bank holidays unavailable:", e);
+        setBankHolidaySet(new Set());
+      }
+    };
+    run();
+  }, [yearView]);
+
+  useEffect(() => {
     fetchHolidays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearView]);
+  }, [yearView, isBankHoliday]);
 
   const fetchHolidays = async () => {
     setLoading(true);
@@ -381,15 +457,15 @@ export default function HRPage() {
       const snap = await getDocs(collection(db, "holidays"));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // Requested for selected year (and paid only)
+      // ✅ Requested for selected year (NOW includes Paid + Unpaid + Accrued)
       const pending = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
-        return (st === "requested" || !h.status) && y === yearView && isPaidHoliday(h);
+        return (st === "requested" || !h.status) && y === yearView;
       });
       setRequestedHolidays(pending);
 
-      // Approved usage for selected year (and paid only)
+      // ✅ Approved usage for selected year (PAID ONLY) — excludes weekends + bank holidays
       const approved = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
@@ -403,7 +479,7 @@ export default function HRPage() {
           (h.employeeCode && String(h.employeeCode)) ||
           "Unknown";
         const key = name.trim() || "Unknown";
-        const days = daysForHoliday(h);
+        const days = daysForHoliday(h, isBankHoliday);
         usageByEmp.set(key, (usageByEmp.get(key) || 0) + days);
       });
 
@@ -425,13 +501,21 @@ export default function HRPage() {
         const fromMap = e?.holidayAllowances?.[yrKey];
         const legacy = e?.holidayAllowance;
         const fallback = typeof legacy === "number" ? legacy : 0;
-        const allowance = typeof fromMap === "number" ? fromMap : typeof legacy === "number" ? legacy : fallback;
+        const allowance =
+          typeof fromMap === "number"
+            ? fromMap
+            : typeof legacy === "number"
+            ? legacy
+            : fallback;
 
         allowByName.set(name, Number(allowance || 0));
       });
 
       // Include people who have allowance but 0 used (still show on chart)
-      const allNames = new Set([...usageArr.map((x) => x.name), ...Array.from(allowByName.keys())]);
+      const allNames = new Set([
+        ...usageArr.map((x) => x.name),
+        ...Array.from(allowByName.keys()),
+      ]);
 
       const merged = Array.from(allNames).map((name) => {
         const used = usageByEmp.get(name) || 0;
@@ -571,7 +655,7 @@ export default function HRPage() {
               <div>
                 <h2 style={titleMd}>Employee holiday usage ({yearView})</h2>
                 <div style={hint}>
-                  Approved <b>paid</b> holiday taken per employee (weekdays only). Half days = 0.5. Also shows allowance.
+                  Approved <b>paid</b> holiday taken per employee (weekdays only, excluding bank holidays). Half days = 0.5. Also shows allowance.
                 </div>
               </div>
               <div style={chip}>Chart</div>
@@ -650,7 +734,7 @@ export default function HRPage() {
               <div>
                 <h2 style={titleMd}>Requested holidays ({yearView})</h2>
                 <div style={hint}>
-                  Pending requests for the selected year. <b>Paid only</b>.
+                  Pending requests for the selected year. <b>Includes Paid + Unpaid + Accrued</b>.
                 </div>
               </div>
               <div style={chip}>{requestedHolidays.length}</div>
@@ -663,7 +747,7 @@ export default function HRPage() {
             ) : null}
 
             {requestedHolidays.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending paid holiday requests.</div>
+              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending holiday requests.</div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {requestedHolidays.slice(0, 6).map((h) => {
@@ -745,7 +829,7 @@ export default function HRPage() {
             <div>
               <h2 style={titleMd}>All requested holidays ({yearView})</h2>
               <div style={hint}>
-                Full breakdown per request (weekdays only). <b>Paid only</b>. Admins can approve/decline.
+                Full breakdown per request (weekdays only). <b>Includes Paid + Unpaid + Accrued</b>. Admins can approve/decline.
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -761,7 +845,7 @@ export default function HRPage() {
           </div>
 
           {requestedHolidays.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No pending paid holiday requests.</div>
+            <div style={{ color: UI.muted, fontSize: 13 }}>No pending holiday requests.</div>
           ) : (
             <div style={tableWrap}>
               <table style={tableEl}>
@@ -781,7 +865,7 @@ export default function HRPage() {
                     const fromD = toDate(h.startDate);
                     const toD = toDate(h.endDate) || fromD;
                     const type = String(h.leaveType || h.paidStatus || "Other");
-                    const breakdown = buildBreakdown(h, false);
+                    const breakdown = buildBreakdown(h, false, isBankHoliday);
                     const notes = (h.notes || h.holidayReason || "").trim() || "—";
 
                     const { single, start, end } = getHalfInfo(h);

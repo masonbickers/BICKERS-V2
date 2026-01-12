@@ -190,7 +190,11 @@ const th = {
   fontSize: 12,
   color: UI.text,
 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "middle" };
+const td = {
+  padding: "10px 12px",
+  borderBottom: "1px solid #f1f5f9",
+  verticalAlign: "middle",
+};
 
 const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
 
@@ -204,6 +208,9 @@ const STATUS_COLORS = {
   Complete: { bg: "#719b6eff", text: "#111", border: "#0b0b0b" },
   "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
   DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
+
+  // ✅ NEW: Bank Holidays (Work Diary highlight)
+  "Bank Holiday": { bg: "#dbeafe", text: "#111", border: "#0b0b0b" },
 };
 
 const getStatusStyle = (s = "") =>
@@ -296,9 +303,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   });
 
   // maintenance bookings → full events
-// maintenance bookings → full events
-const maintenanceEvents = (maintenanceBookings || [])
-  .flatMap((m) => {
+  const maintenanceEvents = (maintenanceBookings || []).flatMap((m) => {
     const dates = Array.isArray(m.bookingDates) ? m.bookingDates.slice().sort() : [];
 
     // ✅ If bookingDates exists, create one all-day event per selected day
@@ -311,9 +316,9 @@ const maintenanceEvents = (maintenanceBookings || [])
           return {
             ...m,
             __collection: "maintenanceBookings",
-            __parentId: m.id,       // ✅ link back to true doc id
-            __occurrence: ymd,      // optional: which day this is
-            id: `${m.id}__${ymd}`,  // ✅ unique per-day id for calendar rendering
+            __parentId: m.id, // ✅ link back to true doc id
+            __occurrence: ymd, // optional: which day this is
+            id: `${m.id}__${ymd}`, // ✅ unique per-day id for calendar rendering
 
             jobNumber: m.jobNumber ?? "",
             title: m.jobNumber || m.title || "Maintenance",
@@ -364,7 +369,6 @@ const maintenanceEvents = (maintenanceBookings || [])
       },
     ];
   });
-
 
   const all = [...bookingEvents, ...maintenanceEvents];
 
@@ -453,7 +457,14 @@ function CalendarEvent({ event }) {
         letterSpacing: "0.02em",
       }}
     >
-      {event.status === "Holiday" ? (
+      {event.status === "Bank Holiday" ? (
+        <>
+          <span style={{ fontWeight: 900 }}>BANK HOLIDAY</span>
+          <span style={{ opacity: 0.9 }}>
+            {event.bankHolidayName || event.title}
+          </span>
+        </>
+      ) : event.status === "Holiday" ? (
         <>
           <span>{event.employee}</span>
           <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
@@ -614,7 +625,10 @@ function CalendarEvent({ event }) {
               const nameKey = name;
 
               let itemStatusRaw =
-                (idKey && vmap[idKey]) || (regKey && vmap[regKey]) || (nameKey && vmap[nameKey]) || "";
+                (idKey && vmap[idKey]) ||
+                (regKey && vmap[regKey]) ||
+                (nameKey && vmap[nameKey]) ||
+                "";
 
               const norm = (s) => String(s || "").trim();
               const itemStatus = norm(itemStatusRaw) || bookingStatus;
@@ -991,6 +1005,9 @@ export default function DashboardPage({ bookingSaved }) {
   const [maintenanceView, setMaintenanceView] = useState("week");
   const [maintenanceDate, setMaintenanceDate] = useState(new Date());
 
+  // ✅ NEW: UK Bank Holidays (GOV.UK)
+  const [bankHolidays, setBankHolidays] = useState([]);
+
   // Gate Calendar rendering to client only
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -1061,6 +1078,49 @@ export default function DashboardPage({ bookingSaved }) {
     });
 
     return () => unsubRecces();
+  }, []);
+
+  // ✅ NEW: fetch UK bank holidays from GOV.UK
+  useEffect(() => {
+    const REGION = "england-and-wales"; // change to "scotland" / "northern-ireland" if needed
+
+    const run = async () => {
+      try {
+        const res = await fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`Bank holiday fetch failed: ${res.status}`);
+
+        const data = await res.json();
+        const items = data?.[REGION]?.events || [];
+
+        const events = items
+          .map((bh) => {
+            const d0 = toJsDate(bh.date); // YYYY-MM-DD safe
+            if (!d0) return null;
+
+            const day = startOfLocalDay(d0);
+
+            return {
+              id: `bankholiday__${REGION}__${bh.date}`,
+              title: `Bank Holiday — ${bh.title}`,
+              bankHolidayName: bh.title,
+              bankHolidayNotes: bh.notes || "",
+              start: day,
+              end: addDays(day, 1),
+              allDay: true,
+              status: "Bank Holiday",
+              __collection: "bankHolidays",
+            };
+          })
+          .filter(Boolean);
+
+        setBankHolidays(events);
+      } catch (e) {
+        console.warn("[bank-holidays] failed:", e);
+        setBankHolidays([]);
+      }
+    };
+
+    run();
   }, []);
 
   // normaliser/risk
@@ -1340,7 +1400,10 @@ export default function DashboardPage({ bookingSaved }) {
   });
 
   // ✅ Build all calendar events from a single function (jobs + maintenance)
-  const allEventsRaw = useMemo(() => eventsByJobNumber(bookings, maintenanceBookings), [bookings, maintenanceBookings]);
+  const allEventsRaw = useMemo(
+    () => eventsByJobNumber(bookings, maintenanceBookings),
+    [bookings, maintenanceBookings]
+  );
 
   const allEvents = useMemo(() => {
     return allEventsRaw.map((ev) => {
@@ -1362,6 +1425,16 @@ export default function DashboardPage({ bookingSaved }) {
       };
     });
   }, [allEventsRaw, normalizeVehicles, reccesByBooking]);
+
+  // ✅ NEW: quick lookup for bank holiday day highlighting
+  const bankHolidaySet = useMemo(() => {
+    const set = new Set();
+    (bankHolidays || []).forEach((e) => {
+      const key = new Date(e.start).toISOString().slice(0, 10);
+      set.add(key);
+    });
+    return set;
+  }, [bankHolidays]);
 
   // Split by type for each calendar
   const workDiaryEvents = allEvents.filter(
@@ -1448,7 +1521,8 @@ export default function DashboardPage({ bookingSaved }) {
           {mounted && (
             <BigCalendar
               localizer={localizer}
-              events={workDiaryEvents}
+              // ✅ include bank holidays in Work Diary
+              events={[...bankHolidays, ...workDiaryEvents]}
               view={calendarView}
               views={["week", "month"]}
               onView={(v) => setCalendarView(v)}
@@ -1480,16 +1554,31 @@ export default function DashboardPage({ bookingSaved }) {
                   date.getDate() === todayD.getDate() &&
                   date.getMonth() === todayD.getMonth() &&
                   date.getFullYear() === todayD.getFullYear();
+
+                const key = date.toISOString().slice(0, 10);
+                const isBankHoliday = bankHolidaySet.has(key);
+
                 return {
                   style: {
-                    backgroundColor: isToday ? "rgba(29,78,216,0.10)" : undefined,
-                    border: isToday ? "1px solid rgba(29,78,216,0.55)" : undefined,
+                    backgroundColor: isToday
+                      ? "rgba(29,78,216,0.10)"
+                      : isBankHoliday
+                      ? "rgba(59,130,246,0.08)"
+                      : undefined,
+                    border: isToday
+                      ? "1px solid rgba(29,78,216,0.55)"
+                      : isBankHoliday
+                      ? "1px dashed rgba(59,130,246,0.55)"
+                      : undefined,
                   },
                 };
               }}
               style={{ borderRadius: UI.radius, background: "#fff" }}
               onSelectEvent={(e) => {
                 if (!e) return;
+
+                // ✅ bank holidays are display-only
+                if (e.status === "Bank Holiday") return;
 
                 if (e.status === "Holiday") {
                   setEditingHolidayId(e.id);
@@ -1509,6 +1598,22 @@ export default function DashboardPage({ bookingSaved }) {
               }}
               components={{ event: CalendarEvent }}
               eventPropGetter={(event) => {
+                // ✅ bank holiday styling
+                if (event.status === "Bank Holiday") {
+                  return {
+                    style: {
+                      backgroundColor: "#dbeafe",
+                      color: "#111",
+                      fontWeight: 900,
+                      padding: 0,
+                      borderRadius: 8,
+                      border: "2px dashed #0b0b0b",
+                      boxShadow: "0 2px 2px rgba(0,0,0,0.10)",
+                      pointerEvents: "none", // ✅ doesn't steal clicks from jobs
+                    },
+                  };
+                }
+
                 const status = event.status || "Confirmed";
 
                 let bg =
@@ -1658,12 +1763,11 @@ export default function DashboardPage({ bookingSaved }) {
               nowIndicator={false}
               getNow={() => new Date(2000, 0, 1)}
               components={{ event: CalendarEvent }}
-onSelectEvent={(e) => {
-  if (!e) return;
-  const realId = e.__parentId || e.id; // ✅ convert abc__2025-12-18 back to abc
-  setSelectedMaintenance({ id: realId, collection: "maintenanceBookings" });
-}}
-
+              onSelectEvent={(e) => {
+                if (!e) return;
+                const realId = e.__parentId || e.id; // ✅ convert abc__2025-12-18 back to abc
+                setSelectedMaintenance({ id: realId, collection: "maintenanceBookings" });
+              }}
               eventPropGetter={() => ({
                 style: {
                   backgroundColor: "#da8e58ff",
@@ -2164,39 +2268,38 @@ onSelectEvent={(e) => {
         </div>
       )}
 
-   {editingHolidayId && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(2,6,23,0.55)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 90,
-      padding: 18,
-    }}
-    onMouseDown={(e) => {
-      if (e.target === e.currentTarget) setEditingHolidayId(null);
-    }}
-  >
-    {/* IMPORTANT:
-        We DO NOT add maxHeight/overflow here (no forced scroll).
-        Let the EditHolidayForm control its own layout.
-    */}
-    <div onMouseDown={(e) => e.stopPropagation()}>
-      <EditHolidayForm
-        holidayId={editingHolidayId}
-        onClose={() => setEditingHolidayId(null)}
-        onSaved={() => {
-          setEditingHolidayId(null);
-          fetchHolidays();
-        }}
-      />
-    </div>
-  </div>
-)}
-
+      {editingHolidayId && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2,6,23,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 90,
+            padding: 18,
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEditingHolidayId(null);
+          }}
+        >
+          {/* IMPORTANT:
+              We DO NOT add maxHeight/overflow here (no forced scroll).
+              Let the EditHolidayForm control its own layout.
+          */}
+          <div onMouseDown={(e) => e.stopPropagation()}>
+            <EditHolidayForm
+              holidayId={editingHolidayId}
+              onClose={() => setEditingHolidayId(null)}
+              onSaved={() => {
+                setEditingHolidayId(null);
+                fetchHolidays();
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {selectedBookingId && (
         <ViewBookingModal id={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
