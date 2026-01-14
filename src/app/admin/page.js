@@ -17,10 +17,13 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  limit,
 } from "firebase/firestore";
 
 /* ───────────────────────────────────────────
-   Admin gate (ONLY these emails)
+   Admin gate
+   ✅ allow if email is in ADMIN_EMAILS OR users.role === "admin"
 ─────────────────────────────────────────── */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -55,7 +58,7 @@ const Tabs = {
 };
 
 /* ───────────────────────────────────────────
-   Timestamp-safe helpers (fixes {seconds,nanoseconds} crash)
+   Timestamp-safe helpers
 ─────────────────────────────────────────── */
 const toDateSafe = (v) => {
   try {
@@ -167,19 +170,69 @@ export default function AdminPage() {
 
   /* ───────────────────────────────────────────
      Auth + Admin gate
+     ✅ allow if email in ADMIN_EMAILS OR Firestore role === "admin"
+     ✅ robust lookup: users/{uid} then query by email
   ──────────────────────────────────────────── */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      setChecking(true);
       try {
         if (!u) {
           router.push("/login");
           return;
         }
-        const email = (u.email || "").toLowerCase();
-        if (!ADMIN_EMAILS.includes(email)) {
+
+        const email = String(u.email || "").trim().toLowerCase();
+
+        // 1) Allow-list pass
+        if (ADMIN_EMAILS.includes(email)) {
+          setMe(u);
+          await bootstrap();
+          return;
+        }
+
+        // 2) Role pass (Firestore)
+        let role = null;
+
+        // Try users/{uid}
+        try {
+          const uidRef = doc(db, "users", u.uid);
+          const uidSnap = await getDoc(uidRef);
+          if (uidSnap.exists()) role = uidSnap.data()?.role || null;
+        } catch {
+          // ignore
+        }
+
+        // Fallback: query by email (handles users not keyed by uid)
+        if (!role) {
+          try {
+            const q1 = query(
+              collection(db, "users"),
+              where("email", "==", u.email || ""),
+              limit(1)
+            );
+            const r1 = await getDocs(q1);
+            if (!r1.empty) role = r1.docs[0].data()?.role || null;
+
+            if (!role) {
+              const q2 = query(
+                collection(db, "users"),
+                where("email", "==", email),
+                limit(1)
+              );
+              const r2 = await getDocs(q2);
+              if (!r2.empty) role = r2.docs[0].data()?.role || null;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (role !== "admin") {
           router.push("/home");
           return;
         }
+
         setMe(u);
         await bootstrap();
       } finally {
@@ -434,7 +487,7 @@ export default function AdminPage() {
               Admin
             </div>
             <div style={{ color: UI.muted, marginTop: 4 }}>
-              Only <b>{ADMIN_EMAILS.join(", ")}</b> can access this page.
+              Allowed: <b>email allow-list</b> OR <b>users.role = "admin"</b>
             </div>
             <div style={{ color: UI.muted, marginTop: 6, fontSize: 12 }}>
               Users: {usersMeta.dedupedCount} (raw {usersMeta.rawCount}, duplicates{" "}
@@ -838,9 +891,7 @@ export default function AdminPage() {
                             <Td style={{ whiteSpace: "nowrap" }}>{fmtYMD(s.endDate)}</Td>
 
                             <Td>
-                              <span style={{ fontWeight: 1000, color: UI.text }}>
-                                {s.days ?? "—"}
-                              </span>
+                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "—"}</span>
                             </Td>
 
                             <Td>{s.reason || "—"}</Td>
@@ -887,9 +938,8 @@ export default function AdminPage() {
         </div>
 
         <div style={{ marginTop: 18, color: UI.muted, fontSize: 12 }}>
-          Collections expected: <code>users</code>, <code>employees</code>,{" "}
-          <code>holidays</code>, <code>sickLeave</code>. (Legacy optional:{" "}
-          <code>holidayAllowances</code>)
+          Collections expected: <code>users</code>, <code>employees</code>, <code>holidays</code>,{" "}
+          <code>sickLeave</code>. (Legacy optional: <code>holidayAllowances</code>)
         </div>
       </div>
     </HeaderSidebarLayout>
@@ -911,14 +961,8 @@ function Card({ title, subtitle, children }) {
       }}
     >
       <div>
-        <div style={{ fontSize: 16, fontWeight: 1000, color: UI.text }}>
-          {title}
-        </div>
-        {subtitle && (
-          <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
-            {subtitle}
-          </div>
-        )}
+        <div style={{ fontSize: 16, fontWeight: 1000, color: UI.text }}>{title}</div>
+        {subtitle && <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>{subtitle}</div>}
       </div>
       <div style={{ marginTop: 12 }}>{children}</div>
     </div>
@@ -973,14 +1017,7 @@ function HA_countWeekdays(start, end) {
 }
 
 function HA_pickName(x = {}) {
-  return (
-    x.name ||
-    x.fullName ||
-    x.employee ||
-    x.employeeName ||
-    x.displayName ||
-    ""
-  );
+  return x.name || x.fullName || x.employee || x.employeeName || x.displayName || "";
 }
 
 const HA_asNum = (v, fallback = 0) => {
@@ -1043,26 +1080,10 @@ function HA_StatTile({ label, value, tone = "default" }) {
         padding: 12,
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          color: UI.muted,
-          fontWeight: 900,
-          textTransform: "uppercase",
-        }}
-      >
+      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
         {label}
       </div>
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 20,
-          fontWeight: 950,
-          color: UI.text,
-        }}
-      >
-        {value}
-      </div>
+      <div style={{ marginTop: 6, fontSize: 20, fontWeight: 950, color: UI.text }}>{value}</div>
     </div>
   );
 }
@@ -1094,10 +1115,7 @@ function EmployeesHolidayAllowancesTab() {
             id: d.id,
             name: HA_pickName(x),
             workPattern: pattern,
-            holidayAllowance: HA_asNum(
-              x.holidayAllowance,
-              HA_entitlementFor(pattern)
-            ),
+            holidayAllowance: HA_asNum(x.holidayAllowance, HA_entitlementFor(pattern)),
             carriedOverDays: HA_asNum(x.carriedOverDays, 0),
             holidayAllowances: x.holidayAllowances || {},
             carryOverByYear: x.carryOverByYear || {},
@@ -1168,9 +1186,7 @@ function EmployeesHolidayAllowancesTab() {
               [HA_nextYear]: {
                 holidayAllowance: allowNext,
                 carriedOverDays:
-                  storedNextCarry !== undefined
-                    ? HA_clamp(storedNextCarry, 0, HA_MAX_CARRY)
-                    : autoNextCarry,
+                  storedNextCarry !== undefined ? HA_clamp(storedNextCarry, 0, HA_MAX_CARRY) : autoNextCarry,
               },
             },
           };
@@ -1192,16 +1208,14 @@ function EmployeesHolidayAllowancesTab() {
 
   const usedForYearByName = (yr, name) => usedByYearName?.[yr]?.[name] || 0;
 
-  const getPattern = (r) =>
-    edits?.[r.id]?.workPattern ?? r.workPattern ?? HA_DEFAULT_PATTERN;
+  const getPattern = (r) => edits?.[r.id]?.workPattern ?? r.workPattern ?? HA_DEFAULT_PATTERN;
 
   const getAllowanceForYear = (r, yr) => {
     const pattern = getPattern(r);
     const fallback = HA_entitlementFor(pattern);
 
     const slot = edits?.[r.id]?.byYear?.[yr] || {};
-    if (slot.holidayAllowance !== undefined)
-      return HA_asNum(slot.holidayAllowance, fallback);
+    if (slot.holidayAllowance !== undefined) return HA_asNum(slot.holidayAllowance, fallback);
 
     const mapVal = r.holidayAllowances?.[String(yr)];
     if (mapVal !== undefined) return HA_asNum(mapVal, fallback);
@@ -1211,8 +1225,7 @@ function EmployeesHolidayAllowancesTab() {
 
   const getCarryForYear = (r, yr) => {
     const slot = edits?.[r.id]?.byYear?.[yr] || {};
-    if (slot.carriedOverDays !== undefined)
-      return HA_asNum(slot.carriedOverDays, 0);
+    if (slot.carriedOverDays !== undefined) return HA_asNum(slot.carriedOverDays, 0);
 
     const mapVal = r.carryOverByYear?.[String(yr)];
     if (mapVal !== undefined) return HA_asNum(mapVal, 0);
@@ -1227,8 +1240,7 @@ function EmployeesHolidayAllowancesTab() {
     return allowance + carry - used;
   };
 
-  const onEditName = (id, val) =>
-    setEdits((p) => ({ ...p, [id]: { ...(p[id] || {}), name: val } }));
+  const onEditName = (id, val) => setEdits((p) => ({ ...p, [id]: { ...(p[id] || {}), name: val } }));
 
   const onEditPattern = (r, pattern) => {
     const id = r.id;
@@ -1238,14 +1250,8 @@ function EmployeesHolidayAllowancesTab() {
       const prev = p[id] || {};
       const byYear = { ...(prev.byYear || {}) };
 
-      byYear[HA_thisYear] = {
-        ...(byYear[HA_thisYear] || {}),
-        holidayAllowance: derived,
-      };
-      byYear[HA_nextYear] = {
-        ...(byYear[HA_nextYear] || {}),
-        holidayAllowance: derived,
-      };
+      byYear[HA_thisYear] = { ...(byYear[HA_thisYear] || {}), holidayAllowance: derived };
+      byYear[HA_nextYear] = { ...(byYear[HA_nextYear] || {}), holidayAllowance: derived };
 
       return { ...p, [id]: { ...prev, workPattern: pattern, byYear } };
     });
@@ -1301,23 +1307,16 @@ function EmployeesHolidayAllowancesTab() {
     const carry = getCarryForYear(r, yearView);
 
     if (allowance < 0 || carry < 0) return alert("Numbers must be ≥ 0.");
-    if (yearView === HA_nextYear && carry > HA_MAX_CARRY)
-      return alert(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
+    if (yearView === HA_nextYear && carry > HA_MAX_CARRY) return alert(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
 
     const yrKey = String(yearView);
 
     setSaving((p) => ({ ...p, [r.id]: true }));
     try {
-      const nextAllowances = {
-        ...(r.holidayAllowances || {}),
-        [yrKey]: allowance,
-      };
+      const nextAllowances = { ...(r.holidayAllowances || {}), [yrKey]: allowance };
       const nextCarry = { ...(r.carryOverByYear || {}), [yrKey]: carry };
 
-      const legacyPatch =
-        yearView === HA_thisYear
-          ? { holidayAllowance: allowance, carriedOverDays: carry }
-          : {};
+      const legacyPatch = yearView === HA_thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {};
 
       await updateDoc(doc(db, "employees", r.id), {
         name,
@@ -1336,9 +1335,7 @@ function EmployeesHolidayAllowancesTab() {
                 workPattern: pattern,
                 holidayAllowances: nextAllowances,
                 carryOverByYear: nextCarry,
-                ...(yearView === HA_thisYear
-                  ? { holidayAllowance: allowance, carriedOverDays: carry }
-                  : {}),
+                ...(yearView === HA_thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {}),
               }
             : row
         )
@@ -1458,34 +1455,17 @@ function EmployeesHolidayAllowancesTab() {
       subtitle={`Work pattern sets base allowance (FT = ${HA_BASE_FULL_TIME}). Carry into next year capped at ${HA_MAX_CARRY}.`}
     >
       {/* Controls */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={pillStyle}>Viewing: {yearView}</span>
-          <select
-            value={yearView}
-            onChange={(e) => setYearView(Number(e.target.value))}
-            style={selectStyle}
-          >
+          <select value={yearView} onChange={(e) => setYearView(Number(e.target.value))} style={selectStyle}>
             <option value={HA_thisYear}>{HA_thisYear} (Current)</option>
             <option value={HA_nextYear}>{HA_nextYear} (Next)</option>
           </select>
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search employees…"
-            style={topSearchStyle}
-          />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees…" style={topSearchStyle} />
           <span style={{ color: UI.muted, fontSize: 12 }}>
             Showing <b>{filteredRows.length}</b>
           </span>
@@ -1494,38 +1474,14 @@ function EmployeesHolidayAllowancesTab() {
 
       {/* Add employee */}
       <div style={{ ...panelStyle, marginTop: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 1000, color: UI.text }}>Add employee</div>
           <HA_Pill tone="info">Base: {HA_entitlementFor(newPattern)} days</HA_Pill>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto",
-            gap: 10,
-            marginTop: 10,
-          }}
-        >
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Name"
-            style={inputStyle}
-          />
-          <select
-            value={newPattern}
-            onChange={(e) => setNewPattern(e.target.value)}
-            style={selectStyle}
-          >
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: 10 }}>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" style={inputStyle} />
+          <select value={newPattern} onChange={(e) => setNewPattern(e.target.value)} style={selectStyle}>
             <option value="full_time">{HA_PATTERN_LABEL.full_time}</option>
             <option value="four_days">{HA_PATTERN_LABEL.four_days}</option>
             <option value="three_days">{HA_PATTERN_LABEL.three_days}</option>
@@ -1541,13 +1497,7 @@ function EmployeesHolidayAllowancesTab() {
           <button
             onClick={addEmployee}
             disabled={adding}
-            style={{
-              ...btnStyle,
-              border: `1px solid ${UI.brand}`,
-              background: UI.brand,
-              color: "#fff",
-              fontWeight: 1000,
-            }}
+            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
           >
             {adding ? "Adding…" : "Add"}
           </button>
@@ -1555,14 +1505,7 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       {/* KPIs */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0,1fr))",
-          gap: 10,
-          marginTop: 12,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10, marginTop: 12 }}>
         <HA_StatTile label="People" value={kpis.people} tone="soft" />
         <HA_StatTile label="Used" value={kpis.totalUsed} />
         <HA_StatTile label="Allowance" value={kpis.totalAllowance} />
@@ -1632,11 +1575,7 @@ function EmployeesHolidayAllowancesTab() {
                     </Td>
 
                     <Td>
-                      <select
-                        value={pattern}
-                        onChange={(ev) => onEditPattern(r, ev.target.value)}
-                        style={selectStyle}
-                      >
+                      <select value={pattern} onChange={(ev) => onEditPattern(r, ev.target.value)} style={selectStyle}>
                         <option value="full_time">{HA_PATTERN_LABEL.full_time}</option>
                         <option value="four_days">{HA_PATTERN_LABEL.four_days}</option>
                         <option value="three_days">{HA_PATTERN_LABEL.three_days}</option>
@@ -1644,11 +1583,7 @@ function EmployeesHolidayAllowancesTab() {
 
                       <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <HA_Pill tone="gray">Base {HA_entitlementFor(pattern)}</HA_Pill>
-                        {pattern !== "full_time" ? (
-                          <HA_Pill tone="info">Pro-rata</HA_Pill>
-                        ) : (
-                          <HA_Pill tone="good">FT</HA_Pill>
-                        )}
+                        {pattern !== "full_time" ? <HA_Pill tone="info">Pro-rata</HA_Pill> : <HA_Pill tone="good">FT</HA_Pill>}
                       </div>
                     </Td>
 
@@ -1674,8 +1609,7 @@ function EmployeesHolidayAllowancesTab() {
                         />
                         {yearView === HA_nextYear ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
-                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> •{" "}
-                            {HA_thisYear} bal: <b>{balThis}</b>
+                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> • {HA_thisYear} bal: <b>{balThis}</b>
                           </div>
                         ) : (
                           <div style={{ fontSize: 12, color: UI.muted }}>Current-year carry</div>
@@ -1698,13 +1632,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => saveRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{
-                            ...btnStyle,
-                            border: `1px solid ${UI.brand}`,
-                            background: UI.brand,
-                            color: "#fff",
-                            fontWeight: 1000,
-                          }}
+                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
                         >
                           {saving[r.id] ? "Saving…" : `Save (${yearView})`}
                         </button>
@@ -1712,13 +1640,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => deleteRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{
-                            ...btnStyle,
-                            border: "1px solid #fecaca",
-                            background: "#fee2e2",
-                            color: UI.danger,
-                            fontWeight: 1000,
-                          }}
+                          style={{ ...btnStyle, border: "1px solid #fecaca", background: "#fee2e2", color: UI.danger, fontWeight: 1000 }}
                         >
                           Delete
                         </button>
@@ -1743,10 +1665,7 @@ function EmployeesHolidayAllowancesTab() {
 /* ───────────────────────────────────────────
    Styles
 ─────────────────────────────────────────── */
-const tableStyle = {
-  width: "100%",
-  borderCollapse: "collapse",
-};
+const tableStyle = { width: "100%", borderCollapse: "collapse" };
 
 const thStyle = {
   textAlign: "left",
@@ -1766,10 +1685,7 @@ const tdStyle = {
   color: UI.text,
 };
 
-const emptyTd = {
-  padding: 12,
-  color: UI.muted,
-};
+const emptyTd = { padding: 12, color: UI.muted };
 
 const btnStyle = {
   padding: "10px 12px",
@@ -1850,6 +1766,4 @@ const panelStyle = {
   marginBottom: 12,
 };
 
-const rowStyle = {
-  background: UI.card,
-};
+const rowStyle = { background: UI.card };
