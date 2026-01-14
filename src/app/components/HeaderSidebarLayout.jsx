@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Inter } from "next/font/google";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import {
   doc,
   getDoc,
   onSnapshot,
+  collection,
+  getDocs,
+  query,
+  where,
+  limit,
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 
@@ -20,6 +21,15 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+
+/* ───────────────────────────────────────────
+   Admin allow-list (same as Admin page)
+─────────────────────────────────────────── */
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adam@bickers.co.uk",
+];
 
 export default function HeaderSidebarLayout({ children }) {
   const pathname = usePathname();
@@ -33,8 +43,18 @@ export default function HeaderSidebarLayout({ children }) {
 
   const unsubUserRef = useRef(null);
 
+  const emailLower = useMemo(
+    () => String(user?.email || "").trim().toLowerCase(),
+    [user?.email]
+  );
+
+  // ✅ single source of truth for whether Admin tab should show
+  const canSeeAdmin = useMemo(() => {
+    return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
+  }, [emailLower, userDoc?.role]);
+
   /* ───────────────────────────────────────────
-     🔒 AUTH + LIVE DISABLE GUARD
+     🔒 AUTH + LIVE DISABLE GUARD (robust user doc resolution)
   ──────────────────────────────────────────── */
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -46,16 +66,54 @@ export default function HeaderSidebarLayout({ children }) {
 
       setUser(currentUser);
 
-      if (!currentUser) return;
+      if (!currentUser) {
+        setUserDoc(null);
+        return;
+      }
 
-      const ref = doc(db, "users", currentUser.uid);
+      // 1) Try users/{uid} (best practice)
+      let resolvedRef = doc(db, "users", currentUser.uid);
+      let snap = await getDoc(resolvedRef);
 
-      // initial fetch (role, etc)
-      const snap = await getDoc(ref);
-      if (snap.exists()) setUserDoc(snap.data());
+      // 2) If missing, fall back to finding user doc by email
+      if (!snap.exists()) {
+        const emailA = String(currentUser.email || "").trim();
+        const emailB = emailA.toLowerCase();
 
-      // 🔴 LIVE WATCH — force logout if disabled
-      unsubUserRef.current = onSnapshot(ref, async (docSnap) => {
+        // Try exact email match (case may vary in stored docs)
+        // If you have a dedicated lowerEmail field, swap query to where("lowerEmail","==",emailB)
+        const q1 = query(
+          collection(db, "users"),
+          where("email", "==", emailA),
+          limit(1)
+        );
+        const r1 = await getDocs(q1);
+
+        if (!r1.empty) {
+          resolvedRef = doc(db, "users", r1.docs[0].id);
+          snap = r1.docs[0]; // doc snapshot
+        } else {
+          // Try lowercased email match
+          const q2 = query(
+            collection(db, "users"),
+            where("email", "==", emailB),
+            limit(1)
+          );
+          const r2 = await getDocs(q2);
+
+          if (!r2.empty) {
+            resolvedRef = doc(db, "users", r2.docs[0].id);
+            snap = r2.docs[0];
+          }
+        }
+      }
+
+      // initial set
+      if (snap?.exists?.()) setUserDoc(snap.data());
+      else setUserDoc(null);
+
+      // 🔴 LIVE WATCH — force logout if disabled (only if we resolved a doc)
+      unsubUserRef.current = onSnapshot(resolvedRef, async (docSnap) => {
         const data = docSnap.data();
         setUserDoc(data);
 
@@ -79,7 +137,7 @@ export default function HeaderSidebarLayout({ children }) {
     { label: "Workshop", path: "/workshop" },
     { label: "Wall View", path: "/wall-view" },
     { label: "Dashboard", path: "/dashboard" },
-    ...(userDoc?.role === "admin" ? [{ label: "Admin", path: "/admin" }] : []),
+    ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 
   const sidebarItems = [
@@ -96,7 +154,7 @@ export default function HeaderSidebarLayout({ children }) {
   ];
 
   /* ───────────────────────────────────────────
-     LOGOUT (REAL)
+     LOGOUT
   ──────────────────────────────────────────── */
   const handleLogout = async () => {
     await signOut(auth);
