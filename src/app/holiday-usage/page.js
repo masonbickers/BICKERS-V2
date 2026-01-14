@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { db, auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
@@ -18,6 +18,15 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 // ✅ overlay forms
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
+
+/* ───────────────────────────────────────────
+   Admin allow-list (edit/delete only)
+─────────────────────────────────────────── */
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adma@bickers.co.uk",
+];
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -235,6 +244,28 @@ function countChargeableDays(rec, start, end, isBankHoliday) {
   return Number(total.toFixed(2));
 }
 
+/* ✅ Approval helper: treat anything not explicitly "approved" as pending
+   NOTE: HR page sets `status: "approved"` / `"declined"` and pending is `"requested"` or missing */
+function isApprovedHoliday(rec) {
+  if (!rec) return false;
+  if (truthy(rec.approved)) return true;
+
+  const candidates = [
+    rec.approvalStatus,
+    rec.status,
+    rec.state,
+    rec.leaveStatus,
+    rec.holidayStatus,
+  ]
+    .map((x) => norm(x))
+    .filter(Boolean);
+
+  if (candidates.some((s) => s === "approved" || s.includes("approved")))
+    return true;
+
+  return false;
+}
+
 function Pill({ children, tone = "default" }) {
   const tones = {
     default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
@@ -242,6 +273,7 @@ function Pill({ children, tone = "default" }) {
     warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
     info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
     gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    pending: { bg: "#fef3c7", fg: "#92400e", br: "#fde68a" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -401,6 +433,19 @@ export default function HolidayUsagePage() {
   const router = useRouter();
 
   const DEFAULT_ALLOWANCE = 11;
+
+  // ✅ admin (edit/delete only)
+  const [userEmail, setUserEmail] = useState("");
+  useEffect(() => {
+    const unsub = auth?.onAuthStateChanged?.((u) => {
+      setUserEmail(u?.email || "");
+    });
+    return () => unsub?.();
+  }, []);
+  const isAdmin = useMemo(
+    () => ADMIN_EMAILS.map((e) => norm(e)).includes(norm(userEmail)),
+    [userEmail]
+  );
 
   // ✅ modal overlays
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -575,7 +620,7 @@ export default function HolidayUsagePage() {
             .some((t) => t.includes("accrued") || t.includes("toil"));
         if (isAccrued) return;
 
-        const isUnpaid =
+        const isUnpaidLeave =
           rec.isUnpaid === true ||
           rec.unpaid === true ||
           rec.paid === false ||
@@ -584,13 +629,19 @@ export default function HolidayUsagePage() {
             norm(rec[k]).includes("unpaid")
           );
 
+        const approved = isApprovedHoliday(rec);
+        const pending = !approved;
+
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
 
-        // ✅ UPDATED: exclude bank holidays from used days + support multi-day half days
+        // ✅ exclude bank holidays from used days + support multi-day half days
         const days = countChargeableDays(rec, start, end, isBankHoliday);
 
-        if (isUnpaid) unpaid[employee] = (unpaid[employee] || 0) + days;
-        else paid[employee] = (paid[employee] || 0) + days;
+        // ✅ IMPORTANT: pending holidays do NOT consume allowance totals
+        if (!pending) {
+          if (isUnpaidLeave) unpaid[employee] = (unpaid[employee] || 0) + days;
+          else paid[employee] = (paid[employee] || 0) + days;
+        }
 
         if (!details[employee]) details[employee] = [];
         details[employee].push({
@@ -599,7 +650,9 @@ export default function HolidayUsagePage() {
           end,
           days,
           notes,
-          unpaid: isUnpaid,
+          unpaid: isUnpaidLeave,
+          pending,
+          approved,
           halfDay: single && half,
           halfWhen: single && half ? when : null,
         });
@@ -609,14 +662,17 @@ export default function HolidayUsagePage() {
           id: docSnap.id,
           title:
             `${employee} Holiday` +
-            (isUnpaid ? " (Unpaid)" : "") +
+            (isUnpaidLeave ? " (Unpaid)" : "") +
+            (pending ? " (Pending)" : "") +
             (single && half ? ` (½ ${when || ""})` : ""),
           start,
           // react-big-calendar allDay end is effectively exclusive
           end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
           allDay: true,
           employee,
-          unpaid: isUnpaid,
+          unpaid: isUnpaidLeave,
+          pending,
+          approved,
           color,
         });
       });
@@ -653,6 +709,20 @@ export default function HolidayUsagePage() {
           borderRadius: "8px",
           border: "1px solid rgba(15,23,42,0.14)",
           color: "#111827",
+          padding: "4px 6px",
+          fontWeight: 900,
+        },
+      };
+    }
+
+    // ✅ Pending style (non-approved)
+    if (event?.pending) {
+      return {
+        style: {
+          backgroundColor: "#fef3c7",
+          borderRadius: "8px",
+          border: "1px dashed rgba(146,64,14,0.45)",
+          color: "#92400e",
           padding: "4px 6px",
           fontWeight: 900,
         },
@@ -750,7 +820,7 @@ export default function HolidayUsagePage() {
     };
   }, [namesToShow, byEmployee, metrics]);
 
-  // ✅ calendar uses both leave + bank holidays (leave counts remain unchanged elsewhere)
+  // ✅ calendar uses both leave + bank holidays
   const calendarEventsWithBankHolidays = useMemo(
     () => [...bankHolidayEvents, ...calendarEvents],
     [bankHolidayEvents, calendarEvents]
@@ -767,6 +837,13 @@ export default function HolidayUsagePage() {
               Year: <b style={mono}>{yearView}</b> • Allowance + carry are read
               from <span style={mono}>employees.holidayAllowances["{yearView}"]</span>{" "}
               and <span style={mono}>carryOverByYear["{yearView}"]</span>.
+              {userEmail ? (
+                <>
+                  {" "}
+                  • Signed in: <b style={mono}>{userEmail}</b>{" "}
+                  {isAdmin ? <Pill tone="good">Admin</Pill> : <Pill tone="gray">Staff</Pill>}
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -805,7 +882,11 @@ export default function HolidayUsagePage() {
             </select>
 
             {/* opens overlay */}
-            <button type="button" onClick={() => setHolidayModalOpen(true)} style={btn()}>
+            <button
+              type="button"
+              onClick={() => setHolidayModalOpen(true)}
+              style={btn()}
+            >
               + Add Holiday
             </button>
           </div>
@@ -836,7 +917,7 @@ export default function HolidayUsagePage() {
                   Leave calendar
                 </div>
                 <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
-                  Paid leave is per-employee colour. Unpaid leave is red. Bank holidays are grey.
+                  Paid leave is per-employee colour. Unpaid leave is red. Pending is amber. Bank holidays are grey.
                 </div>
               </div>
               <div
@@ -848,6 +929,7 @@ export default function HolidayUsagePage() {
                 }}
               >
                 <LegendSwatch color="#e5e7eb" label="Bank holiday" />
+                <LegendSwatch color="#fef3c7" label="Pending" />
                 <LegendSwatch color="#fee2e2" label="Unpaid" />
                 <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
               </div>
@@ -1011,6 +1093,9 @@ export default function HolidayUsagePage() {
                   tone="warn"
                 />
               </div>
+              <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
+                Note: <b>Pending</b> holidays show on the calendar but do <b>not</b> reduce paid allowance totals.
+              </div>
             </div>
 
             {/* Employee list */}
@@ -1132,6 +1217,11 @@ export default function HolidayUsagePage() {
                 <Pill tone={balTone(selected.allowBal)}>
                   Balance: {Number(selected.allowBal.toFixed(2))}
                 </Pill>
+                {!isAdmin ? (
+                  <Pill tone="gray">Staff: edit/delete disabled</Pill>
+                ) : (
+                  <Pill tone="good">Admin: edit/delete enabled</Pill>
+                )}
               </div>
 
               <div style={tableWrap}>
@@ -1143,7 +1233,7 @@ export default function HolidayUsagePage() {
                       <th style={{ ...th, textAlign: "center", width: 110 }}>Days</th>
                       <th style={th}>Type</th>
                       <th style={th}>Notes</th>
-                      <th style={{ ...th, width: 110 }}></th>
+                      <th style={{ ...th, width: 120 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1155,8 +1245,13 @@ export default function HolidayUsagePage() {
                       </tr>
                     ) : (
                       selectedRows.map((row, i) => {
-                        const typeLabel = row.unpaid ? "Unpaid" : "Paid";
-                        const tone = row.unpaid ? "warn" : "good";
+                        const baseTypeLabel = row.unpaid ? "Unpaid" : "Paid";
+                        const typeTone = row.pending
+                          ? "pending"
+                          : row.unpaid
+                          ? "warn"
+                          : "good";
+
                         const halfPrefix = row.halfDay
                           ? `Half-day${row.halfWhen ? ` (${row.halfWhen})` : ""}`
                           : "";
@@ -1175,11 +1270,21 @@ export default function HolidayUsagePage() {
                               {row.halfDay ? " (½)" : ""}
                             </td>
                             <td style={td}>
-                              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  flexWrap: "wrap",
+                                }}
+                              >
                                 {halfPrefix ? (
-                                  <span style={{ ...chip, background: "#fff7ed" }}>{halfPrefix}</span>
+                                  <span style={{ ...chip, background: "#fff7ed" }}>
+                                    {halfPrefix}
+                                  </span>
                                 ) : null}
-                                <Pill tone={tone}>{typeLabel}</Pill>
+                                {row.pending ? <Pill tone="pending">Pending</Pill> : null}
+                                <Pill tone={typeTone}>{baseTypeLabel}</Pill>
                               </div>
                             </td>
                             <td style={td}>
@@ -1195,14 +1300,20 @@ export default function HolidayUsagePage() {
                               </div>
                             </td>
                             <td style={td}>
-                              {/* ✅ now opens overlay instead of routing */}
-                              <button
-                                style={btn("ghost")}
-                                type="button"
-                                onClick={() => setEditHolidayId(row.id)}
-                              >
-                                Edit →
-                              </button>
+                              {/* ✅ Admin-only edit/delete access */}
+                              {isAdmin ? (
+                                <button
+                                  style={btn("ghost")}
+                                  type="button"
+                                  onClick={() => setEditHolidayId(row.id)}
+                                >
+                                  Edit →
+                                </button>
+                              ) : (
+                                <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
+                                  —
+                                </span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1276,8 +1387,8 @@ export default function HolidayUsagePage() {
         </div>
       )}
 
-      {/* ✅ Edit Holiday overlay (opened from Edit → button) */}
-      {editHolidayId && (
+      {/* ✅ Edit Holiday overlay (Admin only) */}
+      {isAdmin && editHolidayId && (
         <EditHolidayForm
           holidayId={editHolidayId}
           onClose={() => setEditHolidayId(null)}

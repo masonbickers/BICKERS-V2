@@ -3,7 +3,14 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  updateDoc,
+  doc,
+  deleteDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HolidayForm from "@/app/components/holidayform";
 
@@ -193,6 +200,12 @@ const ampm = (v) => {
   return null;
 };
 
+/** ✅ Number formatter: show whole numbers without decimals, otherwise 2dp */
+const fmtNum = (n) => {
+  const v = Number(n ?? 0);
+  return Math.abs(v - Math.round(v)) < 1e-6 ? v.toFixed(0) : v.toFixed(2);
+};
+
 /** Parse "YYYY-MM-DD" safely at local midnight (no TZ shift). */
 function parseYMD(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
@@ -219,7 +232,6 @@ function toSafeDate(v) {
 }
 
 function toDate(v) {
-  // keep existing signature, but improve safety:
   return toSafeDate(v);
 }
 
@@ -399,6 +411,7 @@ export default function HRPage() {
   const router = useRouter();
 
   const [requestedHolidays, setRequestedHolidays] = useState([]);
+  const [deleteRequestedHolidays, setDeleteRequestedHolidays] = useState([]); // ✅ NEW
   const [usageData, setUsageData] = useState([]); // for the graph
   const [loading, setLoading] = useState(true);
 
@@ -465,6 +478,14 @@ export default function HRPage() {
       });
       setRequestedHolidays(pending);
 
+      // ✅ NEW: Delete requests for selected year
+      const delPending = all.filter((h) => {
+        const st = String(h.status || "").toLowerCase();
+        const y = holidayYear(h);
+        return (st === "delete_requested" || st === "delete-requested") && y === yearView;
+      });
+      setDeleteRequestedHolidays(delPending);
+
       // ✅ Approved usage for selected year (PAID ONLY) — excludes weekends + bank holidays
       const approved = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
@@ -524,7 +545,8 @@ export default function HRPage() {
         return {
           name,
           used: Number(used.toFixed(2)),
-          allowance: Number(allowance.toFixed(0)),
+          // ✅ FIX: do NOT round allowance to whole numbers
+          allowance: Number(Number(allowance || 0).toFixed(2)),
           remaining: remaining < 0 ? 0 : remaining,
         };
       });
@@ -547,7 +569,7 @@ export default function HRPage() {
     }
     try {
       const ref = doc(db, "holidays", id);
-      await updateDoc(ref, { status, decidedBy: auth?.currentUser?.email || "" });
+      await updateDoc(ref, { status, decidedBy: auth?.currentUser?.email || "", decidedAt: serverTimestamp() });
       await fetchHolidays();
     } catch (err) {
       console.error("Error updating status:", err);
@@ -555,34 +577,71 @@ export default function HRPage() {
     }
   };
 
+  // ✅ NEW: approve/decline delete requests
+  const approveDelete = async (h) => {
+    if (!isAdmin) {
+      alert("Only admins can approve deletions.");
+      return;
+    }
+    const ok = confirm("Approve deletion? This will permanently remove the holiday entry.");
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, "holidays", h.id));
+      await fetchHolidays();
+    } catch (err) {
+      console.error("Error approving delete:", err);
+      alert("❌ Error deleting holiday");
+    }
+  };
+
+  const declineDelete = async (h) => {
+    if (!isAdmin) {
+      alert("Only admins can decline deletions.");
+      return;
+    }
+    try {
+      // If you store a previous status when requesting delete, we’ll restore it.
+      // Otherwise default back to "approved" (safe for most cases).
+      const restore = String(h.deleteFromStatus || h.previousStatus || "approved");
+      await updateDoc(doc(db, "holidays", h.id), {
+        status: restore,
+        deleteRequestedAt: null,
+        deleteRequestedBy: null,
+        deleteDeclinedAt: serverTimestamp(),
+        deleteDeclinedBy: auth?.currentUser?.email || "",
+      });
+      await fetchHolidays();
+    } catch (err) {
+      console.error("Error declining delete:", err);
+      alert("❌ Error updating delete request");
+    }
+  };
+
   const documents = [
     { key: "holidayForm", title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
     { key: "holidayUsage", title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
     { key: "timesheets", title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
-    { key: "sick", title: "Sick Leave Form", description: "Report absences due to illness.", link: "/sick-leave" },
     { key: "policy", title: "HR Policy Manual", description: "View company policies and employee handbook.", link: "/hr-policies" },
-    { key: "contracts", title: "Contract Upload", description: "Upload new starter contracts and documentation.", link: "/upload-contract" },
   ];
 
   const renderLabel = (props) => {
     const { x, y, width, value } = props;
     if (value == null) return null;
-    const v = Number(value);
-    const text = Math.abs(v - Math.round(v)) < 1e-6 ? v.toFixed(0) : v.toFixed(2);
     return (
       <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#0f172a" style={{ fontSize: 11, fontWeight: 800 }}>
-        {text}
+        {fmtNum(value)}
       </text>
     );
   };
 
-  // Labels for allowance (grey)
+  // ✅ Labels for allowance (grey) — now supports decimals like 22.5
   const renderAllowanceLabel = (props) => {
     const { x, y, width, value } = props;
     if (value == null) return null;
     return (
       <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#64748b" style={{ fontSize: 11, fontWeight: 800 }}>
-        {Number(value).toFixed(0)}
+        {fmtNum(value)}
       </text>
     );
   };
@@ -640,7 +699,15 @@ export default function HRPage() {
               <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
             </select>
 
-            <div style={chip}>{loading ? "Loading…" : `${requestedHolidays.length} requests`}</div>
+            <div style={chip}>
+              {loading ? "Loading…" : `${requestedHolidays.length} requests`}
+            </div>
+
+            {/* ✅ NEW chip for delete requests */}
+            <div style={{ ...chip, background: "#fff7ed", borderColor: "#fed7aa", color: "#9a3412" }}>
+              Delete requests: <b style={{ marginLeft: 6 }}>{deleteRequestedHolidays.length}</b>
+            </div>
+
             <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
               Paid usage entries: <b style={{ marginLeft: 6 }}>{usageData.length}</b>
             </div>
@@ -704,8 +771,7 @@ export default function HRPage() {
                         color: UI.text,
                       }}
                       formatter={(value, name, props) => {
-                        const num = Number(value);
-                        const v = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+                        const v = fmtNum(value);
                         if (name === "used") return [`${v} used`, props?.payload?.name || ""];
                         if (name === "allowance") return [`${v} allowance`, props?.payload?.name || ""];
                         return [`${v}`, props?.payload?.name || ""];
@@ -728,99 +794,204 @@ export default function HRPage() {
             )}
           </section>
 
-          {/* 📌 Requested holidays */}
-          <section style={card}>
-            <div style={sectionHeader}>
-              <div>
-                <h2 style={titleMd}>Requested holidays ({yearView})</h2>
-                <div style={hint}>
-                  Pending requests for the selected year. <b>Includes Paid + Unpaid + Accrued</b>.
+          {/* Right column: Requested + Delete Requested */}
+          <div style={{ display: "grid", gap: UI.gap }}>
+            {/* 📌 Requested holidays */}
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div>
+                  <h2 style={titleMd}>Requested holidays ({yearView})</h2>
+                  <div style={hint}>
+                    Pending requests for the selected year. <b>Includes Paid + Unpaid + Accrued</b>.
+                  </div>
+                </div>
+                <div style={chip}>{requestedHolidays.length}</div>
+              </div>
+
+              {!isAdmin ? (
+                <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
+                  You can view requests, but only admins can approve/decline.
+                </div>
+              ) : null}
+
+              {requestedHolidays.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending holiday requests.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {requestedHolidays.slice(0, 6).map((h) => {
+                    const fromD = toDate(h.startDate);
+                    const toD = toDate(h.endDate) || fromD;
+                    const type = String(h.leaveType || h.paidStatus || "Other");
+                    const { single, start, end } = getHalfInfo(h);
+
+                    let typeHint = "";
+                    if (single && (start.half || end.half)) {
+                      typeHint = `Half ${start.when || end.when || ""}`.trim();
+                    } else if (!single && (start.half || end.half)) {
+                      const bits = [];
+                      if (start.half) bits.push(`Start half${start.when ? ` (${start.when})` : ""}`);
+                      if (end.half) bits.push(`End half${end.when ? ` (${end.when})` : ""}`);
+                      typeHint = bits.join(", ");
+                    }
+
+                    return (
+                      <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
+                          <span style={chip}>{type}</span>
+                        </div>
+
+                        <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+                          {fmt(fromD)} → {fmt(toD)}
+                          {typeHint ? <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>• {typeHint}</span> : null}
+                        </div>
+
+                        <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            style={{
+                              ...btn("approve"),
+                              opacity: isAdmin ? 1 : 0.45,
+                              cursor: isAdmin ? "pointer" : "not-allowed",
+                            }}
+                            onClick={() => isAdmin && updateStatus(h.id, "approved")}
+                            type="button"
+                            disabled={!isAdmin}
+                            title={!isAdmin ? "Admin only" : "Approve"}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            style={{
+                              ...btn("decline"),
+                              opacity: isAdmin ? 1 : 0.45,
+                              cursor: isAdmin ? "pointer" : "not-allowed",
+                            }}
+                            onClick={() => isAdmin && updateStatus(h.id, "declined")}
+                            type="button"
+                            disabled={!isAdmin}
+                            title={!isAdmin ? "Admin only" : "Decline"}
+                          >
+                            Decline
+                          </button>
+                          <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
+                            View usage →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {requestedHolidays.length > 6 ? (
+                    <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                      Showing 6 of {requestedHolidays.length}. Open Holiday Usage for more.
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
+            {/* 🗑️ Delete requested holidays (approval UI same style) */}
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div>
+                  <h2 style={titleMd}>Holiday delete requests ({yearView})</h2>
+                  <div style={hint}>
+                    Employees have requested to delete a holiday entry. Admins can approve (permanent delete) or decline (restore).
+                  </div>
+                </div>
+                <div style={{ ...chip, background: "#fff7ed", borderColor: "#fed7aa", color: "#9a3412" }}>
+                  {deleteRequestedHolidays.length}
                 </div>
               </div>
-              <div style={chip}>{requestedHolidays.length}</div>
-            </div>
 
-            {!isAdmin ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
-                You can view requests, but only admins can approve/decline.
-              </div>
-            ) : null}
+              {!isAdmin ? (
+                <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
+                  You can view delete requests, but only admins can approve/decline.
+                </div>
+              ) : null}
 
-            {requestedHolidays.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending holiday requests.</div>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {requestedHolidays.slice(0, 6).map((h) => {
-                  const fromD = toDate(h.startDate);
-                  const toD = toDate(h.endDate) || fromD;
-                  const type = String(h.leaveType || h.paidStatus || "Other");
-                  const { single, start, end } = getHalfInfo(h);
+              {deleteRequestedHolidays.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No delete requests.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {deleteRequestedHolidays.slice(0, 6).map((h) => {
+                    const fromD = toDate(h.startDate);
+                    const toD = toDate(h.endDate) || fromD;
+                    const type = String(h.leaveType || h.paidStatus || "Other");
+                    const { single, start, end } = getHalfInfo(h);
 
-                  let typeHint = "";
-                  if (single && (start.half || end.half)) {
-                    typeHint = `Half ${start.when || end.when || ""}`.trim();
-                  } else if (!single && (start.half || end.half)) {
-                    const bits = [];
-                    if (start.half) bits.push(`Start half${start.when ? ` (${start.when})` : ""}`);
-                    if (end.half) bits.push(`End half${end.when ? ` (${end.when})` : ""}`);
-                    typeHint = bits.join(", ");
-                  }
+                    let typeHint = "";
+                    if (single && (start.half || end.half)) {
+                      typeHint = `Half ${start.when || end.when || ""}`.trim();
+                    } else if (!single && (start.half || end.half)) {
+                      const bits = [];
+                      if (start.half) bits.push(`Start half${start.when ? ` (${start.when})` : ""}`);
+                      if (end.half) bits.push(`End half${end.when ? ` (${end.when})` : ""}`);
+                      typeHint = bits.join(", ");
+                    }
 
-                  return (
-                    <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                        <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
-                        <span style={chip}>{type}</span>
+                    return (
+                      <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
+                          <span style={chip}>{type}</span>
+                        </div>
+
+                        <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+                          {fmt(fromD)} → {fmt(toD)}
+                          {typeHint ? <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>• {typeHint}</span> : null}
+                        </div>
+
+                        <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
+                          Requested by: <b style={{ color: UI.text }}>{h.deleteRequestedBy || "—"}</b>
+                        </div>
+
+                        <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            style={{
+                              ...btn("approve"),
+                              opacity: isAdmin ? 1 : 0.45,
+                              cursor: isAdmin ? "pointer" : "not-allowed",
+                            }}
+                            onClick={() => isAdmin && approveDelete(h)}
+                            type="button"
+                            disabled={!isAdmin}
+                            title={!isAdmin ? "Admin only" : "Approve delete"}
+                          >
+                            Approve delete
+                          </button>
+
+                          <button
+                            style={{
+                              ...btn("decline"),
+                              opacity: isAdmin ? 1 : 0.45,
+                              cursor: isAdmin ? "pointer" : "not-allowed",
+                            }}
+                            onClick={() => isAdmin && declineDelete(h)}
+                            type="button"
+                            disabled={!isAdmin}
+                            title={!isAdmin ? "Admin only" : "Decline delete"}
+                          >
+                            Decline
+                          </button>
+
+                          <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
+                            View usage →
+                          </button>
+                        </div>
                       </div>
+                    );
+                  })}
 
-                      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                        {fmt(fromD)} → {fmt(toD)}
-                        {typeHint ? <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>• {typeHint}</span> : null}
-                      </div>
-
-                      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                          style={{
-                            ...btn("approve"),
-                            opacity: isAdmin ? 1 : 0.45,
-                            cursor: isAdmin ? "pointer" : "not-allowed",
-                          }}
-                          onClick={() => isAdmin && updateStatus(h.id, "approved")}
-                          type="button"
-                          disabled={!isAdmin}
-                          title={!isAdmin ? "Admin only" : "Approve"}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          style={{
-                            ...btn("decline"),
-                            opacity: isAdmin ? 1 : 0.45,
-                            cursor: isAdmin ? "pointer" : "not-allowed",
-                          }}
-                          onClick={() => isAdmin && updateStatus(h.id, "declined")}
-                          type="button"
-                          disabled={!isAdmin}
-                          title={!isAdmin ? "Admin only" : "Decline"}
-                        >
-                          Decline
-                        </button>
-                        <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
-                          View usage →
-                        </button>
-                      </div>
+                  {deleteRequestedHolidays.length > 6 ? (
+                    <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                      Showing 6 of {deleteRequestedHolidays.length}. Open Holiday Usage for more.
                     </div>
-                  );
-                })}
-
-                {requestedHolidays.length > 6 ? (
-                  <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
-                    Showing 6 of {requestedHolidays.length}. Open Holiday Usage for more.
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </section>
+                  ) : null}
+                </div>
+              )}
+            </section>
+          </div>
         </div>
 
         {/* Full requests table */}

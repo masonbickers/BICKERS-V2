@@ -4,19 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth, storage as storageInstance } from "../../../../firebaseConfig";
-import {
-  doc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  collection,
-} from "firebase/firestore";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+import { doc, getDoc, getDocs, updateDoc, collection } from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import DatePicker from "react-multi-date-picker";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -247,9 +236,9 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
 
 const expandBookingDates = (b) => {
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
-  const one = (b.date || "").slice(0, 10);
-  const s = (b.startDate || "").slice(0, 10);
-  const e = (b.endDate || "").slice(0, 10);
+  const one = (b.date || "").slice?.(0, 10) || "";
+  const s = (b.startDate || "").slice?.(0, 10) || "";
+  const e = (b.endDate || "").slice?.(0, 10) || "";
   if (one) return [one];
   if (s && e) return enumerateDaysYMD_UTC(s, e);
   return [];
@@ -294,7 +283,6 @@ const TRAVEL_DURATION_OPTIONS = buildTravelDurationOptions();
    Normalisers
 ──────────────────────────────────────────────────────────────────────────── */
 const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
-
 const employeesKey = (e) => `${e?.role || ""}::${e?.name || ""}`;
 
 const uniqEmpObjects = (arr) => {
@@ -363,7 +351,19 @@ const toJsDate = (raw) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
-// download URLs look like .../o/<ENCODED_PATH>?alt=media&token=...
+// ✅ Convert Timestamp/Date/string to YYYY-MM-DD for <input type="date">
+const toYMD = (raw) => {
+  if (!raw) return "";
+  if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (typeof raw === "string" && raw.includes("T")) return raw.slice(0, 10);
+  const d = toJsDate(raw);
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const storagePathFromDownloadUrl = (url = "") => {
   try {
     return decodeURIComponent(url.split("/o/")[1].split("?")[0]);
@@ -373,7 +373,7 @@ const storagePathFromDownloadUrl = (url = "") => {
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   UPDATED Edit Page
+   UPDATED Edit Page (single-day call time FIX included)
 ──────────────────────────────────────────────────────────────────────────── */
 export default function EditBookingPage() {
   const router = useRouter();
@@ -401,13 +401,13 @@ export default function EditBookingPage() {
   const [endDate, setEndDate] = useState("");
 
   // People
-  const [employees, setEmployees] = useState([]); // [{role,name}]
+  const [employees, setEmployees] = useState([]);
   const [employeesByDate, setEmployeesByDate] = useState({});
   const [customEmployee, setCustomEmployee] = useState("");
   const [isCrewed, setIsCrewed] = useState(false);
 
   // Vehicles / equipment
-  const [vehicles, setVehicles] = useState([]); // ids
+  const [vehicles, setVehicles] = useState([]);
   const [vehicleStatus, setVehicleStatus] = useState({});
   const [equipment, setEquipment] = useState([]);
 
@@ -467,8 +467,8 @@ export default function EditBookingPage() {
   const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
 
   // Files (multi-file)
-  const [attachments, setAttachments] = useState([]); // [{url,name,contentType,size,folder}]
-  const [newFiles, setNewFiles] = useState([]); // File[]
+  const [attachments, setAttachments] = useState([]);
+  const [newFiles, setNewFiles] = useState([]);
   const [deletedUrls, setDeletedUrls] = useState(new Set());
   const [pdfProgress, setPdfProgress] = useState(0);
 
@@ -481,8 +481,6 @@ export default function EditBookingPage() {
   const [savedContacts, setSavedContacts] = useState([]);
   const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
 
-  const isMaintenance = status === "Maintenance";
-
   // Derived dates
   const selectedDates = useMemo(() => {
     if (useCustomDates) return customDates;
@@ -491,12 +489,36 @@ export default function EditBookingPage() {
     return startDate ? [startDate] : [];
   }, [useCustomDates, customDates, startDate, isRange, endDate]);
 
+  // ✅ CALL TIME FIX: decide UI/save mode by flags, not selectedDates length
+  const callTimeUsesPerDay = useMemo(() => {
+    return useCustomDates || isRange;
+  }, [useCustomDates, isRange]);
+
+  // ✅ CALL TIME FIX: keep per-day map in sync when toggling range/custom modes
+  useEffect(() => {
+    if (!selectedDates.length) return;
+
+    // If we are in per-day mode and there's a callTime picked, ensure it's mapped to at least the first date.
+    if (callTimeUsesPerDay) {
+      const d0 = selectedDates[0];
+      if (d0 && callTime && !callTimesByDate[d0]) {
+        setCallTimesByDate((prev) => ({ ...prev, [d0]: callTime }));
+      }
+      return;
+    }
+
+    // If we are in single-day mode and there is a per-day value for the first date, reflect it in callTime.
+    const only = selectedDates[0];
+    if (only && callTimesByDate[only] && !callTime) {
+      setCallTime(callTimesByDate[only]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callTimeUsesPerDay, selectedDates.join("|")]);
+
   // Conflicts exclude self
   const overlapping = useMemo(() => {
     if (!selectedDates.length) return [];
-    return allBookings.filter(
-      (b) => b.id !== bookingId && anyDateOverlap(expandBookingDates(b), selectedDates)
-    );
+    return allBookings.filter((b) => b.id !== bookingId && anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, bookingId, selectedDates]);
 
   // Vehicle conflicts
@@ -527,20 +549,16 @@ export default function EditBookingPage() {
     return { bookedVehicleIds: booked, heldVehicleIds: held, vehicleBlockingStatusById: blockingById };
   }, [overlapping, vehicleLookup]);
 
-  // Equipment conflicts (booking-level)
+  // Equipment conflicts
   const bookedEquipment = useMemo(() => {
-    return overlapping
-      .filter(doesBlockBooking)
-      .flatMap((b) => normalizeEquipmentList(b.equipment || []));
+    return overlapping.filter(doesBlockBooking).flatMap((b) => normalizeEquipmentList(b.equipment || []));
   }, [overlapping]);
 
   const heldEquipment = useMemo(() => {
-    return overlapping
-      .filter((b) => !doesBlockBooking(b))
-      .flatMap((b) => normalizeEquipmentList(b.equipment || []));
+    return overlapping.filter((b) => !doesBlockBooking(b)).flatMap((b) => normalizeEquipmentList(b.equipment || []));
   }, [overlapping]);
 
-  // Employee conflicts (per-day aware using employeesByDate if present)
+  // Employee conflicts (per-day aware)
   const getEmployeesForDates = (booking, dates) => {
     const out = [];
     if (!dates.length) return out;
@@ -574,7 +592,7 @@ export default function EditBookingPage() {
   const bookedEmployees = Array.from(bookedEmployeesSet);
   const heldEmployees = Array.from(heldEmployeesSet);
 
-  // workBookings maintenance block (map to vehicle IDs)
+  // Maintenance block (map to vehicle IDs)
   const maintenanceVehicleIdSet = useMemo(() => {
     const ids = [];
     maintenanceBookings.forEach((b) => {
@@ -602,7 +620,7 @@ export default function EditBookingPage() {
     return new Set(ids);
   }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
-  // Holiday check for specific dates
+  // Holiday check
   const isEmployeeOnHolidayForDates = (employeeName, dates) => {
     if (!employeeName || !dates?.length) return false;
     return holidayBookings.some((h) => {
@@ -650,7 +668,6 @@ export default function EditBookingPage() {
     });
   };
 
-  // “Other” names in list so they’re selectable/deselectable
   const uniqStrings = (arr) =>
     Array.from(new Set((arr || []).map((s) => String(s || "").trim()).filter(Boolean)));
 
@@ -678,7 +695,6 @@ export default function EditBookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freelancerList, employees]);
 
-  // Toggle vehicle with canonical id
   const toggleVehicle = (vehicleId, checked) => {
     setVehicles((prev) => (checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)));
     setVehicleStatus((prev) => {
@@ -731,31 +747,22 @@ export default function EditBookingPage() {
   ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const loadData = async () => {
-      const [
-        bookingSnap,
-        holidaySnap,
-        empSnap,
-        vehicleSnap,
-        equipSnap,
-        workSnap,
-        contactsSnap,
-      ] = await Promise.all([
-        getDocs(collection(db, "bookings")),
-        getDocs(collection(db, "holidays")),
-        getDocs(collection(db, "employees")),
-        getDocs(collection(db, "vehicles")),
-        getDocs(collection(db, "equipment")),
-        getDocs(collection(db, "workBookings")),
-        getDocs(collection(db, "contacts")),
-      ]);
+      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, workSnap, contactsSnap] =
+        await Promise.all([
+          getDocs(collection(db, "bookings")),
+          getDocs(collection(db, "holidays")),
+          getDocs(collection(db, "employees")),
+          getDocs(collection(db, "vehicles")),
+          getDocs(collection(db, "equipment")),
+          getDocs(collection(db, "workBookings")),
+          getDocs(collection(db, "contacts")),
+        ]);
 
-      // bookings list for conflicts
       setAllBookings(bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
       setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
       setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-      // employees lists + code map
       const allEmployees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       setEmployeeList(
@@ -787,7 +794,6 @@ export default function EditBookingPage() {
       }
       setNameToCode(map);
 
-      // Vehicles: groups + lookup
       const grouped = {
         Bike: [],
         "Electric Tracking Vehicles": [],
@@ -830,7 +836,6 @@ export default function EditBookingPage() {
       setVehicleGroups(grouped);
       setVehicleLookup({ byId, byReg, byName });
 
-      // Equipment groups
       const groupedEquip = {};
       equipSnap.docs.forEach((d) => {
         const e = d.data();
@@ -846,7 +851,6 @@ export default function EditBookingPage() {
       setOpenEquipGroups(openEquip);
       setAllEquipmentNames(Object.values(groupedEquip).flat().map((s) => String(s || "").trim()));
 
-      // Load booking doc
       if (!bookingId) return;
       const refDoc = doc(db, "bookings", bookingId);
       const snap = await getDoc(refDoc);
@@ -854,13 +858,9 @@ export default function EditBookingPage() {
 
       const b = snap.data();
 
-      // Dates
       const datesForBooking =
-        (Array.isArray(b.bookingDates) && b.bookingDates.length
-          ? b.bookingDates
-          : expandBookingDates(b)) || [];
+        (Array.isArray(b.bookingDates) && b.bookingDates.length ? b.bookingDates : expandBookingDates(b)) || [];
 
-      // If booking has bookingDates but not consecutive start/end, treat as custom
       const hasConsecutiveRange = Boolean(b.startDate && b.endDate);
       const hasCustom = Array.isArray(b.bookingDates) && b.bookingDates.length && !hasConsecutiveRange;
 
@@ -868,8 +868,9 @@ export default function EditBookingPage() {
       setCustomDates(hasCustom ? datesForBooking : []);
       setIsRange(!hasCustom && !!b.startDate && !!b.endDate);
 
-      setStartDate((b.startDate || b.date || "").slice(0, 10));
-      setEndDate((b.endDate || "").slice(0, 10));
+      const loadedStart = b.startDate ? toYMD(b.startDate) : b.date ? toYMD(b.date) : "";
+      setStartDate(loadedStart);
+      setEndDate(b.endDate ? toYMD(b.endDate) : "");
 
       setJobNumber(b.jobNumber || "");
       setClient(b.client || "");
@@ -882,7 +883,6 @@ export default function EditBookingPage() {
       setStatusReasons(b.statusReasons || []);
       setStatusReasonOther(b.statusReasonOther || "");
 
-      // Employees normalise
       const loadedEmployees = uniqEmpObjects(
         (Array.isArray(b.employees) ? b.employees : []).map((e) =>
           typeof e === "string" ? { role: "Precision Driver", name: e } : e
@@ -890,7 +890,6 @@ export default function EditBookingPage() {
       );
       setEmployees(loadedEmployees);
 
-      // employeesByDate
       const rawEmployeesByDate = b.employeesByDate || {};
       if (Object.keys(rawEmployeesByDate).length) {
         setEmployeesByDate(rawEmployeesByDate);
@@ -903,7 +902,6 @@ export default function EditBookingPage() {
         setEmployeesByDate(mapByDate);
       }
 
-      // Vehicles resolve to ids
       const resolvedVehicleIds = normalizeVehicleKeysListForLookup(Array.isArray(b.vehicles) ? b.vehicles : [], {
         byId,
         byReg,
@@ -911,19 +909,14 @@ export default function EditBookingPage() {
       });
       setVehicles(resolvedVehicleIds);
 
-      // Remap vehicleStatus keys to ids
       const rawVehicleStatus = b.vehicleStatus || {};
       const remapped = {};
       Object.entries(rawVehicleStatus).forEach(([rawKey, val]) => {
         const s = String(rawKey || "").trim();
-        const match =
-          byId[s] ||
-          byReg[s.toUpperCase()] ||
-          byName[s.toLowerCase()];
+        const match = byId[s] || byReg[s.toUpperCase()] || byName[s.toLowerCase()];
         if (match?.id) remapped[match.id] = val;
         else remapped[rawKey] = val;
       });
-      // ensure selected vehicles have a status
       resolvedVehicleIds.forEach((vid) => {
         if (!remapped[vid]) remapped[vid] = b.status || "Confirmed";
       });
@@ -941,23 +934,24 @@ export default function EditBookingPage() {
       setHasRiskAssessment(!!b.hasRiskAssessment);
       setHasHotel(!!b.hasHotel);
 
-      // Call times
+      // ✅ CALL TIME FIX: load both, then ensure per-day map has value for single-day range/custom too
       setCallTime(b.callTime || "");
       const existingCallTimes = b.callTimesByDate || {};
-      if (Object.keys(existingCallTimes).length) setCallTimesByDate(existingCallTimes);
-      else if (b.callTime && datesForBooking.length) {
+      if (Object.keys(existingCallTimes).length) {
+        setCallTimesByDate(existingCallTimes);
+      } else if (b.callTime && datesForBooking.length) {
         const mapCT = {};
         datesForBooking.forEach((d) => (mapCT[d] = b.callTime));
         setCallTimesByDate(mapCT);
+      } else {
+        setCallTimesByDate({});
       }
 
       setHasRiggingAddress(!!b.hasRiggingAddress);
       setRiggingAddress(b.riggingAddress || "");
 
-      // Contacts
       setAdditionalContacts(Array.isArray(b.additionalContacts) ? b.additionalContacts : []);
 
-      // Attachments
       const att =
         Array.isArray(b.attachments) && b.attachments.length
           ? b.attachments.filter((a) => a?.url)
@@ -972,7 +966,6 @@ export default function EditBookingPage() {
     loadData();
   }, [bookingId]);
 
-  // Missing equipment
   const missingEquipment = equipment.filter((n) => !allEquipmentNames.includes(String(n || "").trim()));
   const removeEquipment = (name) => setEquipment((prev) => prev.filter((x) => x !== String(name || "").trim()));
   const remapEquipment = (oldName, newName) => {
@@ -985,7 +978,6 @@ export default function EditBookingPage() {
     });
   };
 
-  // Immediate delete legacy single URL (kept)
   const handleDeleteCurrentFile = async () => {
     if (!pdfURL) return;
     const ok = window.confirm("Delete the current file from Storage and unlink it from this booking?");
@@ -996,14 +988,10 @@ export default function EditBookingPage() {
       const path = storagePathFromDownloadUrl(pdfURL);
       if (path) await deleteObject(ref(storageInstance, path));
 
-      // remove from state
       setPdfURL(null);
-
-      // also remove from attachments if present
       setAttachments((prev) => (prev || []).filter((a) => a?.url !== pdfURL));
       setDeletedUrls(new Set());
 
-      // update doc legacy mirrors
       await updateDoc(doc(db, "bookings", bookingId), {
         quoteUrl: null,
         pdfURL: null,
@@ -1020,7 +1008,6 @@ export default function EditBookingPage() {
     }
   };
 
-  // Submit (unified)
   const handleSubmit = async () => {
     if (status !== "Enquiry") {
       if (useCustomDates) {
@@ -1038,7 +1025,6 @@ export default function EditBookingPage() {
         return alert("Please enter the 'Other' reason.");
     }
 
-    // Custom employees
     const customNames = customEmployee
       ? customEmployee.split(",").map((n) => n.trim()).filter(Boolean)
       : [];
@@ -1050,7 +1036,6 @@ export default function EditBookingPage() {
 
     const bookingDates = status !== "Enquiry" ? selectedDates : [];
 
-    // NotesByDate filtered
     const filteredNotesByDate = {};
     bookingDates.forEach((d) => {
       filteredNotesByDate[d] = notesByDate[d] || "";
@@ -1060,7 +1045,6 @@ export default function EditBookingPage() {
         filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
     });
 
-    // employeesByDate payload
     const cleanedSet = new Set(cleanedEmployees.map(employeesKey));
     let employeesByDatePayload = {};
     if (bookingDates.length && cleanedEmployees.length) {
@@ -1075,7 +1059,6 @@ export default function EditBookingPage() {
       }
     }
 
-    // Holiday validation
     for (const employee of cleanedEmployees) {
       const datesForEmp = bookingDates.filter((d) => {
         const list = employeesByDatePayload[d] || [];
@@ -1087,31 +1070,33 @@ export default function EditBookingPage() {
       }
     }
 
-    // employeeCodes
     const employeeCodes = cleanedEmployees
       .map((e) => nameToCode[String(e?.name || "").trim().toLowerCase()])
       .filter(Boolean);
 
-    // call times payload
+    // ✅ CALL TIME FIX: build per-day payload from the correct source
     const callTimesByDatePayload = {};
     if (bookingDates.length) {
       bookingDates.forEach((d) => {
-        if (callTimesByDate[d]) callTimesByDatePayload[d] = callTimesByDate[d];
+        const v = callTimeUsesPerDay ? (callTimesByDate[d] || "") : (callTime || "");
+        if (v) callTimesByDatePayload[d] = v;
       });
+
+      // If in per-day mode and user only used single dropdown earlier, still preserve it
+      if (callTimeUsesPerDay && !Object.keys(callTimesByDatePayload).length && callTime && bookingDates[0]) {
+        callTimesByDatePayload[bookingDates[0]] = callTime;
+      }
     }
 
-    // Contacts payload (unified)
     const additionalContactsToSave = (additionalContacts || [])
       .map((c) => ({
-        department:
-          c.department === "Other" && c.departmentOther ? c.departmentOther : c.department || "",
+        department: c.department === "Other" && c.departmentOther ? c.departmentOther : c.department || "",
         name: (c.name || "").trim(),
         email: (c.email || "").trim(),
         phone: (c.phone || "").trim(),
       }))
       .filter((c) => c.name || c.email || c.phone || c.department);
 
-    // Files: delete marked + upload new
     if (deletedUrls.size > 0) {
       for (const url of deletedUrls) {
         const path = storagePathFromDownloadUrl(url);
@@ -1166,41 +1151,28 @@ export default function EditBookingPage() {
 
     const firstUrl = nextAttachments[0]?.url || null;
 
-    // cleanup UI file state
     setPdfProgress(0);
     setNewFiles([]);
     setDeletedUrls(new Set());
     setAttachments(nextAttachments);
     setPdfURL(firstUrl);
 
-    // Persist contacts into /contacts (upsert) — same as create
-    for (const c of additionalContactsToSave) {
-      const id = contactIdFromEmail(c.email);
-      if (!id) continue;
-      await updateDoc(doc(db, "contacts", id), { ...c, updatedAt: new Date().toISOString() }).catch(async () => {
-        // if doc doesn't exist, fallback to set via updateDoc fail workaround:
-        // easiest is setDoc, but we kept imports minimal—use updateDoc try/catch above.
-      });
-    }
     const rangeFromBookingDatesUTC = (dates = []) => {
-  const sorted = [...(dates || [])].filter(Boolean).sort(); // "YYYY-MM-DD" sorts correctly
-  if (!sorted.length) return { date: null, startDate: null, endDate: null };
+      const sorted = [...(dates || [])].filter(Boolean).sort();
+      if (!sorted.length) return { date: null, startDate: null, endDate: null };
 
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
 
-  // Force UTC midnight so it never shifts a day in the calendar
-  const firstISO = new Date(`${first}T00:00:00.000Z`).toISOString();
-  const lastISO  = new Date(`${last}T00:00:00.000Z`).toISOString();
+      const firstISO = new Date(`${first}T00:00:00.000Z`).toISOString();
+      const lastISO = new Date(`${last}T00:00:00.000Z`).toISOString();
 
-  return {
-    // keep a "date" anchor for single-day calendar logic if your calendar uses it
-    date: firstISO,
-    startDate: firstISO,
-    endDate: lastISO,
-  };
-};
-
+      return {
+        date: firstISO,
+        startDate: firstISO,
+        endDate: lastISO,
+      };
+    };
 
     const user = auth.currentUser;
 
@@ -1235,7 +1207,11 @@ export default function EditBookingPage() {
       pdfURL: firstUrl || null,
 
       hasHotel,
-      callTime: (!isRange && !useCustomDates ? (callTime || "") : ""),
+
+      // ✅ CALL TIME FIX:
+      // - Single-day mode stores callTime AND also per-day map for consistency.
+      // - Per-day mode stores callTimesByDate (even if only 1 day)
+      callTime: !callTimeUsesPerDay ? (callTime || "") : "",
       ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
 
       hasRiggingAddress,
@@ -1248,22 +1224,21 @@ export default function EditBookingPage() {
         statusReasonOther: statusReasons.includes("Other") ? statusReasonOther.trim() : "",
       }),
 
-...(status === "Enquiry"
-  ? { date: null, startDate: null, endDate: null }
-  : useCustomDates
-    ? rangeFromBookingDatesUTC(bookingDates) // ✅ critical: don't null dates for custom selections
-    : isRange
-      ? {
-          date: null,
-          startDate: new Date(`${startDate}T00:00:00.000Z`).toISOString(),
-          endDate: new Date(`${endDate}T00:00:00.000Z`).toISOString(),
-        }
-      : {
-          date: new Date(`${startDate}T00:00:00.000Z`).toISOString(),
-          startDate: null,
-          endDate: null,
-        }),
-
+      ...(status === "Enquiry"
+        ? { date: null, startDate: null, endDate: null }
+        : useCustomDates
+        ? rangeFromBookingDatesUTC(bookingDates)
+        : isRange
+        ? {
+            date: null,
+            startDate: new Date(`${startDate}T00:00:00.000Z`).toISOString(),
+            endDate: new Date(`${endDate}T00:00:00.000Z`).toISOString(),
+          }
+        : {
+            date: new Date(`${startDate}T00:00:00.000Z`).toISOString(),
+            startDate: null,
+            endDate: null,
+          }),
 
       lastEditedBy: user?.email || "Unknown",
       updatedAt: new Date().toISOString(),
@@ -1272,12 +1247,9 @@ export default function EditBookingPage() {
     try {
       await updateDoc(doc(db, "bookings", bookingId), payload);
 
-      // Upsert contacts properly (use setDoc with merge) — robust
-      // (We do it AFTER updateDoc so booking save isn’t blocked if contacts fail)
       for (const c of additionalContactsToSave) {
         const id = contactIdFromEmail(c.email);
         if (!id) continue;
-        // dynamic import to avoid changing your imports list
         const { setDoc } = await import("firebase/firestore");
         await setDoc(
           doc(db, "contacts", id),
@@ -1301,7 +1273,6 @@ export default function EditBookingPage() {
     }
   };
 
-  // Legacy equipment handling
   const missingEquip = missingEquipment;
 
   return (
@@ -1347,7 +1318,9 @@ export default function EditBookingPage() {
                   style={field.input}
                 >
                   {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
                   ))}
                 </select>
 
@@ -1411,7 +1384,12 @@ export default function EditBookingPage() {
                 <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} />
 
                 <label style={field.label}>Contact Email</label>
-                <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} style={field.input} />
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  style={field.input}
+                />
 
                 <label style={field.label}>Contact Number</label>
                 <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={field.input} />
@@ -1428,7 +1406,11 @@ export default function EditBookingPage() {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
-                    <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
+                    <button
+                      type="button"
+                      onClick={handleAddContactRow}
+                      style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                    >
                       + Add contact
                     </button>
                   </div>
@@ -1460,7 +1442,9 @@ export default function EditBookingPage() {
                           >
                             <option value="">Select department</option>
                             {FILM_DEPARTMENTS.map((dep) => (
-                              <option key={dep} value={dep}>{dep}</option>
+                              <option key={dep} value={dep}>
+                                {dep}
+                              </option>
                             ))}
                           </select>
 
@@ -1578,7 +1562,14 @@ export default function EditBookingPage() {
                     onChange={(e) => {
                       const on = e.target.checked;
                       setUseCustomDates(on);
-                      if (on) setIsRange(false);
+
+                      // ✅ CALL TIME FIX: when switching modes, keep data
+                      if (on) {
+                        setIsRange(false);
+                        if (startDate && callTime && !callTimesByDate[startDate]) {
+                          setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
+                        }
+                      }
                     }}
                   />
                   Select non-consecutive dates
@@ -1586,7 +1577,24 @@ export default function EditBookingPage() {
 
                 {!useCustomDates && (
                   <label style={field.checkboxRow}>
-                    <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                    <input
+                      type="checkbox"
+                      checked={isRange}
+                      onChange={() => {
+                        const next = !isRange;
+                        setIsRange(next);
+
+                        // ✅ CALL TIME FIX: moving into range mode? seed per-day map from callTime.
+                        if (next && startDate && callTime && !callTimesByDate[startDate]) {
+                          setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
+                        }
+
+                        // moving out of range mode? if we have per-day value, show it in single dropdown.
+                        if (!next && startDate && callTimesByDate[startDate] && !callTime) {
+                          setCallTime(callTimesByDate[startDate]);
+                        }
+                      }}
+                    />
                     Multi-day booking (consecutive)
                   </label>
                 )}
@@ -1609,7 +1617,20 @@ export default function EditBookingPage() {
                   <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
                     <div>
                       <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={field.input} />
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setStartDate(v);
+
+                          // ✅ CALL TIME FIX: keep per-day map aligned
+                          if (v && callTimeUsesPerDay && callTime && !callTimesByDate[v]) {
+                            setCallTimesByDate((prev) => ({ ...prev, [v]: callTime }));
+                          }
+                        }}
+                        style={field.input}
+                      />
                     </div>
                     {isRange && (
                       <div>
@@ -1623,9 +1644,7 @@ export default function EditBookingPage() {
                 {/* Notes per day */}
                 {selectedDates.length > 0 && (
                   <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "8px 0" }}>
-                      {selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}
-                    </h4>
+                    <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
                       {selectedDates.map((date) => {
@@ -1639,12 +1658,7 @@ export default function EditBookingPage() {
 
                             <select
                               value={selectedNote}
-                              onChange={(e) =>
-                                setNotesByDate({
-                                  ...notesByDate,
-                                  [date]: e.target.value,
-                                })
-                              }
+                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
                               style={field.input}
                             >
                               <option value="">Select note</option>
@@ -1697,7 +1711,9 @@ export default function EditBookingPage() {
                                 >
                                   <option value="">Select duration</option>
                                   {TRAVEL_DURATION_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
                                   ))}
                                 </select>
                               </div>
@@ -1749,8 +1765,7 @@ export default function EditBookingPage() {
 
                 <div style={{ marginTop: 8, marginBottom: 8 }}>
                   <label style={{ fontWeight: 700 }}>
-                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} />{" "}
-                    Booking Crewed
+                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking Crewed
                   </label>
                 </div>
 
@@ -1800,59 +1815,57 @@ export default function EditBookingPage() {
                   </div>
                 )}
 
-                {/* Employee schedule by day */}
-                {selectedDates.length > 0 &&
-                  employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
-                    <>
-                      <div style={divider} />
-                      <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
-                      <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
-                        Default = everyone works every selected day. Use this grid to fine-tune.
-                      </p>
+                {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
+                  <>
+                    <div style={divider} />
+                    <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
+                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
+                      Default = everyone works every selected day. Use this grid to fine-tune.
+                    </p>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
-                        {selectedDates.map((date) => {
-                          const assigned = employeesByDate[date] || [];
-                          const pretty = new Date(date).toDateString();
-                          return (
-                            <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                              <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+                      {selectedDates.map((date) => {
+                        const assigned = employeesByDate[date] || [];
+                        const pretty = new Date(date).toDateString();
+                        return (
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                            <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
 
-                              {employees
-                                .filter((e) => e.name && e.name !== "Other")
-                                .map((emp) => {
-                                  const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
-                                  return (
-                                    <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isOnDay}
-                                        onChange={() =>
-                                          setEmployeesByDate((prev) => {
-                                            const next = { ...prev };
-                                            const list = Array.isArray(next[date]) ? next[date] : [];
-                                            const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
-                                            if (exists) {
-                                              const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
-                                              if (filtered.length) next[date] = filtered;
-                                              else delete next[date];
-                                            } else {
-                                              next[date] = [...list, { role: emp.role, name: emp.name }];
-                                            }
-                                            return next;
-                                          })
-                                        }
-                                      />{" "}
-                                      {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
-                                    </label>
-                                  );
-                                })}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
+                            {employees
+                              .filter((e) => e.name && e.name !== "Other")
+                              .map((emp) => {
+                                const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
+                                return (
+                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isOnDay}
+                                      onChange={() =>
+                                        setEmployeesByDate((prev) => {
+                                          const next = { ...prev };
+                                          const list = Array.isArray(next[date]) ? next[date] : [];
+                                          const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
+                                          if (exists) {
+                                            const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
+                                            if (filtered.length) next[date] = filtered;
+                                            else delete next[date];
+                                          } else {
+                                            next[date] = [...list, { role: emp.role, name: emp.name }];
+                                          }
+                                          return next;
+                                        })
+                                      }
+                                    />{" "}
+                                    {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
@@ -1869,7 +1882,9 @@ export default function EditBookingPage() {
                         onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
                         style={accordionBtn}
                       >
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
+                        <span>
+                          {isOpen ? "▼" : "►"} {group}
+                        </span>
                         <span style={pill}>{items.length}</span>
                       </button>
 
@@ -1925,7 +1940,9 @@ export default function EditBookingPage() {
                                     style={{ height: 32 }}
                                   >
                                     {VEHICLE_STATUSES.map((s) => (
-                                      <option key={s} value={s}>{s}</option>
+                                      <option key={s} value={s}>
+                                        {s}
+                                      </option>
                                     ))}
                                   </select>
                                 )}
@@ -1959,7 +1976,9 @@ export default function EditBookingPage() {
                         >
                           <option value="">Remap to…</option>
                           {allEquipmentNames.map((n) => (
-                            <option key={n} value={n}>{n}</option>
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1979,7 +1998,9 @@ export default function EditBookingPage() {
                         onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
                         style={accordionBtn}
                       >
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
+                        <span>
+                          {isOpen ? "▼" : "►"} {group}
+                        </span>
                         <span style={pill}>{items.length}</span>
                       </button>
 
@@ -2128,7 +2149,8 @@ export default function EditBookingPage() {
                 <div>
                   <label style={field.label}>Call Time</label>
 
-                  {selectedDates.length > 1 ? (
+                  {/* ✅ CALL TIME FIX: use flag mode, not date-count */}
+                  {callTimeUsesPerDay ? (
                     <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
                       {selectedDates.map((d) => {
                         const pretty = new Date(d).toDateString();
@@ -2143,7 +2165,9 @@ export default function EditBookingPage() {
                             >
                               <option value="">-- Select time --</option>
                               {TIME_OPTIONS.map((t) => (
-                                <option key={t} value={t}>{t}</option>
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -2154,7 +2178,9 @@ export default function EditBookingPage() {
                     <select value={callTime} onChange={(e) => setCallTime(e.target.value)} style={field.input}>
                       <option value="">-- Select time --</option>
                       {TIME_OPTIONS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
                       ))}
                     </select>
                   )}
@@ -2167,14 +2193,26 @@ export default function EditBookingPage() {
                     Add Rigging Address
                   </div>
                   {hasRiggingAddress && (
-                    <textarea value={riggingAddress} onChange={(e) => setRiggingAddress(e.target.value)} rows={3} style={field.textarea} placeholder="Enter rigging address..." />
+                    <textarea
+                      value={riggingAddress}
+                      onChange={(e) => setRiggingAddress(e.target.value)}
+                      rows={3}
+                      style={field.textarea}
+                      placeholder="Enter rigging address..."
+                    />
                   )}
                 </div>
               </div>
 
               <div style={{ marginTop: 14 }} />
               <label style={field.label}>Additional Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={field.textarea} placeholder="Anything extra to include for this booking..." />
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                style={field.textarea}
+                placeholder="Anything extra to include for this booking..."
+              />
 
               <div style={divider} />
 
@@ -2192,8 +2230,12 @@ export default function EditBookingPage() {
               </label>
 
               <div style={actionsRow}>
-                <button type="submit" style={btnPrimary}>Update Booking</button>
-                <button type="button" onClick={() => router.back()} style={btnGhost}>Cancel</button>
+                <button type="submit" style={btnPrimary}>
+                  Update Booking
+                </button>
+                <button type="button" onClick={() => router.back()} style={btnGhost}>
+                  Cancel
+                </button>
               </div>
             </div>
 
@@ -2207,12 +2249,17 @@ export default function EditBookingPage() {
                 <div style={summaryRow}><div>Shoot Type</div><div>{shootType || "—"}</div></div>
                 <div style={summaryRow}><div>Client</div><div>{client || "—"}</div></div>
                 <div style={summaryRow}><div>Location</div><div>{location || "—"}</div></div>
+
                 <div style={summaryRow}>
                   <div>Dates</div>
                   <div>
                     {useCustomDates
-                      ? customDates.length ? customDates.join(", ") : "—"
-                      : isRange ? `${startDate || "—"} → ${endDate || "—"}` : startDate || "—"}
+                      ? customDates.length
+                        ? customDates.join(", ")
+                        : "—"
+                      : isRange
+                      ? `${startDate || "—"} → ${endDate || "—"}`
+                      : startDate || "—"}
                   </div>
                 </div>
 
@@ -2222,13 +2269,8 @@ export default function EditBookingPage() {
                     {additionalContacts.length
                       ? additionalContacts
                           .map((c) => {
-                            const dept =
-                              c.department === "Other" && c.departmentOther
-                                ? c.departmentOther
-                                : c.department;
-                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""]
-                              .filter(Boolean)
-                              .join(" ");
+                            const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
+                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
                           })
                           .join(", ")
                       : "—"}
@@ -2273,7 +2315,7 @@ export default function EditBookingPage() {
                   <div>
                     {hasHotel ? "Hotel ✓" : "Hotel ✗"}
                     {" • "}
-                    {selectedDates.length > 1
+                    {callTimeUsesPerDay
                       ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "—"}`).join(" | ")
                       : callTime || "—"}
                   </div>

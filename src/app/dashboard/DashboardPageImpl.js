@@ -281,6 +281,131 @@ const jobKey = (val) => {
   return { num, raw: s };
 };
 
+// ✅ Call time normaliser (single day, multi-day map, legacy formats)
+const normaliseCallTime = (raw) => {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+
+  // Handle "7", "07", "7:0", "7.00", "0700"
+  const digits = s.replace(/[^\d]/g, "");
+  if (digits.length === 1) return `0${digits}:00`; // "7" -> "07:00"
+  if (digits.length === 2) return `${digits.padStart(2, "0")}:00`; // "07" -> "07:00"
+  if (digits.length === 3) return `0${digits[0]}:${digits.slice(1)}`; // "700" -> "07:00"
+  if (digits.length === 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`; // "0730" -> "07:30"
+
+  // Already "HH:MM" style
+  const m = s.match(/^(\d{1,2})\s*[:.]\s*(\d{2})$/);
+  if (m) {
+    const hh = String(m[1]).padStart(2, "0");
+    const mm = String(m[2]).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  return s; // fallback: keep as-is
+};
+
+const ymdKey = (d) => {
+  try {
+    if (!d) return "";
+    const dt = d instanceof Date ? d : new Date(d);
+    if (Number.isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+};
+
+// ✅ Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
+const ensureCallTimesByDate = (booking) => {
+  const map = {};
+  const src = booking?.callTimesByDate && typeof booking.callTimesByDate === "object"
+    ? booking.callTimesByDate
+    : {};
+
+  // copy + normalise existing per-day
+  Object.keys(src || {}).forEach((k) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+    const v = normaliseCallTime(src[k]);
+    if (v) map[k] = v;
+  });
+
+  // figure date span (supports bookingDates array too)
+  const startBase = parseLocalDate(booking.startDate || booking.date);
+  const endRaw = booking.endDate || booking.date || booking.startDate;
+  const endBase = parseLocalDate(endRaw) || startBase;
+
+  const safeStart = startBase ? startOfLocalDay(startBase) : null;
+  const safeEnd = endBase ? startOfLocalDay(endBase) : safeStart;
+
+  // bookingDates array wins if present (these are explicit ymd strings)
+  const dateList =
+    Array.isArray(booking.bookingDates) && booking.bookingDates.length
+      ? booking.bookingDates.filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x)))
+      : [];
+
+  const fallbackCall = normaliseCallTime(booking.callTime || booking.calltime || booking.call_time);
+
+  // If we have explicit bookingDates: fill missing keys with fallbackCall
+  if (dateList.length) {
+    dateList.forEach((ymd) => {
+      if (!map[ymd] && fallbackCall) map[ymd] = fallbackCall;
+    });
+
+    // Also if single-day and still empty: set that day
+    if (!Object.keys(map).length && fallbackCall && dateList.length === 1) {
+      map[dateList[0]] = fallbackCall;
+    }
+
+    return map;
+  }
+
+  // No bookingDates list: use start/end range if possible
+  if (safeStart) {
+    const s = new Date(safeStart);
+    const e = safeEnd ? new Date(safeEnd) : new Date(safeStart);
+    if (e < s) e.setTime(s.getTime());
+
+    // for each day in range inclusive
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      const key = ymdKey(d);
+      if (!key) continue;
+      if (!map[key] && fallbackCall) map[key] = fallbackCall;
+    }
+
+    // if still empty but we have fallback call: set start day
+    const startKey = ymdKey(s);
+    if (!Object.keys(map).length && fallbackCall && startKey) map[startKey] = fallbackCall;
+  }
+
+  return map;
+};
+
+// ✅ pick call time to show for a calendar event (works for single day + recce day + multi-day)
+const callTimeForEventDay = (event) => {
+  const map = event?.callTimesByDate || {};
+  const keys = Object.keys(map || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+
+  // event.start is a Date at 00:00
+  const eventKey = event?.start ? ymdKey(event.start) : "";
+
+  // 1) exact match for that day
+  if (eventKey && map[eventKey]) return map[eventKey];
+
+  // 2) if a single-day booking, fall back to callTime
+  if (event?.callTime) return normaliseCallTime(event.callTime);
+
+  // 3) otherwise first available in sorted order (stable)
+  keys.sort((a, b) => new Date(a) - new Date(b));
+  for (const k of keys) {
+    if (map[k]) return map[k];
+  }
+  return "";
+};
+
 // ✅ Single source of truth for both BOOKINGS + MAINTENANCE
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
   // normal bookings → full events
@@ -291,6 +416,12 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     const safeEnd =
       endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
 
+    // ✅ ensure per-day call times exist even for single-day / recce-day
+    const ctByDate = ensureCallTimesByDate(b);
+
+    // ✅ normalise callTime too so badge logic + display are consistent
+    const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
+
     return {
       ...b,
       __collection: "bookings",
@@ -299,6 +430,8 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
       end: startOfLocalDay(addDays(safeEnd, 1)),
       allDay: true,
       status: b.status || "Confirmed",
+      callTime,
+      callTimesByDate: ctByDate,
     };
   });
 
@@ -429,11 +562,15 @@ function CalendarEvent({ event }) {
     : "";
 
   const isMaintenance = event.status === "Maintenance";
+
+  // ✅ robust per-day call time detection + display
   const hasPerDayCallTimes =
     event.callTimesByDate && Object.keys(event.callTimesByDate).length > 0;
 
   const bookingStatusLC = String(event.status || "").toLowerCase();
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh"].includes(bookingStatusLC);
+
+  const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
 
   return (
     <div
@@ -460,9 +597,7 @@ function CalendarEvent({ event }) {
       {event.status === "Bank Holiday" ? (
         <>
           <span style={{ fontWeight: 900 }}>BANK HOLIDAY</span>
-          <span style={{ opacity: 0.9 }}>
-            {event.bankHolidayName || event.title}
-          </span>
+          <span style={{ opacity: 0.9 }}>{event.bankHolidayName || event.title}</span>
         </>
       ) : event.status === "Holiday" ? (
         <>
@@ -545,6 +680,13 @@ function CalendarEvent({ event }) {
           {isMaintenance && (
             <span style={{ fontSize: "0.8rem", fontWeight: 900 }}>
               {event.maintenanceTypeLabel || "MAINTENANCE"}
+            </span>
+          )}
+
+          {/* ✅ Call Time line (shows correctly for single day + recce day + multi-day) */}
+          {!isMaintenance && (
+            <span style={{ fontSize: "0.78rem", fontWeight: 900 }}>
+              {callTimeForThisEvent ? `CT ${callTimeForThisEvent}` : ""}
             </span>
           )}
 
@@ -778,7 +920,7 @@ function CalendarEvent({ event }) {
             </div>
           )}
 
-          {/* Badge row (unchanged logic) */}
+          {/* Badge row (unchanged logic, but CT now truly correct) */}
           {(() => {
             const status = (event.status || "").toLowerCase();
             const hideForStatus = ["cancelled", "dnh", "lost", "postponed"].includes(status);
@@ -854,7 +996,9 @@ function CalendarEvent({ event }) {
                 </span>
 
                 {(() => {
+                  // ✅ CT check: exact day match OR callTime OR any per-day
                   const hasAnyCallTime =
+                    !!callTimeForEventDay(event) ||
                     !!event.callTime ||
                     (hasPerDayCallTimes && Object.values(event.callTimesByDate || {}).some(Boolean));
 
@@ -871,7 +1015,9 @@ function CalendarEvent({ event }) {
                       }}
                       title={
                         hasAnyCallTime
-                          ? event.callTime
+                          ? callTimeForThisEvent
+                            ? `Call Time set: ${callTimeForThisEvent}`
+                            : event.callTime
                             ? `Call Time set: ${event.callTime}`
                             : "Call Time set (per day)"
                           : "No call time set"
@@ -1422,6 +1568,10 @@ export default function DashboardPage({ bookingSaved }) {
         recceAnswers: recce?.answers || null,
         recceId: recce?.id || null,
         recceCreatedAt: recce?.createdAt || null,
+
+        // ✅ ensure callTimesByDate always present (covers any event from older docs too)
+        callTimesByDate: ensureCallTimesByDate(ev),
+        callTime: normaliseCallTime(ev.callTime || ev.calltime || ev.call_time),
       };
     });
   }, [allEventsRaw, normalizeVehicles, reccesByBooking]);
@@ -2284,10 +2434,6 @@ export default function DashboardPage({ bookingSaved }) {
             if (e.target === e.currentTarget) setEditingHolidayId(null);
           }}
         >
-          {/* IMPORTANT:
-              We DO NOT add maxHeight/overflow here (no forced scroll).
-              Let the EditHolidayForm control its own layout.
-          */}
           <div onMouseDown={(e) => e.stopPropagation()}>
             <EditHolidayForm
               holidayId={editingHolidayId}

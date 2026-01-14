@@ -3,16 +3,48 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../../firebaseConfig";
+import { db, auth } from "../../../firebaseConfig";
 import {
   collection,
   doc,
   getDoc,
   getDocs,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
+
+/* ───────────────────────────────────────────
+   Admin allow-list (for UI labels + future gating)
+─────────────────────────────────────────── */
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adma@bickers.co.uk",
+];
+
+const norm = (v) => String(v ?? "").trim().toLowerCase();
+const truthy = (v) =>
+  v === true || v === 1 || ["true", "1", "yes", "y"].includes(norm(v));
+
+/* ✅ Approval helper: treat anything explicitly "approved" as approved */
+function isApprovedHoliday(rec) {
+  if (!rec) return false;
+  if (truthy(rec.approved)) return true;
+
+  const candidates = [
+    rec.approvalStatus,
+    rec.status,
+    rec.state,
+    rec.leaveStatus,
+    rec.holidayStatus,
+  ]
+    .map((x) => norm(x))
+    .filter(Boolean);
+
+  if (candidates.some((s) => s === "approved" || s.includes("approved"))) return true;
+
+  return false;
+}
 
 export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const router = useRouter();
@@ -38,12 +70,19 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const [holidayReason, setHolidayReason] = useState("");
   const [paidStatus, setPaidStatus] = useState("Paid");
 
+  // ✅ approval + admin info (for labels + audit fields)
+  const [userEmail, setUserEmail] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [holidayRec, setHolidayRec] = useState(null);
+  const [approved, setApproved] = useState(false);
+  const [existingStatus, setExistingStatus] = useState("");
+
   /* ---------------- helpers ---------------- */
   const ymdToDate = (ymd) => {
     if (!ymd) return null;
     const [y, m, d] = String(ymd).split("-").map((x) => Number(x));
     if (!y || !m || !d) return null;
-    const dt = new Date(y, m - 1, d);
+    const dt = new Date(y, m - 1, d, 0, 0, 0, 0);
     return Number.isNaN(+dt) ? null : dt;
   };
 
@@ -68,6 +107,16 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     if (typeof onClose === "function") return onClose();
     router.push("/dashboard");
   };
+
+  /* ---------------- Auth / admin ---------------- */
+  useEffect(() => {
+    const unsub = auth?.onAuthStateChanged?.((u) => {
+      const email = u?.email || "";
+      setUserEmail(email);
+      setIsAdmin(ADMIN_EMAILS.map(norm).includes(norm(email)));
+    });
+    return () => unsub?.();
+  }, []);
 
   /* ---------------- Fetch employees ---------------- */
   useEffect(() => {
@@ -102,6 +151,13 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         }
 
         const rec = snap.data() || {};
+        setHolidayRec(rec);
+
+        const isAppr = isApprovedHoliday(rec);
+        setApproved(isAppr);
+
+        const st = String(rec.status || "").trim();
+        setExistingStatus(st);
 
         const sYMD = dateToYMD(rec.startDate);
         const eYMD = dateToYMD(rec.endDate || rec.startDate);
@@ -130,12 +186,15 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         // half-day (new schema preferred; fallback to legacy)
         const legacyHalf = rec.halfDay === true;
         const legacyWhen =
-          (String(rec.halfDayPeriod || rec.halfDayType || "").toUpperCase() === "PM"
+          String(rec.halfDayPeriod || rec.halfDayType || "").toUpperCase() === "PM"
             ? "PM"
-            : "AM");
+            : "AM";
 
         const sHalf = !!rec.startHalfDay || (isSingle && legacyHalf);
-        const sWhen = (rec.startAMPM || (isSingle && legacyHalf ? legacyWhen : "AM")) === "PM" ? "PM" : "AM";
+        const sWhen =
+          (rec.startAMPM || (isSingle && legacyHalf ? legacyWhen : "AM")) === "PM"
+            ? "PM"
+            : "AM";
 
         const eHalf = !!rec.endHalfDay; // for multi-day end half
         const eWhen = (rec.endAMPM || "PM") === "AM" ? "AM" : "PM";
@@ -231,6 +290,13 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       const endAsDate = ymdToDate(finalEnd);
       const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
 
+      // ✅ keep existing status by default (don’t accidentally unapprove)
+      const statusToKeep = existingStatus || (holidayRec?.status ? String(holidayRec.status) : "");
+      const finalStatus =
+        statusToKeep && norm(statusToKeep) !== "requested"
+          ? statusToKeep
+          : statusToKeep || "requested";
+
       const payload = {
         employee,
         startDate: startAsDate,
@@ -245,10 +311,10 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         holidayReason: holidayReason.trim(),
         paidStatus,
 
-        // keep your pipeline consistent
-        status: "requested",
+        status: finalStatus,
 
         updatedAt: serverTimestamp(),
+        updatedBy: userEmail || "",
       };
 
       await updateDoc(doc(db, "holidays", String(holidayId)), payload);
@@ -263,20 +329,49 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     }
   };
 
-  const handleDelete = async () => {
+  // ✅ Request delete is allowed ONLY if the holiday is approved (matches your rule)
+  // (actual delete happens in HR approvals page)
+  const canRequestDelete = useMemo(() => {
+    if (loading || saving) return false;
+    return approved === true;
+  }, [loading, saving, approved]);
+
+  const handleRequestDelete = async () => {
     if (!holidayId) return;
-    const ok = confirm("Delete this holiday entry? This cannot be undone.");
+
+    if (!approved) {
+      alert("You can only request deletion for an APPROVED holiday.");
+      return;
+    }
+
+    const ok = confirm(
+      "Request deletion of this APPROVED holiday?\n\nAn admin must approve before it is removed."
+    );
     if (!ok) return;
 
     setSaving(true);
     try {
-      await deleteDoc(doc(db, "holidays", String(holidayId)));
+      const ref = doc(db, "holidays", String(holidayId));
+
+      // what status should we restore to if HR declines the delete?
+      const prev =
+        String(existingStatus || holidayRec?.status || "approved").trim() || "approved";
+
+      await updateDoc(ref, {
+        status: "delete_requested",
+        deleteRequestedAt: serverTimestamp(),
+        deleteRequestedBy: userEmail || "",
+        deleteFromStatus: prev, // ✅ used by HR "Decline delete" to restore
+        updatedAt: serverTimestamp(),
+        updatedBy: userEmail || "",
+      });
+
       if (typeof onSaved === "function") onSaved();
       if (typeof onClose === "function") onClose();
       else router.push("/holiday-usage");
     } catch (err) {
-      console.error("Delete failed:", err);
-      alert("Failed to delete. Please try again.");
+      console.error("Delete request failed:", err);
+      alert("Failed to request deletion. Please try again.");
       setSaving(false);
     }
   };
@@ -288,7 +383,32 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         <div style={headerRow}>
           <div style={{ display: "grid", gap: 2 }}>
             <h2 style={modalTitle}>{loading ? "Loading…" : "Edit Holiday"}</h2>
-       
+
+            {!loading ? (
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.70)" }}>
+                Status:{" "}
+                <b style={{ color: "rgba(255,255,255,0.92)" }}>
+                  {approved ? "Approved" : "Not approved"}
+                </b>
+                {holidayRec?.status ? (
+                  <>
+                    {" "}
+                    • Record:{" "}
+                    <b style={{ color: "rgba(255,255,255,0.92)" }}>
+                      {String(holidayRec.status)}
+                    </b>
+                  </>
+                ) : null}
+                {userEmail ? (
+                  <>
+                    {" "}
+                    • Signed in:{" "}
+                    <b style={{ color: "rgba(255,255,255,0.92)" }}>{userEmail}</b>{" "}
+                    • {isAdmin ? "Admin" : "Staff"}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
@@ -300,7 +420,12 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           {/* Employee */}
           <div>
             <label style={label}>Employee</label>
-            <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input} required>
+            <select
+              value={employee}
+              onChange={(e) => setEmployee(e.target.value)}
+              style={input}
+              required
+            >
               <option value="">Select employee…</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.name}>
@@ -369,7 +494,9 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>Half day</div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
+                  Half day
+                </div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
@@ -510,16 +637,29 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           <div style={{ display: "grid", gap: 10 }}>
             <button
               type="button"
-              onClick={handleDelete}
-              style={dangerBtn}
-              disabled={loading || saving}
+              onClick={handleRequestDelete}
+              style={{
+                ...dangerBtn,
+                opacity: canRequestDelete ? 1 : 0.45,
+                cursor: canRequestDelete ? "pointer" : "not-allowed",
+              }}
+              disabled={!canRequestDelete}
+              title={
+                !approved
+                  ? "Only approved holidays can be deletion-requested"
+                  : "Request deletion (admin approval required)"
+              }
             >
-              Delete holiday
+              Request delete (approved only)
             </button>
 
             <button type="button" onClick={handleBack} style={ghostBtn} disabled={saving}>
               Cancel
             </button>
+          </div>
+
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", marginTop: 2 }}>
+            Deletion requests are reviewed on the HR page. An admin must approve before the holiday is removed.
           </div>
         </form>
       </div>
@@ -637,7 +777,6 @@ const dangerBtn = {
   color: "#fee2e2",
   fontWeight: 800,
   fontSize: 14,
-  cursor: "pointer",
 };
 
 const ghostBtn = {
