@@ -36,12 +36,20 @@ export default function HeaderSidebarLayout({ children }) {
   const router = useRouter();
   const auth = getAuth();
 
-  const [showMenu, setShowMenu] = useState(false);
+  const [showMenu, setShowMenu] = useState(false); // (kept)
   const [user, setUser] = useState(null);
   const [userDoc, setUserDoc] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // ✅ NEW: live HR notification counts
+  const [hrNotif, setHrNotif] = useState({
+    pending: 0, // requested + missing status
+    deletes: 0, // delete_requested
+    total: 0,
+  });
+
   const unsubUserRef = useRef(null);
+  const unsubHolidaysRef = useRef(null);
 
   const emailLower = useMemo(
     () => String(user?.email || "").trim().toLowerCase(),
@@ -81,7 +89,6 @@ export default function HeaderSidebarLayout({ children }) {
         const emailB = emailA.toLowerCase();
 
         // Try exact email match (case may vary in stored docs)
-        // If you have a dedicated lowerEmail field, swap query to where("lowerEmail","==",emailB)
         const q1 = query(
           collection(db, "users"),
           where("email", "==", emailA),
@@ -131,6 +138,55 @@ export default function HeaderSidebarLayout({ children }) {
   }, [auth, router]);
 
   /* ───────────────────────────────────────────
+     ✅ NEW: LIVE HOLIDAY REQUEST NOTIFICATIONS (HR badge)
+     Counts:
+       - pending: status === "requested" OR missing status (your HR page treats missing as requested)
+       - deletes: status === "delete_requested" OR "delete-requested"
+  ──────────────────────────────────────────── */
+  useEffect(() => {
+    // clean old subscription
+    if (unsubHolidaysRef.current) {
+      unsubHolidaysRef.current();
+      unsubHolidaysRef.current = null;
+    }
+
+    // Subscribe to ALL holidays (simple + robust; keeps badge accurate with your "missing status" logic)
+    unsubHolidaysRef.current = onSnapshot(
+      collection(db, "holidays"),
+      (snap) => {
+        let pending = 0;
+        let deletes = 0;
+
+        snap.forEach((docSnap) => {
+          const h = docSnap.data() || {};
+          const st = String(h.status || "").trim().toLowerCase();
+
+          // your HR page treats missing status as requested
+          const isPendingRequested = st === "requested" || !h.status;
+          const isDeleteReq =
+            st === "delete_requested" || st === "delete-requested";
+
+          if (isPendingRequested) pending += 1;
+          if (isDeleteReq) deletes += 1;
+        });
+
+        const total = pending + deletes;
+
+        setHrNotif({ pending, deletes, total });
+      },
+      (err) => {
+        console.error("Holiday badge listener error:", err);
+        setHrNotif({ pending: 0, deletes: 0, total: 0 });
+      }
+    );
+
+    return () => {
+      if (unsubHolidaysRef.current) unsubHolidaysRef.current();
+      unsubHolidaysRef.current = null;
+    };
+  }, []);
+
+  /* ───────────────────────────────────────────
      NAV DEFINITIONS
   ──────────────────────────────────────────── */
   const headerLinks = [
@@ -172,6 +228,39 @@ export default function HeaderSidebarLayout({ children }) {
       router.push("/dashboard");
     }
   };
+
+  // ✅ Badge styles
+  const badgeWrap = {
+    position: "absolute",
+    top: 6,
+    right: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  };
+
+  const badgeDot = (bg) => ({
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    background: bg,
+    boxShadow: "0 0 0 2px rgba(0,0,0,0.8)",
+  });
+
+  const badgePill = (bg) => ({
+    minWidth: 18,
+    height: 18,
+    padding: "0 6px",
+    borderRadius: 999,
+    background: bg,
+    color: "#000",
+    fontSize: 11,
+    fontWeight: 900,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+  });
 
   return (
     <div
@@ -219,23 +308,82 @@ export default function HeaderSidebarLayout({ children }) {
         )}
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {sidebarItems.map(({ label, path }) => (
-            <button
-              key={label}
-              onClick={() => router.push(path)}
-              style={{
-                background: pathname === path ? "#2c2c2c" : "none",
-                border: pathname === path ? "1px solid #4caf50" : "none",
-                color: pathname === path ? "#fff" : "#aaa",
-                fontSize: "14px",
-                textAlign: isCollapsed ? "center" : "left",
-                padding: "10px 16px",
-                cursor: "pointer",
-              }}
-            >
-              {!isCollapsed && label}
-            </button>
-          ))}
+          {sidebarItems.map(({ label, path }) => {
+            const isActive = pathname === path;
+            const isHR = path === "/hr";
+
+            // ✅ Show badge when HR has anything pending
+            const showHrBadge = isHR && hrNotif.total > 0;
+
+            return (
+              <button
+                key={label}
+                onClick={() => router.push(path)}
+                style={{
+                  position: "relative",
+                  background: isActive ? "#2c2c2c" : "none",
+                  border: isActive ? "1px solid #4caf50" : "none",
+                  color: isActive ? "#fff" : "#aaa",
+                  fontSize: "14px",
+                  textAlign: isCollapsed ? "center" : "left",
+                  padding: "10px 16px",
+                  cursor: "pointer",
+                }}
+                title={
+                  isHR && hrNotif.total > 0
+                    ? `${hrNotif.pending} holiday requests, ${hrNotif.deletes} delete requests`
+                    : undefined
+                }
+              >
+                {/* label */}
+                {!isCollapsed && label}
+
+                {/* ✅ badge */}
+                {showHrBadge && (
+                  <span style={badgeWrap}>
+                    {/* orange dot if delete requests exist, else green dot */}
+                    <span
+                      style={badgeDot(hrNotif.deletes > 0 ? "#fb923c" : "#4caf50")}
+                    />
+                    {!isCollapsed && (
+                      <span
+                        style={badgePill(
+                          hrNotif.deletes > 0 ? "#fb923c" : "#4caf50"
+                        )}
+                      >
+                        {hrNotif.total}
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {/* ✅ collapsed view: just a number bubble centred */}
+                {showHrBadge && isCollapsed && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 8,
+                      minWidth: 18,
+                      height: 18,
+                      padding: "0 6px",
+                      borderRadius: 999,
+                      background: hrNotif.deletes > 0 ? "#fb923c" : "#4caf50",
+                      color: "#000",
+                      fontSize: 11,
+                      fontWeight: 900,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {hrNotif.total}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div style={{ marginTop: "auto" }}>
@@ -301,7 +449,14 @@ export default function HeaderSidebarLayout({ children }) {
         </header>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", background: "#f4f4f5", padding: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            background: "#f4f4f5",
+            padding: 10,
+          }}
+        >
           {children}
         </div>
 

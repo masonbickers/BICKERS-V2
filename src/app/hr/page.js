@@ -31,7 +31,7 @@ import {
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
-  "adma@bickers.co.uk",
+  "adam@bickers.co.uk",
 ];
 
 /* ───────────────────────────────────────────
@@ -994,130 +994,6 @@ export default function HRPage() {
           </div>
         </div>
 
-        {/* Full requests table */}
-        <section style={{ ...card, marginTop: UI.gap }}>
-          <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>All requested holidays ({yearView})</h2>
-              <div style={hint}>
-                Full breakdown per request (weekdays only). <b>Includes Paid + Unpaid + Accrued</b>. Admins can approve/decline.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button style={btn("ghost")} onClick={fetchHolidays} type="button">
-                Refresh
-              </button>
-
-              {/* ✅ Open HolidayForm component instead of routing */}
-              <button style={btn()} onClick={() => setHolidayModalOpen(true)} type="button">
-                Holiday form →
-              </button>
-            </div>
-          </div>
-
-          {requestedHolidays.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No pending holiday requests.</div>
-          ) : (
-            <div style={tableWrap}>
-              <table style={tableEl}>
-                <thead>
-                  <tr>
-                    <th style={th}>Employee</th>
-                    <th style={th}>From</th>
-                    <th style={th}>To</th>
-                    <th style={th}>Type</th>
-                    <th style={th}>Breakdown</th>
-                    <th style={th}>Notes</th>
-                    <th style={th}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requestedHolidays.map((h) => {
-                    const fromD = toDate(h.startDate);
-                    const toD = toDate(h.endDate) || fromD;
-                    const type = String(h.leaveType || h.paidStatus || "Other");
-                    const breakdown = buildBreakdown(h, false, isBankHoliday);
-                    const notes = (h.notes || h.holidayReason || "").trim() || "—";
-
-                    const { single, start, end } = getHalfInfo(h);
-                    let typeHint = "";
-                    if (single && (start.half || end.half)) {
-                      typeHint = ` • Half${start.when || end.when ? ` (${start.when || end.when})` : ""}`;
-                    } else if (!single && (start.half || end.half)) {
-                      const bits = [];
-                      if (start.half) bits.push(`Start half${start.when ? ` (${start.when})` : ""}`);
-                      if (end.half) bits.push(`End half${end.when ? ` (${end.when})` : ""}`);
-                      typeHint = bits.length ? ` • ${bits.join(", ")}` : "";
-                    }
-
-                    return (
-                      <tr key={h.id}>
-                        <td style={td}>{h.employee || h.employeeCode || "Unknown"}</td>
-                        <td style={td}>{fmt(fromD)}</td>
-                        <td style={td}>{fmt(toD)}</td>
-                        <td style={td}>
-                          <span style={{ fontWeight: 900, color: UI.text }}>{type}</span>
-                          <span style={{ color: UI.muted }}>{typeHint}</span>
-                        </td>
-                        <td style={td}>
-                          {breakdown.length === 0 ? (
-                            <span style={{ color: UI.muted }}>—</span>
-                          ) : (
-                            <div style={breakdownWrap}>
-                              <div style={breakdownList}>
-                                {breakdown.map((row) => (
-                                  <div key={row.key} style={breakdownRow(row.muted)}>
-                                    <span style={{ fontWeight: 900, whiteSpace: "nowrap" }}>{row.date}</span>
-                                    <span style={{ color: row.muted ? "#6b7280" : UI.text }}>— {row.label}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td style={td} title={notes}>
-                          <div style={{ maxWidth: 320, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {notes}
-                          </div>
-                        </td>
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button
-                              style={{
-                                ...btn("approve"),
-                                opacity: isAdmin ? 1 : 0.45,
-                                cursor: isAdmin ? "pointer" : "not-allowed",
-                              }}
-                              onClick={() => isAdmin && updateStatus(h.id, "approved")}
-                              type="button"
-                              disabled={!isAdmin}
-                              title={!isAdmin ? "Admin only" : "Approve"}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              style={{
-                                ...btn("decline"),
-                                opacity: isAdmin ? 1 : 0.45,
-                                cursor: isAdmin ? "pointer" : "not-allowed",
-                              }}
-                              onClick={() => isAdmin && updateStatus(h.id, "declined")}
-                              type="button"
-                              disabled={!isAdmin}
-                              title={!isAdmin ? "Admin only" : "Decline"}
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
 
         {/* HR Docs */}
         <section style={{ marginTop: UI.gap }}>
