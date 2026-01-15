@@ -25,7 +25,7 @@ import EditHolidayForm from "@/app/components/EditHolidayForm";
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
-  "adma@bickers.co.uk",
+  "adam@bickers.co.uk",
 ];
 
 /* ───────────────────────────────────────────
@@ -244,26 +244,33 @@ function countChargeableDays(rec, start, end, isBankHoliday) {
   return Number(total.toFixed(2));
 }
 
-/* ✅ Approval helper: treat anything not explicitly "approved" as pending
-   NOTE: HR page sets `status: "approved"` / `"declined"` and pending is `"requested"` or missing */
-function isApprovedHoliday(rec) {
-  if (!rec) return false;
-  if (truthy(rec.approved)) return true;
-
-  const candidates = [
-    rec.approvalStatus,
+/* ✅ Status helper:
+   - approved: status contains "approved" OR legacy approved=true
+   - declined: status contains "declined"
+   - requested: status contains "requested" OR missing/blank
+*/
+function getStatus(rec) {
+  const raw = [
     rec.status,
+    rec.approvalStatus,
     rec.state,
     rec.leaveStatus,
     rec.holidayStatus,
   ]
     .map((x) => norm(x))
-    .filter(Boolean);
+    .find(Boolean);
 
-  if (candidates.some((s) => s === "approved" || s.includes("approved")))
-    return true;
+  if (raw?.includes("declined")) return "declined";
+  if (raw?.includes("approved")) return "approved";
+  if (raw?.includes("requested")) return "requested";
 
-  return false;
+  // legacy flag
+  if (truthy(rec?.approved)) return "approved";
+
+  // default to requested if nothing set (matches HR page)
+  if (!raw) return "requested";
+
+  return raw;
 }
 
 function Pill({ children, tone = "default" }) {
@@ -498,7 +505,6 @@ export default function HolidayUsagePage() {
 
     const run = async () => {
       try {
-        // Region options in the JSON: "england-and-wales", "scotland", "northern-ireland"
         const REGION = "england-and-wales";
 
         const res = await fetch("https://www.gov.uk/bank-holidays.json", {
@@ -586,8 +592,7 @@ export default function HolidayUsagePage() {
             Number(x.holidayAllowance ?? DEFAULT_ALLOWANCE);
 
           carryMap[name] =
-            x.carryOverByYear?.[yearKey] ??
-            Number(x.carriedOverDays ?? 0);
+            x.carryOverByYear?.[yearKey] ?? Number(x.carriedOverDays ?? 0);
         });
       } catch {}
 
@@ -613,6 +618,14 @@ export default function HolidayUsagePage() {
         if (start.getFullYear() !== end.getFullYear()) return;
         if (start.getFullYear() !== yearView) return;
 
+        const status = getStatus(rec);
+
+        // ✅ IMPORTANT: if declined, remove it entirely (no pending, no calendar, no totals)
+        if (status === "declined") return;
+
+        const approved = status === "approved";
+        const pending = status === "requested"; // only requested/missing are pending now
+
         const isAccrued =
           rec.isAccrued === true ||
           ["type", "leaveType", "category", "status", "kind", "notes", "holidayReason"]
@@ -628,9 +641,6 @@ export default function HolidayUsagePage() {
           ["type", "leaveType", "category", "status", "kind"].some((k) =>
             norm(rec[k]).includes("unpaid")
           );
-
-        const approved = isApprovedHoliday(rec);
-        const pending = !approved;
 
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
 
@@ -715,7 +725,7 @@ export default function HolidayUsagePage() {
       };
     }
 
-    // ✅ Pending style (non-approved)
+    // ✅ Pending style (requested only)
     if (event?.pending) {
       return {
         style: {
@@ -835,13 +845,20 @@ export default function HolidayUsagePage() {
             <h1 style={h1}>Holiday Overview</h1>
             <div style={sub}>
               Year: <b style={mono}>{yearView}</b> • Allowance + carry are read
-              from <span style={mono}>employees.holidayAllowances["{yearView}"]</span>{" "}
+              from{" "}
+              <span style={mono}>
+                employees.holidayAllowances["{yearView}"]
+              </span>{" "}
               and <span style={mono}>carryOverByYear["{yearView}"]</span>.
               {userEmail ? (
                 <>
                   {" "}
                   • Signed in: <b style={mono}>{userEmail}</b>{" "}
-                  {isAdmin ? <Pill tone="good">Admin</Pill> : <Pill tone="gray">Staff</Pill>}
+                  {isAdmin ? (
+                    <Pill tone="good">Admin</Pill>
+                  ) : (
+                    <Pill tone="gray">Staff</Pill>
+                  )}
                 </>
               ) : null}
             </div>
@@ -917,7 +934,8 @@ export default function HolidayUsagePage() {
                   Leave calendar
                 </div>
                 <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
-                  Paid leave is per-employee colour. Unpaid leave is red. Pending is amber. Bank holidays are grey.
+                  Paid leave is per-employee colour. Unpaid leave is red. Pending
+                  is amber. Bank holidays are grey.
                 </div>
               </div>
               <div
@@ -960,7 +978,6 @@ export default function HolidayUsagePage() {
                   if (y !== yearView) setYearView(y);
                 }}
                 onSelectEvent={(e) => {
-                  // ✅ ignore bank holidays
                   if (e?.bankHoliday) return;
                   if (e?.employee) setSelectedName(String(e.employee));
                 }}
@@ -969,7 +986,14 @@ export default function HolidayUsagePage() {
           </div>
 
           {/* RIGHT: Sidebar */}
-          <div style={{ display: "grid", gap: UI.gap, position: "sticky", top: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gap: UI.gap,
+              position: "sticky",
+              top: 16,
+            }}
+          >
             {/* Controls */}
             <div style={{ ...surface, padding: 14 }}>
               <div style={{ display: "grid", gap: 10 }}>
@@ -1011,7 +1035,14 @@ export default function HolidayUsagePage() {
                   />
                 </div>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                  }}
+                >
                   <label
                     style={{
                       display: "inline-flex",
@@ -1074,7 +1105,14 @@ export default function HolidayUsagePage() {
 
             {/* KPI tiles */}
             <div style={{ ...surface, padding: 14 }}>
-              <div style={{ fontWeight: 950, fontSize: 15, marginBottom: 10, color: UI.text }}>
+              <div
+                style={{
+                  fontWeight: 950,
+                  fontSize: 15,
+                  marginBottom: 10,
+                  color: UI.text,
+                }}
+              >
                 This view
               </div>
               <div
@@ -1086,7 +1124,10 @@ export default function HolidayUsagePage() {
               >
                 <StatTile label="People" value={kpis.people} tone="soft" />
                 <StatTile label="Entries" value={kpis.totalBooked} />
-                <StatTile label="Paid days" value={Number(kpis.totalPaid.toFixed(2))} />
+                <StatTile
+                  label="Paid days"
+                  value={Number(kpis.totalPaid.toFixed(2))}
+                />
                 <StatTile
                   label="Unpaid days"
                   value={Number(kpis.totalUnpaid.toFixed(2))}
@@ -1094,7 +1135,9 @@ export default function HolidayUsagePage() {
                 />
               </div>
               <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
-                Note: <b>Pending</b> holidays show on the calendar but do <b>not</b> reduce paid allowance totals.
+                Note: <b>Pending</b> holidays show on the calendar but do{" "}
+                <b>not</b> reduce paid allowance totals. <b>Declined</b> holidays
+                do not show at all.
               </div>
             </div>
 
@@ -1109,7 +1152,11 @@ export default function HolidayUsagePage() {
                   marginBottom: 10,
                 }}
               >
-                <div style={{ fontWeight: 950, fontSize: 15, color: UI.text }}>Employees</div>
+                <div
+                  style={{ fontWeight: 950, fontSize: 15, color: UI.text }}
+                >
+                  Employees
+                </div>
                 <div style={chip}>Click to open</div>
               </div>
 
@@ -1124,7 +1171,7 @@ export default function HolidayUsagePage() {
               >
                 {namesToShow.map((name) => {
                   const m = metrics(name);
-                  const tone = balTone(m.allowBal);
+                  const tone = m.allowBal <= 1 ? "warn" : m.allowBal <= 3 ? "info" : "good";
 
                   return (
                     <button
@@ -1142,8 +1189,12 @@ export default function HolidayUsagePage() {
                         display: "grid",
                         gap: 6,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#dbeafe")}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.borderColor = "#dbeafe")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.borderColor = "#e5e7eb")
+                      }
                     >
                       <div
                         style={{
@@ -1172,14 +1223,18 @@ export default function HolidayUsagePage() {
                         <Pill tone="info">
                           Paid {Number(m.paid.toFixed(2))}/{m.totalAllowance}
                         </Pill>
-                        <Pill tone="warn">Unpaid {Number(m.unpaid.toFixed(2))}</Pill>
+                        <Pill tone="warn">
+                          Unpaid {Number(m.unpaid.toFixed(2))}
+                        </Pill>
                       </div>
                     </button>
                   );
                 })}
 
                 {namesToShow.length === 0 ? (
-                  <div style={{ padding: 10, color: UI.muted, fontSize: 13 }}>No matches.</div>
+                  <div style={{ padding: 10, color: UI.muted, fontSize: 13 }}>
+                    No matches.
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -1192,7 +1247,9 @@ export default function HolidayUsagePage() {
           title={selectedName || ""}
           subtitle={
             selectedName && selected
-              ? `Year ${yearView} • Paid ${Number(selected.paid.toFixed(2))}/${selected.totalAllowance} • Unpaid ${Number(selected.unpaid.toFixed(2))} • Balance ${Number(selected.allowBal.toFixed(2))}`
+              ? `Year ${yearView} • Paid ${Number(selected.paid.toFixed(2))}/${selected.totalAllowance} • Unpaid ${Number(
+                  selected.unpaid.toFixed(2)
+                )} • Balance ${Number(selected.allowBal.toFixed(2))}`
               : ""
           }
           onClose={() => setSelectedName(null)}
@@ -1214,7 +1271,7 @@ export default function HolidayUsagePage() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone="info">Paid used: {Number(selected.paid.toFixed(2))}</Pill>
                 <Pill tone="warn">Unpaid: {Number(selected.unpaid.toFixed(2))}</Pill>
-                <Pill tone={balTone(selected.allowBal)}>
+                <Pill tone={selected.allowBal <= 1 ? "warn" : selected.allowBal <= 3 ? "info" : "good"}>
                   Balance: {Number(selected.allowBal.toFixed(2))}
                 </Pill>
                 {!isAdmin ? (
@@ -1230,7 +1287,9 @@ export default function HolidayUsagePage() {
                     <tr>
                       <th style={th}>From</th>
                       <th style={th}>To</th>
-                      <th style={{ ...th, textAlign: "center", width: 110 }}>Days</th>
+                      <th style={{ ...th, textAlign: "center", width: 110 }}>
+                        Days
+                      </th>
                       <th style={th}>Type</th>
                       <th style={th}>Notes</th>
                       <th style={{ ...th, width: 120 }}></th>
@@ -1300,7 +1359,6 @@ export default function HolidayUsagePage() {
                               </div>
                             </td>
                             <td style={td}>
-                              {/* ✅ Admin-only edit/delete access */}
                               {isAdmin ? (
                                 <button
                                   style={btn("ghost")}
