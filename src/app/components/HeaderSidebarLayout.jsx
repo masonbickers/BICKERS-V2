@@ -23,13 +23,54 @@ const inter = Inter({
 });
 
 /* ───────────────────────────────────────────
-   Admin allow-list (same as Admin page)
+   Admin allow-list (same as HR page)
 ─────────────────────────────────────────── */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
+
+/* ───────────────────────────────────────────
+   Date helpers (match HR page logic)
+─────────────────────────────────────────── */
+function parseYMD(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
+  if (!m) return null;
+  const [, Y, M, D] = m.map(Number);
+  return new Date(Y, M - 1, D, 0, 0, 0, 0);
+}
+
+function toSafeDate(v) {
+  if (!v) return null;
+
+  // Firestore Timestamp
+  if (typeof v?.toDate === "function") return v.toDate();
+
+  // strict YYYY-MM-DD
+  if (typeof v === "string") {
+    const strict = parseYMD(v);
+    if (strict) return strict;
+    const d = new Date(v);
+    return Number.isNaN(+d) ? null : d;
+  }
+
+  // number epoch
+  if (typeof v === "number") {
+    const d = new Date(v);
+    return Number.isNaN(+d) ? null : d;
+  }
+
+  return null;
+}
+
+function holidayYearBucket(h) {
+  const s = toSafeDate(h?.startDate);
+  const e = toSafeDate(h?.endDate) || s;
+  if (!s || !e) return null;
+  if (s.getFullYear() !== e.getFullYear()) return null;
+  return s.getFullYear();
+}
 
 export default function HeaderSidebarLayout({ children }) {
   const pathname = usePathname();
@@ -41,15 +82,11 @@ export default function HeaderSidebarLayout({ children }) {
   const [userDoc, setUserDoc] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // ✅ NEW: live HR notification counts
-  const [hrNotif, setHrNotif] = useState({
-    pending: 0, // requested + missing status
-    deletes: 0, // delete_requested
-    total: 0,
-  });
+  // ✅ HR notification state
+  const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
 
   const unsubUserRef = useRef(null);
-  const unsubHolidaysRef = useRef(null);
+  const unsubHrRef = useRef(null);
 
   const emailLower = useMemo(
     () => String(user?.email || "").trim().toLowerCase(),
@@ -61,21 +98,31 @@ export default function HeaderSidebarLayout({ children }) {
     return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
   }, [emailLower, userDoc?.role]);
 
+  // ✅ HR badge should show for admins only
+  const canSeeHrBadge = useMemo(() => {
+    return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
+  }, [emailLower, userDoc?.role]);
+
   /* ───────────────────────────────────────────
      🔒 AUTH + LIVE DISABLE GUARD (robust user doc resolution)
   ──────────────────────────────────────────── */
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
-      // clean old snapshot
+      // clean old snapshots
       if (unsubUserRef.current) {
         unsubUserRef.current();
         unsubUserRef.current = null;
+      }
+      if (unsubHrRef.current) {
+        unsubHrRef.current();
+        unsubHrRef.current = null;
       }
 
       setUser(currentUser);
 
       if (!currentUser) {
         setUserDoc(null);
+        setHrNotif({ requests: 0, deletes: 0 });
         return;
       }
 
@@ -88,7 +135,6 @@ export default function HeaderSidebarLayout({ children }) {
         const emailA = String(currentUser.email || "").trim();
         const emailB = emailA.toLowerCase();
 
-        // Try exact email match (case may vary in stored docs)
         const q1 = query(
           collection(db, "users"),
           where("email", "==", emailA),
@@ -98,9 +144,8 @@ export default function HeaderSidebarLayout({ children }) {
 
         if (!r1.empty) {
           resolvedRef = doc(db, "users", r1.docs[0].id);
-          snap = r1.docs[0]; // doc snapshot
+          snap = r1.docs[0];
         } else {
-          // Try lowercased email match
           const q2 = query(
             collection(db, "users"),
             where("email", "==", emailB),
@@ -129,62 +174,37 @@ export default function HeaderSidebarLayout({ children }) {
           router.replace("/login?disabled=1");
         }
       });
+
+      // ✅ LIVE HR NOTIFICATION — match HR year bucketing rules
+      unsubHrRef.current = onSnapshot(collection(db, "holidays"), (qs) => {
+        let requested = 0;
+        let deleteReq = 0;
+
+        const CURRENT_YEAR = new Date().getFullYear();
+
+        qs.forEach((d) => {
+          const h = d.data() || {};
+          const st = String(h.status || "").trim().toLowerCase();
+
+          // ✅ match HR logic: only count if start/end are valid and same year
+          const y = holidayYearBucket(h);
+          if (y !== CURRENT_YEAR) return;
+
+          if (st === "requested" || !st) requested += 1;
+          if (st === "delete_requested" || st === "delete-requested")
+            deleteReq += 1;
+        });
+
+        setHrNotif({ requests: requested, deletes: deleteReq });
+      });
     });
 
     return () => {
       unsubAuth();
       if (unsubUserRef.current) unsubUserRef.current();
+      if (unsubHrRef.current) unsubHrRef.current();
     };
   }, [auth, router]);
-
-  /* ───────────────────────────────────────────
-     ✅ NEW: LIVE HOLIDAY REQUEST NOTIFICATIONS (HR badge)
-     Counts:
-       - pending: status === "requested" OR missing status (your HR page treats missing as requested)
-       - deletes: status === "delete_requested" OR "delete-requested"
-  ──────────────────────────────────────────── */
-  useEffect(() => {
-    // clean old subscription
-    if (unsubHolidaysRef.current) {
-      unsubHolidaysRef.current();
-      unsubHolidaysRef.current = null;
-    }
-
-    // Subscribe to ALL holidays (simple + robust; keeps badge accurate with your "missing status" logic)
-    unsubHolidaysRef.current = onSnapshot(
-      collection(db, "holidays"),
-      (snap) => {
-        let pending = 0;
-        let deletes = 0;
-
-        snap.forEach((docSnap) => {
-          const h = docSnap.data() || {};
-          const st = String(h.status || "").trim().toLowerCase();
-
-          // your HR page treats missing status as requested
-          const isPendingRequested = st === "requested" || !h.status;
-          const isDeleteReq =
-            st === "delete_requested" || st === "delete-requested";
-
-          if (isPendingRequested) pending += 1;
-          if (isDeleteReq) deletes += 1;
-        });
-
-        const total = pending + deletes;
-
-        setHrNotif({ pending, deletes, total });
-      },
-      (err) => {
-        console.error("Holiday badge listener error:", err);
-        setHrNotif({ pending: 0, deletes: 0, total: 0 });
-      }
-    );
-
-    return () => {
-      if (unsubHolidaysRef.current) unsubHolidaysRef.current();
-      unsubHolidaysRef.current = null;
-    };
-  }, []);
 
   /* ───────────────────────────────────────────
      NAV DEFINITIONS
@@ -229,38 +249,10 @@ export default function HeaderSidebarLayout({ children }) {
     }
   };
 
-  // ✅ Badge styles
-  const badgeWrap = {
-    position: "absolute",
-    top: 6,
-    right: 10,
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  };
-
-  const badgeDot = (bg) => ({
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    background: bg,
-    boxShadow: "0 0 0 2px rgba(0,0,0,0.8)",
-  });
-
-  const badgePill = (bg) => ({
-    minWidth: 18,
-    height: 18,
-    padding: "0 6px",
-    borderRadius: 999,
-    background: bg,
-    color: "#000",
-    fontSize: 11,
-    fontWeight: 900,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
-  });
+  // ✅ badge total (requested + delete)
+  const hrBadgeTotal = useMemo(() => {
+    return (hrNotif?.requests || 0) + (hrNotif?.deletes || 0);
+  }, [hrNotif]);
 
   return (
     <div
@@ -309,77 +301,78 @@ export default function HeaderSidebarLayout({ children }) {
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {sidebarItems.map(({ label, path }) => {
-            const isActive = pathname === path;
-            const isHR = path === "/hr";
+            const active = pathname === path;
 
-            // ✅ Show badge when HR has anything pending
-            const showHrBadge = isHR && hrNotif.total > 0;
+            const isHrItem = path === "/hr";
+            const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
 
             return (
               <button
                 key={label}
                 onClick={() => router.push(path)}
                 style={{
-                  position: "relative",
-                  background: isActive ? "#2c2c2c" : "none",
-                  border: isActive ? "1px solid #4caf50" : "none",
-                  color: isActive ? "#fff" : "#aaa",
+                  background: active ? "#2c2c2c" : "none",
+                  border: active ? "1px solid #4caf50" : "none",
+                  color: active ? "#fff" : "#aaa",
                   fontSize: "14px",
                   textAlign: isCollapsed ? "center" : "left",
                   padding: "10px 16px",
                   cursor: "pointer",
+                  position: "relative",
                 }}
                 title={
-                  isHR && hrNotif.total > 0
-                    ? `${hrNotif.pending} holiday requests, ${hrNotif.deletes} delete requests`
+                  showHrBadge
+                    ? `${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
                     : undefined
                 }
               >
-                {/* label */}
-                {!isCollapsed && label}
+                {!isCollapsed && (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span>{label}</span>
 
-                {/* ✅ badge */}
-                {showHrBadge && (
-                  <span style={badgeWrap}>
-                    {/* orange dot if delete requests exist, else green dot */}
-                    <span
-                      style={badgeDot(hrNotif.deletes > 0 ? "#fb923c" : "#4caf50")}
-                    />
-                    {!isCollapsed && (
+                    {/* ✅ HR notification badge */}
+                    {showHrBadge && (
                       <span
-                        style={badgePill(
-                          hrNotif.deletes > 0 ? "#fb923c" : "#4caf50"
-                        )}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minWidth: 18,
+                          height: 18,
+                          padding: "0 6px",
+                          borderRadius: 999,
+                          background: "#4caf50",
+                          color: "#000",
+                          fontSize: 11,
+                          fontWeight: 900,
+                          lineHeight: "18px",
+                        }}
                       >
-                        {hrNotif.total}
+                        {hrBadgeTotal}
                       </span>
                     )}
                   </span>
                 )}
 
-                {/* ✅ collapsed view: just a number bubble centred */}
-                {showHrBadge && isCollapsed && (
+                {/* collapsed mode: tiny dot */}
+                {isCollapsed && showHrBadge && (
                   <span
                     style={{
                       position: "absolute",
-                      top: 6,
-                      right: 8,
-                      minWidth: 18,
-                      height: 18,
-                      padding: "0 6px",
+                      right: 10,
+                      top: 10,
+                      width: 8,
+                      height: 8,
                       borderRadius: 999,
-                      background: hrNotif.deletes > 0 ? "#fb923c" : "#4caf50",
-                      color: "#000",
-                      fontSize: 11,
-                      fontWeight: 900,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      lineHeight: 1,
+                      background: "#4caf50",
                     }}
-                  >
-                    {hrNotif.total}
-                  </span>
+                  />
                 )}
               </button>
             );

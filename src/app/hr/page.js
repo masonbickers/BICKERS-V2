@@ -34,6 +34,9 @@ const ADMIN_EMAILS = [
   "adam@bickers.co.uk",
 ];
 
+/* ✅ Hide specific employees from the holiday usage chart */
+const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
+
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
 ─────────────────────────────────────────── */
@@ -52,7 +55,11 @@ const UI = {
   brandSoft: "#eff6ff",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = {
+  padding: "24px 18px 40px",
+  background: UI.bg,
+  minHeight: "100vh",
+};
 const headerBar = {
   display: "flex",
   alignItems: "baseline",
@@ -60,9 +67,21 @@ const headerBar = {
   gap: 12,
   marginBottom: 16,
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const h1 = {
+  color: UI.text,
+  fontSize: 26,
+  lineHeight: 1.15,
+  fontWeight: 900,
+  letterSpacing: "-0.01em",
+  margin: 0,
+};
 const sub = { color: UI.muted, fontSize: 13 };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const surface = {
+  background: UI.card,
+  borderRadius: UI.radius,
+  border: UI.border,
+  boxShadow: UI.shadowSm,
+};
 
 const chip = {
   padding: "6px 10px",
@@ -83,10 +102,15 @@ const grid = (cols = 4) => ({
 const card = {
   ...surface,
   padding: 16,
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
+  transition:
+    "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
 
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
+const cardHover = {
+  transform: "translateY(-2px)",
+  boxShadow: UI.shadowHover,
+  borderColor: "#dbeafe",
+};
 
 const sectionHeader = {
   display: "flex",
@@ -149,7 +173,12 @@ const btn = (kind = "primary") => {
 };
 
 /* Table styles (match your other tables) */
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const tableWrap = {
+  overflow: "auto",
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  background: "#fff",
+};
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
 const th = {
   textAlign: "left",
@@ -316,7 +345,9 @@ function getHalfInfo(h) {
 
 /* ✅ Bank holiday support (UK Gov JSON), scoped to selected year */
 async function fetchUkBankHolidaysForYear(year, region = "england-and-wales") {
-  const res = await fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" });
+  const res = await fetch("https://www.gov.uk/bank-holidays.json", {
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error(`Bank holidays fetch failed: ${res.status}`);
   const json = await res.json();
   const list = json?.[region]?.events || [];
@@ -358,9 +389,16 @@ function buildBreakdown(h, includeWeekends = false, isBankHolidayFn = null) {
           label = `Half day${when ? ` (${when})` : ""}`;
         }
       } else {
-        if (idx === 0 && start.half) label = `Half day${start.when ? ` (${start.when})` : ""}`;
-        else if (idx === days.length - 1 && end.half) label = `Half day${end.when ? ` (${end.when})` : ""}`;
-        else label = bankHoliday ? "Bank holiday (ignored)" : weekend ? "Weekend (ignored)" : "Full day";
+        if (idx === 0 && start.half)
+          label = `Half day${start.when ? ` (${start.when})` : ""}`;
+        else if (idx === days.length - 1 && end.half)
+          label = `Half day${end.when ? ` (${end.when})` : ""}`;
+        else
+          label = bankHoliday
+            ? "Bank holiday (ignored)"
+            : weekend
+            ? "Weekend (ignored)"
+            : "Full day";
       }
 
       const muted = weekend || bankHoliday;
@@ -392,7 +430,9 @@ function holidayYear(h) {
 
 /** ✅ Only count PAID holidays (strict: must be explicitly marked as paid) */
 const isPaidHoliday = (h = {}) => {
-  const ps = String(h.paidStatus ?? h.paid ?? h.isPaid ?? "").trim().toLowerCase();
+  const ps = String(h.paidStatus ?? h.paid ?? h.isPaid ?? "")
+    .trim()
+    .toLowerCase();
   const lt = String(h.leaveType ?? h.type ?? "").trim().toLowerCase();
 
   if (h.isPaid === true || h.paid === true || h.paid === 1) return true;
@@ -411,8 +451,8 @@ export default function HRPage() {
   const router = useRouter();
 
   const [requestedHolidays, setRequestedHolidays] = useState([]);
-  const [deleteRequestedHolidays, setDeleteRequestedHolidays] = useState([]); // ✅ NEW
-  const [usageData, setUsageData] = useState([]); // for the graph
+  const [deleteRequestedHolidays, setDeleteRequestedHolidays] = useState([]);
+  const [usageData, setUsageData] = useState([]); // chart data
   const [loading, setLoading] = useState(true);
 
   // ✅ Open your existing HolidayForm component (modal inside component)
@@ -449,7 +489,10 @@ export default function HRPage() {
     // load bank holidays first (so usage counting can exclude them)
     const run = async () => {
       try {
-        const dates = await fetchUkBankHolidaysForYear(yearView, "england-and-wales");
+        const dates = await fetchUkBankHolidaysForYear(
+          yearView,
+          "england-and-wales"
+        );
         setBankHolidaySet(new Set(dates));
       } catch (e) {
         console.warn("Bank holidays unavailable:", e);
@@ -470,7 +513,7 @@ export default function HRPage() {
       const snap = await getDocs(collection(db, "holidays"));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // ✅ Requested for selected year (NOW includes Paid + Unpaid + Accrued)
+      // ✅ Requested for selected year (includes Paid + Unpaid + Accrued)
       const pending = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
@@ -478,7 +521,7 @@ export default function HRPage() {
       });
       setRequestedHolidays(pending);
 
-      // ✅ NEW: Delete requests for selected year
+      // ✅ Delete requests for selected year
       const delPending = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
@@ -545,7 +588,6 @@ export default function HRPage() {
         return {
           name,
           used: Number(used.toFixed(2)),
-          // ✅ FIX: do NOT round allowance to whole numbers
           allowance: Number(Number(allowance || 0).toFixed(2)),
           remaining: remaining < 0 ? 0 : remaining,
         };
@@ -554,7 +596,13 @@ export default function HRPage() {
       // Sort by used desc
       merged.sort((a, b) => b.used - a.used);
 
-      setUsageData(merged);
+      /* ✅ HIDE EMPLOYEE(S) FROM GRAPH */
+      const filtered = merged.filter((row) => {
+        const n = String(row?.name || "").trim().toLowerCase();
+        return !HIDE_FROM_HOLIDAY_USAGE_GRAPH.has(n);
+      });
+
+      setUsageData(filtered);
     } catch (err) {
       console.error("Error fetching holidays:", err);
     } finally {
@@ -569,7 +617,11 @@ export default function HRPage() {
     }
     try {
       const ref = doc(db, "holidays", id);
-      await updateDoc(ref, { status, decidedBy: auth?.currentUser?.email || "", decidedAt: serverTimestamp() });
+      await updateDoc(ref, {
+        status,
+        decidedBy: auth?.currentUser?.email || "",
+        decidedAt: serverTimestamp(),
+      });
       await fetchHolidays();
     } catch (err) {
       console.error("Error updating status:", err);
@@ -577,13 +629,15 @@ export default function HRPage() {
     }
   };
 
-  // ✅ NEW: approve/decline delete requests
+  // ✅ approve/decline delete requests
   const approveDelete = async (h) => {
     if (!isAdmin) {
       alert("Only admins can approve deletions.");
       return;
     }
-    const ok = confirm("Approve deletion? This will permanently remove the holiday entry.");
+    const ok = confirm(
+      "Approve deletion? This will permanently remove the holiday entry."
+    );
     if (!ok) return;
 
     try {
@@ -601,8 +655,6 @@ export default function HRPage() {
       return;
     }
     try {
-      // If you store a previous status when requesting delete, we’ll restore it.
-      // Otherwise default back to "approved" (safe for most cases).
       const restore = String(h.deleteFromStatus || h.previousStatus || "approved");
       await updateDoc(doc(db, "holidays", h.id), {
         status: restore,
@@ -619,28 +671,59 @@ export default function HRPage() {
   };
 
   const documents = [
-    { key: "holidayForm", title: "Holiday Request Form", description: "Submit and track time off requests.", link: "/holiday-form" },
-    { key: "holidayUsage", title: "View Holiday Usage", description: "Check how much holiday each employee has used.", link: "/holiday-usage" },
-    { key: "timesheets", title: "Timesheets", description: "View, submit, and track weekly timesheets.", link: "/timesheets" },
-    { key: "policy", title: "HR Policy Manual", description: "View company policies and employee handbook.", link: "/hr-policies" },
+    {
+      key: "holidayForm",
+      title: "Holiday Request Form",
+      description: "Submit and track time off requests.",
+      link: "/holiday-form",
+    },
+    {
+      key: "holidayUsage",
+      title: "View Holiday Usage",
+      description: "Check how much holiday each employee has used.",
+      link: "/holiday-usage",
+    },
+    {
+      key: "timesheets",
+      title: "Timesheets",
+      description: "View, submit, and track weekly timesheets.",
+      link: "/timesheets",
+    },
+    {
+      key: "policy",
+      title: "HR Policy Manual",
+      description: "View company policies and employee handbook.",
+      link: "/hr-policies",
+    },
   ];
 
   const renderLabel = (props) => {
     const { x, y, width, value } = props;
     if (value == null) return null;
     return (
-      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#0f172a" style={{ fontSize: 11, fontWeight: 800 }}>
+      <text
+        x={x + width / 2}
+        y={y - 4}
+        textAnchor="middle"
+        fill="#0f172a"
+        style={{ fontSize: 11, fontWeight: 800 }}
+      >
         {fmtNum(value)}
       </text>
     );
   };
 
-  // ✅ Labels for allowance (grey) — now supports decimals like 22.5
   const renderAllowanceLabel = (props) => {
     const { x, y, width, value } = props;
     if (value == null) return null;
     return (
-      <text x={x + width / 2} y={y - 4} textAnchor="middle" fill="#64748b" style={{ fontSize: 11, fontWeight: 800 }}>
+      <text
+        x={x + width / 2}
+        y={y - 4}
+        textAnchor="middle"
+        fill="#64748b"
+        style={{ fontSize: 11, fontWeight: 800 }}
+      >
         {fmtNum(value)}
       </text>
     );
@@ -648,7 +731,11 @@ export default function HRPage() {
 
   const maxY = useMemo(() => {
     if (!usageData.length) return undefined;
-    const m = Math.max(...usageData.map((r) => Math.max(Number(r.used || 0), Number(r.allowance || 0))));
+    const m = Math.max(
+      ...usageData.map((r) =>
+        Math.max(Number(r.used || 0), Number(r.allowance || 0))
+      )
+    );
     return Math.max(5, Math.ceil(m + 1));
   }, [usageData]);
 
@@ -674,14 +761,28 @@ export default function HRPage() {
             <div style={sub}>
               Holiday usage (paid only), approvals and HR shortcuts.
               {!isAdmin ? (
-                <span style={{ marginLeft: 10, fontWeight: 900, color: UI.muted }}>
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontWeight: 900,
+                    color: UI.muted,
+                  }}
+                >
                   (View only — admin required to approve/decline)
                 </span>
               ) : null}
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              justifyContent: "flex-end",
+              alignItems: "center",
+            }}
+          >
             <select
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
@@ -699,23 +800,41 @@ export default function HRPage() {
               <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
             </select>
 
-            <div style={chip}>
-              {loading ? "Loading…" : `${requestedHolidays.length} requests`}
-            </div>
+            <div style={chip}>{loading ? "Loading…" : `${requestedHolidays.length} requests`}</div>
 
-            {/* ✅ NEW chip for delete requests */}
-            <div style={{ ...chip, background: "#fff7ed", borderColor: "#fed7aa", color: "#9a3412" }}>
+            <div
+              style={{
+                ...chip,
+                background: "#fff7ed",
+                borderColor: "#fed7aa",
+                color: "#9a3412",
+              }}
+            >
               Delete requests: <b style={{ marginLeft: 6 }}>{deleteRequestedHolidays.length}</b>
             </div>
 
-            <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+            <div
+              style={{
+                ...chip,
+                background: UI.brandSoft,
+                borderColor: "#dbeafe",
+                color: UI.brand,
+              }}
+            >
               Paid usage entries: <b style={{ marginLeft: 6 }}>{usageData.length}</b>
             </div>
           </div>
         </div>
 
         {/* Top row: Chart + Requests */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: UI.gap, alignItems: "start" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.15fr 0.85fr",
+            gap: UI.gap,
+            alignItems: "start",
+          }}
+        >
           {/* 📊 Usage chart */}
           <section style={card}>
             <div style={sectionHeader}>
@@ -735,7 +854,10 @@ export default function HRPage() {
             ) : (
               <div style={{ width: "100%", height: 340 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={usageData} margin={{ top: 16, right: 24, left: 0, bottom: 24 }}>
+                  <BarChart
+                    data={usageData}
+                    margin={{ top: 16, right: 24, left: 0, bottom: 24 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis
                       dataKey="name"
@@ -815,7 +937,9 @@ export default function HRPage() {
               ) : null}
 
               {requestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No pending holiday requests.</div>
+                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
+                  No pending holiday requests.
+                </div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {requestedHolidays.slice(0, 6).map((h) => {
@@ -835,15 +959,36 @@ export default function HRPage() {
                     }
 
                     return (
-                      <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
-                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                          <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
+                      <div
+                        key={h.id}
+                        style={{
+                          ...surface,
+                          padding: 12,
+                          borderRadius: 12,
+                          boxShadow: "none",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ fontWeight: 900, color: UI.text }}>
+                            {h.employee || h.employeeCode || "Unknown"}
+                          </div>
                           <span style={chip}>{type}</span>
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
                           {fmt(fromD)} → {fmt(toD)}
-                          {typeHint ? <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>• {typeHint}</span> : null}
+                          {typeHint ? (
+                            <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
+                              • {typeHint}
+                            </span>
+                          ) : null}
                         </div>
 
                         <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -873,7 +1018,11 @@ export default function HRPage() {
                           >
                             Decline
                           </button>
-                          <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
+                          <button
+                            style={btn("ghost")}
+                            onClick={() => router.push("/holiday-usage")}
+                            type="button"
+                          >
                             View usage →
                           </button>
                         </div>
@@ -890,7 +1039,7 @@ export default function HRPage() {
               )}
             </section>
 
-            {/* 🗑️ Delete requested holidays (approval UI same style) */}
+            {/* 🗑️ Delete requested holidays */}
             <section style={card}>
               <div style={sectionHeader}>
                 <div>
@@ -911,7 +1060,9 @@ export default function HRPage() {
               ) : null}
 
               {deleteRequestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>No delete requests.</div>
+                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
+                  No delete requests.
+                </div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {deleteRequestedHolidays.slice(0, 6).map((h) => {
@@ -931,15 +1082,36 @@ export default function HRPage() {
                     }
 
                     return (
-                      <div key={h.id} style={{ ...surface, padding: 12, borderRadius: 12, boxShadow: "none" }}>
-                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                          <div style={{ fontWeight: 900, color: UI.text }}>{h.employee || h.employeeCode || "Unknown"}</div>
+                      <div
+                        key={h.id}
+                        style={{
+                          ...surface,
+                          padding: 12,
+                          borderRadius: 12,
+                          boxShadow: "none",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            justifyContent: "space-between",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ fontWeight: 900, color: UI.text }}>
+                            {h.employee || h.employeeCode || "Unknown"}
+                          </div>
                           <span style={chip}>{type}</span>
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
                           {fmt(fromD)} → {fmt(toD)}
-                          {typeHint ? <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>• {typeHint}</span> : null}
+                          {typeHint ? (
+                            <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
+                              • {typeHint}
+                            </span>
+                          ) : null}
                         </div>
 
                         <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
@@ -975,7 +1147,11 @@ export default function HRPage() {
                             Decline
                           </button>
 
-                          <button style={btn("ghost")} onClick={() => router.push("/holiday-usage")} type="button">
+                          <button
+                            style={btn("ghost")}
+                            onClick={() => router.push("/holiday-usage")}
+                            type="button"
+                          >
                             View usage →
                           </button>
                         </div>
@@ -994,10 +1170,16 @@ export default function HRPage() {
           </div>
         </div>
 
-
         {/* HR Docs */}
         <section style={{ marginTop: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
             <div style={{ fontWeight: 900, fontSize: 16 }}>HR shortcuts</div>
             <div style={{ color: UI.muted, fontSize: 12 }}>Open related pages</div>
           </div>
