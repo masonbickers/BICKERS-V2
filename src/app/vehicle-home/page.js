@@ -286,8 +286,7 @@ const getDayNote = (booking, dayKey) => {
     booking?.dayNotes?.[dayKey] ??
     booking?.dailyNotes?.[dayKey] ??
     booking?.notesForEachDay?.[dayKey];
-  if (v && typeof v === "object")
-    v = v.note ?? v.text ?? v.value ?? v.label ?? v.name;
+  if (v && typeof v === "object") v = v.note ?? v.text ?? v.value ?? v.label ?? v.name;
   if (v) return v;
 
   if (
@@ -301,10 +300,7 @@ const getDayNote = (booking, dayKey) => {
 
   const single =
     booking?.noteForTheDay ?? booking?.note ?? booking?.dayNote ?? booking?.dailyNote;
-  if (
-    single &&
-    (Array.isArray(booking.bookingDates) ? booking.bookingDates.length === 1 : true)
-  )
+  if (single && (Array.isArray(booking.bookingDates) ? booking.bookingDates.length === 1 : true))
     return single;
 
   return null;
@@ -381,26 +377,51 @@ const dueDateFromVehicleField = (raw) => {
   return parseLocalDateOnly(raw) || toDate(raw);
 };
 
-const buildDueEvent = ({ vehicleId, label, kind, due }) => {
-  if (!due) return null;
-  const start = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-  return {
-    title: `${label} • ${kind} due`,
-    start,
-    end: addDays(start, 1), // RBC exclusive end for all-day
-    allDay: true,
-    kind, // "MOT" | "SERVICE" | "MAINTENANCE"
-    vehicleId,
-    dueDate: start,
-  };
-};
-
 const dueTone = (dueDate) => {
   const diff = daysUntil(dueDate);
   if (diff == null) return "soft";
   if (diff < 0) return "overdue";
   if (diff <= 21) return "soon";
   return "ok";
+};
+
+const isApptAfterExpiry = (appt, expiry) => {
+  if (!appt || !expiry) return false;
+  const a = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
+  const e = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()).getTime();
+  return a > e;
+};
+
+const buildDueEvent = ({ vehicleId, label, kind, due, booked, bookingStatus }) => {
+  if (!due) return null;
+  const start = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+  const bookedTag =
+    kind === "MOT" && booked
+      ? bookingStatus && String(bookingStatus).includes("After Expiry")
+        ? " (Booked — After Expiry)"
+        : " (Booked)"
+      : kind === "SERVICE" && booked
+      ? " (Booked)"
+      : "";
+
+  return {
+    title: `${label} • ${kind} due${bookedTag}`,
+    start,
+    end: addDays(start, 1), // RBC exclusive end for all-day
+    allDay: true,
+    kind, // "MOT" | "SERVICE"
+    vehicleId,
+    dueDate: start,
+    booked: !!booked,
+    bookingStatus: bookingStatus || "",
+  };
+};
+
+const normStatus = (s) => String(s || "").trim().toLowerCase();
+const isInactiveBooking = (s) => {
+  const x = normStatus(s);
+  return x.includes("cancel") || x.includes("declin") || x.includes("deleted");
 };
 
 /* ───────────────── Component ───────────────── */
@@ -412,7 +433,14 @@ export default function VehiclesHomePage() {
   const [calDate, setCalDate] = useState(new Date());
 
   const [mounted, setMounted] = useState(false);
-  const [workBookings, setWorkBookings] = useState([]); // maintenance bookings from workBookings
+
+  // ✅ Booked MOT/SERVICE from maintenanceBookings (source of truth)
+  const [maintenanceBookingsRaw, setMaintenanceBookingsRaw] = useState([]);
+  const [maintenanceBookingEvents, setMaintenanceBookingEvents] = useState([]);
+
+  // Legacy: workBookings (if you still use it)
+  const [workBookings, setWorkBookings] = useState([]);
+
   const [usageData, setUsageData] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -566,38 +594,129 @@ export default function VehiclesHomePage() {
     fetchUsage();
   }, [usageMonth, vehicleNameMap]);
 
-  /* ───────── Calendar events: maintenance bookings from workBookings ───────── */
+  /* ───────── OPTIONAL: legacy workBookings maintenance blocks ───────── */
   useEffect(() => {
-    const fetchMaintenanceEvents = async () => {
-      const snapshot = await getDocs(collection(db, "workBookings"));
-      const events = snapshot.docs
-        .map((docSnap) => {
-          const data = docSnap.data();
-          const start = toDate(data.startDate);
-          const end = toDate(data.endDate || data.startDate);
-          if (!start || !end) return null;
+    const fetchWorkBookings = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "workBookings"));
+        const events = snapshot.docs
+          .map((docSnap) => {
+            const data = docSnap.data();
+            const start = toDate(data.startDate);
+            const end = toDate(data.endDate || data.startDate);
+            if (!start || !end) return null;
 
-          const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-          const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+            return {
+              title: `${data.vehicleName || "Vehicle"} - ${data.maintenanceType || "Maintenance"}`,
+              start: s,
+              end: addDays(e, 1),
+              allDay: true,
+              kind: "MAINTENANCE",
+              vehicleId: data.vehicleId || null,
+              source: "workBookings",
+              docId: docSnap.id,
+            };
+          })
+          .filter(Boolean);
+
+        setWorkBookings(events);
+      } catch (e) {
+        console.warn("[workBookings] fetch failed (ok if unused):", e);
+        setWorkBookings([]);
+      }
+    };
+
+    fetchWorkBookings();
+  }, []);
+
+  /* ───────── ✅ REAL BOOKINGS: maintenanceBookings => calendar events ───────── */
+  useEffect(() => {
+    const fetchMaintenanceBookings = async () => {
+      const snap = await getDocs(collection(db, "maintenanceBookings"));
+      const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+
+      // Build events (single day uses appointmentDate, multi day uses startDate/endDate)
+      const events = raw
+        .map((b) => {
+          const status = b.status || "";
+          if (isInactiveBooking(status)) return null;
+
+          const type = String(b.type || "").toUpperCase() === "SERVICE" ? "SERVICE" : "MOT";
+          const vehicleId = b.vehicleId || null;
+
+          // Prefer appointmentDate if present, else startDate/endDate
+          const appt = toDate(b.appointmentDate);
+          const st = toDate(b.startDate) || appt;
+          const en = toDate(b.endDate) || st;
+
+          if (!st || !en) return null;
+
+          const s = new Date(st.getFullYear(), st.getMonth(), st.getDate());
+          const e = new Date(en.getFullYear(), en.getMonth(), en.getDate());
+
+          const label = vehicleId ? (vehicleNameMap[vehicleId] || b.vehicleLabel || vehicleId) : (b.vehicleLabel || "Vehicle");
+          const provider = String(b.provider || "").trim();
+
+          const kind = type === "SERVICE" ? "SERVICE_BOOKING" : "MOT_BOOKING";
+          const isMulti = !appt && (st && en) && (dateKey(st) !== dateKey(en));
+
+          const title =
+            `${label} • ${type}${appt ? " appointment" : isMulti ? " (multi-day)" : ""}` +
+            (provider ? ` • ${provider}` : "");
 
           return {
-            title: `${data.vehicleName || "Vehicle"} - ${data.maintenanceType || "Maintenance"}`,
+            title,
             start: s,
             end: addDays(e, 1),
             allDay: true,
-            kind: "MAINTENANCE",
-            vehicleId: data.vehicleId || null,
+            kind,
+            vehicleId,
+            bookingId: b.id,
+            bookingStatus: b.status || "Booked",
+            provider,
+            source: "maintenanceBookings",
           };
         })
         .filter(Boolean);
 
-      setWorkBookings(events);
+      setMaintenanceBookingsRaw(raw);
+      setMaintenanceBookingEvents(events);
     };
 
-    fetchMaintenanceEvents();
-  }, []);
+    fetchMaintenanceBookings().catch((e) => {
+      console.error("[maintenanceBookings] fetch error:", e);
+      setMaintenanceBookingsRaw([]);
+      setMaintenanceBookingEvents([]);
+    });
+  }, [vehicleNameMap]);
 
-  /* ───────── Build MOT + Service due-date events from vehicles collection ───────── */
+  /* ───────── Booked maps (to mark due items as booked) ───────── */
+  const bookedMetaByVehicle = useMemo(() => {
+    // { [vehicleId]: { mot: { has, earliestAppt }, service: { has, earliestAppt } } }
+    const map = {};
+    for (const b of maintenanceBookingsRaw) {
+      const vehicleId = b.vehicleId;
+      if (!vehicleId) continue;
+      if (isInactiveBooking(b.status)) continue;
+
+      const type = String(b.type || "").toUpperCase() === "SERVICE" ? "service" : "mot";
+
+      const appt = toDate(b.appointmentDate) || toDate(b.startDate) || null;
+      if (!appt) continue;
+
+      if (!map[vehicleId]) map[vehicleId] = { mot: { has: false, earliestAppt: null }, service: { has: false, earliestAppt: null } };
+      map[vehicleId][type].has = true;
+
+      const cur = map[vehicleId][type].earliestAppt;
+      if (!cur || appt.getTime() < cur.getTime()) map[vehicleId][type].earliestAppt = appt;
+    }
+    return map;
+  }, [maintenanceBookingsRaw]);
+
+  /* ───────── Build MOT + Service due-date events ───────── */
   const motServiceEvents = useMemo(() => {
     if (!vehiclesRaw.length) return [];
     const events = [];
@@ -608,21 +727,50 @@ export default function VehiclesHomePage() {
       const motDue = dueDateFromVehicleField(v.nextMOT ?? v.motDate ?? v.motDue);
       const svcDue = dueDateFromVehicleField(v.nextService ?? v.serviceDate ?? v.serviceDue);
 
-      const motEv = buildDueEvent({ vehicleId: v.id, label, kind: "MOT", due: motDue });
-      const svcEv = buildDueEvent({ vehicleId: v.id, label, kind: "SERVICE", due: svcDue });
+      const bookedMeta = bookedMetaByVehicle[v.id] || null;
 
+      // MOT due event (booked if there is a MOT booking)
+      const motBooked = !!bookedMeta?.mot?.has;
+      const motAppt = bookedMeta?.mot?.earliestAppt || null;
+      const motAfterExpiry = motBooked && motAppt && motDue ? isApptAfterExpiry(motAppt, motDue) : false;
+
+      const motEv = buildDueEvent({
+        vehicleId: v.id,
+        label,
+        kind: "MOT",
+        due: motDue,
+        booked: motBooked,
+        bookingStatus: motAfterExpiry ? "Booked (After Expiry)" : motBooked ? "Booked" : "",
+      });
       if (motEv) events.push(motEv);
+
+      // SERVICE due event (booked if there is a SERVICE booking)
+      const svcBooked = !!bookedMeta?.service?.has;
+      const svcEv = buildDueEvent({
+        vehicleId: v.id,
+        label,
+        kind: "SERVICE",
+        due: svcDue,
+        booked: svcBooked,
+        bookingStatus: svcBooked ? "Booked" : "",
+      });
       if (svcEv) events.push(svcEv);
     }
 
     return events;
-  }, [vehiclesRaw, vehicleNameMap]);
+  }, [vehiclesRaw, vehicleNameMap, bookedMetaByVehicle]);
 
   /* ───────── Combined calendar events ───────── */
   const calendarEvents = useMemo(() => {
-    // Merge maintenance bookings + due events
-    return [...(workBookings || []), ...(motServiceEvents || [])];
-  }, [workBookings, motServiceEvents]);
+    // ✅ Include real booked events from maintenanceBookings
+    // ✅ Keep due-date events
+    // ✅ Keep legacy workBookings if you still want them
+    return [
+      ...(workBookings || []),
+      ...(maintenanceBookingEvents || []),
+      ...(motServiceEvents || []),
+    ];
+  }, [workBookings, maintenanceBookingEvents, motServiceEvents]);
 
   // Load submitted checks (for defects queue)
   useEffect(() => {
@@ -652,8 +800,7 @@ export default function VehiclesHomePage() {
     setActionLoading(true);
     try {
       const { defect, decision, comment, category } = actionModal;
-      const reviewer =
-        auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
+      const reviewer = auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
 
       if (decision === "approved" && !category) {
         alert("Choose where to route this defect: General Maintenance or Immediate Defects.");
@@ -679,9 +826,7 @@ export default function VehiclesHomePage() {
       });
 
       setPendingDefects((prev) =>
-        prev.filter(
-          (d) => !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex)
-        )
+        prev.filter((d) => !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex))
       );
 
       setActionModal(null);
@@ -701,17 +846,23 @@ export default function VehiclesHomePage() {
   };
 
   const handleSelectEvent = (event) => {
-    // If it's a due-date event and we have a vehicleId, open the vehicle edit directly
-    if (event?.vehicleId && (event.kind === "MOT" || event.kind === "SERVICE")) {
+    // ✅ Route for due events + booking events
+    if (
+      event?.vehicleId &&
+      (
+        event.kind === "MOT" ||
+        event.kind === "SERVICE" ||
+        event.kind === "MOT_BOOKING" ||
+        event.kind === "SERVICE_BOOKING"
+      )
+    ) {
       router.push(`/vehicle-edit/${encodeURIComponent(event.vehicleId)}`);
       return;
     }
     setSelectedEvent(event);
   };
 
-  const usageMonthLabel = `${usageMonth.getFullYear()}-${String(
-    usageMonth.getMonth() + 1
-  ).padStart(2, "0")}`;
+  const usageMonthLabel = `${usageMonth.getFullYear()}-${String(usageMonth.getMonth() + 1).padStart(2, "0")}`;
   const kpiPending = pendingDefects.length;
 
   const renderUsageLabel = (props) => {
@@ -729,7 +880,7 @@ export default function VehiclesHomePage() {
     );
   };
 
-  // Tiles with proper numeric badges (what you asked for)
+  // Tiles with proper numeric badges
   const vehicleSections = useMemo(
     () => [
       {
@@ -810,29 +961,66 @@ export default function VehiclesHomePage() {
       baseBg = "#fff7ed";
       baseBorder = "#fed7aa";
       baseText = "#7c2d12";
+      // ✅ booked MOT due should look "success-ish"
+      if (event?.booked) {
+        baseBg = "#ecfdf5";
+        baseBorder = "#bbf7d0";
+        baseText = "#065f46";
+      }
     }
+
+    if (kind === "MOT_BOOKING") {
+      baseBg = "#ecfdf5";
+      baseBorder = "#bbf7d0";
+      baseText = "#065f46";
+      if (String(event?.bookingStatus || "").includes("After Expiry")) {
+        baseBg = "#fef2f2";
+        baseBorder = "#fecaca";
+        baseText = "#991b1b";
+      }
+    }
+
     if (kind === "SERVICE") {
       baseBg = "#ecfdf5";
       baseBorder = "#bbf7d0";
       baseText = "#065f46";
+      if (event?.booked) {
+        baseBg = "#ecfdf5";
+        baseBorder = "#bbf7d0";
+        baseText = "#065f46";
+      }
     }
+
+    if (kind === "SERVICE_BOOKING") {
+      baseBg = "#ecfdf5";
+      baseBorder = "#bbf7d0";
+      baseText = "#065f46";
+    }
+
     if (kind === "MAINTENANCE") {
       baseBg = UI.brandSoft;
       baseBorder = "#bfdbfe";
       baseText = UI.text;
     }
 
-    // Escalate based on due date
+    // Escalate based on due date (skip for booking blocks)
     const dd = event?.dueDate ? new Date(event.dueDate) : null;
-    const tone = dd ? dueTone(dd) : "soft";
-    if (tone === "overdue") {
-      baseBg = "#fef2f2";
-      baseBorder = "#fecaca";
-      baseText = "#991b1b";
-    } else if (tone === "soon") {
-      baseBg = "#fff7ed";
-      baseBorder = "#fed7aa";
-      baseText = "#9a3412";
+    const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
+    const tone = dd && !isBookingBlock ? dueTone(dd) : "soft";
+
+    // If due is booked, don’t escalate to overdue/soon colours
+    const suppressEscalation = (kind === "MOT" || kind === "SERVICE") && event?.booked;
+
+    if (!suppressEscalation) {
+      if (tone === "overdue") {
+        baseBg = "#fef2f2";
+        baseBorder = "#fecaca";
+        baseText = "#991b1b";
+      } else if (tone === "soon") {
+        baseBg = "#fff7ed";
+        baseBorder = "#fed7aa";
+        baseText = "#9a3412";
+      }
     }
 
     return {
@@ -864,14 +1052,7 @@ export default function VehiclesHomePage() {
             <div style={sub}>Overview • Defects • Usage • MOT • Service</div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <div style={chip}>
               Pending defects: <b style={{ marginLeft: 6 }}>{kpiPending}</b>
             </div>
@@ -910,14 +1091,7 @@ export default function VehiclesHomePage() {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={chipSoft}>{pendingDefects.length} pending</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
                 Open checks
@@ -971,9 +1145,7 @@ export default function VehiclesHomePage() {
                         </div>
                       </td>
                       <td style={thtd}>{d.driverName || "—"}</td>
-                      <td style={{ ...thtd, textAlign: "center" }}>
-                        {d.photos?.length ? d.photos.length : 0}
-                      </td>
+                      <td style={{ ...thtd, textAlign: "center" }}>{d.photos?.length ? d.photos.length : 0}</td>
                       <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
                         <a
                           href={CHECK_DETAIL_PATH(d.checkId)}
@@ -1022,11 +1194,7 @@ export default function VehiclesHomePage() {
                 alignItems: "center",
               }}
             >
-              <button
-                type="button"
-                style={btn("pill")}
-                onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-              >
+              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
                 ← Prev
               </button>
 
@@ -1040,11 +1208,7 @@ export default function VehiclesHomePage() {
                 style={{ ...inputBase, width: 170, cursor: "pointer" }}
               />
 
-              <button
-                type="button"
-                style={btn("pill")}
-                onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-              >
+              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
                 Next →
               </button>
 
@@ -1056,18 +1220,8 @@ export default function VehiclesHomePage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fill: UI.muted, fontSize: 12 }}
-                  axisLine={{ stroke: "#e5e7eb" }}
-                  tickLine={{ stroke: "#e5e7eb" }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fill: UI.muted, fontSize: 12 }}
-                  axisLine={{ stroke: "#e5e7eb" }}
-                  tickLine={{ stroke: "#e5e7eb" }}
-                />
+                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
+                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
                 <Tooltip
                   cursor={{ fill: "rgba(148,163,184,0.12)" }}
                   contentStyle={{
@@ -1093,15 +1247,16 @@ export default function VehiclesHomePage() {
             <div>
               <h2 style={titleMd}>MOT & service calendar</h2>
               <div style={hint}>
-                Shows: <b>workBookings</b> maintenance blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b>.
-                Click a MOT/Service event to open that vehicle.
+                Shows: <b>maintenanceBookings</b> booked MOT/SERVICE blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b> + legacy <b>workBookings</b>.
+                Click MOT/Service/Booking events to open that vehicle.
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               <span style={chipSoft}>{calView}</span>
-              <span style={badge("#fff7ed", "#9a3412")}>MOT</span>
-              <span style={badge("#ecfdf5", "#065f46")}>Service</span>
+              <span style={badge("#fff7ed", "#9a3412")}>MOT due</span>
+              <span style={badge("#ecfdf5", "#065f46")}>Booked MOT</span>
+              <span style={badge("#ecfdf5", "#065f46")}>Booked Service</span>
               <span style={badge(UI.brandSoft, UI.brand)}>Maintenance</span>
               <button type="button" style={btn("ghost")} onClick={() => setCalDate(new Date())}>
                 Today
@@ -1139,13 +1294,36 @@ export default function VehiclesHomePage() {
                 components={{
                   event: ({ event }) => {
                     const kind = event?.kind || "MAINTENANCE";
+
                     const label =
-                      kind === "MOT" ? "MOT" : kind === "SERVICE" ? "Service" : "Maintenance";
+                      kind === "MOT"
+                        ? event?.booked
+                          ? "MOT due • Booked"
+                          : "MOT due"
+                        : kind === "SERVICE"
+                        ? event?.booked
+                          ? "Service due • Booked"
+                          : "Service due"
+                        : kind === "MOT_BOOKING"
+                        ? "MOT booking"
+                        : kind === "SERVICE_BOOKING"
+                        ? "Service booking"
+                        : "Maintenance";
 
                     const dd = event?.dueDate ? new Date(event.dueDate) : null;
-                    const tone = dd ? dueTone(dd) : "soft";
+
+                    const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
+                    const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
+                    const tone = showTone && dd ? dueTone(dd) : "soft";
                     const toneText =
                       tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+
+                    const subline =
+                      isBookingBlock
+                        ? (event?.bookingStatus || "Booked")
+                        : (event?.booked && (kind === "MOT" || kind === "SERVICE"))
+                        ? (event?.bookingStatus || "Booked")
+                        : toneText;
 
                     return (
                       <div
@@ -1163,10 +1341,8 @@ export default function VehiclesHomePage() {
                       >
                         <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
                         <span style={{ color: UI.text }}>{event.title}</span>
-                        {toneText ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>
-                            {toneText}
-                          </span>
+                        {subline ? (
+                          <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>{subline}</span>
                         ) : null}
                       </div>
                     );
@@ -1213,7 +1389,7 @@ export default function VehiclesHomePage() {
           </div>
         </section>
 
-        {/* Event modal (only for non MOT/SERVICE due events, since those route directly) */}
+        {/* Event modal (only for non-vehicle routing events) */}
         {selectedEvent && (
           <div style={modal}>
             <h3 style={{ marginTop: 0, marginBottom: 8, fontWeight: 900, color: UI.text }}>
@@ -1254,8 +1430,7 @@ export default function VehiclesHomePage() {
                 <strong style={{ color: UI.text }}>Date:</strong> {actionModal.defect.dateISO}
               </div>
               <div>
-                <strong style={{ color: UI.text }}>Job:</strong>{" "}
-                {actionModal.defect.jobLabel || actionModal.defect.jobId}
+                <strong style={{ color: UI.text }}>Job:</strong> {actionModal.defect.jobLabel || actionModal.defect.jobId}
               </div>
               <div>
                 <strong style={{ color: UI.text }}>Vehicle:</strong> {actionModal.defect.vehicle}

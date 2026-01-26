@@ -18,7 +18,7 @@ import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 /* -------------------------------------------------------------------------- */
-/*                               HELPERS                                       */
+/*                               HELPERS                                      */
 /* -------------------------------------------------------------------------- */
 
 const DAYS = [
@@ -38,8 +38,7 @@ function parseDateFlexible(raw) {
   if (!raw) return null;
   if (typeof raw?.toDate === "function") return raw.toDate();
   if (raw instanceof Date) return raw;
-  if (typeof raw === "object" && raw.seconds)
-    return new Date(raw.seconds * 1000);
+  if (typeof raw === "object" && raw.seconds) return new Date(raw.seconds * 1000);
   if (typeof raw === "string") {
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
@@ -88,8 +87,7 @@ function extractYardSegments(entry) {
   if (entry?.leaveTime && entry?.arriveBack)
     return [{ start: entry.leaveTime, end: entry.arriveBack }];
 
-  if (entry?.start && entry?.end)
-    return [{ start: entry.start, end: entry.end }];
+  if (entry?.start && entry?.end) return [{ start: entry.start, end: entry.end }];
 
   return [];
 }
@@ -189,7 +187,10 @@ export default function TimesheetDetailPage() {
 
   // jobsByDay now comes from the app's snapshot + booking docs
   const [jobsByDay, setJobsByDay] = useState({});
-  const [vehicleRegs, setVehicleRegs] = useState({});
+
+  // vehicleLookup maps BOTH vehicle doc.id and vehicle.name -> { name, registration }
+  // so even if bookings store vehicle IDs, we can display name/reg.
+  const [vehicleLookup, setVehicleLookup] = useState({});
 
   // live holiday docs expanded per day (Y-M-D → [holidayDocs])
   const [holidaysByDate, setHolidaysByDate] = useState({});
@@ -287,9 +288,7 @@ export default function TimesheetDetailPage() {
         // Prefer jobSnapshot.byDay from the app
         if (snapshot.byDay) {
           DAYS.forEach((day) => {
-            const arr = Array.isArray(snapshot.byDay[day])
-              ? snapshot.byDay[day]
-              : [];
+            const arr = Array.isArray(snapshot.byDay[day]) ? snapshot.byDay[day] : [];
             jobMap[day] = arr;
             arr.forEach((j) => {
               if (j.bookingId) allBookingIds.add(j.bookingId);
@@ -309,7 +308,7 @@ export default function TimesheetDetailPage() {
 
         // Fetch each booking doc to get vehicles / up-to-date info
         const bookingDetailsById = {};
-        const usedVehicleNames = new Set();
+        const usedVehicleKeys = new Set();
 
         for (const bookingId of allBookingIds) {
           try {
@@ -319,7 +318,9 @@ export default function TimesheetDetailPage() {
               bookingDetailsById[bookingId] = data;
 
               if (Array.isArray(data.vehicles)) {
-                data.vehicles.forEach((v) => usedVehicleNames.add(v));
+                data.vehicles.forEach((v) => {
+                  if (v != null && String(v).trim()) usedVehicleKeys.add(String(v));
+                });
               }
             }
           } catch (e) {
@@ -327,16 +328,21 @@ export default function TimesheetDetailPage() {
           }
         }
 
-        // Fetch vehicle registrations only for used vehicles
-        const regMap = {};
-        if (usedVehicleNames.size > 0) {
+        // Build a lookup so BOTH doc.id and vehicle.name resolve -> {name, registration}
+        const lookup = {};
+        if (usedVehicleKeys.size > 0) {
           const vs = await getDocs(collection(db, "vehicles"));
           vs.docs.forEach((d) => {
-            const v = d.data();
-            const name = v.name || d.id;
-            if (usedVehicleNames.has(name)) {
-              regMap[name] = v.registration || "No Reg";
-            }
+            const v = d.data() || {};
+            const name = String(v.name || "").trim();
+            const reg = String(v.registration || "").trim() || "No Reg";
+            const docId = d.id;
+
+            // Map by doc id (so bookings storing vehicle IDs resolve)
+            lookup[docId] = { name: name || docId, registration: reg };
+
+            // Map by name (so bookings storing names still resolve)
+            if (name) lookup[name] = { name, registration: reg };
           });
         }
 
@@ -360,11 +366,11 @@ export default function TimesheetDetailPage() {
         });
 
         setJobsByDay(mergedJobMap);
-        setVehicleRegs(regMap);
+        setVehicleLookup(lookup);
       } catch (err) {
         console.error("Error building jobsByDay from snapshot:", err);
         setJobsByDay({});
-        setVehicleRegs({});
+        setVehicleLookup({});
       }
     })();
   }, [timesheet]);
@@ -478,7 +484,9 @@ export default function TimesheetDetailPage() {
 
     // 🔒 Block sending new queries if timesheet is approved
     if (isApproved) {
-      setQueryError("This timesheet has been approved. You can no longer send new queries.");
+      setQueryError(
+        "This timesheet has been approved. You can no longer send new queries."
+      );
       return;
     }
 
@@ -522,6 +530,19 @@ export default function TimesheetDetailPage() {
     } finally {
       setQuerySubmitting(false);
     }
+  };
+
+  /* ----------------------- Vehicle display resolver ----------------------- */
+  const resolveVehicle = (key) => {
+    const raw = String(key ?? "").trim();
+    if (!raw) return { name: "Vehicle", registration: "No Reg" };
+
+    const found = vehicleLookup[raw];
+    if (found) return found;
+
+    // If we don't have it in lookup, show the raw key but avoid "by id" feeling:
+    // treat it as name; reg unknown.
+    return { name: raw, registration: "No Reg" };
   };
 
   /* -------------------------------------------------------------------------- */
@@ -738,9 +759,7 @@ export default function TimesheetDetailPage() {
               {timesheet.approvedAt && (
                 <div style={{ color: "#15803d", marginTop: 2 }}>
                   Approved:{" "}
-                  {parseDateFlexible(timesheet.approvedAt)?.toLocaleString(
-                    "en-GB"
-                  )}
+                  {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
             </div>
@@ -778,14 +797,7 @@ export default function TimesheetDetailPage() {
                       fontSize: 15,
                     }}
                   >
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        marginBottom: 4,
-                      }}
-                    >
-                      {day}
-                    </div>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{day}</div>
                     <div style={{ color: "#6b7280" }}>Day Off</div>
                     <button
                       type="button"
@@ -795,11 +807,7 @@ export default function TimesheetDetailPage() {
                         setQueryDay(day);
                       }}
                       disabled={isApproved}
-                      title={
-                        isApproved
-                          ? queryDisabledReason
-                          : "Raise a query for this day"
-                      }
+                      title={isApproved ? queryDisabledReason : "Raise a query for this day"}
                       style={{
                         marginTop: "auto",
                         alignSelf: "flex-start",
@@ -830,27 +838,23 @@ export default function TimesheetDetailPage() {
               }
 
               // live holiday docs for this date
-              const holidayDocsForDay = ymdForDay
-                ? holidaysByDate[ymdForDay] || []
-                : [];
+              const holidayDocsForDay = ymdForDay ? holidaysByDate[ymdForDay] || [] : [];
               const hasLiveHoliday = holidayDocsForDay.length > 0;
 
               // derive paid / unpaid / accrued label from holiday docs
               const paidStatuses = Array.from(
                 new Set(
                   holidayDocsForDay
-                    .map((h) =>
-                      String(h.paidStatus || h.leaveType || "").trim()
-                    )
+                    .map((h) => String(h.paidStatus || h.leaveType || "").trim())
                     .filter(Boolean)
                 )
               );
 
               let paidLabel = null;
               if (paidStatuses.length === 1) {
-                paidLabel = paidStatuses[0]; // e.g. "Paid", "Unpaid", "Accrued"
+                paidLabel = paidStatuses[0];
               } else if (paidStatuses.length > 1) {
-                paidLabel = paidStatuses.join(" / "); // mixed, rare but handled
+                paidLabel = paidStatuses.join(" / ");
               }
 
               let mode = detectMode(entry, hasJobs, isWeekend);
@@ -901,13 +905,7 @@ export default function TimesheetDetailPage() {
                       gap: 4,
                     }}
                   >
-                    <div
-                      style={{
-                        fontWeight: 650,
-                      }}
-                    >
-                      {day}
-                    </div>
+                    <div style={{ fontWeight: 650 }}>{day}</div>
                     <button
                       type="button"
                       onClick={() => {
@@ -916,11 +914,7 @@ export default function TimesheetDetailPage() {
                         setQueryDay(day);
                       }}
                       disabled={isApproved}
-                      title={
-                        isApproved
-                          ? queryDisabledReason
-                          : "Raise a query for this day"
-                      }
+                      title={isApproved ? queryDisabledReason : "Raise a query for this day"}
                       style={{
                         fontSize: 11,
                         padding: "2px 8px",
@@ -944,9 +938,7 @@ export default function TimesheetDetailPage() {
                           style={{
                             marginLeft: 6,
                             color:
-                              paidLabel.toLowerCase() === "unpaid"
-                                ? "#8a8a8aff"
-                                : "#1d4ed8",
+                              paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
                           }}
                         >
                           ({paidLabel})
@@ -954,9 +946,7 @@ export default function TimesheetDetailPage() {
                       )}
                     </div>
                   )}
-                  {mode === "off" && (
-                    <div style={{ color: "#6b7280" }}>Day Off</div>
-                  )}
+                  {mode === "off" && <div style={{ color: "#6b7280" }}>Day Off</div>}
 
                   {/* JOB INFO (number, client, location, vehicles) */}
                   {hasJobs && (
@@ -980,7 +970,7 @@ export default function TimesheetDetailPage() {
                         >
                           <div style={{ marginBottom: 4 }}>
                             <strong style={{ fontSize: 14.5 }}>
-                              📌 {job.jobNumber || job.id || job.bookingId}
+                              {job.jobNumber || job.id || job.bookingId}
                             </strong>
 
                             {job.client && (
@@ -996,38 +986,32 @@ export default function TimesheetDetailPage() {
                             )}
 
                             {job.location && (
-                              <span
-                                style={{
-                                  marginLeft: 6,
-                                  color: "#6b7280",
-                                }}
-                              >
+                              <span style={{ marginLeft: 6, color: "#6b7280" }}>
                                 • {job.location}
                               </span>
                             )}
                           </div>
 
-                          {/* VEHICLES + REG */}
+                          {/* VEHICLES (always show Name + Reg, even if booking stores IDs) */}
                           {Array.isArray(job.vehicles) &&
-                            job.vehicles.map((v, vIdx) => (
-                              <div
-                                key={`${job.bookingId || job.id}-vehicle-${v}-${vIdx}`}
-                                style={{
-                                  color: "#047857",
-                                  fontWeight: 600,
-                                  fontSize: 14,
-                                }}
-                              >
-                                🚗 {v} —{" "}
-                                <span
+                            job.vehicles.map((vKey, vIdx) => {
+                              const v = resolveVehicle(vKey);
+                              return (
+                                <div
+                                  key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
                                   style={{
-                                    fontWeight: 700,
+                                    color: "#047857",
+                                    fontWeight: 600,
+                                    fontSize: 14,
                                   }}
                                 >
-                                  {vehicleRegs[v] || "No Reg"}
-                                </span>
-                              </div>
-                            ))}
+                                  {v.name} —{" "}
+                                  <span style={{ fontWeight: 700 }}>
+                                    {v.registration || "No Reg"}
+                                  </span>
+                                </div>
+                              );
+                            })}
                         </div>
                       ))}
                     </div>
@@ -1042,9 +1026,7 @@ export default function TimesheetDetailPage() {
                           {seg.start} → {seg.end}
                         </div>
                       ))}
-                      <div style={{ color: "#9ca3af", fontSize: 12 }}>
-                        (-0.5 hr lunch)
-                      </div>
+                      <div style={{ color: "#9ca3af", fontSize: 12 }}>(-0.5 hr lunch)</div>
                     </div>
                   )}
 
@@ -1070,27 +1052,19 @@ export default function TimesheetDetailPage() {
                           listStyle: "disc",
                         }}
                       >
-                        {entry.leaveTime && (
-                          <li>Leave: {entry.leaveTime}</li>
-                        )}
-                        {entry.arriveTime && (
-                          <li>Arrive: {entry.arriveTime}</li>
-                        )}
+                        {entry.leaveTime && <li>Leave: {entry.leaveTime}</li>}
+                        {entry.arriveTime && <li>Arrive: {entry.arriveTime}</li>}
                         {precallLabel && <li>Pre-Call: {precallLabel}</li>}
                         {entry.callTime && <li>Unit-Call: {entry.callTime}</li>}
                         {entry.wrapTime && <li>Wrap: {entry.wrapTime}</li>}
-                        {entry.arriveBack && (
-                          <li>Back: {entry.arriveBack}</li>
-                        )}
+                        {entry.arriveBack && <li>Back: {entry.arriveBack}</li>}
                         {entry.overnight && <li>Overnight stay</li>}
                         {entry.lunchSup && <li>Lunch supplied</li>}
                       </ul>
 
                       {/* Numeric breakdown for on-set */}
                       <div style={{ marginTop: 2 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>
-                          Breakdown:
-                        </div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>Breakdown:</div>
                         <div style={{ fontSize: 13 }}>
                           Travel to: {formatHoursLabel(travelToHrs)}
                         </div>
@@ -1130,9 +1104,7 @@ export default function TimesheetDetailPage() {
                     }}
                   >
                     Daily total:{" "}
-                    <strong style={{ fontWeight: 700 }}>
-                      {dayTotalLabel}
-                    </strong>
+                    <strong style={{ fontWeight: 700 }}>{dayTotalLabel}</strong>
                   </div>
                 </div>
               );
@@ -1159,14 +1131,7 @@ export default function TimesheetDetailPage() {
                 fontSize: 14,
               }}
             >
-              <div
-                style={{
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
-                General Notes
-              </div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>General Notes</div>
               <div style={{ color: "#4b5563", minHeight: 24 }}>
                 {timesheet.notes || "—"}
               </div>
@@ -1214,19 +1179,12 @@ export default function TimesheetDetailPage() {
             fontSize: 14,
           }}
         >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              margin: 0,
-              marginBottom: 8,
-            }}
-          >
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 8 }}>
             Manager queries
           </h2>
           <p style={{ margin: 0, marginBottom: 10, color: "#4b5563" }}>
-            Select a day from the grid above ({" "}
-            <span style={{ fontStyle: "italic" }}>“❓ Query this day”</span> ) to
+            Select a day from the grid above (
+            <span style={{ fontStyle: "italic" }}>“❓ Query this day”</span>) to
             raise a query. This will create a record against the timesheet which
             can be shown in the employee app and used to trigger a notification.
           </p>
@@ -1260,14 +1218,7 @@ export default function TimesheetDetailPage() {
             }}
           >
             <div style={{ minWidth: 140 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
                 Day
               </label>
               <select
@@ -1294,14 +1245,7 @@ export default function TimesheetDetailPage() {
             </div>
 
             <div style={{ minWidth: 160 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
                 What are you querying?
               </label>
               <select
@@ -1329,14 +1273,7 @@ export default function TimesheetDetailPage() {
             </div>
 
             <div style={{ flex: 1, minWidth: 220 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
                 Query note for employee
               </label>
               <textarea
@@ -1374,8 +1311,7 @@ export default function TimesheetDetailPage() {
                   color: "#fff",
                   fontWeight: 600,
                   fontSize: 13,
-                  cursor:
-                    querySubmitting || isApproved ? "not-allowed" : "pointer",
+                  cursor: querySubmitting || isApproved ? "not-allowed" : "pointer",
                   opacity: querySubmitting ? 0.7 : 1,
                   whiteSpace: "nowrap",
                 }}
@@ -1422,20 +1358,8 @@ export default function TimesheetDetailPage() {
 
           {/* Existing queries list */}
           {queries.length > 0 && (
-            <div
-              style={{
-                marginTop: 8,
-                borderTop: "1px solid #e5e7eb",
-                paddingTop: 8,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
+            <div style={{ marginTop: 8, borderTop: "1px solid #e5e7eb", paddingTop: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
                 Existing queries on this timesheet
               </div>
               <ul
@@ -1461,9 +1385,7 @@ export default function TimesheetDetailPage() {
                   >
                     <div style={{ marginBottom: 2 }}>
                       <strong>{q.day}</strong>{" "}
-                      <span style={{ color: "#6b7280" }}>
-                        ({q.field || "overall"})
-                      </span>
+                      <span style={{ color: "#6b7280" }}>({q.field || "overall"})</span>
                       {q.status && (
                         <span
                           style={{
@@ -1485,9 +1407,7 @@ export default function TimesheetDetailPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ color: "#4b5563", marginBottom: 6 }}>
-                      {q.note}
-                    </div>
+                    <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.note}</div>
 
                     {/* INLINE MESSAGE THREAD FOR THIS QUERY */}
                     <QueryMessageThread query={q} />
@@ -1516,17 +1436,12 @@ function QueryMessageThread({ query }) {
   useEffect(() => {
     if (!query?.id) return;
 
-    const msgRef = fsQuery(
-      collection(db, "timesheetQueries", query.id, "messages")
-    );
+    const msgRef = fsQuery(collection(db, "timesheetQueries", query.id, "messages"));
 
     const unsub = onSnapshot(msgRef, (snap) => {
       const rows = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort(
-          (a, b) =>
-            (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)
-        );
+        .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setMessages(rows);
     });
 
@@ -1537,14 +1452,11 @@ function QueryMessageThread({ query }) {
     if (!input.trim() || !query?.id || isClosed) return;
     setSending(true);
     try {
-      await addDoc(
-        collection(db, "timesheetQueries", query.id, "messages"),
-        {
-          text: input.trim(),
-          from: "manager",
-          createdAt: serverTimestamp(),
-        }
-      );
+      await addDoc(collection(db, "timesheetQueries", query.id, "messages"), {
+        text: input.trim(),
+        from: "manager",
+        createdAt: serverTimestamp(),
+      });
       setInput("");
     } catch (err) {
       console.error("Error sending query message:", err);
@@ -1563,14 +1475,7 @@ function QueryMessageThread({ query }) {
         background: "#f9fafb",
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          marginBottom: 6,
-          color: "#4b5563",
-        }}
-      >
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#4b5563" }}>
         Messages {isClosed && "(read-only)"}
       </div>
 
@@ -1587,21 +1492,13 @@ function QueryMessageThread({ query }) {
         }}
       >
         {messages.length === 0 && (
-          <div style={{ color: "#9ca3af", textAlign: "center" }}>
-            No messages yet.
-          </div>
+          <div style={{ color: "#9ca3af", textAlign: "center" }}>No messages yet.</div>
         )}
 
         {messages.map((m) => {
           const isManager = m.from === "manager";
           return (
-            <div
-              key={m.id}
-              style={{
-                marginBottom: 6,
-                textAlign: isManager ? "right" : "left",
-              }}
-            >
+            <div key={m.id} style={{ marginBottom: 6, textAlign: isManager ? "right" : "left" }}>
               <div
                 style={{
                   display: "inline-block",
@@ -1619,30 +1516,16 @@ function QueryMessageThread({ query }) {
       </div>
 
       {isClosed && (
-        <div
-          style={{
-            fontSize: 11,
-            color: "#6b7280",
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
           This query is closed. No further messages can be sent.
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          alignItems: "center",
-        }}
-      >
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            isClosed ? "Query closed – replies disabled." : "Reply to this query…"
-          }
+          placeholder={isClosed ? "Query closed – replies disabled." : "Reply to this query…"}
           disabled={isClosed}
           style={{
             flex: 1,
@@ -1666,8 +1549,7 @@ function QueryMessageThread({ query }) {
             color: "#ffffff",
             fontSize: 12,
             fontWeight: 600,
-            cursor:
-              sending || !input.trim() || isClosed ? "not-allowed" : "pointer",
+            cursor: sending || !input.trim() || isClosed ? "not-allowed" : "pointer",
             opacity: sending || !input.trim() || isClosed ? 0.6 : 1,
             whiteSpace: "nowrap",
           }}
