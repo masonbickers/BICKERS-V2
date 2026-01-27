@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -17,7 +18,7 @@ import { useRouter } from "next/navigation";
 const toDateSafe = (v) => {
   try {
     if (!v) return null;
-    if (v?.toDate && typeof v.toDate === "function") return v.toDate(); // Firestore Timestamp
+    if (v?.toDate && typeof v.toDate === "function") return v.toDate();
     if (v instanceof Date) return v;
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
@@ -57,15 +58,20 @@ const fmtDateRange = (b) => {
 };
 
 const listBookingDaysYMD = (b) => {
-  const keys = Object.keys(b?.notesByDate || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+  const keys = Object.keys(b?.notesByDate || {}).filter((k) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(k)
+  );
   if (keys.length) return keys.sort((a, c) => new Date(a) - new Date(c));
+
   if (Array.isArray(b?.bookingDates) && b.bookingDates.length) {
     return [...b.bookingDates].sort((a, c) => new Date(a) - new Date(c));
   }
-  // last resort: derive from start/end/date
+
   const s = (b?.startDate || "").slice?.(0, 10);
   const e = (b?.endDate || "").slice?.(0, 10);
-  const one = (b?.date || "").slice?.(0, 10) || (b?.startDate || "").slice?.(0, 10);
+  const one =
+    (b?.date || "").slice?.(0, 10) || (b?.startDate || "").slice?.(0, 10);
+
   if (s && e) {
     const out = [];
     let cur = new Date(`${s}T00:00:00Z`);
@@ -83,8 +89,8 @@ const listBookingDaysYMD = (b) => {
 const canonicalKeyFromUrl = (url = "") => {
   try {
     const afterO = url.split("/o/")[1];
-    if (afterO) return decodeURIComponent(afterO.split("?")[0]); // Firebase Storage path
-    return url.split("?")[0]; // Non-Firebase: strip query
+    if (afterO) return decodeURIComponent(afterO.split("?")[0]);
+    return url.split("?")[0];
   } catch {
     return url || "";
   }
@@ -148,7 +154,9 @@ const toAttachmentList = (b = {}) => {
 /* ---------- employees helpers ---------- */
 const prettyEmployees = (list) =>
   (Array.isArray(list) ? list : [])
-    .map((e) => (typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")))
+    .map((e) =>
+      typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")
+    )
     .filter(Boolean)
     .join(", ") || "None";
 
@@ -169,6 +177,49 @@ const groupEmployeesByRole = (list) => {
   return map;
 };
 
+/* ---------- hotel helpers ---------- */
+const num = (v) => {
+  const n = parseFloat(String(v ?? "").replace(/,/g, ".").trim());
+  return Number.isFinite(n) ? n : 0;
+};
+const int = (v) => {
+  const n = parseInt(String(v ?? "").trim(), 10);
+  return Number.isFinite(n) ? n : 0;
+};
+const gbp = (v) =>
+  `£${(Number.isFinite(v) ? v : 0).toLocaleString("en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const getHotel = (b = {}) => {
+  const hasHotel = !!b.hasHotel;
+
+  const cost =
+    typeof b.hotelCostPerNight === "number"
+      ? b.hotelCostPerNight
+      : num(
+          b.hotelCostPerNight ??
+            b.hotelCost ??
+            b.hotelRate ??
+            b.hotelAmount ??
+            b.hotelPricePerNight ??
+            0
+        );
+
+  const nights =
+    typeof b.hotelNights === "number"
+      ? b.hotelNights
+      : int(b.hotelNights ?? b.nights ?? b.hotelQty ?? 0);
+
+  const total =
+    typeof b.hotelTotal === "number"
+      ? b.hotelTotal
+      : Math.round(cost * nights * 100) / 100;
+
+  return { hasHotel, cost, nights, total };
+};
+
 export default function ViewBookingModal({
   id,
   onClose,
@@ -179,14 +230,12 @@ export default function ViewBookingModal({
   const [allVehicles, setAllVehicles] = useState([]);
   const router = useRouter();
 
-  // close on ESC
   useEffect(() => {
     const onEsc = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, [onClose]);
 
-  // load booking (normal OR deleted)
   useEffect(() => {
     let mounted = true;
 
@@ -240,7 +289,6 @@ export default function ViewBookingModal({
     return () => (mounted = false);
   }, [id, fromDeleted, deletedId, onClose]);
 
-  // load vehicles
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -266,7 +314,6 @@ export default function ViewBookingModal({
     });
   }, [booking?.vehicles, allVehicles]);
 
-  // show vehicle statuses when vehicles are stored as IDs
   const vehicleStatusById = booking?.vehicleStatus || {};
 
   const vehiclesPrettyWithStatus = useMemo(() => {
@@ -285,15 +332,22 @@ export default function ViewBookingModal({
 
   const employeesByDate = booking?.employeesByDate || {};
   const hasEmployeesByDate = useMemo(() => {
-    return !!employeesByDate && Object.keys(employeesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+    return (
+      !!employeesByDate &&
+      Object.keys(employeesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    );
   }, [employeesByDate]);
 
   const callTimesByDate = booking?.callTimesByDate || {};
   const hasCallTimesByDate = useMemo(() => {
-    return !!callTimesByDate && Object.keys(callTimesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+    return (
+      !!callTimesByDate &&
+      Object.keys(callTimesByDate).some((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    );
   }, [callTimesByDate]);
 
-  // ✅ delete (store copy -> delete original)
+  const hotel = getHotel(booking || {});
+
   const handleDelete = async () => {
     const confirmDelete = confirm("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
@@ -328,7 +382,6 @@ export default function ViewBookingModal({
     }
   };
 
-  // ✅ restore (deleted -> bookings) — STRIP deleted meta before saving back
   const handleRestore = async () => {
     if (!fromDeleted) return;
 
@@ -363,7 +416,7 @@ export default function ViewBookingModal({
 
   if (!booking) return null;
 
-  const employeesPretty = prettyEmployees(booking.employees || []);
+  const employeesPrettyText = prettyEmployees(booking.employees || []);
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
   const reasonsText =
@@ -375,7 +428,6 @@ export default function ViewBookingModal({
           .join(", ")
       : "—";
 
-  // additionalContacts (unified)
   const additionalContacts = Array.isArray(booking.additionalContacts)
     ? booking.additionalContacts
     : [];
@@ -395,7 +447,13 @@ export default function ViewBookingModal({
               </div>
             )}
           </div>
-          <span style={{ ...badge, background: statusColor(booking.status), color: onStatusColor(booking.status) }}>
+          <span
+            style={{
+              ...badge,
+              background: statusColor(booking.status),
+              color: onStatusColor(booking.status),
+            }}
+          >
             {booking.status || "—"}
           </span>
         </div>
@@ -405,92 +463,127 @@ export default function ViewBookingModal({
           <Chip good={!!booking.hasHS} label="HS" />
           <Chip good={!!booking.hasRiskAssessment} label="RA" />
           <Chip good={!!booking.hasHotel} label="Hotel" />
-          <Chip good={!!booking.hasRiggingAddress} label="Rigging" title={booking.riggingAddress || ""} />
+          <Chip
+            good={!!booking.hasRiggingAddress}
+            label="Rigging"
+            title={booking.riggingAddress || ""}
+          />
           {booking.callTime && <Tag dark>Call: {booking.callTime}</Tag>}
           {booking.isCrewed && <Tag success>CREWED</Tag>}
           {booking.shootType && <Tag>{booking.shootType}</Tag>}
         </div>
 
-        {/* Content grid */}
-        <div style={grid}>
-          <Section title="Overview">
-            <Field label="Production" value={booking.client || "—"} />
-            <Field label="Location" value={booking.location || "—"} />
-            <Field label="Date(s)" value={fmtDateRange(booking)} />
+        {/* ✅ TOP ROW: Overview & People+Kit split 50/50 */}
+        <div style={topSplit}>
+          <div style={topCol}>
+            <h3 style={sectionTitle}>Overview</h3>
+            <div style={sectionCard}>
+              <Field label="Production" value={booking.client || "—"} />
+              <Field label="Location" value={booking.location || "—"} />
+              <Field label="Date(s)" value={fmtDateRange(booking)} />
 
-            <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
-            <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
+              <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
+              <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
 
-            {additionalContacts.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {additionalContacts.map((c, idx) => {
-                    const name = c?.name || "Contact";
-                    const email = c?.email || "";
-                    const phone = c?.phone || "";
-                    const role = c?.role || "";
-                    return (
-                      <div key={idx} style={miniCard}>
-                        <div style={{ fontWeight: 800, fontSize: 13 }}>
-                          {name} {role ? <span style={{ opacity: 0.7, fontWeight: 700 }}>({role})</span> : null}
-                        </div>
-                        <div style={{ fontSize: 13, color: "#111" }}>
-                          {email ? <div>Email: {email}</div> : null}
-                          {phone ? <div>Phone: {phone}</div> : null}
-                        </div>
+              {booking.hasHotel ? (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ ...fieldLabel, marginBottom: 6 }}>Hotel</div>
+                  <div style={miniCard}>
+                    <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#111" }}>
+                      <div>
+                        <b>Cost per night:</b> {hotel.cost ? gbp(hotel.cost) : "—"}
                       </div>
-                    );
-                  })}
+                      <div>
+                        <b>Nights:</b> {hotel.nights || "—"}
+                      </div>
+                      <div>
+                        <b>Total:</b> {hotel.total ? gbp(hotel.total) : "—"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <Field label="Hotel" value="No" />
+              )}
 
-            {showReasons && <Field label="Status Reason(s)" value={reasonsText} />}
-          </Section>
-
-          <Section title="People & Kit">
-            <Field label="Employees" value={employeesPretty} />
-
-            {/* Vehicle list WITH status pills */}
-            <Field
-              label="Vehicles"
-              value={
-                vehiclesPrettyWithStatus.length ? (
-                  <div style={tagWrap}>
-                    {vehiclesPrettyWithStatus.map((v, i) => (
-                      <span key={`${v.id}-${i}`} style={tag}>
-                        {v.name}
-                        {v.plate && <span style={tagSub}>{v.plate}</span>}
-                        {v.status && <span style={tagStatus}>{v.status}</span>}
-                      </span>
-                    ))}
+              {additionalContacts.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {additionalContacts.map((c, idx) => {
+                      const name = c?.name || "Contact";
+                      const email = c?.email || "";
+                      const phone = c?.phone || "";
+                      const dept = c?.department || c?.role || "";
+                      return (
+                        <div key={idx} style={miniCard}>
+                          <div style={{ fontWeight: 800, fontSize: 13 }}>
+                            {name}{" "}
+                            {dept ? (
+                              <span style={{ opacity: 0.7, fontWeight: 700 }}>({dept})</span>
+                            ) : null}
+                          </div>
+                          <div style={{ fontSize: 13, color: "#111" }}>
+                            {email ? <div>Email: {email}</div> : null}
+                            {phone ? <div>Phone: {phone}</div> : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  "None"
-                )
-              }
-            />
+                </div>
+              )}
 
-            <Field
-              label="Equipment"
-              value={
-                Array.isArray(booking.equipment) && booking.equipment.length ? (
-                  <div style={tagWrap}>
-                    {booking.equipment.map((e, i) => (
-                      <span key={`${e}-${i}`} style={tag}>
-                        {e}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  "None"
-                )
-              }
-            />
-          </Section>
+              {showReasons && <Field label="Status Reason(s)" value={reasonsText} />}
+            </div>
+          </div>
 
-          {/* Employees by day (full width) */}
+          <div style={topCol}>
+            <h3 style={sectionTitle}>People & Kit</h3>
+            <div style={sectionCard}>
+              <Field label="Employees" value={employeesPrettyText} />
+
+              <Field
+                label="Vehicles"
+                value={
+                  vehiclesPrettyWithStatus.length ? (
+                    <div style={tagWrap}>
+                      {vehiclesPrettyWithStatus.map((v, i) => (
+                        <span key={`${v.id}-${i}`} style={tagPill}>
+                          {v.name}
+                          {v.plate && <span style={tagSub}>{v.plate}</span>}
+                          {v.status && <span style={tagStatus}>{v.status}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    "None"
+                  )
+                }
+              />
+
+              <Field
+                label="Equipment"
+                value={
+                  Array.isArray(booking.equipment) && booking.equipment.length ? (
+                    <div style={tagWrap}>
+                      {booking.equipment.map((e, i) => (
+                        <span key={`${e}-${i}`} style={tagPill}>
+                          {e}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    "None"
+                  )
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ✅ REST OF CONTENT full width below */}
+        <div style={belowStack}>
           {hasEmployeesByDate && dayKeys.length > 0 && (
             <Section title="Employees by Day" full>
               <div style={notesGrid}>
@@ -499,7 +592,11 @@ export default function ViewBookingModal({
                   const grouped = groupEmployeesByRole(list);
                   const d = toDateSafe(date);
                   const pretty = d
-                    ? d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
+                    ? d.toLocaleDateString("en-GB", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                      })
                     : date;
 
                   return (
@@ -525,13 +622,16 @@ export default function ViewBookingModal({
             </Section>
           )}
 
-          {/* Call times by day (full width) */}
           {hasCallTimesByDate && dayKeys.length > 0 && (
             <Section title="Call Times by Day" full>
               <div style={notesGrid}>
                 {dayKeys.map((d) => {
                   const pretty = toDateSafe(d)
-                    ? toDateSafe(d).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })
+                    ? toDateSafe(d).toLocaleDateString("en-GB", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                      })
                     : d;
                   return (
                     <div key={d} style={noteCard}>
@@ -544,9 +644,9 @@ export default function ViewBookingModal({
             </Section>
           )}
 
-          {/* Day notes (full width) */}
           {booking.notesByDate &&
-            Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length > 0 && (
+            Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length >
+              0 && (
               <Section title="Day Notes" full>
                 <div style={notesGrid}>
                   {Object.keys(booking.notesByDate)
@@ -584,14 +684,12 @@ export default function ViewBookingModal({
               </Section>
             )}
 
-          {/* Free-form notes (full width) */}
           {booking.notes && (
             <Section title="Notes" full>
               <div style={noteBox}>{booking.notes}</div>
             </Section>
           )}
 
-          {/* Attachments (full width) */}
           {(() => {
             const files = toAttachmentList(booking);
             if (!files.length) return null;
@@ -658,7 +756,6 @@ export default function ViewBookingModal({
               <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
                 Delete
               </button>
-     
               <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
                 Close
               </button>
@@ -690,7 +787,10 @@ function Field({ label, value }) {
 }
 
 const Chip = ({ good, label, title }) => (
-  <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
+  <span
+    title={title}
+    style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}
+  >
     {label} {good ? "✓" : "✗"}
   </span>
 );
@@ -723,7 +823,7 @@ const overlay = {
 const modal = {
   background: "#fff",
   color: "#111",
-  width: "min(900px, 96vw)",
+  width: "min(980px, 96vw)",
   maxHeight: "90vh",
   overflow: "auto",
   borderRadius: 12,
@@ -739,7 +839,12 @@ const header = {
   marginBottom: 10,
 };
 
-const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#6b7280" };
+const eyebrow = {
+  fontSize: 12,
+  letterSpacing: 1,
+  textTransform: "uppercase",
+  color: "#6b7280",
+};
 const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
 
 const badge = {
@@ -752,11 +857,17 @@ const badge = {
 
 const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
 
-const grid = {
+/* ✅ NEW: top split layout */
+const topSplit = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   gap: 16,
+  alignItems: "start",
 };
+const topCol = { minWidth: 0 }; // prevents overflow
+
+/* ✅ NEW: below stack */
+const belowStack = { marginTop: 16, display: "grid", gap: 16 };
 
 const sectionTitle = {
   margin: "0 0 8px 0",
@@ -765,7 +876,12 @@ const sectionTitle = {
   textTransform: "uppercase",
   letterSpacing: 0.6,
 };
-const sectionCard = { background: "#fafafa", border: "1px solid #e5e7eb", borderRadius: 10, padding: 14 };
+const sectionCard = {
+  background: "#fafafa",
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: 14,
+};
 
 const fieldRow = {
   display: "grid",
@@ -777,15 +893,25 @@ const fieldRow = {
 const fieldLabel = { color: "#6b7280", fontSize: 13 };
 const fieldValue = { color: "#111", fontSize: 14 };
 
-const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
+const notesGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+  gap: 10,
+};
 const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 };
 const noteDate = { fontWeight: 800, fontSize: 13, marginBottom: 6 };
 const noteText = { fontSize: 14, color: "#111" };
 
-const noteBox = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, lineHeight: 1.4 };
+const noteBox = {
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: 12,
+  lineHeight: 1.4,
+};
 
 const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
-const tag = {
+const tagPill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -808,6 +934,18 @@ const tagStatus = {
 };
 
 const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+
+const tag = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "4px 8px",
+  background: "#f3f4f6",
+  border: "1px solid #e5e7eb",
+  borderRadius: 999,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+};
 
 const fileBtn = {
   display: "inline-block",

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -111,7 +112,6 @@ const normaliseJobDates = (job) => {
     const sd = parseDate(job.startDate);
     const ed = parseDate(job.endDate);
     if (sd && ed) {
-      // Expand inclusive days (safe for analytics)
       const cursor = new Date(sd);
       cursor.setHours(0, 0, 0, 0);
       const end = new Date(ed);
@@ -129,7 +129,6 @@ const normaliseJobDates = (job) => {
     if (d) out.push(d);
   }
 
-  // De-dupe by day
   const seen = new Set();
   return out
     .map((d) => {
@@ -165,7 +164,13 @@ const prettifyStatus = (raw) => {
   if (s.includes("maintenance")) return "Maintenance";
   if (s.includes("holiday")) return "Holiday";
   if (s.includes("enquiry") || s.includes("inquiry")) return "Enquiry";
-  return s.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC";
+  return (
+    s
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC"
+  );
 };
 
 const statusColors = (label) => {
@@ -239,7 +244,8 @@ const toCrewNames = (employees) => {
     .map((e) => {
       if (!e) return "";
       if (typeof e === "string") return e;
-      if (typeof e === "object") return e.name || [e.firstName, e.lastName].filter(Boolean).join(" ") || e.email || "";
+      if (typeof e === "object")
+        return e.name || [e.firstName, e.lastName].filter(Boolean).join(" ") || e.email || "";
       return "";
     })
     .map((s) => String(s || "").trim())
@@ -247,7 +253,6 @@ const toCrewNames = (employees) => {
 };
 
 const toVehicleTokens = (vehicles) => {
-  // bookings may contain strings or objects. Strings might be name or id.
   if (!Array.isArray(vehicles)) return [];
   return vehicles
     .map((v) => {
@@ -271,17 +276,64 @@ const toEquipmentTokens = (equipment) => {
 };
 
 /* ───────────────────────────────────────────
+   Hotel helpers (✅ new)
+─────────────────────────────────────────── */
+const num = (v) => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const s = String(v ?? "").trim();
+  if (!s) return 0;
+  // strip currency + spaces; handle commas
+  const cleaned = s.replace(/[£$,]/g, "").replace(/\s+/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+};
+const int = (v) => {
+  if (typeof v === "number" && Number.isFinite(v)) return Math.floor(v);
+  const n = parseInt(String(v ?? "").trim(), 10);
+  return Number.isFinite(n) ? n : 0;
+};
+const gbp = (v) =>
+  `£${(Number.isFinite(v) ? v : 0).toLocaleString("en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+// Pull hotel info robustly from different field names
+const getHotelForJob = (job = {}) => {
+  const hasHotel = !!job.hasHotel || !!job.hotel || !!job.hotelRequired;
+
+  const costPerNight = num(
+    job.hotelCostPerNight ??
+      job.hotelRate ??
+      job.hotelCost ??
+      job.hotelPricePerNight ??
+      job.hotelAmountPerNight ??
+      0
+  );
+
+  const nights = int(job.hotelNights ?? job.nights ?? job.hotelQty ?? job.hotelNumberOfNights ?? 0);
+
+  // Prefer explicit total if present
+  let total = num(job.hotelTotal ?? job.hotelTotalCost ?? job.hotelCostTotal ?? 0);
+  if (!total && costPerNight && nights) total = costPerNight * nights;
+
+  // If hasHotel is true but we have no numbers, still count it as a hotel job
+  const hasAnyNumber = costPerNight > 0 || nights > 0 || total > 0;
+
+  return {
+    hasHotel: hasHotel || hasAnyNumber,
+    costPerNight,
+    nights,
+    total,
+  };
+};
+
+/* ───────────────────────────────────────────
    Shoot-day detection (robust to different schemas)
 ─────────────────────────────────────────── */
 const getNoteForISODate = (job, iso) => {
   if (!job || !iso) return "";
 
-  // Common shapes you’ve used across pages:
-  // - notesByDate: { "YYYY-MM-DD": "On Set" }
-  // - dayNotes: { "YYYY-MM-DD": "Travel Day" }
-  // - notesForEachDay: [{ date:"YYYY-MM-DD", note:"On Set" }, ...]
-  // - dailyNotes: same idea
-  // - noteForDay (single-day)
   const direct =
     (job.notesByDate && job.notesByDate[iso]) ||
     (job.dayNotes && job.dayNotes[iso]) ||
@@ -299,38 +351,24 @@ const getNoteForISODate = (job, iso) => {
     return hit ? String(hit.note || hit.value || hit.label || "") : "";
   };
 
-  const a =
-    scanArrays(job.notesForEachDay) ||
-    scanArrays(job.dailyNotes) ||
-    scanArrays(job.notesPerDay) ||
-    "";
-
+  const a = scanArrays(job.notesForEachDay) || scanArrays(job.dailyNotes) || scanArrays(job.notesPerDay) || "";
   if (a) return a;
 
-  // Single-day fallback
   return String(job.noteForDay || job.note || "");
 };
 
 const isShootNote = (note) => {
   const s = norm(note);
-  // Your dropdown options include: "On Set", "Night Shoot"
-  // (We treat both as shoot days)
   if (!s) return false;
-  if (s === "on set") return true;
-  if (s.includes("on set")) return true;
-  if (s === "night shoot") return true;
-  if (s.includes("night shoot")) return true;
-
-  // Soft fallback if someone typed custom:
+  if (s === "on set" || s.includes("on set")) return true;
+  if (s === "night shoot" || s.includes("night shoot")) return true;
   if (s.includes("shoot day")) return true;
   if (s === "shoot") return true;
-
   return false;
 };
 
 const shouldCountShootFromStatus = (prettyStatus) => {
   const s = norm(prettyStatus);
-  // Don’t count shoot days for clearly dead jobs
   if (s.includes("cancel")) return false;
   if (s.includes("lost")) return false;
   if (s.includes("postpon")) return false;
@@ -341,11 +379,19 @@ const shouldCountShootFromStatus = (prettyStatus) => {
 /* ───────────────────────────────────────────
    Minimal BarChart (no external libs)
 ─────────────────────────────────────────── */
-function BarChart({ title, subtitle, data = [], rightLabel = "Count" }) {
+function BarChart({ title, subtitle, data = [], rightLabel = "Count", valueFormatter }) {
   const max = Math.max(1, ...data.map((d) => d.value || 0));
   return (
     <div style={{ ...surface, padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 10,
+        }}
+      >
         <div>
           <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
           {subtitle ? <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>{subtitle}</div> : null}
@@ -356,11 +402,36 @@ function BarChart({ title, subtitle, data = [], rightLabel = "Count" }) {
       <div style={{ display: "grid", gap: 10 }}>
         {data.length ? (
           data.map((row) => (
-            <div key={row.label} style={{ display: "grid", gridTemplateColumns: "140px 1fr 60px", gap: 10, alignItems: "center" }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div
+              key={row.label}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "140px 1fr 90px",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: UI.text,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {row.label}
               </div>
-              <div style={{ background: "#eef2ff", border: "1px solid #e5e7eb", height: 12, borderRadius: 999, overflow: "hidden" }}>
+              <div
+                style={{
+                  background: "#eef2ff",
+                  border: "1px solid #e5e7eb",
+                  height: 12,
+                  borderRadius: 999,
+                  overflow: "hidden",
+                }}
+              >
                 <div
                   style={{
                     width: `${Math.max(2, (row.value / max) * 100)}%`,
@@ -369,7 +440,9 @@ function BarChart({ title, subtitle, data = [], rightLabel = "Count" }) {
                   }}
                 />
               </div>
-              <div style={{ textAlign: "right", fontWeight: 900, fontSize: 13 }}>{row.value}</div>
+              <div style={{ textAlign: "right", fontWeight: 900, fontSize: 13 }}>
+                {valueFormatter ? valueFormatter(row.value) : row.value}
+              </div>
             </div>
           ))
         ) : (
@@ -469,11 +542,10 @@ export default function StatisticsPage() {
     }
     const byName = vehicles.find((v) => String(v.name || "").trim().toLowerCase() === needle.toLowerCase());
     if (byName) {
-      const name = byName.name || [byId?.manufacturer, byId?.model].filter(Boolean).join(" ").trim() || "Vehicle";
+      const name = byName.name || [byName.manufacturer, byName.model].filter(Boolean).join(" ").trim() || "Vehicle";
       const reg = byName.registration ? String(byName.registration).toUpperCase() : "";
       return reg ? `${name} – ${reg}` : name;
     }
-    // fallback: show token
     return needle;
   };
 
@@ -485,7 +557,6 @@ export default function StatisticsPage() {
 
       const days = normaliseJobDates(j);
       if (rangeStart) {
-        // keep jobs that have ANY date within range OR createdAt within range
         const anyInRange = days.some((d) => d.getTime() >= rangeStart.getTime());
         const created = parseDate(j.createdAt);
         const createdInRange = created ? created.getTime() >= rangeStart.getTime() : false;
@@ -575,7 +646,6 @@ export default function StatisticsPage() {
   }, [jobsFiltered]);
 
   const jobsByMonth = useMemo(() => {
-    // count booking-days per month (best utilisation metric)
     const m = new Map();
     for (const j of jobsFiltered) {
       const ds = normaliseJobDates(j);
@@ -585,7 +655,7 @@ export default function StatisticsPage() {
     return entries.slice(-12).map(([label, value]) => ({ label: monthLabel(label), value }));
   }, [jobsFiltered]);
 
-  // ✅ NEW: shoot days per month (based on per-day note: "On Set" / "Night Shoot")
+  // Shoot days per month
   const shootDaysByMonth = useMemo(() => {
     const m = new Map();
     for (const j of jobsFiltered) {
@@ -606,7 +676,6 @@ export default function StatisticsPage() {
   const shootKpis = useMemo(() => {
     const monthKeyNow = yyyymm(todayMidnight);
 
-    // Total shoot days in the filtered set (within range logic already applied by jobsFiltered)
     let totalShootDays = 0;
     const monthMap = new Map();
 
@@ -625,13 +694,61 @@ export default function StatisticsPage() {
     }
 
     const thisMonth = monthMap.get(monthKeyNow) || 0;
-
-    // Average per month across months that actually appear (prevents weird averages when there are gaps)
     const monthsWithData = [...monthMap.keys()];
     const denom = Math.max(1, monthsWithData.length);
     const avgPerMonth = Math.round((totalShootDays / denom) * 10) / 10;
 
     return { totalShootDays, thisMonth, avgPerMonth, monthsWithDataCount: monthsWithData.length };
+  }, [jobsFiltered, todayMidnight]);
+
+  /* ✅ NEW: Hotel KPIs + hotel cost per month */
+  const hotelStats = useMemo(() => {
+    let hotelJobs = 0;
+    let hotelNights = 0;
+    let totalHotelCost = 0;
+
+    const monthCost = new Map(); // yyyy-mm -> £
+    const monthNights = new Map();
+
+    for (const j of jobsFiltered) {
+      const h = getHotelForJob(j);
+      if (!h.hasHotel) continue;
+
+      hotelJobs += 1;
+      hotelNights += h.nights || 0;
+      totalHotelCost += h.total || 0;
+
+      // Assign hotel cost to the month of the FIRST job date (keeps it simple/consistent)
+      const ds = normaliseJobDates(j);
+      const anchor = ds[0] || parseDate(j.startDate) || parseDate(j.date) || parseDate(j.createdAt) || null;
+      if (anchor) {
+        const key = yyyymm(anchor);
+        if (h.total) inc(monthCost, key, h.total);
+        if (h.nights) inc(monthNights, key, h.nights);
+      }
+    }
+
+    const avgPerHotelJob = hotelJobs ? totalHotelCost / hotelJobs : 0;
+    const avgPerNight = hotelNights ? totalHotelCost / hotelNights : 0;
+
+    const monthKeyNow = yyyymm(todayMidnight);
+    const thisMonthCost = monthCost.get(monthKeyNow) || 0;
+    const thisMonthNights = monthNights.get(monthKeyNow) || 0;
+
+    // Last 12 months series
+    const entries = [...monthCost.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const costSeries = entries.slice(-12).map(([ym, value]) => ({ label: monthLabel(ym), value }));
+
+    return {
+      hotelJobs,
+      hotelNights,
+      totalHotelCost,
+      avgPerHotelJob,
+      avgPerNight,
+      thisMonthCost,
+      thisMonthNights,
+      costSeries,
+    };
   }, [jobsFiltered, todayMidnight]);
 
   const topClients = useMemo(() => {
@@ -664,7 +781,9 @@ export default function StatisticsPage() {
       const vs = Array.isArray(j.vehicles) ? j.vehicles : [];
       for (const v of vs) {
         const label =
-          typeof v === "string" ? resolveVehicleLabel(v) : resolveVehicleLabel(v?.id || v?.registration || v?.name || "");
+          typeof v === "string"
+            ? resolveVehicleLabel(v)
+            : resolveVehicleLabel(v?.id || v?.registration || v?.name || "");
         inc(m, label, 1);
       }
     }
@@ -672,7 +791,6 @@ export default function StatisticsPage() {
   }, [jobsFiltered, vehicles]);
 
   const upcomingNext = useMemo(() => {
-    // list upcoming jobs (next 8) sorted by nearest date
     const now = todayMidnight.getTime();
     const list = jobsFiltered
       .map((j) => {
@@ -742,7 +860,6 @@ export default function StatisticsPage() {
     </Link>
   );
 
-  // Slightly more flexible KPI grid so adding blocks won’t crush the layout
   const kpiGrid = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
@@ -853,7 +970,7 @@ export default function StatisticsPage() {
           </div>
         </div>
 
-        {/* Shortcut tiles (links to your existing pages) */}
+        {/* Shortcut tiles */}
         <div style={{ marginBottom: UI.gap }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontWeight: 900, fontSize: 16 }}>Shortcuts</div>
@@ -889,7 +1006,6 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Sum of dates</div>
             </div>
 
-            {/* ✅ NEW BLOCK: Shoot days per month */}
             <div style={{ ...card, padding: 12, borderColor: "#dbeafe" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Shoot days / month</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{shootKpis.avgPerMonth}</div>
@@ -902,6 +1018,24 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.upcomingJobs}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date ≥ today</div>
+            </div>
+
+            {/* ✅ NEW: Hotel total cost */}
+            <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                {hotelStats.hotelJobs} job(s) • {hotelStats.hotelNights} night(s)
+              </div>
+            </div>
+
+            {/* ✅ NEW: Avg hotel / night */}
+            <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                This month: <b>{gbp(hotelStats.thisMonthCost)}</b> ({hotelStats.thisMonthNights} nights)
+              </div>
             </div>
 
             <div style={{ ...card, padding: 12 }}>
@@ -937,11 +1071,14 @@ export default function StatisticsPage() {
               <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
                 Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
               </span>
+              <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
+                Avg hotel / job: <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Charts (simple bar charts) */}
+        {/* Charts */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart
             title="Booking days per month"
@@ -957,19 +1094,46 @@ export default function StatisticsPage() {
           />
         </div>
 
+        {/* ✅ NEW: Hotel cost chart */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart title="Status breakdown" subtitle="Filtered set" data={statusBreakdown.slice(0, 10)} rightLabel="Jobs" />
+          <BarChart
+            title="Hotel cost per month"
+            subtitle="Cost is taken from hotelTotal where available, else costPerNight × nights"
+            data={hotelStats.costSeries}
+            rightLabel="£"
+            valueFormatter={(v) => gbp(v)}
+          />
+          <BarChart
+            title="Status breakdown"
+            subtitle="Filtered set"
+            data={statusBreakdown.slice(0, 10)}
+            rightLabel="Jobs"
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top vehicles" subtitle="Resolved to Name – REG where possible" data={topVehicles} rightLabel="Jobs" />
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top crew" subtitle="From booking.employees" data={topCrew} rightLabel="Bookings" />
-          <BarChart title="Top clients" subtitle="Production / client" data={topClients} rightLabel="Jobs" />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <BarChart title="Top clients" subtitle="Production / client" data={topClients} rightLabel="Jobs" />
           <BarChart title="Top locations" subtitle="Location field" data={topLocations} rightLabel="Jobs" />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top equipment" subtitle="From booking.equipment" data={topEquipment} rightLabel="Mentions" />
+          <div style={{ ...surface, padding: 14, minHeight: 220 }}>
+            <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Hotel stat rules</div>
+            <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
+              We treat a booking as having a hotel if <span style={mono}>hasHotel</span> is true, or if we can find any
+              of: <span style={mono}>hotelTotal</span>, <span style={mono}>hotelCostPerNight</span>,{" "}
+              <span style={mono}>hotelNights</span> (plus common aliases).
+              <br />
+              <br />
+              Monthly hotel cost is assigned to the month of the job’s <b>first date</b> (simple & consistent).
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
@@ -977,7 +1141,10 @@ export default function StatisticsPage() {
           <div style={{ ...surface, padding: 14, minHeight: 220 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>Next up</div>
-              <Link href="/job-sheet?section=Upcoming" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
+              <Link
+                href="/job-sheet?section=Upcoming"
+                style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}
+              >
                 View all →
               </Link>
             </div>
@@ -996,11 +1163,11 @@ export default function StatisticsPage() {
           <div style={{ ...surface, padding: 14, minHeight: 220 }}>
             <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>How “shoot days” are counted</div>
             <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
-              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or <b>Night Shoot</b>
-              (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
+              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or{" "}
+              <b>Night Shoot</b> (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
               <br />
               <br />
-              We also exclude obvious dead statuses (Cancelled / Lost / Postponed / DNH) from shoot-day counting.
+              We exclude obvious dead statuses (Cancelled / Lost / Postponed / DNH) from shoot-day counting.
             </div>
           </div>
         </div>
@@ -1008,3 +1175,4 @@ export default function StatisticsPage() {
     </HeaderSidebarLayout>
   );
 }
+

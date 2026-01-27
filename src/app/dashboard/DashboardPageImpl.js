@@ -1785,12 +1785,8 @@ export default function DashboardPage({ bookingSaved }) {
                   risky = getVehicleRisk(event.vehicles).risky;
                 }
 
-                if (risky) {
-                  const isFutureJob = isFutureJobEvent(event);
-                  if (isFutureJob) {
-                    bg = "#e53935";
-                    text = "#fff";
-                  }
+       if (risky) {
+
                 }
 
                 const shoot = String(event.shootType || "").toLowerCase();

@@ -5,7 +5,12 @@ import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth, storage as storageInstance } from "../../../../firebaseConfig";
 import { doc, getDoc, getDocs, updateDoc, collection } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import DatePicker from "react-multi-date-picker";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -25,7 +30,8 @@ const VEHICLE_STATUSES = [
 ];
 
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
-const doesBlockBooking = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
+const doesBlockBooking = (b) =>
+  BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
@@ -235,7 +241,8 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
 };
 
 const expandBookingDates = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length)
+    return b.bookingDates;
   const one = (b.date || "").slice?.(0, 10) || "";
   const s = (b.startDate || "").slice?.(0, 10) || "";
   const e = (b.endDate || "").slice?.(0, 10) || "";
@@ -258,7 +265,9 @@ const buildTimeOptions = () => {
   const out = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 15, 30, 45]) {
-      out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      out.push(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      );
     }
   }
   return out;
@@ -327,8 +336,10 @@ const normalizeVehicleKeysListForLookup = (list, lookup) => {
       const nm = raw.name;
 
       if (id && byId[id]) match = byId[id];
-      else if (reg && byReg[String(reg).toUpperCase()]) match = byReg[String(reg).toUpperCase()];
-      else if (nm && byName[String(nm).toLowerCase()]) match = byName[String(nm).toLowerCase()];
+      else if (reg && byReg[String(reg).toUpperCase()])
+        match = byReg[String(reg).toUpperCase()];
+      else if (nm && byName[String(nm).toLowerCase()])
+        match = byName[String(nm).toLowerCase()];
     } else {
       const s = String(raw || "").trim();
       if (!s) return;
@@ -422,7 +433,11 @@ export default function EditBookingPage() {
   // Flags
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
+
+  // ✅ Hotel details
   const [hasHotel, setHasHotel] = useState(false);
+  const [hotelCostPerNight, setHotelCostPerNight] = useState("");
+  const [hotelNights, setHotelNights] = useState("");
   const [isSecondPencil, setIsSecondPencil] = useState(false);
 
   // Rigging
@@ -464,7 +479,11 @@ export default function EditBookingPage() {
   const [allEquipmentNames, setAllEquipmentNames] = useState([]);
 
   // Vehicle lookup for legacy safety
-  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
+  const [vehicleLookup, setVehicleLookup] = useState({
+    byId: {},
+    byReg: {},
+    byName: {},
+  });
 
   // Files (multi-file)
   const [attachments, setAttachments] = useState([]);
@@ -494,11 +513,28 @@ export default function EditBookingPage() {
     return useCustomDates || isRange;
   }, [useCustomDates, isRange]);
 
+  // ✅ Hotel derived totals
+  const hotelNightsNum = useMemo(() => {
+    const n = parseInt(String(hotelNights || "").trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [hotelNights]);
+
+  const hotelCostPerNightNum = useMemo(() => {
+    const raw = String(hotelCostPerNight || "").replace(/,/g, ".").trim();
+    const n = parseFloat(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }, [hotelCostPerNight]);
+
+  const hotelTotal = useMemo(() => {
+    if (!hasHotel) return 0;
+    if (!hotelNightsNum || !hotelCostPerNightNum) return 0;
+    return Math.round(hotelNightsNum * hotelCostPerNightNum * 100) / 100;
+  }, [hasHotel, hotelNightsNum, hotelCostPerNightNum]);
+
   // ✅ CALL TIME FIX: keep per-day map in sync when toggling range/custom modes
   useEffect(() => {
     if (!selectedDates.length) return;
 
-    // If we are in per-day mode and there's a callTime picked, ensure it's mapped to at least the first date.
     if (callTimeUsesPerDay) {
       const d0 = selectedDates[0];
       if (d0 && callTime && !callTimesByDate[d0]) {
@@ -507,7 +543,6 @@ export default function EditBookingPage() {
       return;
     }
 
-    // If we are in single-day mode and there is a per-day value for the first date, reflect it in callTime.
     const only = selectedDates[0];
     if (only && callTimesByDate[only] && !callTime) {
       setCallTime(callTimesByDate[only]);
@@ -515,47 +550,74 @@ export default function EditBookingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callTimeUsesPerDay, selectedDates.join("|")]);
 
+  // ✅ Hotel default nights when enabling
+  useEffect(() => {
+    if (!hasHotel) return;
+    const current = parseInt(String(hotelNights || "").trim(), 10);
+    if (!current || current <= 0) {
+      const guess = selectedDates?.length ? selectedDates.length : 1;
+      setHotelNights(String(guess));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHotel, selectedDates.join("|")]);
+
   // Conflicts exclude self
   const overlapping = useMemo(() => {
     if (!selectedDates.length) return [];
-    return allBookings.filter((b) => b.id !== bookingId && anyDateOverlap(expandBookingDates(b), selectedDates));
+    return allBookings.filter(
+      (b) =>
+        b.id !== bookingId &&
+        anyDateOverlap(expandBookingDates(b), selectedDates)
+    );
   }, [allBookings, bookingId, selectedDates]);
 
   // Vehicle conflicts
-  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById } = useMemo(() => {
-    const blockingById = {};
-    const booked = [];
-    const held = [];
+  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById } =
+    useMemo(() => {
+      const blockingById = {};
+      const booked = [];
+      const held = [];
 
-    overlapping.forEach((b) => {
-      const keys = normalizeVehicleKeysListForLookup(b.vehicles || [], vehicleLookup);
-      const vmap = b.vehicleStatus || {};
+      overlapping.forEach((b) => {
+        const keys = normalizeVehicleKeysListForLookup(
+          b.vehicles || [],
+          vehicleLookup
+        );
+        const vmap = b.vehicleStatus || {};
 
-      keys.forEach((vid) => {
-        const itemStatus = (vmap[vid] ?? b.status) || "";
-        if (!itemStatus) return;
+        keys.forEach((vid) => {
+          const itemStatus = (vmap[vid] ?? b.status) || "";
+          if (!itemStatus) return;
 
-        if (isVehicleBlockingStatus(itemStatus)) {
-          if (!blockingById[vid]) {
-            blockingById[vid] = itemStatus;
-            booked.push(vid);
+          if (isVehicleBlockingStatus(itemStatus)) {
+            if (!blockingById[vid]) {
+              blockingById[vid] = itemStatus;
+              booked.push(vid);
+            }
+          } else {
+            if (!held.includes(vid)) held.push(vid);
           }
-        } else {
-          if (!held.includes(vid)) held.push(vid);
-        }
+        });
       });
-    });
 
-    return { bookedVehicleIds: booked, heldVehicleIds: held, vehicleBlockingStatusById: blockingById };
-  }, [overlapping, vehicleLookup]);
+      return {
+        bookedVehicleIds: booked,
+        heldVehicleIds: held,
+        vehicleBlockingStatusById: blockingById,
+      };
+    }, [overlapping, vehicleLookup]);
 
   // Equipment conflicts
   const bookedEquipment = useMemo(() => {
-    return overlapping.filter(doesBlockBooking).flatMap((b) => normalizeEquipmentList(b.equipment || []));
+    return overlapping
+      .filter(doesBlockBooking)
+      .flatMap((b) => normalizeEquipmentList(b.equipment || []));
   }, [overlapping]);
 
   const heldEquipment = useMemo(() => {
-    return overlapping.filter((b) => !doesBlockBooking(b)).flatMap((b) => normalizeEquipmentList(b.equipment || []));
+    return overlapping
+      .filter((b) => !doesBlockBooking(b))
+      .flatMap((b) => normalizeEquipmentList(b.equipment || []));
   }, [overlapping]);
 
   // Employee conflicts (per-day aware)
@@ -565,7 +627,8 @@ export default function EditBookingPage() {
     const map = booking.employeesByDate || {};
     const fallbackList = booking.employees || [];
     dates.forEach((d) => {
-      const listForDate = Array.isArray(map[d]) && map[d].length ? map[d] : fallbackList;
+      const listForDate =
+        Array.isArray(map[d]) && map[d].length ? map[d] : fallbackList;
       out.push(...normalizeEmployeeNames(listForDate));
     });
     return Array.from(new Set(out));
@@ -719,7 +782,9 @@ export default function EditBookingPage() {
   };
 
   const handleUpdateContactRow = (index, key, value) => {
-    setAdditionalContacts((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+    setAdditionalContacts((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row))
+    );
   };
 
   const handleRemoveContactRow = (index) => {
@@ -747,16 +812,23 @@ export default function EditBookingPage() {
   ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const loadData = async () => {
-      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, workSnap, contactsSnap] =
-        await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "holidays")),
-          getDocs(collection(db, "employees")),
-          getDocs(collection(db, "vehicles")),
-          getDocs(collection(db, "equipment")),
-          getDocs(collection(db, "workBookings")),
-          getDocs(collection(db, "contacts")),
-        ]);
+      const [
+        bookingSnap,
+        holidaySnap,
+        empSnap,
+        vehicleSnap,
+        equipSnap,
+        workSnap,
+        contactsSnap,
+      ] = await Promise.all([
+        getDocs(collection(db, "bookings")),
+        getDocs(collection(db, "holidays")),
+        getDocs(collection(db, "employees")),
+        getDocs(collection(db, "vehicles")),
+        getDocs(collection(db, "equipment")),
+        getDocs(collection(db, "workBookings")),
+        getDocs(collection(db, "contacts")),
+      ]);
 
       setAllBookings(bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
@@ -923,18 +995,31 @@ export default function EditBookingPage() {
       setVehicleStatus(remapped);
 
       setEquipment(normalizeEquipmentList(b.equipment || []));
-
       setNotes(b.notes || "");
       setNotesByDate(b.notesByDate || {});
-
       setIsSecondPencil(!!b.isSecondPencil);
       setIsCrewed(!!b.isCrewed);
-
       setHasHS(!!b.hasHS);
       setHasRiskAssessment(!!b.hasRiskAssessment);
-      setHasHotel(!!b.hasHotel);
 
-      // ✅ CALL TIME FIX: load both, then ensure per-day map has value for single-day range/custom too
+      // ✅ Hotel load
+      setHasHotel(!!b.hasHotel);
+      const loadedHotelCost =
+        b.hotelCostPerNight ??
+        b.hotelCost ??
+        b.hotelRate ??
+        b.hotelAmount ??
+        b.hotelPricePerNight ??
+        "";
+      const loadedHotelNights = b.hotelNights ?? b.nights ?? b.hotelQty ?? "";
+      setHotelCostPerNight(
+        typeof loadedHotelCost === "number" ? String(loadedHotelCost) : String(loadedHotelCost || "")
+      );
+      setHotelNights(
+        typeof loadedHotelNights === "number" ? String(loadedHotelNights) : String(loadedHotelNights || "")
+      );
+
+      // ✅ CALL TIME FIX: load both + seed per-day map when needed
       setCallTime(b.callTime || "");
       const existingCallTimes = b.callTimesByDate || {};
       if (Object.keys(existingCallTimes).length) {
@@ -1025,6 +1110,14 @@ export default function EditBookingPage() {
         return alert("Please enter the 'Other' reason.");
     }
 
+    // ✅ Hotel validation
+    if (hasHotel) {
+      const nights = parseInt(String(hotelNights || "").trim(), 10);
+      const cost = parseFloat(String(hotelCostPerNight || "").replace(/,/g, ".").trim());
+      if (!Number.isFinite(nights) || nights <= 0) return alert("Hotel: please enter a valid number of nights.");
+      if (!Number.isFinite(cost) || cost < 0) return alert("Hotel: please enter a valid cost per night.");
+    }
+
     const customNames = customEmployee
       ? customEmployee.split(",").map((n) => n.trim()).filter(Boolean)
       : [];
@@ -1039,10 +1132,8 @@ export default function EditBookingPage() {
     const filteredNotesByDate = {};
     bookingDates.forEach((d) => {
       filteredNotesByDate[d] = notesByDate[d] || "";
-      if (typeof notesByDate[`${d}-other`] !== "undefined")
-        filteredNotesByDate[`${d}-other`] = notesByDate[`${d}-other`];
-      if (typeof notesByDate[`${d}-travelMins`] !== "undefined")
-        filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
+      if (typeof notesByDate[`${d}-other`] !== "undefined") filteredNotesByDate[`${d}-other`] = notesByDate[`${d}-other`];
+      if (typeof notesByDate[`${d}-travelMins`] !== "undefined") filteredNotesByDate[`${d}-travelMins`] = notesByDate[`${d}-travelMins`];
     });
 
     const cleanedSet = new Set(cleanedEmployees.map(employeesKey));
@@ -1081,8 +1172,6 @@ export default function EditBookingPage() {
         const v = callTimeUsesPerDay ? (callTimesByDate[d] || "") : (callTime || "");
         if (v) callTimesByDatePayload[d] = v;
       });
-
-      // If in per-day mode and user only used single dropdown earlier, still preserve it
       if (callTimeUsesPerDay && !Object.keys(callTimesByDatePayload).length && callTime && bookingDates[0]) {
         callTimesByDatePayload[bookingDates[0]] = callTime;
       }
@@ -1167,14 +1256,23 @@ export default function EditBookingPage() {
       const firstISO = new Date(`${first}T00:00:00.000Z`).toISOString();
       const lastISO = new Date(`${last}T00:00:00.000Z`).toISOString();
 
-      return {
-        date: firstISO,
-        startDate: firstISO,
-        endDate: lastISO,
-      };
+      return { date: firstISO, startDate: firstISO, endDate: lastISO };
     };
 
     const user = auth.currentUser;
+
+    // ✅ Hotel payload fields
+    const hotelPayload = hasHotel
+      ? {
+          hotelCostPerNight: hotelCostPerNightNum,
+          hotelNights: hotelNightsNum,
+          hotelTotal: hotelTotal,
+        }
+      : {
+          hotelCostPerNight: null,
+          hotelNights: null,
+          hotelTotal: null,
+        };
 
     const payload = {
       jobNumber,
@@ -1207,10 +1305,9 @@ export default function EditBookingPage() {
       pdfURL: firstUrl || null,
 
       hasHotel,
+      ...hotelPayload,
 
       // ✅ CALL TIME FIX:
-      // - Single-day mode stores callTime AND also per-day map for consistency.
-      // - Per-day mode stores callTimesByDate (even if only 1 day)
       callTime: !callTimeUsesPerDay ? (callTime || "") : "",
       ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
 
@@ -1275,6 +1372,19 @@ export default function EditBookingPage() {
 
   const missingEquip = missingEquipment;
 
+  // Simple display helpers for the summary
+  const resolveVehicleLabel = (vid) => {
+    const v = vehicleLookup?.byId?.[vid];
+    if (!v) return vid;
+    return `${v.name || "Vehicle"}${v.registration ? ` – ${v.registration}` : ""}`;
+  };
+
+  const datesLabel = useMemo(() => {
+    if (!selectedDates.length) return "—";
+    if (selectedDates.length === 1) return selectedDates[0];
+    return `${selectedDates[0]} → ${selectedDates[selectedDates.length - 1]} (${selectedDates.length} days)`;
+  }, [selectedDates]);
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -1287,1042 +1397,1085 @@ export default function EditBookingPage() {
               handleSubmit();
             }}
           >
-            <div style={sectionGrid}>
-              {/* Column 1: Job Info */}
-              <div style={card}>
-                <h3 style={cardTitle}>Job Info</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16 }}>
+              <div>
+                <div style={sectionGrid}>
+                  {/* Column 1: Job Info */}
+                  <div style={card}>
+                    <h3 style={cardTitle}>Job Info</h3>
 
-                <label style={field.label}>Job Number</label>
-                <input
-                  value={jobNumber}
-                  readOnly
-                  style={{
-                    ...field.input,
-                    backgroundColor: "#f3f4f6",
-                    color: UI.muted,
-                    cursor: "not-allowed",
-                  }}
-                />
-
-                <label style={field.label}>Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setStatus(next);
-                    if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
-                      setStatusReasons([]);
-                      setStatusReasonOther("");
-                    }
-                  }}
-                  style={field.input}
-                >
-                  {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-
-                {["Lost", "Postponed", "Cancelled"].includes(status) && (
-                  <div
-                    style={{
-                      border: UI.border,
-                      borderRadius: UI.radiusSm,
-                      padding: 12,
-                      marginTop: 10,
-                      background: UI.bgAlt,
-                    }}
-                  >
-                    <h4 style={{ margin: "0 0 10px" }}>Reason</h4>
-                    {["Cost", "Weather", "Competitor", "DNH", "Other"].map((r) => (
-                      <label
-                        key={r}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginRight: 16,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={statusReasons.includes(r)}
-                          onChange={() =>
-                            setStatusReasons((prev) =>
-                              prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
-                            )
-                          }
-                        />
-                        {r}
-                      </label>
-                    ))}
-                    {statusReasons.includes("Other") && (
-                      <div style={{ marginTop: 8 }}>
-                        <input
-                          type="text"
-                          placeholder="Other reason..."
-                          value={statusReasonOther}
-                          onChange={(e) => setStatusReasonOther(e.target.value)}
-                          style={field.input}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div style={divider} />
-
-                <label style={field.label}>Shoot Type</label>
-                <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
-                  <option value="Day">Day</option>
-                  <option value="Night">Night</option>
-                </select>
-
-                <label style={field.label}>Production</label>
-                <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} />
-
-                <label style={field.label}>Contact Email</label>
-                <input
-                  type="email"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  style={field.input}
-                />
-
-                <label style={field.label}>Contact Number</label>
-                <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={field.input} />
-
-                {/* Contacts (unified) */}
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: 10,
-                    borderRadius: UI.radiusSm,
-                    border: UI.border,
-                    background: UI.bgAlt,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
-                    <button
-                      type="button"
-                      onClick={handleAddContactRow}
-                      style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
-                    >
-                      + Add contact
-                    </button>
-                  </div>
-
-                  {additionalContacts.length === 0 && (
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 6 }}>
-                      Add production contacts (e.g. Production, Locations, AD, stunts).
-                    </p>
-                  )}
-
-                  {additionalContacts.map((row, idx) => (
-                    <div
-                      key={idx}
+                    <label style={field.label}>Job Number</label>
+                    <input
+                      value={jobNumber}
+                      readOnly
                       style={{
-                        marginBottom: 8,
-                        padding: 8,
-                        borderRadius: UI.radiusXs,
-                        background: "#ffffff",
-                        border: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                        <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Department</label>
-                          <select
-                            value={row.department || ""}
-                            onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)}
-                            style={field.input}
-                          >
-                            <option value="">Select department</option>
-                            {FILM_DEPARTMENTS.map((dep) => (
-                              <option key={dep} value={dep}>
-                                {dep}
-                              </option>
-                            ))}
-                          </select>
-
-                          {row.department === "Other" && (
-                            <input
-                              type="text"
-                              placeholder="Custom department"
-                              value={row.departmentOther || ""}
-                              onChange={(e) => handleUpdateContactRow(idx, "departmentOther", e.target.value)}
-                              style={{ ...field.input, marginTop: 6 }}
-                            />
-                          )}
-                        </div>
-
-                        <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Name</label>
-                          <input
-                            type="text"
-                            value={row.name || ""}
-                            onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)}
-                            style={field.input}
-                            placeholder="Contact name"
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Email</label>
-                          <input
-                            type="email"
-                            value={row.email || ""}
-                            onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)}
-                            style={field.input}
-                            placeholder="Email"
-                          />
-                        </div>
-                        <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Number</label>
-                          <input
-                            type="tel"
-                            value={row.phone || ""}
-                            onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)}
-                            style={field.input}
-                            placeholder="Phone number"
-                          />
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveContactRow(idx)}
-                          style={{
-                            ...btn,
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            borderRadius: 999,
-                            borderColor: "#dc2626",
-                            color: "#dc2626",
-                            background: "#fff",
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {savedContacts.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
-                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>
-                        Quick add from saved contacts
-                      </label>
-                      <select
-                        value={selectedSavedContactId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedSavedContactId(val);
-                          if (val) {
-                            handleQuickAddSavedContact(val);
-                            setSelectedSavedContactId("");
-                          }
-                        }}
-                        style={field.input}
-                      >
-                        <option value="">Select saved contact</option>
-                        {savedContacts.map((c) => {
-                          const labelBase = c.name || c.email || "Unnamed";
-                          const deptLabel = c.department ? ` – ${c.department}` : "";
-                          return (
-                            <option key={c.id} value={c.id}>
-                              {labelBase}
-                              {deptLabel}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                <label style={field.label}>Location</label>
-                <textarea value={location} onChange={(e) => setLocation(e.target.value)} style={field.textarea} />
-              </div>
-
-              {/* Column 2: Dates + People */}
-              <div style={card}>
-                <h3 style={cardTitle}>Dates & People</h3>
-
-                <label style={field.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={useCustomDates}
-                    onChange={(e) => {
-                      const on = e.target.checked;
-                      setUseCustomDates(on);
-
-                      // ✅ CALL TIME FIX: when switching modes, keep data
-                      if (on) {
-                        setIsRange(false);
-                        if (startDate && callTime && !callTimesByDate[startDate]) {
-                          setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
-                        }
-                      }
-                    }}
-                  />
-                  Select non-consecutive dates
-                </label>
-
-                {!useCustomDates && (
-                  <label style={field.checkboxRow}>
-                    <input
-                      type="checkbox"
-                      checked={isRange}
-                      onChange={() => {
-                        const next = !isRange;
-                        setIsRange(next);
-
-                        // ✅ CALL TIME FIX: moving into range mode? seed per-day map from callTime.
-                        if (next && startDate && callTime && !callTimesByDate[startDate]) {
-                          setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
-                        }
-
-                        // moving out of range mode? if we have per-day value, show it in single dropdown.
-                        if (!next && startDate && callTimesByDate[startDate] && !callTime) {
-                          setCallTime(callTimesByDate[startDate]);
-                        }
+                        ...field.input,
+                        backgroundColor: "#f3f4f6",
+                        color: UI.muted,
+                        cursor: "not-allowed",
                       }}
                     />
-                    Multi-day booking (consecutive)
-                  </label>
-                )}
 
-                {useCustomDates ? (
-                  <div style={{ marginTop: 10 }}>
-                    <DatePicker
-                      multiple
-                      value={customDates}
-                      format="YYYY-MM-DD"
-                      onChange={(vals) => {
-                        const normalised = (Array.isArray(vals) ? vals : [])
-                          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
-                          .sort();
-                        setCustomDates(normalised);
+                    <label style={field.label}>Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setStatus(next);
+                        if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
+                          setStatusReasons([]);
+                          setStatusReasonOther("");
+                        }
                       }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
-                    <div>
-                      <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setStartDate(v);
-
-                          // ✅ CALL TIME FIX: keep per-day map aligned
-                          if (v && callTimeUsesPerDay && callTime && !callTimesByDate[v]) {
-                            setCallTimesByDate((prev) => ({ ...prev, [v]: callTime }));
-                          }
-                        }}
-                        style={field.input}
-                      />
-                    </div>
-                    {isRange && (
-                      <div>
-                        <label style={field.label}>End Date</label>
-                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={field.input} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes per day */}
-                {selectedDates.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
-                      {selectedDates.map((date) => {
-                        const selectedNote = notesByDate[date] || "";
-                        const isOther = selectedNote === "Other";
-                        const customNote = notesByDate[`${date}-other`] || "";
-
-                        return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
-
-                            <select
-                              value={selectedNote}
-                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
-                              style={field.input}
-                            >
-                              <option value="">Select note</option>
-                              <option value="1/2 Day Travel">1/2 Day Travel</option>
-                              <option value="Night Shoot">Night Shoot</option>
-                              <option value="On Set">Shoot Day</option>
-                              <option value="Other">Other</option>
-                              <option value="Rehearsal Day">Rehearsal Day</option>
-                              <option value="Rest Day">Rest Day</option>
-                              <option value="Rig Day">Rig Day</option>
-                              <option value="Standby Day">Standby Day</option>
-                              <option value="Spilt Day">Spilt Day</option>
-                              <option value="Travel Day">Travel Day</option>
-                              <option value="Travel Time">Travel Time</option>
-                              <option value="Turnaround Day">Turnaround Day</option>
-                              <option value="Recce Day">Recce Day</option>
-                            </select>
-
-                            {isOther && (
-                              <div style={{ marginTop: 8 }}>
-                                <input
-                                  type="text"
-                                  placeholder="Enter custom note"
-                                  value={customNote}
-                                  onChange={(e) =>
-                                    setNotesByDate({
-                                      ...notesByDate,
-                                      [date]: "Other",
-                                      [`${date}-other`]: e.target.value,
-                                    })
-                                  }
-                                  style={field.input}
-                                />
-                              </div>
-                            )}
-
-                            {selectedNote === "Travel Time" && (
-                              <div style={{ marginTop: 8 }}>
-                                <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
-                                <select
-                                  value={notesByDate[`${date}-travelMins`] || ""}
-                                  onChange={(e) =>
-                                    setNotesByDate({
-                                      ...notesByDate,
-                                      [date]: "Travel Time",
-                                      [`${date}-travelMins`]: e.target.value,
-                                    })
-                                  }
-                                  style={field.input}
-                                >
-                                  <option value="">Select duration</option>
-                                  {TRAVEL_DURATION_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div style={divider} />
-
-                <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
-
-                {driverOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
-                  const isBooked = bookedEmployees.includes(name);
-                  const isHeld = heldEmployees.includes(name);
-                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
-
-                  const disabled = (isBooked || isHoliday || isCrewed) && !isSelected;
-
-                  return (
-                    <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
-                      <input
-                        type="checkbox"
-                        value={name}
-                        disabled={disabled}
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
-                            setEmployees(next);
-                            upsertEmployeeDates("Precision Driver", name, true);
-                          } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
-                            setEmployees(next);
-                            upsertEmployeeDates("Precision Driver", name, false);
-                          }
-                        }}
-                      />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
-                      </span>
-                    </label>
-                  );
-                })}
-
-                <div style={{ marginTop: 8, marginBottom: 8 }}>
-                  <label style={{ fontWeight: 700 }}>
-                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking Crewed
-                  </label>
-                </div>
-
-                <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
-
-                {freelancerOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
-                  const isBooked = bookedEmployees.includes(name);
-                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
-                  const disabled = (isBooked || isHoliday) && !isSelected;
-
-                  return (
-                    <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
-                      <input
-                        type="checkbox"
-                        value={name}
-                        disabled={disabled}
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
-                            setEmployees(next);
-                            upsertEmployeeDates("Freelancer", name, true);
-                          } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
-                            setEmployees(next);
-                            upsertEmployeeDates("Freelancer", name, false);
-                          }
-                        }}
-                      />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
-                      </span>
-                    </label>
-                  );
-                })}
-
-                {employees.some((e) => e.name === "Other") && (
-                  <div style={{ marginTop: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="Other employee(s), comma-separated"
-                      value={customEmployee}
-                      onChange={(e) => setCustomEmployee(e.target.value)}
                       style={field.input}
-                    />
-                  </div>
-                )}
+                    >
+                      {VEHICLE_STATUSES.filter((s) => s !== "Complete").map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
 
-                {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
-                  <>
-                    <div style={divider} />
-                    <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
-                      Default = everyone works every selected day. Use this grid to fine-tune.
-                    </p>
+                    <label style={field.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={isSecondPencil}
+                        onChange={(e) => setIsSecondPencil(e.target.checked)}
+                      />
+                      Mark as Second Pencil (flag)
+                    </label>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
-                      {selectedDates.map((date) => {
-                        const assigned = employeesByDate[date] || [];
-                        const pretty = new Date(date).toDateString();
-                        return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
-
-                            {employees
-                              .filter((e) => e.name && e.name !== "Other")
-                              .map((emp) => {
-                                const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
-                                return (
-                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isOnDay}
-                                      onChange={() =>
-                                        setEmployeesByDate((prev) => {
-                                          const next = { ...prev };
-                                          const list = Array.isArray(next[date]) ? next[date] : [];
-                                          const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
-                                          if (exists) {
-                                            const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
-                                            if (filtered.length) next[date] = filtered;
-                                            else delete next[date];
-                                          } else {
-                                            next[date] = [...list, { role: emp.role, name: emp.name }];
-                                          }
-                                          return next;
-                                        })
-                                      }
-                                    />{" "}
-                                    {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
-                                  </label>
-                                );
-                              })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Column 3: Vehicles + Equipment */}
-              <div style={card}>
-                <h3 style={cardTitle}>Vehicles</h3>
-
-                {Object.entries(vehicleGroups).map(([group, items]) => {
-                  const isOpen = openGroups[group] || false;
-
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
-                        style={accordionBtn}
+                    {["Lost", "Postponed", "Cancelled"].includes(status) && (
+                      <div
+                        style={{
+                          border: UI.border,
+                          borderRadius: UI.radiusSm,
+                          padding: 12,
+                          marginTop: 10,
+                          background: UI.bgAlt,
+                        }}
                       >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
-                        </span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
-
-                      {isOpen && (
-                        <div style={{ padding: "10px 6px" }}>
-                          {items.map((vehicle) => {
-                            const key = vehicle.id;
-                            const isBooked = bookedVehicleIds.includes(key);
-                            const blockedStatus = vehicleBlockingStatusById[key];
-                            const isHeld = heldVehicleIds.includes(key);
-                            const isSelected = vehicles.includes(key);
-
-                            const isMaintBlocked = maintenanceVehicleIdSet.has(key);
-                            const disabled = (isBooked || isMaintBlocked) && !isSelected;
-
-                            return (
-                              <div
-                                key={key}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  marginBottom: 8,
-                                  opacity: disabled ? 0.55 : 1,
-                                  cursor: disabled ? "not-allowed" : "",
-                                }}
-                                title={
-                                  disabled
-                                    ? isMaintBlocked
-                                      ? "Vehicle is on maintenance (work booking) during selected date(s)"
-                                      : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
-                                    : ""
-                                }
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  disabled={disabled}
-                                  onChange={(e) => toggleVehicle(key, e.target.checked)}
-                                />
-                                <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
-                                  {vehicle.name}
-                                  {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isMaintBlocked && !isBooked && " (Maintenance)"}
-                                  {isBooked && ` (${blockedStatus || "Blocked"})`}
-                                  {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
-                                </span>
-
-                                {isSelected && (
-                                  <select
-                                    value={vehicleStatus[key] || status}
-                                    onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))}
-                                    style={{ height: 32 }}
-                                  >
-                                    {VEHICLE_STATUSES.map((s) => (
-                                      <option key={s} value={s}>
-                                        {s}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div style={divider} />
-
-                {missingEquip.length > 0 && (
-                  <div style={{ ...card, borderColor: "#f59e0b", background: "#FFFBEB", marginTop: 10 }}>
-                    <h4 style={{ margin: "0 0 8px" }}>Legacy equipment (renamed or deleted)</h4>
-                    <p style={{ marginTop: 0, color: "#92400e" }}>
-                      These items are saved on this booking but aren’t in the current equipment list.
-                    </p>
-                    {missingEquip.map((old) => (
-                      <div key={old} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                        <span style={pill}>{old}</span>
-                        <button type="button" onClick={() => removeEquipment(old)} style={{ ...btn, padding: "6px 10px" }}>
-                          Remove
-                        </button>
-                        <select
-                          defaultValue=""
-                          onChange={(e) => e.target.value && remapEquipment(old, e.target.value)}
-                          style={{ ...field.input, width: 320, height: 34 }}
-                        >
-                          <option value="">Remap to…</option>
-                          {allEquipmentNames.map((n) => (
-                            <option key={n} value={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <h3 style={cardTitle}>Equipment</h3>
-
-                {Object.entries(equipmentGroups).map(([group, items]) => {
-                  const isOpen = openEquipGroups[group] || false;
-
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
-                        style={accordionBtn}
-                      >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
-                        </span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
-
-                      {isOpen && (
-                        <div style={{ padding: "10px 6px" }}>
-                          {items.map((rawName) => {
-                            const name = String(rawName || "").trim();
-                            const isBooked = bookedEquipment.includes(name);
-                            const isHeld = heldEquipment.includes(name);
-                            const isSelected = equipment.includes(name);
-                            const disabled = isBooked && !isSelected;
-
-                            return (
-                              <label key={name} style={{ display: "block", marginBottom: 6 }}>
-                                <input
-                                  type="checkbox"
-                                  disabled={disabled}
-                                  checked={isSelected}
-                                  onChange={(e) => {
-                                    if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
-                                    else setEquipment((prev) => prev.filter((x) => x !== name));
-                                  }}
-                                />{" "}
-                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                                  {name}
-                                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Files & Notes */}
-            <div style={{ ...card, marginTop: 18 }}>
-              <h3 style={cardTitle}>Files & Notes</h3>
-
-              {/* Attachments list */}
-              {(() => {
-                const files = (attachments || []).filter((a) => a?.url && !deletedUrls.has(a.url));
-                if (files.length > 0) {
-                  return (
-                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
-                      <div style={{ marginBottom: 8, fontWeight: 600 }}>Current files</div>
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {files.map((a) => (
-                          <div
-                            key={a.url}
+                        <h4 style={{ margin: "0 0 10px" }}>Reason</h4>
+                        {["Cost", "Weather", "Competitor", "DNH", "Other"].map((r) => (
+                          <label
+                            key={r}
                             style={{
-                              display: "flex",
+                              display: "inline-flex",
                               alignItems: "center",
                               gap: 8,
-                              border: UI.border,
-                              padding: "6px 8px",
-                              borderRadius: 8,
+                              marginRight: 16,
+                              marginBottom: 8,
                             }}
                           >
-                            <a href={a.url} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
-                              {a.name || a.url.split("/").pop()}
-                            </a>
+                            <input
+                              type="checkbox"
+                              checked={statusReasons.includes(r)}
+                              onChange={() =>
+                                setStatusReasons((prev) =>
+                                  prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+                                )
+                              }
+                            />
+                            {r}
+                          </label>
+                        ))}
+                        {statusReasons.includes("Other") && (
+                          <div style={{ marginTop: 8 }}>
+                            <input
+                              type="text"
+                              placeholder="Other reason..."
+                              value={statusReasonOther}
+                              onChange={(e) => setStatusReasonOther(e.target.value)}
+                              style={field.input}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
+                    <div style={divider} />
+
+                    <label style={field.label}>Shoot Type</label>
+                    <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
+                      <option value="Day">Day</option>
+                      <option value="Night">Night</option>
+                    </select>
+
+                    <label style={field.label}>Production</label>
+                    <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} />
+
+                    <label style={field.label}>Contact Email</label>
+                    <input
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      style={field.input}
+                    />
+
+                    <label style={field.label}>Contact Number</label>
+                    <input value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={field.input} />
+
+                    {/* Contacts */}
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 10,
+                        borderRadius: UI.radiusSm,
+                        border: UI.border,
+                        background: UI.bgAlt,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
+                        <button
+                          type="button"
+                          onClick={handleAddContactRow}
+                          style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                        >
+                          + Add contact
+                        </button>
+                      </div>
+
+                      {additionalContacts.length === 0 && (
+                        <p style={{ fontSize: 12, color: UI.muted, marginBottom: 6 }}>
+                          Add production contacts (e.g. Production, Locations, AD, stunts).
+                        </p>
+                      )}
+
+                      {additionalContacts.map((row, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            marginBottom: 8,
+                            padding: 8,
+                            borderRadius: UI.radiusXs,
+                            background: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                          }}
+                        >
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <div>
+                              <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Department</label>
+                              <select
+                                value={row.department || ""}
+                                onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)}
+                                style={field.input}
+                              >
+                                <option value="">Select department</option>
+                                {FILM_DEPARTMENTS.map((dep) => (
+                                  <option key={dep} value={dep}>
+                                    {dep}
+                                  </option>
+                                ))}
+                              </select>
+
+                              {row.department === "Other" && (
+                                <input
+                                  type="text"
+                                  placeholder="Custom department"
+                                  value={row.departmentOther || ""}
+                                  onChange={(e) => handleUpdateContactRow(idx, "departmentOther", e.target.value)}
+                                  style={{ ...field.input, marginTop: 6 }}
+                                />
+                              )}
+                            </div>
+
+                            <div>
+                              <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Name</label>
+                              <input
+                                type="text"
+                                value={row.name || ""}
+                                onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)}
+                                style={field.input}
+                                placeholder="Contact name"
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <div>
+                              <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Email</label>
+                              <input
+                                type="email"
+                                value={row.email || ""}
+                                onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)}
+                                style={field.input}
+                                placeholder="Email"
+                              />
+                            </div>
+                            <div>
+                              <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Number</label>
+                              <input
+                                type="tel"
+                                value={row.phone || ""}
+                                onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)}
+                                style={field.input}
+                                placeholder="Phone number"
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
                             <button
                               type="button"
-                              onClick={() => setDeletedUrls((prev) => new Set(prev).add(a.url))}
+                              onClick={() => handleRemoveContactRow(idx)}
                               style={{
                                 ...btn,
                                 padding: "4px 8px",
-                                background: "#fee2e2",
-                                borderColor: "#ef4444",
-                                color: "#991b1b",
+                                fontSize: 11,
+                                borderRadius: 999,
+                                borderColor: "#dc2626",
+                                color: "#dc2626",
+                                background: "#fff",
                               }}
                             >
                               Remove
                             </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
 
-                      {deletedUrls.size > 0 && (
-                        <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
-                          {deletedUrls.size} file{deletedUrls.size > 1 ? "s" : ""} will be deleted from Storage on save.
+                      {savedContacts.length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>
+                            Quick add from saved contacts
+                          </label>
+                          <select
+                            value={selectedSavedContactId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSelectedSavedContactId(val);
+                              if (val) {
+                                handleQuickAddSavedContact(val);
+                                setSelectedSavedContactId("");
+                              }
+                            }}
+                            style={field.input}
+                          >
+                            <option value="">Select saved contact</option>
+                            {savedContacts.map((c) => {
+                              const labelBase = c.name || c.email || "Unnamed";
+                              const deptLabel = c.department ? ` – ${c.department}` : "";
+                              return (
+                                <option key={c.id} value={c.id}>
+                                  {labelBase}
+                                  {deptLabel}
+                                </option>
+                              );
+                            })}
+                          </select>
                         </div>
                       )}
                     </div>
-                  );
-                }
 
-                if (pdfURL) {
-                  return (
-                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
-                      <div style={{ marginBottom: 8, fontWeight: 600 }}>Current file</div>
+                    <label style={field.label}>Location</label>
+                    <textarea value={location} onChange={(e) => setLocation(e.target.value)} style={field.textarea} />
+                  </div>
 
-                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                        <a href={pdfURL} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
-                          Open current file
-                        </a>
+                  {/* Column 2: Dates + People */}
+                  <div style={card}>
+                    <h3 style={cardTitle}>Dates & People</h3>
 
-                        <button
-                          type="button"
-                          onClick={handleDeleteCurrentFile}
-                          disabled={deletingFile}
-                          style={{
-                            ...btn,
-                            background: "#fee2e2",
-                            borderColor: "#ef4444",
-                            color: "#991b1b",
-                            padding: "6px 10px",
+                    <label style={field.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={useCustomDates}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setUseCustomDates(on);
+                          if (on) {
+                            setIsRange(false);
+                            if (startDate && callTime && !callTimesByDate[startDate]) {
+                              setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
+                            }
+                          }
+                        }}
+                      />
+                      Select non-consecutive dates
+                    </label>
+
+                    {!useCustomDates && (
+                      <label style={field.checkboxRow}>
+                        <input
+                          type="checkbox"
+                          checked={isRange}
+                          onChange={() => {
+                            const next = !isRange;
+                            setIsRange(next);
+
+                            if (next && startDate && callTime && !callTimesByDate[startDate]) {
+                              setCallTimesByDate((prev) => ({ ...prev, [startDate]: callTime }));
+                            }
+
+                            if (!next && startDate && callTimesByDate[startDate] && !callTime) {
+                              setCallTime(callTimesByDate[startDate]);
+                            }
                           }}
-                        >
-                          {deletingFile ? "Deleting…" : "Delete file now"}
-                        </button>
+                        />
+                        Multi-day booking (consecutive)
+                      </label>
+                    )}
+
+                    {useCustomDates ? (
+                      <div style={{ marginTop: 10 }}>
+                        <DatePicker
+                          multiple
+                          value={customDates}
+                          format="YYYY-MM-DD"
+                          onChange={(vals) => {
+                            const normalised = (Array.isArray(vals) ? vals : [])
+                              .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                              .sort();
+                            setCustomDates(normalised);
+                          }}
+                        />
                       </div>
-                    </div>
-                  );
-                }
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
+                        <div>
+                          <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
+                          <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setStartDate(v);
 
-                return <div style={{ fontSize: 12, color: UI.muted, marginBottom: 10 }}>No files attached yet.</div>;
-              })()}
-
-              <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.xls,.xlsx,.csv"
-                onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
-                style={{ ...field.input, height: "auto", padding: 10 }}
-              />
-
-              {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
-              {newFiles?.length > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
-                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Save.
-                </div>
-              )}
-
-              <div style={{ marginTop: 14 }} />
-
-              {/* Call times + rigging */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={field.label}>Call Time</label>
-
-                  {/* ✅ CALL TIME FIX: use flag mode, not date-count */}
-                  {callTimeUsesPerDay ? (
-                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
-                      {selectedDates.map((d) => {
-                        const pretty = new Date(d).toDateString();
-                        const value = callTimesByDate[d] || "";
-                        return (
-                          <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                            <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>{pretty}</span>
-                            <select
-                              value={value}
-                              onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [d]: e.target.value }))}
+                              if (v && callTimeUsesPerDay && callTime && !callTimesByDate[v]) {
+                                setCallTimesByDate((prev) => ({ ...prev, [v]: callTime }));
+                              }
+                            }}
+                            style={field.input}
+                          />
+                        </div>
+                        {isRange && (
+                          <div>
+                            <label style={field.label}>End Date</label>
+                            <input
+                              type="date"
+                              value={endDate}
+                              onChange={(e) => setEndDate(e.target.value)}
                               style={field.input}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Notes per day */}
+                    {selectedDates.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <h4 style={{ margin: "8px 0" }}>
+                          {selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}
+                        </h4>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+                          {selectedDates.map((date) => {
+                            const selectedNote = notesByDate[date] || "";
+                            const isOther = selectedNote === "Other";
+                            const customNote = notesByDate[`${date}-other`] || "";
+
+                            return (
+                              <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                                <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
+
+                                <select
+                                  value={selectedNote}
+                                  onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
+                                  style={field.input}
+                                >
+                                  <option value="">Select note</option>
+                                  <option value="1/2 Day Travel">1/2 Day Travel</option>
+                                  <option value="Night Shoot">Night Shoot</option>
+                                  <option value="On Set">Shoot Day</option>
+                                  <option value="Other">Other</option>
+                                  <option value="Rehearsal Day">Rehearsal Day</option>
+                                  <option value="Rest Day">Rest Day</option>
+                                  <option value="Rig Day">Rig Day</option>
+                                  <option value="Standby Day">Standby Day</option>
+                                  <option value="Spilt Day">Spilt Day</option>
+                                  <option value="Travel Day">Travel Day</option>
+                                  <option value="Travel Time">Travel Time</option>
+                                  <option value="Turnaround Day">Turnaround Day</option>
+                                  <option value="Recce Day">Recce Day</option>
+                                </select>
+
+                                {isOther && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <input
+                                      type="text"
+                                      placeholder="Enter custom note"
+                                      value={customNote}
+                                      onChange={(e) =>
+                                        setNotesByDate({
+                                          ...notesByDate,
+                                          [date]: "Other",
+                                          [`${date}-other`]: e.target.value,
+                                        })
+                                      }
+                                      style={field.input}
+                                    />
+                                  </div>
+                                )}
+
+                                {selectedNote === "Travel Time" && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
+                                    <select
+                                      value={notesByDate[`${date}-travelMins`] || ""}
+                                      onChange={(e) =>
+                                        setNotesByDate({
+                                          ...notesByDate,
+                                          [date]: "Travel Time",
+                                          [`${date}-travelMins`]: e.target.value,
+                                        })
+                                      }
+                                      style={field.input}
+                                    >
+                                      <option value="">Select duration</option>
+                                      {TRAVEL_DURATION_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={divider} />
+
+                    <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
+
+                    {driverOptions.map((name) => {
+                      const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
+                      const isBooked = bookedEmployees.includes(name);
+                      const isHeld = heldEmployees.includes(name);
+                      const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+
+                      const disabled = (isBooked || isHoliday || isCrewed) && !isSelected;
+
+                      return (
+                        <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                          <input
+                            type="checkbox"
+                            value={name}
+                            disabled={disabled}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
+                                setEmployees(next);
+                                upsertEmployeeDates("Precision Driver", name, true);
+                              } else {
+                                const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
+                                setEmployees(next);
+                                upsertEmployeeDates("Precision Driver", name, false);
+                              }
+                            }}
+                          />{" "}
+                          <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                            {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    <div style={{ marginTop: 8, marginBottom: 8 }}>
+                      <label style={{ fontWeight: 700 }}>
+                        <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking Crewed
+                      </label>
+                    </div>
+
+                    <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
+
+                    {freelancerOptions.map((name) => {
+                      const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
+                      const isBooked = bookedEmployees.includes(name);
+                      const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                      const disabled = (isBooked || isHoliday) && !isSelected;
+
+                      return (
+                        <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                          <input
+                            type="checkbox"
+                            value={name}
+                            disabled={disabled}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
+                                setEmployees(next);
+                                upsertEmployeeDates("Freelancer", name, true);
+                              } else {
+                                const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
+                                setEmployees(next);
+                                upsertEmployeeDates("Freelancer", name, false);
+                              }
+                            }}
+                          />{" "}
+                          <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                            {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    {employees.some((e) => e.name === "Other") && (
+                      <div style={{ marginTop: 8 }}>
+                        <input
+                          type="text"
+                          placeholder="Other employee(s), comma-separated"
+                          value={customEmployee}
+                          onChange={(e) => setCustomEmployee(e.target.value)}
+                          style={field.input}
+                        />
+                      </div>
+                    )}
+
+                    {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
+                      <>
+                        <div style={divider} />
+                        <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
+                        <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
+                          Default = everyone works every selected day. Use this grid to fine-tune.
+                        </p>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+                          {selectedDates.map((date) => {
+                            const assigned = employeesByDate[date] || [];
+                            const pretty = new Date(date).toDateString();
+                            return (
+                              <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
+                                <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
+
+                                {employees
+                                  .filter((e) => e.name && e.name !== "Other")
+                                  .map((emp) => {
+                                    const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
+                                    return (
+                                      <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isOnDay}
+                                          onChange={() =>
+                                            setEmployeesByDate((prev) => {
+                                              const next = { ...prev };
+                                              const list = Array.isArray(next[date]) ? next[date] : [];
+                                              const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
+                                              if (exists) {
+                                                const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
+                                                if (filtered.length) next[date] = filtered;
+                                                else delete next[date];
+                                              } else {
+                                                next[date] = [...list, { role: emp.role, name: emp.name }];
+                                              }
+                                              return next;
+                                            })
+                                          }
+                                        />{" "}
+                                        {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
+                                      </label>
+                                    );
+                                  })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Column 3: Vehicles + Equipment */}
+                  <div style={card}>
+                    <h3 style={cardTitle}>Vehicles</h3>
+
+                    {Object.entries(vehicleGroups).map(([group, items]) => {
+                      const isOpen = openGroups[group] || false;
+
+                      return (
+                        <div key={group} style={{ marginTop: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                            style={accordionBtn}
+                          >
+                            <span>
+                              {isOpen ? "▼" : "►"} {group}
+                            </span>
+                            <span style={pill}>{items.length}</span>
+                          </button>
+
+                          {isOpen && (
+                            <div style={{ padding: "10px 6px" }}>
+                              {items.map((vehicle) => {
+                                const key = vehicle.id;
+                                const isBooked = bookedVehicleIds.includes(key);
+                                const blockedStatus = vehicleBlockingStatusById[key];
+                                const isHeld = heldVehicleIds.includes(key);
+                                const isSelected = vehicles.includes(key);
+
+                                const isMaintBlocked = maintenanceVehicleIdSet.has(key);
+                                const disabled = (isBooked || isMaintBlocked) && !isSelected;
+
+                                return (
+                                  <div
+                                    key={key}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      marginBottom: 8,
+                                      opacity: disabled ? 0.55 : 1,
+                                      cursor: disabled ? "not-allowed" : "",
+                                    }}
+                                    title={
+                                      disabled
+                                        ? isMaintBlocked
+                                          ? "Vehicle is on maintenance (work booking) during selected date(s)"
+                                          : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
+                                        : ""
+                                    }
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      disabled={disabled}
+                                      onChange={(e) => toggleVehicle(key, e.target.checked)}
+                                    />
+                                    <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
+                                      {vehicle.name}
+                                      {vehicle.registration ? ` – ${vehicle.registration}` : ""}
+                                      {isMaintBlocked && !isBooked && " (Maintenance)"}
+                                      {isBooked && ` (${blockedStatus || "Blocked"})`}
+                                      {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
+                                    </span>
+
+                                    {isSelected && (
+                                      <select
+                                        value={vehicleStatus[key] || status}
+                                        onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))}
+                                        style={{ height: 32 }}
+                                      >
+                                        {VEHICLE_STATUSES.map((s) => (
+                                          <option key={s} value={s}>
+                                            {s}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <div style={divider} />
+
+                    {missingEquip.length > 0 && (
+                      <div style={{ ...card, borderColor: "#f59e0b", background: "#FFFBEB", marginTop: 10 }}>
+                        <h4 style={{ margin: "0 0 8px" }}>Legacy equipment (renamed or deleted)</h4>
+                        <p style={{ marginTop: 0, color: "#92400e" }}>
+                          These items are saved on this booking but aren’t in the current equipment list.
+                        </p>
+                        {missingEquip.map((old) => (
+                          <div key={old} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+                            <span style={pill}>{old}</span>
+                            <button type="button" onClick={() => removeEquipment(old)} style={{ ...btn, padding: "6px 10px" }}>
+                              Remove
+                            </button>
+                            <select
+                              defaultValue=""
+                              onChange={(e) => e.target.value && remapEquipment(old, e.target.value)}
+                              style={{ ...field.input, width: 320, height: 34 }}
                             >
-                              <option value="">-- Select time --</option>
-                              {TIME_OPTIONS.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
+                              <option value="">Remap to…</option>
+                              {allEquipmentNames.map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
                                 </option>
                               ))}
                             </select>
                           </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <select value={callTime} onChange={(e) => setCallTime(e.target.value)} style={field.input}>
-                      <option value="">-- Select time --</option>
-                      {TIME_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    )}
 
-                <div>
-                  <label style={field.label}>Rigging Address</label>
-                  <div style={field.checkboxRow}>
-                    <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
-                    Add Rigging Address
-                  </div>
-                  {hasRiggingAddress && (
-                    <textarea
-                      value={riggingAddress}
-                      onChange={(e) => setRiggingAddress(e.target.value)}
-                      rows={3}
-                      style={field.textarea}
-                      placeholder="Enter rigging address..."
-                    />
-                  )}
-                </div>
-              </div>
+                    <h3 style={cardTitle}>Equipment</h3>
 
-              <div style={{ marginTop: 14 }} />
-              <label style={field.label}>Additional Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                style={field.textarea}
-                placeholder="Anything extra to include for this booking..."
-              />
+                    {Object.entries(equipmentGroups).map(([group, items]) => {
+                      const isOpen = openEquipGroups[group] || false;
 
-              <div style={divider} />
-
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                Health & Safety Completed
-              </label>
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                Risk Assessment Completed
-              </label>
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
-                Hotel Booked
-              </label>
-
-              <div style={actionsRow}>
-                <button type="submit" style={btnPrimary}>
-                  Update Booking
-                </button>
-                <button type="button" onClick={() => router.back()} style={btnGhost}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={summaryCard}>
-                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>📋 Summary</h3>
-
-                <div style={summaryRow}><div>Job Number</div><div>{jobNumber || "—"}</div></div>
-                <div style={summaryRow}><div>Status</div><div>{status || "—"}</div></div>
-                <div style={summaryRow}><div>Shoot Type</div><div>{shootType || "—"}</div></div>
-                <div style={summaryRow}><div>Client</div><div>{client || "—"}</div></div>
-                <div style={summaryRow}><div>Location</div><div>{location || "—"}</div></div>
-
-                <div style={summaryRow}>
-                  <div>Dates</div>
-                  <div>
-                    {useCustomDates
-                      ? customDates.length
-                        ? customDates.join(", ")
-                        : "—"
-                      : isRange
-                      ? `${startDate || "—"} → ${endDate || "—"}`
-                      : startDate || "—"}
-                  </div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Contacts</div>
-                  <div>
-                    {additionalContacts.length
-                      ? additionalContacts
-                          .map((c) => {
-                            const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
-                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
-                          })
-                          .join(", ")
-                      : "—"}
-                  </div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Vehicles</div>
-                  <div>
-                    {Object.values(vehicleGroups)
-                      .flat()
-                      .filter((v) => vehicles.includes(v.id))
-                      .map((v) => {
-                        const vs = vehicleStatus[v.id] || status;
-                        const label = v.registration ? `${v.name} – ${v.registration}` : v.name;
-                        return (
-                          <span
-                            key={v.id}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              border: "1px solid rgba(255,255,255,0.12)",
-                              borderRadius: 999,
-                              padding: "2px 8px",
-                              marginRight: 6,
-                              marginBottom: 6,
-                            }}
+                      return (
+                        <div key={group} style={{ marginTop: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                            style={accordionBtn}
                           >
-                            {label} • {vs}
-                          </span>
-                        );
-                      })}
-                    {vehicles.length === 0 && "—"}
+                            <span>
+                              {isOpen ? "▼" : "►"} {group}
+                            </span>
+                            <span style={pill}>{items.length}</span>
+                          </button>
+
+                          {isOpen && (
+                            <div style={{ padding: "10px 6px" }}>
+                              {items.map((rawName) => {
+                                const name = String(rawName || "").trim();
+                                const isBooked = bookedEquipment.includes(name);
+                                const isHeld = heldEquipment.includes(name);
+                                const isSelected = equipment.includes(name);
+                                const disabled = isBooked && !isSelected;
+
+                                return (
+                                  <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                                    <input
+                                      type="checkbox"
+                                      disabled={disabled}
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
+                                        else setEquipment((prev) => prev.filter((x) => x !== name));
+                                      }}
+                                    />{" "}
+                                    <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                      {name}
+                                      {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div style={summaryRow}><div>Equipment</div><div>{equipment.join(", ") || "—"}</div></div>
+                {/* Files & Notes */}
+                <div style={{ ...card, marginTop: 18 }}>
+                  <h3 style={cardTitle}>Files & Notes</h3>
+
+                  {/* Attachments list */}
+                  {(() => {
+                    const files = (attachments || []).filter((a) => a?.url && !deletedUrls.has(a.url));
+                    if (files.length > 0) {
+                      return (
+                        <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
+                          <div style={{ marginBottom: 8, fontWeight: 600 }}>Current files</div>
+
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {files.map((a) => (
+                              <div
+                                key={a.url}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  border: UI.border,
+                                  padding: "6px 8px",
+                                  borderRadius: 8,
+                                }}
+                              >
+                                <a href={a.url} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                                  {a.name || a.url.split("/").pop()}
+                                </a>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletedUrls((prev) => new Set(prev).add(a.url))}
+                                  style={{
+                                    ...btn,
+                                    padding: "4px 8px",
+                                    background: "#fee2e2",
+                                    borderColor: "#ef4444",
+                                    color: "#991b1b",
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {deletedUrls.size > 0 && (
+                            <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                              {deletedUrls.size} file{deletedUrls.size > 1 ? "s" : ""} will be deleted from Storage on save.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (pdfURL) {
+                      return (
+                        <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, marginBottom: 10 }}>
+                          <div style={{ marginBottom: 8, fontWeight: 600 }}>Current file</div>
+
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                            <a href={pdfURL} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                              Open current file
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={handleDeleteCurrentFile}
+                              disabled={deletingFile}
+                              style={{
+                                ...btn,
+                                background: "#fee2e2",
+                                borderColor: "#ef4444",
+                                color: "#991b1b",
+                                padding: "6px 10px",
+                              }}
+                            >
+                              {deletingFile ? "Deleting…" : "Delete file now"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return <div style={{ fontSize: 12, color: UI.muted, marginBottom: 10 }}>No files attached yet.</div>;
+                  })()}
+
+                  <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xls,.xlsx,.csv"
+                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+                    style={{ ...field.input, height: "auto", padding: 10 }}
+                  />
+
+                  {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+                  {newFiles?.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                      {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Save.
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 14 }} />
+
+                  {/* Call times + rigging */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={field.label}>Call Time</label>
+
+                      {callTimeUsesPerDay ? (
+                        <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
+                          {selectedDates.map((d) => {
+                            const pretty = new Date(d).toDateString();
+                            const value = callTimesByDate[d] || "";
+                            return (
+                              <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>{pretty}</span>
+                                <select
+                                  value={value}
+                                  onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [d]: e.target.value }))}
+                                  style={field.input}
+                                >
+                                  <option value="">-- Select time --</option>
+                                  {TIME_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <select value={callTime} onChange={(e) => setCallTime(e.target.value)} style={field.input}>
+                          <option value="">-- Select time --</option>
+                          {TIME_OPTIONS.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <div>
+                      <label style={field.label}>Rigging Address</label>
+                      <div style={field.checkboxRow}>
+                        <input
+                          type="checkbox"
+                          checked={hasRiggingAddress}
+                          onChange={(e) => setHasRiggingAddress(e.target.checked)}
+                        />
+                        Add Rigging Address
+                      </div>
+                      {hasRiggingAddress && (
+                        <textarea
+                          value={riggingAddress}
+                          onChange={(e) => setRiggingAddress(e.target.value)}
+                          rows={3}
+                          style={field.textarea}
+                          placeholder="Enter rigging address..."
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 14 }} />
+                  <label style={field.label}>Additional Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    style={field.textarea}
+                    placeholder="Anything extra to include for this booking..."
+                  />
+
+                  <div style={divider} />
+
+                  <label style={field.checkboxRow}>
+                    <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                    Health & Safety Completed
+                  </label>
+                  <label style={field.checkboxRow}>
+                    <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                    Risk Assessment Completed
+                  </label>
+
+                  {/* ✅ Hotel toggle + details */}
+                  <label style={field.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={hasHotel}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasHotel(on);
+                      }}
+                    />
+                    Hotel Booked
+                  </label>
+
+                  {hasHotel && (
+                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, background: UI.bgAlt, marginBottom: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div>
+                          <label style={field.label}>Cost per night</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={hotelCostPerNight}
+                            onChange={(e) => setHotelCostPerNight(e.target.value)}
+                            style={field.input}
+                            placeholder="e.g. 165"
+                          />
+                        </div>
+
+                        <div>
+                          <label style={field.label}>Nights</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={hotelNights}
+                            onChange={(e) => setHotelNights(e.target.value)}
+                            style={field.input}
+                            placeholder="e.g. 2"
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 10, fontSize: 13, color: UI.muted }}>
+                        Total: <strong style={{ color: UI.text }}>£{hotelTotal.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={actionsRow}>
+                    <button type="button" onClick={() => router.back()} style={btnGhost}>
+                      Cancel
+                    </button>
+                    <button type="submit" style={btnPrimary}>
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Summary */}
+              <div style={summaryCard}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Booking Summary</div>
 
                 <div style={summaryRow}>
-                  <div>Hotel / CT</div>
+                  <div style={{ opacity: 0.75 }}>Job</div>
+                  <div>{jobNumber || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div style={{ opacity: 0.75 }}>Status</div>
+                  <div>{status || "—"}{isSecondPencil ? " (Second Pencil)" : ""}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div style={{ opacity: 0.75 }}>Shoot</div>
+                  <div>{shootType || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div style={{ opacity: 0.75 }}>Dates</div>
+                  <div>{datesLabel}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div style={{ opacity: 0.75 }}>Vehicles</div>
                   <div>
-                    {hasHotel ? "Hotel ✓" : "Hotel ✗"}
-                    {" • "}
-                    {callTimeUsesPerDay
-                      ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "—"}`).join(" | ")
-                      : callTime || "—"}
+                    {vehicles.length ? (
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {vehicles.slice(0, 8).map((vid) => (
+                          <div key={vid} style={{ fontSize: 12 }}>
+                            • {resolveVehicleLabel(vid)}
+                          </div>
+                        ))}
+                        {vehicles.length > 8 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {vehicles.length - 8} more</div>}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </div>
                 </div>
 
-                {hasRiggingAddress && (
-                  <div style={summaryRow}><div>Rigging Address</div><div>{riggingAddress || "—"}</div></div>
+                <div style={{ ...summaryRow, borderBottom: "none" }}>
+                  <div style={{ opacity: 0.75 }}>Equipment</div>
+                  <div>
+                    {equipment.length ? (
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {equipment.slice(0, 10).map((x) => (
+                          <div key={x} style={{ fontSize: 12 }}>
+                            • {x}
+                          </div>
+                        ))}
+                        {equipment.length > 10 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {equipment.length - 10} more</div>}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                </div>
+
+                {missingEquip.length > 0 && (
+                  <div style={{ marginTop: 12, fontSize: 12, opacity: 0.9, background: "rgba(245,158,11,0.14)", border: "1px solid rgba(245,158,11,0.25)", padding: 10, borderRadius: 10 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4 }}>Heads up</div>
+                    <div>There are {missingEquip.length} legacy equipment item(s) saved on this booking.</div>
+                  </div>
                 )}
               </div>
             </div>
