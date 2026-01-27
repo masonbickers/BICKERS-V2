@@ -195,11 +195,9 @@ const btn = {
 const btnPrimary = { ...btn, background: "#111", color: "#fff" };
 const btnGhost = { ...btn, background: "#fff", color: "#111" };
 
+// ✅ UPDATED: summary no longer sticky (because it's moved to the bottom)
 const summaryCard = {
   ...card,
-  position: "sticky",
-  top: 12,
-  alignSelf: "start",
   background: "#0b1220",
   color: "#e6edf7",
   border: "1px solid rgba(255,255,255,0.08)",
@@ -659,7 +657,8 @@ export default function EditBookingPage() {
   const maintenanceVehicleIdSet = useMemo(() => {
     const ids = [];
     maintenanceBookings.forEach((b) => {
-      const start = toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
+      const start =
+        toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
       const end = toJsDate(b.endDate || b.end || b.endDate) || start;
       if (!start || !end) return;
 
@@ -675,8 +674,16 @@ export default function EditBookingPage() {
           resolved.forEach((id) => ids.push(id));
         });
       } else {
-        const candidate = b.vehicleId || b.vehicle || b.vehicleName || b.registration || b.reg;
-        const resolved = normalizeVehicleKeysListForLookup([candidate], vehicleLookup);
+        const candidate =
+          b.vehicleId ||
+          b.vehicle ||
+          b.vehicleName ||
+          b.registration ||
+          b.reg;
+        const resolved = normalizeVehicleKeysListForLookup(
+          [candidate],
+          vehicleLookup
+        );
         resolved.forEach((id) => ids.push(id));
       }
     });
@@ -722,7 +729,9 @@ export default function EditBookingPage() {
       } else {
         Object.keys(next).forEach((d) => {
           const list = Array.isArray(next[d]) ? next[d] : [];
-          const filtered = list.filter((e) => !(e.name === name && e.role === role));
+          const filtered = list.filter(
+            (e) => !(e.name === name && e.role === role)
+          );
           if (filtered.length) next[d] = filtered;
           else delete next[d];
         });
@@ -732,7 +741,13 @@ export default function EditBookingPage() {
   };
 
   const uniqStrings = (arr) =>
-    Array.from(new Set((arr || []).map((s) => String(s || "").trim()).filter(Boolean)));
+    Array.from(
+      new Set(
+        (arr || [])
+          .map((s) => String(s || "").trim())
+          .filter(Boolean)
+      )
+    );
 
   const selectedNamesByRole = (role) =>
     uniqStrings(
@@ -759,7 +774,9 @@ export default function EditBookingPage() {
   }, [freelancerList, employees]);
 
   const toggleVehicle = (vehicleId, checked) => {
-    setVehicles((prev) => (checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)));
+    setVehicles((prev) =>
+      checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)
+    );
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
@@ -1397,7 +1414,8 @@ export default function EditBookingPage() {
               handleSubmit();
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16 }}>
+            {/* ✅ UPDATED: single column layout (summary moved to bottom) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
               <div>
                 <div style={sectionGrid}>
                   {/* Column 1: Job Info */}
@@ -2409,74 +2427,87 @@ export default function EditBookingPage() {
                     </button>
                   </div>
                 </div>
-              </div>
 
-              {/* Right: Summary */}
-              <div style={summaryCard}>
-                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Booking Summary</div>
+                {/* ✅ Summary moved to bottom */}
+                <div style={summaryCard}>
+                  <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Booking Summary</div>
 
-                <div style={summaryRow}>
-                  <div style={{ opacity: 0.75 }}>Job</div>
-                  <div>{jobNumber || "—"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div style={{ opacity: 0.75 }}>Status</div>
-                  <div>{status || "—"}{isSecondPencil ? " (Second Pencil)" : ""}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div style={{ opacity: 0.75 }}>Shoot</div>
-                  <div>{shootType || "—"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div style={{ opacity: 0.75 }}>Dates</div>
-                  <div>{datesLabel}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div style={{ opacity: 0.75 }}>Vehicles</div>
-                  <div>
-                    {vehicles.length ? (
-                      <div style={{ display: "grid", gap: 4 }}>
-                        {vehicles.slice(0, 8).map((vid) => (
-                          <div key={vid} style={{ fontSize: 12 }}>
-                            • {resolveVehicleLabel(vid)}
-                          </div>
-                        ))}
-                        {vehicles.length > 8 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {vehicles.length - 8} more</div>}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
+                  <div style={summaryRow}>
+                    <div style={{ opacity: 0.75 }}>Job</div>
+                    <div>{jobNumber || "—"}</div>
                   </div>
-                </div>
 
-                <div style={{ ...summaryRow, borderBottom: "none" }}>
-                  <div style={{ opacity: 0.75 }}>Equipment</div>
-                  <div>
-                    {equipment.length ? (
-                      <div style={{ display: "grid", gap: 4 }}>
-                        {equipment.slice(0, 10).map((x) => (
-                          <div key={x} style={{ fontSize: 12 }}>
-                            • {x}
-                          </div>
-                        ))}
-                        {equipment.length > 10 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {equipment.length - 10} more</div>}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
+                  <div style={summaryRow}>
+                    <div style={{ opacity: 0.75 }}>Status</div>
+                    <div>
+                      {status || "—"}
+                      {isSecondPencil ? " (Second Pencil)" : ""}
+                    </div>
                   </div>
-                </div>
 
-                {missingEquip.length > 0 && (
-                  <div style={{ marginTop: 12, fontSize: 12, opacity: 0.9, background: "rgba(245,158,11,0.14)", border: "1px solid rgba(245,158,11,0.25)", padding: 10, borderRadius: 10 }}>
-                    <div style={{ fontWeight: 800, marginBottom: 4 }}>Heads up</div>
-                    <div>There are {missingEquip.length} legacy equipment item(s) saved on this booking.</div>
+                  <div style={summaryRow}>
+                    <div style={{ opacity: 0.75 }}>Shoot</div>
+                    <div>{shootType || "—"}</div>
                   </div>
-                )}
+
+                  <div style={summaryRow}>
+                    <div style={{ opacity: 0.75 }}>Dates</div>
+                    <div>{datesLabel}</div>
+                  </div>
+
+                  <div style={summaryRow}>
+                    <div style={{ opacity: 0.75 }}>Vehicles</div>
+                    <div>
+                      {vehicles.length ? (
+                        <div style={{ display: "grid", gap: 4 }}>
+                          {vehicles.slice(0, 8).map((vid) => (
+                            <div key={vid} style={{ fontSize: 12 }}>
+                              • {resolveVehicleLabel(vid)}
+                            </div>
+                          ))}
+                          {vehicles.length > 8 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {vehicles.length - 8} more</div>}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ ...summaryRow, borderBottom: "none" }}>
+                    <div style={{ opacity: 0.75 }}>Equipment</div>
+                    <div>
+                      {equipment.length ? (
+                        <div style={{ display: "grid", gap: 4 }}>
+                          {equipment.slice(0, 10).map((x) => (
+                            <div key={x} style={{ fontSize: 12 }}>
+                              • {x}
+                            </div>
+                          ))}
+                          {equipment.length > 10 && <div style={{ fontSize: 12, opacity: 0.75 }}>+ {equipment.length - 10} more</div>}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </div>
+
+                  {missingEquip.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        fontSize: 12,
+                        opacity: 0.9,
+                        background: "rgba(245,158,11,0.14)",
+                        border: "1px solid rgba(245,158,11,0.25)",
+                        padding: 10,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, marginBottom: 4 }}>Heads up</div>
+                      <div>There are {missingEquip.length} legacy equipment item(s) saved on this booking.</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </form>
