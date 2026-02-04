@@ -1422,17 +1422,14 @@ export default function EditBookingPage() {
                   <div style={card}>
                     <h3 style={cardTitle}>Job Info</h3>
 
-                    <label style={field.label}>Job Number</label>
-                    <input
-                      value={jobNumber}
-                      readOnly
-                      style={{
-                        ...field.input,
-                        backgroundColor: "#f3f4f6",
-                        color: UI.muted,
-                        cursor: "not-allowed",
-                      }}
-                    />
+         <label style={field.label}>Job Number</label>
+<input
+  value={jobNumber}
+  onChange={(e) => setJobNumber(e.target.value)}
+  placeholder="Enter job number"
+  style={field.input}
+/>
+
 
                     <label style={field.label}>Status</label>
                     <select

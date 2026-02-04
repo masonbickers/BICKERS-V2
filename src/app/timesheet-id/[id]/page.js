@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   doc,
   getDoc,
@@ -80,10 +80,11 @@ function formatHoursLabel(hours) {
   return [hPart, mPart].filter(Boolean).join(" ");
 }
 
-/* yard segments extraction */
+/* yard segments extraction (your schema saves yardSegments for yard mode) */
 function extractYardSegments(entry) {
   if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
 
+  // Fallbacks (older schema)
   if (entry?.leaveTime && entry?.arriveBack)
     return [{ start: entry.leaveTime, end: entry.arriveBack }];
 
@@ -98,6 +99,8 @@ function computeYardHours(entry) {
   let total = 0;
   segs.forEach((s) => (total += diffHours(s.start, s.end)));
 
+  // Your mobile app treats lunch as a toggle, but hours calc there is minutes-based.
+  // For web summary, keep the existing behaviour: if there ARE blocks, subtract 0.5 hr lunch.
   if (total > 0) total -= LUNCH_DEDUCT_HRS;
 
   return Math.max(0, total);
@@ -105,35 +108,73 @@ function computeYardHours(entry) {
 
 /* Travel hours */
 function computeTravelHours(entry) {
+  // In mobile: travel is leaveTime -> arriveTime
   return diffHours(entry.leaveTime, entry.arriveTime);
 }
 
-/* On-set hours (overall) */
+/* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
 function computeOnSetHours(entry) {
-  let total = 0;
+  // Prefer call -> wrap (work window)
+  const onSetCore = entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
 
-  const travelTo = diffHours(entry.leaveTime, entry.arriveTime);
-  const onSet = diffHours(entry.callTime, entry.wrapTime);
-  const travelBack = diffHours(entry.wrapTime, entry.arriveBack);
+  // If no call/wrap, fallback to leave -> arriveBack
+  const fallback = (!onSetCore && entry?.leaveTime && entry?.arriveBack)
+    ? diffHours(entry.leaveTime, entry.arriveBack)
+    : 0;
 
-  if (travelTo > 0) total += travelTo;
-  if (onSet > 0) total += onSet;
-  if (travelBack > 0) total += travelBack;
+  let total = onSetCore || fallback;
 
-  if (total === 0 && entry.leaveTime && entry.arriveBack)
-    total = diffHours(entry.leaveTime, entry.arriveBack);
+  // Add precallDuration (minutes) if present and callTime exists
+  if (entry?.callTime && typeof entry?.precallDuration === "number" && Number.isFinite(entry.precallDuration)) {
+    total += Math.max(0, entry.precallDuration) / 60;
+  }
 
-  return total;
+  return Math.max(0, total);
 }
 
-/* Determine day mode */
-function detectMode(entry, hasJobs, isWeekend) {
-  const raw = String(entry?.mode ?? "").toLowerCase();
-  if (raw === "holiday") return "holiday";
-  if (raw === "off") return "off";
-  if (isWeekend && !hasJobs) return "off";
-  if (raw === "travel") return "travel";
-  if (raw === "onset" || raw === "set") return "onset";
+/* ✅ TURNAROUND DETECTION (matches how mobile saves it) */
+function isTurnaroundDay(entry) {
+  if (!entry) return false;
+
+  // Your mobile code: yard day uses isTurnaround boolean (only meaningful on mode === "yard")
+  if (entry.isTurnaround === true && String(entry.mode || "yard").toLowerCase() === "yard") return true;
+
+  // Backwards compatibility (in case older docs used other keys)
+  if (entry.turnaround === true) return true;
+  if (entry.turnaroundDay === true) return true;
+
+  return false;
+}
+
+/* ✅ Turnaround hours: 0 unless user added yardSegments */
+function computeTurnaroundHours(entry) {
+  const segs = extractYardSegments(entry);
+  if (!segs || segs.length === 0) return 0;
+
+  // If they manually added blocks on a turnaround day, count them (and don’t force lunch deduction)
+  let total = 0;
+  segs.forEach((s) => (total += diffHours(s.start, s.end)));
+  return Math.max(0, total);
+}
+
+/* Determine day mode (mirror mobile: uses entry.mode + isTurnaround flag) */
+function detectMode(entry, isWeekend) {
+  if (!entry) return isWeekend ? "off" : "missing";
+
+  const rawMode = String(entry.mode || "yard").toLowerCase();
+
+  // Bank holiday / holiday / off saved by locks on mobile
+  if (rawMode === "holiday") return "holiday";
+  if (rawMode === "bankholiday") return "bankholiday";
+  if (rawMode === "off") return "off";
+
+  // ✅ Turnaround is a yard-day flag, not a mode
+  if (rawMode === "yard" && isTurnaroundDay(entry)) return "turnaround";
+
+  if (rawMode === "travel") return "travel";
+  if (rawMode === "onset") return "onset";
+  if (rawMode === "yard") return "yard";
+
   return "yard";
 }
 
@@ -175,7 +216,7 @@ function eachDateYMD(startRaw, endRaw) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                               PAGE                                          */
+/*                               PAGE                                         */
 /* -------------------------------------------------------------------------- */
 
 export default function TimesheetDetailPage() {
@@ -185,20 +226,13 @@ export default function TimesheetDetailPage() {
   const [timesheet, setTimesheet] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // jobsByDay now comes from the app's snapshot + booking docs
   const [jobsByDay, setJobsByDay] = useState({});
-
-  // vehicleLookup maps BOTH vehicle doc.id and vehicle.name -> { name, registration }
-  // so even if bookings store vehicle IDs, we can display name/reg.
   const [vehicleLookup, setVehicleLookup] = useState({});
-
-  // live holiday docs expanded per day (Y-M-D → [holidayDocs])
   const [holidaysByDate, setHolidaysByDate] = useState({});
 
   // manager actions
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState("");
-  const [showQueryForm, setShowQueryForm] = useState(false);
   const [queryDay, setQueryDay] = useState("");
   const [queryField, setQueryField] = useState("overall");
   const [queryNote, setQueryNote] = useState("");
@@ -243,13 +277,9 @@ export default function TimesheetDetailPage() {
         snap.docs.forEach((d) => {
           const h = d.data();
 
-          // ignore soft-deleted / deleted holidays
           const status = String(h.status || "").toLowerCase();
-          if (h.deleted === true || h.isDeleted === true || status === "deleted") {
-            return;
-          }
+          if (h.deleted === true || h.isDeleted === true || status === "deleted") return;
 
-          // match by employee name or code so we only pull relevant holidays
           const matchesName =
             timesheet.employeeName && h.employee === timesheet.employeeName;
           const matchesCode =
@@ -285,7 +315,6 @@ export default function TimesheetDetailPage() {
 
         const allBookingIds = new Set();
 
-        // Prefer jobSnapshot.byDay from the app
         if (snapshot.byDay) {
           DAYS.forEach((day) => {
             const arr = Array.isArray(snapshot.byDay[day]) ? snapshot.byDay[day] : [];
@@ -295,7 +324,6 @@ export default function TimesheetDetailPage() {
             });
           });
         } else if (timesheet.days) {
-          // Fallback: use days[day].jobs if present
           DAYS.forEach((day) => {
             const entry = timesheet.days[day];
             const arr = Array.isArray(entry?.jobs) ? entry.jobs : [];
@@ -306,7 +334,6 @@ export default function TimesheetDetailPage() {
           });
         }
 
-        // Fetch each booking doc to get vehicles / up-to-date info
         const bookingDetailsById = {};
         const usedVehicleKeys = new Set();
 
@@ -328,7 +355,6 @@ export default function TimesheetDetailPage() {
           }
         }
 
-        // Build a lookup so BOTH doc.id and vehicle.name resolve -> {name, registration}
         const lookup = {};
         if (usedVehicleKeys.size > 0) {
           const vs = await getDocs(collection(db, "vehicles"));
@@ -338,15 +364,11 @@ export default function TimesheetDetailPage() {
             const reg = String(v.registration || "").trim() || "No Reg";
             const docId = d.id;
 
-            // Map by doc id (so bookings storing vehicle IDs resolve)
             lookup[docId] = { name: name || docId, registration: reg };
-
-            // Map by name (so bookings storing names still resolve)
             if (name) lookup[name] = { name, registration: reg };
           });
         }
 
-        // Merge booking details onto snapshot jobs so we have vehicles, etc.
         const mergedJobMap = {};
         DAYS.forEach((day) => {
           const arr = jobMap[day] || [];
@@ -355,7 +377,6 @@ export default function TimesheetDetailPage() {
             if (!b) return j;
             return {
               ...j,
-              // Prefer snapshot values, fall back to booking data
               jobNumber: j.jobNumber || b.jobNumber || "",
               client: j.client || b.client || "",
               location: j.location || b.location || "",
@@ -396,7 +417,6 @@ export default function TimesheetDetailPage() {
   }, [timesheet?.id]);
 
   /* ------------------------------ PRINT ----------------------------------- */
-
   const handlePrint = () => {
     if (typeof window === "undefined") return;
 
@@ -416,7 +436,6 @@ export default function TimesheetDetailPage() {
   };
 
   /* ------------------------------ APPROVE --------------------------------- */
-
   const handleApprove = async () => {
     if (!timesheet?.id) return;
     setApproving(true);
@@ -429,7 +448,6 @@ export default function TimesheetDetailPage() {
         approvedAt: serverTimestamp(),
       });
 
-      // optimistic local update
       setTimesheet((prev) =>
         prev
           ? {
@@ -440,7 +458,6 @@ export default function TimesheetDetailPage() {
           : prev
       );
 
-      // 🔒 Close all queries for this timesheet when approved
       try {
         const q = fsQuery(
           collection(db, "timesheetQueries"),
@@ -457,7 +474,6 @@ export default function TimesheetDetailPage() {
           )
         );
 
-        // Reload queries into local state so UI shows CLOSED
         const snap2 = await getDocs(q);
         setQueries(snap2.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (qErr) {
@@ -472,21 +488,15 @@ export default function TimesheetDetailPage() {
   };
 
   /* ------------------------------ QUERY ----------------------------------- */
-
   const handleSubmitQuery = async (e) => {
-    if (e && typeof e.preventDefault === "function") {
-      e.preventDefault();
-    }
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
     if (!timesheet?.id) return;
 
     setQueryError("");
     setQuerySuccess("");
 
-    // 🔒 Block sending new queries if timesheet is approved
     if (isApproved) {
-      setQueryError(
-        "This timesheet has been approved. You can no longer send new queries."
-      );
+      setQueryError("This timesheet has been approved. You can no longer send new queries.");
       return;
     }
 
@@ -514,7 +524,6 @@ export default function TimesheetDetailPage() {
         createdByRole: "manager",
       });
 
-      // reload queries list
       const q = fsQuery(
         collection(db, "timesheetQueries"),
         where("timesheetId", "==", timesheet.id)
@@ -536,14 +545,118 @@ export default function TimesheetDetailPage() {
   const resolveVehicle = (key) => {
     const raw = String(key ?? "").trim();
     if (!raw) return { name: "Vehicle", registration: "No Reg" };
-
     const found = vehicleLookup[raw];
     if (found) return found;
-
-    // If we don't have it in lookup, show the raw key but avoid "by id" feeling:
-    // treat it as name; reg unknown.
     return { name: raw, registration: "No Reg" };
   };
+
+  const weekStartDate = useMemo(
+    () => parseDateFlexible(timesheet?.weekStart),
+    [timesheet?.weekStart]
+  );
+
+  const dayMap = useMemo(() => normaliseDays(timesheet?.days), [timesheet?.days]);
+
+  // ✅ Build a stable 7-day render model + weekly total
+  const { dayCards, weeklyTotal } = useMemo(() => {
+    let total = 0;
+
+    const cards = DAYS.map((day) => {
+      const entry = dayMap?.[day] ?? null;
+      const isWeekend = day === "Saturday" || day === "Sunday";
+
+      const rawJobs = jobsByDay?.[day] || [];
+      const jobsToday = Array.isArray(rawJobs) ? rawJobs : [];
+      const hasJobs = jobsToday.length > 0;
+
+      // calendar date for this day (used to show holidays)
+      let ymdForDay = null;
+      if (weekStartDate) {
+        const dayIndex = DAYS.indexOf(day);
+        const dt = new Date(weekStartDate);
+        dt.setDate(dt.getDate() + dayIndex);
+        dt.setHours(0, 0, 0, 0);
+        ymdForDay = dt.toISOString().slice(0, 10);
+      }
+
+      const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
+      const hasLiveHoliday = holidayDocsForDay.length > 0;
+
+      const paidStatuses = Array.from(
+        new Set(
+          holidayDocsForDay
+            .map((h) => String(h.paidStatus || h.leaveType || "").trim())
+            .filter(Boolean)
+        )
+      );
+
+      let paidLabel = null;
+      if (paidStatuses.length === 1) paidLabel = paidStatuses[0];
+      else if (paidStatuses.length > 1) paidLabel = paidStatuses.join(" / ");
+
+      const entryExists = !!entry;
+
+      let mode = detectMode(entry, isWeekend);
+
+      // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
+      if ((mode === "holiday" || mode === "bankholiday") && !hasLiveHoliday) {
+        // Keep bankholiday if the timesheet explicitly says it (mobile locks it),
+        // but if your system relies on holiday collection only, you can remove this.
+        // For now, leave as-is if saved.
+      }
+
+      let dayHours = 0;
+      if (entryExists) {
+        if (mode === "yard") dayHours = computeYardHours(entry);
+        if (mode === "travel") dayHours = computeTravelHours(entry);
+        if (mode === "onset") dayHours = computeOnSetHours(entry);
+
+        // ✅ Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
+        if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
+
+        if (mode === "holiday" || mode === "bankholiday" || mode === "off") dayHours = 0;
+      }
+
+      total += dayHours;
+
+      const dayTotalLabel = formatHoursLabel(dayHours);
+      const precallLabel =
+        entryExists && entry?.precallDuration ? formatPrecallMinutes(entry.precallDuration) : "";
+
+      // For breakdown display in on-set
+      const travelToHrs = entryExists ? diffHours(entry?.leaveTime, entry?.arriveTime) : 0;
+      const onSetBlockHrs = entryExists ? diffHours(entry?.callTime, entry?.wrapTime) : 0;
+      const travelBackHrs = entryExists ? diffHours(entry?.wrapTime, entry?.arriveBack) : 0;
+
+      // Turnaround job (how mobile saves it)
+      const turnaroundJob = entryExists ? entry?.turnaroundJob || null : null;
+      const hasTurnaroundJob = !!turnaroundJob?.bookingId;
+
+      // Yard segments for UI (turnaround might have none)
+      const yardSegs = entryExists ? extractYardSegments(entry) : [];
+
+      return {
+        day,
+        entry,
+        entryExists,
+        jobsToday,
+        hasJobs,
+        mode,
+        hasLiveHoliday,
+        paidLabel,
+        dayTotalLabel,
+        precallLabel,
+        travelToHrs,
+        onSetBlockHrs,
+        travelBackHrs,
+        yardSegs,
+        turnaroundJob,
+        hasTurnaroundJob,
+      };
+    });
+
+    return { dayCards: cards, weeklyTotal: total };
+  }, [dayMap, jobsByDay, holidaysByDate, weekStartDate]);
 
   /* -------------------------------------------------------------------------- */
   /*                                   RENDER                                   */
@@ -567,10 +680,6 @@ export default function TimesheetDetailPage() {
     );
   }
 
-  const dayMap = normaliseDays(timesheet.days);
-  let weeklyTotal = 0;
-  const weekStartDate = parseDateFlexible(timesheet.weekStart);
-
   let statusLabel = "Draft (not submitted)";
   let badgeBg = "#fed7aa";
   let badgeBorder = "#fdba74";
@@ -588,10 +697,6 @@ export default function TimesheetDetailPage() {
     badgeBorder = "#22c55e";
     badgeColor = "#14532d";
   }
-
-  const queryDisabledReason = isApproved
-    ? "Timesheet approved – queries are read-only."
-    : "";
 
   return (
     <HeaderSidebarLayout>
@@ -613,6 +718,7 @@ export default function TimesheetDetailPage() {
             alignItems: "center",
             marginBottom: 16,
             gap: 12,
+            flexWrap: "wrap",
           }}
         >
           <button
@@ -628,7 +734,7 @@ export default function TimesheetDetailPage() {
             ← Back
           </button>
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               onClick={handlePrint}
               style={{
@@ -702,31 +808,18 @@ export default function TimesheetDetailPage() {
               justifyContent: "space-between",
               alignItems: "flex-start",
               marginBottom: 16,
+              gap: 12,
+              flexWrap: "wrap",
             }}
           >
             <div>
-              <h1
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  margin: 0,
-                  marginBottom: 4,
-                }}
-              >
+              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, marginBottom: 4 }}>
                 Timesheet — {timesheet.employeeName || timesheet.employeeCode}
               </h1>
-              <p
-                style={{
-                  color: "#4b5563",
-                  margin: 0,
-                  fontSize: 14,
-                }}
-              >
+              <p style={{ color: "#4b5563", margin: 0, fontSize: 14 }}>
                 Week starting{" "}
                 <strong>
-                  {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString(
-                    "en-GB"
-                  )}
+                  {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString("en-GB")}
                 </strong>
               </p>
             </div>
@@ -750,135 +843,54 @@ export default function TimesheetDetailPage() {
               </div>
               {timesheet.submittedAt && (
                 <div style={{ color: "#6b7280" }}>
-                  Submitted:{" "}
-                  {parseDateFlexible(timesheet.submittedAt)?.toLocaleString(
-                    "en-GB"
-                  )}
+                  Submitted: {parseDateFlexible(timesheet.submittedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
               {timesheet.approvedAt && (
                 <div style={{ color: "#15803d", marginTop: 2 }}>
-                  Approved:{" "}
-                  {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
+                  Approved: {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
             </div>
           </div>
 
-          {/* 7-day row */}
+          {/* 7-day grid */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(7, minmax(220px, 1fr))",
               gap: 12,
               alignItems: "stretch",
-              minHeight: "320px",
               fontSize: 14,
+              overflowX: "auto",
+              paddingBottom: 6,
             }}
           >
-            {DAYS.map((day) => {
-              const entry = dayMap[day];
-              const isWeekend = day === "Saturday" || day === "Sunday";
-              const rawJobs = jobsByDay[day] || [];
-              const jobsToday = Array.isArray(rawJobs) ? rawJobs : [];
-              const hasJobs = jobsToday.length > 0;
+            {dayCards.map((card) => {
+              const {
+                day,
+                entry,
+                entryExists,
+                jobsToday,
+                mode,
+                hasLiveHoliday,
+                paidLabel,
+                dayTotalLabel,
+                precallLabel,
+                travelToHrs,
+                onSetBlockHrs,
+                travelBackHrs,
+                yardSegs,
+                turnaroundJob,
+                hasTurnaroundJob,
+              } = card;
 
-              if (!entry && isWeekend)
-                return (
-                  <div
-                    key={day}
-                    style={{
-                      background: "#f9fafb",
-                      padding: 14,
-                      borderRadius: 10,
-                      border: "1px solid #e5e7eb",
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: 15,
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{day}</div>
-                    <div style={{ color: "#6b7280" }}>Day Off</div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isApproved) return;
-                        setShowQueryForm(true);
-                        setQueryDay(day);
-                      }}
-                      disabled={isApproved}
-                      title={isApproved ? queryDisabledReason : "Raise a query for this day"}
-                      style={{
-                        marginTop: "auto",
-                        alignSelf: "flex-start",
-                        fontSize: 11,
-                        padding: "4px 8px",
-                        borderRadius: 999,
-                        border: "1px dashed #9ca3af",
-                        background: "#f9fafb",
-                        cursor: isApproved ? "not-allowed" : "pointer",
-                        opacity: isApproved ? 0.5 : 1,
-                      }}
-                    >
-                      ❓ Query this day
-                    </button>
-                  </div>
-                );
+              const isHolidayCard = mode === "holiday" || mode === "bankholiday";
+              const isOffCard = mode === "off";
+              const isMissingCard = mode === "missing";
 
-              if (!entry) return null;
-
-              // work out the actual calendar date (Y-M-D) for this day
-              let ymdForDay = null;
-              if (weekStartDate) {
-                const dayIndex = DAYS.indexOf(day); // 0..6
-                const dt = new Date(weekStartDate);
-                dt.setDate(dt.getDate() + dayIndex);
-                dt.setHours(0, 0, 0, 0);
-                ymdForDay = dt.toISOString().slice(0, 10);
-              }
-
-              // live holiday docs for this date
-              const holidayDocsForDay = ymdForDay ? holidaysByDate[ymdForDay] || [] : [];
-              const hasLiveHoliday = holidayDocsForDay.length > 0;
-
-              // derive paid / unpaid / accrued label from holiday docs
-              const paidStatuses = Array.from(
-                new Set(
-                  holidayDocsForDay
-                    .map((h) => String(h.paidStatus || h.leaveType || "").trim())
-                    .filter(Boolean)
-                )
-              );
-
-              let paidLabel = null;
-              if (paidStatuses.length === 1) {
-                paidLabel = paidStatuses[0];
-              } else if (paidStatuses.length > 1) {
-                paidLabel = paidStatuses.join(" / ");
-              }
-
-              let mode = detectMode(entry, hasJobs, isWeekend);
-
-              // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
-              if (mode === "holiday" && !hasLiveHoliday) {
-                mode = isWeekend && !hasJobs ? "off" : "yard";
-              }
-
-              let dayHours = 0;
-              if (mode === "yard") dayHours = computeYardHours(entry);
-              if (mode === "travel") dayHours = computeTravelHours(entry);
-              if (mode === "onset") dayHours = computeOnSetHours(entry);
-
-              weeklyTotal += dayHours;
-              const dayTotalLabel = formatHoursLabel(dayHours);
-              const precallLabel = entry.precallDuration
-                ? formatPrecallMinutes(entry.precallDuration)
-                : "";
-
-              // For the breakdown (on-set)
-              const travelToHrs = diffHours(entry.leaveTime, entry.arriveTime);
-              const onSetBlockHrs = diffHours(entry.callTime, entry.wrapTime);
-              const travelBackHrs = diffHours(entry.wrapTime, entry.arriveBack);
+              const isTurnaroundCard = mode === "turnaround";
+              const hasTimeBlocks = Array.isArray(yardSegs) && yardSegs.length > 0;
 
               return (
                 <div
@@ -893,28 +905,20 @@ export default function TimesheetDetailPage() {
                     height: "100%",
                     boxSizing: "border-box",
                     fontSize: 15,
+                    minWidth: 220,
                   }}
                 >
                   {/* Day header */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "baseline",
-                      marginBottom: 6,
-                      gap: 4,
-                    }}
-                  >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6, gap: 6 }}>
                     <div style={{ fontWeight: 650 }}>{day}</div>
                     <button
                       type="button"
                       onClick={() => {
                         if (isApproved) return;
-                        setShowQueryForm(true);
                         setQueryDay(day);
                       }}
                       disabled={isApproved}
-                      title={isApproved ? queryDisabledReason : "Raise a query for this day"}
+                      title={isApproved ? "Timesheet approved – queries are read-only." : "Raise a query for this day"}
                       style={{
                         fontSize: 11,
                         padding: "2px 8px",
@@ -923,41 +927,64 @@ export default function TimesheetDetailPage() {
                         background: "#f3f4f6",
                         cursor: isApproved ? "not-allowed" : "pointer",
                         opacity: isApproved ? 0.5 : 1,
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      ❓ Query this day
+                      ❓ Query
                     </button>
                   </div>
 
-                  {/* HOLIDAY / OFF */}
-                  {mode === "holiday" && hasLiveHoliday && (
+                  {isMissingCard && (
+                    <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 8 }}>
+                      No entry submitted.
+                    </div>
+                  )}
+
+                  {/* ✅ TURNAROUND (matches mobile save schema) */}
+                  {isTurnaroundCard && (
+                    <div
+                      style={{
+                        background: "#f3e8ff",
+                        border: "1px solid #c4b5fd",
+                        color: "#6d28d9",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        fontWeight: 900,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Turnaround Day
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginTop: 2 }}>
+                        {hasTurnaroundJob
+                          ? `Turnaround for job: ${turnaroundJob.jobNumber || turnaroundJob.bookingId} — ${turnaroundJob.client || "Client"}`
+                          : "Turnaround for job: (not selected)"}
+                      </div>
+                      {hasTurnaroundJob && turnaroundJob.location ? (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginTop: 2 }}>
+                          {turnaroundJob.location}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* HOLIDAY / BANK HOLIDAY / OFF */}
+                  {isHolidayCard && (
                     <div style={{ fontWeight: 600 }}>
-                      <span style={{ color: "#007da3ff" }}>Holiday</span>
-                      {paidLabel && (
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color:
-                              paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
-                          }}
-                        >
+                      <span style={{ color: "#007da3ff" }}>
+                        {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
+                      </span>
+                      {hasLiveHoliday && paidLabel && (
+                        <span style={{ marginLeft: 6, color: paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8" }}>
                           ({paidLabel})
                         </span>
                       )}
                     </div>
                   )}
-                  {mode === "off" && <div style={{ color: "#6b7280" }}>Day Off</div>}
+                  {isOffCard && <div style={{ color: "#6b7280" }}>Day Off</div>}
 
-                  {/* JOB INFO (number, client, location, vehicles) */}
-                  {hasJobs && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
-                        marginBottom: 6,
-                      }}
-                    >
+                  {/* JOB INFO (still show jobs if they exist) */}
+                  {jobsToday.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
                       {jobsToday.map((job, idx) => (
                         <div
                           key={`${job.bookingId || job.id || idx}-${idx}`}
@@ -974,13 +1001,7 @@ export default function TimesheetDetailPage() {
                             </strong>
 
                             {job.client && (
-                              <span
-                                style={{
-                                  marginLeft: 6,
-                                  color: "#374151",
-                                  fontWeight: 500,
-                                }}
-                              >
+                              <span style={{ marginLeft: 6, color: "#374151", fontWeight: 500 }}>
                                 • {job.client}
                               </span>
                             )}
@@ -992,23 +1013,16 @@ export default function TimesheetDetailPage() {
                             )}
                           </div>
 
-                          {/* VEHICLES (always show Name + Reg, even if booking stores IDs) */}
                           {Array.isArray(job.vehicles) &&
                             job.vehicles.map((vKey, vIdx) => {
                               const v = resolveVehicle(vKey);
                               return (
                                 <div
                                   key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
-                                  style={{
-                                    color: "#047857",
-                                    fontWeight: 600,
-                                    fontSize: 14,
-                                  }}
+                                  style={{ color: "#047857", fontWeight: 600, fontSize: 14 }}
                                 >
                                   {v.name} —{" "}
-                                  <span style={{ fontWeight: 700 }}>
-                                    {v.registration || "No Reg"}
-                                  </span>
+                                  <span style={{ fontWeight: 700 }}>{v.registration || "No Reg"}</span>
                                 </div>
                               );
                             })}
@@ -1017,41 +1031,40 @@ export default function TimesheetDetailPage() {
                     </div>
                   )}
 
-                  {/* YARD */}
-                  {mode === "yard" && (
-                    <div style={{ fontSize: 14 }}>
-                      <div style={{ fontWeight: 600 }}>Yard:</div>
-                      {extractYardSegments(entry).map((seg, i) => (
+                  {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
+                  {entryExists && (mode === "yard" || (mode === "turnaround" && hasTimeBlocks)) && (
+                    <div style={{ fontSize: 14, marginTop: 2 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                        {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
+                      </div>
+                      {yardSegs.map((seg, i) => (
                         <div key={`${day}-seg-${i}`}>
                           {seg.start} → {seg.end}
                         </div>
                       ))}
-                      <div style={{ color: "#9ca3af", fontSize: 12 }}>(-0.5 hr lunch)</div>
+                      {mode === "yard" && (
+                        <div style={{ color: "#9ca3af", fontSize: 12 }}>(-0.5 hr lunch)</div>
+                      )}
                     </div>
                   )}
 
-                  {/* TRAVEL */}
-                  {mode === "travel" && (
+                  {/* Travel */}
+                  {entryExists && mode === "travel" && (
                     <div style={{ fontSize: 14 }}>
                       <div style={{ fontWeight: 600 }}>Travel:</div>
                       <div>
                         {entry.leaveTime ?? "—"} → {entry.arriveTime ?? "—"}
                       </div>
+                      {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>• Lunch (travel)</div> : null}
+                      {entry.travelPD ? <div>• PD</div> : null}
                     </div>
                   )}
 
-                  {/* ON-SET */}
-                  {mode === "onset" && (
+                  {/* On Set */}
+                  {entryExists && mode === "onset" && (
                     <div style={{ marginTop: 4, fontSize: 14 }}>
                       <div style={{ fontWeight: 600 }}>On Set:</div>
-                      <ul
-                        style={{
-                          marginTop: 4,
-                          marginLeft: 18,
-                          paddingLeft: 0,
-                          listStyle: "disc",
-                        }}
-                      >
+                      <ul style={{ marginTop: 4, marginLeft: 18, paddingLeft: 0, listStyle: "disc" }}>
                         {entry.leaveTime && <li>Leave: {entry.leaveTime}</li>}
                         {entry.arriveTime && <li>Arrive: {entry.arriveTime}</li>}
                         {precallLabel && <li>Pre-Call: {precallLabel}</li>}
@@ -1059,40 +1072,28 @@ export default function TimesheetDetailPage() {
                         {entry.wrapTime && <li>Wrap: {entry.wrapTime}</li>}
                         {entry.arriveBack && <li>Back: {entry.arriveBack}</li>}
                         {entry.overnight && <li>Overnight stay</li>}
-                        {entry.lunchSup && <li>Lunch supplied</li>}
+                        {entry.nightShoot && <li>Night shoot</li>}
+                        {/* mealSup on mobile means "no meal supplement offered" (your info text) */}
+                        {entry.mealSup && <li>Meal supplement claimed</li>}
                       </ul>
 
-                      {/* Numeric breakdown for on-set */}
                       <div style={{ marginTop: 2 }}>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>Breakdown:</div>
-                        <div style={{ fontSize: 13 }}>
-                          Travel to: {formatHoursLabel(travelToHrs)}
-                        </div>
-                        <div style={{ fontSize: 13 }}>
-                          On set: {formatHoursLabel(onSetBlockHrs)}
-                        </div>
-                        <div style={{ fontSize: 13 }}>
-                          Travel back: {formatHoursLabel(travelBackHrs)}
-                        </div>
+                        <div style={{ fontSize: 13 }}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        <div style={{ fontSize: 13 }}>On set: {formatHoursLabel(onSetBlockHrs)}</div>
+                        <div style={{ fontSize: 13 }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
                       </div>
                     </div>
                   )}
 
                   {/* NOTES */}
-                  {entry.dayNotes && (
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 13,
-                        color: "#4b5563",
-                        fontStyle: "italic",
-                      }}
-                    >
+                  {entryExists && entry?.dayNotes && (
+                    <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563", fontStyle: "italic" }}>
                       📝 {entry.dayNotes}
                     </div>
                   )}
 
-                  {/* Daily total at bottom, with compact gap above */}
+                  {/* Daily total */}
                   <div
                     style={{
                       marginTop: "auto",
@@ -1103,8 +1104,7 @@ export default function TimesheetDetailPage() {
                       textAlign: "right",
                     }}
                   >
-                    Daily total:{" "}
-                    <strong style={{ fontWeight: 700 }}>{dayTotalLabel}</strong>
+                    Daily total: <strong style={{ fontWeight: 700 }}>{dayTotalLabel}</strong>
                   </div>
                 </div>
               );
@@ -1121,7 +1121,6 @@ export default function TimesheetDetailPage() {
               alignItems: "stretch",
             }}
           >
-            {/* General Notes */}
             <div
               style={{
                 background: "#f9fafb",
@@ -1132,12 +1131,9 @@ export default function TimesheetDetailPage() {
               }}
             >
               <div style={{ fontWeight: 600, marginBottom: 4 }}>General Notes</div>
-              <div style={{ color: "#4b5563", minHeight: 24 }}>
-                {timesheet.notes || "—"}
-              </div>
+              <div style={{ color: "#4b5563", minHeight: 24 }}>{timesheet.notes || "—"}</div>
             </div>
 
-            {/* Weekly total */}
             <div
               style={{
                 background: "#020617",
@@ -1152,14 +1148,7 @@ export default function TimesheetDetailPage() {
                 fontWeight: 700,
               }}
             >
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  opacity: 0.8,
-                  marginBottom: 4,
-                }}
-              >
+              <div style={{ fontSize: 13, fontWeight: 500, opacity: 0.8, marginBottom: 4 }}>
                 Weekly total
               </div>
               <div>{formatHoursLabel(weeklyTotal)}</div>
@@ -1167,7 +1156,7 @@ export default function TimesheetDetailPage() {
           </div>
         </div>
 
-        {/* MANAGER ACTIONS (NOT PRINTED) */}
+        {/* MANAGER QUERIES */}
         <div
           style={{
             marginTop: 16,
@@ -1182,12 +1171,6 @@ export default function TimesheetDetailPage() {
           <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, marginBottom: 8 }}>
             Manager queries
           </h2>
-          <p style={{ margin: 0, marginBottom: 10, color: "#4b5563" }}>
-            Select a day from the grid above (
-            <span style={{ fontStyle: "italic" }}>“❓ Query this day”</span>) to
-            raise a query. This will create a record against the timesheet which
-            can be shown in the employee app and used to trigger a notification.
-          </p>
 
           {isApproved && (
             <div
@@ -1201,8 +1184,8 @@ export default function TimesheetDetailPage() {
                 fontSize: 12,
               }}
             >
-              This timesheet is approved. Queries are now read-only – you can
-              review existing queries but cannot send new ones.
+              This timesheet is approved. Queries are now read-only – you can review existing
+              queries but cannot send new ones.
             </div>
           )}
 
@@ -1316,11 +1299,7 @@ export default function TimesheetDetailPage() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {isApproved
-                  ? "Queries closed"
-                  : querySubmitting
-                  ? "Sending…"
-                  : "Send query to employee"}
+                {isApproved ? "Queries closed" : querySubmitting ? "Sending…" : "Send query to employee"}
               </button>
             </div>
           </form>
@@ -1356,7 +1335,6 @@ export default function TimesheetDetailPage() {
             </div>
           )}
 
-          {/* Existing queries list */}
           {queries.length > 0 && (
             <div style={{ marginTop: 8, borderTop: "1px solid #e5e7eb", paddingTop: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
@@ -1409,7 +1387,6 @@ export default function TimesheetDetailPage() {
                     </div>
                     <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.note}</div>
 
-                    {/* INLINE MESSAGE THREAD FOR THIS QUERY */}
                     <QueryMessageThread query={q} />
                   </li>
                 ))}
