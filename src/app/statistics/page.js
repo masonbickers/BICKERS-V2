@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -78,6 +77,12 @@ const parseDate = (raw) => {
   if (!raw) return null;
   try {
     if (typeof raw?.toDate === "function") return raw.toDate(); // Firestore Timestamp
+
+    // ✅ safer parse for YYYY-MM-DD (avoid BST off-by-one)
+    if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      return new Date(`${raw}T00:00:00.000Z`);
+    }
+
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
   } catch {
@@ -276,14 +281,13 @@ const toEquipmentTokens = (equipment) => {
 };
 
 /* ───────────────────────────────────────────
-   Hotel helpers (✅ new)
+   Hotel helpers (✅ updated: paidBy support)
 ─────────────────────────────────────────── */
 const num = (v) => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   const s = String(v ?? "").trim();
   if (!s) return 0;
-  // strip currency + spaces; handle commas
-  const cleaned = s.replace(/[£$,]/g, "").replace(/\s+/g, "");
+  const cleaned = s.replace(/[£$,]/g, "").replace(/\s+/g, "").replace(/,/g, ".");
   const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : 0;
 };
@@ -300,7 +304,11 @@ const gbp = (v) =>
 
 // Pull hotel info robustly from different field names
 const getHotelForJob = (job = {}) => {
-  const hasHotel = !!job.hasHotel || !!job.hotel || !!job.hotelRequired;
+  const hasHotelFlag = !!job.hasHotel || !!job.hotel || !!job.hotelRequired;
+
+  const paidByRaw = String(job.hotelPaidBy ?? job.hotelPaid ?? job.hotelPayer ?? "").trim();
+  const paidBy = paidByRaw || "Unknown";
+  const isProductionPaid = paidBy.toLowerCase() === "production";
 
   const costPerNight = num(
     job.hotelCostPerNight ??
@@ -321,10 +329,15 @@ const getHotelForJob = (job = {}) => {
   const hasAnyNumber = costPerNight > 0 || nights > 0 || total > 0;
 
   return {
-    hasHotel: hasHotel || hasAnyNumber,
+    hasHotel: hasHotelFlag || hasAnyNumber,
+    paidBy,
+    isProductionPaid,
     costPerNight,
     nights,
-    total,
+    // ✅ analytics total: exclude production-paid spend
+    total: isProductionPaid ? 0 : total,
+    // optional: raw total if you ever want to show "production-paid total"
+    rawTotal: total,
   };
 };
 
@@ -701,14 +714,20 @@ export default function StatisticsPage() {
     return { totalShootDays, thisMonth, avgPerMonth, monthsWithDataCount: monthsWithData.length };
   }, [jobsFiltered, todayMidnight]);
 
-  /* ✅ NEW: Hotel KPIs + hotel cost per month */
+  /* ✅ UPDATED: Hotel KPIs + hotel cost per month (paidBy aware) */
   const hotelStats = useMemo(() => {
     let hotelJobs = 0;
     let hotelNights = 0;
+
+    // Cost totals ONLY include non-production-paid (Bickers/Unknown)
     let totalHotelCost = 0;
 
-    const monthCost = new Map(); // yyyy-mm -> £
-    const monthNights = new Map();
+    // Optional splits (useful context)
+    let productionPaidHotelJobs = 0;
+    let productionPaidHotelNights = 0;
+
+    const monthCost = new Map(); // yyyy-mm -> £ (non-production-paid only)
+    const monthNights = new Map(); // nights for non-production-paid only
 
     for (const j of jobsFiltered) {
       const h = getHotelForJob(j);
@@ -716,20 +735,30 @@ export default function StatisticsPage() {
 
       hotelJobs += 1;
       hotelNights += h.nights || 0;
+
+      if (h.isProductionPaid) {
+        productionPaidHotelJobs += 1;
+        productionPaidHotelNights += h.nights || 0;
+      }
+
+      // Only count spend if NOT production paid
       totalHotelCost += h.total || 0;
 
-      // Assign hotel cost to the month of the FIRST job date (keeps it simple/consistent)
+      // Assign hotel cost to month of FIRST job date (simple/consistent)
       const ds = normaliseJobDates(j);
       const anchor = ds[0] || parseDate(j.startDate) || parseDate(j.date) || parseDate(j.createdAt) || null;
-      if (anchor) {
+      if (anchor && !h.isProductionPaid) {
         const key = yyyymm(anchor);
         if (h.total) inc(monthCost, key, h.total);
         if (h.nights) inc(monthNights, key, h.nights);
       }
     }
 
-    const avgPerHotelJob = hotelJobs ? totalHotelCost / hotelJobs : 0;
-    const avgPerNight = hotelNights ? totalHotelCost / hotelNights : 0;
+    const payableHotelJobs = hotelJobs - productionPaidHotelJobs;
+    const payableHotelNights = hotelNights - productionPaidHotelNights;
+
+    const avgPerHotelJob = payableHotelJobs ? totalHotelCost / payableHotelJobs : 0;
+    const avgPerNight = payableHotelNights ? totalHotelCost / payableHotelNights : 0;
 
     const monthKeyNow = yyyymm(todayMidnight);
     const thisMonthCost = monthCost.get(monthKeyNow) || 0;
@@ -748,6 +777,10 @@ export default function StatisticsPage() {
       thisMonthCost,
       thisMonthNights,
       costSeries,
+      productionPaidHotelJobs,
+      productionPaidHotelNights,
+      payableHotelJobs,
+      payableHotelNights,
     };
   }, [jobsFiltered, todayMidnight]);
 
@@ -1020,18 +1053,18 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date ≥ today</div>
             </div>
 
-            {/* ✅ NEW: Hotel total cost */}
+            {/* ✅ UPDATED: Hotel cost excludes Production-paid */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
-              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost</div>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
-                {hotelStats.hotelJobs} job(s) • {hotelStats.hotelNights} night(s)
+                {hotelStats.payableHotelJobs} job(s) • {hotelStats.payableHotelNights} night(s)
               </div>
             </div>
 
-            {/* ✅ NEW: Avg hotel / night */}
+            {/* ✅ UPDATED: Avg hotel / night payable */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
-              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night</div>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
                 This month: <b>{gbp(hotelStats.thisMonthCost)}</b> ({hotelStats.thisMonthNights} nights)
@@ -1072,7 +1105,11 @@ export default function StatisticsPage() {
                 Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
               </span>
               <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
-                Avg hotel / job: <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
+                Avg hotel / job (payable): <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
+              </span>
+              {/* ✅ NEW tiny split line (keeps rest the same, just more clarity) */}
+              <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
+                Production-paid: <b style={{ marginLeft: 6 }}>{hotelStats.productionPaidHotelNights}</b> nights
               </span>
             </div>
           </div>
@@ -1094,11 +1131,11 @@ export default function StatisticsPage() {
           />
         </div>
 
-        {/* ✅ NEW: Hotel cost chart */}
+        {/* ✅ UPDATED: Hotel cost chart shows payable only */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart
-            title="Hotel cost per month"
-            subtitle="Cost is taken from hotelTotal where available, else costPerNight × nights"
+            title="Hotel cost per month (payable)"
+            subtitle="Excludes Production-paid; uses hotelTotal, else costPerNight × nights"
             data={hotelStats.costSeries}
             rightLabel="£"
             valueFormatter={(v) => gbp(v)}
@@ -1129,6 +1166,10 @@ export default function StatisticsPage() {
               We treat a booking as having a hotel if <span style={mono}>hasHotel</span> is true, or if we can find any
               of: <span style={mono}>hotelTotal</span>, <span style={mono}>hotelCostPerNight</span>,{" "}
               <span style={mono}>hotelNights</span> (plus common aliases).
+              <br />
+              <br />
+              If <span style={mono}>hotelPaidBy</span> is <b>Production</b>, we still count hotel jobs/nights, but we{" "}
+              <b>exclude the £ cost</b> from payable totals and charts.
               <br />
               <br />
               Monthly hotel cost is assigned to the month of the job’s <b>first date</b> (simple & consistent).
@@ -1175,4 +1216,3 @@ export default function StatisticsPage() {
     </HeaderSidebarLayout>
   );
 }
-

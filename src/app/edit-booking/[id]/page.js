@@ -434,6 +434,7 @@ export default function EditBookingPage() {
 
   // ✅ Hotel details
   const [hasHotel, setHasHotel] = useState(false);
+  const [hotelPaidBy, setHotelPaidBy] = useState("Bickers"); // ✅ NEW: who paid
   const [hotelCostPerNight, setHotelCostPerNight] = useState("");
   const [hotelNights, setHotelNights] = useState("");
   const [isSecondPencil, setIsSecondPencil] = useState(false);
@@ -517,15 +518,19 @@ export default function EditBookingPage() {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [hotelNights]);
 
+  // ✅ UPDATED: cost is OPTIONAL (blank => null)
   const hotelCostPerNightNum = useMemo(() => {
     const raw = String(hotelCostPerNight || "").replace(/,/g, ".").trim();
+    if (!raw) return null;
     const n = parseFloat(raw);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
+    return Number.isFinite(n) && n >= 0 ? n : null;
   }, [hotelCostPerNight]);
 
+  // ✅ UPDATED: total only when cost exists
   const hotelTotal = useMemo(() => {
-    if (!hasHotel) return 0;
-    if (!hotelNightsNum || !hotelCostPerNightNum) return 0;
+    if (!hasHotel) return null;
+    if (!hotelNightsNum) return null;
+    if (hotelCostPerNightNum == null) return null;
     return Math.round(hotelNightsNum * hotelCostPerNightNum * 100) / 100;
   }, [hasHotel, hotelNightsNum, hotelCostPerNightNum]);
 
@@ -1021,6 +1026,7 @@ export default function EditBookingPage() {
 
       // ✅ Hotel load
       setHasHotel(!!b.hasHotel);
+      setHotelPaidBy(b.hotelPaidBy || "Bickers"); // ✅ NEW: load paid by
       const loadedHotelCost =
         b.hotelCostPerNight ??
         b.hotelCost ??
@@ -1127,12 +1133,22 @@ export default function EditBookingPage() {
         return alert("Please enter the 'Other' reason.");
     }
 
-    // ✅ Hotel validation
+    // ✅ UPDATED Hotel validation:
+    // - nights required
+    // - cost optional (blank allowed)
     if (hasHotel) {
       const nights = parseInt(String(hotelNights || "").trim(), 10);
-      const cost = parseFloat(String(hotelCostPerNight || "").replace(/,/g, ".").trim());
-      if (!Number.isFinite(nights) || nights <= 0) return alert("Hotel: please enter a valid number of nights.");
-      if (!Number.isFinite(cost) || cost < 0) return alert("Hotel: please enter a valid cost per night.");
+      if (!Number.isFinite(nights) || nights <= 0) {
+        return alert("Hotel: please enter a valid number of nights.");
+      }
+
+      const rawCost = String(hotelCostPerNight || "").replace(/,/g, ".").trim();
+      if (rawCost) {
+        const cost = parseFloat(rawCost);
+        if (!Number.isFinite(cost) || cost < 0) {
+          return alert("Hotel: please enter a valid cost per night (or leave blank).");
+        }
+      }
     }
 
     const customNames = customEmployee
@@ -1278,14 +1294,16 @@ export default function EditBookingPage() {
 
     const user = auth.currentUser;
 
-    // ✅ Hotel payload fields
+    // ✅ UPDATED Hotel payload fields (cost/total can be null)
     const hotelPayload = hasHotel
       ? {
+          hotelPaidBy: hotelPaidBy || "Unknown",
           hotelCostPerNight: hotelCostPerNightNum,
           hotelNights: hotelNightsNum,
           hotelTotal: hotelTotal,
         }
       : {
+          hotelPaidBy: null,
           hotelCostPerNight: null,
           hotelNights: null,
           hotelTotal: null,
@@ -1422,14 +1440,13 @@ export default function EditBookingPage() {
                   <div style={card}>
                     <h3 style={cardTitle}>Job Info</h3>
 
-         <label style={field.label}>Job Number</label>
-<input
-  value={jobNumber}
-  onChange={(e) => setJobNumber(e.target.value)}
-  placeholder="Enter job number"
-  style={field.input}
-/>
-
+                    <label style={field.label}>Job Number</label>
+                    <input
+                      value={jobNumber}
+                      onChange={(e) => setJobNumber(e.target.value)}
+                      style={field.input}
+                      placeholder="Enter job number"
+                    />
 
                     <label style={field.label}>Status</label>
                     <select
@@ -2383,16 +2400,16 @@ export default function EditBookingPage() {
                     <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 12, background: UI.bgAlt, marginBottom: 10 }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                         <div>
-                          <label style={field.label}>Cost per night</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={hotelCostPerNight}
-                            onChange={(e) => setHotelCostPerNight(e.target.value)}
+                          <label style={field.label}>Paid by</label>
+                          <select
+                            value={hotelPaidBy}
+                            onChange={(e) => setHotelPaidBy(e.target.value)}
                             style={field.input}
-                            placeholder="e.g. 165"
-                          />
+                          >
+                            <option value="Bickers">Bickers</option>
+                            <option value="Production">Production</option>
+                            <option value="Unknown">Unknown</option>
+                          </select>
                         </div>
 
                         <div>
@@ -2407,10 +2424,27 @@ export default function EditBookingPage() {
                             placeholder="e.g. 2"
                           />
                         </div>
+
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={field.label}>Cost per night (optional)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={hotelCostPerNight}
+                            onChange={(e) => setHotelCostPerNight(e.target.value)}
+                            style={field.input}
+                            placeholder="Leave blank if production paid"
+                          />
+                        </div>
                       </div>
 
                       <div style={{ marginTop: 10, fontSize: 13, color: UI.muted }}>
-                        Total: <strong style={{ color: UI.text }}>£{hotelTotal.toFixed(2)}</strong>
+                        Total:{" "}
+                        <strong style={{ color: UI.text }}>
+                          {hotelTotal == null ? "—" : `£${hotelTotal.toFixed(2)}`}
+                        </strong>
+                        {hotelPaidBy === "Production" ? " (paid by production)" : ""}
                       </div>
                     </div>
                   )}
