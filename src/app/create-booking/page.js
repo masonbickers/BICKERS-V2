@@ -380,6 +380,10 @@ export default function CreateBookingPage() {
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
 
+  // ✅ NEW: crew requirement (how many crew must be allocated before "Crewed" becomes true)
+  // If set to 0, auto-crewing is disabled and the checkbox can be used manually.
+  const [requiredCrewCount, setRequiredCrewCount] = useState(1);
+
   // Employees
   const [employees, setEmployees] = useState([]); // [{role,name}]
   const [employeesByDate, setEmployeesByDate] = useState({});
@@ -463,6 +467,33 @@ export default function CreateBookingPage() {
     : !coreFilled
     ? "Fill Production and Location to save"
     : "";
+
+  /* ────────────────────────────────────────────────────────────
+     ✅ NEW: auto-crewing logic
+     - Counts allocated crew (selected employees + custom names, excluding "Other")
+     - When allocated >= requiredCrewCount => isCrewed becomes true (unless requiredCrewCount = 0)
+  ───────────────────────────────────────────────────────────── */
+  const allocatedCrewCount = useMemo(() => {
+    const selectedCount = employees.filter((e) => e?.name && e.name !== "Other").length;
+
+    const customNames = customEmployee
+      ? customEmployee
+          .split(",")
+          .map((n) => n.trim())
+          .filter(Boolean)
+      : [];
+
+    // Note: custom names are only intended if "Other" was selected, but counting them is fine either way.
+    return selectedCount + customNames.length;
+  }, [employees, customEmployee]);
+
+  useEffect(() => {
+    const req = Number(requiredCrewCount);
+    if (Number.isFinite(req) && req > 0) {
+      setIsCrewed(allocatedCrewCount >= req);
+    }
+    // if req === 0 => manual mode, don't auto-toggle isCrewed
+  }, [allocatedCrewCount, requiredCrewCount]);
 
   /* ────────────────────────────────────────────────────────────
      Load all data
@@ -972,6 +1003,11 @@ export default function CreateBookingPage() {
 
     const user = auth.currentUser;
 
+    // ✅ Compute final crewed flag at save-time as well (in case requiredCrewCount > 0)
+    const req = Number(requiredCrewCount);
+    const allocatedAtSave = cleanedEmployees.length; // cleaned employees already includes custom names
+    const isCrewedAtSave = Number.isFinite(req) && req > 0 ? allocatedAtSave >= req : isCrewed;
+
     const payload = {
       jobNumber,
       client,
@@ -986,10 +1022,14 @@ export default function CreateBookingPage() {
       equipment,
 
       isSecondPencil,
-      isCrewed,
+      isCrewed: isCrewedAtSave,
       hasHS,
       hasRiskAssessment,
       notes,
+
+      // ✅ NEW fields stored
+      requiredCrewCount: Number.isFinite(req) ? req : 0,
+      allocatedCrewCount: allocatedAtSave,
 
       notesByDate: filteredNotesByDate,
       status,
@@ -1438,7 +1478,9 @@ export default function CreateBookingPage() {
                   const isBooked = isEmployeeBooked(name);
                   const isHeld = isEmployeeHeld(name);
                   const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
-                  const disabled = (isBooked || isHoliday || isCrewed) && !isSelected;
+
+                  // ✅ changed: do NOT block selection just because booking is crewed.
+                  const disabled = (isBooked || isHoliday) && !isSelected;
 
                   return (
                     <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
@@ -1466,10 +1508,53 @@ export default function CreateBookingPage() {
                   );
                 })}
 
-                <div style={{ marginTop: 8, marginBottom: 8 }}>
-                  <label style={{ fontWeight: 700 }}>
-                    <input type="checkbox" checked={isCrewed} onChange={(e) => setIsCrewed(e.target.checked)} /> Booking Crewed
-                  </label>
+                {/* ✅ NEW: required crew selector + auto crewed indicator */}
+                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
+                    <div>
+                      <label style={{ ...field.label, marginBottom: 6 }}>Crew required to mark as “Crewed”</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={requiredCrewCount}
+                        onChange={(e) => {
+                          const v = Math.max(0, parseInt(e.target.value || "0", 10));
+                          setRequiredCrewCount(Number.isFinite(v) ? v : 0);
+                        }}
+                        style={field.input}
+                      />
+                      <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
+                        Set to <b>0</b> to disable auto-crewing and use the checkbox manually.
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, color: UI.muted }}>Allocated crew</div>
+                      <div style={{ fontSize: 18, fontWeight: 800 }}>
+                        {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
+                      </div>
+                      <div style={{ fontSize: 12, color: isCrewed ? "#16a34a" : "#b45309", fontWeight: 700 }}>
+                        {Number(requiredCrewCount) > 0 ? (isCrewed ? "Crewed ✓" : "Not crewed yet") : isCrewed ? "Crewed ✓ (manual)" : "Not crewed (manual)"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ fontWeight: 700 }}>
+                      <input
+                        type="checkbox"
+                        checked={isCrewed}
+                        onChange={(e) => {
+                          // manual mode only when requiredCrewCount === 0
+                          if (Number(requiredCrewCount) === 0) setIsCrewed(e.target.checked);
+                        }}
+                        disabled={Number(requiredCrewCount) > 0}
+                      />{" "}
+                      Booking Crewed
+                      {Number(requiredCrewCount) > 0 && <span style={{ color: UI.muted, fontWeight: 600 }}> (auto)</span>}
+                    </label>
+                  </div>
                 </div>
 
                 <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
@@ -1847,6 +1932,15 @@ export default function CreateBookingPage() {
                 <div style={summaryRow}>
                   <div>Freelancers</div>
                   <div>{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "—"}</div>
+                </div>
+
+                <div style={summaryRow}>
+                  <div>Crewing</div>
+                  <div>
+                    {Number(requiredCrewCount) > 0
+                      ? `Allocated ${allocatedCrewCount} / Required ${requiredCrewCount} • ${isCrewed ? "Crewed ✓" : "Not crewed"}`
+                      : `Manual • ${isCrewed ? "Crewed ✓" : "Not crewed"}`}
+                  </div>
                 </div>
 
                 <div style={summaryRow}>

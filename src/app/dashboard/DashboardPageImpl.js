@@ -201,6 +201,7 @@ const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" }
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
   Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
+  Stunt: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
   "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
   "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
   Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
@@ -322,9 +323,10 @@ const ymdKey = (d) => {
 // ✅ Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
 const ensureCallTimesByDate = (booking) => {
   const map = {};
-  const src = booking?.callTimesByDate && typeof booking.callTimesByDate === "object"
-    ? booking.callTimesByDate
-    : {};
+  const src =
+    booking?.callTimesByDate && typeof booking.callTimesByDate === "object"
+      ? booking.callTimesByDate
+      : {};
 
   // copy + normalise existing per-day
   Object.keys(src || {}).forEach((k) => {
@@ -413,8 +415,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     const startBase = parseLocalDate(b.startDate || b.date);
     const endRaw = b.endDate || b.date || b.startDate;
     const endBase = parseLocalDate(endRaw);
-    const safeEnd =
-      endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
+    const safeEnd = endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
 
     // ✅ ensure per-day call times exist even for single-day / recce-day
     const ctByDate = ensureCallTimesByDate(b);
@@ -543,6 +544,47 @@ const formatCrew = (employees) => {
     .join(", ");
 };
 
+// ✅ NEW: get crew needed / required (supports multiple field names + role arrays)
+const getCrewNeeded = (bookingOrEvent) => {
+  const b = bookingOrEvent || {};
+
+  const tryNum = (v) => {
+    if (v === null || v === undefined) return null;
+    const n = typeof v === "number" ? v : Number(String(v).trim());
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  // Common numeric fields you might have stored
+  const direct =
+    tryNum(b.crewNeeded) ??
+    tryNum(b.crewRequired) ??
+    tryNum(b.crewCount) ??
+    tryNum(b.numberOfCrew) ??
+    tryNum(b.crewSize) ??
+    tryNum(b.requiredCrewCount) ??
+    tryNum(b.requiredCrew) ??
+    null;
+
+  if (direct !== null) return direct;
+
+  // If you store "roles needed" as arrays/objects
+  const rolesArr =
+    (Array.isArray(b.crewRolesNeeded) && b.crewRolesNeeded) ||
+    (Array.isArray(b.rolesNeeded) && b.rolesNeeded) ||
+    (Array.isArray(b.requiredRoles) && b.requiredRoles) ||
+    null;
+
+  if (rolesArr && rolesArr.length) return rolesArr.length;
+
+  // If you store crewRequirements as object map { role: qty }
+  if (b.crewRequirements && typeof b.crewRequirements === "object" && !Array.isArray(b.crewRequirements)) {
+    const sum = Object.values(b.crewRequirements).reduce((acc, v) => acc + (tryNum(v) || 0), 0);
+    if (Number.isFinite(sum) && sum > 0) return sum;
+  }
+
+  return null;
+};
+
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
 function CalendarEvent({ event }) {
   const router = useRouter();
@@ -571,6 +613,12 @@ function CalendarEvent({ event }) {
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh"].includes(bookingStatusLC);
 
   const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
+
+  // ✅ NEW: crew needed for this job
+  const crewNeeded = useMemo(() => getCrewNeeded(event), [event]);
+
+  // ✅ NEW: "Crewed" handling (no crew-needed counts once crewed)
+  const isCrewed = !isMaintenance && !!event.isCrewed;
 
   return (
     <div
@@ -638,19 +686,35 @@ function CalendarEvent({ event }) {
                   {event.status}
                 </span>
 
-                {!isMaintenance && event.isCrewed && (
+                {/* ✅ UPDATED: if crewed, show "CREWED" only (no crew needed counts) */}
+                {isCrewed && (
                   <span
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
                       fontSize: "0.7rem",
-                      fontWeight: 800,
+                      fontWeight: 900,
                       color: "#111",
                       marginTop: -2,
                     }}
                   >
-                    <Check size={12} strokeWidth={3} /> Crew
+                    <Check size={12} strokeWidth={3} /> CREWED
+                  </span>
+                )}
+
+                {/* ✅ UPDATED: only show crew needed badge when NOT crewed */}
+                {!isMaintenance && !isCrewed && crewNeeded !== null && (
+                  <span
+                    style={{
+                      fontSize: "0.68rem",
+                      fontWeight: 900,
+                      color: "#111",
+                      marginTop: -2,
+                    }}
+                    title="Crew needed for this job"
+                  >
+                    {`Crew Needed: ${crewNeeded}`}
                   </span>
                 )}
               </div>
@@ -1766,17 +1830,19 @@ export default function DashboardPage({ bookingSaved }) {
 
                 const status = event.status || "Confirmed";
 
-                let bg =
-                  {
-                    Confirmed: "#f3f970",
-                    "First Pencil": "#89caf5",
-                    "Second Pencil": "#f73939",
-                    Holiday: "#d3d3d3",
-                    Maintenance: "#da8e58ff",
-                    Complete: "#92d18cff",
-                    "Action Required": "#FF973B",
-                    DNH: "#c2c2c2",
-                  }[status] || "#ccc";
+              let bg =
+  {
+    Confirmed: "#f3f970",
+    Stunt: "#fcffb9", // ✅ NEW: Stunt same yellow as Confirmed
+    "First Pencil": "#89caf5",
+    "Second Pencil": "#f73939",
+    Holiday: "#d3d3d3",
+    Maintenance: "#da8e58ff",
+    Complete: "#92d18cff",
+    "Action Required": "#FF973B",
+    DNH: "#c2c2c2",
+  }[status] || "#ccc";
+
 
                 let text = bg === "#f3f970" || bg === "#d3d3d3" ? "#111" : "#fff";
 
@@ -1785,8 +1851,7 @@ export default function DashboardPage({ bookingSaved }) {
                   risky = getVehicleRisk(event.vehicles).risky;
                 }
 
-       if (risky) {
-
+                if (risky) {
                 }
 
                 const shoot = String(event.shootType || "").toLowerCase();
@@ -2086,11 +2151,12 @@ export default function DashboardPage({ bookingSaved }) {
             <div style={tableWrap}>
               <table style={table}>
                 <colgroup>
-                  <col style={{ width: "16%" }} />
                   <col style={{ width: "14%" }} />
-                  <col style={{ width: "22%" }} />
-                  <col style={{ width: "22%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "20%" }} />
                   <col style={{ width: "18%" }} />
+                  <col style={{ width: "8%" }} />
                   <col style={{ width: "8%" }} />
                 </colgroup>
                 <thead>
@@ -2100,47 +2166,65 @@ export default function DashboardPage({ bookingSaved }) {
                     <th style={th}>Production</th>
                     <th style={th}>Location</th>
                     <th style={th}>Crew</th>
+                    <th style={th}>Crew Needed</th>
                     <th style={th}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {todaysJobs.map((b, i) => (
-                    <tr
-                      key={i}
-                      style={{
-                        background: i % 2 === 0 ? "#fff" : "#fafafa",
-                        transition: "background-color .15s ease",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
-                      }
-                    >
-                      <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
-                      <td style={td}>{b.jobNumber}</td>
-                      <td style={td}>{b.client || "—"}</td>
-                      <td style={td}>{b.location || "—"}</td>
-                      <td style={td}>
-                        {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "—"}
-                      </td>
-                      <td style={td}>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <button onClick={() => setSelectedBookingId(b.id)} style={btn("ghost")} type="button">
-                            View
-                          </button>
-                          <button
-                            onClick={() => goToEditBooking(b.id)}
-                            style={isRestricted ? btnDisabled(btn()) : btn()}
-                            aria-disabled={isRestricted}
-                            title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
-                            type="button"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {todaysJobs.map((b, i) => {
+                    const crewNeeded = getCrewNeeded(b);
+                    const isCrewed = !!b.isCrewed;
+
+                    return (
+                      <tr
+                        key={i}
+                        style={{
+                          background: i % 2 === 0 ? "#fff" : "#fafafa",
+                          transition: "background-color .15s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
+                        }
+                      >
+                        <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
+                        <td style={td}>{b.jobNumber}</td>
+                        <td style={td}>{b.client || "—"}</td>
+                        <td style={td}>{b.location || "—"}</td>
+                        <td style={td}>
+                          {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "—"}
+                        </td>
+
+                        {/* ✅ UPDATED: if crewed, show "Crewed" and hide counts */}
+                        <td style={td}>
+                          {isCrewed ? (
+                            <span style={{ fontWeight: 900 }}>Crewed</span>
+                          ) : crewNeeded === null ? (
+                            "—"
+                          ) : (
+                            crewNeeded
+                          )}
+                        </td>
+
+                        <td style={td}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button onClick={() => setSelectedBookingId(b.id)} style={btn("ghost")} type="button">
+                              View
+                            </button>
+                            <button
+                              onClick={() => goToEditBooking(b.id)}
+                              style={isRestricted ? btnDisabled(btn()) : btn()}
+                              aria-disabled={isRestricted}
+                              title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
