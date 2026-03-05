@@ -220,6 +220,8 @@ const getHotel = (b = {}) => {
   return { hasHotel, cost, nights, total };
 };
 
+const DELETE_REASON_OPTIONS = ["Cost", "Weather", "Competitor", "DNH", "Other"];
+
 export default function ViewBookingModal({
   id,
   onClose,
@@ -228,6 +230,8 @@ export default function ViewBookingModal({
 }) {
   const [booking, setBooking] = useState(null);
   const [allVehicles, setAllVehicles] = useState([]);
+  const [deleteReasons, setDeleteReasons] = useState([]);
+  const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -349,6 +353,15 @@ export default function ViewBookingModal({
   const hotel = getHotel(booking || {});
 
   const handleDelete = async () => {
+    if (!deleteReasons.length) {
+      alert("Please choose at least one reason for delete.");
+      return;
+    }
+    if (deleteReasons.includes("Other") && !deleteReasonOther.trim()) {
+      alert("Please enter the 'Other' reason.");
+      return;
+    }
+
     const confirmDelete = confirm("Are you sure you want to delete this booking?");
     if (!confirmDelete) return;
 
@@ -369,6 +382,10 @@ export default function ViewBookingModal({
         originalId: String(id),
         deletedAt: serverTimestamp(),
         deletedBy: auth?.currentUser?.email || "",
+        deleteReasons,
+        deleteReasonOther: deleteReasons.includes("Other")
+          ? deleteReasonOther.trim()
+          : "",
         data,
       });
 
@@ -735,6 +752,57 @@ export default function ViewBookingModal({
         </div>
 
         {/* Actions */}
+        {!fromDeleted && (
+          <div
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              padding: 12,
+              background: "#f8fafc",
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
+              Reason for delete (required)
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {DELETE_REASON_OPTIONS.map((r) => (
+                <label
+                  key={r}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={deleteReasons.includes(r)}
+                    onChange={() =>
+                      setDeleteReasons((prev) =>
+                        prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+                      )
+                    }
+                  />
+                  {r}
+                </label>
+              ))}
+            </div>
+            {deleteReasons.includes("Other") && (
+              <input
+                type="text"
+                placeholder="Other reason..."
+                value={deleteReasonOther}
+                onChange={(e) => setDeleteReasonOther(e.target.value)}
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  fontSize: 13,
+                }}
+              />
+            )}
+          </div>
+        )}
+
         <div style={actions}>
           {fromDeleted ? (
             <>

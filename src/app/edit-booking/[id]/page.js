@@ -145,7 +145,12 @@ const btn = {
 };
 const btnPrimary = { ...btn, background: "#111", color: "#fff" };
 const btnGhost = { ...btn, background: "#fff", color: "#111" };
-const btnDanger = { ...btn, background: "#fff", borderColor: "#dc2626", color: "#dc2626" };
+const btnDanger = {
+  ...btn,
+  background: "#fff",
+  borderColor: "#dc2626",
+  color: "#dc2626",
+};
 
 const summaryCard = {
   ...card,
@@ -183,7 +188,8 @@ const VEHICLE_STATUSES = [
 ];
 
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
-const doesBlockBooking = (b) => BLOCKING_STATUSES.includes((b.status || "").trim());
+const doesBlockBooking = (b) =>
+  BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
@@ -233,7 +239,8 @@ const toYMD = (raw) => {
 };
 
 const expandBookingDates = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length)
+    return b.bookingDates;
   const one = (b.date || "").slice(0, 10);
   const s = (b.startDate || "").slice(0, 10);
   const e = (b.endDate || "").slice(0, 10);
@@ -268,7 +275,9 @@ const buildTimeOptions = () => {
   const out = [];
   for (let h = 0; h < 24; h++) {
     for (const m of [0, 15, 30, 45]) {
-      out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+      out.push(
+        `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      );
     }
   }
   return out;
@@ -338,8 +347,10 @@ const normalizeVehicleKeysListForLookup = (list, lookup) => {
       const nm = raw.name;
 
       if (id && byId[id]) match = byId[id];
-      else if (reg && byReg[String(reg).toUpperCase()]) match = byReg[String(reg).toUpperCase()];
-      else if (nm && byName[String(nm).toLowerCase()]) match = byName[String(nm).toLowerCase()];
+      else if (reg && byReg[String(reg).toUpperCase()])
+        match = byReg[String(reg).toUpperCase()];
+      else if (nm && byName[String(nm).toLowerCase()])
+        match = byName[String(nm).toLowerCase()];
     } else {
       const s = String(raw || "").trim();
       if (!s) return;
@@ -360,6 +371,17 @@ const toJsDate = (raw) => {
   if (typeof raw?.toDate === "function") return raw.toDate();
   const d = new Date(String(raw));
   return isNaN(d.getTime()) ? null : d;
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Money helpers
+──────────────────────────────────────────────────────────────────────────── */
+const toMoney = (raw) => {
+  if (raw === null || typeof raw === "undefined") return "";
+  const s = String(raw).replace(/[^\d.]/g, "");
+  if (!s) return "";
+  const n = Number(s);
+  return Number.isFinite(n) ? String(n) : "";
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -401,16 +423,25 @@ export default function EditBookingPage() {
 
   // Hotel / rigging
   const [hasHotel, setHasHotel] = useState(false);
+
+  // ✅ restored hotel details
+  const [hotelPaidBy, setHotelPaidBy] = useState(""); // "Production" | "Bickers"
+  const [hotelNights, setHotelNights] = useState(""); // string for input
+  const [hotelPricePerNight, setHotelPricePerNight] = useState(""); // string for input
+
   const [hasRiggingAddress, setHasRiggingAddress] = useState(false);
   const [riggingAddress, setRiggingAddress] = useState("");
 
   // Flags
   const [isSecondPencil, setIsSecondPencil] = useState(false);
+
+  // ✅ manual crewing only
   const [isCrewed, setIsCrewed] = useState(false);
+
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
 
-  // Crew requirement (auto crewed)
+  // Crew requirement (NO auto-crewed)
   const [requiredCrewCount, setRequiredCrewCount] = useState(1);
 
   // Employees
@@ -466,7 +497,11 @@ export default function EditBookingPage() {
   const [openEquipGroups, setOpenEquipGroups] = useState({});
 
   // Lookups
-  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
+  const [vehicleLookup, setVehicleLookup] = useState({
+    byId: {},
+    byReg: {},
+    byName: {},
+  });
 
   // Maintenance bookings
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
@@ -502,10 +537,12 @@ export default function EditBookingPage() {
     : "";
 
   /* ────────────────────────────────────────────────────────────
-     ✅ auto-crewing logic (MATCH CREATE)
+     ✅ allocated crew count (display only) — NO auto setIsCrewed
   ───────────────────────────────────────────────────────────── */
   const allocatedCrewCount = useMemo(() => {
-    const selectedCount = employees.filter((e) => e?.name && e.name !== "Other").length;
+    const selectedCount = employees.filter(
+      (e) => e?.name && e.name !== "Other"
+    ).length;
 
     const customNames = customEmployee
       ? customEmployee
@@ -516,13 +553,6 @@ export default function EditBookingPage() {
 
     return selectedCount + customNames.length;
   }, [employees, customEmployee]);
-
-  useEffect(() => {
-    const req = Number(requiredCrewCount);
-    if (Number.isFinite(req) && req > 0) {
-      setIsCrewed(allocatedCrewCount >= req);
-    }
-  }, [allocatedCrewCount, requiredCrewCount]);
 
   /* ────────────────────────────────────────────────────────────
      Load lists + booking
@@ -566,12 +596,17 @@ export default function EditBookingPage() {
       setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
 
       // employees lists + codes
-      const allEmployees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const allEmployees = empSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
 
       setEmployeeList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+            const titles = Array.isArray(emp.jobTitle)
+              ? emp.jobTitle
+              : [emp.jobTitle];
             return titles.some((t) => (t || "").toLowerCase() === "driver");
           })
           .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
@@ -580,7 +615,9 @@ export default function EditBookingPage() {
       setFreelancerList(
         allEmployees
           .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+            const titles = Array.isArray(emp.jobTitle)
+              ? emp.jobTitle
+              : [emp.jobTitle];
             return titles.some((t) => {
               const val = (t || "").toLowerCase();
               return val === "freelance" || val === "freelancer";
@@ -627,12 +664,18 @@ export default function EditBookingPage() {
         if (name) byName[name.toLowerCase()] = info;
 
         if (category.includes("bike")) grouped["Bike"].push(info);
-        else if (category.includes("electric")) grouped["Electric Tracking Vehicles"].push(info);
-        else if (category.includes("small")) grouped["Small Tracking Vehicles"].push(info);
-        else if (category.includes("large")) grouped["Large Tracking Vehicles"].push(info);
-        else if (category.includes("low loader")) grouped["Low Loaders"].push(info);
-        else if (category.includes("lorry")) grouped["Transport Lorry"].push(info);
-        else if (category.includes("van")) grouped["Transport Van"].push(info);
+        else if (category.includes("electric"))
+          grouped["Electric Tracking Vehicles"].push(info);
+        else if (category.includes("small"))
+          grouped["Small Tracking Vehicles"].push(info);
+        else if (category.includes("large"))
+          grouped["Large Tracking Vehicles"].push(info);
+        else if (category.includes("low loader"))
+          grouped["Low Loaders"].push(info);
+        else if (category.includes("lorry"))
+          grouped["Transport Lorry"].push(info);
+        else if (category.includes("van"))
+          grouped["Transport Van"].push(info);
         else grouped["Other Vehicles"].push(info);
       });
 
@@ -665,57 +708,110 @@ export default function EditBookingPage() {
       setStatus(bookingData.status || "Confirmed");
       setShootType(bookingData.shootType || "Day");
 
-      setStatusReasons(Array.isArray(bookingData.statusReasons) ? bookingData.statusReasons : []);
+      setStatusReasons(
+        Array.isArray(bookingData.statusReasons) ? bookingData.statusReasons : []
+      );
       setStatusReasonOther(bookingData.statusReasonOther || "");
 
       // flags
       setIsSecondPencil(Boolean(bookingData.isSecondPencil));
-      setIsCrewed(Boolean(bookingData.isCrewed));
+      setIsCrewed(Boolean(bookingData.isCrewed)); // ✅ manual stored value
       setHasHS(Boolean(bookingData.hasHS));
       setHasRiskAssessment(Boolean(bookingData.hasRiskAssessment));
 
-      // crew requirement
+      // crew requirement (kept as guidance)
       const req = Number(bookingData.requiredCrewCount);
       setRequiredCrewCount(Number.isFinite(req) ? req : 1);
 
       // notes/call/hotel/rigging
       setNotes(bookingData.notes || "");
       setNotesByDate(
-        bookingData.notesByDate && typeof bookingData.notesByDate === "object" ? bookingData.notesByDate : {}
+        bookingData.notesByDate && typeof bookingData.notesByDate === "object"
+          ? bookingData.notesByDate
+          : {}
       );
       setCallTime(bookingData.callTime || "");
       setCallTimesByDate(
-        bookingData.callTimesByDate && typeof bookingData.callTimesByDate === "object"
+        bookingData.callTimesByDate &&
+          typeof bookingData.callTimesByDate === "object"
           ? bookingData.callTimesByDate
           : {}
       );
-      setHasHotel(Boolean(bookingData.hasHotel));
+
+      // ✅ HOTEL (supports likely legacy keys too)
+      const loadedHasHotel = Boolean(
+        bookingData.hasHotel ??
+          bookingData.hotelBooked ??
+          bookingData.isHotelBooked ??
+          bookingData.hotel
+      );
+      setHasHotel(loadedHasHotel);
+
+      const paidBy =
+        bookingData.hotelPaidBy ??
+        bookingData.hotelPaid ??
+        bookingData.hotelPayer ??
+        "";
+      setHotelPaidBy(String(paidBy || ""));
+
+      const nights =
+        bookingData.hotelNights ??
+        bookingData.nights ??
+        bookingData.hotelNightCount ??
+        "";
+      setHotelNights(
+        nights === 0 || nights ? String(nights) : ""
+      );
+
+      const pppn =
+        bookingData.hotelPricePerNight ??
+        bookingData.pricePerNight ??
+        bookingData.hotelRate ??
+        bookingData.hotelCostPerNight ??
+        "";
+      setHotelPricePerNight(toMoney(pppn));
+
       setHasRiggingAddress(Boolean(bookingData.hasRiggingAddress));
       setRiggingAddress(bookingData.riggingAddress || "");
 
       // employees
-      const rawEmployees = Array.isArray(bookingData.employees) ? bookingData.employees : [];
+      const rawEmployees = Array.isArray(bookingData.employees)
+        ? bookingData.employees
+        : [];
       const cleanedEmployees = rawEmployees.length
-        ? uniqEmpObjects(rawEmployees.map((e) => (typeof e === "string" ? { role: "Precision Driver", name: e } : e)))
+        ? uniqEmpObjects(
+            rawEmployees.map((e) =>
+              typeof e === "string" ? { role: "Precision Driver", name: e } : e
+            )
+          )
         : [];
       setEmployees(cleanedEmployees);
 
       // employeesByDate
       setEmployeesByDate(
-        bookingData.employeesByDate && typeof bookingData.employeesByDate === "object" ? bookingData.employeesByDate : {}
+        bookingData.employeesByDate &&
+          typeof bookingData.employeesByDate === "object"
+          ? bookingData.employeesByDate
+          : {}
       );
 
-      // if "Other" exists in employees, attempt to extract custom names (best effort)
-      // (Your create flow stores custom names directly into employees as role Precision Driver)
-      // So here we leave customEmployee blank unless the user wants to use it again.
       setCustomEmployee("");
 
       // vehicles (normalise to ids)
-      const rawVehicles = Array.isArray(bookingData.vehicles) ? bookingData.vehicles : [];
-      const vehicleIds = normalizeVehicleKeysListForLookup(rawVehicles, { byId, byReg, byName });
+      const rawVehicles = Array.isArray(bookingData.vehicles)
+        ? bookingData.vehicles
+        : [];
+      const vehicleIds = normalizeVehicleKeysListForLookup(rawVehicles, {
+        byId,
+        byReg,
+        byName,
+      });
       setVehicles(vehicleIds);
 
-      const vs = bookingData.vehicleStatus && typeof bookingData.vehicleStatus === "object" ? bookingData.vehicleStatus : {};
+      const vs =
+        bookingData.vehicleStatus && typeof bookingData.vehicleStatus === "object"
+          ? bookingData.vehicleStatus
+          : {};
       // ensure statuses exist for selected vehicles
       const vsFixed = { ...vs };
       vehicleIds.forEach((vid) => {
@@ -724,7 +820,9 @@ export default function EditBookingPage() {
       setVehicleStatus(vsFixed);
 
       // equipment
-      const rawEquip = Array.isArray(bookingData.equipment) ? bookingData.equipment : [];
+      const rawEquip = Array.isArray(bookingData.equipment)
+        ? bookingData.equipment
+        : [];
       const equipNames = rawEquip
         .map((x) => (typeof x === "string" ? x : x?.name))
         .map((s) => String(s || "").trim())
@@ -732,7 +830,9 @@ export default function EditBookingPage() {
       setEquipment(Array.from(new Set(equipNames)));
 
       // contacts
-      const rawContacts = Array.isArray(bookingData.additionalContacts) ? bookingData.additionalContacts : [];
+      const rawContacts = Array.isArray(bookingData.additionalContacts)
+        ? bookingData.additionalContacts
+        : [];
       setAdditionalContacts(
         rawContacts.map((c) => ({
           department: c.department || "",
@@ -744,7 +844,9 @@ export default function EditBookingPage() {
       );
 
       // attachments
-      const rawAtt = Array.isArray(bookingData.attachments) ? bookingData.attachments : [];
+      const rawAtt = Array.isArray(bookingData.attachments)
+        ? bookingData.attachments
+        : [];
       setAttachments(rawAtt);
 
       // created meta/history
@@ -774,7 +876,10 @@ export default function EditBookingPage() {
         // If bookingDates are consecutive, prefer range UI; otherwise custom dates UI
         const sorted = [...bd].sort();
         const consecutive =
-          sorted.length > 1 ? enumerateDaysYMD_UTC(sorted[0], sorted[sorted.length - 1]).length === sorted.length : false;
+          sorted.length > 1
+            ? enumerateDaysYMD_UTC(sorted[0], sorted[sorted.length - 1]).length ===
+              sorted.length
+            : false;
 
         if (consecutive && sorted.length > 1) {
           setUseCustomDates(false);
@@ -1035,7 +1140,9 @@ export default function EditBookingPage() {
      Vehicle toggle
   ───────────────────────────────────────────────────────────── */
   const toggleVehicle = (vehicleId, checked) => {
-    setVehicles((prev) => (checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)));
+    setVehicles((prev) =>
+      checked ? uniq([...prev, vehicleId]) : prev.filter((v) => v !== vehicleId)
+    );
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
@@ -1109,7 +1216,8 @@ export default function EditBookingPage() {
     if (bookingDates.length && cleanedEmployees.length) {
       bookingDates.forEach((date) => {
         const fromState = employeesByDate[date];
-        const baseList = Array.isArray(fromState) && fromState.length ? fromState : cleanedEmployees;
+        const baseList =
+          Array.isArray(fromState) && fromState.length ? fromState : cleanedEmployees;
         const filtered = baseList.filter((e) => cleanedSet.has(employeesKey(e)));
         if (filtered.length) employeesByDatePayload[date] = filtered;
       });
@@ -1173,7 +1281,10 @@ export default function EditBookingPage() {
         await new Promise((resolve, reject) => {
           task.on(
             "state_changed",
-            (snap) => setPdfProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+            (snap) =>
+              setPdfProgress(
+                Math.round((snap.bytesTransferred / snap.totalBytes) * 100)
+              ),
             (err) => reject(err),
             async () => {
               const url = await getDownloadURL(task.snapshot.ref);
@@ -1209,7 +1320,16 @@ export default function EditBookingPage() {
 
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length;
-    const isCrewedAtSave = Number.isFinite(req) && req > 0 ? allocatedAtSave >= req : isCrewed;
+
+    // ✅ manual only (no auto)
+    const isCrewedAtSave = Boolean(isCrewed);
+
+    // ✅ Hotel payload
+    const hotelPaidByClean = hasHotel ? String(hotelPaidBy || "").trim() : "";
+    const hotelNightsNum = hasHotel ? Number(String(hotelNights || "").trim()) : 0;
+    const hotelPricePerNightNum = hasHotel
+      ? Number(String(hotelPricePerNight || "").trim())
+      : 0;
 
     const payload = {
       jobNumber,
@@ -1242,9 +1362,23 @@ export default function EditBookingPage() {
       quoteUrl: firstUrl || null,
       pdfURL: firstUrl || null,
 
+      // ✅ hotel fields restored
       hasHotel,
+      hotelPaidBy: hotelPaidByClean,
+      hotelNights: Number.isFinite(hotelNightsNum) ? hotelNightsNum : 0,
+      hotelPricePerNight: Number.isFinite(hotelPricePerNightNum)
+        ? hotelPricePerNightNum
+        : 0,
+      hotelTotal:
+        hasHotel && Number.isFinite(hotelNightsNum) && Number.isFinite(hotelPricePerNightNum)
+          ? hotelNightsNum * hotelPricePerNightNum
+          : 0,
+
+      // call times
       callTime: (!isRange && !useCustomDates ? callTime || "" : ""),
-      ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
+      ...(Object.keys(callTimesByDatePayload).length
+        ? { callTimesByDate: callTimesByDatePayload }
+        : {}),
 
       hasRiggingAddress,
       riggingAddress: hasRiggingAddress ? riggingAddress || "" : "",
@@ -1332,6 +1466,14 @@ export default function EditBookingPage() {
     );
   }
 
+  // ✅ hotel computed for UI + summary
+  const hotelTotal =
+    hasHotel &&
+    Number.isFinite(Number(hotelNights)) &&
+    Number.isFinite(Number(hotelPricePerNight))
+      ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
+      : 0;
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
@@ -1404,7 +1546,9 @@ export default function EditBookingPage() {
                           checked={statusReasons.includes(r)}
                           onChange={() =>
                             setStatusReasons((prev) =>
-                              prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+                              prev.includes(r)
+                                ? prev.filter((x) => x !== r)
+                                : [...prev, r]
                             )
                           }
                         />
@@ -1428,7 +1572,11 @@ export default function EditBookingPage() {
                 <div style={divider} />
 
                 <label style={field.label}>Shoot Type</label>
-                <select value={shootType} onChange={(e) => setShootType(e.target.value)} style={field.input}>
+                <select
+                  value={shootType}
+                  onChange={(e) => setShootType(e.target.value)}
+                  style={field.input}
+                >
                   <option value="Day">Day</option>
                   <option value="Night">Night</option>
                 </select>
@@ -1451,20 +1599,41 @@ export default function EditBookingPage() {
                     background: UI.bgAlt,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>
+                      Contacts
+                    </span>
                     <button
                       type="button"
                       onClick={handleAddContactRow}
-                      style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}
+                      style={{
+                        ...btn,
+                        padding: "4px 8px",
+                        fontSize: 12,
+                        borderRadius: 999,
+                      }}
                     >
                       + Add contact
                     </button>
                   </div>
 
                   {additionalContacts.length === 0 && (
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 6 }}>
-                      Add production contacts (e.g. Production, Locations, AD, line producer, stunts).
+                    <p
+                      style={{
+                        fontSize: 12,
+                        color: UI.muted,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Add production contacts (e.g. Production, Locations, AD,
+                      line producer, stunts).
                     </p>
                   )}
 
@@ -1479,12 +1648,33 @@ export default function EditBookingPage() {
                         border: "1px solid #e5e7eb",
                       }}
                     >
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                          marginBottom: 8,
+                        }}
+                      >
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Department</label>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Department
+                          </label>
                           <select
                             value={row.department}
-                            onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "department",
+                                e.target.value
+                              )
+                            }
                             style={field.input}
                           >
                             <option value="">Select department</option>
@@ -1499,48 +1689,104 @@ export default function EditBookingPage() {
                               type="text"
                               placeholder="Custom department"
                               value={row.departmentOther || ""}
-                              onChange={(e) => handleUpdateContactRow(idx, "departmentOther", e.target.value)}
+                              onChange={(e) =>
+                                handleUpdateContactRow(
+                                  idx,
+                                  "departmentOther",
+                                  e.target.value
+                                )
+                              }
                               style={{ ...field.input, marginTop: 6 }}
                             />
                           )}
                         </div>
 
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Name</label>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Name
+                          </label>
                           <input
                             type="text"
                             value={row.name}
-                            onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateContactRow(idx, "name", e.target.value)
+                            }
                             style={field.input}
                             placeholder="Contact name"
                           />
                         </div>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 8,
+                        }}
+                      >
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Email</label>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Email
+                          </label>
                           <input
                             type="email"
                             value={row.email}
-                            onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "email",
+                                e.target.value
+                              )
+                            }
                             style={field.input}
                             placeholder="Email"
                           />
                         </div>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Number</label>
+                          <label
+                            style={{
+                              ...field.label,
+                              fontWeight: 500,
+                              marginBottom: 4,
+                            }}
+                          >
+                            Number
+                          </label>
                           <input
                             type="tel"
                             value={row.phone}
-                            onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateContactRow(
+                                idx,
+                                "phone",
+                                e.target.value
+                              )
+                            }
                             style={field.input}
                             placeholder="Phone number"
                           />
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          display: "flex",
+                          justifyContent: "flex-end",
+                        }}
+                      >
                         <button
                           type="button"
                           onClick={() => handleRemoveContactRow(idx)}
@@ -1562,7 +1808,13 @@ export default function EditBookingPage() {
 
                   {savedContacts.length > 0 && (
                     <div style={{ marginTop: 6 }}>
-                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>
+                      <label
+                        style={{
+                          ...field.label,
+                          fontWeight: 500,
+                          marginBottom: 4,
+                        }}
+                      >
                         Quick add from saved contacts
                       </label>
                       <select
@@ -1621,7 +1873,11 @@ export default function EditBookingPage() {
 
                 {!useCustomDates && (
                   <label style={field.checkboxRow}>
-                    <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                    <input
+                      type="checkbox"
+                      checked={isRange}
+                      onChange={() => setIsRange(!isRange)}
+                    />
                     Multi-day booking (consecutive)
                   </label>
                 )}
@@ -1634,16 +1890,28 @@ export default function EditBookingPage() {
                       format="YYYY-MM-DD"
                       onChange={(vals) => {
                         const normalised = (Array.isArray(vals) ? vals : [])
-                          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                          .map((v) =>
+                            typeof v?.format === "function"
+                              ? v.format("YYYY-MM-DD")
+                              : String(v)
+                          )
                           .sort();
                         setCustomDates(normalised);
                       }}
                     />
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isRange ? "1fr 1fr" : "1fr",
+                      gap: 12,
+                    }}
+                  >
                     <div>
-                      <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
+                      <label style={field.label}>
+                        {isRange ? "Start Date" : "Date"}
+                      </label>
                       <input
                         type="date"
                         value={startDate}
@@ -1670,21 +1938,45 @@ export default function EditBookingPage() {
                 {selectedDates.length > 0 && (
                   <div style={{ marginTop: 12 }}>
                     <h4 style={{ margin: "8px 0" }}>
-                      {selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}
+                      {selectedDates.length > 1
+                        ? "Notes for Each Day"
+                        : "Note for the Day"}
                     </h4>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit,minmax(280px,1fr))",
+                        gap: 12,
+                      }}
+                    >
                       {selectedDates.map((date) => {
                         const selectedNote = notesByDate[date] || "";
                         const isOther = selectedNote === "Other";
                         const customOtherValue = notesByDate[`${date}-other`] || "";
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
+                          <div
+                            key={date}
+                            style={{
+                              border: UI.border,
+                              borderRadius: UI.radiusSm,
+                              padding: 10,
+                              background: UI.bgAlt,
+                            }}
+                          >
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                              {new Date(date).toDateString()}
+                            </div>
 
                             <select
                               value={selectedNote}
-                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
+                              onChange={(e) =>
+                                setNotesByDate({
+                                  ...notesByDate,
+                                  [date]: e.target.value,
+                                })
+                              }
                               style={field.input}
                             >
                               <option value="">Select note</option>
@@ -1723,7 +2015,9 @@ export default function EditBookingPage() {
 
                             {selectedNote === "Travel Time" && (
                               <div style={{ marginTop: 8 }}>
-                                <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
+                                <label style={{ ...field.label, marginBottom: 6 }}>
+                                  Travel duration
+                                </label>
                                 <select
                                   value={notesByDate[`${date}-travelMins`] || ""}
                                   onChange={(e) =>
@@ -1755,7 +2049,9 @@ export default function EditBookingPage() {
 
                 <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
                 {driverOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
+                  const isSelected = employees.some(
+                    (e) => e.name === name && e.role === "Precision Driver"
+                  );
                   const isBooked = isEmployeeBooked(name);
                   const isHeld = isEmployeeHeld(name);
                   const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
@@ -1770,51 +2066,89 @@ export default function EditBookingPage() {
                         checked={isSelected}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
+                            const next = uniqEmpObjects([
+                              ...employees,
+                              { role: "Precision Driver", name },
+                            ]);
                             setEmployees(next);
                             upsertEmployeeDates("Precision Driver", name, true);
                           } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
+                            const next = employees.filter(
+                              (sel) =>
+                                !(
+                                  sel.name === name &&
+                                  sel.role === "Precision Driver"
+                                )
+                            );
                             setEmployees(next);
                             upsertEmployeeDates("Precision Driver", name, false);
                           }
                         }}
                       />{" "}
                       <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
+                        {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"}{" "}
+                        {isHoliday && "(On Holiday)"}
                       </span>
                     </label>
                   );
                 })}
 
-                {/* Required crew selector + auto crewed indicator */}
-                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
+                {/* Required crew selector + MANUAL crewed checkbox */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
+                    background: UI.bgAlt,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 10,
+                      alignItems: "end",
+                    }}
+                  >
                     <div>
-                      <label style={{ ...field.label, marginBottom: 6 }}>Crew required to mark as “Crewed”</label>
+                      <label style={{ ...field.label, marginBottom: 6 }}>
+                        Crew required (guideline only)
+                      </label>
                       <input
                         type="number"
                         min={0}
                         step={1}
                         value={requiredCrewCount}
                         onChange={(e) => {
-                          const v = Math.max(0, parseInt(e.target.value || "0", 10));
+                          const v = Math.max(
+                            0,
+                            parseInt(e.target.value || "0", 10)
+                          );
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
                         style={field.input}
                       />
                       <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
-                        Set to <b>0</b> to disable auto-crewing and use the checkbox manually.
+                        This does <b>not</b> auto-mark the booking as crewed.
                       </div>
                     </div>
 
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, color: UI.muted }}>Allocated crew</div>
+                      <div style={{ fontSize: 12, color: UI.muted }}>
+                        Allocated crew
+                      </div>
                       <div style={{ fontSize: 18, fontWeight: 800 }}>
                         {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
                       </div>
-                      <div style={{ fontSize: 12, color: isCrewed ? "#16a34a" : "#b45309", fontWeight: 700 }}>
-                        {Number(requiredCrewCount) > 0 ? (isCrewed ? "Crewed ✓" : "Not crewed yet") : isCrewed ? "Crewed ✓ (manual)" : "Not crewed (manual)"}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: isCrewed ? "#16a34a" : "#b45309",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {isCrewed ? "Crewed ✓ (manual)" : "Not crewed (manual)"}
                       </div>
                     </div>
                   </div>
@@ -1824,20 +2158,19 @@ export default function EditBookingPage() {
                       <input
                         type="checkbox"
                         checked={isCrewed}
-                        onChange={(e) => {
-                          if (Number(requiredCrewCount) === 0) setIsCrewed(e.target.checked);
-                        }}
-                        disabled={Number(requiredCrewCount) > 0}
+                        onChange={(e) => setIsCrewed(e.target.checked)}
                       />{" "}
                       Booking Crewed
-                      {Number(requiredCrewCount) > 0 && <span style={{ color: UI.muted, fontWeight: 600 }}> (auto)</span>}
+                      <span style={{ color: UI.muted, fontWeight: 600 }}> (manual)</span>
                     </label>
                   </div>
                 </div>
 
                 <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
                 {freelancerOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
+                  const isSelected = employees.some(
+                    (e) => e.name === name && e.role === "Freelancer"
+                  );
                   const isBooked = isEmployeeBooked(name);
                   const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
                   const disabled = (isBooked || isHoliday) && !isSelected;
@@ -1851,11 +2184,19 @@ export default function EditBookingPage() {
                         checked={isSelected}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
+                            const next = uniqEmpObjects([
+                              ...employees,
+                              { role: "Freelancer", name },
+                            ]);
                             setEmployees(next);
                             upsertEmployeeDates("Freelancer", name, true);
                           } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
+                            const next = employees.filter(
+                              (sel) =>
+                                !(
+                                  sel.name === name && sel.role === "Freelancer"
+                                )
+                            );
                             setEmployees(next);
                             upsertEmployeeDates("Freelancer", name, false);
                           }
@@ -1880,59 +2221,104 @@ export default function EditBookingPage() {
                   </div>
                 )}
 
-                {selectedDates.length > 0 && employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
-                  <>
-                    <div style={divider} />
-                    <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
-                      Default = everyone works every selected day. Use this grid to fine-tune.
-                    </p>
+                {selectedDates.length > 0 &&
+                  employees.filter((e) => e.name && e.name !== "Other").length > 0 && (
+                    <>
+                      <div style={divider} />
+                      <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
+                      <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
+                        Default = everyone works every selected day. Use this grid to fine-tune.
+                      </p>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
-                      {selectedDates.map((date) => {
-                        const assigned = employeesByDate[date] || [];
-                        const pretty = new Date(date).toDateString();
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit,minmax(260px,1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        {selectedDates.map((date) => {
+                          const assigned = employeesByDate[date] || [];
+                          const pretty = new Date(date).toDateString();
 
-                        return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 6 }}>{pretty}</div>
+                          return (
+                            <div
+                              key={date}
+                              style={{
+                                border: UI.border,
+                                borderRadius: UI.radiusSm,
+                                padding: 10,
+                                background: UI.bgAlt,
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                                {pretty}
+                              </div>
 
-                            {employees
-                              .filter((e) => e.name && e.name !== "Other")
-                              .map((emp) => {
-                                const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
+                              {employees
+                                .filter((e) => e.name && e.name !== "Other")
+                                .map((emp) => {
+                                  const isOnDay = assigned.some(
+                                    (x) => x.name === emp.name && x.role === emp.role
+                                  );
 
-                                return (
-                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={isOnDay}
-                                      onChange={() =>
-                                        setEmployeesByDate((prev) => {
-                                          const next = { ...prev };
-                                          const list = Array.isArray(next[date]) ? next[date] : [];
-                                          const exists = list.some((x) => x.name === emp.name && x.role === emp.role);
-                                          if (exists) {
-                                            const filtered = list.filter((x) => !(x.name === emp.name && x.role === emp.role));
-                                            if (filtered.length) next[date] = filtered;
-                                            else delete next[date];
-                                          } else {
-                                            next[date] = [...list, { role: emp.role, name: emp.name }];
-                                          }
-                                          return next;
-                                        })
-                                      }
-                                    />{" "}
-                                    {emp.name} <span style={{ color: UI.muted }}>({emp.role})</span>
-                                  </label>
-                                );
-                              })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
+                                  return (
+                                    <label
+                                      key={`${emp.role}-${emp.name}-${date}`}
+                                      style={{
+                                        display: "block",
+                                        fontSize: 13,
+                                        marginBottom: 4,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isOnDay}
+                                        onChange={() =>
+                                          setEmployeesByDate((prev) => {
+                                            const next = { ...prev };
+                                            const list = Array.isArray(next[date])
+                                              ? next[date]
+                                              : [];
+                                            const exists = list.some(
+                                              (x) =>
+                                                x.name === emp.name &&
+                                                x.role === emp.role
+                                            );
+                                            if (exists) {
+                                              const filtered = list.filter(
+                                                (x) =>
+                                                  !(
+                                                    x.name === emp.name &&
+                                                    x.role === emp.role
+                                                  )
+                                              );
+                                              if (filtered.length) next[date] = filtered;
+                                              else delete next[date];
+                                            } else {
+                                              next[date] = [
+                                                ...list,
+                                                { role: emp.role, name: emp.name },
+                                              ];
+                                            }
+                                            return next;
+                                          })
+                                        }
+                                      />{" "}
+                                      {emp.name}{" "}
+                                      <span style={{ color: UI.muted }}>
+                                        ({emp.role})
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
@@ -1946,7 +2332,9 @@ export default function EditBookingPage() {
                     <div key={group} style={{ marginTop: 10 }}>
                       <button
                         type="button"
-                        onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                        onClick={() =>
+                          setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))
+                        }
                         style={accordionBtn}
                       >
                         <span>
@@ -2003,7 +2391,12 @@ export default function EditBookingPage() {
                                 {isSelected && (
                                   <select
                                     value={vehicleStatus[key] || status}
-                                    onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))}
+                                    onChange={(e) =>
+                                      setVehicleStatus((prev) => ({
+                                        ...prev,
+                                        [key]: e.target.value,
+                                      }))
+                                    }
                                     style={{ height: 32 }}
                                     title="Vehicle status"
                                   >
@@ -2034,7 +2427,9 @@ export default function EditBookingPage() {
                     <div key={group} style={{ marginTop: 10 }}>
                       <button
                         type="button"
-                        onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))}
+                        onClick={() =>
+                          setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))
+                        }
                         style={accordionBtn}
                       >
                         <span>
@@ -2060,7 +2455,8 @@ export default function EditBookingPage() {
                                   disabled={disabled}
                                   checked={isSelected}
                                   onChange={(e) => {
-                                    if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
+                                    if (e.target.checked)
+                                      setEquipment((prev) => Array.from(new Set([...prev, name])));
                                     else setEquipment((prev) => prev.filter((x) => x !== name));
                                   }}
                                 />{" "}
@@ -2085,7 +2481,9 @@ export default function EditBookingPage() {
 
               {attachments?.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>Existing files</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 6 }}>
+                    Existing files
+                  </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {attachments.map((a, idx) => (
                       <div
@@ -2102,21 +2500,43 @@ export default function EditBookingPage() {
                         }}
                       >
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: 13,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {a?.name || "Unnamed file"}
                           </div>
                           <div style={{ fontSize: 12, color: UI.muted }}>
-                            {a?.contentType || "file"} {a?.size ? `• ${(a.size / 1024).toFixed(1)} KB` : ""}
+                            {a?.contentType || "file"}{" "}
+                            {a?.size ? `• ${(a.size / 1024).toFixed(1)} KB` : ""}
                           </div>
                         </div>
 
                         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                           {a?.url && (
-                            <a href={a.url} target="_blank" rel="noreferrer" style={{ ...btnGhost, padding: "6px 10px", textDecoration: "none" }}>
+                            <a
+                              href={a.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                ...btnGhost,
+                                padding: "6px 10px",
+                                textDecoration: "none",
+                              }}
+                            >
                               Open
                             </a>
                           )}
-                          <button type="button" onClick={() => removeAttachment(idx)} style={{ ...btnDanger, padding: "6px 10px" }}>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(idx)}
+                            style={{ ...btnDanger, padding: "6px 10px" }}
+                          >
                             Remove
                           </button>
                         </div>
@@ -2135,7 +2555,11 @@ export default function EditBookingPage() {
                 style={{ ...field.input, height: "auto", padding: 10 }}
               />
 
-              {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+              {pdfProgress > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12 }}>
+                  Uploading: {pdfProgress}%
+                </div>
+              )}
               {newFiles?.length > 0 && (
                 <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
                   {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Update.
@@ -2149,16 +2573,40 @@ export default function EditBookingPage() {
                   <label style={field.label}>Call Time</label>
 
                   {selectedDates.length > 1 ? (
-                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
+                    <div
+                      style={{
+                        border: UI.border,
+                        borderRadius: UI.radiusSm,
+                        padding: 10,
+                        background: UI.bgAlt,
+                        maxHeight: 260,
+                        overflow: "auto",
+                      }}
+                    >
                       {selectedDates.map((d) => {
                         const pretty = new Date(d).toDateString();
                         const value = callTimesByDate[d] || "";
                         return (
-                          <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                            <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>{pretty}</span>
+                          <div
+                            key={d}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>
+                              {pretty}
+                            </span>
                             <select
                               value={value}
-                              onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [d]: e.target.value }))}
+                              onChange={(e) =>
+                                setCallTimesByDate((prev) => ({
+                                  ...prev,
+                                  [d]: e.target.value,
+                                }))
+                              }
                               style={field.input}
                             >
                               <option value="">-- Select time --</option>
@@ -2187,7 +2635,11 @@ export default function EditBookingPage() {
                 <div>
                   <label style={field.label}>Rigging Address</label>
                   <div style={field.checkboxRow}>
-                    <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={hasRiggingAddress}
+                      onChange={(e) => setHasRiggingAddress(e.target.checked)}
+                    />
                     Add Rigging Address
                   </div>
                   {hasRiggingAddress && (
@@ -2224,10 +2676,87 @@ export default function EditBookingPage() {
                 Risk Assessment Completed
               </label>
 
+              {/* ✅ HOTEL feature restored */}
               <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={hasHotel}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setHasHotel(on);
+                    if (!on) {
+                      setHotelPaidBy("");
+                      setHotelNights("");
+                      setHotelPricePerNight("");
+                    }
+                  }}
+                />
                 Hotel Booked
               </label>
+
+              {hasHotel && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: 10,
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
+                    background: UI.bgAlt,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: 10,
+                      alignItems: "end",
+                    }}
+                  >
+                    <div>
+                      <label style={field.label}>Paid by</label>
+                      <select
+                        value={hotelPaidBy}
+                        onChange={(e) => setHotelPaidBy(e.target.value)}
+                        style={field.input}
+                      >
+                        <option value="">Select</option>
+                        <option value="Production">Production</option>
+                        <option value="Bickers">Bickers</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={field.label}>Nights</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={hotelNights}
+                        onChange={(e) => setHotelNights(e.target.value)}
+                        style={field.input}
+                        placeholder="e.g. 2"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={field.label}>Price per night</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={hotelPricePerNight}
+                        onChange={(e) => setHotelPricePerNight(e.target.value)}
+                        style={field.input}
+                        placeholder="e.g. 160"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
+                    Total: <b>{hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}</b>
+                  </div>
+                </div>
+              )}
 
               <div style={actionsRow}>
                 <button
@@ -2252,7 +2781,9 @@ export default function EditBookingPage() {
             {/* Summary */}
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={summaryCard}>
-                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>📋 Summary</h3>
+                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
+                  📋 Summary
+                </h3>
 
                 <div style={summaryRow}>
                   <div>Job Number</div>
@@ -2277,8 +2808,13 @@ export default function EditBookingPage() {
                     {additionalContacts.length
                       ? additionalContacts
                           .map((c) => {
-                            const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
-                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
+                            const dept =
+                              c.department === "Other" && c.departmentOther
+                                ? c.departmentOther
+                                : c.department;
+                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""]
+                              .filter(Boolean)
+                              .join(" ");
                           })
                           .join(", ")
                       : "—"}
@@ -2305,20 +2841,28 @@ export default function EditBookingPage() {
 
                 <div style={summaryRow}>
                   <div>Drivers</div>
-                  <div>{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "—"}</div>
+                  <div>
+                    {employees
+                      .filter((e) => e.role === "Precision Driver")
+                      .map((e) => e.name)
+                      .join(", ") || "—"}
+                  </div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Freelancers</div>
-                  <div>{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "—"}</div>
+                  <div>
+                    {employees
+                      .filter((e) => e.role === "Freelancer")
+                      .map((e) => e.name)
+                      .join(", ") || "—"}
+                  </div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Crewing</div>
                   <div>
-                    {Number(requiredCrewCount) > 0
-                      ? `Allocated ${allocatedCrewCount} / Required ${requiredCrewCount} • ${isCrewed ? "Crewed ✓" : "Not crewed"}`
-                      : `Manual • ${isCrewed ? "Crewed ✓" : "Not crewed"}`}
+                    {`Manual • ${isCrewed ? "Crewed ✓" : "Not crewed"} • Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
                   </div>
                 </div>
 
@@ -2330,7 +2874,9 @@ export default function EditBookingPage() {
                       .filter((v) => vehicles.includes(v.id))
                       .map((v) => {
                         const vs = vehicleStatus[v.id] || status;
-                        const label = v.registration ? `${v.name} – ${v.registration}` : v.name;
+                        const label = v.registration
+                          ? `${v.name} – ${v.registration}`
+                          : v.name;
                         return (
                           <span
                             key={v.id}
@@ -2361,10 +2907,16 @@ export default function EditBookingPage() {
                 <div style={summaryRow}>
                   <div>Hotel / CT</div>
                   <div>
-                    {hasHotel ? "Hotel ✓" : "Hotel ✗"}
+                    {hasHotel
+                      ? `Hotel ✓ • Paid by: ${hotelPaidBy || "—"} • Nights: ${hotelNights || "—"} • £/night: ${
+                          hotelPricePerNight ? `£${Number(hotelPricePerNight).toFixed(2)}` : "—"
+                        } • Total: ${hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}`
+                      : "Hotel ✗"}
                     {" • "}
                     {selectedDates.length > 1
-                      ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "—"}`).join(" | ")
+                      ? selectedDates
+                          .map((d) => `${d}: ${callTimesByDate[d] || "—"}`)
+                          .join(" | ")
                       : callTime || "—"}
                   </div>
                 </div>

@@ -9,8 +9,6 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-// If you’re on FullCalendar v6+, this is the correct css import:
-import "@fullcalendar/common/main.css";
 
 import moment from "moment";
 import { db } from "../../../firebaseConfig";
@@ -286,6 +284,22 @@ export default function HomePage() {
   // Window filter (days)
   const [windowDays, setWindowDays] = useState(30);
 
+  const vehicleNameById = useMemo(() => {
+    const map = new Map();
+    vehicles.forEach((v) => {
+      if (!v?.id) return;
+      const label = String(v.name || v.registration || v.reg || v.id).trim();
+      map.set(String(v.id).trim(), label);
+    });
+    return map;
+  }, [vehicles]);
+
+  const vehicleLabel = (v) => {
+    if (v && typeof v === "object") return v.name || v.registration || v.reg || "Vehicle";
+    const key = String(v || "").trim();
+    return vehicleNameById.get(key) || key || "Vehicle";
+  };
+
   // Fetch data
   useEffect(() => {
     const run = async () => {
@@ -336,12 +350,12 @@ export default function HomePage() {
         .map((e) => ({
           id: e.id,
           jobNumber: e.jobNumber,
-          vehicles: e.vehicles,
+          vehicles: (e.vehicles || []).map((v) => vehicleLabel(v)),
           equipment: e.equipment.join(", "),
           notes: bookings.find((b) => b.id === e.id)?.notes || "—",
           start: e.start,
         })),
-    [events, bookings, now, in2Days]
+    [events, bookings, now, in2Days, vehicleNameById]
   );
 
   // Window-scoped JOB COUNTS
@@ -630,7 +644,7 @@ export default function HomePage() {
                     {clashesSecondVsFirm.slice(0, 8).map((c, i) => (
                       <li key={i} style={liItem}>
                         <strong style={{ color: UI.text }}>
-                          {typeof c.vehicle === "string" ? c.vehicle : c.vehicle?.name || "Vehicle"}
+                          {vehicleLabel(c.vehicle)}
                         </strong>
 
                         <div style={{ fontSize: 13, color: "#374151" }}>

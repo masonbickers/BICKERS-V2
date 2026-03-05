@@ -93,15 +93,45 @@ function extractYardSegments(entry) {
   return [];
 }
 
+/* ✅ Determine whether yard lunch should be deducted (fix) */
+function shouldDeductYardLunch(entry) {
+  if (!entry) return true;
+
+  // If you ever add an explicit override in schema, honour it.
+  if (entry?.yardLunchDeduct === false) return false;
+
+  // Common patterns across apps:
+  // - yardLunchSup / lunchSup often means "lunch supplement claimed" / "no lunch provided"
+  //   → do NOT deduct lunch from hours.
+  if (entry?.yardLunchSup === true) return false;
+  if (entry?.lunchSup === true) return false;
+
+  // Some schemas use an explicit "noLunch/skipLunch" meaning lunch not taken
+  if (entry?.noLunch === true) return false;
+  if (entry?.skipLunch === true) return false;
+
+  // Some schemas use "lunchTaken" / "lunch" to mean lunch was taken
+  // - if explicitly false, do NOT deduct
+  if (entry?.lunchTaken === false) return false;
+  if (entry?.lunch === false) return false;
+
+  // - if explicitly true, deduct
+  if (entry?.lunchTaken === true) return true;
+  if (entry?.lunch === true) return true;
+
+  // Default behaviour (matches your previous intent):
+  // Deduct lunch unless the user explicitly indicates no lunch / lunch supplement.
+  return true;
+}
+
 /* Calculate yard day hours */
 function computeYardHours(entry) {
   const segs = extractYardSegments(entry);
   let total = 0;
   segs.forEach((s) => (total += diffHours(s.start, s.end)));
 
-  // Your mobile app treats lunch as a toggle, but hours calc there is minutes-based.
-  // For web summary, keep the existing behaviour: if there ARE blocks, subtract 0.5 hr lunch.
-  if (total > 0) total -= LUNCH_DEDUCT_HRS;
+  // ✅ FIX: only deduct lunch when the data indicates lunch should be deducted
+  if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
 
   return Math.max(0, total);
 }
@@ -115,17 +145,23 @@ function computeTravelHours(entry) {
 /* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
 function computeOnSetHours(entry) {
   // Prefer call -> wrap (work window)
-  const onSetCore = entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
+  const onSetCore =
+    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
 
   // If no call/wrap, fallback to leave -> arriveBack
-  const fallback = (!onSetCore && entry?.leaveTime && entry?.arriveBack)
-    ? diffHours(entry.leaveTime, entry.arriveBack)
-    : 0;
+  const fallback =
+    !onSetCore && entry?.leaveTime && entry?.arriveBack
+      ? diffHours(entry.leaveTime, entry.arriveBack)
+      : 0;
 
   let total = onSetCore || fallback;
 
   // Add precallDuration (minutes) if present and callTime exists
-  if (entry?.callTime && typeof entry?.precallDuration === "number" && Number.isFinite(entry.precallDuration)) {
+  if (
+    entry?.callTime &&
+    typeof entry?.precallDuration === "number" &&
+    Number.isFinite(entry.precallDuration)
+  ) {
     total += Math.max(0, entry.precallDuration) / 60;
   }
 
@@ -137,7 +173,8 @@ function isTurnaroundDay(entry) {
   if (!entry) return false;
 
   // Your mobile code: yard day uses isTurnaround boolean (only meaningful on mode === "yard")
-  if (entry.isTurnaround === true && String(entry.mode || "yard").toLowerCase() === "yard") return true;
+  if (entry.isTurnaround === true && String(entry.mode || "yard").toLowerCase() === "yard")
+    return true;
 
   // Backwards compatibility (in case older docs used other keys)
   if (entry.turnaround === true) return true;
@@ -262,8 +299,7 @@ export default function TimesheetDetailPage() {
 
   /* ----------------------- Derived flag: approved? ----------------------- */
   const isApproved =
-    String(timesheet?.status || "").toLowerCase() === "approved" ||
-    timesheet?.approved === true;
+    String(timesheet?.status || "").toLowerCase() === "approved" || timesheet?.approved === true;
 
   /* ----------------------- Load holidays for this timesheet ----------------------- */
   useEffect(() => {
@@ -280,10 +316,8 @@ export default function TimesheetDetailPage() {
           const status = String(h.status || "").toLowerCase();
           if (h.deleted === true || h.isDeleted === true || status === "deleted") return;
 
-          const matchesName =
-            timesheet.employeeName && h.employee === timesheet.employeeName;
-          const matchesCode =
-            timesheet.employeeCode && h.employeeCode === timesheet.employeeCode;
+          const matchesName = timesheet.employeeName && h.employee === timesheet.employeeName;
+          const matchesCode = timesheet.employeeCode && h.employeeCode === timesheet.employeeCode;
 
           if (!matchesName && !matchesCode) return;
 
@@ -402,10 +436,7 @@ export default function TimesheetDetailPage() {
 
     (async () => {
       try {
-        const q = fsQuery(
-          collection(db, "timesheetQueries"),
-          where("timesheetId", "==", timesheet.id)
-        );
+        const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
         const snap = await getDocs(q);
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setQueries(rows);
@@ -459,10 +490,7 @@ export default function TimesheetDetailPage() {
       );
 
       try {
-        const q = fsQuery(
-          collection(db, "timesheetQueries"),
-          where("timesheetId", "==", timesheet.id)
-        );
+        const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
         const snap = await getDocs(q);
 
         await Promise.all(
@@ -524,10 +552,7 @@ export default function TimesheetDetailPage() {
         createdByRole: "manager",
       });
 
-      const q = fsQuery(
-        collection(db, "timesheetQueries"),
-        where("timesheetId", "==", timesheet.id)
-      );
+      const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
       const snap = await getDocs(q);
       setQueries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
@@ -550,10 +575,7 @@ export default function TimesheetDetailPage() {
     return { name: raw, registration: "No Reg" };
   };
 
-  const weekStartDate = useMemo(
-    () => parseDateFlexible(timesheet?.weekStart),
-    [timesheet?.weekStart]
-  );
+  const weekStartDate = useMemo(() => parseDateFlexible(timesheet?.weekStart), [timesheet?.weekStart]);
 
   const dayMap = useMemo(() => normaliseDays(timesheet?.days), [timesheet?.days]);
 
@@ -635,6 +657,10 @@ export default function TimesheetDetailPage() {
       // Yard segments for UI (turnaround might have none)
       const yardSegs = entryExists ? extractYardSegments(entry) : [];
 
+      // ✅ For UI label: whether lunch was deducted on yard day
+      const yardLunchDeducted =
+        entryExists && mode === "yard" && yardSegs.length > 0 && shouldDeductYardLunch(entry);
+
       return {
         day,
         entry,
@@ -652,6 +678,7 @@ export default function TimesheetDetailPage() {
         yardSegs,
         turnaroundJob,
         hasTurnaroundJob,
+        yardLunchDeducted,
       };
     });
 
@@ -883,6 +910,7 @@ export default function TimesheetDetailPage() {
                 yardSegs,
                 turnaroundJob,
                 hasTurnaroundJob,
+                yardLunchDeducted,
               } = card;
 
               const isHolidayCard = mode === "holiday" || mode === "bankholiday";
@@ -909,7 +937,15 @@ export default function TimesheetDetailPage() {
                   }}
                 >
                   {/* Day header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6, gap: 6 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 6,
+                      gap: 6,
+                    }}
+                  >
                     <div style={{ fontWeight: 650 }}>{day}</div>
                     <button
                       type="button"
@@ -918,7 +954,11 @@ export default function TimesheetDetailPage() {
                         setQueryDay(day);
                       }}
                       disabled={isApproved}
-                      title={isApproved ? "Timesheet approved – queries are read-only." : "Raise a query for this day"}
+                      title={
+                        isApproved
+                          ? "Timesheet approved – queries are read-only."
+                          : "Raise a query for this day"
+                      }
                       style={{
                         fontSize: 11,
                         padding: "2px 8px",
@@ -954,13 +994,29 @@ export default function TimesheetDetailPage() {
                       }}
                     >
                       Turnaround Day
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginTop: 2 }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#6b7280",
+                          marginTop: 2,
+                        }}
+                      >
                         {hasTurnaroundJob
-                          ? `Turnaround for job: ${turnaroundJob.jobNumber || turnaroundJob.bookingId} — ${turnaroundJob.client || "Client"}`
+                          ? `Turnaround for job: ${
+                              turnaroundJob.jobNumber || turnaroundJob.bookingId
+                            } — ${turnaroundJob.client || "Client"}`
                           : "Turnaround for job: (not selected)"}
                       </div>
                       {hasTurnaroundJob && turnaroundJob.location ? (
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", marginTop: 2 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#6b7280",
+                            marginTop: 2,
+                          }}
+                        >
                           {turnaroundJob.location}
                         </div>
                       ) : null}
@@ -974,7 +1030,13 @@ export default function TimesheetDetailPage() {
                         {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                       </span>
                       {hasLiveHoliday && paidLabel && (
-                        <span style={{ marginLeft: 6, color: paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8" }}>
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            color:
+                              paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
+                          }}
+                        >
                           ({paidLabel})
                         </span>
                       )}
@@ -1043,7 +1105,9 @@ export default function TimesheetDetailPage() {
                         </div>
                       ))}
                       {mode === "yard" && (
-                        <div style={{ color: "#9ca3af", fontSize: 12 }}>(-0.5 hr lunch)</div>
+                        <div style={{ color: "#9ca3af", fontSize: 12 }}>
+                          {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                        </div>
                       )}
                     </div>
                   )}
@@ -1184,8 +1248,8 @@ export default function TimesheetDetailPage() {
                 fontSize: 12,
               }}
             >
-              This timesheet is approved. Queries are now read-only – you can review existing
-              queries but cannot send new ones.
+              This timesheet is approved. Queries are now read-only – you can review existing queries
+              but cannot send new ones.
             </div>
           )}
 
@@ -1372,13 +1436,9 @@ export default function TimesheetDetailPage() {
                             padding: "1px 6px",
                             borderRadius: 999,
                             backgroundColor:
-                              String(q.status).toLowerCase() === "closed"
-                                ? "#dcfce7"
-                                : "#eef2ff",
+                              String(q.status).toLowerCase() === "closed" ? "#dcfce7" : "#eef2ff",
                             color:
-                              String(q.status).toLowerCase() === "closed"
-                                ? "#166534"
-                                : "#3730a3",
+                              String(q.status).toLowerCase() === "closed" ? "#166534" : "#3730a3",
                           }}
                         >
                           {String(q.status).toUpperCase()}

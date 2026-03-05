@@ -682,7 +682,7 @@ function CalendarEvent({ event }) {
 
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#111" }}>
+                <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "#111" }}>
                   {event.status}
                 </span>
 
@@ -693,13 +693,13 @@ function CalendarEvent({ event }) {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      fontSize: "0.7rem",
-                      fontWeight: 900,
+                      fontSize: "0.65rem",
+                      fontWeight: 800,
                       color: "#111",
                       marginTop: -2,
                     }}
                   >
-                    <Check size={12} strokeWidth={3} /> CREWED
+                    <Check size={12} strokeWidth={3} />CREWED
                   </span>
                 )}
 
@@ -707,8 +707,8 @@ function CalendarEvent({ event }) {
                 {!isMaintenance && !isCrewed && crewNeeded !== null && (
                   <span
                     style={{
-                      fontSize: "0.68rem",
-                      fontWeight: 900,
+                      fontSize: "0.65rem",
+                      fontWeight: 800,
                       color: "#111",
                       marginTop: -2,
                     }}
@@ -730,8 +730,8 @@ function CalendarEvent({ event }) {
                   color: event.shootType === "Night" ? "#fff" : "#000",
                   padding: "2px 4px",
                   borderRadius: 6,
-                  fontSize: "0.95rem",
-                  fontWeight: 900,
+                  fontSize: "0.9rem",
+                  fontWeight: 800,
                   border: "1px solid #0b0b0b",
                 }}
               >
@@ -1214,6 +1214,11 @@ export default function DashboardPage({ bookingSaved }) {
 
   const [maintenanceView, setMaintenanceView] = useState("week");
   const [maintenanceDate, setMaintenanceDate] = useState(new Date());
+  const shiftByDays = (date, days) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  };
 
   // ✅ NEW: UK Bank Holidays (GOV.UK)
   const [bankHolidays, setBankHolidays] = useState([]);
@@ -1680,13 +1685,10 @@ export default function DashboardPage({ bookingSaved }) {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <button
                 style={btn("ghost")}
-                onClick={() =>
-                  setCurrentDate((prev) => {
-                    const d = new Date(prev);
-                    d.setDate(d.getDate() - 7);
-                    return d;
-                  })
-                }
+                onClick={() => {
+                  setCurrentDate((prev) => shiftByDays(prev, -7));
+                  setMaintenanceDate((prev) => shiftByDays(prev, -7));
+                }}
                 type="button"
               >
                 ← Previous Week
@@ -1694,13 +1696,10 @@ export default function DashboardPage({ bookingSaved }) {
 
               <button
                 style={btn("ghost")}
-                onClick={() =>
-                  setCurrentDate((prev) => {
-                    const d = new Date(prev);
-                    d.setDate(d.getDate() + 7);
-                    return d;
-                  })
-                }
+                onClick={() => {
+                  setCurrentDate((prev) => shiftByDays(prev, 7));
+                  setMaintenanceDate((prev) => shiftByDays(prev, 7));
+                }}
                 type="button"
               >
                 Next Week →
@@ -1905,33 +1904,6 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button
-                style={btn("ghost")}
-                type="button"
-                onClick={() =>
-                  setMaintenanceDate((prev) => {
-                    const d = new Date(prev);
-                    d.setDate(d.getDate() - 7);
-                    return d;
-                  })
-                }
-              >
-                ← Previous Week
-              </button>
-
-              <button
-                style={btn("ghost")}
-                type="button"
-                onClick={() =>
-                  setMaintenanceDate((prev) => {
-                    const d = new Date(prev);
-                    d.setDate(d.getDate() + 7);
-                    return d;
-                  })
-                }
-              >
-                Next Week →
-              </button>
 
               <button
                 type="button"

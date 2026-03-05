@@ -304,11 +304,25 @@ const STATUS_COLORS = {
 const getStatusStyle = (s = "") =>
   STATUS_COLORS[s] || { bg: "#e5e7eb", text: "#111", border: "#e5e7eb" };
 
+const formatReasons = (reasons = [], other = "") => {
+  if (!Array.isArray(reasons) || !reasons.length) return "—";
+  return reasons
+    .map((r) => (r === "Other" && other ? `Other: ${other}` : r))
+    .join(", ");
+};
+
 /* ---------------- deleted doc normaliser ---------------- */
 const normaliseDeleted = (id, raw) => {
   const payload = raw.data || raw.payload || raw.booking || raw || {};
   const originalCollection = raw.originalCollection || "bookings";
   const originalId = raw.originalId || id;
+  const deleteReasons =
+    Array.isArray(raw.deleteReasons) && raw.deleteReasons.length
+      ? raw.deleteReasons
+      : Array.isArray(payload.statusReasons)
+      ? payload.statusReasons
+      : [];
+  const deleteReasonOther = raw.deleteReasonOther || payload.statusReasonOther || "";
 
   return {
     id,
@@ -317,6 +331,9 @@ const normaliseDeleted = (id, raw) => {
     originalCollection,
     originalId,
     payload,
+    deleteReasons,
+    deleteReasonOther,
+    deleteReasonText: formatReasons(deleteReasons, deleteReasonOther),
 
     jobNumber: payload.jobNumber || "—",
     client: payload.client || "—",
@@ -424,6 +441,7 @@ export default function DeletedBookingsPage() {
           r.client,
           r.location,
           r.status,
+          r.deleteReasonText,
           r.dateRange,
           r.deletedBy,
         ]
@@ -600,11 +618,12 @@ export default function DeletedBookingsPage() {
               <table style={table}>
                 <colgroup>
                   <col style={{ width: "12%" }} />
-                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "8%" }} />
                   <col style={{ width: "10%" }} />
                   <col style={{ width: "14%" }} />
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "18%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "10%" }} />
                   <col style={{ width: "18%" }} />
                   <col style={{ width: "10%" }} />
                 </colgroup>
@@ -615,6 +634,7 @@ export default function DeletedBookingsPage() {
                     <th style={th}>Date(s)</th>
                     <th style={th}>Job Number</th>
                     <th style={th}>Status</th>
+                    <th style={th}>Delete Reason</th>
                     <th style={th}>Production</th>
                     <th style={th}>Location</th>
                     <th style={th}>Crew</th>
@@ -625,7 +645,7 @@ export default function DeletedBookingsPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td style={{ ...td, color: UI.muted }} colSpan={8}>
+                      <td style={{ ...td, color: UI.muted }} colSpan={9}>
                         No deleted bookings found.
                       </td>
                     </tr>
@@ -683,6 +703,12 @@ export default function DeletedBookingsPage() {
                                 📎 {r.attachments.length}
                               </div>
                             ) : null}
+                          </td>
+
+                          <td style={td}>
+                            <div style={{ whiteSpace: "normal", fontWeight: 700 }}>
+                              {r.deleteReasonText || "—"}
+                            </div>
                           </td>
 
                           <td style={td}>
