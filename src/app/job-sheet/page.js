@@ -40,7 +40,7 @@ const toolbar = {
   ...surface,
   padding: 12,
   display: "grid",
-  gridTemplateColumns: "1fr auto auto auto auto auto auto auto auto",
+  gridTemplateColumns: "1fr auto auto auto auto auto auto auto auto auto",
   gap: 10,
   alignItems: "center",
   position: "sticky",
@@ -275,6 +275,7 @@ const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAl
 ─────────────────────────────────────────── */
 export default function JobSheetPage() {
   const [bookings, setBookings] = useState([]);
+  const [vehiclesData, setVehiclesData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -287,12 +288,14 @@ export default function JobSheetPage() {
   const [statusFilter, setStatusFilter] = useState("all"); // all | confirmed | complete | ready | invoiced | paid | action | enquiries | passed | upcoming
   const [clientFilter, setClientFilter] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
 
   const clearFilters = () => {
     setStatusFilter("all");
     setClientFilter("all");
     setVehicleFilter("all");
+    setEquipmentFilter("all");
     setEmployeeFilter("all");
   };
 
@@ -314,6 +317,82 @@ export default function JobSheetPage() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "vehicles"), (snapshot) => {
+      setVehiclesData(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
+    });
+    return () => unsub();
+  }, []);
+
+  const vehicleLookup = useMemo(() => {
+    const byId = new Map();
+    const byReg = new Map();
+    const byName = new Map();
+
+    for (const v of vehiclesData) {
+      const id = String(v?.id || "").trim();
+      const name = String(v?.name || "").trim();
+      const reg = String(v?.registration || v?.reg || "").trim();
+      const label = name || reg || id || "Vehicle";
+
+      if (id) byId.set(id, label);
+      if (reg) byReg.set(reg.toLowerCase(), label);
+      if (name) byName.set(name.toLowerCase(), label);
+    }
+
+    return { byId, byReg, byName };
+  }, [vehiclesData]);
+
+  const resolveVehicleNames = (job) => {
+    const list = Array.isArray(job?.vehicles) ? job.vehicles : [];
+    const out = [];
+
+    for (const raw of list) {
+      if (raw && typeof raw === "object") {
+        const label = String(raw.name || raw.registration || raw.reg || raw.id || "").trim();
+        if (label) out.push(label);
+        continue;
+      }
+
+      const token = String(raw || "").trim();
+      if (!token) continue;
+
+      const byId = vehicleLookup.byId.get(token);
+      if (byId) {
+        out.push(byId);
+        continue;
+      }
+
+      const byReg = vehicleLookup.byReg.get(token.toLowerCase());
+      if (byReg) {
+        out.push(byReg);
+        continue;
+      }
+
+      const byName = vehicleLookup.byName.get(token.toLowerCase());
+      if (byName) {
+        out.push(byName);
+        continue;
+      }
+
+      out.push(token);
+    }
+
+    return Array.from(new Set(out));
+  };
+
+  const resolveEquipmentNames = (job) => {
+    const eq = job?.equipment;
+    if (Array.isArray(eq)) return eq.map((x) => String(x || "").trim()).filter(Boolean);
+    if (typeof eq === "string") {
+      return eq
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
 
   /* ---------- Base: 4-digit jobs only ---------- */
   const fourDigitJobs = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
@@ -376,11 +455,13 @@ export default function JobSheetPage() {
   const facets = useMemo(() => {
     const clients = new Set();
     const vehicles = new Set();
+    const equipment = new Set();
     const employees = new Set();
 
     for (const j of activeItemsBase) {
       if (j.client) clients.add(j.client);
-      if (Array.isArray(j.vehicles)) j.vehicles.filter(Boolean).forEach((v) => vehicles.add(v));
+      resolveVehicleNames(j).forEach((v) => vehicles.add(v));
+      resolveEquipmentNames(j).forEach((e) => equipment.add(e));
       if (Array.isArray(j.employees)) {
         j.employees
           .map((e) => (typeof e === "string" ? e : e?.name))
@@ -392,9 +473,10 @@ export default function JobSheetPage() {
     return {
       clients: toList(clients),
       vehicles: toList(vehicles),
+      equipment: toList(equipment),
       employees: toList(employees),
     };
-  }, [activeItemsBase, activeSection]);
+  }, [activeItemsBase, activeSection, vehiclesData]);
 
   /* ---------- Status filter helper ---------- */
   const statusMatches = (job) => {
@@ -430,8 +512,13 @@ export default function JobSheetPage() {
       if (clientFilter !== "all" && (j.client || "") !== clientFilter) return false;
 
       if (vehicleFilter !== "all") {
-        const vs = Array.isArray(j.vehicles) ? j.vehicles : [];
+        const vs = resolveVehicleNames(j);
         if (!vs.includes(vehicleFilter)) return false;
+      }
+
+      if (equipmentFilter !== "all") {
+        const eq = resolveEquipmentNames(j);
+        if (!eq.includes(equipmentFilter)) return false;
       }
 
       if (employeeFilter !== "all") {
@@ -443,7 +530,7 @@ export default function JobSheetPage() {
 
       return true;
     });
-  }, [activeItemsBase, statusFilter, clientFilter, vehicleFilter, employeeFilter, todayMidnight]);
+  }, [activeItemsBase, statusFilter, clientFilter, vehicleFilter, equipmentFilter, employeeFilter, todayMidnight, vehiclesData]);
 
   /* ---------- Group filtered items by week ---------- */
   const groupJobsByWeek = (jobs) => {
@@ -527,7 +614,8 @@ export default function JobSheetPage() {
       Array.isArray(job.employees) && job.employees.length
         ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
         : "—";
-    const vehicles = Array.isArray(job.vehicles) && job.vehicles.length ? job.vehicles.join(", ") : "—";
+    const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—";
+    const equipment = resolveEquipmentNames(job).length ? resolveEquipmentNames(job).join(", ") : "—";
 
     const prefix = getJobPrefix(job);
     const range = dateRangeLabel(job);
@@ -583,6 +671,7 @@ export default function JobSheetPage() {
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
             <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>👥 {team}</span>
             <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>🚗 {vehicles}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>🧰 {equipment}</span>
           </div>
         </Link>
       );
@@ -660,7 +749,10 @@ export default function JobSheetPage() {
           </span>
 
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
-          <span>{Array.isArray(job.vehicles) && job.vehicles.length ? job.vehicles.join(", ") : "—"}</span>
+          <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—"}</span>
+
+          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
+          <span>{equipment}</span>
         </div>
 
 
@@ -692,7 +784,7 @@ export default function JobSheetPage() {
               Array.isArray(job.employees) && job.employees.length
                 ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
                 : "—";
-            const vehicles = Array.isArray(job.vehicles) && job.vehicles.length ? job.vehicles.join(", ") : "—";
+            const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—";
 
             return (
               <tr key={job.id}>
@@ -813,6 +905,12 @@ export default function JobSheetPage() {
           <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={select} aria-label="Filter by vehicle">
             {facets.vehicles.map((v) => (
               <option key={v} value={v}>{v === "all" ? "Vehicle: All" : v}</option>
+            ))}
+          </select>
+
+          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)} style={select} aria-label="Filter by equipment">
+            {facets.equipment.map((eq) => (
+              <option key={eq} value={eq}>{eq === "all" ? "Equipment: All" : eq}</option>
             ))}
           </select>
 

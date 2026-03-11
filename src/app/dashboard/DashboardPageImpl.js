@@ -209,6 +209,8 @@ const STATUS_COLORS = {
   Complete: { bg: "#719b6eff", text: "#111", border: "#0b0b0b" },
   "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
   DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
+  Postponed: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
+  Deleted: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
 
   // ✅ NEW: Bank Holidays (Work Diary highlight)
   "Bank Holiday": { bg: "#dbeafe", text: "#111", border: "#0b0b0b" },
@@ -219,6 +221,9 @@ const getStatusStyle = (s = "") =>
 
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
+const DELETED_ON_CALENDAR_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk"]);
+const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
+const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
 
 /* ------------------------------- helpers ------------------------------- */
 const parseLocalDate = (d) => {
@@ -425,7 +430,8 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
 
     return {
       ...b,
-      __collection: "bookings",
+      __collection: b.__collection || "bookings",
+      __deletedDocId: b.__deletedDocId || null,
       title: b.client || "",
       start: startOfLocalDay(startBase),
       end: startOfLocalDay(addDays(safeEnd, 1)),
@@ -987,7 +993,7 @@ function CalendarEvent({ event }) {
           {/* Badge row (unchanged logic, but CT now truly correct) */}
           {(() => {
             const status = (event.status || "").toLowerCase();
-            const hideForStatus = ["cancelled", "dnh", "lost", "postponed"].includes(status);
+            const hideForStatus = ["cancelled", "dnh", "lost", "postponed", "deleted"].includes(status);
             if (isMaintenance || hideForStatus) return null;
 
             return (
@@ -1190,6 +1196,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [deletedBookings, setDeletedBookings] = useState([]);
   const [calendarView, setCalendarView] = useState("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [holidays, setHolidays] = useState([]);
@@ -1198,6 +1205,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [noteDate, setNoteDate] = useState(null);
   const [notes, setNotes] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedDeletedId, setSelectedDeletedId] = useState(null);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingHolidayId, setEditingHolidayId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -1214,6 +1222,8 @@ export default function DashboardPage({ bookingSaved }) {
 
   const [maintenanceView, setMaintenanceView] = useState("week");
   const [maintenanceDate, setMaintenanceDate] = useState(new Date());
+  const [showDeletedInView, setShowDeletedInView] = useState(true);
+  const [showInactiveInView, setShowInactiveInView] = useState(true);
   const shiftByDays = (date, days) => {
     const d = new Date(date);
     d.setDate(d.getDate() + days);
@@ -1238,6 +1248,44 @@ export default function DashboardPage({ bookingSaved }) {
   }, []);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
+  const canSeeDeletedOnCalendar = userEmail
+    ? DELETED_ON_CALENDAR_EMAILS.has(userEmail)
+    : false;
+
+  useEffect(() => {
+    if (!authReady || !userEmail) return;
+    try {
+      const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
+      if (!raw) return;
+      const all = JSON.parse(raw);
+      const prefs = all?.[userEmail];
+      if (!prefs || typeof prefs !== "object") return;
+
+      if (typeof prefs.showInactiveInView === "boolean") {
+        setShowInactiveInView(prefs.showInactiveInView);
+      }
+      if (typeof prefs.showDeletedInView === "boolean") {
+        setShowDeletedInView(prefs.showDeletedInView);
+      }
+    } catch {
+      // ignore malformed localStorage
+    }
+  }, [authReady, userEmail]);
+
+  useEffect(() => {
+    if (!authReady || !userEmail) return;
+    try {
+      const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
+      const all = raw ? JSON.parse(raw) : {};
+      all[userEmail] = {
+        showInactiveInView,
+        showDeletedInView,
+      };
+      localStorage.setItem(DASHBOARD_HIDE_PREFS_KEY, JSON.stringify(all));
+    } catch {
+      // ignore storage errors
+    }
+  }, [authReady, userEmail, showInactiveInView, showDeletedInView]);
 
   const goToCreateBooking = useCallback(() => {
     if (isRestricted) return;
@@ -1476,6 +1524,30 @@ export default function DashboardPage({ bookingSaved }) {
     };
   }, [authReady]);
 
+  useEffect(() => {
+    if (!authReady || !canSeeDeletedOnCalendar) {
+      setDeletedBookings([]);
+      return;
+    }
+
+    const unsubDeleted = onSnapshot(collection(db, "deletedBookings"), (snap) => {
+      const list = snap.docs.map((d) => {
+        const raw = d.data() || {};
+        const payload = raw.data || raw.payload || raw.booking || {};
+        return {
+          id: raw.originalId || d.id,
+          __collection: "deletedBookings",
+          __deletedDocId: d.id,
+          ...payload,
+          status: "Deleted",
+        };
+      });
+      setDeletedBookings(list);
+    });
+
+    return () => unsubDeleted();
+  }, [authReady, canSeeDeletedOnCalendar]);
+
   const fetchBookings = async () => {
     const snapshot = await getDocs(collection(db, "bookings"));
     const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
@@ -1615,10 +1687,12 @@ export default function DashboardPage({ bookingSaved }) {
   });
 
   // ✅ Build all calendar events from a single function (jobs + maintenance)
-  const allEventsRaw = useMemo(
-    () => eventsByJobNumber(bookings, maintenanceBookings),
-    [bookings, maintenanceBookings]
-  );
+  const allEventsRaw = useMemo(() => {
+    const sourceBookings = canSeeDeletedOnCalendar
+      ? [...bookings, ...deletedBookings]
+      : bookings;
+    return eventsByJobNumber(sourceBookings, maintenanceBookings);
+  }, [bookings, deletedBookings, maintenanceBookings, canSeeDeletedOnCalendar]);
 
   const allEvents = useMemo(() => {
     return allEventsRaw.map((ev) => {
@@ -1656,9 +1730,19 @@ export default function DashboardPage({ bookingSaved }) {
   }, [bankHolidays]);
 
   // Split by type for each calendar
-  const workDiaryEvents = allEvents.filter(
-    (e) => e.status !== "Holiday" && e.status !== "Note" && e.status !== "Maintenance"
-  );
+  const workDiaryEvents = useMemo(() => {
+    return allEvents.filter((e) => {
+      if (e.status === "Holiday" || e.status === "Note" || e.status === "Maintenance") {
+        return false;
+      }
+
+      const statusLC = String(e.status || "").toLowerCase();
+      if (!showDeletedInView && statusLC === "deleted") return false;
+      if (!showInactiveInView && HIDEABLE_STATUSES.has(statusLC)) return false;
+
+      return true;
+    });
+  }, [allEvents, showDeletedInView, showInactiveInView]);
   const maintenanceEvents = allEvents.filter((e) => e.status === "Maintenance");
 
   return (
@@ -1671,6 +1755,20 @@ export default function DashboardPage({ bookingSaved }) {
             <div style={sub}>Work diary, maintenance, holidays and notes.</div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              style={btn("ghost")}
+              type="button"
+              onClick={() => router.push("/preplist-dashboard")}
+            >
+              Prep Dashboard
+            </button>
+            <button
+              style={btn("ghost")}
+              type="button"
+              onClick={() => router.push("/stunt-prep")}
+            >
+              Stunt Prep
+            </button>
             {bookingSaved && <div style={successBanner}>✅ Booking saved successfully!</div>}
           </div>
         </div>
@@ -1703,6 +1801,24 @@ export default function DashboardPage({ bookingSaved }) {
                 type="button"
               >
                 Next Week →
+              </button>
+
+              {canSeeDeletedOnCalendar && (
+                <button
+                  style={showDeletedInView ? btn("ghost") : btn("danger")}
+                  onClick={() => setShowDeletedInView((v) => !v)}
+                  type="button"
+                >
+                  {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
+                </button>
+              )}
+
+              <button
+                style={showInactiveInView ? btn("ghost") : btn("danger")}
+                onClick={() => setShowInactiveInView((v) => !v)}
+                type="button"
+              >
+                {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
               </button>
 
               <button
@@ -1807,7 +1923,15 @@ export default function DashboardPage({ bookingSaved }) {
                   return;
                 }
 
-                if (e.id) setSelectedBookingId(e.id);
+                if (e.id) {
+                  if (e.__collection === "deletedBookings") {
+                    setSelectedDeletedId(e.__deletedDocId || e.id);
+                    setSelectedBookingId(e.id);
+                  } else {
+                    setSelectedDeletedId(null);
+                    setSelectedBookingId(e.id);
+                  }
+                }
               }}
               components={{ event: CalendarEvent }}
               eventPropGetter={(event) => {
@@ -1840,6 +1964,8 @@ export default function DashboardPage({ bookingSaved }) {
     Complete: "#92d18cff",
     "Action Required": "#FF973B",
     DNH: "#c2c2c2",
+    Postponed: "#c2c2c2",
+    Deleted: "#c2c2c2",
   }[status] || "#ccc";
 
 
@@ -2500,7 +2626,15 @@ export default function DashboardPage({ bookingSaved }) {
       )}
 
       {selectedBookingId && (
-        <ViewBookingModal id={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
+        <ViewBookingModal
+          id={selectedBookingId}
+          fromDeleted={!!selectedDeletedId}
+          deletedId={selectedDeletedId}
+          onClose={() => {
+            setSelectedBookingId(null);
+            setSelectedDeletedId(null);
+          }}
+        />
       )}
     </HeaderSidebarLayout>
   );
