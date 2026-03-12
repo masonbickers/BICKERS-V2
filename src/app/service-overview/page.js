@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
 const UI = {
@@ -104,6 +105,20 @@ const td = {
   verticalAlign: "top",
 };
 
+const actionBtn = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: "1px solid #bfdbfe",
+  background: "#eff6ff",
+  color: UI.brand,
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
 /* ───────────────── Utilities ───────────────── */
 const parseDateAny = (v) => {
   if (!v) return null;
@@ -169,6 +184,7 @@ export default function ServiceOverviewPage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingVehicle, setBookingVehicle] = useState(null);
 
   // filters / sorting
   const [q, setQ] = useState("");
@@ -531,6 +547,43 @@ export default function ServiceOverviewPage() {
     fetchVehicles();
   }, []);
 
+  const refreshVehicles = async () => {
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, "vehicles"));
+      const today = new Date();
+
+      const data = snapshot.docs.map((d) => {
+        const v = d.data();
+        const next = parseDateAny(v.nextService);
+        const diffDays = next ? daysDiff(next, today) : null;
+        const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
+        const bookedStatus = normaliseBookedStatus(v);
+        const bookedWindow = getBookedWindow(v);
+        const bookedNow = isBookedNow(v, today);
+
+        return {
+          ...v,
+          id: d.id,
+          name: v.name || "-",
+          reg: v.reg || v.registration || "-",
+          category: v.category || "-",
+          nextServiceRaw: next,
+          nextServiceDate: fmtShort(next),
+          daysUntilService: diffDays,
+          status,
+          bookedStatus,
+          bookedNow,
+          bookedWindow,
+        };
+      });
+
+      setVehicles(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     let data = vehicles;
 
@@ -619,6 +672,14 @@ export default function ServiceOverviewPage() {
           box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
           border-color: #bfdbfe !important;
         }
+        .service-overview-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+        .service-overview-table tbody tr:hover {
+          filter: brightness(0.995);
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -633,8 +694,11 @@ export default function ServiceOverviewPage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/dashboard")} style={btn("#1d4ed8", "#fff")}>
+              Dashboard
+            </button>
             <button onClick={() => router.back()} style={btn()}>
-              ← Back
+              Back
             </button>
           </div>
         </div>
@@ -699,7 +763,7 @@ export default function ServiceOverviewPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 220px 220px",
+              gridTemplateColumns: "minmax(240px, 1fr) repeat(2, minmax(180px, 220px))",
               gap: 10,
               alignItems: "center",
             }}
@@ -743,7 +807,7 @@ export default function ServiceOverviewPage() {
         {/* Table */}
         <div style={tableWrap}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="service-overview-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <th style={th}>Name</th>
@@ -753,19 +817,20 @@ export default function ServiceOverviewPage() {
                   <th style={th}>Days</th>
                   <th style={th}>Next Service</th>
                   <th style={th}>Status</th>
+                  <th style={th}>Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       Loading vehicles…
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       No vehicles match your filters.
                     </td>
                   </tr>
@@ -777,7 +842,23 @@ export default function ServiceOverviewPage() {
                     return (
                       <tr key={v.id} style={rowBg(status, v.bookedStatus && v.bookedNow)}>
                         <td style={td}>
-                          <div style={{ fontWeight: 950, color: UI.text }}>{v.name}</div>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/vehicle-edit/${v.id}`)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              padding: 0,
+                              margin: 0,
+                              fontWeight: 950,
+                              color: UI.text,
+                              cursor: "pointer",
+                              textAlign: "left",
+                            }}
+                            title="Open vehicle"
+                          >
+                            {v.name}
+                          </button>
                         </td>
 
                         <td style={td}>{v.reg}</td>
@@ -803,6 +884,22 @@ export default function ServiceOverviewPage() {
                             </span>
                           )}
                         </td>
+                        <td style={td}>
+                          <button
+                            type="button"
+                            style={actionBtn}
+                            onClick={() =>
+                              setBookingVehicle({
+                                id: v.id,
+                                name: v.name,
+                                reg: v.reg,
+                                nextServiceRaw: v.nextServiceRaw,
+                              })
+                            }
+                          >
+                            Book Service
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -811,6 +908,19 @@ export default function ServiceOverviewPage() {
             </table>
           </div>
         </div>
+
+        {bookingVehicle ? (
+          <MaintenanceBookingForm
+            vehicleId={bookingVehicle.id}
+            type="SERVICE"
+            defaultDate={bookingVehicle.nextServiceRaw ? bookingVehicle.nextServiceRaw.toISOString().split("T")[0] : ""}
+            onClose={() => setBookingVehicle(null)}
+            onSaved={async () => {
+              setBookingVehicle(null);
+              await refreshVehicles();
+            }}
+          />
+        ) : null}
       </div>
     </HeaderSidebarLayout>
   );

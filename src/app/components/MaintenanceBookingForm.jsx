@@ -96,6 +96,21 @@ export default function MaintenanceBookingForm({
     return clampISODate(d);
   };
 
+  const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
+    const explicit = Number(explicitFreq || 0);
+    if (explicit > 0) return explicit;
+
+    const last = parseISOorBlank(lastISO);
+    const next = parseISOorBlank(nextISO);
+    if (!last || !next) return 0;
+
+    const diffMs = next.getTime() - last.getTime();
+    const diffDays = Math.round(diffMs / 86400000);
+    if (diffDays <= 0) return 0;
+
+    return Math.max(1, Math.round(diffDays / 7));
+  };
+
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
@@ -130,8 +145,11 @@ export default function MaintenanceBookingForm({
     return endDate || startDate || "";
   };
 
-  const safeType = String(type || "").toUpperCase() === "SERVICE" ? "SERVICE" : "MOT";
-  const title = safeType === "MOT" ? "Book MOT" : "Book Service";
+  const normalizedType = String(type || "").toUpperCase();
+  const safeType =
+    normalizedType === "SERVICE" ? "SERVICE" : normalizedType === "WORK" ? "WORK" : "MOT";
+  const title =
+    safeType === "MOT" ? "Book MOT" : safeType === "SERVICE" ? "Book Service" : "Book Work";
 
   const vehicleLabel = useMemo(() => {
     const v = vehicle || {};
@@ -314,7 +332,7 @@ export default function MaintenanceBookingForm({
       const vRef = doc(db, "vehicles", vehicleId);
 
       if (safeType === "MOT") {
-        const motFreqWeeks = Number(vehicle?.motFreq || 0);
+        const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
 
         const updates = {
           motBookedStatus: status,
@@ -347,8 +365,12 @@ export default function MaintenanceBookingForm({
         }
 
         await updateDoc(vRef, updates);
-      } else {
-        const serviceFreqWeeks = Number(vehicle?.serviceFreq || 0);
+      } else if (safeType === "SERVICE") {
+        const serviceFreqWeeks = resolveFreqWeeks(
+          vehicle?.serviceFreq,
+          vehicle?.lastService,
+          vehicle?.nextService
+        );
 
         const updates = {
           serviceBookedStatus: status,
@@ -381,6 +403,20 @@ export default function MaintenanceBookingForm({
         }
 
         await updateDoc(vRef, updates);
+      } else {
+        await updateDoc(vRef, {
+          workBookedStatus: status,
+          workBookingId: created.id,
+          workBookingDate: !isMultiDay ? appointmentDate : "",
+          workBookingStartDate: isMultiDay ? startDate : "",
+          workBookingEndDate: isMultiDay ? endDate : "",
+          workProvider: provider.trim(),
+          workBookingRef: bookingRef.trim(),
+          workLocation: location.trim(),
+          workCost: cost ? String(cost).trim() : "",
+          workBookingNotes: notes.trim(),
+          updatedAt: serverTimestamp(),
+        });
       }
 
       if (typeof onSaved === "function") onSaved({ id: created.id, ...bookingPayload });
@@ -409,15 +445,19 @@ export default function MaintenanceBookingForm({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+        <form onSubmit={handleSubmit} style={formGrid}>
           {/* Type */}
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Maintenance type</label>
-            <input style={input} value={safeType === "MOT" ? "MOT" : "Service"} readOnly />
+            <input
+              style={input}
+              value={safeType === "MOT" ? "MOT" : safeType === "SERVICE" ? "Service" : "Work"}
+              readOnly
+            />
           </div>
 
           {/* Status */}
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
               <option value="Requested">Requested</option>
@@ -428,7 +468,7 @@ export default function MaintenanceBookingForm({
           </div>
 
           {/* Single vs multi */}
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Booking type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
@@ -441,7 +481,7 @@ export default function MaintenanceBookingForm({
           </div>
 
           {!isMultiDay ? (
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Appointment date</label>
               <input
                 type="date"
@@ -453,7 +493,7 @@ export default function MaintenanceBookingForm({
             </div>
           ) : (
             <>
-              <div>
+              <div style={fieldBlock}>
                 <label style={label}>Start date</label>
                 <input
                   type="date"
@@ -464,7 +504,7 @@ export default function MaintenanceBookingForm({
                 />
               </div>
 
-              <div>
+              <div style={fieldBlock}>
                 <label style={label}>End date</label>
                 <input
                   type="date"
@@ -481,6 +521,7 @@ export default function MaintenanceBookingForm({
           {conflictMsg ? (
             <div
               style={{
+                ...fullWidth,
                 border: "1px solid rgba(239,68,68,0.45)",
                 background: "rgba(239,68,68,0.12)",
                 color: "rgba(255,255,255,0.92)",
@@ -496,27 +537,27 @@ export default function MaintenanceBookingForm({
           ) : null}
 
           {/* Details */}
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Provider / garage</label>
             <input value={provider} onChange={(e) => setProvider(e.target.value)} style={input} />
           </div>
 
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Booking reference</label>
             <input value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} style={input} />
           </div>
 
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Location</label>
             <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} />
           </div>
 
-          <div>
+          <div style={fieldBlock}>
             <label style={label}>Cost (optional)</label>
             <input value={cost} onChange={(e) => setCost(e.target.value)} style={input} />
           </div>
 
-          <div>
+          <div style={{ ...fieldBlock, ...fullWidth }}>
             <label style={label}>Notes</label>
             <textarea
               value={notes}
@@ -531,6 +572,7 @@ export default function MaintenanceBookingForm({
             type="submit"
             disabled={!canSubmit}
             style={{
+              ...fullWidth,
               ...primaryBtn,
               opacity: canSubmit ? 1 : 0.55,
               cursor: canSubmit ? "pointer" : "not-allowed",
@@ -539,11 +581,11 @@ export default function MaintenanceBookingForm({
             {saving ? "Saving..." : "Create booking"}
           </button>
 
-          <button type="button" onClick={handleClose} style={dangerBtn}>
+          <button type="button" onClick={handleClose} style={{ ...dangerBtn, ...fullWidth }}>
             Cancel
           </button>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+          <div style={{ ...fullWidth, fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
             Saves to <b>maintenanceBookings</b> and links it back to the vehicle document.
             {status === "Completed" ? (
               <>
@@ -571,7 +613,9 @@ const overlay = {
 };
 
 const modal = {
-  width: "min(520px, 95vw)",
+  width: "min(820px, 96vw)",
+  maxHeight: "90vh",
+  overflowY: "auto",
   borderRadius: 16,
   padding: 18,
   color: "#fff",
@@ -625,6 +669,21 @@ const input = {
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 12,
+  alignItems: "start",
+};
+
+const fieldBlock = {
+  minWidth: 0,
+};
+
+const fullWidth = {
+  gridColumn: "1 / -1",
 };
 
 const primaryBtn = {

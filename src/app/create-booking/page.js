@@ -217,6 +217,27 @@ const expandBookingDates = (b) => {
   return [];
 };
 
+const expandMaintenanceBookingDates = (b) => {
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+
+  const appointmentISO = String(b.appointmentDateISO || "").slice(0, 10);
+  const startISO = String(b.startDateISO || "").slice(0, 10);
+  const endISO = String(b.endDateISO || "").slice(0, 10);
+  if (appointmentISO) return [appointmentISO];
+  if (startISO && endISO) return enumerateDaysYMD_UTC(startISO, endISO);
+
+  const toYMD = (v) => {
+    const d = toJsDate(v);
+    return d ? formatYMD_UTC(d) : "";
+  };
+  const one = toYMD(b.appointmentDate || b.date);
+  const s = toYMD(b.startDate || b.date || b.start);
+  const e = toYMD(b.endDate || b.end || b.startDate || b.date);
+  if (one) return [one];
+  if (s && e) return enumerateDaysYMD_UTC(s, e);
+  return [];
+};
+
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
   if (!datesA.length || !datesB.length) return false;
@@ -500,14 +521,14 @@ export default function CreateBookingPage() {
   ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const loadData = async () => {
-      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, workSnap, contactsSnap] =
+      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, maintenanceSnap, contactsSnap] =
         await Promise.all([
           getDocs(collection(db, "bookings")),
           getDocs(collection(db, "holidays")),
           getDocs(collection(db, "employees")),
           getDocs(collection(db, "vehicles")),
           getDocs(collection(db, "equipment")),
-          getDocs(collection(db, "workBookings")),
+          getDocs(collection(db, "maintenanceBookings")),
           getDocs(collection(db, "contacts")),
         ]);
 
@@ -610,7 +631,7 @@ export default function CreateBookingPage() {
       Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
       setOpenEquipGroups(openEquip);
 
-      setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
+      setMaintenanceBookings(maintenanceSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
       setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
@@ -693,33 +714,44 @@ export default function CreateBookingPage() {
       .filter(Boolean);
   }, [overlapping]);
 
-  const maintenanceVehicleIdSet = useMemo(() => {
-    const ids = [];
+  const maintenanceVehicleBlocking = useMemo(() => {
+    const ids = new Set();
+    const reasonById = {};
+    const reasonFromType = (booking) => {
+      const t = String(
+        booking?.maintenanceTypeLabel || booking?.maintenanceTypeOther || booking?.type || booking?.maintenanceType || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (t === "MOT") return "MOT";
+      if (t === "SERVICE") return "Service";
+      return "Maintenance";
+    };
 
     maintenanceBookings.forEach((b) => {
-      const start = toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
-      const end = toJsDate(b.endDate || b.end || b.endDate) || start || toJsDate(b.date);
-      if (!start || !end) return;
-
-      const overlaps = selectedDates.some((dateStr) => {
-        const d = new Date(dateStr + "T00:00:00");
-        return d >= start && d <= end;
-      });
+      const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
+      const reason = reasonFromType(b);
 
       if (Array.isArray(b.vehicles) && b.vehicles.length) {
         b.vehicles.forEach((v) => {
           const resolved = normalizeVehicleKeysListForLookup([v], vehicleLookup);
-          resolved.forEach((id) => ids.push(id));
+          resolved.forEach((id) => {
+            ids.add(id);
+            if (!reasonById[id]) reasonById[id] = reason;
+          });
         });
       } else {
         const candidate = b.vehicleId || b.vehicle || b.vehicleName || b.registration || b.reg;
         const resolved = normalizeVehicleKeysListForLookup([candidate], vehicleLookup);
-        resolved.forEach((id) => ids.push(id));
+        resolved.forEach((id) => {
+          ids.add(id);
+          if (!reasonById[id]) reasonById[id] = reason;
+        });
       }
     });
 
-    return new Set(ids);
+    return { ids, reasonById };
   }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
   /* ────────────────────────────────────────────────────────────
@@ -1672,7 +1704,8 @@ export default function CreateBookingPage() {
                             const isHeld = heldVehicleIds.includes(key);
                             const isSelected = vehicles.includes(key);
 
-                            const isMaintBlocked = maintenanceVehicleIdSet.has(key);
+                            const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
+                            const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
                             const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
                             return (
@@ -1689,7 +1722,7 @@ export default function CreateBookingPage() {
                                 title={
                                   disabled
                                     ? isMaintBlocked
-                                      ? "Vehicle is on maintenance (work booking) during selected date(s)"
+                                      ? `Vehicle is out for ${maintReason} during selected date(s)`
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
                                     : ""
                                 }
@@ -1698,7 +1731,7 @@ export default function CreateBookingPage() {
                                 <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                   {vehicle.name}
                                   {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isMaintBlocked && !isBooked && " (Maintenance)"}
+                                  {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                   {isBooked && ` (${blockedStatus || "Blocked"})`}
                                   {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>

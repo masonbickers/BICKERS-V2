@@ -249,6 +249,23 @@ const expandBookingDates = (b) => {
   return [];
 };
 
+const expandMaintenanceBookingDates = (b) => {
+  if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates;
+
+  const appointmentISO = String(b.appointmentDateISO || "").slice(0, 10);
+  const startISO = String(b.startDateISO || "").slice(0, 10);
+  const endISO = String(b.endDateISO || "").slice(0, 10);
+  if (appointmentISO) return [appointmentISO];
+  if (startISO && endISO) return enumerateDaysYMD_UTC(startISO, endISO);
+
+  const one = toYMD(b.appointmentDate || b.date);
+  const s = toYMD(b.startDate || b.date || b.start);
+  const e = toYMD(b.endDate || b.end || b.startDate || b.date);
+  if (one) return [one];
+  if (s && e) return enumerateDaysYMD_UTC(s, e);
+  return [];
+};
+
 const anyDateOverlap = (datesA, datesB) => {
   if (!Array.isArray(datesA) || !Array.isArray(datesB)) return false;
   if (!datesA.length || !datesB.length) return false;
@@ -455,6 +472,7 @@ export default function EditBookingPage() {
 
   // Equipment
   const [equipment, setEquipment] = useState([]);
+  const [assetSearch, setAssetSearch] = useState("");
 
   // Contacts block
   const [additionalContacts, setAdditionalContacts] = useState([]);
@@ -508,6 +526,34 @@ export default function EditBookingPage() {
 
   // Employee code map
   const [nameToCode, setNameToCode] = useState({});
+
+  const assetSearchLower = useMemo(
+    () => String(assetSearch || "").trim().toLowerCase(),
+    [assetSearch]
+  );
+
+  const filteredVehicleGroups = useMemo(() => {
+    if (!assetSearchLower) return vehicleGroups;
+    const out = {};
+    Object.entries(vehicleGroups || {}).forEach(([group, items]) => {
+      out[group] = (items || []).filter((vehicle) => {
+        const text = `${vehicle?.name || ""} ${vehicle?.registration || ""}`.toLowerCase();
+        return text.includes(assetSearchLower);
+      });
+    });
+    return out;
+  }, [vehicleGroups, assetSearchLower]);
+
+  const filteredEquipmentGroups = useMemo(() => {
+    if (!assetSearchLower) return equipmentGroups;
+    const out = {};
+    Object.entries(equipmentGroups || {}).forEach(([group, items]) => {
+      out[group] = (items || []).filter((rawName) =>
+        String(rawName || "").toLowerCase().includes(assetSearchLower)
+      );
+    });
+    return out;
+  }, [equipmentGroups, assetSearchLower]);
 
   // Preserve existing history on save
   const [existingHistory, setExistingHistory] = useState([]);
@@ -578,7 +624,7 @@ export default function EditBookingPage() {
         getDocs(collection(db, "employees")),
         getDocs(collection(db, "vehicles")),
         getDocs(collection(db, "equipment")),
-        getDocs(collection(db, "workBookings")),
+        getDocs(collection(db, "maintenanceBookings")),
         getDocs(collection(db, "contacts")),
         getDoc(doc(db, "bookings", bookingId)),
       ]);
@@ -698,7 +744,7 @@ export default function EditBookingPage() {
       Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
       setOpenEquipGroups(openEquip);
 
-      setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
+      setMaintenanceBookings(workSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
       // ---- Prefill booking fields ----
@@ -989,33 +1035,44 @@ export default function EditBookingPage() {
       .filter(Boolean);
   }, [overlapping]);
 
-  const maintenanceVehicleIdSet = useMemo(() => {
-    const ids = [];
+  const maintenanceVehicleBlocking = useMemo(() => {
+    const ids = new Set();
+    const reasonById = {};
+    const reasonFromType = (booking) => {
+      const explicit = String(
+        booking?.maintenanceTypeLabel || booking?.maintenanceTypeOther || booking?.type || booking?.maintenanceType || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (explicit === "MOT") return "MOT";
+      if (explicit === "SERVICE") return "Service";
+      return "Maintenance";
+    };
 
     maintenanceBookings.forEach((b) => {
-      const start = toJsDate(b.startDate || b.date || b.start) || toJsDate(b.date);
-      const end = toJsDate(b.endDate || b.end || b.endDate) || start || toJsDate(b.date);
-      if (!start || !end) return;
-
-      const overlaps = selectedDates.some((dateStr) => {
-        const d = new Date(dateStr + "T00:00:00");
-        return d >= start && d <= end;
-      });
+      const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
       if (!overlaps) return;
+      const reason = reasonFromType(b);
 
       if (Array.isArray(b.vehicles) && b.vehicles.length) {
         b.vehicles.forEach((v) => {
           const resolved = normalizeVehicleKeysListForLookup([v], vehicleLookup);
-          resolved.forEach((id) => ids.push(id));
+          resolved.forEach((id) => {
+            ids.add(id);
+            if (!reasonById[id]) reasonById[id] = reason;
+          });
         });
       } else {
         const candidate = b.vehicleId || b.vehicle || b.vehicleName || b.registration || b.reg;
         const resolved = normalizeVehicleKeysListForLookup([candidate], vehicleLookup);
-        resolved.forEach((id) => ids.push(id));
+        resolved.forEach((id) => {
+          ids.add(id);
+          if (!reasonById[id]) reasonById[id] = reason;
+        });
       }
     });
 
-    return new Set(ids);
+    return { ids, reasonById };
   }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
   /* ────────────────────────────────────────────────────────────
@@ -2324,8 +2381,15 @@ export default function EditBookingPage() {
               {/* Column 3: Vehicles + Equipment */}
               <div style={card}>
                 <h3 style={cardTitle}>Vehicles</h3>
+                <input
+                  type="text"
+                  placeholder="Search vehicles or equipment..."
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                  style={{ ...field.input, marginBottom: 8 }}
+                />
 
-                {Object.entries(vehicleGroups).map(([group, items]) => {
+                {Object.entries(filteredVehicleGroups).map(([group, items]) => {
                   const isOpen = openGroups[group] || false;
 
                   return (
@@ -2352,7 +2416,8 @@ export default function EditBookingPage() {
                             const isHeld = heldVehicleIds.includes(key);
                             const isSelected = vehicles.includes(key);
 
-                            const isMaintBlocked = maintenanceVehicleIdSet.has(key);
+                            const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
+                            const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
                             const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
                             return (
@@ -2369,7 +2434,7 @@ export default function EditBookingPage() {
                                 title={
                                   disabled
                                     ? isMaintBlocked
-                                      ? "Vehicle is on maintenance (work booking) during selected date(s)"
+                                      ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
                                     : ""
                                 }
@@ -2383,7 +2448,7 @@ export default function EditBookingPage() {
                                 <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                   {vehicle.name}
                                   {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isMaintBlocked && !isBooked && " (Maintenance)"}
+                                  {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                   {isBooked && ` (${blockedStatus || "Blocked"})`}
                                   {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>
@@ -2420,7 +2485,7 @@ export default function EditBookingPage() {
 
                 <h3 style={cardTitle}>Equipment</h3>
 
-                {Object.entries(equipmentGroups).map(([group, items]) => {
+                {Object.entries(filteredEquipmentGroups).map(([group, items]) => {
                   const isOpen = openEquipGroups[group] || false;
 
                   return (

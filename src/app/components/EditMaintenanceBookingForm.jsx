@@ -100,6 +100,21 @@ export default function EditMaintenanceBookingForm({
     return clampISODate(d);
   };
 
+  const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
+    const explicit = Number(explicitFreq || 0);
+    if (explicit > 0) return explicit;
+
+    const last = parseISOorBlank(lastISO);
+    const next = parseISOorBlank(nextISO);
+    if (!last || !next) return 0;
+
+    const diffMs = next.getTime() - last.getTime();
+    const diffDays = Math.round(diffMs / 86400000);
+    if (diffDays <= 0) return 0;
+
+    return Math.max(1, Math.round(diffDays / 7));
+  };
+
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
@@ -135,10 +150,19 @@ export default function EditMaintenanceBookingForm({
   };
 
   const safeType = useMemo(() => {
-    return String(type || "").toUpperCase() === "SERVICE" ? "SERVICE" : "MOT";
+    const raw = String(type || "").trim().toUpperCase();
+    if (raw === "SERVICE") return "SERVICE";
+    if (raw === "MOT") return "MOT";
+    return raw || "MAINTENANCE";
   }, [type]);
 
-  const title = safeType === "MOT" ? "Edit MOT booking" : "Edit Service booking";
+  const typeLabel = useMemo(() => {
+    if (safeType === "SERVICE") return "Service";
+    if (safeType === "MOT") return "MOT";
+    return safeType;
+  }, [safeType]);
+
+  const title = `Edit ${typeLabel} booking`;
 
   const vehicleLabel = useMemo(() => {
     if (vehicle) return vehicle.name || vehicle.registration || vehicle.reg || vehicleId || "";
@@ -239,8 +263,10 @@ export default function EditMaintenanceBookingForm({
       setVehicleId(resolvedVehicleId);
 
       // type/status
-      const bType = String(b.type || b.kind || "MOT").toUpperCase();
-      setType(bType === "SERVICE" ? "SERVICE" : "MOT");
+      const bType = String(
+        b.maintenanceTypeLabel || b.maintenanceTypeOther || b.type || b.maintenanceType || b.kind || "MAINTENANCE"
+      ).toUpperCase();
+      setType(bType);
       setStatus(b.status || "Booked");
 
       // dates: prefer ISO helper fields if present, else derive from Date/Timestamp fields
@@ -373,8 +399,8 @@ export default function EditMaintenanceBookingForm({
         ? completionISOFromBooking({ isMultiDay, appointmentDate, startDate, endDate })
         : "";
 
-    if (safeType === "MOT") {
-      const motFreqWeeks = Number(vehicle?.motFreq || 0);
+      if (safeType === "MOT") {
+      const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
 
       const updates = {
         motBookedStatus: status,
@@ -407,8 +433,12 @@ export default function EditMaintenanceBookingForm({
       }
 
       await updateDoc(vRef, updates);
-    } else {
-      const serviceFreqWeeks = Number(vehicle?.serviceFreq || 0);
+      } else if (safeType === "SERVICE") {
+        const serviceFreqWeeks = resolveFreqWeeks(
+          vehicle?.serviceFreq,
+          vehicle?.lastService,
+          vehicle?.nextService
+        );
 
       const updates = {
         serviceBookedStatus: status,
@@ -440,8 +470,8 @@ export default function EditMaintenanceBookingForm({
         updates.serviceBookingNotes = "";
       }
 
-      await updateDoc(vRef, updates);
-    }
+        await updateDoc(vRef, updates);
+      }
   };
 
   const handleSubmit = async (e) => {
@@ -648,15 +678,15 @@ export default function EditMaintenanceBookingForm({
         {loading ? (
           <div style={{ padding: 14, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>Loading booking…</div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+          <form onSubmit={handleSubmit} style={formGrid}>
             {/* Type */}
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Maintenance type</label>
-              <input style={input} value={safeType === "MOT" ? "MOT" : "Service"} readOnly />
+              <input style={input} value={typeLabel} readOnly />
             </div>
 
             {/* Status */}
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Status</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)} style={input}>
                 <option value="Requested">Requested</option>
@@ -667,7 +697,7 @@ export default function EditMaintenanceBookingForm({
             </div>
 
             {/* Single vs multi */}
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Booking type</label>
               <select
                 value={isMultiDay ? "multi" : "single"}
@@ -680,7 +710,7 @@ export default function EditMaintenanceBookingForm({
             </div>
 
             {!isMultiDay ? (
-              <div>
+              <div style={fieldBlock}>
                 <label style={label}>Appointment date</label>
                 <input
                   type="date"
@@ -692,7 +722,7 @@ export default function EditMaintenanceBookingForm({
               </div>
             ) : (
               <>
-                <div>
+                <div style={fieldBlock}>
                   <label style={label}>Start date</label>
                   <input
                     type="date"
@@ -703,7 +733,7 @@ export default function EditMaintenanceBookingForm({
                   />
                 </div>
 
-                <div>
+                <div style={fieldBlock}>
                   <label style={label}>End date</label>
                   <input
                     type="date"
@@ -720,6 +750,7 @@ export default function EditMaintenanceBookingForm({
             {conflictMsg ? (
               <div
                 style={{
+                  ...fullWidth,
                   border: "1px solid rgba(239,68,68,0.45)",
                   background: "rgba(239,68,68,0.12)",
                   color: "rgba(255,255,255,0.92)",
@@ -735,27 +766,27 @@ export default function EditMaintenanceBookingForm({
             ) : null}
 
             {/* Details */}
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Provider / garage</label>
               <input value={provider} onChange={(e) => setProvider(e.target.value)} style={input} />
             </div>
 
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Booking reference</label>
               <input value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} style={input} />
             </div>
 
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Location</label>
               <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} />
             </div>
 
-            <div>
+            <div style={fieldBlock}>
               <label style={label}>Cost (optional)</label>
               <input value={cost} onChange={(e) => setCost(e.target.value)} style={input} />
             </div>
 
-            <div>
+            <div style={{ ...fieldBlock, ...fullWidth }}>
               <label style={label}>Notes</label>
               <textarea
                 value={notes}
@@ -770,6 +801,7 @@ export default function EditMaintenanceBookingForm({
               type="submit"
               disabled={!canSubmit}
               style={{
+                ...fullWidth,
                 ...primaryBtn,
                 opacity: canSubmit ? 1 : 0.55,
                 cursor: canSubmit ? "pointer" : "not-allowed",
@@ -783,6 +815,7 @@ export default function EditMaintenanceBookingForm({
               type="button"
               onClick={handleCancel}
               style={{
+                ...fullWidth,
                 ...dangerBtn,
                 opacity: saving ? 0.65 : 1,
                 cursor: saving ? "not-allowed" : "pointer",
@@ -797,6 +830,7 @@ export default function EditMaintenanceBookingForm({
               type="button"
               onClick={handleDelete}
               style={{
+                ...fullWidth,
                 ...dangerBtn,
                 border: "1px solid rgba(239,68,68,0.85)",
                 background: "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)",
@@ -808,11 +842,11 @@ export default function EditMaintenanceBookingForm({
               Delete booking permanently
             </button>
 
-            <button type="button" onClick={handleClose} style={ghostBtn} disabled={saving}>
+            <button type="button" onClick={handleClose} style={{ ...ghostBtn, ...fullWidth }} disabled={saving}>
               Close
             </button>
 
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+            <div style={{ ...fullWidth, fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
               Updates <b>maintenanceBookings</b> and keeps the linked fields on the vehicle document in sync.
               {status === "Completed" ? (
                 <>
@@ -841,7 +875,9 @@ const overlay = {
 };
 
 const modal = {
-  width: "min(520px, 95vw)",
+  width: "min(820px, 96vw)",
+  maxHeight: "90vh",
+  overflowY: "auto",
   borderRadius: 16,
   padding: 18,
   color: "#fff",
@@ -895,6 +931,21 @@ const input = {
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 12,
+  alignItems: "start",
+};
+
+const fieldBlock = {
+  minWidth: 0,
+};
+
+const fullWidth = {
+  gridColumn: "1 / -1",
 };
 
 const primaryBtn = {

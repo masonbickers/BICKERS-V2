@@ -191,6 +191,21 @@ const calcNextFromWeeks = (lastISO, freqWeeks) => {
   return clampISODate(d);
 };
 
+const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
+  const explicit = Number(explicitFreq || 0);
+  if (explicit > 0) return explicit;
+
+  const last = parseISOorBlank(lastISO);
+  const next = parseISOorBlank(nextISO);
+  if (!last || !next) return 0;
+
+  const diffMs = next.getTime() - last.getTime();
+  const diffDays = Math.round(diffMs / 86400000);
+  if (diffDays <= 0) return 0;
+
+  return Math.max(1, Math.round(diffDays / 7));
+};
+
 const safeArr = (v) => (Array.isArray(v) ? v : []);
 
 const getMotBookingStatus = ({ motBookedStatus, motAppointmentDate, nextMOT }) => {
@@ -210,6 +225,11 @@ const toDate = (v) => {
   if (typeof v?.toDate === "function") return v.toDate();
   const d = new Date(v);
   return Number.isNaN(+d) ? null : d;
+};
+
+const toISODate = (v) => {
+  const d = toDate(v);
+  return d ? clampISODate(d) : "";
 };
 
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -255,9 +275,13 @@ export default function EditVehiclePage() {
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
   const [showServiceBooking, setShowServiceBooking] = useState(false);
+  const [showWorkBooking, setShowWorkBooking] = useState(false);
 
   // booking modals (edit)
   const [editBookingId, setEditBookingId] = useState(null);
+  const [latestMotBooking, setLatestMotBooking] = useState(null);
+  const [latestServiceBooking, setLatestServiceBooking] = useState(null);
+  const [vehicleBookings, setVehicleBookings] = useState([]);
 
   // categories list
   useEffect(() => {
@@ -272,8 +296,81 @@ export default function EditVehiclePage() {
   const reloadVehicle = async () => {
     if (!id) return;
     const refDoc = fsDoc(db, "vehicles", id);
-    const snap = await getDoc(refDoc);
-    if (snap.exists()) setVehicle({ id: snap.id, ...snap.data() });
+    const [snap, bookingSnap] = await Promise.all([
+      getDoc(refDoc),
+      getDocs(query(collection(db, "maintenanceBookings"), where("vehicleId", "==", id))),
+    ]);
+    const rows = bookingSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const sortedRows = [...rows].sort((a, b) => {
+      const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
+      const bd = toDate(b.appointmentDate || b.startDate || b.createdAt) || new Date(0);
+      return bd.getTime() - ad.getTime();
+    });
+    setVehicleBookings(sortedRows);
+
+    const active = rows.filter((b) => {
+      const s = String(b.status || "").toLowerCase();
+      return !s.includes("cancel") && !s.includes("declin");
+    });
+
+    const byNewest = [...active].sort((a, b) => {
+      const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
+      const bd = toDate(b.appointmentDate || b.startDate || b.createdAt) || new Date(0);
+      return bd.getTime() - ad.getTime();
+    });
+
+    const motLatest =
+      byNewest.find((b) => String(b.type || "").toUpperCase() === "MOT") || null;
+    const serviceLatest =
+      byNewest.find((b) => String(b.type || "").toUpperCase() === "SERVICE") || null;
+
+    setLatestMotBooking(motLatest);
+    setLatestServiceBooking(serviceLatest);
+
+    if (snap.exists()) {
+      const base = { id: snap.id, ...snap.data() };
+      const hydrated = { ...base };
+
+      // If vehicle summary fields are empty but bookings exist, hydrate from latest booking.
+      if (motLatest) {
+        hydrated.motBookingId = hydrated.motBookingId || motLatest.id || "";
+        hydrated.motBookedStatus = hydrated.motBookedStatus || motLatest.status || "";
+        hydrated.motBookedOn = hydrated.motBookedOn || toISODate(motLatest.createdAt) || "";
+        hydrated.motAppointmentDate =
+          hydrated.motAppointmentDate ||
+          motLatest.appointmentDateISO ||
+          motLatest.startDateISO ||
+          toISODate(motLatest.appointmentDate) ||
+          toISODate(motLatest.startDate) ||
+          "";
+        hydrated.motProvider = hydrated.motProvider || motLatest.provider || "";
+        hydrated.motBookingRef = hydrated.motBookingRef || motLatest.bookingRef || "";
+        hydrated.motLocation = hydrated.motLocation || motLatest.location || "";
+        hydrated.motCost = hydrated.motCost || motLatest.cost || "";
+        hydrated.motBookingNotes = hydrated.motBookingNotes || motLatest.notes || "";
+      }
+
+      if (serviceLatest) {
+        hydrated.serviceBookingId = hydrated.serviceBookingId || serviceLatest.id || "";
+        hydrated.serviceBookedStatus = hydrated.serviceBookedStatus || serviceLatest.status || "";
+        hydrated.serviceBookedOn =
+          hydrated.serviceBookedOn || toISODate(serviceLatest.createdAt) || "";
+        hydrated.serviceAppointmentDate =
+          hydrated.serviceAppointmentDate ||
+          serviceLatest.appointmentDateISO ||
+          serviceLatest.startDateISO ||
+          toISODate(serviceLatest.appointmentDate) ||
+          toISODate(serviceLatest.startDate) ||
+          "";
+        hydrated.serviceProvider = hydrated.serviceProvider || serviceLatest.provider || "";
+        hydrated.serviceBookingRef = hydrated.serviceBookingRef || serviceLatest.bookingRef || "";
+        hydrated.serviceLocation = hydrated.serviceLocation || serviceLatest.location || "";
+        hydrated.serviceCost = hydrated.serviceCost || serviceLatest.cost || "";
+        hydrated.serviceBookingNotes = hydrated.serviceBookingNotes || serviceLatest.notes || "";
+      }
+
+      setVehicle(hydrated);
+    }
   };
 
   // load vehicle
@@ -290,11 +387,17 @@ export default function EditVehiclePage() {
     const updates = {};
 
     // MOT expiry due
-    const nextMOT = calcNextFromWeeks(vehicle.lastMOT, vehicle.motFreq);
+    const nextMOT = calcNextFromWeeks(
+      vehicle.lastMOT,
+      resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
+    );
     if (nextMOT && vehicle.nextMOT !== nextMOT) updates.nextMOT = nextMOT;
 
     // Service
-    const nextService = calcNextFromWeeks(vehicle.lastService, vehicle.serviceFreq);
+    const nextService = calcNextFromWeeks(
+      vehicle.lastService,
+      resolveFreqWeeks(vehicle.serviceFreq, vehicle.lastService, vehicle.nextService)
+    );
     if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
 
     // Tacho Inspection
@@ -445,8 +548,6 @@ export default function EditVehiclePage() {
     }
   };
 
-  const goToBookWorkPage = () => router.push(`/book-work/${id}`);
-
   const handleFileUpload = async (e, field) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !id) return;
@@ -484,8 +585,40 @@ export default function EditVehiclePage() {
     return vehicle.name || vehicle.registration || vehicle.reg || vehicle.id;
   }, [vehicle]);
 
-  const hasMotBooking = Boolean(vehicle?.motBookingId);
-  const hasServiceBooking = Boolean(vehicle?.serviceBookingId);
+  const activeMotBookingId = vehicle?.motBookingId || latestMotBooking?.id || "";
+  const activeServiceBookingId = vehicle?.serviceBookingId || latestServiceBooking?.id || "";
+  const hasMotBooking = Boolean(activeMotBookingId);
+  const hasServiceBooking = Boolean(activeServiceBookingId);
+
+  const completedMotHistory = useMemo(
+    () =>
+      vehicleBookings.filter((b) => {
+        const type = String(b?.type || "").toUpperCase();
+        const status = String(b?.status || "").toLowerCase();
+        return type === "MOT" && status === "completed";
+      }),
+    [vehicleBookings]
+  );
+
+  const completedServiceHistory = useMemo(
+    () =>
+      vehicleBookings.filter((b) => {
+        const type = String(b?.type || "").toUpperCase();
+        const status = String(b?.status || "").toLowerCase();
+        return type === "SERVICE" && status === "completed";
+      }),
+    [vehicleBookings]
+  );
+
+  const motAppointmentDisplay =
+    vehicle?.motAppointmentDate ||
+    toISODate(latestMotBooking?.appointmentDate) ||
+    latestMotBooking?.appointmentDateISO ||
+    latestMotBooking?.startDateISO ||
+    toISODate(latestMotBooking?.startDate) ||
+    "";
+  const motBookedOnDisplay =
+    vehicle?.motBookedOn || toISODate(latestMotBooking?.createdAt) || "";
 
   if (!vehicle) {
     return (
@@ -529,6 +662,50 @@ export default function EditVehiclePage() {
     );
   })();
 
+  const bookingTypeLabel = (b) => {
+    const t = String(b?.type || "").toUpperCase();
+    if (t === "MOT") return "MOT";
+    if (t === "SERVICE") return "Service";
+    if (t === "WORK") return "Maintenance";
+    return t || "Maintenance";
+  };
+
+  const bookingDateLabel = (b) => {
+    const start = toDate(b?.appointmentDate || b?.startDate);
+    const end = toDate(b?.endDate) || start;
+    if (!start && !end) return "No date";
+    const s = start ? start.toLocaleDateString("en-GB") : "—";
+    const e = end ? end.toLocaleDateString("en-GB") : s;
+    return s === e ? s : `${s} → ${e}`;
+  };
+
+  const bookingCompletedLabel = (b) => {
+    const completed =
+      b?.completedAtISO ||
+      b?.endDateISO ||
+      b?.appointmentDateISO ||
+      toISODate(b?.endDate) ||
+      toISODate(b?.appointmentDate) ||
+      toISODate(b?.startDate) ||
+      "";
+    return completed || "-";
+  };
+
+  const deleteMaintenanceBooking = async (bookingId) => {
+    if (!bookingId) return;
+    const ok = window.confirm("Delete this maintenance/work booking?");
+    if (!ok) return;
+    try {
+      await deleteDoc(fsDoc(db, "maintenanceBookings", bookingId));
+      await reloadVehicle();
+      if (editBookingId === bookingId) setEditBookingId(null);
+      alert("Booking deleted.");
+    } catch (error) {
+      console.error("Failed deleting maintenance booking:", error);
+      alert("Could not delete booking.");
+    }
+  };
+
   return (
     <HeaderSidebarLayout>
       <style jsx global>{`
@@ -561,7 +738,7 @@ export default function EditVehiclePage() {
             </button>
             {hasMotBooking ? (
               <button
-                onClick={() => setEditBookingId(vehicle.motBookingId)}
+                onClick={() => setEditBookingId(activeMotBookingId)}
                 style={btn("ghost")}
                 title="Edit the MOT booking record"
               >
@@ -574,7 +751,7 @@ export default function EditVehiclePage() {
             </button>
             {hasServiceBooking ? (
               <button
-                onClick={() => setEditBookingId(vehicle.serviceBookingId)}
+                onClick={() => setEditBookingId(activeServiceBookingId)}
                 style={btn("ghost")}
                 title="Edit the Service booking record"
               >
@@ -582,7 +759,7 @@ export default function EditVehiclePage() {
               </button>
             ) : null}
 
-            <button onClick={goToBookWorkPage} style={btn("success")}>
+            <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
               Book Work
             </button>
             <button onClick={handleSave} style={btn()} disabled={saving}>
@@ -618,6 +795,20 @@ export default function EditVehiclePage() {
             onClose={() => setShowServiceBooking(false)}
             onSaved={async () => {
               setShowServiceBooking(false);
+              await reloadVehicle();
+            }}
+          />
+        ) : null}
+
+        {showWorkBooking ? (
+          <MaintenanceBookingForm
+            vehicleId={id}
+            type="WORK"
+            defaultDate={todayISO()}
+            vehicleSnapshot={vehicle}
+            onClose={() => setShowWorkBooking(false)}
+            onSaved={async () => {
+              setShowWorkBooking(false);
               await reloadVehicle();
             }}
           />
@@ -760,6 +951,159 @@ export default function EditVehiclePage() {
 
             {/* Additional Maintenance (as per your snippet) */}
             <div style={panel}>
+              <h2 style={sectionTitle}>Booked Work / Maintenance</h2>
+              <div style={sectionMeta}>
+                All bookings linked to this vehicle (MOT, Service, and Maintenance/Work).
+              </div>
+
+              {vehicleBookings.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13 }}>No maintenance bookings found for this vehicle.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {vehicleBookings.map((b) => (
+                    <div
+                      key={b.id}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                        padding: 10,
+                        background: "#fff",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 10,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ fontWeight: 900, color: UI.text }}>
+                          {bookingTypeLabel(b)} • {bookingDateLabel(b)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 900,
+                            color: UI.text,
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 999,
+                            padding: "4px 8px",
+                            background: "#f8fafc",
+                          }}
+                        >
+                          {b.status || "Booked"}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
+                        {b.provider ? `Provider: ${b.provider}` : "Provider: —"}
+                        {" • "}
+                        {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: —"}
+                        {" • "}
+                        {b.location ? `Location: ${b.location}` : "Location: —"}
+                      </div>
+
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          style={btn("ghost")}
+                          onClick={() => setEditBookingId(b.id)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          style={btn("danger")}
+                          onClick={() => deleteMaintenanceBooking(b.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: UI.gap }}>
+              <div style={panel}>
+                <h2 style={sectionTitle}>MOT History</h2>
+                <div style={sectionMeta}>Completed MOT bookings for this vehicle.</div>
+
+                {completedMotHistory.length === 0 ? (
+                  <div style={{ color: UI.muted, fontSize: 13 }}>No completed MOT history yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {completedMotHistory.map((b) => (
+                      <div
+                        key={b.id}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: 10,
+                          background: "#fff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 900, color: UI.text }}>{bookingDateLabel(b)}</div>
+                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
+                          Completed: {bookingCompletedLabel(b)}
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {b.provider ? `Provider: ${b.provider}` : "Provider: -"}
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: -"}
+                        </div>
+                        {b.notes ? (
+                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{b.notes}</div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={panel}>
+                <h2 style={sectionTitle}>Service History</h2>
+                <div style={sectionMeta}>Completed service bookings for this vehicle.</div>
+
+                {completedServiceHistory.length === 0 ? (
+                  <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {completedServiceHistory.map((b) => (
+                      <div
+                        key={b.id}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 12,
+                          padding: 10,
+                          background: "#fff",
+                        }}
+                      >
+                        <div style={{ fontWeight: 900, color: UI.text }}>{bookingDateLabel(b)}</div>
+                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
+                          Completed: {bookingCompletedLabel(b)}
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {b.provider ? `Provider: ${b.provider}` : "Provider: -"}
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: -"}
+                        </div>
+                        {b.notes ? (
+                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{b.notes}</div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={panel}>
               <h2 style={sectionTitle}>Additional Maintenance</h2>
               <div style={grid(4)}>
                 <DateField label="Last Tacho Inspection" name="lastTacho" value={vehicle.lastTacho} onChange={handleChange} />
@@ -825,7 +1169,7 @@ export default function EditVehiclePage() {
                 <button style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
                   Vehicle Checks
                 </button>
-                <button style={btn("ghost")} onClick={goToBookWorkPage}>
+                <button style={btn("ghost")} onClick={() => setShowWorkBooking(true)}>
                   Book Work
                 </button>
               </div>
@@ -835,8 +1179,8 @@ export default function EditVehiclePage() {
               <h2 style={sectionTitle}>Next Dates</h2>
               <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
                 <MiniLine label="Next MOT (Expiry)" value={vehicle.nextMOT} />
-                <MiniLine label="MOT Appointment" value={vehicle.motAppointmentDate} />
-                <MiniLine label="MOT Booked On" value={vehicle.motBookedOn} />
+                <MiniLine label="MOT Appointment" value={motAppointmentDisplay} />
+                <MiniLine label="MOT Booked On" value={motBookedOnDisplay} />
                 <MiniLine label="Next Service" value={vehicle.nextService} />
                 <MiniLine label="Next RFL" value={vehicle.nextRFL} />
                 <MiniLine label="Next Tacho" value={vehicle.nextTacho} />
@@ -849,7 +1193,7 @@ export default function EditVehiclePage() {
 
         {/* Bottom actions */}
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button onClick={goToBookWorkPage} style={btn("success")}>
+          <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
             Book Work
           </button>
           <button onClick={handleSave} style={btn()} disabled={saving}>
@@ -870,8 +1214,11 @@ export default function EditVehiclePage() {
        appointmentDate stored as Date for single day
 */
 function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", vehicleSnapshot, onClose, onSaved }) {
-  const safeType = String(type || "").toUpperCase() === "SERVICE" ? "SERVICE" : "MOT";
-  const title = safeType === "MOT" ? "Book MOT" : "Book Service";
+  const normalizedType = String(type || "").toUpperCase();
+  const safeType =
+    normalizedType === "SERVICE" ? "SERVICE" : normalizedType === "WORK" ? "WORK" : "MOT";
+  const title =
+    safeType === "MOT" ? "Book MOT" : safeType === "SERVICE" ? "Book Service" : "Book Work";
 
   const [saving, setSaving] = useState(false);
 
@@ -1030,7 +1377,11 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
       const vRef = fsDoc(db, "vehicles", vehicleId);
 
       if (safeType === "MOT") {
-        const motFreqWeeks = Number(vehicleSnapshot?.motFreq || 0);
+        const motFreqWeeks = resolveFreqWeeks(
+          vehicleSnapshot?.motFreq,
+          vehicleSnapshot?.lastMOT,
+          vehicleSnapshot?.nextMOT
+        );
 
         const updates = {
           motBookedStatus: status,
@@ -1064,8 +1415,12 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         }
 
         await updateDoc(vRef, updates);
-      } else {
-        const serviceFreqWeeks = Number(vehicleSnapshot?.serviceFreq || 0);
+      } else if (safeType === "SERVICE") {
+        const serviceFreqWeeks = resolveFreqWeeks(
+          vehicleSnapshot?.serviceFreq,
+          vehicleSnapshot?.lastService,
+          vehicleSnapshot?.nextService
+        );
 
         const updates = {
           serviceBookedStatus: status,
@@ -1099,6 +1454,20 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         }
 
         await updateDoc(vRef, updates);
+      } else {
+        await updateDoc(vRef, {
+          workBookedStatus: status,
+          workBookingId: created.id,
+          workBookingDate: !isMultiDay ? appointmentDate : "",
+          workBookingStartDate: isMultiDay ? startDate : "",
+          workBookingEndDate: isMultiDay ? endDate : "",
+          workProvider: provider.trim(),
+          workBookingRef: bookingRef.trim(),
+          workLocation: location.trim(),
+          workCost: cost ? String(cost).trim() : "",
+          workBookingNotes: notes.trim(),
+          updatedAt: serverTimestamp(),
+        });
       }
 
       if (typeof onSaved === "function") onSaved({ id: created.id, ...bookingPayload });

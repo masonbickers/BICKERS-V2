@@ -75,8 +75,69 @@ const jobKey = (val) => {
   return { num, raw: s };
 };
 
-const eventsByJobNumber = (bookings, maintenanceBookings) => {
+const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "canceled", "lost", "deleted"]);
+const ACTIVE_MAINTENANCE_JOB_STATUSES = new Set(["planned", "awaiting_parts", "in_progress", "qa"]);
+const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
+
+const isInactiveMaintenanceBooking = (status = "") => {
+  const s = String(status || "").trim().toLowerCase();
+  return INACTIVE_MAINTENANCE_STATUSES.some((x) => s.includes(x));
+};
+
+const getMaintenanceBookingKind = (booking = {}) => {
+  const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (t === "MOT") return "MOT_BOOKING";
+  if (t === "SERVICE") return "SERVICE_BOOKING";
+  return "MAINTENANCE_BOOKING";
+};
+
+const getMaintenanceDisplayType = (booking = {}) => {
+  const explicit = String(booking.maintenanceTypeLabel || "").trim();
+  if (explicit) return explicit.toUpperCase();
+
+  const other = String(booking.maintenanceTypeOther || "").trim();
+  if (other) return other.toUpperCase();
+
+  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (rawType === "MOT") return "MOT";
+  if (rawType === "SERVICE") return "SERVICE";
+  if (rawType === "WORK") return "WORK";
+  if (rawType) return rawType;
+  return "MAINTENANCE";
+};
+
+const formatEventVehicleText = (vehicles = []) => {
+  if (!Array.isArray(vehicles)) return "";
+  return vehicles
+    .map((vehicle) => {
+      if (typeof vehicle === "string") return vehicle.trim();
+      if (!vehicle || typeof vehicle !== "object") return "";
+      const name = String(
+        vehicle.name || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") || ""
+      ).trim();
+      const registration = String(vehicle.registration || vehicle.reg || "")
+        .trim()
+        .toUpperCase();
+      if (name && registration) return `${name} (${registration})`;
+      return name || registration || "";
+    })
+    .filter(Boolean)
+    .join(", ");
+};
+
+const formatEventEquipmentText = (equipment = []) => {
+  if (!Array.isArray(equipment)) return "";
+  return equipment
+    .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .join(", ");
+};
+
+const eventsByJobNumber = (bookings, maintenanceBookings, maintenanceJobs) => {
   const bookingEvents = (bookings || []).map((b) => {
+    const statusLC = String(b.status || "").trim().toLowerCase();
+    if (HIDEABLE_STATUSES.has(statusLC)) return null;
     const startBase = parseLocalDate(b.startDate || b.date);
     const endRaw = b.endDate || b.date || b.startDate;
     const endBase = parseLocalDate(endRaw);
@@ -92,38 +153,96 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
       allDay: true,
       status: b.status || "Confirmed",
     };
-  });
+  }).filter(Boolean);
 
   const maintenanceEvents = (maintenanceBookings || [])
-    .map((m) => {
+    .flatMap((m) => {
+      if (isInactiveMaintenanceBooking(m.status)) return [];
+      const dates = Array.isArray(m.bookingDates) ? m.bookingDates.slice().sort() : [];
+      const kind = getMaintenanceBookingKind(m);
+      const typeLabel = getMaintenanceDisplayType(m);
+      const label = m.vehicleLabel || m.vehicleName || m.title || m.jobNumber || "Vehicle";
+      const provider = String(m.provider || "").trim();
+      const baseTitle = `${label} • ${typeLabel}` + (provider ? ` • ${provider}` : "");
+
+      if (dates.length) {
+        return dates
+          .map((ymd) => {
+            const startBase = parseLocalDate(ymd);
+            if (!startBase) return null;
+            return {
+              ...m,
+              __collection: "maintenanceBookings",
+              __parentId: m.id,
+              __occurrence: ymd,
+              id: `${m.id}__${ymd}`,
+              jobNumber: m.jobNumber ?? "",
+              title: baseTitle,
+              kind,
+              bookingStatus: m.status || "Booked",
+              maintenanceType: m.maintenanceType || "",
+              maintenanceTypeOther: m.maintenanceTypeOther || "",
+              maintenanceTypeLabel: typeLabel,
+              start: startOfLocalDay(startBase),
+              end: startOfLocalDay(addDays(startBase, 1)),
+              allDay: true,
+              status: "Maintenance",
+            };
+          })
+          .filter(Boolean);
+      }
+
       const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
-      if (!startBase) return null;
+      if (!startBase) return [];
 
       const endRaw = m.endDate || m.end || m.date || m.startDate || m.start || m.startDay;
       const endBase = parseLocalDate(endRaw);
       const safeEnd = endBase && endBase >= startBase ? endBase : startBase;
 
-      return {
+      return [{
         ...m,
         __collection: "maintenanceBookings",
+        __parentId: m.id,
         jobNumber: m.jobNumber ?? "",
-        title: m.jobNumber || m.title || m.vehicleName || "Maintenance",
+        title: baseTitle,
+        kind,
         maintenanceType: m.maintenanceType || "",
         maintenanceTypeOther: m.maintenanceTypeOther || "",
-        maintenanceTypeLabel:
-          m.maintenanceTypeLabel ||
-          (m.maintenanceType === "Other"
-            ? m.maintenanceTypeOther || "Other"
-            : m.maintenanceType || "Maintenance"),
+        maintenanceTypeLabel: typeLabel,
         start: startOfLocalDay(startBase),
-        end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive
+        end: startOfLocalDay(addDays(safeEnd, 1)),
         allDay: true,
         status: "Maintenance",
+      }];
+    })
+    .filter(Boolean);
+
+  const maintenanceJobEvents = (maintenanceJobs || [])
+    .filter((j) => ACTIVE_MAINTENANCE_JOB_STATUSES.has(String(j.status || "").trim().toLowerCase()))
+    .map((j) => {
+      const when = parseLocalDate(j.plannedDate || j.dueDate);
+      if (!when) return null;
+      const statusLabel = String(j.status || "planned")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (m) => m.toUpperCase());
+      return {
+        ...j,
+        id: `maintenanceJob__${j.id}`,
+        __parentId: j.id,
+        __collection: "maintenanceJobs",
+        title: j.assetLabel || j.title || "Maintenance Job",
+        kind: "MAINTENANCE",
+        start: startOfLocalDay(when),
+        end: startOfLocalDay(addDays(when, 1)),
+        allDay: true,
+        status: "Maintenance",
+        maintenanceType: j.type || "maintenance",
+        maintenanceTypeLabel: `Job Card (${statusLabel})`,
       };
     })
     .filter(Boolean);
 
-  const all = [...bookingEvents, ...maintenanceEvents];
+  const all = [...bookingEvents, ...maintenanceEvents, ...maintenanceJobEvents];
 
   all.sort((a, b) => {
     const ak = jobKey(a.jobNumber);
@@ -244,6 +363,51 @@ function WallCalendarEvent({ event }) {
       >
         <span style={{ fontSize: "0.72rem", opacity: 0.85 }}>NOTE</span>
         <span style={{ fontWeight: 900 }}>{event.title}</span>
+      </div>
+    );
+  }
+
+  if (isMaintenance) {
+    const kind = event?.kind || "MAINTENANCE";
+    const displayType = getMaintenanceDisplayType(event);
+    const vehicleText = formatEventVehicleText(event?.vehicles);
+    const equipmentText = formatEventEquipmentText(event?.equipment);
+    const locationText = String(event?.location || "").trim();
+    const label =
+      kind === "MOT_BOOKING"
+        ? "MOT booking"
+        : kind === "SERVICE_BOOKING"
+        ? "Service booking"
+        : `${displayType} booking`;
+
+    return (
+      <div
+        title={event.noteToShow || event.title || ""}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: 8,
+          fontSize: 12.5,
+          lineHeight: 1.3,
+          fontWeight: 900,
+          color: "#0f172a",
+          textAlign: "left",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          letterSpacing: "0.01em",
+        }}
+      >
+        <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12 }}>{label}</span>
+        <span>{event?.title || "Maintenance"}</span>
+        {vehicleText ? <span style={{ fontSize: 11.5, fontWeight: 700 }}>{vehicleText}</span> : null}
+        {equipmentText ? <span style={{ fontSize: 11.5, fontWeight: 700 }}>{equipmentText}</span> : null}
+        {locationText ? (
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569" }}>{locationText}</span>
+        ) : null}
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b" }}>
+          {event?.bookingStatus || "Booked"}
+        </span>
       </div>
     );
   }
@@ -740,6 +904,7 @@ export default function WallViewCalendarPage() {
 
   const [bookings, setBookings] = useState([]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [notes, setNotes] = useState([]);
 
@@ -774,6 +939,10 @@ export default function WallViewCalendarPage() {
 
     const unsubMaintenance = onSnapshot(collection(db, "maintenanceBookings"), (snap) => {
       setMaintenanceBookings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubMaintenanceJobs = onSnapshot(collection(db, "maintenanceJobs"), (snap) => {
+      setMaintenanceJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
@@ -863,6 +1032,7 @@ export default function WallViewCalendarPage() {
     return () => {
       unsubBookings();
       unsubMaintenance();
+      unsubMaintenanceJobs();
       unsubHolidays();
       unsubNotes();
       unsubVehicles();
@@ -888,8 +1058,8 @@ export default function WallViewCalendarPage() {
 
   // Build jobs + maintenance into consistent event objects
   const allEventsRaw = useMemo(
-    () => eventsByJobNumber(bookings, maintenanceBookings),
-    [bookings, maintenanceBookings]
+    () => eventsByJobNumber(bookings, maintenanceBookings, maintenanceJobs),
+    [bookings, maintenanceBookings, maintenanceJobs]
   );
 
   // Enrich with vehicles + risk + recce
@@ -930,15 +1100,14 @@ export default function WallViewCalendarPage() {
   return (
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
         height: "100vh",
-        width: "100vw",
-        zIndex: 9999,
-        backgroundColor: "#f4f4f5",
-        padding: "0.8rem",
+        width: "100%",
+        backgroundColor: "#f8fafc",
+        padding: "16px 18px 18px",
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
       }}
     >
       {/* Header */}
@@ -946,21 +1115,21 @@ export default function WallViewCalendarPage() {
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "0.6rem",
+          alignItems: "baseline",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <h1 style={{ fontSize: "1.4rem", fontWeight: 900, color: "#000", margin: 0 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, color: "#0f172a", margin: 0, lineHeight: 1.15 }}>
             Work Diary (Wall View)
           </h1>
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.7 }}>
-            Jobs + Maintenance + Holidays + Notes (single screen)
+          <div style={{ color: "#64748b", fontSize: 13, marginTop: 6 }}>
+            Same dashboard diary presentation on one merged calendar. Inactive hidden.
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
           <button
             onClick={() =>
               setCurrentDate((prev) => {
@@ -991,7 +1160,7 @@ export default function WallViewCalendarPage() {
 
           <button
             onClick={() => setCalendarView("week")}
-            style={{ ...navBtn, backgroundColor: calendarView === "week" ? "#111827" : "#505050" }}
+            style={calendarView === "week" ? navBtnActive : navBtn}
             type="button"
           >
             Week
@@ -999,7 +1168,7 @@ export default function WallViewCalendarPage() {
 
           <button
             onClick={() => setCalendarView("month")}
-            style={{ ...navBtn, backgroundColor: calendarView === "month" ? "#111827" : "#505050" }}
+            style={calendarView === "month" ? navBtnActive : navBtn}
             type="button"
           >
             Month
@@ -1007,7 +1176,7 @@ export default function WallViewCalendarPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            style={{ ...navBtn, backgroundColor: "#ef4444", color: "#fff" }}
+            style={navBtnDanger}
             type="button"
           >
             ✖ Close
@@ -1016,20 +1185,94 @@ export default function WallViewCalendarPage() {
       </div>
 
       {/* Month label */}
-      <h1
+      <div
         style={{
-          textAlign: "center",
-          fontSize: "1.6rem",
-          fontWeight: 900,
-          marginBottom: "0.6rem",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 14,
+          boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+          padding: 16,
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-      </h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 900, color: "#0f172a", margin: 0 }}>Merged Calendar</h2>
+            <div style={{ color: "#64748b", fontSize: 12, marginTop: 4 }}>
+              Jobs, maintenance, holidays and notes on one screen.
+            </div>
+          </div>
+          <div
+            style={{
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: "1px solid #dbeafe",
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+          </div>
+        </div>
 
-      {/* Calendar */}
-      {mounted && (
-        <BigCalendar
+        {/* Calendar */}
+        <style jsx global>{`
+        .rbc-calendar {
+          color: #0f172a;
+          height: 100% !important;
+        }
+        .rbc-header {
+          background: #f8fafc;
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 800;
+          padding: 10px 6px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .rbc-month-view,
+        .rbc-time-view {
+          border-color: #e5e7eb;
+          border-radius: 14px;
+          overflow: hidden;
+          background: #ffffff;
+        }
+        .rbc-date-cell {
+          padding: 6px 8px 0 0;
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .rbc-month-row + .rbc-month-row,
+        .rbc-day-bg + .rbc-day-bg,
+        .rbc-header + .rbc-header {
+          border-left-color: #e5e7eb;
+        }
+        .rbc-today {
+          background: rgba(29, 78, 216, 0.08);
+        }
+        .rbc-event {
+          box-shadow: none;
+        }
+        .rbc-event-content {
+          white-space: normal;
+        }
+      `}</style>
+        <div style={{ minHeight: 0, flex: 1 }}>
+          {mounted && (
+            <BigCalendar
           localizer={localizer}
           events={wallEvents}
           view={calendarView}
@@ -1064,9 +1307,9 @@ export default function WallViewCalendarPage() {
             };
           }}
           style={{
-            borderRadius: "12px",
+            borderRadius: "14px",
             background: "#fff",
-            height: "85vh",
+            height: "100%",
           }}
           onSelectEvent={(e) => {
             if (!e) return;
@@ -1077,7 +1320,11 @@ export default function WallViewCalendarPage() {
             }
 
             if (e.status === "Maintenance") {
-              router.push(`/edit-maintenance/${e.id}`);
+              if (e.__collection === "maintenanceJobs") {
+                router.push("/maintenance-jobs");
+                return;
+              }
+              router.push(`/maintenance/${encodeURIComponent(e.__parentId || e.id)}`);
               return;
             }
 
@@ -1139,20 +1386,36 @@ export default function WallViewCalendarPage() {
               },
             };
           }}
-        />
-      )}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 const navBtn = {
-  backgroundColor: "#505050",
-  color: "#fff",
-  padding: "6px 10px",
-  borderRadius: "8px",
+  backgroundColor: "#ffffff",
+  color: "#0f172a",
+  padding: "10px 12px",
+  borderRadius: "10px",
   fontWeight: 900,
-  fontSize: "0.75rem",
+  fontSize: "0.8rem",
   cursor: "pointer",
-  border: "none",
+  border: "1px solid #d1d5db",
   whiteSpace: "nowrap",
+};
+
+const navBtnActive = {
+  ...navBtn,
+  backgroundColor: "#1d4ed8",
+  border: "1px solid #1d4ed8",
+  color: "#fff",
+};
+
+const navBtnDanger = {
+  ...navBtn,
+  backgroundColor: "#fee2e2",
+  border: "1px solid #fecaca",
+  color: "#991b1b",
 };

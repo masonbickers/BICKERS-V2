@@ -15,6 +15,11 @@ import {
 import { Calendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
+import {
+  getCanonicalDueDate,
+  normalizeAssetRecord,
+  ymd as ymdDate,
+} from "../utils/maintenanceSchema";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   collection,
@@ -32,6 +37,7 @@ const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 const DECLINED_DEFECTS_PATH = "/defects/declined";
+const MAINTENANCE_JOBS_PATH = "/maintenance-jobs";
 
 /* ───────────────────────────────────────────
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
@@ -424,6 +430,115 @@ const isInactiveBooking = (s) => {
   return x.includes("cancel") || x.includes("declin") || x.includes("deleted");
 };
 
+const getMaintenanceBookingKind = (booking = {}) => {
+  const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (t === "MOT") return "MOT_BOOKING";
+  if (t === "SERVICE") return "SERVICE_BOOKING";
+  return "MAINTENANCE_BOOKING";
+};
+
+const getMaintenanceDisplayType = (booking = {}) => {
+  const explicit = String(booking.maintenanceTypeLabel || "").trim();
+  if (explicit) return explicit.toUpperCase();
+
+  const other = String(booking.maintenanceTypeOther || "").trim();
+  if (other) return other.toUpperCase();
+
+  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (rawType === "MOT") return "MOT";
+  if (rawType === "SERVICE") return "SERVICE";
+  if (rawType === "WORK") return "WORK";
+  if (rawType) return rawType;
+
+  return "MAINTENANCE";
+};
+
+const formatEventVehicleText = (vehicles = []) => {
+  if (!Array.isArray(vehicles)) return "";
+  return vehicles
+    .map((vehicle) => {
+      if (typeof vehicle === "string") return vehicle.trim();
+      if (!vehicle || typeof vehicle !== "object") return "";
+      const name = String(
+        vehicle.name || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") || ""
+      ).trim();
+      const registration = String(vehicle.registration || vehicle.reg || "")
+        .trim()
+        .toUpperCase();
+      if (name && registration) return `${name} (${registration})`;
+      return name || registration || "";
+    })
+    .filter(Boolean)
+    .join(", ");
+};
+
+const formatEventEquipmentText = (equipment = []) => {
+  if (!Array.isArray(equipment)) return "";
+  return equipment
+    .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .join(", ");
+};
+
+function VehicleHomeMaintenanceEvent({ event }) {
+  const kind = event?.kind || "MAINTENANCE";
+  const displayType = getMaintenanceDisplayType(event);
+  const vehicleText = formatEventVehicleText(event?.vehicles);
+  const equipmentText = formatEventEquipmentText(event?.equipment);
+  const locationText = String(event?.location || "").trim();
+
+  const label =
+    kind === "MOT"
+      ? event?.booked
+        ? "MOT due • Booked"
+        : "MOT due"
+      : kind === "SERVICE"
+      ? event?.booked
+        ? "Service due • Booked"
+        : "Service due"
+      : kind === "MOT_BOOKING"
+      ? "MOT booking"
+      : kind === "SERVICE_BOOKING"
+      ? "Service booking"
+      : `${displayType} booking`;
+
+  const dd = event?.dueDate ? new Date(event.dueDate) : null;
+  const isBookingBlock =
+    kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
+  const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
+  const tone = showTone && dd ? dueTone(dd) : "soft";
+  const toneText = tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+  const subline = isBookingBlock
+    ? event?.bookingStatus || "Booked"
+    : event?.booked && (kind === "MOT" || kind === "SERVICE")
+    ? event?.bookingStatus || "Booked"
+    : toneText;
+
+  return (
+    <div
+      title={event?.title || ""}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        fontSize: 12.5,
+        lineHeight: 1.3,
+        fontWeight: 900,
+        padding: 8,
+        letterSpacing: "0.01em",
+      }}
+    >
+      <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
+      <span style={{ color: UI.text }}>{event?.title || "Maintenance"}</span>
+      {vehicleText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{vehicleText}</span> : null}
+      {equipmentText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{equipmentText}</span> : null}
+      {locationText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.muted }}>{locationText}</span> : null}
+      {subline ? <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>{subline}</span> : null}
+    </div>
+  );
+}
+
 /* ───────────────── Component ───────────────── */
 export default function VehiclesHomePage() {
   const router = useRouter();
@@ -470,15 +585,13 @@ export default function VehiclesHomePage() {
   useEffect(() => {
     const fetchVehicles = async () => {
       const snap = await getDocs(collection(db, "vehicles"));
-      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+      const list = snap.docs.map((d) =>
+        normalizeAssetRecord({ id: d.id, ...(d.data() || {}) })
+      );
 
       const map = {};
       for (const v of list) {
-        const label = buildVehicleLabelFromObject({
-          name: v.name || v.vehicleName || v.displayName || v.model || "",
-          registration: v.registration || v.reg || v.regNumber || v.regNo || "",
-        });
-        map[v.id] = label || v.id;
+        map[v.id] = v.assetLabel || v.id;
       }
 
       setVehiclesRaw(list);
@@ -514,8 +627,8 @@ export default function VehiclesHomePage() {
       return { overdue, soon, ok, total };
     };
 
-    setMotCounts(calcCounts(vehiclesRaw.map((v) => v.nextMOT ?? v.motDate ?? v.motDue)));
-    setServiceCounts(calcCounts(vehiclesRaw.map((v) => v.nextService ?? v.serviceDate ?? v.serviceDue)));
+    setMotCounts(calcCounts(vehiclesRaw.map((v) => getCanonicalDueDate(v, "mot"))));
+    setServiceCounts(calcCounts(vehiclesRaw.map((v) => getCanonicalDueDate(v, "service"))));
   }, [vehiclesRaw]);
 
   /* ───────── Usage histogram (vehicle usage from bookings) ───────── */
@@ -693,6 +806,84 @@ export default function VehiclesHomePage() {
     });
   }, [vehicleNameMap]);
 
+  useEffect(() => {
+    const events = (maintenanceBookingsRaw || []).flatMap((b) => {
+      if (isInactiveBooking(b.status)) return [];
+
+      const dates = Array.isArray(b.bookingDates) ? b.bookingDates.slice().sort() : [];
+      const kind = getMaintenanceBookingKind(b);
+      const typeLabel = getMaintenanceDisplayType(b);
+      const vehicleId = b.vehicleId || null;
+      const label = vehicleId
+        ? vehicleNameMap[vehicleId] || b.vehicleLabel || vehicleId
+        : b.vehicleLabel || b.vehicleName || b.title || b.jobNumber || "Vehicle";
+      const provider = String(b.provider || "").trim();
+      const baseTitle = `${label} • ${typeLabel}` + (provider ? ` • ${provider}` : "");
+
+      if (dates.length) {
+        return dates
+          .map((ymd) => {
+            const startBase = parseLocalDateOnly(ymd);
+            if (!startBase) return null;
+            return {
+              ...b,
+              __collection: "maintenanceBookings",
+              __parentId: b.id,
+              __occurrence: ymd,
+              id: `${b.id}__${ymd}`,
+              title: baseTitle,
+              kind,
+              vehicleId,
+              bookingStatus: b.status || "Booked",
+              maintenanceType: b.maintenanceType || "",
+              maintenanceTypeOther: b.maintenanceTypeOther || "",
+              maintenanceTypeLabel: typeLabel,
+              start: startBase,
+              end: addDays(startBase, 1),
+              allDay: true,
+              status: "Maintenance",
+            };
+          })
+          .filter(Boolean);
+      }
+
+      const st =
+        parseLocalDateOnly(b.startDateISO) ||
+        toDate(b.startDate) ||
+        parseLocalDateOnly(b.date) ||
+        toDate(b.date) ||
+        parseLocalDateOnly(b.appointmentDateISO) ||
+        toDate(b.appointmentDate);
+      if (!st) return [];
+
+      const en = parseLocalDateOnly(b.endDateISO) || toDate(b.endDate) || st;
+      const start = new Date(st.getFullYear(), st.getMonth(), st.getDate());
+      const end = new Date(en.getFullYear(), en.getMonth(), en.getDate());
+
+      return [
+        {
+          ...b,
+          __collection: "maintenanceBookings",
+          __parentId: b.id,
+          id: b.id,
+          title: baseTitle,
+          kind,
+          vehicleId,
+          bookingStatus: b.status || "Booked",
+          maintenanceType: b.maintenanceType || "",
+          maintenanceTypeOther: b.maintenanceTypeOther || "",
+          maintenanceTypeLabel: typeLabel,
+          start,
+          end: addDays(end, 1),
+          allDay: true,
+          status: "Maintenance",
+        },
+      ];
+    });
+
+    setMaintenanceBookingEvents(events);
+  }, [maintenanceBookingsRaw, vehicleNameMap]);
+
   /* ───────── Booked maps (to mark due items as booked) ───────── */
   const bookedMetaByVehicle = useMemo(() => {
     // { [vehicleId]: { mot: { has, earliestAppt }, service: { has, earliestAppt } } }
@@ -702,7 +893,9 @@ export default function VehiclesHomePage() {
       if (!vehicleId) continue;
       if (isInactiveBooking(b.status)) continue;
 
-      const type = String(b.type || "").toUpperCase() === "SERVICE" ? "service" : "mot";
+      const typeRaw = String(b.type || "").toUpperCase();
+      const type = typeRaw === "SERVICE" ? "service" : typeRaw === "MOT" ? "mot" : "";
+      if (!type) continue;
 
       const appt = toDate(b.appointmentDate) || toDate(b.startDate) || null;
       if (!appt) continue;
@@ -724,8 +917,8 @@ export default function VehiclesHomePage() {
     for (const v of vehiclesRaw) {
       const label = vehicleNameMap[v.id] || buildVehicleLabelFromObject(v) || v.id;
 
-      const motDue = dueDateFromVehicleField(v.nextMOT ?? v.motDate ?? v.motDue);
-      const svcDue = dueDateFromVehicleField(v.nextService ?? v.serviceDate ?? v.serviceDue);
+      const motDue = getCanonicalDueDate(v, "mot");
+      const svcDue = getCanonicalDueDate(v, "service");
 
       const bookedMeta = bookedMetaByVehicle[v.id] || null;
 
@@ -766,11 +959,10 @@ export default function VehiclesHomePage() {
     // ✅ Keep due-date events
     // ✅ Keep legacy workBookings if you still want them
     return [
-      ...(workBookings || []),
       ...(maintenanceBookingEvents || []),
       ...(motServiceEvents || []),
     ];
-  }, [workBookings, maintenanceBookingEvents, motServiceEvents]);
+  }, [maintenanceBookingEvents, motServiceEvents]);
 
   // Load submitted checks (for defects queue)
   useEffect(() => {
@@ -846,20 +1038,20 @@ export default function VehiclesHomePage() {
   };
 
   const handleSelectEvent = (event) => {
-    // ✅ Route for due events + booking events
-    if (
-      event?.vehicleId &&
-      (
-        event.kind === "MOT" ||
-        event.kind === "SERVICE" ||
-        event.kind === "MOT_BOOKING" ||
-        event.kind === "SERVICE_BOOKING"
-      )
-    ) {
-      router.push(`/vehicle-edit/${encodeURIComponent(event.vehicleId)}`);
-      return;
-    }
     setSelectedEvent(event);
+  };
+
+  const openMaintenanceJobFromEvent = (event) => {
+    if (!event?.vehicleId) return;
+    const kind = String(event.kind || "").toLowerCase().includes("mot") ? "mot" : "service";
+    const due = ymdDate(event?.dueDate || event?.start || "");
+    const qs = new URLSearchParams({
+      vehicleId: String(event.vehicleId),
+      kind,
+      dueDate: due,
+      source: "vehicle-home",
+    });
+    router.push(`${MAINTENANCE_JOBS_PATH}?${qs.toString()}`);
   };
 
   const usageMonthLabel = `${usageMonth.getFullYear()}-${String(usageMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -899,6 +1091,12 @@ export default function VehiclesHomePage() {
         title: "Declined Defects",
         description: "Defects that were reviewed and declined.",
         link: DECLINED_DEFECTS_PATH,
+        rightBadges: [],
+      },
+      {
+        title: "Maintenance Jobs",
+        description: "Create and track workshop job cards from planned to closed.",
+        link: MAINTENANCE_JOBS_PATH,
         rightBadges: [],
       },
       {
@@ -997,6 +1195,12 @@ export default function VehiclesHomePage() {
       baseText = "#065f46";
     }
 
+    if (kind === "MAINTENANCE_BOOKING") {
+      baseBg = UI.brandSoft;
+      baseBorder = "#bfdbfe";
+      baseText = UI.text;
+    }
+
     if (kind === "MAINTENANCE") {
       baseBg = UI.brandSoft;
       baseBorder = "#bfdbfe";
@@ -1005,7 +1209,8 @@ export default function VehiclesHomePage() {
 
     // Escalate based on due date (skip for booking blocks)
     const dd = event?.dueDate ? new Date(event.dueDate) : null;
-    const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
+    const isBookingBlock =
+      kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
     const tone = dd && !isBookingBlock ? dueTone(dd) : "soft";
 
     // If due is booked, don’t escalate to overdue/soon colours
@@ -1042,6 +1247,11 @@ export default function VehiclesHomePage() {
       <style>{`
         input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
+        .vehicle-home-calendar--month .rbc-calendar { height: auto !important; }
+        .vehicle-home-calendar--month .rbc-month-view { min-height: 1320px; height: auto; overflow: visible; }
+        .vehicle-home-calendar--month .rbc-month-row { min-height: 195px; overflow: visible; flex: 1 0 auto; }
+        .vehicle-home-calendar--month .rbc-row-content { max-height: none; min-height: 100%; }
+        .vehicle-home-calendar--month .rbc-event-content { white-space: normal; }
       `}</style>
 
       <div style={pageWrap}>
@@ -1176,7 +1386,7 @@ export default function VehiclesHomePage() {
         </section>
 
         {/* Usage chart */}
-        <section style={{ ...cardBase, marginTop: UI.gap }}>
+        <section style={{ ...cardBase, marginTop: UI.gap, overflow: "visible" }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Vehicle usage</h2>
@@ -1245,10 +1455,10 @@ export default function VehiclesHomePage() {
         <section style={{ ...cardBase, marginTop: UI.gap }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>MOT & service calendar</h2>
+              <h2 style={titleMd}>Maintenance calendar</h2>
               <div style={hint}>
-                Shows: <b>maintenanceBookings</b> booked MOT/SERVICE blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b> + legacy <b>workBookings</b>.
-                Click MOT/Service/Booking events to open that vehicle.
+                Shows: <b>maintenanceBookings</b> booking blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b>.
+                Uses the same maintenance fetch and display model as the dashboard.
               </div>
             </div>
 
@@ -1269,12 +1479,16 @@ export default function VehiclesHomePage() {
               ...surface,
               boxShadow: "none",
               padding: 12,
+              paddingBottom: calView === "month" ? 120 : 12,
               borderRadius: 12,
-              height: "calc(100vh - 340px)",
+              overflow: "visible",
+              height: calView === "month" ? "auto" : "calc(100vh - 340px)",
+              minHeight: calView === "month" ? 1320 : undefined,
             }}
           >
             {mounted && (
               <Calendar
+                className={calView === "month" ? "vehicle-home-calendar--month" : "vehicle-home-calendar"}
                 localizer={localizer}
                 events={calendarEvents}
                 startAccessor="start"
@@ -1285,8 +1499,9 @@ export default function VehiclesHomePage() {
                 onNavigate={(d) => setCalDate(d)}
                 views={["month", "week", "work_week", "day", "agenda"]}
                 popup
+                showAllEvents={calView === "month"}
                 showMultiDayTimes
-                style={{ height: "100%" }}
+                style={{ height: calView === "month" ? "auto" : "100%" }}
                 dayPropGetter={() => ({
                   style: { minHeight: "110px", borderRight: "1px solid #eef2f7" },
                 })}
@@ -1294,6 +1509,10 @@ export default function VehiclesHomePage() {
                 components={{
                   event: ({ event }) => {
                     const kind = event?.kind || "MAINTENANCE";
+                    const displayType = getMaintenanceDisplayType(event);
+                    const vehicleText = formatEventVehicleText(event?.vehicles);
+                    const equipmentText = formatEventEquipmentText(event?.equipment);
+                    const locationText = String(event?.location || "").trim();
 
                     const label =
                       kind === "MOT"
@@ -1308,11 +1527,12 @@ export default function VehiclesHomePage() {
                         ? "MOT booking"
                         : kind === "SERVICE_BOOKING"
                         ? "Service booking"
-                        : "Maintenance";
+                        : `${displayType} booking`;
 
                     const dd = event?.dueDate ? new Date(event.dueDate) : null;
 
-                    const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
+                    const isBookingBlock =
+                      kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
                     const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
                     const tone = showTone && dd ? dueTone(dd) : "soft";
                     const toneText =
@@ -1341,6 +1561,15 @@ export default function VehiclesHomePage() {
                       >
                         <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
                         <span style={{ color: UI.text }}>{event.title}</span>
+                        {vehicleText ? (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{vehicleText}</span>
+                        ) : null}
+                        {equipmentText ? (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{equipmentText}</span>
+                        ) : null}
+                        {locationText ? (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.muted }}>{locationText}</span>
+                        ) : null}
                         {subline ? (
                           <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>{subline}</span>
                         ) : null}
@@ -1403,6 +1632,14 @@ export default function VehiclesHomePage() {
             </p>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              {selectedEvent?.vehicleId ? (
+                <button
+                  onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
+                  style={btn("ghost")}
+                >
+                  Create job card →
+                </button>
+              ) : null}
               {selectedEvent?.vehicleId ? (
                 <button
                   onClick={() => router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)}

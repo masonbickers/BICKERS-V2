@@ -6,9 +6,22 @@ import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore"
 import { useRouter } from "next/navigation";
 
 /* ---------- helpers ---------- */
-const fmtDate = (iso) => (iso ? new Date(iso).toDateString() : "Not set");
+const toJsDate = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") return value.toDate();
+  if (value instanceof Date) return value;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const fmtDate = (value) => {
+  const d = toJsDate(value);
+  return d ? d.toLocaleDateString("en-GB") : "Not set";
+};
+
 const fmtDateRange = (b) => {
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) return b.bookingDates.join(", ");
+  if (b.appointmentDate || b.appointmentDateISO) return fmtDate(b.appointmentDate || b.appointmentDateISO);
   if (b.startDate && b.endDate) return `${fmtDate(b.startDate)} → ${fmtDate(b.endDate)}`;
   if (b.date) return fmtDate(b.date);
   return "Not set";
@@ -84,6 +97,7 @@ export default function ViewMaintenanceModal({
   onClose,
 }) {
   const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [allVehicles, setAllVehicles] = useState([]);
   const router = useRouter();
 
@@ -112,6 +126,8 @@ export default function ViewMaintenanceModal({
       } catch (err) {
         console.error("[ViewMaintenanceModal] getDoc error:", err);
         alert("Failed to load maintenance booking.");
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
     return () => (mounted = false);
@@ -151,6 +167,7 @@ export default function ViewMaintenanceModal({
     onClose?.();
   };
 
+  if (loading) return null;
   if (!booking) return null;
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
@@ -286,13 +303,17 @@ export default function ViewMaintenanceModal({
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
-              {booking?.createdAt && <> on {new Date(booking.createdAt).toLocaleString("en-GB")}</>}
+              {booking?.createdAt && (
+                <> on {toJsDate(booking.createdAt)?.toLocaleString("en-GB") || "—"}</>
+              )}
             </div>
           )}
           {booking?.lastEditedBy && (
             <div>
               Last edited by <b>{booking.lastEditedBy}</b>
-              {booking?.updatedAt && <> on {new Date(booking.updatedAt).toLocaleString("en-GB")}</>}
+              {booking?.updatedAt && (
+                <> on {toJsDate(booking.updatedAt)?.toLocaleString("en-GB") || "—"}</>
+              )}
             </div>
           )}
         </div>
@@ -506,6 +527,7 @@ function statusColor(status = "") {
     "Second Pencil": "#ef4444",
     DNH: "#c2c2c2",
     Complete: "#22c55e",
+    Completed: "#22c55e",
     "Action Required": "#ff7b00",
     Holiday: "#d1d5db",
     Maintenance: "#fb923c",
@@ -516,5 +538,7 @@ function statusColor(status = "") {
   return map[status] || "#e5e7eb";
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday", "Maintenance"].includes(status) ? "#111" : "#fff";
+  return ["Confirmed", "DNH", "Holiday", "Maintenance", "Booked", "Requested"].includes(status)
+    ? "#111"
+    : "#fff";
 }

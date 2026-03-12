@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 
 /* ───────────────── Mini design system (matches your other pages) ───────────────── */
 const UI = {
@@ -102,6 +103,20 @@ const td = {
   verticalAlign: "top",
 };
 
+const actionBtn = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "8px 10px",
+  borderRadius: 10,
+  border: "1px solid #bfdbfe",
+  background: "#eff6ff",
+  color: UI.brand,
+  fontWeight: 900,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
 const parseDateAny = (v) => {
   if (!v) return null;
   const d = v?.toDate ? v.toDate() : new Date(v);
@@ -128,6 +143,7 @@ export default function MOTOverviewPage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingVehicle, setBookingVehicle] = useState(null);
 
   // filters / sorting
   const [q, setQ] = useState("");
@@ -171,6 +187,36 @@ export default function MOTOverviewPage() {
 
     fetchVehicles();
   }, []);
+
+  const refreshVehicles = async () => {
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, "vehicles"));
+      const today = new Date();
+      const data = snapshot.docs.map((d) => {
+        const vehicle = d.data();
+        const next = parseDateAny(vehicle.nextMOT);
+        const diffDays = next ? daysDiff(next, today) : null;
+        const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
+
+        return {
+          ...vehicle,
+          id: d.id,
+          name: vehicle.name || "-",
+          reg: vehicle.reg || vehicle.registration || "-",
+          category: vehicle.category || "-",
+          nextMOTRaw: next,
+          nextMOTDate: fmtShort(next),
+          daysUntilMOT: diffDays,
+          status,
+        };
+      });
+
+      setVehicles(data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     let data = vehicles;
@@ -227,6 +273,14 @@ export default function MOTOverviewPage() {
         a:hover { background: #f8fafc !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         input:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        .mot-overview-table thead th {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+        .mot-overview-table tbody tr:hover {
+          filter: brightness(0.995);
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -240,8 +294,11 @@ export default function MOTOverviewPage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={() => router.push("/dashboard")} style={btn("#1d4ed8", "#fff")}>
+              Dashboard
+            </button>
             <button onClick={() => router.back()} style={btn()}>
-              ← Back
+              Back
             </button>
           </div>
         </div>
@@ -297,7 +354,7 @@ export default function MOTOverviewPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 220px 220px",
+              gridTemplateColumns: "minmax(240px, 1fr) repeat(2, minmax(180px, 220px))",
               gap: 10,
               alignItems: "center",
             }}
@@ -336,7 +393,7 @@ export default function MOTOverviewPage() {
         {/* Table */}
         <div style={tableWrap}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="mot-overview-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <th style={th}>Name</th>
@@ -345,31 +402,48 @@ export default function MOTOverviewPage() {
                   <th style={th}>Days</th>
                   <th style={th}>Next MOT</th>
                   <th style={th}>Status</th>
+                  <th style={th}>Action</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       Loading vehicles…
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
                       No vehicles match your filters.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((v, i) => {
+                  filtered.map((v) => {
                     const status = v.status === "unknown" ? "unknown" : v.status;
                     const diff = v.daysUntilMOT;
 
                     return (
                       <tr key={v.id} style={rowBg(status)}>
                         <td style={td}>
-                          <div style={{ fontWeight: 950, color: UI.text }}>{v.name}</div>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/vehicle-edit/${v.id}`)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              padding: 0,
+                              margin: 0,
+                              fontWeight: 950,
+                              color: UI.text,
+                              cursor: "pointer",
+                              textAlign: "left",
+                            }}
+                            title="Open vehicle"
+                          >
+                            {v.name}
+                          </button>
                         </td>
 
                         <td style={td}>{v.reg}</td>
@@ -394,6 +468,22 @@ export default function MOTOverviewPage() {
                             </span>
                           )}
                         </td>
+                        <td style={td}>
+                          <button
+                            type="button"
+                            style={actionBtn}
+                            onClick={() =>
+                              setBookingVehicle({
+                                id: v.id,
+                                name: v.name,
+                                reg: v.reg,
+                                nextMOTRaw: v.nextMOTRaw,
+                              })
+                            }
+                          >
+                            Book MOT
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -402,6 +492,19 @@ export default function MOTOverviewPage() {
             </table>
           </div>
         </div>
+
+        {bookingVehicle ? (
+          <MaintenanceBookingForm
+            vehicleId={bookingVehicle.id}
+            type="MOT"
+            defaultDate={bookingVehicle.nextMOTRaw ? bookingVehicle.nextMOTRaw.toISOString().split("T")[0] : ""}
+            onClose={() => setBookingVehicle(null)}
+            onSaved={async () => {
+              setBookingVehicle(null);
+              await refreshVehicles();
+            }}
+          />
+        ) : null}
       </div>
     </HeaderSidebarLayout>
   );
