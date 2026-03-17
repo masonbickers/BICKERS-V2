@@ -41,6 +41,17 @@ const fmtDate = (iso) => {
   return d ? fmtGB(d) : "—";
 };
 
+const fmtDateTimeShort = (raw) => {
+  const d = toDateSafe(raw);
+  if (!d) return "Unknown time";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+};
+
 const fmtDateRange = (b) => {
   if (!b) return "—";
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
@@ -232,6 +243,7 @@ export default function ViewBookingModal({
   const [allVehicles, setAllVehicles] = useState([]);
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
+  const [showFullHistory, setShowFullHistory] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -448,6 +460,30 @@ export default function ViewBookingModal({
   const additionalContacts = Array.isArray(booking.additionalContacts)
     ? booking.additionalContacts
     : [];
+  const historyTrail = Array.isArray(booking.history)
+    ? [...booking.history]
+        .map((entry, index) => ({
+          id: `${entry?.timestamp || "no-time"}-${entry?.action || "change"}-${index}`,
+          action: entry?.action || "Updated",
+          user: entry?.user || entry?.updatedBy || entry?.by || "Unknown",
+          at: toDateSafe(entry?.timestamp || entry?.updatedAt || entry?.date),
+          changes: Array.isArray(entry?.changes)
+            ? entry.changes.filter(Boolean)
+            : [],
+          note: entry?.note || entry?.description || entry?.details || "",
+        }))
+        .map((entry) => ({
+          ...entry,
+          note:
+            entry.changes.length && entry.note === entry.changes.join("\n")
+              ? ""
+              : entry.note,
+        }))
+        .sort((a, b) => (a.at?.getTime?.() || 0) - (b.at?.getTime?.() || 0))
+    : [];
+  const visibleHistoryTrail = showFullHistory
+    ? historyTrail
+    : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
@@ -602,7 +638,7 @@ export default function ViewBookingModal({
         {/* ✅ REST OF CONTENT full width below */}
         <div style={belowStack}>
           {hasEmployeesByDate && dayKeys.length > 0 && (
-            <Section title="Employees by Day" full>
+            <Section title="Employees by Day">
               <div style={notesGrid}>
                 {dayKeys.map((date) => {
                   const list = employeesByDate?.[date] || [];
@@ -640,7 +676,7 @@ export default function ViewBookingModal({
           )}
 
           {hasCallTimesByDate && dayKeys.length > 0 && (
-            <Section title="Call Times by Day" full>
+            <Section title="Call Times by Day">
               <div style={notesGrid}>
                 {dayKeys.map((d) => {
                   const pretty = toDateSafe(d)
@@ -664,7 +700,7 @@ export default function ViewBookingModal({
           {booking.notesByDate &&
             Object.keys(booking.notesByDate).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).length >
               0 && (
-              <Section title="Day Notes" full>
+              <Section title="Day Notes">
                 <div style={notesGrid}>
                   {Object.keys(booking.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
@@ -702,7 +738,7 @@ export default function ViewBookingModal({
             )}
 
           {booking.notes && (
-            <Section title="Notes" full>
+            <Section title="Notes">
               <div style={noteBox}>{booking.notes}</div>
             </Section>
           )}
@@ -711,8 +747,8 @@ export default function ViewBookingModal({
             const files = toAttachmentList(booking);
             if (!files.length) return null;
             return (
-              <Section title="Attachments" full>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Section title="Attachments">
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
@@ -732,7 +768,7 @@ export default function ViewBookingModal({
         </div>
 
         {/* Footer meta */}
-        <div style={footerMeta}>
+        <div style={{ display: "none" }}>
           {booking?.createdBy && (
             <div>
               Created by <b>{booking.createdBy}</b>
@@ -752,56 +788,114 @@ export default function ViewBookingModal({
         </div>
 
         {/* Actions */}
-        {!fromDeleted && (
-          <div
-            style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 10,
-              padding: 12,
-              background: "#f8fafc",
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
-              Reason for delete (required)
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {DELETE_REASON_OPTIONS.map((r) => (
-                <label
-                  key={r}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={deleteReasons.includes(r)}
-                    onChange={() =>
-                      setDeleteReasons((prev) =>
-                        prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
-                      )
-                    }
-                  />
-                  {r}
-                </label>
-              ))}
-            </div>
-            {deleteReasons.includes("Other") && (
-              <input
-                type="text"
-                placeholder="Other reason..."
-                value={deleteReasonOther}
-                onChange={(e) => setDeleteReasonOther(e.target.value)}
-                style={{
-                  marginTop: 10,
-                  width: "100%",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  fontSize: 13,
-                }}
-              />
+        <details style={historyDetails}>
+          <summary style={historySummary}>
+            Modification trail
+            <span style={historyCount}>{historyTrail.length}</span>
+          </summary>
+          <div style={historyBody}>
+            {visibleHistoryTrail.length ? (
+              visibleHistoryTrail.map((entry) => (
+                <div key={entry.id} style={historyItem}>
+                  <div style={historyTopRow}>
+                    <span style={historyAction}>{entry.action}</span>
+                    <span style={historyMeta}>
+                      {entry.user}
+                      {" • "}
+                      {fmtDateTimeShort(entry.at)}
+                    </span>
+                  </div>
+                  {entry.changes.length ? (
+                    <div style={historyChanges}>
+                      {entry.changes.map((change, idx) => (
+                        <div key={`${entry.id}-change-${idx}`} style={historyChangeLine}>
+                          {change}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {entry.note ? <div style={historyNote}>{entry.note}</div> : null}
+                </div>
+              ))
+            ) : (
+              <div style={historyEmpty}>No modification history recorded for this job.</div>
             )}
+            {historyTrail.length > 3 ? (
+              <button
+                type="button"
+                onClick={() => setShowFullHistory((prev) => !prev)}
+                style={historyToggleBtn}
+              >
+                {showFullHistory ? "Show less" : `See more (${historyTrail.length - 3} older)`}
+              </button>
+            ) : null}
           </div>
+        </details>
+
+        {!fromDeleted && (
+          <details style={deleteDetails}>
+            <summary style={deleteSummary}>Delete options</summary>
+            <div style={deleteBody}>
+              <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
+                Reason for delete (required)
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {DELETE_REASON_OPTIONS.map((r) => (
+                  <label
+                    key={r}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={deleteReasons.includes(r)}
+                      onChange={() =>
+                        setDeleteReasons((prev) =>
+                          prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+                        )
+                      }
+                    />
+                    {r}
+                  </label>
+                ))}
+              </div>
+              {deleteReasons.includes("Other") && (
+                <input
+                  type="text"
+                  placeholder="Other reason..."
+                  value={deleteReasonOther}
+                  onChange={(e) => setDeleteReasonOther(e.target.value)}
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    border: "1px solid #d1d5db",
+                    borderRadius: 8,
+                    padding: "7px 9px",
+                    fontSize: 12,
+                  }}
+                />
+              )}
+            </div>
+          </details>
         )}
+
+        <div style={footerMeta}>
+          {booking?.createdBy && (
+            <div>
+              Created by <b>{booking.createdBy}</b>
+              {booking?.createdAt && (
+                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "â€”"}</>
+              )}
+            </div>
+          )}
+          {booking?.lastEditedBy && (
+            <div>
+              Last edited by <b>{booking.lastEditedBy}</b>
+              {booking?.updatedAt && (
+                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "â€”"}</>
+              )}
+            </div>
+          )}
+        </div>
 
         <div style={actions}>
           {fromDeleted ? (
@@ -891,12 +985,12 @@ const overlay = {
 const modal = {
   background: "#fff",
   color: "#111",
-  width: "min(980px, 96vw)",
-  maxHeight: "90vh",
+  width: "min(1240px, 98vw)",
+  maxHeight: "94vh",
   overflow: "auto",
   borderRadius: 12,
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-  padding: 20,
+  padding: 16,
 };
 
 const header = {
@@ -904,7 +998,7 @@ const header = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 10,
+  marginBottom: 8,
 };
 
 const eyebrow = {
@@ -913,7 +1007,7 @@ const eyebrow = {
   textTransform: "uppercase",
   color: "#6b7280",
 };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
+const title = { margin: 0, fontSize: 20, lineHeight: 1.15 };
 
 const badge = {
   padding: "6px 10px",
@@ -923,71 +1017,78 @@ const badge = {
   border: "1px solid #111",
 };
 
-const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
+const chipRow = { display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 12px" };
 
 /* ✅ NEW: top split layout */
 const topSplit = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 16,
+  gap: 12,
   alignItems: "start",
 };
 const topCol = { minWidth: 0 }; // prevents overflow
 
 /* ✅ NEW: below stack */
-const belowStack = { marginTop: 16, display: "grid", gap: 16 };
+const belowStack = {
+  marginTop: 12,
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 12,
+  alignItems: "start",
+};
 
 const sectionTitle = {
-  margin: "0 0 8px 0",
-  fontSize: 14,
+  margin: "0 0 6px 0",
+  fontSize: 12,
   color: "#374151",
   textTransform: "uppercase",
-  letterSpacing: 0.6,
+  letterSpacing: 0.5,
 };
 const sectionCard = {
   background: "#fafafa",
   border: "1px solid #e5e7eb",
   borderRadius: 10,
-  padding: 14,
+  padding: 10,
 };
 
 const fieldRow = {
   display: "grid",
-  gridTemplateColumns: "160px 1fr",
-  gap: 10,
-  padding: "8px 0",
+  gridTemplateColumns: "118px 1fr",
+  gap: 8,
+  padding: "5px 0",
   borderBottom: "1px dashed #e5e7eb",
 };
-const fieldLabel = { color: "#6b7280", fontSize: 13 };
-const fieldValue = { color: "#111", fontSize: 14 };
+const fieldLabel = { color: "#6b7280", fontSize: 12 };
+const fieldValue = { color: "#111", fontSize: 13 };
 
 const notesGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-  gap: 10,
+  gridTemplateColumns: "1fr",
+  gap: 6,
 };
-const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 };
-const noteDate = { fontWeight: 800, fontSize: 13, marginBottom: 6 };
-const noteText = { fontSize: 14, color: "#111" };
+const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8 };
+const noteDate = { fontWeight: 800, fontSize: 12, marginBottom: 4 };
+const noteText = { fontSize: 12, color: "#111" };
 
 const noteBox = {
   background: "#fff",
   border: "1px solid #e5e7eb",
   borderRadius: 8,
-  padding: 12,
+  padding: 10,
   lineHeight: 1.4,
+  fontSize: 12,
 };
 
-const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
+const tagWrap = { display: "flex", gap: 6, flexWrap: "wrap" };
 const tagPill = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: "4px 8px",
+  gap: 5,
+  padding: "3px 7px",
   background: "#f3f4f6",
   border: "1px solid #e5e7eb",
   borderRadius: 999,
-  fontSize: 12,
+  fontSize: 11,
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
@@ -1001,38 +1102,151 @@ const tagStatus = {
   fontWeight: 800,
 };
 
-const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+const chip = { padding: "3px 7px", borderRadius: 999, fontSize: 11, border: "1px solid #111" };
 
 const tag = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: "4px 8px",
+  gap: 5,
+  padding: "3px 7px",
   background: "#f3f4f6",
   border: "1px solid #e5e7eb",
   borderRadius: 999,
-  fontSize: 12,
+  fontSize: 11,
   whiteSpace: "nowrap",
 };
 
 const fileBtn = {
   display: "inline-block",
-  padding: "8px 12px",
-  background: "#111",
-  color: "#fff",
-  borderRadius: 8,
+  padding: "4px 8px",
+  background: "#fff",
+  color: "#111",
+  borderRadius: 999,
   textDecoration: "none",
-  border: "1px solid #111",
+  border: "1px solid #d1d5db",
+  fontSize: 11,
+};
+
+const historyDetails = {
+  marginTop: 12,
+  paddingTop: 8,
+  borderTop: "1px solid #e5e7eb",
+};
+
+const historySummary = {
+  cursor: "pointer",
+  listStyle: "none",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "4px 0",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#111827",
+};
+
+const historyCount = {
+  minWidth: 20,
+  padding: "1px 6px",
+  borderRadius: 999,
+  background: "#e5e7eb",
+  color: "#111827",
+  fontSize: 11,
+  textAlign: "center",
+};
+
+const historyBody = {
+  display: "grid",
+  gap: 8,
+  padding: "6px 0 0",
+};
+
+const historyItem = {
+  padding: "2px 0",
+};
+
+const historyTopRow = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const historyAction = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#111827",
+};
+
+const historyMeta = {
+  fontSize: 12,
+  color: "#6b7280",
+};
+
+const historyNote = {
+  marginTop: 4,
+  fontSize: 12,
+  color: "#111827",
+  whiteSpace: "pre-wrap",
+};
+
+const historyChanges = {
+  marginTop: 4,
+  display: "grid",
+  gap: 2,
+};
+
+const historyChangeLine = {
+  fontSize: 12,
+  color: "#111827",
+};
+
+const historyEmpty = {
+  fontSize: 12,
+  color: "#6b7280",
+};
+
+const historyToggleBtn = {
+  marginTop: 4,
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: "#2563eb",
+  fontSize: 12,
+  fontWeight: 700,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const deleteDetails = {
+  marginTop: 10,
+  paddingTop: 8,
+  borderTop: "1px solid #e5e7eb",
+};
+
+const deleteSummary = {
+  cursor: "pointer",
+  listStyle: "none",
+  padding: "4px 0",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "#111827",
+};
+
+const deleteBody = {
+  padding: "6px 0 0",
 };
 
 const footerMeta = {
-  marginTop: 12,
-  paddingTop: 12,
+  marginTop: 10,
+  paddingTop: 10,
   borderTop: "1px solid #e5e7eb",
   color: "#6b7280",
-  fontSize: 12,
+  fontSize: 11,
   display: "flex",
-  gap: 16,
+  gap: 12,
   flexWrap: "wrap",
 };
 
@@ -1040,25 +1254,27 @@ const actions = {
   display: "flex",
   gap: 10,
   justifyContent: "flex-end",
-  marginTop: 14,
-  paddingTop: 12,
+  marginTop: 10,
+  paddingTop: 10,
   borderTop: "1px solid #e5e7eb",
+  flexWrap: "wrap",
 };
 
 const btn = {
-  padding: "10px 14px",
+  padding: "8px 12px",
   color: "#fff",
   border: "none",
   borderRadius: 8,
   cursor: "pointer",
   fontWeight: 600,
+  fontSize: 12,
 };
 
 const miniCard = {
   background: "#fff",
   border: "1px solid #e5e7eb",
   borderRadius: 10,
-  padding: 10,
+  padding: 8,
 };
 
 function statusColor(status = "") {

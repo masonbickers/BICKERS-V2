@@ -1409,21 +1409,25 @@ function MaintenanceCalendarEvent({ event }) {
         fontWeight: 900,
         padding: 8,
         letterSpacing: "0.01em",
+        whiteSpace: "normal",
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
+        minWidth: 0,
       }}
     >
-      <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12 }}>{label}</span>
-      <span style={{ color: "#0f172a" }}>{event?.title || "Maintenance"}</span>
+      <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{event?.title || "Maintenance"}</span>
       {vehicleText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a" }}>{vehicleText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
       ) : null}
       {equipmentText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a" }}>{equipmentText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{equipmentText}</span>
       ) : null}
       {locationText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569" }}>{locationText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
       ) : null}
       {subline ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b" }}>{subline}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
       ) : null}
     </div>
   );
@@ -1454,10 +1458,12 @@ export default function DashboardPage({ bookingSaved }) {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
+  const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
   const [showCreateMaintenancePicker, setShowCreateMaintenancePicker] = useState(false);
   const [createMaintenanceVehicleId, setCreateMaintenanceVehicleId] = useState("");
   const [createMaintenanceType, setCreateMaintenanceType] = useState("WORK");
+  const [createMaintenanceEquipment, setCreateMaintenanceEquipment] = useState("");
 
   // ✅ Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -1865,6 +1871,26 @@ export default function DashboardPage({ bookingSaved }) {
       .filter(Boolean);
     setNotes(noteEvents);
   };
+
+  useEffect(() => {
+    if (!authReady) return;
+    getDocs(collection(db, "equipment"))
+      .then((snap) => {
+        setEquipmentOptions(
+          snap.docs
+            .map((docSnap) => {
+              const data = docSnap.data() || {};
+              return String(data.name || data.label || docSnap.id || "").trim();
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        );
+      })
+      .catch((error) => {
+        console.error("[equipment] load error:", error);
+        setEquipmentOptions([]);
+      });
+  }, [authReady]);
 
   // ✅ minimal saveBooking so the existing modal doesn't crash if used
   const saveBooking = async (payload) => {
@@ -2819,7 +2845,7 @@ export default function DashboardPage({ bookingSaved }) {
                 Add Maintenance Booking
               </h3>
               <div style={{ ...hint, marginTop: 6 }}>
-                Choose a vehicle and booking type, then the new maintenance booking form will open.
+                Choose a vehicle and/or equipment, then the new maintenance booking form will open.
               </div>
 
               <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
@@ -2829,7 +2855,9 @@ export default function DashboardPage({ bookingSaved }) {
                   </label>
                   <select
                     value={createMaintenanceVehicleId}
-                    onChange={(e) => setCreateMaintenanceVehicleId(e.target.value)}
+                    onChange={(e) => {
+                      setCreateMaintenanceVehicleId(e.target.value);
+                    }}
                     style={{
                       width: "100%",
                       padding: "10px 12px",
@@ -2888,18 +2916,55 @@ export default function DashboardPage({ bookingSaved }) {
                   </select>
                 </div>
 
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.text, marginBottom: 6 }}>
+                    Equipment
+                  </label>
+                  <select
+                    value={createMaintenanceEquipment}
+                    onChange={(e) => setCreateMaintenanceEquipment(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      outline: "none",
+                      fontSize: 13.5,
+                      background: "#fff",
+                    }}
+                  >
+                    <option value="">No equipment</option>
+                    {equipmentOptions.map((equipmentName) => (
+                      <option key={equipmentName} value={equipmentName}>
+                        {equipmentName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={() => setShowCreateMaintenancePicker(false)} style={btn("ghost")}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateMaintenancePicker(false);
+                      setCreateMaintenanceEquipment("");
+                    }}
+                    style={btn("ghost")}
+                  >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      if (!createMaintenanceVehicleId) return;
+                      if (!createMaintenanceVehicleId && !createMaintenanceEquipment) return;
                       setShowCreateMaintenancePicker(false);
                     }}
-                    disabled={!createMaintenanceVehicleId}
-                    style={!createMaintenanceVehicleId ? btnDisabled(btn()) : btn()}
+                    disabled={!createMaintenanceVehicleId && !createMaintenanceEquipment}
+                    style={
+                      !createMaintenanceVehicleId && !createMaintenanceEquipment
+                        ? btnDisabled(btn())
+                        : btn()
+                    }
                   >
                     Continue
                   </button>
@@ -2910,17 +2975,20 @@ export default function DashboardPage({ bookingSaved }) {
         )}
       </div>
 
-      {!showCreateMaintenancePicker && createMaintenanceVehicleId && (
+      {!showCreateMaintenancePicker && (createMaintenanceVehicleId || createMaintenanceEquipment) && (
         <MaintenanceBookingForm
           vehicleId={createMaintenanceVehicleId}
           type={createMaintenanceType}
+          initialEquipment={createMaintenanceEquipment ? [createMaintenanceEquipment] : []}
           onClose={() => {
             setCreateMaintenanceVehicleId("");
             setCreateMaintenanceType("WORK");
+            setCreateMaintenanceEquipment("");
           }}
           onSaved={() => {
             setCreateMaintenanceVehicleId("");
             setCreateMaintenanceType("WORK");
+            setCreateMaintenanceEquipment("");
           }}
         />
       )}

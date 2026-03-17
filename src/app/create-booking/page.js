@@ -40,15 +40,42 @@ const mainWrap = {
 
 const h1Style = {
   color: UI.text,
-  marginBottom: 12,
+  marginBottom: 0,
   fontSize: 26,
   fontWeight: 800,
   letterSpacing: 0.2,
 };
 
+const pageHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 12,
+  flexWrap: "wrap",
+};
+
+const headerChecks = {
+  display: "flex",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+};
+
+const headerChecksBox = {
+  display: "flex",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+  padding: "10px 14px",
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: UI.bg,
+};
+
 const sectionGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+  gridTemplateColumns: "minmax(280px, 0.72fr) minmax(440px, 1.14fr) minmax(440px, 1.14fr)",
   gap: 16,
   marginTop: 8,
 };
@@ -122,11 +149,24 @@ const pill = {
 
 const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
 
+const checkboxGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "6px 18px",
+  alignItems: "start",
+};
+
 const actionsRow = {
   display: "flex",
   gap: 10,
   justifyContent: "flex-end",
   marginTop: 14,
+};
+
+const subCard = {
+  padding: 12,
+  borderRadius: UI.radiusSm,
+  background: UI.bgAlt,
 };
 
 const btn = {
@@ -368,6 +408,9 @@ export default function CreateBookingPage() {
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
 
   const [status, setStatus] = useState("Confirmed");
   const [shootType, setShootType] = useState("Day");
@@ -392,6 +435,9 @@ export default function CreateBookingPage() {
 
   // Hotel / rigging
   const [hasHotel, setHasHotel] = useState(false);
+  const [hotelPaidBy, setHotelPaidBy] = useState("");
+  const [hotelNights, setHotelNights] = useState("");
+  const [hotelPricePerNight, setHotelPricePerNight] = useState("");
   const [hasRiggingAddress, setHasRiggingAddress] = useState(false);
   const [riggingAddress, setRiggingAddress] = useState("");
 
@@ -416,6 +462,7 @@ export default function CreateBookingPage() {
 
   // Equipment
   const [equipment, setEquipment] = useState([]);
+  const [assetSearch, setAssetSearch] = useState("");
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
@@ -488,6 +535,11 @@ export default function CreateBookingPage() {
     : !coreFilled
     ? "Fill Production and Location to save"
     : "";
+
+  const hotelTotal =
+    hasHotel && Number.isFinite(Number(hotelNights)) && Number.isFinite(Number(hotelPricePerNight))
+      ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
+      : 0;
 
   /* ────────────────────────────────────────────────────────────
      ✅ NEW: auto-crewing logic
@@ -639,6 +691,45 @@ export default function CreateBookingPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const query = location.trim();
+
+    if (locationConfirmed || query.length < 3) {
+      setLocationSuggestions([]);
+      setLocationSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setLocationSearchLoading(true);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(query)}`,
+          {
+            signal: controller.signal,
+            headers: { Accept: "application/json" },
+          }
+        );
+        if (!res.ok) throw new Error(`Location lookup failed (${res.status})`);
+        const data = await res.json();
+        setLocationSuggestions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.error("Location lookup failed:", err);
+          setLocationSuggestions([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLocationSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [location, locationConfirmed]);
+
   /* ────────────────────────────────────────────────────────────
      Conflicts
   ───────────────────────────────────────────────────────────── */
@@ -754,6 +845,38 @@ export default function CreateBookingPage() {
     return { ids, reasonById };
   }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
+  const maintenanceEquipmentBlocking = useMemo(() => {
+    const names = new Set();
+    const reasonByName = {};
+    const reasonFromType = (booking) => {
+      const t = String(
+        booking?.maintenanceTypeLabel || booking?.maintenanceTypeOther || booking?.type || booking?.maintenanceType || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (t === "MOT") return "MOT";
+      if (t === "SERVICE") return "Service";
+      return "Maintenance";
+    };
+
+    maintenanceBookings.forEach((b) => {
+      const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
+      if (!overlaps) return;
+      const reason = reasonFromType(b);
+
+      (Array.isArray(b.equipment) ? b.equipment : [])
+        .map((item) => (typeof item === "string" ? item : item?.name))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .forEach((name) => {
+          names.add(name);
+          if (!reasonByName[name]) reasonByName[name] = reason;
+        });
+    });
+
+    return { names, reasonByName };
+  }, [maintenanceBookings, selectedDates]);
+
   /* ────────────────────────────────────────────────────────────
      Holiday checks
   ───────────────────────────────────────────────────────────── */
@@ -799,6 +922,38 @@ export default function CreateBookingPage() {
     return [...uniqStrings([...base, ...customSelected]), "Other"];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freelancerList, employees]);
+
+  const normalizedAssetSearch = assetSearch.trim().toLowerCase();
+
+  const filteredVehicleGroups = useMemo(() => {
+    const entries = Object.entries(vehicleGroups);
+    if (!normalizedAssetSearch) return entries;
+
+    return entries
+      .map(([group, items]) => {
+        const filteredItems = items.filter((vehicle) => {
+          const haystack = [group, vehicle?.name, vehicle?.registration].filter(Boolean).join(" ").toLowerCase();
+          return haystack.includes(normalizedAssetSearch);
+        });
+        return [group, filteredItems];
+      })
+      .filter(([, items]) => items.length);
+  }, [vehicleGroups, normalizedAssetSearch]);
+
+  const filteredEquipmentGroups = useMemo(() => {
+    const entries = Object.entries(equipmentGroups);
+    if (!normalizedAssetSearch) return entries;
+
+    return entries
+      .map(([group, items]) => {
+        const filteredItems = items.filter((rawName) => {
+          const name = String(rawName || "").trim();
+          return `${group} ${name}`.toLowerCase().includes(normalizedAssetSearch);
+        });
+        return [group, filteredItems];
+      })
+      .filter(([, items]) => items.length);
+  }, [equipmentGroups, normalizedAssetSearch]);
 
   /* ────────────────────────────────────────────────────────────
      Employee schedule helpers (per-day)
@@ -906,6 +1061,10 @@ export default function CreateBookingPage() {
       if (!isMaintenance && !(client || "").trim()) missing.push("Production");
       if (!(location || "").trim()) missing.push("Location");
       return alert("Please provide: " + missing.join(", ") + ".");
+    }
+
+    if ((location || "").trim() && !locationConfirmed) {
+      return alert("Please choose a valid location from the address suggestions.");
     }
 
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
@@ -1039,6 +1198,9 @@ export default function CreateBookingPage() {
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length; // cleaned employees already includes custom names
     const isCrewedAtSave = Number.isFinite(req) && req > 0 ? allocatedAtSave >= req : isCrewed;
+    const hotelPaidByClean = hasHotel ? String(hotelPaidBy || "").trim() : "";
+    const hotelNightsNum = hasHotel ? Number(String(hotelNights || "").trim()) : 0;
+    const hotelPricePerNightNum = hasHotel ? Number(String(hotelPricePerNight || "").trim()) : 0;
 
     const payload = {
       jobNumber,
@@ -1073,6 +1235,13 @@ export default function CreateBookingPage() {
       pdfURL: firstUrl || null,
 
       hasHotel,
+      hotelPaidBy: hotelPaidByClean,
+      hotelNights: Number.isFinite(hotelNightsNum) ? hotelNightsNum : 0,
+      hotelPricePerNight: Number.isFinite(hotelPricePerNightNum) ? hotelPricePerNightNum : 0,
+      hotelTotal:
+        hasHotel && Number.isFinite(hotelNightsNum) && Number.isFinite(hotelPricePerNightNum)
+          ? hotelNightsNum * hotelPricePerNightNum
+          : 0,
       callTime: (!isRange && !useCustomDates ? callTime || "" : ""),
       ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
 
@@ -1146,7 +1315,20 @@ export default function CreateBookingPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <h1 style={h1Style}>➕ Create New Booking</h1>
+          <div style={pageHeader}>
+            <h1 style={h1Style}>➕ Create New Booking</h1>
+            <div style={headerChecksBox}>
+              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                Health & Safety Completed
+              </label>
+
+              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                Risk Assessment Completed
+              </label>
+            </div>
+          </div>
 
           <form
             onSubmit={(e) => {
@@ -1237,7 +1419,7 @@ export default function CreateBookingPage() {
                 </select>
 
                 <label style={field.label}>Production</label>
-                <textarea value={client} onChange={(e) => setClient(e.target.value)} style={field.textarea} required={!isMaintenance} />
+                <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
 
                 {/* Contacts block only */}
                 <div
@@ -1255,12 +1437,6 @@ export default function CreateBookingPage() {
                       + Add contact
                     </button>
                   </div>
-
-                  {additionalContacts.length === 0 && (
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 6 }}>
-                      Add production contacts (e.g. Production, Locations, AD, line producer, stunts).
-                    </p>
-                  )}
 
                   {additionalContacts.map((row, idx) => (
                     <div
@@ -1364,7 +1540,63 @@ export default function CreateBookingPage() {
                 </div>
 
                 <label style={field.label}>Location</label>
-                <textarea value={location} onChange={(e) => setLocation(e.target.value)} style={field.textarea} required />
+                <div style={{ position: "relative" }}>
+                  <input
+                    value={location}
+                    onChange={(e) => {
+                      setLocation(e.target.value);
+                      setLocationConfirmed(false);
+                    }}
+                    style={field.input}
+                    required
+                    autoComplete="off"
+                  />
+                  {locationSearchLoading && (
+                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>Searching locations...</div>
+                  )}
+                  {!locationConfirmed && locationSuggestions.length > 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        right: 0,
+                        background: "#fff",
+                        border: UI.border,
+                        borderRadius: UI.radiusSm,
+                        boxShadow: "0 8px 22px rgba(15,23,42,0.12)",
+                        maxHeight: 220,
+                        overflow: "auto",
+                        zIndex: 20,
+                      }}
+                    >
+                      {locationSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.place_id}
+                          type="button"
+                          onClick={() => {
+                            setLocation(suggestion.display_name || "");
+                            setLocationConfirmed(true);
+                            setLocationSuggestions([]);
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "10px 12px",
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #eef2f7",
+                            fontSize: 13,
+                          }}
+                        >
+                          {suggestion.display_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Column 2: Dates & People */}
@@ -1505,46 +1737,63 @@ export default function CreateBookingPage() {
                 <div style={divider} />
 
                 <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
-                {driverOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
-                  const isBooked = isEmployeeBooked(name);
-                  const isHeld = isEmployeeHeld(name);
-                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                <div style={checkboxGrid}>
+                  {driverOptions.map((name) => {
+                    const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
+                    const isBooked = isEmployeeBooked(name);
+                    const isHeld = isEmployeeHeld(name);
+                    const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
 
-                  // ✅ changed: do NOT block selection just because booking is crewed.
-                  const disabled = (isBooked || isHoliday) && !isSelected;
+                    // ✅ changed: do NOT block selection just because booking is crewed.
+                    const disabled = (isBooked || isHoliday) && !isSelected;
 
-                  return (
-                    <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
-                      <input
-                        type="checkbox"
-                        value={name}
-                        disabled={disabled}
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
-                            setEmployees(next);
-                            upsertEmployeeDates("Precision Driver", name, true);
-                          } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
-                            setEmployees(next);
-                            upsertEmployeeDates("Precision Driver", name, false);
-                          }
-                        }}
-                      />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
-                      </span>
-                    </label>
-                  );
-                })}
+                    return (
+                      <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                        <input
+                          type="checkbox"
+                          value={name}
+                          disabled={disabled}
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const next = uniqEmpObjects([...employees, { role: "Precision Driver", name }]);
+                              setEmployees(next);
+                              upsertEmployeeDates("Precision Driver", name, true);
+                            } else {
+                              const next = employees.filter((sel) => !(sel.name === name && sel.role === "Precision Driver"));
+                              setEmployees(next);
+                              upsertEmployeeDates("Precision Driver", name, false);
+                            }
+                          }}
+                        />{" "}
+                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                          {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
 
                 {/* ✅ NEW: required crew selector + auto crewed indicator */}
                 <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
                     <div>
-                      <label style={{ ...field.label, marginBottom: 6 }}>Crew required to mark as “Crewed”</label>
+                      <label style={{ ...field.label, marginBottom: 6, lineHeight: 1.25 }}>Crew required to mark as “Crewed”</label>
+                      <label style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", marginTop: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={isCrewed}
+                          onChange={(e) => {
+                            if (Number(requiredCrewCount) === 0) setIsCrewed(e.target.checked);
+                          }}
+                          disabled={Number(requiredCrewCount) > 0}
+                        />{" "}
+                        Booking Crewed
+                        {Number(requiredCrewCount) > 0 && <span style={{ color: UI.muted, fontWeight: 600 }}> (auto)</span>}
+                      </label>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
                       <input
                         type="number"
                         min={0}
@@ -1554,14 +1803,8 @@ export default function CreateBookingPage() {
                           const v = Math.max(0, parseInt(e.target.value || "0", 10));
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={field.input}
+                        style={{ ...field.input, width: 110, marginLeft: "auto", marginBottom: 8 }}
                       />
-                      <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
-                        Set to <b>0</b> to disable auto-crewing and use the checkbox manually.
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, color: UI.muted }}>Allocated crew</div>
                       <div style={{ fontSize: 18, fontWeight: 800 }}>
                         {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
@@ -1571,56 +1814,42 @@ export default function CreateBookingPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div style={{ marginTop: 10 }}>
-                    <label style={{ fontWeight: 700 }}>
-                      <input
-                        type="checkbox"
-                        checked={isCrewed}
-                        onChange={(e) => {
-                          // manual mode only when requiredCrewCount === 0
-                          if (Number(requiredCrewCount) === 0) setIsCrewed(e.target.checked);
-                        }}
-                        disabled={Number(requiredCrewCount) > 0}
-                      />{" "}
-                      Booking Crewed
-                      {Number(requiredCrewCount) > 0 && <span style={{ color: UI.muted, fontWeight: 600 }}> (auto)</span>}
-                    </label>
-                  </div>
                 </div>
 
                 <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
-                {freelancerOptions.map((name) => {
-                  const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
-                  const isBooked = isEmployeeBooked(name);
-                  const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
-                  const disabled = (isBooked || isHoliday) && !isSelected;
+                <div style={checkboxGrid}>
+                  {freelancerOptions.map((name) => {
+                    const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
+                    const isBooked = isEmployeeBooked(name);
+                    const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                    const disabled = (isBooked || isHoliday) && !isSelected;
 
-                  return (
-                    <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
-                      <input
-                        type="checkbox"
-                        value={name}
-                        disabled={disabled}
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
-                            setEmployees(next);
-                            upsertEmployeeDates("Freelancer", name, true);
-                          } else {
-                            const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
-                            setEmployees(next);
-                            upsertEmployeeDates("Freelancer", name, false);
-                          }
-                        }}
-                      />{" "}
-                      <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                        {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
-                      </span>
-                    </label>
-                  );
-                })}
+                    return (
+                      <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                        <input
+                          type="checkbox"
+                          value={name}
+                          disabled={disabled}
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const next = uniqEmpObjects([...employees, { role: "Freelancer", name }]);
+                              setEmployees(next);
+                              upsertEmployeeDates("Freelancer", name, true);
+                            } else {
+                              const next = employees.filter((sel) => !(sel.name === name && sel.role === "Freelancer"));
+                              setEmployees(next);
+                              upsertEmployeeDates("Freelancer", name, false);
+                            }
+                          }}
+                        />{" "}
+                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                          {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
 
                 {employees.some((e) => e.name === "Other") && (
                   <div style={{ marginTop: 8 }}>
@@ -1684,123 +1913,161 @@ export default function CreateBookingPage() {
               {/* Column 3: Vehicles + Equipment */}
               <div style={card}>
                 <h3 style={cardTitle}>Vehicles</h3>
+                <input
+                  type="text"
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                  placeholder="Search vehicles and equipment..."
+                  style={{ ...field.input, marginBottom: 12 }}
+                />
 
-                {Object.entries(vehicleGroups).map(([group, items]) => {
-                  const isOpen = openGroups[group] || false;
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  {filteredVehicleGroups.map(([group, items]) => {
+                    const isOpen = openGroups[group] || false;
 
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button type="button" onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
+                    return (
+                      <div key={group}>
+                        <button type="button" onClick={() => setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
+                          <span>{isOpen ? "▼" : "►"} {group}</span>
+                          <span style={pill}>{items.length}</span>
+                        </button>
 
-                      {isOpen && (
-                        <div style={{ padding: "10px 6px" }}>
-                          {items.map((vehicle) => {
-                            const key = vehicle.id;
-                            const isBooked = bookedVehicleIds.includes(key);
-                            const blockedStatus = vehicleBlockingStatusById[key];
-                            const isHeld = heldVehicleIds.includes(key);
-                            const isSelected = vehicles.includes(key);
+                        {isOpen && (
+                          <div style={{ padding: "10px 6px" }}>
+                            {items.map((vehicle) => {
+                              const key = vehicle.id;
+                              const isBooked = bookedVehicleIds.includes(key);
+                              const blockedStatus = vehicleBlockingStatusById[key];
+                              const isHeld = heldVehicleIds.includes(key);
+                              const isSelected = vehicles.includes(key);
 
-                            const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
-                            const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
-                            const disabled = (isBooked || isMaintBlocked) && !isSelected;
+                              const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
+                              const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
+                              const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
-                            return (
-                              <div
-                                key={key}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  marginBottom: 8,
-                                  opacity: disabled ? 0.55 : 1,
-                                  cursor: disabled ? "not-allowed" : "",
-                                }}
-                                title={
-                                  disabled
-                                    ? isMaintBlocked
-                                      ? `Vehicle is out for ${maintReason} during selected date(s)`
-                                      : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
-                                    : ""
-                                }
-                              >
-                                <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
-                                  {vehicle.name}
-                                  {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isMaintBlocked && !isBooked && ` (${maintReason})`}
-                                  {isBooked && ` (${blockedStatus || "Blocked"})`}
-                                  {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
-                                </span>
+                              return (
+                                <div
+                                  key={key}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    marginBottom: 8,
+                                    opacity: disabled ? 0.55 : 1,
+                                    cursor: disabled ? "not-allowed" : "",
+                                  }}
+                                  title={
+                                    disabled
+                                      ? isMaintBlocked
+                                        ? `Vehicle is out for ${maintReason} during selected date(s)`
+                                        : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
+                                      : ""
+                                  }
+                                >
+                                  <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
+                                  <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
+                                    {vehicle.name}
+                                    {vehicle.registration ? ` – ${vehicle.registration}` : ""}
+                                    {isMaintBlocked && !isBooked && ` (${maintReason})`}
+                                    {isBooked && ` (${blockedStatus || "Blocked"})`}
+                                    {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
+                                  </span>
 
-                                {isSelected && (
-                                  <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: 32 }} title="Vehicle status">
-                                    {VEHICLE_STATUSES.map((s) => (
-                                      <option key={s} value={s}>
-                                        {s}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                                  {isSelected && (
+                                    <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: 32 }} title="Vehicle status">
+                                      {VEHICLE_STATUSES.map((s) => (
+                                        <option key={s} value={s}>
+                                          {s}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filteredVehicleGroups.length === 0 && (
+                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
+                )}
 
                 <div style={divider} />
 
                 <h3 style={cardTitle}>Equipment</h3>
 
-                {Object.entries(equipmentGroups).map(([group, items]) => {
-                  const isOpen = openEquipGroups[group] || false;
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  {filteredEquipmentGroups.map(([group, items]) => {
+                    const isOpen = openEquipGroups[group] || false;
 
-                  return (
-                    <div key={group} style={{ marginTop: 10 }}>
-                      <button type="button" onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
-                        <span>{isOpen ? "▼" : "►"} {group}</span>
-                        <span style={pill}>{items.length}</span>
-                      </button>
+                    return (
+                      <div key={group}>
+                        <button type="button" onClick={() => setOpenEquipGroups((prev) => ({ ...prev, [group]: !prev[group] }))} style={accordionBtn}>
+                          <span>{isOpen ? "▼" : "►"} {group}</span>
+                          <span style={pill}>{items.length}</span>
+                        </button>
 
-                      {isOpen && (
-                        <div style={{ padding: "10px 6px" }}>
-                          {items.map((rawName) => {
-                            const name = String(rawName || "").trim();
-                            const isBooked = bookedEquipment.includes(name);
-                            const isHeld = heldEquipment.includes(name);
-                            const isSelected = equipment.includes(name);
-                            const disabled = isBooked && !isSelected;
+                        {isOpen && (
+                          <div style={{ padding: "10px 6px" }}>
+                            {items.map((rawName) => {
+                              const name = String(rawName || "").trim();
+                              const isBooked = bookedEquipment.includes(name);
+                              const isHeld = heldEquipment.includes(name);
+                              const isSelected = equipment.includes(name);
+                              const isMaintBlocked = maintenanceEquipmentBlocking.names.has(name);
+                              const maintReason = maintenanceEquipmentBlocking.reasonByName[name] || "Maintenance";
+                              const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
-                            return (
-                              <label key={name} style={{ display: "block", marginBottom: 6 }}>
-                                <input
-                                  type="checkbox"
-                                  value={name}
-                                  disabled={disabled}
-                                  checked={isSelected}
-                                  onChange={(e) => {
-                                    if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
-                                    else setEquipment((prev) => prev.filter((x) => x !== name));
+                              return (
+                                <label
+                                  key={name}
+                                  style={{
+                                    display: "block",
+                                    marginBottom: 6,
+                                    opacity: disabled ? 0.55 : 1,
+                                    cursor: disabled ? "not-allowed" : "",
                                   }}
-                                />{" "}
-                                <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                                  {name}
-                                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                                  title={
+                                    disabled
+                                      ? isMaintBlocked
+                                        ? `Equipment is already booked for ${maintReason} on overlapping date(s)`
+                                        : `Equipment is already booked on overlapping date(s)`
+                                      : ""
+                                  }
+                                >
+                                  <input
+                                    type="checkbox"
+                                    value={name}
+                                    disabled={disabled}
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) setEquipment((prev) => Array.from(new Set([...prev, name])));
+                                      else setEquipment((prev) => prev.filter((x) => x !== name));
+                                    }}
+                                  />{" "}
+                                  <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                    {name}
+                                    {isMaintBlocked && !isBooked && ` (${maintReason})`}
+                                    {isBooked && " (Booked)"}
+                                    {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {filteredEquipmentGroups.length === 0 && (
+                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
+                )}
               </div>
             </div>
 
@@ -1808,30 +2075,36 @@ export default function CreateBookingPage() {
             <div style={{ ...card, marginTop: 18 }}>
               <h3 style={cardTitle}>Files & Notes</h3>
 
-              <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.xls,.xlsx,.csv"
-                onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
-                style={{ ...field.input, height: "auto", padding: 10 }}
-              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+                <div>
+                  <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xls,.xlsx,.csv"
+                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+                    style={{ ...field.input, height: "auto", padding: 10 }}
+                  />
+                </div>
 
+                <div style={{ paddingTop: 28 }}>
               {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
               {newFiles?.length > 0 && (
                 <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
                   {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Save.
                 </div>
               )}
+                </div>
+              </div>
 
               <div style={{ marginTop: 14 }} />
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
+                <div style={subCard}>
                   <label style={field.label}>Call Time</label>
 
                   {selectedDates.length > 1 ? (
-                    <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt, maxHeight: 260, overflow: "auto" }}>
+                    <div style={{ borderRadius: UI.radiusSm, padding: 10, background: "#fff", maxHeight: 260, overflow: "auto" }}>
                       {selectedDates.map((d) => {
                         const pretty = new Date(d).toDateString();
                         const value = callTimesByDate[d] || "";
@@ -1862,50 +2135,95 @@ export default function CreateBookingPage() {
                   )}
                 </div>
 
-                <div>
+                <div style={subCard}>
                   <label style={field.label}>Rigging Address</label>
                   <div style={field.checkboxRow}>
                     <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
                     Add Rigging Address
                   </div>
-                  {hasRiggingAddress && <textarea value={riggingAddress} onChange={(e) => setRiggingAddress(e.target.value)} rows={3} style={field.textarea} placeholder="Enter rigging address..." />}
+                  {hasRiggingAddress && <textarea value={riggingAddress} onChange={(e) => setRiggingAddress(e.target.value)} rows={4} style={{ ...field.textarea, background: "#fff" }} placeholder="Enter rigging address..." />}
                 </div>
               </div>
 
-              <div style={{ marginTop: 14 }} />
-              <label style={field.label}>Additional Notes</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={field.textarea} placeholder="Anything extra to include for this booking..." />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, alignItems: "start" }}>
+                <div style={subCard}>
+                  <label style={field.label}>Additional Notes</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={6} style={{ ...field.textarea, background: "#fff" }} placeholder="Anything extra to include for this booking..." />
+                </div>
 
-              <div style={divider} />
+                <div style={{ ...subCard, display: "grid", gap: 12 }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
+                    Hotel Booked
+                  </label>
 
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                Health & Safety Completed
-              </label>
+                  {hasHotel && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: 10,
+                        alignItems: "end",
+                      }}
+                    >
+                      <div>
+                        <label style={field.label}>Paid by</label>
+                        <select value={hotelPaidBy} onChange={(e) => setHotelPaidBy(e.target.value)} style={field.input}>
+                          <option value="">Select</option>
+                          <option value="Production">Production</option>
+                          <option value="Bickers">Bickers</option>
+                        </select>
+                      </div>
 
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                Risk Assessment Completed
-              </label>
+                      <div>
+                        <label style={field.label}>Nights</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={hotelNights}
+                          onChange={(e) => setHotelNights(e.target.value)}
+                          style={field.input}
+                          placeholder="e.g. 2"
+                        />
+                      </div>
 
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
-                Hotel Booked
-              </label>
+                      <div>
+                        <label style={field.label}>Price per night</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={hotelPricePerNight}
+                          onChange={(e) => setHotelPricePerNight(e.target.value)}
+                          style={field.input}
+                          placeholder="e.g. 160"
+                        />
+                      </div>
+                    </div>
+                  )}
 
-              <div style={actionsRow}>
-                <button
-                  type="submit"
-                  disabled={!coreFilled}
-                  title={saveTooltip}
-                  style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
-                >
-                  Save Booking
-                </button>
+                  {hasHotel && (
+                    <div style={{ fontSize: 12, color: UI.muted }}>
+                      Total: <b>{hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}</b>
+                    </div>
+                  )}
 
-                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
-                  Cancel
-                </button>
+                  <div style={{ ...actionsRow, marginTop: 0 }}>
+                    <button
+                      type="submit"
+                      disabled={!coreFilled}
+                      title={saveTooltip}
+                      style={{ ...btnPrimary, opacity: coreFilled ? 1 : 0.5, cursor: coreFilled ? "pointer" : "not-allowed" }}
+                    >
+                      Save Booking
+                    </button>
+
+                    <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 

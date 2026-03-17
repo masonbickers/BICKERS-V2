@@ -54,6 +54,8 @@ export default function EditMaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [equipmentOptions, setEquipmentOptions] = useState([]);
+  const [selectedEquipment, setSelectedEquipment] = useState([]);
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -249,7 +251,10 @@ export default function EditMaintenanceBookingForm({
 
       setLoading(true);
 
-      const bSnap = await getDoc(doc(db, "maintenanceBookings", bookingId));
+      const [bSnap, equipmentSnap] = await Promise.all([
+        getDoc(doc(db, "maintenanceBookings", bookingId)),
+        getDocs(collection(db, "equipment")),
+      ]);
       if (!bSnap.exists()) {
         setLoading(false);
         alert("Booking not found.");
@@ -311,6 +316,23 @@ export default function EditMaintenanceBookingForm({
       setLocation(b.location || "");
       setCost(b.cost ? String(b.cost) : "");
       setNotes(b.notes || "");
+      setSelectedEquipment(
+        Array.isArray(b.equipment)
+          ? b.equipment
+              .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
+              .map((item) => String(item || "").trim())
+              .filter(Boolean)
+          : []
+      );
+      setEquipmentOptions(
+        equipmentSnap.docs
+          .map((d) => {
+            const data = d.data() || {};
+            return String(data.name || data.label || d.id || "").trim();
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+      );
 
       // vehicle
       if (resolvedVehicleId) {
@@ -375,6 +397,12 @@ export default function EditMaintenanceBookingForm({
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
+  };
+
+  const toggleEquipment = (name, checked) => {
+    setSelectedEquipment((prev) =>
+      checked ? Array.from(new Set([...prev, name])) : prev.filter((item) => item !== name)
+    );
   };
 
   const syncVehicleSummary = async ({
@@ -510,6 +538,7 @@ export default function EditMaintenanceBookingForm({
         location: location.trim(),
         cost: cost ? String(cost).trim() : "",
         notes: notes.trim(),
+        equipment: selectedEquipment,
         updatedAt: serverTimestamp(),
       };
 
@@ -787,6 +816,29 @@ export default function EditMaintenanceBookingForm({
             </div>
 
             <div style={{ ...fieldBlock, ...fullWidth }}>
+              <label style={label}>Book equipment off</label>
+              {equipmentOptions.length ? (
+                <div style={pickerGrid}>
+                  {equipmentOptions.map((name) => {
+                    const checked = selectedEquipment.includes(name);
+                    return (
+                      <label key={name} style={pickerItem}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => toggleEquipment(name, e.target.checked)}
+                        />{" "}
+                        {name}
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={helperText}>No equipment found.</div>
+              )}
+            </div>
+
+            <div style={{ ...fieldBlock, ...fullWidth }}>
               <label style={label}>Notes</label>
               <textarea
                 value={notes}
@@ -946,6 +998,29 @@ const fieldBlock = {
 
 const fullWidth = {
   gridColumn: "1 / -1",
+};
+
+const pickerGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 8,
+  padding: 10,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const pickerItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 13,
+  color: "rgba(255,255,255,0.92)",
+};
+
+const helperText = {
+  fontSize: 12,
+  color: "rgba(255,255,255,0.65)",
 };
 
 const primaryBtn = {

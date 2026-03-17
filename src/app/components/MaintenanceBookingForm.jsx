@@ -23,7 +23,7 @@ import {
 
 /**
  * Props:
- * - vehicleId (required)
+ * - vehicleId (optional)
  * - type: "MOT" | "SERVICE"
  * - defaultDate: "YYYY-MM-DD" (optional)
  * - onClose() (optional)
@@ -33,6 +33,7 @@ export default function MaintenanceBookingForm({
   vehicleId,
   type = "MOT",
   defaultDate = "",
+  initialEquipment = [],
   onClose,
   onSaved,
 }) {
@@ -51,6 +52,10 @@ export default function MaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
+  const [equipmentOptions, setEquipmentOptions] = useState([]);
+  const [selectedEquipment, setSelectedEquipment] = useState(
+    Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []
+  );
 
   const [saving, setSaving] = useState(false);
 
@@ -232,16 +237,34 @@ export default function MaintenanceBookingForm({
   /* ───────────────── load vehicle + existing bookings ───────────────── */
   useEffect(() => {
     const run = async () => {
-      if (!vehicleId) return;
+      const equipmentSnapPromise = getDocs(collection(db, "equipment"));
+      const vehicleSnapPromise = vehicleId ? getDoc(doc(db, "vehicles", vehicleId)) : Promise.resolve(null);
+      const existingSnapPromise = vehicleId
+        ? getDocs(query(collection(db, "maintenanceBookings"), where("vehicleId", "==", vehicleId)))
+        : Promise.resolve(null);
 
-      // vehicle
-      const vSnap = await getDoc(doc(db, "vehicles", vehicleId));
-      if (vSnap.exists()) setVehicle({ id: vSnap.id, ...vSnap.data() });
+      const [vSnap, equipmentSnap, existingSnap] = await Promise.all([
+        vehicleSnapPromise,
+        equipmentSnapPromise,
+        existingSnapPromise,
+      ]);
 
-      // existing bookings
-      const qy = query(collection(db, "maintenanceBookings"), where("vehicleId", "==", vehicleId));
-      const snap = await getDocs(qy);
-      setExisting(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      if (vSnap?.exists()) {
+        setVehicle({ id: vSnap.id, ...vSnap.data() });
+      } else {
+        setVehicle(null);
+      }
+      setEquipmentOptions(
+        equipmentSnap.docs
+          .map((d) => {
+            const data = d.data() || {};
+            return String(data.name || data.label || d.id || "").trim();
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+      );
+
+      setExisting(existingSnap ? existingSnap.docs.map((d) => ({ id: d.id, ...d.data() })) : []);
     };
 
     run().catch((e) => {
@@ -249,6 +272,10 @@ export default function MaintenanceBookingForm({
       setExisting([]);
     });
   }, [vehicleId]);
+
+  useEffect(() => {
+    setSelectedEquipment(Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []);
+  }, [initialEquipment]);
 
   // keep multi-day dates in sync when toggling
   useEffect(() => {
@@ -264,7 +291,7 @@ export default function MaintenanceBookingForm({
 
   const canSubmit = useMemo(() => {
     if (saving) return false;
-    if (!vehicleId) return false;
+    if (!vehicleId && selectedEquipment.length === 0) return false;
 
     if (!isMultiDay) {
       if (!appointmentDate) return false;
@@ -278,10 +305,16 @@ export default function MaintenanceBookingForm({
 
     if (activeConflict) return false;
     return true;
-  }, [saving, vehicleId, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
+  }, [saving, vehicleId, selectedEquipment, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
+  };
+
+  const toggleEquipment = (name, checked) => {
+    setSelectedEquipment((prev) =>
+      checked ? Array.from(new Set([...prev, name])) : prev.filter((item) => item !== name)
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -322,6 +355,7 @@ export default function MaintenanceBookingForm({
         location: location.trim(),
         cost: cost ? String(cost).trim() : "",
         notes: notes.trim(),
+        equipment: selectedEquipment,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -329,9 +363,8 @@ export default function MaintenanceBookingForm({
       const created = await addDoc(collection(db, "maintenanceBookings"), bookingPayload);
 
       // 2) Update vehicle summary + (if completed) core due dates
-      const vRef = doc(db, "vehicles", vehicleId);
-
-      if (safeType === "MOT") {
+      if (vehicleId && safeType === "MOT") {
+        const vRef = doc(db, "vehicles", vehicleId);
         const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
 
         const updates = {
@@ -365,7 +398,8 @@ export default function MaintenanceBookingForm({
         }
 
         await updateDoc(vRef, updates);
-      } else if (safeType === "SERVICE") {
+      } else if (vehicleId && safeType === "SERVICE") {
+        const vRef = doc(db, "vehicles", vehicleId);
         const serviceFreqWeeks = resolveFreqWeeks(
           vehicle?.serviceFreq,
           vehicle?.lastService,
@@ -403,7 +437,8 @@ export default function MaintenanceBookingForm({
         }
 
         await updateDoc(vRef, updates);
-      } else {
+      } else if (vehicleId) {
+        const vRef = doc(db, "vehicles", vehicleId);
         await updateDoc(vRef, {
           workBookedStatus: status,
           workBookingId: created.id,
@@ -436,7 +471,7 @@ export default function MaintenanceBookingForm({
           <div>
             <h2 style={modalTitle}>{title}</h2>
             <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-              Vehicle: <b style={{ color: "rgba(255,255,255,0.92)" }}>{vehicleLabel || "—"}</b>
+              Vehicle: <b style={{ color: "rgba(255,255,255,0.92)" }}>{vehicleLabel || "Equipment only"}</b>
             </div>
           </div>
 
@@ -558,6 +593,29 @@ export default function MaintenanceBookingForm({
           </div>
 
           <div style={{ ...fieldBlock, ...fullWidth }}>
+            <label style={label}>Book equipment off</label>
+            {equipmentOptions.length ? (
+              <div style={pickerGrid}>
+                {equipmentOptions.map((name) => {
+                  const checked = selectedEquipment.includes(name);
+                  return (
+                    <label key={name} style={pickerItem}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => toggleEquipment(name, e.target.checked)}
+                      />{" "}
+                      {name}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={helperText}>No equipment found.</div>
+            )}
+          </div>
+
+          <div style={{ ...fieldBlock, ...fullWidth }}>
             <label style={label}>Notes</label>
             <textarea
               value={notes}
@@ -586,7 +644,8 @@ export default function MaintenanceBookingForm({
           </button>
 
           <div style={{ ...fullWidth, fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
-            Saves to <b>maintenanceBookings</b> and links it back to the vehicle document.
+            Saves to <b>maintenanceBookings</b>
+            {vehicleId ? " and links it back to the vehicle document." : " as an equipment-only booking."}
             {status === "Completed" ? (
               <>
                 {" "}
@@ -684,6 +743,29 @@ const fieldBlock = {
 
 const fullWidth = {
   gridColumn: "1 / -1",
+};
+
+const pickerGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 8,
+  padding: 10,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.08)",
+};
+
+const pickerItem = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 13,
+  color: "rgba(255,255,255,0.92)",
+};
+
+const helperText = {
+  fontSize: 12,
+  color: "rgba(255,255,255,0.65)",
 };
 
 const primaryBtn = {

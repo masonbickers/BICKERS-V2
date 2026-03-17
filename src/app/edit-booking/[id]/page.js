@@ -47,15 +47,35 @@ const mainWrap = {
 
 const h1Style = {
   color: UI.text,
-  marginBottom: 12,
+  marginBottom: 0,
   fontSize: 26,
   fontWeight: 800,
   letterSpacing: 0.2,
 };
 
+const pageHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 16,
+  marginBottom: 12,
+  flexWrap: "wrap",
+};
+
+const headerChecksBox = {
+  display: "flex",
+  alignItems: "center",
+  gap: 18,
+  flexWrap: "wrap",
+  padding: "10px 14px",
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: UI.bg,
+};
+
 const sectionGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+  gridTemplateColumns: "minmax(280px, 0.72fr) minmax(440px, 1.14fr) minmax(440px, 1.14fr)",
   gap: 16,
   marginTop: 8,
 };
@@ -129,11 +149,24 @@ const pill = {
 
 const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
 
+const checkboxGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "6px 18px",
+  alignItems: "start",
+};
+
 const actionsRow = {
   display: "flex",
   gap: 10,
   justifyContent: "flex-end",
   marginTop: 14,
+};
+
+const subCard = {
+  padding: 12,
+  borderRadius: UI.radiusSm,
+  background: UI.bgAlt,
 };
 
 const btn = {
@@ -401,6 +434,232 @@ const toMoney = (raw) => {
   return Number.isFinite(n) ? String(n) : "";
 };
 
+const formatAuditDate = (raw) => {
+  if (!raw) return "";
+  const str = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split("-");
+    return `${d}/${m}/${y.slice(-2)}`;
+  }
+  const dt = toJsDate(raw);
+  if (!dt) return str;
+  const day = String(dt.getDate()).padStart(2, "0");
+  const month = String(dt.getMonth() + 1).padStart(2, "0");
+  const year = String(dt.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+};
+
+const AUDIT_FIELDS = [
+  "jobNumber",
+  "client",
+  "location",
+  "status",
+  "statusReasons",
+  "statusReasonOther",
+  "shootType",
+  "bookingDates",
+  "date",
+  "startDate",
+  "endDate",
+  "callTime",
+  "callTimesByDate",
+  "employees",
+  "employeesByDate",
+  "vehicles",
+  "vehicleStatus",
+  "equipment",
+  "notes",
+  "notesByDate",
+  "isCrewed",
+  "requiredCrewCount",
+  "hasHS",
+  "hasRiskAssessment",
+  "hasHotel",
+  "hotelPaidBy",
+  "hotelNights",
+  "hotelPricePerNight",
+  "hasRiggingAddress",
+  "riggingAddress",
+  "additionalContacts",
+  "attachments",
+];
+
+const AUDIT_LABELS = {
+  jobNumber: "Job number",
+  client: "Production",
+  location: "Location",
+  status: "Status",
+  statusReasons: "Status reasons",
+  statusReasonOther: "Status reason detail",
+  shootType: "Shoot type",
+  bookingDates: "Dates",
+  date: "Single date",
+  startDate: "Start date",
+  endDate: "End date",
+  callTime: "Call time",
+  callTimesByDate: "Call times by day",
+  employees: "Employees",
+  employeesByDate: "Employees by day",
+  vehicles: "Vehicles",
+  vehicleStatus: "Vehicle statuses",
+  equipment: "Equipment",
+  notes: "Notes",
+  notesByDate: "Day notes",
+  isCrewed: "Crewed",
+  requiredCrewCount: "Required crew count",
+  hasHS: "HS",
+  hasRiskAssessment: "Risk assessment",
+  hasHotel: "Hotel",
+  hotelPaidBy: "Hotel paid by",
+  hotelNights: "Hotel nights",
+  hotelPricePerNight: "Hotel price per night",
+  hasRiggingAddress: "Rigging",
+  riggingAddress: "Rigging address",
+  additionalContacts: "Additional contacts",
+  attachments: "Attachments",
+};
+
+function stableSortObject(value) {
+  if (Array.isArray(value)) return value.map(stableSortObject);
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = stableSortObject(value[key]);
+        return acc;
+      }, {});
+  }
+  return value ?? null;
+}
+
+function normalizeAuditValue(key, value) {
+  switch (key) {
+    case "employees":
+      return (Array.isArray(value) ? value : [])
+        .map((e) => `${e?.role || ""}:${e?.name || ""}`)
+        .filter(Boolean)
+        .sort();
+    case "employeesByDate":
+      return Object.keys(value || {})
+        .sort()
+        .reduce((acc, date) => {
+          acc[date] = normalizeAuditValue("employees", value?.[date]);
+          return acc;
+        }, {});
+    case "vehicles":
+    case "equipment":
+    case "bookingDates":
+    case "statusReasons":
+      return (Array.isArray(value) ? value : []).map(String).sort();
+    case "vehicleStatus":
+    case "callTimesByDate":
+    case "notesByDate":
+      return stableSortObject(value || {});
+    case "additionalContacts":
+      return (Array.isArray(value) ? value : [])
+        .map((c) => ({
+          department: String(c?.department || "").trim(),
+          name: String(c?.name || "").trim(),
+          email: String(c?.email || "").trim(),
+          phone: String(c?.phone || "").trim(),
+        }))
+        .sort((a, b) =>
+          `${a.department}|${a.name}|${a.email}|${a.phone}`.localeCompare(
+            `${b.department}|${b.name}|${b.email}|${b.phone}`
+          )
+        );
+    case "attachments":
+      return (Array.isArray(value) ? value : [])
+        .map((file) => String(file?.name || file?.label || file?.url || file || "").trim())
+        .filter(Boolean)
+        .sort();
+    default:
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return Number.isFinite(value) ? value : null;
+      if (typeof value === "string") return value.trim();
+      return stableSortObject(value ?? null);
+  }
+}
+
+function summarizeAuditValue(key, value) {
+  if (
+    value === null ||
+    typeof value === "undefined" ||
+    value === "" ||
+    (Array.isArray(value) && !value.length) ||
+    (value && typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length)
+  ) {
+    return "None";
+  }
+
+  switch (key) {
+    case "employees":
+      return (Array.isArray(value) ? value : [])
+        .map((e) => [e?.role, e?.name].filter(Boolean).join(": "))
+        .filter(Boolean)
+        .join(", ") || "None";
+    case "employeesByDate":
+      return Object.keys(value || {})
+        .sort()
+        .map((date) => `${formatAuditDate(date)} (${summarizeAuditValue("employees", value?.[date])})`)
+        .join("; ") || "None";
+    case "vehicles":
+    case "equipment":
+    case "bookingDates":
+    case "statusReasons":
+      return (Array.isArray(value) ? value : [])
+        .map((item) =>
+          key === "bookingDates" ? formatAuditDate(item) : String(item)
+        )
+        .join(", ") || "None";
+    case "vehicleStatus":
+    case "callTimesByDate":
+    case "notesByDate":
+      return Object.keys(value || {})
+        .sort()
+        .map((k) => `${formatAuditDate(k)}: ${String(value[k] ?? "").trim() || "None"}`)
+        .join("; ") || "None";
+    case "date":
+    case "startDate":
+    case "endDate":
+      return formatAuditDate(value);
+    case "additionalContacts":
+      return (Array.isArray(value) ? value : [])
+        .map((c) => [c?.name, c?.department, c?.email, c?.phone].filter(Boolean).join(" / "))
+        .filter(Boolean)
+        .join("; ") || "None";
+    case "attachments":
+      return (Array.isArray(value) ? value : [])
+        .map((file) => String(file?.name || file?.label || file?.url || file || "").trim())
+        .filter(Boolean)
+        .join(", ") || "None";
+    case "isCrewed":
+    case "hasHS":
+    case "hasRiskAssessment":
+    case "hasHotel":
+    case "hasRiggingAddress":
+      return value ? "Yes" : "No";
+    default:
+      return String(value);
+  }
+}
+
+function buildBookingChangeList(before = {}, after = {}) {
+  return AUDIT_FIELDS.reduce((changes, key) => {
+    const beforeNorm = normalizeAuditValue(key, before?.[key]);
+    const afterNorm = normalizeAuditValue(key, after?.[key]);
+    if (JSON.stringify(beforeNorm) === JSON.stringify(afterNorm)) return changes;
+
+    changes.push(
+      `${AUDIT_LABELS[key] || key}: ${summarizeAuditValue(key, before?.[key])} -> ${summarizeAuditValue(
+        key,
+        after?.[key]
+      )}`
+    );
+    return changes;
+  }, []);
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Edit Booking Page (MATCH CREATE UI)
 ──────────────────────────────────────────────────────────────────────────── */
@@ -559,6 +818,7 @@ export default function EditBookingPage() {
   const [existingHistory, setExistingHistory] = useState([]);
   const [createdAtIso, setCreatedAtIso] = useState(null);
   const [createdByEmail, setCreatedByEmail] = useState(null);
+  const [originalBookingData, setOriginalBookingData] = useState(null);
 
   const isMaintenance = status === "Maintenance";
 
@@ -636,6 +896,7 @@ export default function EditBookingPage() {
       }
 
       const bookingData = { id: bookingDocSnap.id, ...bookingDocSnap.data() };
+      setOriginalBookingData(bookingDocSnap.data() || {});
 
       // all bookings for conflict checks (exclude current later)
       setAllBookings(bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -1075,6 +1336,38 @@ export default function EditBookingPage() {
     return { ids, reasonById };
   }, [maintenanceBookings, selectedDates, vehicleLookup]);
 
+  const maintenanceEquipmentBlocking = useMemo(() => {
+    const names = new Set();
+    const reasonByName = {};
+    const reasonFromType = (booking) => {
+      const explicit = String(
+        booking?.maintenanceTypeLabel || booking?.maintenanceTypeOther || booking?.type || booking?.maintenanceType || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (explicit === "MOT") return "MOT";
+      if (explicit === "SERVICE") return "Service";
+      return "Maintenance";
+    };
+
+    maintenanceBookings.forEach((b) => {
+      const overlaps = anyDateOverlap(expandMaintenanceBookingDates(b), selectedDates);
+      if (!overlaps) return;
+      const reason = reasonFromType(b);
+
+      (Array.isArray(b.equipment) ? b.equipment : [])
+        .map((item) => (typeof item === "string" ? item : item?.name))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .forEach((name) => {
+          names.add(name);
+          if (!reasonByName[name]) reasonByName[name] = reason;
+        });
+    });
+
+    return { names, reasonByName };
+  }, [maintenanceBookings, selectedDates]);
+
   /* ────────────────────────────────────────────────────────────
      Holiday checks
   ───────────────────────────────────────────────────────────── */
@@ -1464,15 +1757,20 @@ export default function EditBookingPage() {
       // update meta
       lastEditedBy: user?.email || "Unknown",
       updatedAt: new Date().toISOString(),
-      history: [
-        ...(Array.isArray(existingHistory) ? existingHistory : []),
-        {
-          action: "Edited",
-          user: user?.email || "Unknown",
-          timestamp: new Date().toISOString(),
-        },
-      ],
     };
+
+    const changeLines = buildBookingChangeList(originalBookingData || {}, payload);
+
+    payload.history = [
+      ...(Array.isArray(existingHistory) ? existingHistory : []),
+      {
+        action: "Edited",
+        user: user?.email || "Unknown",
+        timestamp: new Date().toISOString(),
+        changes: changeLines,
+        details: changeLines.join("\n") || "No field-level changes detected.",
+      },
+    ];
 
     try {
       await updateDoc(doc(db, "bookings", bookingId), payload);
@@ -1536,6 +1834,21 @@ export default function EditBookingPage() {
       <div style={pageWrap}>
         <div style={mainWrap}>
           <h1 style={h1Style}>✏️ Edit Booking</h1>
+
+          <div style={pageHeader}>
+            <div />
+            <div style={headerChecksBox}>
+              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                Health & Safety Completed
+              </label>
+
+              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                Risk Assessment Completed
+              </label>
+            </div>
+          </div>
 
           <form
             onSubmit={(e) => {
@@ -1639,10 +1952,10 @@ export default function EditBookingPage() {
                 </select>
 
                 <label style={field.label}>Production</label>
-                <textarea
+                <input
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  style={field.textarea}
+                  style={field.input}
                   required={!isMaintenance}
                 />
 
@@ -1680,19 +1993,6 @@ export default function EditBookingPage() {
                       + Add contact
                     </button>
                   </div>
-
-                  {additionalContacts.length === 0 && (
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: UI.muted,
-                        marginBottom: 6,
-                      }}
-                    >
-                      Add production contacts (e.g. Production, Locations, AD,
-                      line producer, stunts).
-                    </p>
-                  )}
 
                   {additionalContacts.map((row, idx) => (
                     <div
@@ -1903,10 +2203,10 @@ export default function EditBookingPage() {
                 </div>
 
                 <label style={field.label}>Location</label>
-                <textarea
+                <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  style={field.textarea}
+                  style={field.input}
                   required
                 />
               </div>
@@ -2105,6 +2405,7 @@ export default function EditBookingPage() {
                 <div style={divider} />
 
                 <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
+                <div style={checkboxGrid}>
                 {driverOptions.map((name) => {
                   const isSelected = employees.some(
                     (e) => e.name === name && e.role === "Precision Driver"
@@ -2149,6 +2450,7 @@ export default function EditBookingPage() {
                     </label>
                   );
                 })}
+                </div>
 
                 {/* Required crew selector + MANUAL crewed checkbox */}
                 <div
@@ -2170,7 +2472,7 @@ export default function EditBookingPage() {
                   >
                     <div>
                       <label style={{ ...field.label, marginBottom: 6 }}>
-                        Crew required (guideline only)
+                        Crew required to mark as “Crewed”
                       </label>
                       <input
                         type="number"
@@ -2184,11 +2486,8 @@ export default function EditBookingPage() {
                           );
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={field.input}
+                        style={{ ...field.input, width: 110, marginLeft: "auto", marginBottom: 8 }}
                       />
-                      <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
-                        This does <b>not</b> auto-mark the booking as crewed.
-                      </div>
                     </div>
 
                     <div style={{ textAlign: "right" }}>
@@ -2224,6 +2523,7 @@ export default function EditBookingPage() {
                 </div>
 
                 <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
+                <div style={checkboxGrid}>
                 {freelancerOptions.map((name) => {
                   const isSelected = employees.some(
                     (e) => e.name === name && e.role === "Freelancer"
@@ -2265,6 +2565,7 @@ export default function EditBookingPage() {
                     </label>
                   );
                 })}
+                </div>
 
                 {employees.some((e) => e.name === "Other") && (
                   <div style={{ marginTop: 8 }}>
@@ -2389,11 +2690,12 @@ export default function EditBookingPage() {
                   style={{ ...field.input, marginBottom: 8 }}
                 />
 
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
                 {Object.entries(filteredVehicleGroups).map(([group, items]) => {
                   const isOpen = openGroups[group] || false;
 
                   return (
-                    <div key={group} style={{ marginTop: 10 }}>
+                    <div key={group}>
                       <button
                         type="button"
                         onClick={() =>
@@ -2480,16 +2782,22 @@ export default function EditBookingPage() {
                     </div>
                   );
                 })}
+                </div>
+
+                {Object.entries(filteredVehicleGroups).length === 0 && (
+                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
+                )}
 
                 <div style={divider} />
 
                 <h3 style={cardTitle}>Equipment</h3>
 
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
                 {Object.entries(filteredEquipmentGroups).map(([group, items]) => {
                   const isOpen = openEquipGroups[group] || false;
 
                   return (
-                    <div key={group} style={{ marginTop: 10 }}>
+                    <div key={group}>
                       <button
                         type="button"
                         onClick={() =>
@@ -2510,10 +2818,27 @@ export default function EditBookingPage() {
                             const isBooked = bookedEquipment.includes(name);
                             const isHeld = heldEquipment.includes(name);
                             const isSelected = equipment.includes(name);
-                            const disabled = isBooked && !isSelected;
+                            const isMaintBlocked = maintenanceEquipmentBlocking.names.has(name);
+                            const maintReason = maintenanceEquipmentBlocking.reasonByName[name] || "Maintenance";
+                            const disabled = (isBooked || isMaintBlocked) && !isSelected;
 
                             return (
-                              <label key={name} style={{ display: "block", marginBottom: 6 }}>
+                              <label
+                                key={name}
+                                style={{
+                                  display: "block",
+                                  marginBottom: 6,
+                                  opacity: disabled ? 0.55 : 1,
+                                  cursor: disabled ? "not-allowed" : "",
+                                }}
+                                title={
+                                  disabled
+                                    ? isMaintBlocked
+                                      ? `Equipment is already booked for ${maintReason} on overlapping date(s)`
+                                      : `Equipment is already booked on overlapping date(s)`
+                                    : ""
+                                }
+                              >
                                 <input
                                   type="checkbox"
                                   value={name}
@@ -2527,7 +2852,9 @@ export default function EditBookingPage() {
                                 />{" "}
                                 <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
                                   {name}
-                                  {isBooked && " (Booked)"} {!isBooked && isHeld && " (Held)"}
+                                  {isMaintBlocked && !isBooked && ` (${maintReason})`}
+                                  {isBooked && " (Booked)"}
+                                  {!isBooked && !isMaintBlocked && isHeld && " (Held)"}
                                 </span>
                               </label>
                             );
@@ -2537,6 +2864,11 @@ export default function EditBookingPage() {
                     </div>
                   );
                 })}
+                </div>
+
+                {Object.entries(filteredEquipmentGroups).length === 0 && (
+                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
+                )}
               </div>
             </div>
 
@@ -2634,16 +2966,15 @@ export default function EditBookingPage() {
               <div style={{ marginTop: 14 }} />
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
+                <div style={subCard}>
                   <label style={field.label}>Call Time</label>
 
                   {selectedDates.length > 1 ? (
                     <div
                       style={{
-                        border: UI.border,
                         borderRadius: UI.radiusSm,
                         padding: 10,
-                        background: UI.bgAlt,
+                        background: "#fff",
                         maxHeight: 260,
                         overflow: "auto",
                       }}
@@ -2697,7 +3028,7 @@ export default function EditBookingPage() {
                   )}
                 </div>
 
-                <div>
+                <div style={subCard}>
                   <label style={field.label}>Rigging Address</label>
                   <div style={field.checkboxRow}>
                     <input
@@ -2711,8 +3042,8 @@ export default function EditBookingPage() {
                     <textarea
                       value={riggingAddress}
                       onChange={(e) => setRiggingAddress(e.target.value)}
-                      rows={3}
-                      style={field.textarea}
+                      rows={4}
+                      style={{ ...field.textarea, background: "#fff" }}
                       placeholder="Enter rigging address..."
                     />
                   )}
@@ -2720,26 +3051,19 @@ export default function EditBookingPage() {
               </div>
 
               <div style={{ marginTop: 14 }} />
-              <label style={field.label}>Additional Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                style={field.textarea}
-                placeholder="Anything extra to include for this booking..."
-              />
+              <div style={subCard}>
+                <label style={field.label}>Additional Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={6}
+                  style={{ ...field.textarea, background: "#fff" }}
+                  placeholder="Anything extra to include for this booking..."
+                />
+              </div>
 
               <div style={divider} />
 
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                Health & Safety Completed
-              </label>
-
-              <label style={field.checkboxRow}>
-                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                Risk Assessment Completed
-              </label>
 
               {/* ✅ HOTEL feature restored */}
               <label style={field.checkboxRow}>
@@ -2762,11 +3086,9 @@ export default function EditBookingPage() {
               {hasHotel && (
                 <div
                   style={{
-                    marginTop: 6,
                     padding: 10,
                     borderRadius: UI.radiusSm,
-                    border: UI.border,
-                    background: UI.bgAlt,
+                    background: "#fff",
                   }}
                 >
                   <div

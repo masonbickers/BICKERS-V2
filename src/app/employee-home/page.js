@@ -219,6 +219,9 @@ function creditForNote(rawNote) {
 
   const norm = String(rawNote).trim().toLowerCase().replace(/\s+/g, " ");
 
+  if (norm.includes("night shoot")) return 1;
+  if (norm.includes("split day")) return 1;
+  if (norm.includes("turnaround")) return 1;
   if (norm === "1/2 day travel" || norm === "1/2 day travel day") return 0.5;
   if (norm === "travel time") return 0.25;
   if (norm === "rest day") return 0;

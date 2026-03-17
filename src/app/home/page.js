@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import ViewBookingModal from "../components/ViewBookingModal";
+import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -13,6 +15,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import moment from "moment";
 import { db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
+import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -209,6 +212,65 @@ const getColorByStatus = (status = "") => {
   }
 };
 
+const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
+
+const parseLocalDate = (d) => {
+  if (!d) return null;
+  if (typeof d?.toDate === "function") {
+    const ts = d.toDate();
+    if (ts instanceof Date && !Number.isNaN(ts.getTime())) {
+      ts.setHours(12, 0, 0, 0);
+      return ts;
+    }
+  }
+  if (d instanceof Date && !Number.isNaN(d.getTime())) {
+    const dt = new Date(d);
+    dt.setHours(12, 0, 0, 0);
+    return dt;
+  }
+  const s = typeof d === "string" ? d : String(d);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return null;
+  dt.setHours(12, 0, 0, 0);
+  return dt;
+};
+
+const startOfLocalDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+const addDays = (d, n) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+
+const isInactiveMaintenanceBooking = (status = "") =>
+  INACTIVE_MAINTENANCE_STATUSES.some((x) => String(status || "").trim().toLowerCase().includes(x));
+
+const isApptAfterExpiry = (appt, expiry) => {
+  if (!appt || !expiry) return false;
+  const a = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
+  const e = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()).getTime();
+  return a > e;
+};
+
+const getMaintenanceDisplayType = (booking = {}) => {
+  const explicit = String(booking.maintenanceTypeLabel || "").trim();
+  if (explicit) return explicit.toUpperCase();
+  const other = String(booking.maintenanceTypeOther || "").trim();
+  if (other) return other.toUpperCase();
+  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
+  if (rawType === "MOT") return "MOT";
+  if (rawType === "SERVICE") return "SERVICE";
+  if (rawType === "WORK") return "WORK";
+  return rawType || "MAINTENANCE";
+};
+
  
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -274,7 +336,10 @@ export default function HomePage() {
 
   const [bookings, setBookings] = useState([]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
 
   // Assistant UI
   const [input, setInput] = useState("");
@@ -310,20 +375,11 @@ export default function HomePage() {
       const vSnap = await getDocs(collection(db, "vehicles"));
       setVehicles(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-      const mSnap = await getDocs(collection(db, "workBookings"));
-      const mEvents = mSnap.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          status: "maintenance",
-          title: `${data.vehicleName} - ${data.maintenanceType || "Maintenance"}`,
-          start: toJSDate(data.startDate),
-          end: toJSDate(data.endDate || data.startDate),
-          allDay: true,
-          type: "workBookings",
-        };
-      });
-      setMaintenanceBookings(mEvents);
+      const mSnap = await getDocs(collection(db, "maintenanceBookings"));
+      setMaintenanceBookings(mSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+
+      const mjSnap = await getDocs(collection(db, "maintenanceJobs"));
+      setMaintenanceJobs(mjSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
     run();
   }, []);
@@ -332,6 +388,149 @@ export default function HomePage() {
      Derived: events + windows
   ───────────────────────────────────────────────────────────────────────── */
   const events = useMemo(() => bookings.map(asEvent), [bookings]);
+
+  const maintenanceJobEvents = useMemo(
+    () =>
+      (maintenanceJobs || [])
+        .filter((j) => ["planned", "awaiting_parts", "in_progress", "qa"].includes(String(j.status || "").trim().toLowerCase()))
+        .map((j) => {
+          const when = parseLocalDate(j.plannedDate || j.dueDate);
+          if (!when) return null;
+          const statusLabel = String(j.status || "planned")
+            .replaceAll("_", " ")
+            .replace(/\b\w/g, (m) => m.toUpperCase());
+          return {
+            id: `maintenanceJob__${j.id}`,
+            __parentId: j.id,
+            __collection: "maintenanceJobs",
+            title: j.assetLabel || j.title || "Maintenance Job",
+            start: startOfLocalDay(when),
+            end: startOfLocalDay(addDays(when, 1)),
+            allDay: true,
+            status: "maintenance",
+            kind: "MAINTENANCE",
+            maintenanceTypeLabel: `Job Card (${statusLabel})`,
+          };
+        })
+        .filter(Boolean),
+    [maintenanceJobs]
+  );
+
+  const maintenanceBookedMetaByVehicle = useMemo(() => {
+    const map = {};
+    (maintenanceBookings || []).forEach((b) => {
+      if (isInactiveMaintenanceBooking(b.status)) return;
+      const vehicleId = String(b.vehicleId || "").trim();
+      if (!vehicleId) return;
+      const type = String(b.type || "").trim().toUpperCase() === "SERVICE" ? "service" : "mot";
+      const appt = parseLocalDate(b.appointmentDate || b.startDate || b.date);
+      if (!appt) return;
+      if (!map[vehicleId]) {
+        map[vehicleId] = {
+          mot: { has: false, earliestAppt: null },
+          service: { has: false, earliestAppt: null },
+        };
+      }
+      map[vehicleId][type].has = true;
+      const cur = map[vehicleId][type].earliestAppt;
+      if (!cur || appt.getTime() < cur.getTime()) map[vehicleId][type].earliestAppt = appt;
+    });
+    return map;
+  }, [maintenanceBookings]);
+
+  const maintenanceBookingEvents = useMemo(
+    () =>
+      (maintenanceBookings || [])
+        .filter((m) => !isInactiveMaintenanceBooking(m.status))
+        .map((m) => {
+          const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay || m.appointmentDate);
+          if (!startBase) return null;
+          const endRaw = m.endDate || m.end || m.finishDate || m.startDate || m.date || m.appointmentDate;
+          const endBase = parseLocalDate(endRaw) || startBase;
+          const safeEnd = endBase >= startBase ? endBase : startBase;
+          const typeLabel = getMaintenanceDisplayType(m);
+          const rawType = String(m.type || m.maintenanceType || "").trim().toUpperCase();
+          const kind =
+            rawType === "MOT"
+              ? "MOT_BOOKING"
+              : rawType === "SERVICE"
+              ? "SERVICE_BOOKING"
+              : "MAINTENANCE_BOOKING";
+
+          return {
+            ...m,
+            __collection: "maintenanceBookings",
+            title: m.vehicleName || m.title || "Maintenance",
+            start: startOfLocalDay(startBase),
+            end: startOfLocalDay(addDays(safeEnd, 1)),
+            allDay: true,
+            status: "maintenance",
+            kind,
+            maintenanceTypeLabel: typeLabel,
+            bookingStatus: String(m.status || "").trim(),
+          };
+        })
+        .filter(Boolean),
+    [maintenanceBookings]
+  );
+
+  const motServiceDueEvents = useMemo(() => {
+    const out = [];
+    (vehicles || []).forEach((v) => {
+      const vehicleId = String(v.id || "").trim();
+      if (!vehicleId) return;
+      const label = buildAssetLabel(v) || vehicleLabel(v);
+      const motDue = getCanonicalDueDate(v, "mot");
+      const serviceDue = getCanonicalDueDate(v, "service");
+      const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
+
+      if (motDue) {
+        const motBooked = !!bookedMeta?.mot?.has;
+        const motAppt = bookedMeta?.mot?.earliestAppt || null;
+        const motAfterExpiry = motBooked && motAppt ? isApptAfterExpiry(motAppt, motDue) : false;
+        out.push({
+          id: `mot_due__${vehicleId}`,
+          __collection: "vehicleDueDates",
+          title: `${label} • MOT due${motBooked ? " (Booked)" : ""}`,
+          start: startOfLocalDay(motDue),
+          end: startOfLocalDay(addDays(motDue, 1)),
+          allDay: true,
+          status: "maintenance",
+          kind: "MOT",
+          vehicleId,
+          dueDate: motDue,
+          booked: motBooked,
+          bookingStatus: motAfterExpiry ? "Booked (After Expiry)" : motBooked ? "Booked" : "",
+          maintenanceTypeLabel: "MOT",
+        });
+      }
+
+      if (serviceDue) {
+        const serviceBooked = !!bookedMeta?.service?.has;
+        out.push({
+          id: `service_due__${vehicleId}`,
+          __collection: "vehicleDueDates",
+          title: `${label} • Service due${serviceBooked ? " (Booked)" : ""}`,
+          start: startOfLocalDay(serviceDue),
+          end: startOfLocalDay(addDays(serviceDue, 1)),
+          allDay: true,
+          status: "maintenance",
+          kind: "SERVICE",
+          vehicleId,
+          dueDate: serviceDue,
+          booked: serviceBooked,
+          bookingStatus: serviceBooked ? "Booked" : "",
+          maintenanceTypeLabel: "SERVICE",
+        });
+      }
+    });
+    return out;
+  }, [vehicles, maintenanceBookedMetaByVehicle, vehicleNameById]);
+
+  const maintenanceCalendarEvents = useMemo(
+    () => [...maintenanceBookingEvents, ...maintenanceJobEvents, ...motServiceDueEvents],
+    [maintenanceBookingEvents, maintenanceJobEvents, motServiceDueEvents]
+  );
 
   const now = useMemo(() => new Date(), []);
   const in2Days = useMemo(() => new Date(now.getTime() + 2 * 24 * 3600 * 1000), [now]);
@@ -559,17 +758,24 @@ export default function HomePage() {
                       allDay: true,
                       backgroundColor: getColorByStatus(e.status),
                     })),
-                    ...maintenanceBookings.map((m) => ({
+                    ...maintenanceCalendarEvents.map((m) => ({
                       ...m,
                       backgroundColor: getColorByStatus("maintenance"),
                     })),
                   ]}
                   eventClick={(info) => {
                     const id = info.event.id;
-                    const type = info.event.extendedProps?.type;
                     if (!id) return;
-                    if (type === "workBookings") router.push(`/view-maintenance/${id}`);
-                    else router.push(`/view-booking/${id}`);
+                    const maintenanceEvent = maintenanceCalendarEvents.find((event) => event.id === id);
+                    if (maintenanceEvent) {
+                      if (maintenanceEvent.__collection === "maintenanceJobs") {
+                        router.push("/maintenance-jobs");
+                        return;
+                      }
+                      setSelectedMaintenanceEvent(maintenanceEvent);
+                      return;
+                    }
+                    setSelectedBookingId(id);
                   }}
                   eventDidMount={(info) => {
                     // keep readable on bright blocks
@@ -613,7 +819,7 @@ export default function HomePage() {
                 {firstPencils72h.length ? (
                   <ul style={listReset}>
                     {firstPencils72h.map((e) => (
-                      <li key={e.id} style={{ ...liItem, cursor: "pointer" }} onClick={() => router.push(`/view-booking/${e.id}`)}>
+                      <li key={e.id} style={{ ...liItem, cursor: "pointer" }} onClick={() => setSelectedBookingId(e.id)}>
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                           <strong style={{ color: UI.text }}>{e.jobNumber}</strong>
                           <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>{moment(e.start).format("MMM D")}</span>
@@ -691,7 +897,7 @@ export default function HomePage() {
                       {prepList.map((it) => (
                         <tr
                           key={it.id}
-                          onClick={() => router.push(`/view-booking/${it.id}`)}
+                          onClick={() => setSelectedBookingId(it.id)}
                           style={{ cursor: "pointer" }}
                         >
                           <td style={{ ...td, fontWeight: 900, whiteSpace: "nowrap" }}>{it.jobNumber}</td>
@@ -780,6 +986,18 @@ export default function HomePage() {
             </section>
           </div>
         </div>
+        {selectedBookingId && (
+          <ViewBookingModal
+            id={selectedBookingId}
+            onClose={() => setSelectedBookingId(null)}
+          />
+        )}
+        {selectedMaintenanceEvent && (
+          <DashboardMaintenanceModal
+            event={selectedMaintenanceEvent}
+            onClose={() => setSelectedMaintenanceEvent(null)}
+          />
+        )}
       </HeaderSidebarLayout>
     </ProtectedRoute>
   );

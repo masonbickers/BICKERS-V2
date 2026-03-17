@@ -244,6 +244,44 @@ function countChargeableDays(rec, start, end, isBankHoliday) {
   return Number(total.toFixed(2));
 }
 
+function countChargeableDaysInRange(
+  rec,
+  start,
+  end,
+  rangeStart,
+  rangeEnd,
+  isBankHoliday
+) {
+  const clipStart = start > rangeStart ? start : rangeStart;
+  const clipEnd = end < rangeEnd ? end : rangeEnd;
+  if (!clipStart || !clipEnd || clipStart > clipEnd) return 0;
+
+  const days = eachDateInclusive(clipStart, clipEnd);
+  const startIsHalf = truthy(rec.startHalfDay);
+  const endIsHalf = truthy(rec.endHalfDay);
+  const single = sameYMD(start, end);
+
+  let total = 0;
+
+  for (const d of days) {
+    if (isWeekend(d)) continue;
+    if (isBankHoliday?.(d)) continue;
+
+    let inc = 1;
+
+    if (single) {
+      if (startIsHalf || endIsHalf || truthy(rec.halfDay)) inc = 0.5;
+    } else {
+      if (sameYMD(d, start) && startIsHalf) inc = 0.5;
+      if (sameYMD(d, end) && endIsHalf) inc = 0.5;
+    }
+
+    total += inc;
+  }
+
+  return Number(total.toFixed(2));
+}
+
 /* ✅ Status helper:
    - approved: status contains "approved" OR legacy approved=true
    - declined: status contains "declined"
@@ -477,6 +515,7 @@ export default function HolidayUsagePage() {
 
   const [paidDaysByName, setPaidDaysByName] = useState({});
   const [unpaidDaysByName, setUnpaidDaysByName] = useState({});
+  const [preAprilPaidDaysByName, setPreAprilPaidDaysByName] = useState({});
   const [calendarEvents, setCalendarEvents] = useState([]);
 
   // ✅ bank holidays (separate so "leave entries" count stays the same)
@@ -599,9 +638,11 @@ export default function HolidayUsagePage() {
       // Holidays for the selected year (Paid/Unpaid only — Accrued/TOIL ignored)
       const paid = {};
       const unpaid = {};
+      const preAprilPaid = {};
       const details = {};
       const events = [];
       const colourByEmp = {};
+      const preAprilEnd = new Date(yearView, 2, 31);
 
       const holSnap = await getDocs(collection(db, "holidays"));
       holSnap.docs.forEach((docSnap) => {
@@ -646,11 +687,25 @@ export default function HolidayUsagePage() {
 
         // ✅ exclude bank holidays from used days + support multi-day half days
         const days = countChargeableDays(rec, start, end, isBankHoliday);
+        const preAprilDays = countChargeableDaysInRange(
+          rec,
+          start,
+          end,
+          new Date(yearView, 0, 1),
+          preAprilEnd,
+          isBankHoliday
+        );
 
         // ✅ IMPORTANT: pending holidays do NOT consume allowance totals
         if (!pending) {
           if (isUnpaidLeave) unpaid[employee] = (unpaid[employee] || 0) + days;
-          else paid[employee] = (paid[employee] || 0) + days;
+          else {
+            paid[employee] = (paid[employee] || 0) + days;
+            if (preAprilDays > 0) {
+              preAprilPaid[employee] =
+                (preAprilPaid[employee] || 0) + preAprilDays;
+            }
+          }
         }
 
         if (!details[employee]) details[employee] = [];
@@ -689,6 +744,7 @@ export default function HolidayUsagePage() {
 
       setPaidDaysByName(paid);
       setUnpaidDaysByName(unpaid);
+      setPreAprilPaidDaysByName(preAprilPaid);
       setByEmployee(
         Object.fromEntries(
           Object.entries(details).map(([k, v]) => [
@@ -775,14 +831,44 @@ export default function HolidayUsagePage() {
     (name) => {
       const paid = paidDaysByName[name] || 0;
       const unpaid = unpaidDaysByName[name] || 0;
+      const preAprilPaid = preAprilPaidDaysByName[name] || 0;
       const allowance = Number(empAllowance[name] ?? DEFAULT_ALLOWANCE);
       const carried = Number(empCarryOver[name] ?? 0);
       const totalAllowance = allowance + carried;
       const allowBal = totalAllowance - paid;
-      return { paid, unpaid, allowance, carried, totalAllowance, allowBal };
+      const carryUsedByApril = Math.min(carried, preAprilPaid);
+      const carryRemainingByApril = Math.max(
+        0,
+        Number((carried - carryUsedByApril).toFixed(2))
+      );
+      return {
+        paid,
+        unpaid,
+        preAprilPaid,
+        allowance,
+        carried,
+        totalAllowance,
+        allowBal,
+        carryUsedByApril,
+        carryRemainingByApril,
+      };
     },
-    [paidDaysByName, unpaidDaysByName, empAllowance, empCarryOver]
+    [paidDaysByName, unpaidDaysByName, preAprilPaidDaysByName, empAllowance, empCarryOver]
   );
+
+  const carryDeadline = useMemo(() => new Date(yearView, 3, 1), [yearView]);
+
+  const carryOverRows = useMemo(() => {
+    return allNames
+      .map((name) => ({ name, ...metrics(name) }))
+      .filter((row) => row.carried > 0)
+      .sort((a, b) => {
+        if (b.carryRemainingByApril !== a.carryRemainingByApril) {
+          return b.carryRemainingByApril - a.carryRemainingByApril;
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [allNames, metrics]);
 
   const namesToShow = useMemo(() => {
     return allNames
@@ -982,6 +1068,95 @@ export default function HolidayUsagePage() {
                   if (e?.employee) setSelectedName(String(e.employee));
                 }}
               />
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                background: "#fff",
+                padding: 14,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  marginBottom: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 950, fontSize: 15, color: UI.text }}>
+                    Carry over to use by {format(carryDeadline, "d MMM")}
+                  </div>
+                  <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                    Based on approved paid leave booked before 1 April {yearView}.
+                  </div>
+                </div>
+                <div style={chip}>{carryOverRows.length} employees</div>
+              </div>
+
+              <div style={tableWrap}>
+                <table style={tableEl}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Employee</th>
+                      <th style={{ ...th, textAlign: "center", width: 110 }}>Carry</th>
+                      <th style={{ ...th, textAlign: "center", width: 150 }}>
+                        Booked by 31 Mar
+                      </th>
+                      <th style={{ ...th, textAlign: "center", width: 130 }}>
+                        Remaining
+                      </th>
+                      <th style={th}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {carryOverRows.length === 0 ? (
+                      <tr>
+                        <td style={td} colSpan={5}>
+                          <span style={{ color: UI.muted }}>
+                            No employees have carry-over days for {yearView}.
+                          </span>
+                        </td>
+                      </tr>
+                    ) : (
+                      carryOverRows.map((row, i) => (
+                        <tr
+                          key={row.name}
+                          style={{
+                            backgroundColor: i % 2 === 0 ? "#fff" : "#f8fafc",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => setSelectedName(row.name)}
+                        >
+                          <td style={{ ...td, fontWeight: 800 }}>{row.name}</td>
+                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                            {Number(row.carried.toFixed(2))}
+                          </td>
+                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                            {Number(row.carryUsedByApril.toFixed(2))}
+                          </td>
+                          <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
+                            {Number(row.carryRemainingByApril.toFixed(2))}
+                          </td>
+                          <td style={td}>
+                            {row.carryRemainingByApril > 0 ? (
+                              <Pill tone="warn">Still to use before 1 Apr</Pill>
+                            ) : (
+                              <Pill tone="good">Covered by booked leave</Pill>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
