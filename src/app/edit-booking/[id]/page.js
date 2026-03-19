@@ -1679,6 +1679,8 @@ export default function EditBookingPage() {
             ? "application/vnd.ms-excel"
             : safeName.toLowerCase().endsWith(".csv")
             ? "text/csv"
+            : safeName.toLowerCase().endsWith(".jpg") || safeName.toLowerCase().endsWith(".jpeg")
+            ? "image/jpeg"
             : "application/octet-stream");
 
         const task = uploadBytesResumable(storageRefObj, file, { contentType });
@@ -3005,14 +3007,14 @@ export default function EditBookingPage() {
                 </div>
               )}
 
-              <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV)</label>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.xls,.xlsx,.csv"
-                onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
-                style={{ ...field.input, height: "auto", padding: 10 }}
-              />
+                  <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV/JPG/JPEG)</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,image/jpeg"
+                    onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+                    style={{ ...field.input, height: "auto", padding: 10 }}
+                  />
 
               {pdfProgress > 0 && (
                 <div style={{ marginTop: 8, fontSize: 12 }}>
