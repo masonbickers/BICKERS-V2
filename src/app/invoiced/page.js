@@ -66,7 +66,7 @@ const tinyHint = { color: UI.muted, fontSize: 12 };
 const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
 const tableEl = {
   width: "100%",
-  tableLayout: "fixed", // ✅ lock column widths so everything lines up
+  tableLayout: "fixed", //  lock column widths so everything lines up
   borderCollapse: "separate",
   borderSpacing: 0,
   fontSize: 13.5,

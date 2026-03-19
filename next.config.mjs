@@ -8,4 +8,4 @@ const nextConfig = {
   // ...keep any other settings you had here
 };
 
-export default nextConfig; // ✅ ESM export
+export default nextConfig; //  ESM export

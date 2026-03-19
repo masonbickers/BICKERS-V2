@@ -194,7 +194,7 @@ const enumerateDaysYMD_UTC = (startYMD, endYMD) => {
   return out;
 };
 
-// ✅ checks if a YMD list is fully consecutive day-by-day
+//  checks if a YMD list is fully consecutive day-by-day
 const isConsecutiveYMDList = (dates = []) => {
   if (!Array.isArray(dates) || dates.length <= 1) return true;
   const sorted = dates.slice().sort();
@@ -257,7 +257,7 @@ export default function MaintenanceFormPage() {
   const [loading, setLoading] = useState(!isNew);
 
   const [jobNumber, setJobNumber] = useState("");
-  const [jobUnlocked, setJobUnlocked] = useState(false); // ✅ unlock toggle
+  const [jobUnlocked, setJobUnlocked] = useState(false); //  unlock toggle
   const [maintenanceType, setMaintenanceType] = useState("Service");
   const [maintenanceTypeOther, setMaintenanceTypeOther] = useState("");
 
@@ -324,7 +324,7 @@ export default function MaintenanceFormPage() {
   const coreFilled = Boolean((location || "").trim());
   const saveTooltip = !coreFilled ? "Fill Location to save" : "";
 
-  // ✅ default unlock behaviour: only unlocked on NEW
+  //  default unlock behaviour: only unlocked on NEW
   useEffect(() => {
     setJobUnlocked(isNew);
   }, [isNew]);
@@ -437,7 +437,7 @@ export default function MaintenanceFormPage() {
 
   /* ────────────────────────────────────────────────────────────────────────────
      Load existing doc (on EDIT)
-     ✅ Fixes non-consecutive hydration: decide from bookingDates continuity
+      Fixes non-consecutive hydration: decide from bookingDates continuity
   ───────────────────────────────────────────────────────────────────────────── */
   useEffect(() => {
     if (isNew) return;
@@ -466,7 +466,7 @@ export default function MaintenanceFormPage() {
         setNotesByDate(d.notesByDate || {});
         setQuoteUrl(d.quoteUrl || null);
 
-        // ✅ HYDRATE DATE MODE (correctly handles non-consecutive)
+        //  HYDRATE DATE MODE (correctly handles non-consecutive)
         if (Array.isArray(d.bookingDates) && d.bookingDates.length) {
           const sortedDates = d.bookingDates.slice().sort();
           const consecutive = isConsecutiveYMDList(sortedDates);
@@ -649,7 +649,7 @@ export default function MaintenanceFormPage() {
           createdAt: nowIso,
           history: [{ action: "Created", user: userEmail, timestamp: nowIso }],
         });
-        alert("Maintenance Saved ✅");
+        alert("Maintenance Saved ");
       } else {
         const refDoc = doc(db, "maintenanceBookings", id);
 
@@ -660,20 +660,20 @@ export default function MaintenanceFormPage() {
         history.push({ action: "Edited", user: userEmail, timestamp: nowIso });
 
         await updateDoc(refDoc, { ...payload, history });
-        alert("Maintenance Updated ✅");
+        alert("Maintenance Updated ");
       }
 
       router.push("/dashboard?saved=true");
     } catch (err) {
-      console.error("❌ Error saving maintenance:", err);
-      alert("Failed to save maintenance ❌\n\n" + err.message);
+      console.error(" Error saving maintenance:", err);
+      alert("Failed to save maintenance\n\n" + err.message);
     }
   };
 
   /* ────────────────────────────────────────────────────────────────────────────
      UI helpers
   ───────────────────────────────────────────────────────────────────────────── */
-  const title = isNew ? "🛠️ Create Maintenance" : "✏️ Edit Maintenance";
+  const title = isNew ? " Create Maintenance" : " Edit Maintenance";
 
   if (loading) {
     return (
@@ -785,7 +785,7 @@ export default function MaintenanceFormPage() {
                       const on = e.target.checked;
 
                       if (on) {
-                        // ✅ seed custom dates from current selection (nice UX)
+                        //  seed custom dates from current selection (nice UX)
                         const seed = selectedDates?.length ? selectedDates.slice() : [];
                         setCustomDates(seed);
                         setIsRange(false);
@@ -1298,7 +1298,7 @@ export default function MaintenanceFormPage() {
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={summaryCard}>
                 <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-                  📋 Summary
+                   Summary
                 </h3>
 
                 <div style={summaryRow}>

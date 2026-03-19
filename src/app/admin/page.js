@@ -23,7 +23,7 @@ import {
 
 /* ───────────────────────────────────────────
    Admin gate
-   ✅ allow if email is in ADMIN_EMAILS OR users.role === "admin"
+    allow if email is in ADMIN_EMAILS OR users.role === "admin"
 ─────────────────────────────────────────── */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -159,7 +159,7 @@ export default function AdminPage() {
     notes: "",
   });
 
-  // ✅ Sick edit state
+  //  Sick edit state
   const [editingSick, setEditingSick] = useState(null); // {id, employeeId, startDate, endDate, reason, notes}
   const [savingSick, setSavingSick] = useState(false);
 
@@ -170,8 +170,8 @@ export default function AdminPage() {
 
   /* ───────────────────────────────────────────
      Auth + Admin gate
-     ✅ allow if email in ADMIN_EMAILS OR Firestore role === "admin"
-     ✅ robust lookup: users/{uid} then query by email
+      allow if email in ADMIN_EMAILS OR Firestore role === "admin"
+      robust lookup: users/{uid} then query by email
   ──────────────────────────────────────────── */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -1130,7 +1130,7 @@ function EmployeesHolidayAllowancesTab() {
           const name = x.employee;
           if (!name || !x.startDate || !x.endDate) return;
 
-          // ✅ can be string OR Timestamp
+          //  can be string OR Timestamp
           const start = toDateSafe(x.startDate);
           const end = toDateSafe(x.endDate);
           if (!start || !end) return;

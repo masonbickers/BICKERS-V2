@@ -318,11 +318,11 @@ function EmployeeCSVImport({ onImportComplete }) {
               mobile: employee.mobile || "",
             });
           } catch (err) {
-            console.error("❌ Error importing employee:", err);
+            console.error(" Error importing employee:", err);
           }
         }
 
-        alert("✅ Employee data imported successfully!");
+        alert(" Employee data imported successfully!");
         onImportComplete?.();
       },
     });

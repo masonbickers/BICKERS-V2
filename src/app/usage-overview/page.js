@@ -199,7 +199,7 @@ function buildVehicleLabel(v) {
 /* ───────────────────────────────────────────
    Firestore: collection name & doc id shape
 ─────────────────────────────────────────── */
-const USAGE_COLLECTION = "vehicleUsageNotes"; // ✅ create this collection
+const USAGE_COLLECTION = "vehicleUsageNotes"; //  create this collection
 const usageDocId = (vehicleId, dateISO) => `${vehicleId}__${dateISO}`;
 
 /*

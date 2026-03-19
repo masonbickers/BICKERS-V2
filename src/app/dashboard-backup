@@ -92,7 +92,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     const aNum = Number.isNaN(ak.num) ? -Infinity : ak.num;
     const bNum = Number.isNaN(bk.num) ? -Infinity : bk.num;
 
-    if (bNum !== aNum) return bNum - aNum; // ✅ highest → lowest
+    if (bNum !== aNum) return bNum - aNum; //  highest → lowest
 
     // Tie-breakers to keep order stable/readable
     if ((bk.raw || "") !== (ak.raw || "")) return (bk.raw || "").localeCompare(ak.raw || "");
@@ -172,12 +172,12 @@ const EventNotesButton = ({ show, setShow }) => (
       padding: "2px 6px",
       fontSize: "0.7rem",
       fontWeight: "normal",
-      backgroundColor: "transparent",  // ✅ blends with block
-      border: "1px solid rgba(0,0,0,0.3)", // ✅ subtle grey border
+      backgroundColor: "transparent",  //  blends with block
+      border: "1px solid rgba(0,0,0,0.3)", //  subtle grey border
       borderRadius: "3px",
-      color: "rgba(0,0,0,0.7)",        // ✅ softer text colour
+      color: "rgba(0,0,0,0.7)",        //  softer text colour
       cursor: "pointer",
-      opacity: 0.8,                    // ✅ makes it look lighter
+      opacity: 0.8,                    //  makes it look lighter
     }}
   >
     {show ? "Hide Notes" : "Show Notes"}
@@ -470,7 +470,7 @@ function CalendarEvent({ event }) {
       border: "0.75px solid #000",
     }}
   >
-    HS {event.hasHS ? "✓" : "✗"}
+    HS {event.hasHS ? "Yes" : "No"}
   </span>
 
   {/* RA */}
@@ -485,7 +485,7 @@ function CalendarEvent({ event }) {
       border: "0.75px solid #000",
     }}
   >
-    RA {event.hasRiskAssessment ? "✓" : "✗"}
+    RA {event.hasRiskAssessment ? "Yes" : "No"}
   </span>
 
   {/* Hotel (H) */}
@@ -500,7 +500,7 @@ function CalendarEvent({ event }) {
       border: "0.75px solid #000",
     }}
   >
-    H {event.hasHotel ? "✓" : "✗"}
+    H {event.hasHotel ? "Yes" : "No"}
   </span>
 
   {/* UB = Rigging Address */}
@@ -516,7 +516,7 @@ function CalendarEvent({ event }) {
       border: "0.75px solid #000",
     }}
   >
-    UB {event.hasRiggingAddress ? "✓" : "✗"}
+    UB {event.hasRiggingAddress ? "Yes" : "No"}
   </span>
 
   {/* Call Time (optional) */}
@@ -538,7 +538,7 @@ function CalendarEvent({ event }) {
   )}
 </div>
 
-{/* ⚠ RED-REASON BOX — show only when risky */}
+{/* Warning RED-REASON BOX — show only when risky */}
 {event.isRisky && Array.isArray(event.riskReasons) && event.riskReasons.length > 0 && (
   <div style={{ width: "100%", marginTop: 6 }}>
     <div
@@ -640,13 +640,13 @@ const navButton = {
 
   
 useEffect(() => {
-  // 🔹 Bookings live
+  // - Bookings live
   const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
     const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     setBookings(data);
   });
 
-  // 🔹 Holidays live
+  // - Holidays live
   const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
     const holidayEvents = snap.docs.map((doc) => {
       const data = doc.data();
@@ -665,7 +665,7 @@ useEffect(() => {
     setHolidays(holidayEvents);
   });
 
-  // 🔹 Notes live
+  // - Notes live
   const unsubNotes = onSnapshot(collection(db, "notes"), (snap) => {
     const noteEvents = snap.docs.map((doc) => {
       const data = doc.data();
@@ -682,13 +682,13 @@ useEffect(() => {
     setNotes(noteEvents);
   });
 
-  // 🔹 Vehicles live
+  // - Vehicles live
   const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
     const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     setVehiclesData(data);
   });
 
-  // ✅ Cleanup all listeners on unmount
+  //  Cleanup all listeners on unmount
   return () => {
     unsubBookings();
     unsubHolidays();
@@ -721,7 +721,7 @@ useEffect(() => {
         id: doc.id,
         title: `${data.employee} - Holiday`,
         start,
-        end: new Date(end.setDate(end.getDate())), // 👈 include full last day
+        end: new Date(end.setDate(end.getDate())), //  include full last day
         allDay: true,
         status: "Holiday",
         employee: data.employee,
@@ -838,8 +838,8 @@ const getVehicleRisk = (vehicles) => {
   style={{
     display: "flex",
     minHeight: "100vh",
-    width: "100%",          // ✅ ensures full width
-    overflowX: "hidden",    // ✅ stops sideways scrolling
+    width: "100%",          //  ensures full width
+    overflowX: "hidden",    //  stops sideways scrolling
     fontFamily: "Arial, sans-serif",
     backgroundColor: "#f4f4f5",
   }}
@@ -855,7 +855,7 @@ const getVehicleRisk = (vehicles) => {
     flex: 1,
     padding: "20px 40px",
     color: "#333",
-    minWidth: 0,           // ✅ allows flexbox to shrink properly
+    minWidth: 0,           //  allows flexbox to shrink properly
   }}
 >
 
@@ -867,7 +867,7 @@ const getVehicleRisk = (vehicles) => {
         {/* Success Banner */}
         {bookingSaved && (
           <div style={successBanner}>
-            ✅ Booking saved successfully!
+             Booking saved successfully!
           </div>
         )}
 
@@ -1006,10 +1006,10 @@ events={[
             getNow={() => new Date(2000, 0, 1)} 
               formats={{
                         dayFormat: (date, culture, localizer) =>
-                          localizer.format(date, "EEEE dd", culture), // ✅ "Monday 25"
+                          localizer.format(date, "EEEE dd", culture), //  "Monday 25"
                       }}
             
-              // ✅ Highlight today's column
+              //  Highlight today's column
   dayPropGetter={(date) => {
     const today = new Date();
     const isToday =
@@ -1192,11 +1192,11 @@ eventPropGetter={(event) => {
             padding: "4px",
             margin: 0,
             boxSizing: "border-box",
-            overflow: "visible",           // ✅ allows content to overflow naturally
-            whiteSpace: "normal",          // ✅ allows text wrapping
-            wordBreak: "break-word",       // ✅ breaks long words
-            minHeight: "100px",            // ✅ ensures enough vertical space
-            height: "auto",                // ✅ don't clip based on height
+            overflow: "visible",           //  allows content to overflow naturally
+            whiteSpace: "normal",          //  allows text wrapping
+            wordBreak: "break-word",       //  breaks long words
+            minHeight: "100px",            //  ensures enough vertical space
+            height: "auto",                //  don't clip based on height
           }}
 
         >
@@ -1233,7 +1233,7 @@ eventPropGetter={(event) => {
       },
     })}
 
-    // ✅ ADD THIS JUST BELOW
+    //  ADD THIS JUST BELOW
     dayPropGetter={(date) => ({
       style: {
         borderRight: "1px solid #ccc",  // vertical divider between days
@@ -1531,7 +1531,7 @@ eventPropGetter={(event) => {
 }
 
 
-// 🔷 Styles
+//  Styles
 const cardStyle = {
   backgroundColor: "#f9f9f9",
   padding: "20px",

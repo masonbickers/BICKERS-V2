@@ -270,7 +270,7 @@ function Field({ label, value }) {
 
 const Chip = ({ good, label, title }) => (
   <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
-    {label} {good ? "✓" : "✗"}
+    {label} {good ? "Yes" : "No"}
   </span>
 );
 

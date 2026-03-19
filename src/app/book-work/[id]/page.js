@@ -163,14 +163,14 @@ export default function BookWorkPage() {
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...input, height: 100 }} />
 
         <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-          <button onClick={checkExistingBookings} style={checkBtn}>🔍 Check Availability</button>
-          <button onClick={handleSubmit} style={submitBtn}>✅ Book Maintenance</button>
-          <button onClick={() => router.push("/vehicles")} style={cancelBtn}>❌ Cancel</button>
+          <button onClick={checkExistingBookings} style={checkBtn}> Check Availability</button>
+          <button onClick={handleSubmit} style={submitBtn}> Book Maintenance</button>
+          <button onClick={() => router.push("/vehicles")} style={cancelBtn}> Cancel</button>
         </div>
 
         {existingBookings.length > 0 && (
           <div style={{ marginTop: 30 }}>
-            <h3 style={{ color: "#dc2626" }}>⚠️ Conflicting Bookings:</h3>
+            <h3 style={{ color: "#dc2626" }}>Warning Conflicting Bookings:</h3>
             <ul>
               {existingBookings.map((b, i) => (
                 <li key={i}>

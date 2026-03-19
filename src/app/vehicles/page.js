@@ -1,5 +1,5 @@
 // src/app/vehicles/page.js  (or wherever this lives)
-// ✅ Full improved version of your VehicleMaintenancePage
+//  Full improved version of your VehicleMaintenancePage
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -575,10 +575,10 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
             });
           }
 
-          alert("✅ Vehicle data imported successfully!");
+          alert(" Vehicle data imported successfully!");
           await onImportComplete?.();
         } catch (err) {
-          console.error("❌ Error importing vehicles:", err);
+          console.error(" Error importing vehicles:", err);
           alert("Import failed. Check console for details.");
         } finally {
           // reset file input so same file can be re-uploaded

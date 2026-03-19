@@ -1,8 +1,8 @@
 // src/app/vehicle-edit/[id]/page.js
-// ✅ UPDATED: MOT/SERVICE bookings now support CREATE + EDIT from this page
-// ✅ Sync: When booking status is "Completed", it updates core due dates (last + next) automatically
-// ✅ Keeps: your auto-calcs + frequencies logic unchanged
-// ✅ Ensures: maintenanceBookings docs always store usable Date objects for calendar
+//  UPDATED: MOT/SERVICE bookings now support CREATE + EDIT from this page
+//  Sync: When booking status is "Completed", it updates core due dates (last + next) automatically
+//  Keeps: your auto-calcs + frequencies logic unchanged
+//  Ensures: maintenanceBookings docs always store usable Date objects for calendar
 
 "use client";
 
@@ -252,7 +252,7 @@ const ymdToDate = (ymd) => {
   return Number.isNaN(+dt) ? null : dt;
 };
 
-/* ✅ completion helpers (sync bookings -> core due dates) */
+/*  completion helpers (sync bookings -> core due dates) */
 const completionISOFromBooking = ({ isMultiDay, appointmentDate, endDate, startDate }) => {
   if (!isMultiDay) return appointmentDate || "";
   return endDate || startDate || "";
@@ -771,7 +771,7 @@ export default function EditVehiclePage() {
           </div>
         </div>
 
-        {/* ✅ CREATE Booking modals */}
+        {/*  CREATE Booking modals */}
         {showMotBooking ? (
           <MaintenanceBookingForm
             vehicleId={id}
@@ -814,7 +814,7 @@ export default function EditVehiclePage() {
           />
         ) : null}
 
-        {/* ✅ EDIT Booking modal */}
+        {/*  EDIT Booking modal */}
         {editBookingId ? (
           <EditMaintenanceBookingForm
             bookingId={editBookingId}
@@ -1208,8 +1208,8 @@ export default function EditVehiclePage() {
 /* ───────────────── Booking Modal Component (inline) ─────────────────
    - Creates doc in maintenanceBookings
    - Updates vehicle summary fields for MOT or SERVICE
-   - ✅ If status === Completed: sync core due dates (last + next)
-   - ✅ Ensures booking doc always has usable date fields:
+   -  If status === Completed: sync core due dates (last + next)
+   -  Ensures booking doc always has usable date fields:
        startDate/endDate ALWAYS Date objects
        appointmentDate stored as Date for single day
 */
@@ -1305,7 +1305,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
     const be = toDate(activeConflict.endDate) || toDate(activeConflict.date) || toDate(activeConflict.appointmentDate);
 
     setConflictMsg(
-      `⚠️ This vehicle already has an overlapping maintenance booking (${activeConflict.type || "Maintenance"} — ${
+      `Warning This vehicle already has an overlapping maintenance booking (${activeConflict.type || "Maintenance"} — ${
         activeConflict.status || "Booked"
       }) from ${bs ? bs.toLocaleDateString("en-GB") : "?"} → ${be ? be.toLocaleDateString("en-GB") : "?"}.`
     );
@@ -1339,7 +1339,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
 
     setSaving(true);
     try {
-      // ✅ ALWAYS write real Date objects into maintenanceBookings
+      //  ALWAYS write real Date objects into maintenanceBookings
       const apptDateObj = !isMultiDay ? ymdToDate(appointmentDate) : null;
 
       const completedISO =
@@ -1398,7 +1398,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
           updatedAt: serverTimestamp(),
         };
 
-        // ✅ completed -> push core due dates forward
+        //  completed -> push core due dates forward
         if (completedISO) {
           updates.lastMOT = completedISO;
           updates.nextMOT = computeNextDueFromCompletion(completedISO, motFreqWeeks);
@@ -1437,7 +1437,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
           updatedAt: serverTimestamp(),
         };
 
-        // ✅ completed -> push core due dates forward
+        //  completed -> push core due dates forward
         if (completedISO) {
           updates.lastService = completedISO;
           updates.nextService = computeNextDueFromCompletion(completedISO, serviceFreqWeeks);
@@ -1491,7 +1491,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
           </div>
 
           <button onClick={onClose} style={closeBtn} aria-label="Close" type="button">
-            ✕
+            x
           </button>
         </div>
 

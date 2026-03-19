@@ -19,22 +19,25 @@ import DatePicker from "react-multi-date-picker";
    Visual tokens + shared styles (MATCH CREATE)
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
-  radius: 10,
-  radiusSm: 8,
-  radiusXs: 6,
-  shadow: "0 6px 18px rgba(0,0,0,0.08)",
-  border: "1px solid #e5e7eb",
+  radius: 16,
+  radiusSm: 12,
+  radiusXs: 10,
+  shadow: "0 12px 32px rgba(15,23,42,0.07)",
+  border: "1px solid #dbe2ea",
   bg: "#ffffff",
-  bgAlt: "#f8fafc",
-  text: "#111827",
-  muted: "#6b7280",
+  bgAlt: "#f5f8fb",
+  text: "#0f172a",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c9d6e2",
 };
 
 const pageWrap = {
   display: "flex",
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
-  background: "#f1f5f9",
+  background: "#eef3f8",
 };
 
 const mainWrap = {
@@ -42,23 +45,23 @@ const mainWrap = {
   color: UI.text,
   maxWidth: 1600,
   margin: "0 auto",
-  padding: "20px 24px",
+  padding: "24px 28px 32px",
 };
 
 const h1Style = {
   color: UI.text,
   marginBottom: 0,
-  fontSize: 26,
+  fontSize: 30,
   fontWeight: 800,
-  letterSpacing: 0.2,
+  letterSpacing: "-0.02em",
 };
 
 const pageHeader = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 12,
+  gap: 18,
+  marginBottom: 18,
   flexWrap: "wrap",
 };
 
@@ -67,17 +70,18 @@ const headerChecksBox = {
   alignItems: "center",
   gap: 18,
   flexWrap: "wrap",
-  padding: "10px 14px",
+  padding: "12px 16px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   background: UI.bg,
+  boxShadow: "0 4px 18px rgba(15,23,42,0.04)",
 };
 
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 0.72fr) minmax(440px, 1.14fr) minmax(440px, 1.14fr)",
-  gap: 16,
-  marginTop: 8,
+  gap: 18,
+  marginTop: 10,
 };
 
 const card = {
@@ -85,34 +89,45 @@ const card = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
-  padding: 16,
+  padding: 18,
 };
-const cardTitle = { margin: "0 0 10px", fontSize: 15, fontWeight: 700 };
+const cardTitle = {
+  margin: "0 0 14px",
+  fontSize: 16,
+  fontWeight: 800,
+  color: UI.text,
+  letterSpacing: "-0.01em",
+};
 
 const field = {
   label: {
     display: "block",
-    fontWeight: 600,
-    marginBottom: 6,
+    fontWeight: 700,
+    marginBottom: 7,
     color: UI.text,
+    fontSize: 13,
   },
   input: {
     width: "100%",
-    height: 38,
-    padding: "8px 10px",
+    height: 40,
+    padding: "9px 12px",
     fontSize: 14,
     borderRadius: UI.radiusXs,
-    border: "1px solid #d1d5db",
+    border: "1px solid #ccd6e0",
     background: "#fff",
+    color: UI.text,
+    boxSizing: "border-box",
   },
   textarea: {
     width: "100%",
     minHeight: 80,
-    padding: "10px 12px",
+    padding: "11px 12px",
     fontSize: 14,
     borderRadius: UI.radiusXs,
-    border: "1px solid #d1d5db",
+    border: "1px solid #ccd6e0",
     background: "#fff",
+    color: UI.text,
+    boxSizing: "border-box",
   },
   checkboxRow: {
     display: "flex",
@@ -128,26 +143,29 @@ const accordionBtn = {
   alignItems: "center",
   justifyContent: "space-between",
   width: "100%",
-  padding: "8px 10px",
+  padding: "10px 12px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  background: UI.bgAlt,
+  border: "1px solid #d4dde7",
+  background: "#f8fafc",
   cursor: "pointer",
   fontWeight: 700,
+  color: UI.text,
 };
 
 const pill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "2px 8px",
+  padding: "3px 9px",
   fontSize: 12,
   borderRadius: 999,
-  background: "#e5e7eb",
-  border: "1px solid #d1d5db",
+  background: UI.brandSoft,
+  border: `1px solid ${UI.brandBorder}`,
+  color: UI.brand,
+  fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
+const divider = { height: 1, background: "#e2e8f0", margin: "16px 0" };
 
 const checkboxGrid = {
   display: "grid",
@@ -160,24 +178,35 @@ const actionsRow = {
   display: "flex",
   gap: 10,
   justifyContent: "flex-end",
-  marginTop: 14,
+  marginTop: 16,
 };
 
 const subCard = {
-  padding: 12,
+  padding: 14,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
+  border: "1px solid #e2e8f0",
 };
 
 const btn = {
-  padding: "9px 13px",
+  padding: "10px 14px",
   borderRadius: UI.radiusXs,
-  border: "1px solid #111",
+  border: `1px solid ${UI.brand}`,
   cursor: "pointer",
   fontWeight: 700,
 };
-const btnPrimary = { ...btn, background: "#111", color: "#fff" };
-const btnGhost = { ...btn, background: "#fff", color: "#111" };
+const btnPrimary = {
+  ...btn,
+  background: UI.brand,
+  color: "#fff",
+  boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+};
+const btnGhost = {
+  ...btn,
+  background: "#fff",
+  color: UI.text,
+  border: `1px solid ${UI.brandBorder}`,
+};
 const btnDanger = {
   ...btn,
   background: "#fff",
@@ -190,17 +219,18 @@ const summaryCard = {
   position: "sticky",
   top: 12,
   alignSelf: "start",
-  background: "#0b1220",
-  color: "#e6edf7",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "#162434",
+  color: "#e8eef5",
+  border: "1px solid rgba(255,255,255,0.06)",
+  boxShadow: "0 18px 36px rgba(15,23,42,0.16)",
 };
 
 const summaryRow = {
   display: "grid",
   gridTemplateColumns: "140px 1fr",
   gap: 10,
-  padding: "6px 0",
-  borderBottom: "1px dashed rgba(255,255,255,0.08)",
+  padding: "8px 0",
+  borderBottom: "1px dashed rgba(255,255,255,0.12)",
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -211,7 +241,7 @@ const VEHICLE_STATUSES = [
   "First Pencil",
   "Second Pencil",
   "Enquiry",
-  "Stunt", // ✅ added
+  "Stunt", //  added
   "Maintenance",
   "DNH",
   "Lost",
@@ -700,7 +730,7 @@ export default function EditBookingPage() {
   // Hotel / rigging
   const [hasHotel, setHasHotel] = useState(false);
 
-  // ✅ restored hotel details
+  //  restored hotel details
   const [hotelPaidBy, setHotelPaidBy] = useState(""); // "Production" | "Bickers"
   const [hotelNights, setHotelNights] = useState(""); // string for input
   const [hotelPricePerNight, setHotelPricePerNight] = useState(""); // string for input
@@ -711,7 +741,7 @@ export default function EditBookingPage() {
   // Flags
   const [isSecondPencil, setIsSecondPencil] = useState(false);
 
-  // ✅ manual crewing only
+  //  manual crewing only
   const [isCrewed, setIsCrewed] = useState(false);
 
   const [hasHS, setHasHS] = useState(false);
@@ -843,7 +873,7 @@ export default function EditBookingPage() {
     : "";
 
   /* ────────────────────────────────────────────────────────────
-     ✅ allocated crew count (display only) — NO auto setIsCrewed
+      allocated crew count (display only) — NO auto setIsCrewed
   ───────────────────────────────────────────────────────────── */
   const allocatedCrewCount = useMemo(() => {
     const selectedCount = employees.filter(
@@ -1022,7 +1052,7 @@ export default function EditBookingPage() {
 
       // flags
       setIsSecondPencil(Boolean(bookingData.isSecondPencil));
-      setIsCrewed(Boolean(bookingData.isCrewed)); // ✅ manual stored value
+      setIsCrewed(Boolean(bookingData.isCrewed)); //  manual stored value
       setHasHS(Boolean(bookingData.hasHS));
       setHasRiskAssessment(Boolean(bookingData.hasRiskAssessment));
 
@@ -1045,7 +1075,7 @@ export default function EditBookingPage() {
           : {}
       );
 
-      // ✅ HOTEL (supports likely legacy keys too)
+      //  HOTEL (supports likely legacy keys too)
       const loadedHasHotel = Boolean(
         bookingData.hasHotel ??
           bookingData.hotelBooked ??
@@ -1671,10 +1701,10 @@ export default function EditBookingPage() {
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length;
 
-    // ✅ manual only (no auto)
+    //  manual only (no auto)
     const isCrewedAtSave = Boolean(isCrewed);
 
-    // ✅ Hotel payload
+    //  Hotel payload
     const hotelPaidByClean = hasHotel ? String(hotelPaidBy || "").trim() : "";
     const hotelNightsNum = hasHotel ? Number(String(hotelNights || "").trim()) : 0;
     const hotelPricePerNightNum = hasHotel
@@ -1712,7 +1742,7 @@ export default function EditBookingPage() {
       quoteUrl: firstUrl || null,
       pdfURL: firstUrl || null,
 
-      // ✅ hotel fields restored
+      //  hotel fields restored
       hasHotel,
       hotelPaidBy: hotelPaidByClean,
       hotelNights: Number.isFinite(hotelNightsNum) ? hotelNightsNum : 0,
@@ -1795,11 +1825,11 @@ export default function EditBookingPage() {
 
       setPdfProgress(0);
       setNewFiles([]);
-      alert("Booking Updated ✅");
+      alert("Booking Updated ");
       router.push("/dashboard?updated=true");
     } catch (err) {
-      console.error("❌ Error updating booking:", err);
-      alert("Failed to update booking ❌\n\n" + err.message);
+      console.error(" Error updating booking:", err);
+      alert("Failed to update booking \n\n" + err.message);
     } finally {
       setSaving(false);
     }
@@ -1813,7 +1843,7 @@ export default function EditBookingPage() {
       <HeaderSidebarLayout>
         <div style={pageWrap}>
           <div style={mainWrap}>
-            <h1 style={h1Style}>✏️ Edit Booking</h1>
+            <h1 style={h1Style}>Edit Booking</h1>
             <div style={card}>Loading…</div>
           </div>
         </div>
@@ -1821,7 +1851,7 @@ export default function EditBookingPage() {
     );
   }
 
-  // ✅ hotel computed for UI + summary
+  //  hotel computed for UI + summary
   const hotelTotal =
     hasHotel &&
     Number.isFinite(Number(hotelNights)) &&
@@ -1833,7 +1863,7 @@ export default function EditBookingPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <h1 style={h1Style}>✏️ Edit Booking</h1>
+          <h1 style={h1Style}>Edit Booking</h1>
 
           <div style={pageHeader}>
             <div />
@@ -2504,7 +2534,7 @@ export default function EditBookingPage() {
                           fontWeight: 700,
                         }}
                       >
-                        {isCrewed ? "Crewed ✓ (manual)" : "Not crewed (manual)"}
+                        {isCrewed ? "Crewed Yes (manual)" : "Not crewed (manual)"}
                       </div>
                     </div>
                   </div>
@@ -3065,7 +3095,7 @@ export default function EditBookingPage() {
               <div style={divider} />
 
 
-              {/* ✅ HOTEL feature restored */}
+              {/*  HOTEL feature restored */}
               <label style={field.checkboxRow}>
                 <input
                   type="checkbox"
@@ -3169,7 +3199,7 @@ export default function EditBookingPage() {
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={summaryCard}>
                 <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-                  📋 Summary
+                   Summary
                 </h3>
 
                 <div style={summaryRow}>
@@ -3249,7 +3279,7 @@ export default function EditBookingPage() {
                 <div style={summaryRow}>
                   <div>Crewing</div>
                   <div>
-                    {`Manual • ${isCrewed ? "Crewed ✓" : "Not crewed"} • Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
+                    {`Manual • ${isCrewed ? "Crewed Yes" : "Not crewed"} • Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
                   </div>
                 </div>
 
@@ -3295,10 +3325,10 @@ export default function EditBookingPage() {
                   <div>Hotel / CT</div>
                   <div>
                     {hasHotel
-                      ? `Hotel ✓ • Paid by: ${hotelPaidBy || "—"} • Nights: ${hotelNights || "—"} • £/night: ${
+                      ? `Hotel Yes • Paid by: ${hotelPaidBy || "—"} • Nights: ${hotelNights || "—"} • £/night: ${
                           hotelPricePerNight ? `£${Number(hotelPricePerNight).toFixed(2)}` : "—"
                         } • Total: ${hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}`
-                      : "Hotel ✗"}
+                      : "Hotel No"}
                     {" • "}
                     {selectedDates.length > 1
                       ? selectedDates

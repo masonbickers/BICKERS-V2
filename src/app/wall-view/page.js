@@ -728,7 +728,7 @@ function WallCalendarEvent({ event }) {
                     border: "1px solid rgba(0,0,0,0.8)",
                   }}
                 >
-                  HS {event.hasHS ? "✓" : "✗"}
+                  HS {event.hasHS ? "Yes" : "No"}
                 </span>
 
                 <span
@@ -742,7 +742,7 @@ function WallCalendarEvent({ event }) {
                     border: "1px solid rgba(0,0,0,0.8)",
                   }}
                 >
-                  RA {event.hasRiskAssessment ? "✓" : "✗"}
+                  RA {event.hasRiskAssessment ? "Yes" : "No"}
                 </span>
 
                 <span
@@ -756,7 +756,7 @@ function WallCalendarEvent({ event }) {
                     border: "1px solid rgba(0,0,0,0.8)",
                   }}
                 >
-                  H {event.hasHotel ? "✓" : "✗"}
+                  H {event.hasHotel ? "Yes" : "No"}
                 </span>
 
                 <span
@@ -771,7 +771,7 @@ function WallCalendarEvent({ event }) {
                     border: "1px solid rgba(0,0,0,0.8)",
                   }}
                 >
-                  UB {event.hasRiggingAddress ? "✓" : "✗"}
+                  UB {event.hasRiggingAddress ? "Yes" : "No"}
                 </span>
 
                 {(() => {
@@ -798,7 +798,7 @@ function WallCalendarEvent({ event }) {
                           : "No call time set"
                       }
                     >
-                      CT {hasAnyCallTime ? "✓" : "✗"}
+                      CT {hasAnyCallTime ? "Yes" : "No"}
                     </span>
                   );
                 })()}
@@ -1179,7 +1179,7 @@ export default function WallViewCalendarPage() {
             style={navBtnDanger}
             type="button"
           >
-            ✖ Close
+            x Close
           </button>
         </div>
       </div>

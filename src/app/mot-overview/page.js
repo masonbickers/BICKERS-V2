@@ -461,10 +461,10 @@ export default function MOTOverviewPage() {
                           ) : (
                             <span style={statusPill(status, diff)}>
                               {status === "overdue"
-                                ? "❌ Overdue"
+                                ? " Overdue"
                                 : status === "soon"
-                                ? "⚠️ Due Soon"
-                                : "✅ OK"}
+                                ? "Warning Due Soon"
+                                : " OK"}
                             </span>
                           )}
                         </td>

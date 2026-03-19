@@ -274,7 +274,7 @@ export default function ViewUCraneBookingModal({
   // show vehicle statuses when vehicles are stored as IDs
   const vehicleStatusById = booking?.vehicleStatus || {};
 
-  // ✅ filter down to U-Crane related vehicles only (so this modal is “u-crane bookings”)
+  //  filter down to U-Crane related vehicles only (so this modal is “u-crane bookings”)
   const uCraneVehiclesPrettyWithStatus = useMemo(() => {
     const only = (normalizedVehicles || []).filter(isUCraneVehicle);
     if (!only.length) return [];
@@ -307,7 +307,7 @@ export default function ViewUCraneBookingModal({
     );
   }, [callTimesByDate]);
 
-  // ✅ delete (store copy -> delete original)
+  //  delete (store copy -> delete original)
   const handleDelete = async () => {
     const confirmDelete = confirm("Are you sure you want to delete this U-Crane booking?");
     if (!confirmDelete) return;
@@ -342,7 +342,7 @@ export default function ViewUCraneBookingModal({
     }
   };
 
-  // ✅ restore (deleted -> bookings)
+  //  restore (deleted -> bookings)
   const handleRestore = async () => {
     if (!fromDeleted) return;
 
@@ -367,7 +367,7 @@ export default function ViewUCraneBookingModal({
       const delDocId = booking?.__deletedDocId || deletedId || id;
       await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
 
-      alert("Restored ✅");
+      alert("Restored ");
       onClose?.();
     } catch (e) {
       console.error("Restore failed:", e);
@@ -724,7 +724,7 @@ function Field({ label, value }) {
 
 const Chip = ({ good, label, title }) => (
   <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
-    {label} {good ? "✓" : "✗"}
+    {label} {good ? "Yes" : "No"}
   </span>
 );
 

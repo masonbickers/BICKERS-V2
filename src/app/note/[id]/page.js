@@ -10,6 +10,7 @@ export default function EditNoteForm() {
   const router = useRouter();
   const params = useParams();
   const noteId = params?.id;
+  const today = new Date().toISOString().split("T")[0];
 
   const [employee, setEmployee] = useState("");
   const [noteDate, setNoteDate] = useState("");
@@ -135,7 +136,12 @@ export default function EditNoteForm() {
                 value={noteDate}
                 onChange={(e) => setNoteDate(e.target.value)}
                 required
-                style={inputStyle}
+                style={{
+                  ...inputStyle,
+                  border:
+                    noteDate === today ? "1px solid rgba(31,75,122,0.72)" : inputStyle.border,
+                  backgroundColor: noteDate === today ? "rgba(31,75,122,0.18)" : inputStyle.backgroundColor,
+                }}
               />
             </div>
 
@@ -171,7 +177,7 @@ export default function EditNoteForm() {
   );
 }
 
-// 🔷 Styles (reuse from original NoteForm)
+//  Styles (reuse from original NoteForm)
 const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "#1e1e1e", color: "#fff", minHeight: "100vh", padding: "40px" };
 const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "#121212", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };

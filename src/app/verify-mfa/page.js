@@ -3,8 +3,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
-import speakeasy from "speakeasy"; // ✅ install: npm install speakeasy
+import speakeasy from "speakeasy"; //  install: npm install speakeasy
 import Image from "next/image";
+import {
+  findEmployeeForUser,
+  getStoredActiveWorkspace,
+  resolveEmployeeAccess,
+  selectLandingRoute,
+} from "@/app/utils/accessControl";
 
 export default function VerifyMfaPage() {
   const [code, setCode] = useState("");
@@ -13,7 +19,7 @@ export default function VerifyMfaPage() {
 
   const handleVerify = async () => {
     try {
-      // ✅ Get current user from localStorage or Firebase Auth
+      //  Get current user from localStorage or Firebase Auth
       const user = JSON.parse(localStorage.getItem("user")); 
       if (!user) {
         setError("No user found. Please login again.");
@@ -21,7 +27,7 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      // ✅ Load secret key from Firestore
+      //  Load secret key from Firestore
       const docRef = doc(db, "users", user.uid);
       const snap = await getDoc(docRef);
 
@@ -32,7 +38,7 @@ export default function VerifyMfaPage() {
 
       const { mfaSecret } = snap.data();
 
-      // ✅ Verify code with speakeasy
+      //  Verify code with speakeasy
       const verified = speakeasy.totp.verify({
         secret: mfaSecret,
         encoding: "base32",
@@ -40,7 +46,16 @@ export default function VerifyMfaPage() {
       });
 
       if (verified) {
-        router.push("/home"); // 🎉 success
+        const [userSnap, employeeDoc] = await Promise.all([
+          getDoc(doc(db, "users", user.uid)),
+          findEmployeeForUser(db, user),
+        ]);
+        const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
+        const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+        const preferred =
+          getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+          getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+        router.push(selectLandingRoute(access, preferred));
       } else {
         setError("Invalid code, try again.");
       }

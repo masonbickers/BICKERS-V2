@@ -16,24 +16,24 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
    Mini design system (visual only)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
+  radius: 16,
   radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  gap: 14,
+  shadowSm: "0 10px 26px rgba(15,23,42,0.06)",
+  shadowHover: "0 16px 34px rgba(15,23,42,0.1)",
+  border: "1px solid #dbe2ea",
+  bg: "#eef3f7",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#183f67",
+  brandSoft: "#edf2f7",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12 };
-const h1 = { color: "#0f172a", fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
+const pageWrap = { padding: "18px 16px 28px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" };
+const h1 = { color: "#0f172a", fontSize: 28, lineHeight: 1.08, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 };
+const sub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 const surface = { background: "#ffffff", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const toolbar = {
@@ -41,37 +41,39 @@ const toolbar = {
   padding: 12,
   display: "grid",
   gridTemplateColumns: "1fr auto auto auto auto auto auto auto auto auto",
-  gap: 10,
+  gap: 8,
   alignItems: "center",
   position: "sticky",
   top: 12,
   zIndex: 2,
   backdropFilter: "saturate(180%) blur(6px)",
+  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", padding: "10px 44px 10px 36px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", fontSize: 14, outline: "none", background: "#fff" };
+const searchInput = { width: "100%", padding: "9px 42px 9px 34px", borderRadius: UI.radiusSm, border: "1px solid #d6dee8", fontSize: 13.5, outline: "none", background: "#fff" };
 const searchIcon = { position: "absolute", left: 10, width: 18, height: 18, opacity: 0.6 };
 
 const pillBtn = (active = false) => ({
-  padding: "8px 12px",
+  padding: "7px 11px",
   borderRadius: 999,
-  border: active ? "2px solid #2563eb" : "1px solid #d1d5db",
+  border: active ? `1px solid ${UI.brand}` : "1px solid #d6dee8",
   background: active ? UI.brandSoft : "#fff",
   color: active ? UI.brand : UI.text,
-  fontSize: 12,
+  fontSize: 11.5,
   fontWeight: 800,
   cursor: "pointer",
+  boxShadow: active ? "0 8px 18px rgba(24,63,103,0.12)" : "none",
 });
 
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
-const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, minWidth: 140 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: "#0f172a", fontSize: 12, fontWeight: 700 };
+const select = { padding: "7px 10px", borderRadius: UI.radiusSm, border: "1px solid #d6dee8", background: "#fff", fontSize: 12.5, minWidth: 140 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #cad6e2", background: UI.brandSoft, color: UI.brand, fontSize: 11.5, fontWeight: 800 };
 
-const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "22px 2px 12px" };
+const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "18px 2px 10px", flexWrap: "wrap" };
 const weekTitle = { fontSize: 15, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.01em" };
 const tinyHint = { color: UI.muted, fontSize: 12 };
-const emptyWrap = { ...surface, padding: 24, display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 14 };
+const emptyWrap = { ...surface, padding: 20, display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 13.5 };
 const gridWrap = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
 const listWrap = { display: "grid", gap: 10 };
 
@@ -265,10 +267,10 @@ const StatusBadge = ({ job, section }) => {
 /* ───────────────────────────────────────────
    Table styles
 ─────────────────────────────────────────── */
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const tableWrap = { overflow: "auto", border: "1px solid #dde5ee", borderRadius: 12, background: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #dde5ee", position: "sticky", top: 0, background: "#f7f9fc", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
+const td = { padding: "9px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
 
 /* ───────────────────────────────────────────
    Page
@@ -669,9 +671,9 @@ export default function JobSheetPage() {
           </div>
 
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>👥 {team}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>🚗 {vehicles}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}>🧰 {equipment}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
           </div>
         </Link>
       );
@@ -924,7 +926,7 @@ export default function JobSheetPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ ...surface, marginTop: 12, padding: 10 }}>
+        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
           <div style={{ ...tabsWrap, justifyContent: "space-between", rowGap: 8 }}>
             <div style={tabsWrap}>
               {[

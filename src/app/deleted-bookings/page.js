@@ -359,11 +359,11 @@ export default function DeletedBookingsPage() {
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState("deletedDesc");
 
-  // ✅ modal state
+  //  modal state
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedDeletedId, setSelectedDeletedId] = useState(null);
 
-  // ✅ vehicles lookup for name+reg rendering
+  //  vehicles lookup for name+reg rendering
   const [vehiclesIndex, setVehiclesIndex] = useState({ byId: {}, byReg: {}, byName: {} });
 
   /* ───────────────────────────────────────────
@@ -495,7 +495,7 @@ export default function DeletedBookingsPage() {
 
       await deleteDoc(doc(db, "deletedBookings", row.id));
 
-      alert("Restored ✅");
+      alert("Restored ");
     } catch (e) {
       console.error("Restore failed:", e);
       alert("Restore failed. Check console.");
@@ -700,7 +700,7 @@ export default function DeletedBookingsPage() {
 
                             {r.attachments?.length ? (
                               <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800 }}>
-                                📎 {r.attachments.length}
+                                 {r.attachments.length}
                               </div>
                             ) : null}
                           </td>
@@ -791,7 +791,7 @@ export default function DeletedBookingsPage() {
                                           style={{ ...btnBase, textDecoration: "none", fontWeight: 800 }}
                                           title={f.label}
                                         >
-                                          📎 {f.label}
+                                           {f.label}
                                         </a>
                                       ))}
                                     </div>
@@ -830,7 +830,7 @@ export default function DeletedBookingsPage() {
         </div>
       </div>
 
-      {/* ✅ modal open on row click */}
+      {/*  modal open on row click */}
       {selectedBookingId && (
         <ViewBookingModal
           id={selectedBookingId}

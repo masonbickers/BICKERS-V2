@@ -12,6 +12,7 @@ import {
 
 export default function NoteForm() {
   const router = useRouter();
+  const today = new Date().toISOString().split("T")[0];
 
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -162,7 +163,12 @@ export default function NoteForm() {
                   type="date"
                   value={noteDate}
                   onChange={(e) => setNoteDate(e.target.value)}
-                  style={input}
+                  style={{
+                    ...input,
+                    border:
+                      noteDate === today ? "1px solid rgba(31,75,122,0.72)" : input.border,
+                    backgroundColor: noteDate === today ? "rgba(31,75,122,0.18)" : input.backgroundColor,
+                  }}
                   required
                 />
               </div>
@@ -174,7 +180,12 @@ export default function NoteForm() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    style={input}
+                    style={{
+                      ...input,
+                      border:
+                        startDate === today ? "1px solid rgba(31,75,122,0.72)" : input.border,
+                      backgroundColor: startDate === today ? "rgba(31,75,122,0.18)" : input.backgroundColor,
+                    }}
                     required
                   />
                 </div>
@@ -185,7 +196,12 @@ export default function NoteForm() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    style={input}
+                    style={{
+                      ...input,
+                      border:
+                        endDate === today ? "1px solid rgba(31,75,122,0.72)" : input.border,
+                      backgroundColor: endDate === today ? "rgba(31,75,122,0.18)" : input.backgroundColor,
+                    }}
                     required
                   />
                 </div>

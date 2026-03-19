@@ -82,7 +82,7 @@ a {
   display: none !important;
 }
 
-/* ✅ Remove all real-time indicators from react-big-calendar */
+/*  Remove all real-time indicators from react-big-calendar */
 .rbc-now-indicator,
 .rbc-current-time-indicator,
 .rbc-today .rbc-time-slot {
@@ -108,18 +108,18 @@ a {
   right: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(51, 51, 51, 0.1); /* ✅ 30% opacity line */
+  background: rgba(51, 51, 51, 0.1); /*  30% opacity line */
   z-index: 10;
   pointer-events: none;
 }
 
-/* 🔹 Highlight the background rows for today */
+/* - Highlight the background rows for today */
 .rbc-time-view .rbc-allday-cell.rbc-today,
 .rbc-time-view .rbc-day-slot.rbc-today {
   background-color: rgba(137, 174, 255, 0.3) !important;
 }
 
-/* 🔹 Subtle highlight for any day that has jobs */
+/* - Subtle highlight for any day that has jobs */
 .rbc-time-view .rbc-allday-cell.job-day,
 .rbc-time-view .rbc-day-slot.job-day {
   background-color: rgba(137, 174, 255, 0.15) !important;

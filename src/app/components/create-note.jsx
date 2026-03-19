@@ -143,7 +143,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         <div style={headerRow}>
           <h2 style={modalTitle}>Add Note</h2>
           <button onClick={handleBack} style={closeBtn} aria-label="Close">
-            ✕
+            x
           </button>
         </div>
 
@@ -308,7 +308,7 @@ const label = {
 };
 
 /**
- * ✅ Fixes your “dropdown colour clash”:
+ *  Fixes your “dropdown colour clash”:
  * - keep field text white
  * - give selects/inputs a consistent translucent bg
  * - explicitly style option background/text so they’re readable
@@ -319,7 +319,7 @@ const input = {
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.10)",
   backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff", // ✅ readable always
+  color: "#fff", //  readable always
   outline: "none",
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",

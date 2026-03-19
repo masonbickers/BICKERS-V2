@@ -252,7 +252,7 @@ export default function UCrewManagePage() {
       setEmployees(rows);
     });
 
-    // ✅ freelancers live collection
+    //  freelancers live collection
     const unsubFree = onSnapshot(collection(db, "uCraneFreelancers"), (snap) => {
       const rows = snap.docs.map((d) => ({
         id: d.id,
@@ -441,7 +441,7 @@ export default function UCrewManagePage() {
                 color: savedPulse ? "#065f46" : UI.text,
               }}
             >
-              {savingKey ? "Saving…" : savedPulse ? "Saved ✓" : "Ready"}
+              {savingKey ? "Saving…" : savedPulse ? "Saved Yes" : "Ready"}
             </div>
 
             <button type="button" style={btn()} onClick={() => setAddOpen(true)}>
@@ -604,7 +604,7 @@ export default function UCrewManagePage() {
                           style={{ ...pill(!!row.uCraneVisible), justifyContent: "center", minWidth: 120 }}
                           disabled={savingThis}
                         >
-                          {row.uCraneVisible ? "Visible ✓" : "Hidden"}
+                          {row.uCraneVisible ? "Visible Yes" : "Hidden"}
                         </button>
                       </td>
 
@@ -621,7 +621,7 @@ export default function UCrewManagePage() {
                                 disabled={savingThis}
                                 title={active ? "Click to remove role" : "Click to add role"}
                               >
-                                {active ? "✓" : "+"} {r.label}
+                                {active ? "Yes" : "+"} {r.label}
                               </button>
                             );
                           })}
@@ -774,7 +774,7 @@ export default function UCrewManagePage() {
                           })
                         }
                       >
-                        {active ? "✓" : "+"} {r.label}
+                        {active ? "Yes" : "+"} {r.label}
                       </button>
                     );
                   })}

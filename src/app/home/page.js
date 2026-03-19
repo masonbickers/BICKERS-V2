@@ -21,56 +21,61 @@ import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema
    Mini design system (matches your Jobs Home)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
+  radius: 16,
   radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  gap: 12,
+  shadowSm: "0 10px 26px rgba(15,23,42,0.06)",
+  shadowHover: "0 16px 34px rgba(15,23,42,0.1)",
+  border: "1px solid #dbe2ea",
+  bg: "#eef3f7",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#183f67",
+  brandSoft: "#edf2f7",
+  brandBorder: "#cad6e2",
+  accent: "#8b5e3c",
+  accentSoft: "#f5ede6",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "18px 16px 26px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 12,
+  flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 28,
+  lineHeight: 1.04,
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13, lineHeight: 1.4, marginTop: 4 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
-  fontWeight: 700,
+  fontSize: 11.5,
+  fontWeight: 800,
 };
 
 const card = {
   ...surface,
-  padding: 16,
+  padding: 12,
+  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
 };
 
-const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: UI.text };
-const cardHint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const cardTitle = { fontWeight: 800, fontSize: 16, margin: 0, color: UI.text, letterSpacing: "-0.01em" };
+const cardHint = { color: UI.muted, fontSize: 12, marginTop: 4, lineHeight: 1.4 };
 
 const grid = (cols = 12) => ({
   display: "grid",
@@ -81,75 +86,134 @@ const grid = (cols = 12) => ({
 const btnChip = (active) => ({
   padding: "6px 10px",
   borderRadius: 999,
-  border: active ? `2px solid ${UI.text}` : "1px solid #d1d5db",
-  background: "#fff",
+  border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+  boxShadow: active ? "0 8px 18px rgba(24,63,103,0.14)" : "none",
+  background: active ? UI.brand : "#fff",
+  color: active ? "#fff" : UI.text,
   cursor: "pointer",
-  fontSize: 13,
-  fontWeight: 900,
-  color: UI.text,
+  fontSize: 12.5,
+  fontWeight: 800,
 });
 
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 8,
+  marginBottom: 8,
+  flexWrap: "wrap",
+};
+
+const sectionTag = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "4px 9px",
+  borderRadius: 999,
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
+  color: UI.brand,
+  fontSize: 10.5,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+
+const executivePanel = {
+  ...surface,
+  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
+  color: "#edf3fa",
+  padding: 14,
+};
+
+const executiveGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+  gap: UI.gap,
+  marginBottom: UI.gap - 2,
+};
+
+const executiveStat = {
+  borderRadius: UI.radiusSm,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.04)",
+  padding: 10,
+  minWidth: 0,
+};
+
+const tableWrap = {
+  overflow: "auto",
+  border: "1px solid #dde5ee",
+  borderRadius: 14,
+  background: "#fff",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
+};
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid #dde5ee",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "#f7f9fc",
   zIndex: 1,
   whiteSpace: "nowrap",
+  fontWeight: 800,
+  fontSize: 12,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const td = { padding: "10px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
 
 const listReset = { listStyle: "none", padding: 0, margin: 0 };
 const liItem = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  padding: "10px 12px",
-  marginBottom: 8,
+  border: "1px solid #dde5ee",
+  borderRadius: 14,
+  padding: "9px 11px",
+  marginBottom: 7,
   background: "#fff",
   display: "grid",
-  gap: 4,
+  gap: 3,
+  boxShadow: "0 6px 14px rgba(15,23,42,0.04)",
 };
 const tag = (kind) => {
   const map = {
-    "first pencil": { bg: "#e6f2fc", border: "#89caf5", col: "#0b4a75" },
-    "second pencil": { bg: "#fde7e7", border: "#f73939", col: "#7a0e0e" },
-    confirmed: { bg: "#fbfce6", border: "#f3f970", col: "#515300" },
+    "first pencil": { bg: "#e4edf8", border: "#bfd0e2", col: "#2f4e6f" },
+    "second pencil": { bg: "#f8e7e3", border: "#e0b9b0", col: "#7b3a32" },
+    confirmed: { bg: "#e9f0d8", border: "#bed0ae", col: "#31462f" },
   };
-  const t = map[kind] || { bg: "#eef2ff", border: "#6366f1", col: "#1e1b4b" };
+  const t = map[kind] || { bg: UI.brandSoft, border: UI.brandBorder, col: UI.brand };
   return {
     display: "inline-block",
     marginLeft: 8,
     padding: "2px 8px",
-    fontSize: 12,
+    fontSize: 11,
     borderRadius: 999,
     border: `1px solid ${t.border}`,
     background: t.bg,
     color: t.col,
-    fontWeight: 900,
+    fontWeight: 800,
     whiteSpace: "nowrap",
   };
 };
 
 const btnPrimary = {
-  padding: "10px 12px",
+  padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
   background: UI.brand,
   color: "#fff",
-  fontWeight: 900,
+  fontWeight: 800,
   cursor: "pointer",
+  boxShadow: "0 8px 18px rgba(24,63,103,0.14)",
 };
 const btnGhost = {
-  padding: "10px 12px",
+  padding: "8px 11px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
+  border: `1px solid ${UI.brandBorder}`,
   background: "#fff",
   color: UI.text,
-  fontWeight: 900,
+  fontWeight: 800,
   cursor: "pointer",
 };
 
@@ -281,15 +345,14 @@ function StatBlock({ label, value }) {
     <div
       style={{
         ...surface,
-        padding: 14,
-        borderRadius: UI.radius,
         display: "grid",
-        gap: 6,
-        minWidth: 160,
+        gap: 8,
+        minWidth: 0,
+        padding: 16,
       }}
     >
-      <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 12, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.02em" }}>
+      <div style={{ fontSize: 28, fontWeight: 800, color: UI.text, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
         {label}
       </div>
     </div>
@@ -299,8 +362,8 @@ function StatBlock({ label, value }) {
 function Bucket({ title, items }) {
   return (
     <div style={{ ...surface, padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
+      <div style={sectionHeader}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{title}</div>
         <span style={chip}>Top 8</span>
       </div>
       {items && items.length ? (
@@ -536,8 +599,8 @@ export default function HomePage() {
   const in2Days = useMemo(() => new Date(now.getTime() + 2 * 24 * 3600 * 1000), [now]);
   const in3Weeks = useMemo(() => new Date(now.getTime() + 21 * 24 * 3600 * 1000), [now]);
 
-  const windowStart = useMemo(
-    () => new Date(now.getTime() - windowDays * 24 * 3600 * 1000),
+  const windowEnd = useMemo(
+    () => new Date(now.getTime() + windowDays * 24 * 3600 * 1000),
     [now, windowDays]
   );
 
@@ -559,8 +622,8 @@ export default function HomePage() {
 
   // Window-scoped JOB COUNTS
   const windowEvents = useMemo(
-    () => events.filter((e) => e.start && e.start >= windowStart && e.start <= now),
-    [events, windowStart, now]
+    () => events.filter((e) => e.start && e.start >= now && e.start <= windowEnd),
+    [events, now, windowEnd]
   );
 
   const jobCounts = useMemo(() => {
@@ -673,10 +736,10 @@ export default function HomePage() {
           <div style={headerBar}>
             <div>
               <h1 style={h1}>Home</h1>
-              <div style={sub}>Calendar, prep, follow-ups and maintenance at a glance.</div>
+              <div style={sub}>Executive operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <span style={chip}>Dashboard</span>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={chip}>Operations overview</span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
                 Window: <b style={{ marginLeft: 6 }}>{windowDays}d</b>
               </span>
@@ -684,16 +747,16 @@ export default function HomePage() {
           </div>
 
           {/* Window filter */}
-          <div style={{ ...surface, padding: 12, marginBottom: UI.gap }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ color: UI.text, fontSize: 13, fontWeight: 900 }}>Window:</span>
+          <div style={{ ...executivePanel, marginBottom: UI.gap }}>
+            <div style={{ ...sectionHeader, marginBottom: 0 }}>
+              <span style={{ color: "#f8fbff", fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>Reporting window</span>
               {[7, 14, 30, 90].map((d) => (
                 <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
                   {d} days
                 </button>
               ))}
-              <span style={{ marginLeft: 8, fontSize: 12, color: UI.muted, fontWeight: 800 }}>
-                {moment(windowStart).format("D MMM")} → {moment(now).format("D MMM YYYY")}
+              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(232,239,247,0.78)", fontWeight: 800 }}>
+                {moment(now).format("D MMM")} → {moment(windowEnd).format("D MMM YYYY")}
               </span>
             </div>
           </div>
@@ -716,12 +779,15 @@ export default function HomePage() {
               <StatBlock label="Confirmed" value={jobCounts.confirmed} />
             </div>
             <div style={{ gridColumn: "span 2" }}>
-              <div style={{ ...surface, padding: 14, display: "grid", gap: 6, minWidth: 160 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.02em" }}>
-                  Quick actions
+              <div style={{ ...surface, padding: 14, display: "grid", gap: 8, minWidth: 160, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  Primary action
+                </div>
+                <div style={{ color: UI.text, fontSize: 13, lineHeight: 1.45 }}>
+                  Create a booking directly from the operations overview.
                 </div>
                 <button type="button" style={btnPrimary} onClick={() => router.push("/create-booking")}>
-                  + Add Booking
+                  Create booking
                 </button>
               </div>
             </div>
@@ -731,12 +797,12 @@ export default function HomePage() {
           <div style={grid(12)}>
             {/* Calendar */}
             <section style={{ gridColumn: "span 8", ...card }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+              <div style={sectionHeader}>
                 <div>
-                  <h2 style={cardTitle}>Work Calendar</h2>
-                  <div style={cardHint}>Click an event to open the booking.</div>
+                  <h2 style={cardTitle}>Operations Calendar</h2>
+                  <div style={cardHint}>Review the current booking programme and open any entry for full detail.</div>
                 </div>
-                <span style={chip}>Month view</span>
+                <span style={sectionTag}>Month view</span>
               </div>
 
               <div style={{ overflow: "visible" }}>
@@ -808,12 +874,12 @@ export default function HomePage() {
             {/* Right column */}
             <section style={{ gridColumn: "span 4", display: "grid", gap: UI.gap }}>
               <div style={card}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+                <div style={sectionHeader}>
                   <div>
-                    <h2 style={cardTitle}>Follow-ups</h2>
-                    <div style={cardHint}>First pencils starting in the next 72 hours.</div>
+                    <h2 style={cardTitle}>Follow-Up Queue</h2>
+                    <div style={cardHint}>First pencil bookings starting in the next 72 hours.</div>
                   </div>
-                  <span style={chip}>{firstPencils72h.length}</span>
+                  <span style={sectionTag}>{firstPencils72h.length} items</span>
                 </div>
 
                 {firstPencils72h.length ? (
@@ -837,12 +903,12 @@ export default function HomePage() {
               </div>
 
               <div style={card}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+                <div style={sectionHeader}>
                   <div>
-                    <h2 style={cardTitle}>Second vs firm clashes</h2>
-                    <div style={cardHint}>Second pencil overlapping Confirmed/First Pencil.</div>
+                    <h2 style={cardTitle}>Scheduling Conflicts</h2>
+                    <div style={cardHint}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
                   </div>
-                  <span style={chip}>{clashesSecondVsFirm.length}</span>
+                  <span style={sectionTag}>{clashesSecondVsFirm.length} flagged</span>
                 </div>
 
                 {clashesSecondVsFirm.length ? (
@@ -873,12 +939,12 @@ export default function HomePage() {
 
             {/* Prep list */}
             <section style={{ gridColumn: "span 12", ...card }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+              <div style={sectionHeader}>
                 <div>
-                  <h2 style={cardTitle}>Prep list</h2>
-                  <div style={cardHint}>Jobs starting in the next 2 days.</div>
+                  <h2 style={cardTitle}>Preparation Queue</h2>
+                  <div style={cardHint}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
                 </div>
-                <span style={chip}>{prepList.length}</span>
+                <span style={sectionTag}>{prepList.length} upcoming</span>
               </div>
 
               {prepList.length ? (
@@ -917,12 +983,12 @@ export default function HomePage() {
 
             {/* Maintenance buckets */}
             <section style={{ gridColumn: "span 12", ...card }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+              <div style={sectionHeader}>
                 <div>
-                  <h2 style={cardTitle}>MOT & Service</h2>
-                  <div style={cardHint}>Overdue and due soon (next 3 weeks).</div>
+                  <h2 style={cardTitle}>Fleet Compliance</h2>
+                  <div style={cardHint}>Overdue items and due dates within the next 3 weeks.</div>
                 </div>
-                <span style={chip}>Vehicles</span>
+                <span style={sectionTag}>Vehicle review</span>
               </div>
 
               <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
@@ -935,32 +1001,34 @@ export default function HomePage() {
 
             {/* Assistant */}
             <section style={{ gridColumn: "span 12", ...card }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+              <div style={sectionHeader}>
                 <div>
-                  <h2 style={cardTitle}>Assistant</h2>
-                  <div style={cardHint}>Ask about bookings, holidays and vehicle maintenance.</div>
+                  <h2 style={cardTitle}>Operations Assistant</h2>
+                  <div style={cardHint}>Ask about bookings, holidays and fleet maintenance without leaving the page.</div>
                 </div>
-                <span style={chip}>AI</span>
+                <span style={sectionTag}>AI support</span>
               </div>
 
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask the assistant about bookings, holidays and vehicle maintenance etc."
+                placeholder="Ask about bookings, holidays, scheduling or fleet maintenance."
                 rows={3}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
+                  padding: "12px 14px",
                   fontSize: 14,
                   borderRadius: UI.radiusSm,
-                  border: "1px solid #d1d5db",
+                  border: "1px solid #d7e0e9",
+                  background: "#fbfdff",
+                  color: UI.text,
                   outline: "none",
                 }}
               />
 
               <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
                 <button onClick={askAssistant} disabled={loading} style={btnPrimary} type="button">
-                  {loading ? "Asking…" : "Ask assistant"}
+                  {loading ? "Generating response..." : "Ask assistant"}
                 </button>
                 <button onClick={() => setInput("")} style={btnGhost} type="button">
                   Clear
@@ -972,14 +1040,14 @@ export default function HomePage() {
                   style={{
                     marginTop: 12,
                     whiteSpace: "pre-wrap",
-                    background: "#f8fafc",
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
+                    background: "#f7fafc",
+                    padding: 14,
+                    borderRadius: 14,
+                    border: "1px solid #dbe4ec",
                     color: UI.text,
                   }}
                 >
-                  <div style={{ fontWeight: 900, marginBottom: 6 }}>Assistant</div>
+                  <div style={{ fontWeight: 900, marginBottom: 6 }}>Operations Assistant</div>
                   <div style={{ color: UI.text, fontSize: 14 }}>{response}</div>
                 </div>
               ) : null}

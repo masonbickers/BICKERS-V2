@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { QRCodeCanvas } from "qrcode.react";   // ✅ QRCodeCanvas
+import { QRCodeCanvas } from "qrcode.react";   //  QRCodeCanvas
 import speakeasy from "speakeasy";
 
 export default function SetupMFA() {
@@ -31,7 +31,7 @@ export default function SetupMFA() {
         return;
       }
 
-      // ✅ Save secret in Firestore
+      //  Save secret in Firestore
       await setDoc(
         doc(db, "users", user.uid),
         { mfaSecret: secret },
@@ -55,7 +55,7 @@ export default function SetupMFA() {
 
           {otpauthUrl && (
             <div style={{ marginBottom: 20 }}>
-              {/* ✅ Show QR code only */}
+              {/*  Show QR code only */}
               <QRCodeCanvas value={otpauthUrl} size={200} />
             </div>
           )}

@@ -26,7 +26,7 @@ const norm = (v) => String(v ?? "").trim().toLowerCase();
 const truthy = (v) =>
   v === true || v === 1 || ["true", "1", "yes", "y"].includes(norm(v));
 
-/* ✅ Approval helper: treat anything explicitly "approved" as approved */
+/*  Approval helper: treat anything explicitly "approved" as approved */
 function isApprovedHoliday(rec) {
   if (!rec) return false;
   if (truthy(rec.approved)) return true;
@@ -61,7 +61,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const [startDate, setStartDate] = useState(""); // yyyy-mm-dd
   const [endDate, setEndDate] = useState(""); // yyyy-mm-dd
 
-  // ✅ Half-day support (same schema as create)
+  //  Half-day support (same schema as create)
   const [startHalfDay, setStartHalfDay] = useState(false);
   const [startAMPM, setStartAMPM] = useState("AM");
   const [endHalfDay, setEndHalfDay] = useState(false);
@@ -70,7 +70,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const [holidayReason, setHolidayReason] = useState("");
   const [paidStatus, setPaidStatus] = useState("Paid");
 
-  // ✅ approval + admin info (for labels + audit fields)
+  //  approval + admin info (for labels + audit fields)
   const [userEmail, setUserEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [holidayRec, setHolidayRec] = useState(null);
@@ -290,7 +290,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       const endAsDate = ymdToDate(finalEnd);
       const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
 
-      // ✅ keep existing status by default (don’t accidentally unapprove)
+      //  keep existing status by default (don’t accidentally unapprove)
       const statusToKeep = existingStatus || (holidayRec?.status ? String(holidayRec.status) : "");
       const finalStatus =
         statusToKeep && norm(statusToKeep) !== "requested"
@@ -329,7 +329,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     }
   };
 
-  // ✅ Request delete is allowed ONLY if the holiday is approved (matches your rule)
+  //  Request delete is allowed ONLY if the holiday is approved (matches your rule)
   // (actual delete happens in HR approvals page)
   const canRequestDelete = useMemo(() => {
     if (loading || saving) return false;
@@ -361,7 +361,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         status: "delete_requested",
         deleteRequestedAt: serverTimestamp(),
         deleteRequestedBy: userEmail || "",
-        deleteFromStatus: prev, // ✅ used by HR "Decline delete" to restore
+        deleteFromStatus: prev, //  used by HR "Decline delete" to restore
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",
       });
@@ -412,7 +412,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           </div>
 
           <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
-            ✕
+            x
           </button>
         </div>
 

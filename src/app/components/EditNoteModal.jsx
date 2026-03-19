@@ -211,7 +211,7 @@ export default function EditNoteModal({ id, onClose }) {
               cursor: "pointer",
             }}
           >
-            ✕
+            x
           </button>
         </div>
 

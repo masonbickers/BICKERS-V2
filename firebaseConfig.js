@@ -1,6 +1,6 @@
 // firebaseConfig.js
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth"; // ✅ add Google provider
+import { getAuth, GoogleAuthProvider } from "firebase/auth"; //  add Google provider
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -14,14 +14,14 @@ const firebaseConfig = {
   appId: "1:784506946068:web:7a86167b5f7f4b0b249d01"
 };
 
-// ✅ Only initialise once
+//  Only initialise once
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// ✅ Create Google Provider
+//  Create Google Provider
 const googleProvider = new GoogleAuthProvider();
 
 export { auth, db, storage, googleProvider };

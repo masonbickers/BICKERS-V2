@@ -10,29 +10,71 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
    Mini design system
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
+  radius: 16,
   radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  gap: 14,
+  shadowSm: "0 10px 28px rgba(15,23,42,0.06)",
+  shadowHover: "0 14px 32px rgba(15,23,42,0.1)",
+  border: "1px solid #dbe3ec",
+  bg: "#eef3f7",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#183f67",
+  brandSoft: "#edf2f7",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
+const pageWrap = { padding: "18px 16px 28px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" };
+const h1 = { color: UI.text, fontSize: 28, lineHeight: 1.08, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 };
+const sub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: UI.border, background: UI.brandSoft, color: UI.brand, fontSize: 11.5, fontWeight: 800 };
 const grid = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
-const card = { ...surface, padding: 16, transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease" };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
+const card = { ...surface, padding: 13, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)", transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease" };
+const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#c8d6e3" };
+const cardTitle = { fontWeight: 800, fontSize: 16, margin: 0, color: UI.text, letterSpacing: "-0.01em" };
+const cardHint = { color: UI.muted, fontSize: 12, marginTop: 4, lineHeight: 1.4 };
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 8,
+  marginBottom: 8,
+  flexWrap: "wrap",
+};
+const sectionTag = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "4px 9px",
+  borderRadius: 999,
+  border: "1px solid #cad6e2",
+  background: UI.brandSoft,
+  color: UI.brand,
+  fontSize: 10.5,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+const executivePanel = {
+  ...surface,
+  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
+  color: "#edf3fa",
+  padding: 14,
+};
+const executiveGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+  gap: UI.gap,
+  marginBottom: UI.gap,
+};
+const executiveStat = {
+  borderRadius: UI.radiusSm,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.04)",
+  padding: 10,
+  minWidth: 0,
+};
 
 /* ───────────────────────────────────────────
    Helpers
@@ -113,6 +155,26 @@ const StatusBadge = ({ value }) => {
     </span>
   );
 };
+
+function ExecutiveStat({ label, value }) {
+  return (
+    <div style={executiveStat}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: "#ffffff", lineHeight: 1 }}>{value}</div>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 11,
+          fontWeight: 800,
+          color: "rgba(232,239,247,0.78)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
 
 /* Canonical predicates so pills == destination pages */
 const norm = (s = "") => String(s).toLowerCase().trim();
@@ -328,11 +390,13 @@ export default function JobHomePage() {
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-        <span style={{ ...chip }}>{pill}</span>
+      <div style={sectionHeader}>
+        <div>
+          <div style={cardTitle}>{title}</div>
+          <div style={cardHint}>{subtitle}</div>
+        </div>
+        <span style={sectionTag}>{pill}</span>
       </div>
-      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
       <div style={{ marginTop: 10, fontWeight: 800, color: UI.brand }}>Open →</div>
     </Link>
   );
@@ -352,8 +416,8 @@ export default function JobHomePage() {
           display: "grid",
           gridTemplateColumns: "minmax(120px,1fr) 140px 140px auto",
           gap: 8,
-          padding: "10px 12px",
-          borderTop: "1px solid #f1f5f9",
+          padding: "9px 11px",
+          borderTop: "1px solid #edf2f7",
           textDecoration: "none",
           color: UI.text,
         }}
@@ -365,14 +429,14 @@ export default function JobHomePage() {
               alignItems: "center",
               justifyContent: "center",
               minWidth: 28,
-              height: 22,
+              height: 21,
               padding: "0 6px",
               borderRadius: 8,
-              background: "#eef2ff",
-              border: "1px solid #e5e7eb",
+              background: UI.brandSoft,
+              border: "1px solid #cad6e2",
               fontWeight: 900,
-              fontSize: 11.5,
-              color: "#3730a3",
+              fontSize: 11,
+              color: UI.brand,
             }}
           >
             {prefix}
@@ -399,18 +463,52 @@ export default function JobHomePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Jobs Home</h1>
-            <div style={sub}>
-              Confirm → Work → <strong>Friday Review</strong> (fill notes/PO/invoice details) → <strong>Finance</strong> invoices.
-            </div>
+            <div style={sub}>Executive workflow view for job progress, review queues, and invoice readiness.</div>
           </div>
           <div style={{ ...chip }}>{loading ? "Loading…" : `${total} jobs`}</div>
+        </div>
+
+        <div style={{ ...executivePanel, marginBottom: UI.gap }}>
+          <div style={{ ...sectionHeader, marginBottom: 10 }}>
+            <span style={{ color: "#f8fbff", fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              Jobs Overview
+            </span>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ ...chip, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#edf3fa" }}>
+                Workflow
+              </span>
+              <span style={{ ...chip, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#edf3fa" }}>
+                Total: <b style={{ marginLeft: 6 }}>{loading ? "..." : total}</b>
+              </span>
+            </div>
+          </div>
+          <div style={executiveGrid}>
+            <div style={{ gridColumn: "span 3" }}>
+              <ExecutiveStat label="Upcoming" value={grouped["Upcoming"] ?? 0} />
+            </div>
+            <div style={{ gridColumn: "span 3" }}>
+              <ExecutiveStat label="Review Queue" value={reviewQueueCount} />
+            </div>
+            <div style={{ gridColumn: "span 3" }}>
+              <ExecutiveStat label="Ready to Invoice" value={financeReadyCount} />
+            </div>
+            <div style={{ gridColumn: "span 3" }}>
+              <ExecutiveStat label="Needs Action" value={grouped["Needs Action"] ?? 0} />
+            </div>
+          </div>
         </div>
 
         {/* Search + Quick Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           {/* Search */}
-          <div style={{ ...surface, padding: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Quick Search</div>
+          <div style={{ ...surface, padding: 12, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>Quick Search</h2>
+                <div style={cardHint}>Search by job number, client, location, or notes.</div>
+              </div>
+              <span style={sectionTag}>Search</span>
+            </div>
             <div style={{ position: "relative" }}>
               <svg viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 10, top: 10, width: 18, height: 18, opacity: 0.6 }} aria-hidden>
                 <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -423,10 +521,10 @@ export default function JobHomePage() {
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "10px 42px 10px 36px",
+                  padding: "9px 40px 9px 34px",
                   borderRadius: UI.radiusSm,
-                  border: "1px solid #d1d5db",
-                  fontSize: 14,
+                  border: "1px solid #d6dee8",
+                  fontSize: 13.5,
                   outline: "none",
                   background: "#fff",
                 }}
@@ -435,7 +533,7 @@ export default function JobHomePage() {
             </div>
 
             {!!search && (
-              <div style={{ marginTop: 10, border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ marginTop: 8, border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
                 {jobs
                   .filter((job) => {
                     const s = search.toLowerCase().trim();
@@ -453,23 +551,29 @@ export default function JobHomePage() {
           </div>
 
           {/* Quick stats */}
-          <div style={{ ...surface, padding: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>At a glance</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10 }}>
-              <div style={{ ...card, padding: 12 }}>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
+          <div style={{ ...surface, padding: 12, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>At a Glance</h2>
+                <div style={cardHint}>Current overview of upcoming work and finance-ready jobs.</div>
+              </div>
+              <span style={sectionTag}>Summary</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
+              <div style={{ ...card, padding: 10 }}>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Upcoming</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{grouped["Upcoming"] ?? 0}</div>
               </div>
-              <div style={{ ...card, padding: 12 }}>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Review Queue</div>
+              <div style={{ ...card, padding: 10 }}>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Review Queue</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{reviewQueueCount}</div>
               </div>
-              <div style={{ ...card, padding: 12 }}>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Ready to Invoice</div>
+              <div style={{ ...card, padding: 10 }}>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ready to Invoice</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{financeReadyCount}</div>
               </div>
-              <div style={{ ...card, padding: 12 }}>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Needs Action</div>
+              <div style={{ ...card, padding: 10 }}>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Needs Action</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{grouped["Needs Action"] ?? 0}</div>
               </div>
             </div>
@@ -478,9 +582,12 @@ export default function JobHomePage() {
 
         {/* Shortcuts (two rows) */}
         <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>Shortcuts</div>
-            <div style={{ color: UI.muted, fontSize: 12 }}>Jump straight into the stage you need</div>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={cardTitle}>Shortcuts</h2>
+              <div style={cardHint}>Jump straight into the stage you need.</div>
+            </div>
+            <span style={sectionTag}>Workflow</span>
           </div>
 
           {/* Row 1: Review Queue, Ready to Quote, Invoiced, Paid */}
@@ -503,14 +610,17 @@ export default function JobHomePage() {
         {/* Pipelines */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
           {/* Upcoming this week */}
-          <div style={{ ...surface, padding: 14, minHeight: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Upcoming this week</div>
-              <Link href="/job-sheet?section=Upcoming" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
+          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>Upcoming This Week</h2>
+                <div style={cardHint}>Jobs scheduled within the current week window.</div>
+              </div>
+              <Link href="/job-sheet?section=Upcoming" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
                 View all →
               </Link>
             </div>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
               {loading ? (
                 <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : upcomingThisWeek.length ? (
@@ -522,14 +632,17 @@ export default function JobHomePage() {
           </div>
 
           {/* Review queue preview */}
-          <div style={{ ...surface, padding: 14, minHeight: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Review queue</div>
-              <Link href="/review-queue" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
+          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>Review Queue</h2>
+                <div style={cardHint}>Jobs ready for review actions and completion checks.</div>
+              </div>
+              <Link href="/review-queue" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
                 Open queue →
               </Link>
             </div>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
               {loading ? (
                 <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : reviewQueuePreview.length ? (
@@ -541,14 +654,17 @@ export default function JobHomePage() {
           </div>
 
           {/* Finance queue preview */}
-          <div style={{ ...surface, padding: 14, minHeight: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Ready to Invoice</div>
-              <Link href="/finance-queue" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
+          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>Ready to Invoice</h2>
+                <div style={cardHint}>Jobs prepared for pricing and invoice issue.</div>
+              </div>
+              <Link href="/finance-queue" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
                 Open queue →
               </Link>
             </div>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
               {loading ? (
                 <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : financeQueuePreview.length ? (
@@ -560,14 +676,17 @@ export default function JobHomePage() {
           </div>
 
           {/* Recent */}
-          <div style={{ ...surface, padding: 14, minHeight: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Recent jobs</div>
-              <Link href="/job-sheet" style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
+          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={cardTitle}>Recent Jobs</h2>
+                <div style={cardHint}>Latest booked and completed work in the system.</div>
+              </div>
+              <Link href="/job-sheet" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
                 Job sheet →
               </Link>
             </div>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
               {loading ? (
                 <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : recent.length ? (

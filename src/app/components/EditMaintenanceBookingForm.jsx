@@ -1,11 +1,11 @@
 // src/app/components/EditMaintenanceBookingForm.jsx
-// ✅ Updated to match the NEW MaintenanceBookingForm + vehicle-edit page behaviour
-// ✅ Ensures maintenanceBookings always have usable Date fields (startDate/endDate + appointmentDate for single day)
-// ✅ Writes ISO helper fields too (appointmentDateISO/startDateISO/endDateISO) for easy UI
-// ✅ Conflict checks ignore Cancelled/Declined and exclude current booking
-// ✅ If status becomes "Completed": updates vehicle last/next (MOT or Service) using vehicle frequencies
-// ✅ Cancel updates booking + vehicle summary
-// ✅ Delete deletes booking + clears vehicle summary IF it was linked to this bookingId
+//  Updated to match the NEW MaintenanceBookingForm + vehicle-edit page behaviour
+//  Ensures maintenanceBookings always have usable Date fields (startDate/endDate + appointmentDate for single day)
+//  Writes ISO helper fields too (appointmentDateISO/startDateISO/endDateISO) for easy UI
+//  Conflict checks ignore Cancelled/Declined and exclude current booking
+//  If status becomes "Completed": updates vehicle last/next (MOT or Service) using vehicle frequencies
+//  Cancel updates booking + vehicle summary
+//  Delete deletes booking + clears vehicle summary IF it was linked to this bookingId
 
 "use client";
 
@@ -236,7 +236,7 @@ export default function EditMaintenanceBookingForm({
       return;
     }
     setConflictMsg(
-      `⚠️ Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
+      `Warning Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
         activeConflict.from
       )} → ${fmt(activeConflict.to)} (${activeConflict.type}, ${activeConflict.status})${
         activeConflict.provider ? ` — ${activeConflict.provider}` : ""
@@ -610,7 +610,7 @@ export default function EditMaintenanceBookingForm({
     }
   };
 
-  // ✅ REAL DELETE
+  //  REAL DELETE
   const handleDelete = async () => {
     if (!bookingId) return;
     if (!confirm("Delete this maintenance booking permanently? This cannot be undone.")) return;
@@ -700,7 +700,7 @@ export default function EditMaintenanceBookingForm({
           </div>
 
           <button onClick={handleClose} style={closeBtn} aria-label="Close" type="button">
-            ✕
+            x
           </button>
         </div>
 

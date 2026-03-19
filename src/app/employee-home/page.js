@@ -20,40 +20,44 @@ import {
    Mini design system (matches Jobs Home)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 18,
+  radiusSm: 12,
+  gap: 14,
+  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
+  border: "1px solid #dbe2ea",
+  bg: "#edf3f8",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  accent: "#8b5e3c",
+  accentSoft: "#f5ede6",
   danger: "#dc2626",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "20px 16px 30px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 16,
+  gap: 10,
+  marginBottom: 12,
+  flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const h1 = { color: UI.text, fontSize: 30, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const cardBase = {
   ...surface,
-  padding: 16,
+  padding: 13,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
+const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
 
 const grid = (cols = 4) => ({
   display: "grid",
@@ -63,19 +67,20 @@ const grid = (cols = 4) => ({
 
 const sectionHeader = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 10,
+  gap: 10,
+  marginBottom: 8,
+  flexWrap: "wrap",
 };
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -85,28 +90,29 @@ const chip = {
 const chipSoft = {
   ...chip,
   background: UI.brandSoft,
-  borderColor: "#dbeafe",
+  borderColor: UI.brandBorder,
   color: UI.brand,
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      padding: "9px 11px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
+      border: `1px solid ${UI.brandBorder}`,
       background: "#fff",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
     };
   }
   if (kind === "pill") {
     return {
-      padding: "8px 10px",
+      padding: "7px 9px",
       borderRadius: 999,
-      border: "1px solid #d1d5db",
+      border: `1px solid ${UI.brandBorder}`,
       background: "#fff",
       color: UI.text,
       fontWeight: 900,
@@ -115,7 +121,7 @@ const btn = (kind = "primary") => {
     };
   }
   return {
-    padding: "10px 12px",
+    padding: "9px 11px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
@@ -128,16 +134,16 @@ const btn = (kind = "primary") => {
 
 const inputBase = {
   width: "100%",
-  padding: "9px 10px",
+  padding: "8px 9px",
   borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  border: "1px solid #dbe2ea",
   outline: "none",
   fontSize: 13.5,
   background: "#fff",
 };
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
 
 const skeleton = {
   height: 12,
@@ -436,11 +442,11 @@ export default function EmployeesHomePage() {
           <div>
             <h1 style={h1}>Employees</h1>
             <div style={sub}>
-              Snapshot of <b>day credits</b> from <b>Confirmed + Complete</b> bookings (past dates only). Sundays “On Set” = x2.
+              Workforce activity overview based on confirmed and completed bookings across the selected reporting period.
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <div style={chip}>{loading ? "Loading…" : `${kpiPeople} people`}</div>
             <div style={chipSoft}>
               Total credits: <b style={{ marginLeft: 6 }}>{Number(kpiTotal.toFixed(2))}</b>
@@ -461,12 +467,12 @@ export default function EmployeesHomePage() {
               tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? router.push(section.link) : null)}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>{section.title}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{section.title}</div>
                 <span style={chip}>Open</span>
               </div>
-              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{section.description}</div>
-              <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>
+              <div style={{ marginTop: 5, color: UI.muted, fontSize: 13 }}>{section.description}</div>
+              <div style={{ marginTop: 8, fontWeight: 800, color: UI.brand }}>Open →</div>
             </div>
           ))}
         </div>
@@ -475,13 +481,13 @@ export default function EmployeesHomePage() {
         <section style={{ ...cardBase, marginTop: UI.gap }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>Day credits</h2>
+              <h2 style={titleMd}>Employee Credits Overview</h2>
               <div style={hint}>
-                Max one credit per employee per date across confirmed bookings (highest value wins). Freelancers excluded.
+                Maximum one credit per employee per date across confirmed bookings, with the highest value retained. Freelancers are excluded.
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={chipSoft}>{effectiveRange.label}</span>
               <button type="button" style={btn("ghost")} onClick={() => { setMode("lastNDays"); setRangeDays(30); setFromDate(""); setToDate(""); }}>
                 Reset
@@ -490,8 +496,8 @@ export default function EmployeesHomePage() {
           </div>
 
           {/* Controls */}
-          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12, background: "#fff" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "#fff" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="button" style={btn("pill")} onClick={() => setMode("lastNDays")}>
                   Last N days
@@ -502,8 +508,8 @@ export default function EmployeesHomePage() {
               </div>
 
               {mode === "lastNDays" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={smallLabel}>Days</span>
                     <input
                       type="number"
@@ -514,7 +520,7 @@ export default function EmployeesHomePage() {
                         const v = Number(e.target.value);
                         setRangeDays(Math.max(1, Math.min(365, Number.isFinite(v) ? v : 30)));
                       }}
-                      style={{ ...inputBase, width: 92, padding: "8px 10px", borderRadius: 12 }}
+                      style={{ ...inputBase, width: 84, padding: "7px 8px", borderRadius: 12 }}
                     />
                   </div>
 
@@ -538,8 +544,8 @@ export default function EmployeesHomePage() {
                   })}
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={smallLabel}>From</span>
                     <input
                       type="date"
@@ -549,7 +555,7 @@ export default function EmployeesHomePage() {
                       style={{ ...inputBase, width: 170 }}
                     />
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={smallLabel}>To</span>
                     <input
                       type="date"
@@ -566,14 +572,14 @@ export default function EmployeesHomePage() {
             <div style={divider} />
 
             <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
-              <b>Credit rules:</b> ½ Day Travel = 0.5 · Travel Time = 0.25 · Most day types = 1 · Rest Day / Other = 0 ·
+              <b>Credit rules:</b> Half Day Travel = 0.5 · Travel Time = 0.25 · Most day types = 1 · Rest Day / Other = 0 ·
               <b> On Set Sundays = x2</b>
             </div>
           </div>
 
           {/* Content */}
           {loading ? (
-            <div style={{ marginTop: 18 }}>
+            <div style={{ marginTop: 14 }}>
               <div style={{ ...skeleton, width: "60%", marginBottom: 10 }} />
               <div style={{ ...skeleton, width: "75%", marginBottom: 10 }} />
               <div style={{ ...skeleton, width: "40%", marginBottom: 10 }} />
@@ -582,9 +588,9 @@ export default function EmployeesHomePage() {
           ) : usageData.length === 0 ? (
             <EmptyState />
           ) : (
-            <div style={{ height: 360, marginTop: 12 }}>
+            <div style={{ height: 320, marginTop: 10 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
+                <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis
                     dataKey="name"
@@ -621,10 +627,10 @@ export default function EmployeesHomePage() {
                 </BarChart>
               </ResponsiveContainer>
 
-              <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid #d1d5db" }} />
                 <div style={{ color: UI.muted, fontSize: 12 }}>
-                  Bars show total credits (incl. halves/quarters and Sunday On Set double time). Hover for full names.
+                  Bars show total employee credits, including fractional travel credits and Sunday On Set double time. Hover to view full names.
                 </div>
               </div>
             </div>
@@ -640,10 +646,10 @@ export default function EmployeesHomePage() {
 ──────────────────────────────────────────────────────────────────────────── */
 function EmptyState() {
   return (
-    <div style={{ ...surface, boxShadow: "none", padding: 16, marginTop: 12 }}>
-      <div style={{ fontWeight: 900, marginBottom: 6, color: UI.text }}>No data in this timeframe</div>
+    <div style={{ ...surface, boxShadow: "none", padding: 13, marginTop: 10 }}>
+      <div style={{ fontWeight: 800, marginBottom: 6, color: UI.text }}>No data in this reporting period</div>
       <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
-        We only include <b>Confirmed</b> and <b>Complete</b> bookings from <b>past dates</b> in your selected range (today excluded).
+        Only <b>Confirmed</b> and <b>Complete</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
         Try a longer range, or confirm your bookings include <code>notesByDate["YYYY-MM-DD"]</code> and/or <code>bookingDates</code>.
       </div>
     </div>

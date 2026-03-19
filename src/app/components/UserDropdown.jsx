@@ -40,9 +40,9 @@ export default function UserDropdown({ name = "Mason Bickers", email = "masonbic
             <div style={{ fontWeight: 600 }}>{name}</div>
             <div style={{ fontSize: "0.85rem", color: "#aaa" }}>{email}</div>
           </div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }}>⚙️ Settings</div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/profile")}>👤 Profile</div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/login")}>🚪 Log out</div>
+          <div style={{ padding: "8px 0", cursor: "pointer" }}>Settings</div>
+          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/profile")}>Profile</div>
+          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/login")}>Log out</div>
         </div>
       )}
     </div>

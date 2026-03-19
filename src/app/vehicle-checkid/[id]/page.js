@@ -54,7 +54,7 @@ const statusChip = (s) => ({
 });
 
 export default function VehicleCheckDetailPage() {
-  // ✅ Get dynamic segment in a client component
+  //  Get dynamic segment in a client component
   const routeParams = useParams();
   const raw = Array.isArray(routeParams?.id) ? routeParams.id[0] : routeParams?.id ?? "";
   const docId = decodeURIComponent(String(raw)).trim();
@@ -295,8 +295,8 @@ function Field({ label, children }) {
   );
 }
 function labelForStatus(s) {
-  if (s === "serviceable") return "✓ Serviceable";
-  if (s === "defect") return "✗ Defect";
+  if (s === "serviceable") return "Yes Serviceable";
+  if (s === "defect") return "No Defect";
   if (s === "na") return "– N/A";
   return "—";
 }

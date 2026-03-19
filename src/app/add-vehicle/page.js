@@ -207,12 +207,12 @@ export default function AddVehiclePage() {
 
       await addDoc(collection(db, "vehicles"), payload);
 
-      alert("✅ Vehicle added");
+      alert(" Vehicle added");
       router.push("/vehicles");
       router.refresh?.();
     } catch (err) {
       console.error("Error adding vehicle:", err);
-      alert("❌ Failed to add vehicle");
+      alert(" Failed to add vehicle");
     } finally {
       setSaving(false);
     }

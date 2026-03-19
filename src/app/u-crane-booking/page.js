@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage } from "../../../firebaseConfig"; // ✅ use this
+import { storage } from "../../../firebaseConfig"; //  use this
 import { auth } from "../../../firebaseConfig";
 
 /* ───────────────────────────────────────────
@@ -77,7 +77,7 @@ export default function CreateBookingPage() {
   const [shootType, setShootType] = useState("Day");
   const [notesByDate, setNotesByDate] = useState({});
 
-  // ⚠️ old freelancer vars kept but no longer used for selection
+  // Warning old freelancer vars kept but no longer used for selection
   const [freelancers, setFreelancers] = useState([]);
   const [freelancerList, setFreelancerList] = useState([]);
 
@@ -114,7 +114,7 @@ export default function CreateBookingPage() {
     borderRadius: "4px",
   };
 
-  // ✅ This will now include Employees + U-Crane Freelancers,
+  //  This will now include Employees + U-Crane Freelancers,
   // filtered by uCraneVisible + role key in uCraneRoles
   const [crewPool, setCrewPool] = useState([]);
 
@@ -123,12 +123,12 @@ export default function CreateBookingPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // 🔹 1. Load all bookings
+      // - 1. Load all bookings
       const bookingSnap = await getDocs(collection(db, "bookings"));
       const bookings = bookingSnap.docs.map((doc) => doc.data());
       setAllBookings(bookings);
 
-      // 🔹 2. Auto-generate next job number
+      // - 2. Auto-generate next job number
       const jobNumbers = bookings
         .map((b) => b.jobNumber)
         .filter((jn) => /^\d+$/.test(jn))
@@ -138,7 +138,7 @@ export default function CreateBookingPage() {
       const nextJobNumber = String(max + 1).padStart(4, "0");
       setJobNumber(nextJobNumber);
 
-      // 🔹 3. Load equipment
+      // - 3. Load equipment
       const equipmentSnap = await getDocs(collection(db, "equipment"));
       const groupedEquip = {
         "A-Frame": [],
@@ -171,11 +171,11 @@ export default function CreateBookingPage() {
       setEquipmentGroups(groupedEquip);
       setOpenEquipmentGroups(openEquip);
 
-      // 🔹 4. Load holidays
+      // - 4. Load holidays
       const holidaySnap = await getDocs(collection(db, "holidays"));
       setHolidayBookings(holidaySnap.docs.map((doc) => doc.data()));
 
-      // 🔹 5. Load employees (HR)
+      // - 5. Load employees (HR)
       const empSnap = await getDocs(collection(db, "employees"));
       const allEmployees = empSnap.docs.map((doc) => ({
         id: doc.id,
@@ -184,7 +184,7 @@ export default function CreateBookingPage() {
       }));
       setEmployeeList(allEmployees);
 
-      // 🔹 6. Load U-Crane freelancers
+      // - 6. Load U-Crane freelancers
       const freeSnap = await getDocs(collection(db, "uCraneFreelancers"));
       const allFreelancers = freeSnap.docs.map((doc) => ({
         id: doc.id,
@@ -192,19 +192,19 @@ export default function CreateBookingPage() {
         ...doc.data(),
       }));
 
-      // ✅ Combine into crewPool (ONLY those set Visible in manager)
+      //  Combine into crewPool (ONLY those set Visible in manager)
       const combined = [...allEmployees, ...allFreelancers]
         .filter((p) => p?.uCraneVisible === true)
         .sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
 
       setCrewPool(combined);
 
-      // 🔹 7. Load maintenance bookings
+      // - 7. Load maintenance bookings
       const workSnap = await getDocs(collection(db, "workBookings"));
       const maintenanceData = workSnap.docs.map((doc) => doc.data());
       setMaintenanceBookings(maintenanceData);
 
-      // 🔹 8. Load and group vehicles (unchanged)
+      // - 8. Load and group vehicles (unchanged)
       const vehicleSnap = await getDocs(collection(db, "vehicles"));
       const grouped = {
         "U-Crane": [],
@@ -302,7 +302,7 @@ export default function CreateBookingPage() {
     })
     .map((b) => b.vehicleName);
 
-  // ✅ Helper: crew options per role based on uCraneRoles
+  //  Helper: crew options per role based on uCraneRoles
   const crewOptionsForRole = useMemo(() => {
     const map = {};
     for (const { role, key } of UCRANE_ROLES) {
@@ -354,7 +354,7 @@ export default function CreateBookingPage() {
       }
     }
 
-    // ✅ Upload Quote
+    //  Upload Quote
     let quoteUrlToSave = null;
 
     if (quoteFile) {
@@ -440,11 +440,11 @@ export default function CreateBookingPage() {
 
     try {
       await addDoc(collection(db, "bookings"), booking);
-      alert("Booking Saved ✅");
+      alert("Booking Saved ");
       router.push("/dashboard?saved=true");
     } catch (err) {
-      console.error("❌ Error saving booking:", err);
-      alert("Failed to save booking ❌\n\n" + err.message);
+      console.error(" Error saving booking:", err);
+      alert("Failed to save booking \n\n" + err.message);
     }
   };
 
@@ -466,7 +466,7 @@ export default function CreateBookingPage() {
           }}
         >
           <h1 style={{ color: "#111", marginBottom: "20px" }}>
-            ➕ Create New Booking
+             Create New Booking
           </h1>
 
           <form
@@ -630,7 +630,7 @@ export default function CreateBookingPage() {
                   />
                 )}
 
-                {/* ✅ Crew Roles (NOW uses crew manager controls) */}
+                {/*  Crew Roles (NOW uses crew manager controls) */}
                 <h3 style={{ marginTop: "10px" }}>Crew</h3>
                 <div
                   style={{
@@ -849,11 +849,11 @@ export default function CreateBookingPage() {
             </p>
             <p>
               <strong>Health & Safety:</strong>{" "}
-              {hasHS ? "✅ Completed" : "❌ Not Done"}
+              {hasHS ? " Completed" : " Not Done"}
             </p>
             <p>
               <strong>Risk Assessment:</strong>{" "}
-              {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}
+              {hasRiskAssessment ? " Completed" : " Not Done"}
             </p>
 
             <p>

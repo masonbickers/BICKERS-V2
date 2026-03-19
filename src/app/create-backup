@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { storage } from "../../../firebaseConfig"; // ✅ use this
+import { storage } from "../../../firebaseConfig"; //  use this
 import { auth } from "../../../firebaseConfig";
 
 
@@ -175,12 +175,12 @@ const expandBookingDates = (b) => {
 
     
     const loadData = async () => {
-      // 🔹 1. Load all bookings
+      // - 1. Load all bookings
       const bookingSnap = await getDocs(collection(db, "bookings"));
       const bookings = bookingSnap.docs.map(doc => doc.data());
       setAllBookings(bookings);
   
-      // 🔹 2. Auto-generate next job number like "0001", "0002"
+      // - 2. Auto-generate next job number like "0001", "0002"
       const jobNumbers = bookings
         .map(b => b.jobNumber)
         .filter(jn => /^\d+$/.test(jn)) // only pure numeric job numbers
@@ -190,7 +190,7 @@ const expandBookingDates = (b) => {
       const nextJobNumber = String(max + 1).padStart(4, "0");
       setJobNumber(nextJobNumber);
 
-      // 🔹 6. Load equipment from Firestore
+      // - 6. Load equipment from Firestore
       const equipmentSnap = await getDocs(collection(db, "equipment"));
       const groupedEquip = {
         "A-Frame": [],
@@ -226,16 +226,16 @@ const expandBookingDates = (b) => {
       
 
   
-      // 🔹 3. Load holidays
+      // - 3. Load holidays
       const holidaySnap = await getDocs(collection(db, "holidays"));
       setHolidayBookings(holidaySnap.docs.map(doc => doc.data()));
   
-      // 🔹 4. Load employee and freelancer list
+      // - 4. Load employee and freelancer list
       const empSnap = await getDocs(collection(db, "employees"));
       const allEmployees = empSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   
-console.log("🔥 Employees fetched:", allEmployees);
-allEmployees.forEach(e => console.log("👉", e.name, e.jobTitle));
+console.log(" Employees fetched:", allEmployees);
+allEmployees.forEach(e => console.log("", e.name, e.jobTitle));
 
 
 setEmployeeList(
@@ -264,7 +264,7 @@ setMaintenanceBookings(maintenanceData);
 
 
 
-      // 🔹 5. Load and group vehicles
+      // - 5. Load and group vehicles
       const vehicleSnap = await getDocs(collection(db, "vehicles"));
       const grouped = {
         "Bike": [],
@@ -301,7 +301,7 @@ setMaintenanceBookings(maintenanceData);
       setVehicleGroups(grouped);
     };
   
-    // ✅ Call async loader
+    //  Call async loader
     loadData();
   }, []);
 
@@ -342,7 +342,7 @@ const selectedDates = (() => {
     const stop = parseYMD_UTC(endDate);
     while (cur <= stop) {
       out.push(cur.toISOString().slice(0, 10));    // 'YYYY-MM-DD' in UTC
-      cur.setUTCDate(cur.getUTCDate() + 1);        // ✅ UTC day math
+      cur.setUTCDate(cur.getUTCDate() + 1);        //  UTC day math
     }
     return out;
   }
@@ -353,7 +353,7 @@ const selectedDates = (() => {
   
 const bookedVehicles = allBookings
   .filter((b) => {
-    if (!doesBlock(b)) return false;                    // ✅ only blocking statuses
+    if (!doesBlock(b)) return false;                    //  only blocking statuses
     const bDates = expandBookingDates(b);
     return anyDateOverlap(bDates, selectedDates);
   })
@@ -362,7 +362,7 @@ const bookedVehicles = allBookings
 
 const bookedEquipment = allBookings
   .filter((b) => {
-    if (!doesBlock(b)) return false;                    // ✅ only blocking statuses
+    if (!doesBlock(b)) return false;                    //  only blocking statuses
     const bDates = expandBookingDates(b);
     return anyDateOverlap(bDates, selectedDates);
   })
@@ -372,7 +372,7 @@ const bookedEquipment = allBookings
   
 const bookedEmployees = allBookings
   .filter((b) => {
-    if (!doesBlock(b)) return false;                    // ✅ only blocking statuses
+    if (!doesBlock(b)) return false;                    //  only blocking statuses
     const bDates = expandBookingDates(b);
     return anyDateOverlap(bDates, selectedDates);
   })
@@ -437,18 +437,18 @@ bookingDates.forEach((d) => {
 
 
 
-// ✅ Upload Excel Quote (resumable, with metadata)
-// ✅ Upload Excel/CSV Quote
+//  Upload Excel Quote (resumable, with metadata)
+//  Upload Excel/CSV Quote
 let quoteUrlToSave = null;
 
 if (quoteFile) {
   try {
-    console.log("📂 Uploading file:", quoteFile);
+    console.log(" Uploading file:", quoteFile);
 
     // Create storage reference
     const storageRef = ref(storage, `quotes/${jobNumber}_${quoteFile.name}`);
 
-    // ✅ Ensure correct metadata for Excel/CSV
+    //  Ensure correct metadata for Excel/CSV
     const metadata = {
       contentType:
         quoteFile.type ||
@@ -457,7 +457,7 @@ if (quoteFile) {
           : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     };
 
-    // 🔹 Resumable upload
+    // - Resumable upload
     const uploadTask = uploadBytesResumable(storageRef, quoteFile, metadata);
 
     // Wait until upload completes
@@ -470,14 +470,14 @@ if (quoteFile) {
           console.log(`⏳ Upload is ${progress.toFixed(0)}% done`);
         },
         (error) => {
-          console.error("❌ Upload failed:", error);
+          console.error(" Upload failed:", error);
           reject(error);
         },
         async () => {
           // Success — get file URL
           quoteUrlToSave = await getDownloadURL(uploadTask.snapshot.ref);
           setQuoteURL(quoteUrlToSave);
-          console.log("✅ Upload successful, URL:", quoteUrlToSave);
+          console.log(" Upload successful, URL:", quoteUrlToSave);
           resolve();
         }
       );
@@ -494,8 +494,8 @@ if (quoteFile) {
 
 
 
-// ✅ Step: Now define the booking object
-// ✅ Step: Now define the booking object with user + timestamps
+//  Step: Now define the booking object
+//  Step: Now define the booking object with user + timestamps
 const user = auth.currentUser;
 
 const booking = {
@@ -529,13 +529,13 @@ quoteUrl: quoteUrlToSave,
 
 
 
-  // 🔹 new fields
+  // - new fields
   createdBy: user?.email || "Unknown",
   lastEditedBy: user?.email || "Unknown",
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 
-  // 🔹 NEW audit trail
+  // - NEW audit trail
   history: [
     {
       action: "Created",
@@ -547,11 +547,11 @@ quoteUrl: quoteUrlToSave,
 
     try {
       await addDoc(collection(db, "bookings"), booking);
-      alert("Booking Saved ✅");
+      alert("Booking Saved ");
       router.push("/dashboard?saved=true");
     } catch (err) {
-      console.error("❌ Error saving booking:", err);
-      alert("Failed to save booking ❌\n\n" + err.message);
+      console.error(" Error saving booking:", err);
+      alert("Failed to save booking \n\n" + err.message);
     }
   };
 
@@ -574,12 +574,12 @@ quoteUrl: quoteUrlToSave,
     flex: 1,
     padding: "20px 40px",
     color: "#333",
-   // 👈 pushes it right of the sidebar
+   //  pushes it right of the sidebar
   }}
 >
 
 
-<h1 style={{ color: "#111", marginBottom: "20px" }}>➕ Create New Booking</h1>
+<h1 style={{ color: "#111", marginBottom: "20px" }}> Create New Booking</h1>
 
   
 
@@ -608,10 +608,10 @@ quoteUrl: quoteUrlToSave,
   required 
   style={{ 
     width: "90%",
-      height: "28px",      // 🔹 smaller height
+      height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
   }} 
 
   /><br />
@@ -623,10 +623,10 @@ quoteUrl: quoteUrlToSave,
     onChange={(e) => setStatus(e.target.value)} 
     style={{ 
       width: "90%",
-     height: "28px",      // 🔹 smaller height
+     height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
     }}
   >
     <option value="Confirmed">Confirmed</option>
@@ -643,10 +643,10 @@ quoteUrl: quoteUrlToSave,
     onChange={(e) => setShootType(e.target.value)} 
     style={{ 
       width: "90%",
-      height: "28px",      // 🔹 smaller height
+      height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
     }}
   >
     <option value="Day">Day</option>
@@ -663,10 +663,10 @@ quoteUrl: quoteUrlToSave,
     required 
     style={{ 
       width: "90%", 
-       height: "28px",      // 🔹 smaller height
+       height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
     }} 
   /><br /><br />
 
@@ -680,10 +680,10 @@ quoteUrl: quoteUrlToSave,
   placeholder="Enter email address"
   style={{
     width: "90%",
-     height: "28px",      // 🔹 smaller height
+     height: "28px",      // - smaller height
     marginBottom: "14px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
   }}
 /><br />
 
@@ -697,10 +697,10 @@ quoteUrl: quoteUrlToSave,
   placeholder="Enter phone number"
   style={{
     width: "90%",
-     height: "28px",      // 🔹 smaller height
+     height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
   }}
 /><br />
 
@@ -715,10 +715,10 @@ quoteUrl: quoteUrlToSave,
     required 
     style={{ 
       width: "90%", 
-     height: "28px",      // 🔹 smaller height
+     height: "28px",      // - smaller height
     marginBottom: "12px",
-    padding: "4px 6px",  // 🔹 smaller padding
-    fontSize: "14px"     // 🔹 smaller font
+    padding: "4px 6px",  // - smaller padding
+    fontSize: "14px"     // - smaller font
     }} 
   /><br /><br />
 </div>
@@ -904,7 +904,7 @@ quoteUrl: quoteUrlToSave,
       type="date"
       value={endDate}
       onChange={(e) => setEndDate(e.target.value)}
-      required={status !== "Enquiry"} // ✅ only required if not Enquiry
+      required={status !== "Enquiry"} //  only required if not Enquiry
     /><br /><br />
   </>
 )}
@@ -949,7 +949,7 @@ const days = enumerateDaysYMD_UTC(startDate, endDate); // returns ['YYYY-MM-DD',
   <option value="Rest Day">Rest Day</option>
   <option value="Rig Day">Rig Day</option>
   <option value="Standby Day">Standby Day</option>
-  <option value="Spilt Day">Spilt Day</option> {/* ✅ NEW */}
+  <option value="Spilt Day">Spilt Day</option> {/*  NEW */}
   <option value="Travel Day">Travel Day</option>
   <option value="Travel Time">Travel Time</option>
   <option value="Turnaround Day">Turnaround Day</option>
@@ -1025,7 +1025,7 @@ const days = enumerateDaysYMD_UTC(startDate, endDate); // returns ['YYYY-MM-DD',
       {[...employeeList, "Other"].map(name => {
   const isBooked  = bookedEmployees.includes(name);
   const isHoliday = isEmployeeOnHoliday(name);
-  const disabled  = isBooked || isHoliday || isCrewed;  // ✅ disable if crewed
+  const disabled  = isBooked || isHoliday || isCrewed;  //  disable if crewed
 
 
   return (
@@ -1251,7 +1251,7 @@ const days = enumerateDaysYMD_UTC(startDate, endDate); // returns ['YYYY-MM-DD',
   accept=".xls,.xlsx,.csv"
   onChange={(e) => {
     const file = e.target.files[0];
-    console.log("📎 Selected file:", file);
+    console.log(" Selected file:", file);
     setQuoteFile(file);
   }}
 />
@@ -1319,8 +1319,8 @@ const days = enumerateDaysYMD_UTC(startDate, endDate); // returns ['YYYY-MM-DD',
   <p><strong>Contact Email:</strong> {contactEmail}</p>
   <p><strong>Contact Number:</strong> {contactNumber}</p>
   <p><strong>Location:</strong> {location}</p>
-  <p><strong>Health & Safety:</strong> {hasHS ? "✅ Completed" : "❌ Not Done"}</p>
-<p><strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}</p>
+  <p><strong>Health & Safety:</strong> {hasHS ? " Completed" : " Not Done"}</p>
+<p><strong>Risk Assessment:</strong> {hasRiskAssessment ? " Completed" : " Not Done"}</p>
 
 <p>
   <strong>Dates:</strong>{" "}

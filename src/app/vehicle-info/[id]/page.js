@@ -17,11 +17,11 @@ export default function VehicleInfoPage() {
     try {
       const docRef = doc(db, "vehicles", id);
       await updateDoc(docRef, editableVehicle);
-      alert("✅ Vehicle updated");
+      alert(" Vehicle updated");
       router.push("/vehicles");  // or reload if needed
     } catch (err) {
       console.error("Error updating vehicle:", err);
-      alert("❌ Failed to update vehicle");
+      alert(" Failed to update vehicle");
     }
   };
   
@@ -59,11 +59,11 @@ export default function VehicleInfoPage() {
 
     try {
       await deleteDoc(doc(db, "vehicles", id));
-      alert("✅ Vehicle deleted");
+      alert(" Vehicle deleted");
       router.push("/vehicles");
     } catch (err) {
       console.error("Error deleting vehicle:", err);
-      alert("❌ Failed to delete vehicle");
+      alert(" Failed to delete vehicle");
     }
   };
 
@@ -232,11 +232,11 @@ function VehicleCSVImport() {
               notes: vehicle.notes || ""
             });
           } catch (err) {
-            console.error("❌ Error importing vehicle:", err);
+            console.error(" Error importing vehicle:", err);
           }
         }
 
-        alert("✅ Vehicle data imported successfully!");
+        alert(" Vehicle data imported successfully!");
       },
     });
   };

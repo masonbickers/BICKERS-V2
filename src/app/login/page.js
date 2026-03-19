@@ -10,6 +10,12 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
+import {
+  findEmployeeForUser,
+  getStoredActiveWorkspace,
+  resolveEmployeeAccess,
+  selectLandingRoute,
+} from "@/app/utils/accessControl";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,14 +32,28 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
 
-  // ✅ Password strength check
+  const routeUserToWorkspace = async (user) => {
+    const [userSnap, employeeDoc] = await Promise.all([
+      getDoc(doc(db, "users", user.uid)),
+      findEmployeeForUser(db, user),
+    ]);
+
+    const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
+    const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+    const preferred =
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+    router.push(selectLandingRoute(access, preferred));
+  };
+
+  //  Password strength check
   const isStrongPassword = (password) => {
     const regex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     return regex.test(password);
   };
 
-  // ✅ Safe upsert: never overwrites existing mfaSecret unless you explicitly set it elsewhere
+  //  Safe upsert: never overwrites existing mfaSecret unless you explicitly set it elsewhere
   const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
@@ -63,7 +83,7 @@ export default function LoginPage() {
     return ref;
   };
 
-  // ✅ Handle Login / Signup
+  //  Handle Login / Signup
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -71,7 +91,7 @@ export default function LoginPage() {
     try {
       const cleanEmail = (email || "").trim().toLowerCase();
 
-      // 🚨 Restrict to company emails only
+      // Alert Restrict to company emails only
       if (!cleanEmail.endsWith("@bickers.co.uk")) {
         setError("Only @bickers.co.uk emails are allowed.");
         return;
@@ -87,10 +107,10 @@ export default function LoginPage() {
           return;
         }
 
-        // ✅ Make sure the UID user doc exists + updatedAt is refreshed (won't wipe mfaSecret)
+        //  Make sure the UID user doc exists + updatedAt is refreshed (won't wipe mfaSecret)
         const ref = await upsertUserDoc(user);
 
-        // ✅ Fetch MFA secret
+        //  Fetch MFA secret
         const snap = await getDoc(ref);
 
         if (!snap.exists() || !snap.data().mfaSecret) {
@@ -124,10 +144,10 @@ export default function LoginPage() {
         );
         const user = userCredential.user;
 
-        // ✅ Create/merge user doc using UID as docId (prevents duplicates forever)
+        //  Create/merge user doc using UID as docId (prevents duplicates forever)
         await upsertUserDoc(user, { name, phone });
 
-        // ✅ Send verification
+        //  Send verification
         await sendEmailVerification(user);
         setError("Account created. Please verify your email before logging in.");
         setIsLogin(true);
@@ -138,9 +158,13 @@ export default function LoginPage() {
   };
 
   // MFA Verification (placeholder for now)
-  const handleVerifyMFA = () => {
+  const handleVerifyMFA = async () => {
     try {
-      router.push("/home");
+      if (!currentUser?.uid) {
+        setError("No user found. Please login again.");
+        return;
+      }
+      await routeUserToWorkspace(currentUser);
     } catch (err) {
       setError("Error verifying code");
     }
@@ -292,7 +316,7 @@ export default function LoginPage() {
   );
 }
 
-// ✅ Styles unchanged
+//  Styles unchanged
 const styles = {
   page: { display: "flex", height: "100vh", backgroundColor: "#0d0d0d", fontFamily: "Arial, sans-serif" },
   formSide: { flex: 0.7, backgroundColor: "#0d0d0d", color: "#fff", display: "flex", justifyContent: "center", alignItems: "center", padding: "0 2rem" },

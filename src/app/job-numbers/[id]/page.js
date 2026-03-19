@@ -406,7 +406,7 @@ const DisabledOverlayNote = ({ reason }) => (
       fontWeight: 800,
     }}
   >
-    🔒 This job is locked ({reason}). Editing is disabled.
+    Locked This job is locked ({reason}). Editing is disabled.
   </div>
 );
 
@@ -762,7 +762,7 @@ export default function JobInfoPage() {
     }
   };
 
-  // ✅ Hash scrolling + ALSO expand the target job when opened via link
+  //  Hash scrolling + ALSO expand the target job when opened via link
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -1154,7 +1154,7 @@ export default function JobInfoPage() {
                           />
                         )}
                         <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                          {job.location ? `📍 ${job.location}` : "📍 —"} • {renderDateBlock(job)}
+                          {job.location ? ` ${job.location}` : " —"} • {renderDateBlock(job)}
                         </span>
                       </div>
                     </div>

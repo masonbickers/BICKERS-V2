@@ -15,7 +15,7 @@ import getDay from "date-fns/getDay";
 import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// ✅ overlay forms
+//  overlay forms
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
 
@@ -211,7 +211,7 @@ function getSingleDayHalfMeta(rec, start, end) {
   return { single: true, half: false, when: null };
 }
 
-/* ✅ Count chargeable days (weekdays only, excludes bank holidays, supports multi-day half days) */
+/*  Count chargeable days (weekdays only, excludes bank holidays, supports multi-day half days) */
 function countChargeableDays(rec, start, end, isBankHoliday) {
   const days = eachDateInclusive(start, end);
 
@@ -282,7 +282,7 @@ function countChargeableDaysInRange(
   return Number(total.toFixed(2));
 }
 
-/* ✅ Status helper:
+/*  Status helper:
    - approved: status contains "approved" OR legacy approved=true
    - declined: status contains "declined"
    - requested: status contains "requested" OR missing/blank
@@ -479,7 +479,7 @@ export default function HolidayUsagePage() {
 
   const DEFAULT_ALLOWANCE = 11;
 
-  // ✅ admin (edit/delete only)
+  //  admin (edit/delete only)
   const [userEmail, setUserEmail] = useState("");
   useEffect(() => {
     const unsub = auth?.onAuthStateChanged?.((u) => {
@@ -492,15 +492,15 @@ export default function HolidayUsagePage() {
     [userEmail]
   );
 
-  // ✅ modal overlays
+  //  modal overlays
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
   const [editHolidayId, setEditHolidayId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // ✅ Year is *selectable* and drives allowances + holiday filtering
+  //  Year is *selectable* and drives allowances + holiday filtering
   const [yearView, setYearView] = useState(() => new Date().getFullYear());
 
-  // ✅ Controlled calendar date so Next/Back always works
+  //  Controlled calendar date so Next/Back always works
   const [calDate, setCalDate] = useState(() => new Date());
 
   const defaultDateForYear = useMemo(() => {
@@ -518,7 +518,7 @@ export default function HolidayUsagePage() {
   const [preAprilPaidDaysByName, setPreAprilPaidDaysByName] = useState({});
   const [calendarEvents, setCalendarEvents] = useState([]);
 
-  // ✅ bank holidays (separate so "leave entries" count stays the same)
+  //  bank holidays (separate so "leave entries" count stays the same)
   const [bankHolidayEvents, setBankHolidayEvents] = useState([]);
 
   const [byEmployee, setByEmployee] = useState({});
@@ -538,7 +538,7 @@ export default function HolidayUsagePage() {
     }
   }, []);
 
-  // ✅ Load UK bank holidays for the selected year (Gov.uk JSON)
+  //  Load UK bank holidays for the selected year (Gov.uk JSON)
   useEffect(() => {
     const controller = new AbortController();
 
@@ -585,7 +585,7 @@ export default function HolidayUsagePage() {
     return () => controller.abort();
   }, [yearView]);
 
-  /* ✅ Build a lookup so allowance calculations can exclude bank holidays */
+  /*  Build a lookup so allowance calculations can exclude bank holidays */
   const bankHolidaySet = useMemo(() => {
     return new Set(
       (bankHolidayEvents || [])
@@ -610,7 +610,7 @@ export default function HolidayUsagePage() {
     [bankHolidaySet]
   );
 
-  // ✅ Load data whenever yearView changes (and after save)
+  //  Load data whenever yearView changes (and after save)
   useEffect(() => {
     const run = async () => {
       const yearKey = String(yearView);
@@ -655,13 +655,13 @@ export default function HolidayUsagePage() {
 
         if (!employee || !start || !end) return;
 
-        // ✅ only show holidays inside the viewed year (no cross-year)
+        //  only show holidays inside the viewed year (no cross-year)
         if (start.getFullYear() !== end.getFullYear()) return;
         if (start.getFullYear() !== yearView) return;
 
         const status = getStatus(rec);
 
-        // ✅ IMPORTANT: if declined, remove it entirely (no pending, no calendar, no totals)
+        //  IMPORTANT: if declined, remove it entirely (no pending, no calendar, no totals)
         if (status === "declined") return;
 
         const approved = status === "approved";
@@ -685,7 +685,7 @@ export default function HolidayUsagePage() {
 
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
 
-        // ✅ exclude bank holidays from used days + support multi-day half days
+        //  exclude bank holidays from used days + support multi-day half days
         const days = countChargeableDays(rec, start, end, isBankHoliday);
         const preAprilDays = countChargeableDaysInRange(
           rec,
@@ -696,7 +696,7 @@ export default function HolidayUsagePage() {
           isBankHoliday
         );
 
-        // ✅ IMPORTANT: pending holidays do NOT consume allowance totals
+        //  IMPORTANT: pending holidays do NOT consume allowance totals
         if (!pending) {
           if (isUnpaidLeave) unpaid[employee] = (unpaid[employee] || 0) + days;
           else {
@@ -767,7 +767,7 @@ export default function HolidayUsagePage() {
   }, [yearView, reloadKey, isBankHoliday]);
 
   const eventStyleGetter = useCallback((event) => {
-    // ✅ Bank holiday style
+    //  Bank holiday style
     if (event?.bankHoliday) {
       return {
         style: {
@@ -781,7 +781,7 @@ export default function HolidayUsagePage() {
       };
     }
 
-    // ✅ Pending style (requested only)
+    //  Pending style (requested only)
     if (event?.pending) {
       return {
         style: {
@@ -916,7 +916,7 @@ export default function HolidayUsagePage() {
     };
   }, [namesToShow, byEmployee, metrics]);
 
-  // ✅ calendar uses both leave + bank holidays
+  //  calendar uses both leave + bank holidays
   const calendarEventsWithBankHolidays = useMemo(
     () => [...bankHolidayEvents, ...calendarEvents],
     [bankHolidayEvents, calendarEvents]
@@ -1582,7 +1582,7 @@ export default function HolidayUsagePage() {
         </Drawer>
       </div>
 
-      {/* ✅ Add Holiday overlay */}
+      {/*  Add Holiday overlay */}
       {holidayModalOpen && (
         <div
           style={{
@@ -1620,7 +1620,7 @@ export default function HolidayUsagePage() {
         </div>
       )}
 
-      {/* ✅ Edit Holiday overlay (Admin only) */}
+      {/*  Edit Holiday overlay (Admin only) */}
       {isAdmin && editHolidayId && (
         <EditHolidayForm
           holidayId={editHolidayId}

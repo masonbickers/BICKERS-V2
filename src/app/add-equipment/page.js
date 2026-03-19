@@ -175,12 +175,12 @@ export default function AddEquipmentPage() {
       };
 
       await addDoc(collection(db, "equipment"), payload);
-      alert("✅ Equipment added.");
+      alert(" Equipment added.");
       router.push("/equipment");
       router.refresh?.();
     } catch (err) {
       console.error("Error saving equipment:", err);
-      alert("❌ Failed to save.");
+      alert(" Failed to save.");
     } finally {
       setSaving(false);
     }

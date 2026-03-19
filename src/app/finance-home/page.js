@@ -181,7 +181,7 @@ export default function FinanceDashboard() {
   const [invoiceJobs, setInvoiceJobs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔙 dropdown filter is back
+  //  dropdown filter is back
   const [filter, setFilter] = useState("all"); // all | pending | ready | invoiced | paid
   const [search, setSearch] = useState("");
 

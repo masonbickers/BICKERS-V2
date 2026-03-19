@@ -43,44 +43,48 @@ const MAINTENANCE_JOBS_PATH = "/maintenance-jobs";
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 18,
+  radiusSm: 12,
+  gap: 14,
+  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
+  border: "1px solid #dbe2ea",
+  bg: "#edf3f8",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  accent: "#8b5e3c",
+  accentSoft: "#f5ede6",
   danger: "#dc2626",
   amber: "#d97706",
   green: "#16a34a",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "22px 18px 34px",
   background: UI.bg,
   minHeight: "100vh",
 };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 30,
+  lineHeight: 1.08,
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = {
   background: UI.card,
@@ -88,16 +92,23 @@ const surface = {
   border: UI.border,
   boxShadow: UI.shadowSm,
 };
+const executivePanel = {
+  ...surface,
+  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
+  color: "#edf3fa",
+  padding: 16,
+};
 const cardBase = {
   ...surface,
-  padding: 16,
+  padding: 14,
+  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = {
   transform: "translateY(-2px)",
   boxShadow: UI.shadowHover,
-  borderColor: "#dbeafe",
+  borderColor: UI.brandBorder,
 };
 
 const grid = (cols = 4) => ({
@@ -108,19 +119,33 @@ const grid = (cols = 4) => ({
 
 const sectionHeader = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 10,
+  flexWrap: "wrap",
 };
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+const sectionTag = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "5px 10px",
+  borderRadius: 999,
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
+  color: UI.brand,
+  fontSize: 11,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -129,70 +154,94 @@ const chip = {
 const chipSoft = {
   ...chip,
   background: UI.brandSoft,
-  borderColor: "#dbeafe",
+  borderColor: UI.brandBorder,
   color: UI.brand,
 };
 
 const badge = (bg, fg) => ({
-  padding: "4px 10px",
+  padding: "4px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
+  border: `1px solid ${UI.brandBorder}`,
   background: bg,
   color: fg,
   fontSize: 12,
-  fontWeight: 950,
+  fontWeight: 800,
   whiteSpace: "nowrap",
   lineHeight: "18px",
 });
+const metricCard = {
+  borderRadius: UI.radiusSm,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.05)",
+  padding: 12,
+  minWidth: 0,
+};
+const premiumSection = {
+  ...cardBase,
+  border: "1px solid #d7e1ea",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.06)",
+};
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
+      letterSpacing: "0.01em",
     };
   }
   if (kind === "pill") {
     return {
-      padding: "8px 10px",
+      padding: "5px 8px",
       borderRadius: 999,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12,
+      lineHeight: 1.2,
+      boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
+      letterSpacing: "0.01em",
     };
   }
   return {
-    padding: "10px 12px",
+      padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+    letterSpacing: "0.01em",
   };
 };
 
 const inputBase = {
   width: "100%",
-  padding: "9px 10px",
+  padding: "8px 9px",
   borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  border: "1px solid #dbe2ea",
   outline: "none",
   fontSize: 13.5,
   background: "#fff",
 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
 
 const modal = {
   position: "fixed",
@@ -202,7 +251,7 @@ const modal = {
   background: UI.card,
   border: UI.border,
   borderRadius: UI.radius,
-  padding: 18,
+  padding: 14,
   boxShadow: UI.shadowHover,
   zIndex: 1000,
   width: "min(92vw, 560px)",
@@ -239,7 +288,7 @@ const actionBtn = (kind = "ghost") => {
 /* ───────────────── Date helpers ───────────────── */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
 
-// ✅ Parse YYYY-MM-DD as LOCAL (avoids UTC date shift)
+//  Parse YYYY-MM-DD as LOCAL (avoids UTC date shift)
 const parseLocalDateOnly = (s) => {
   if (!s) return null;
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -549,7 +598,7 @@ export default function VehiclesHomePage() {
 
   const [mounted, setMounted] = useState(false);
 
-  // ✅ Booked MOT/SERVICE from maintenanceBookings (source of truth)
+  //  Booked MOT/SERVICE from maintenanceBookings (source of truth)
   const [maintenanceBookingsRaw, setMaintenanceBookingsRaw] = useState([]);
   const [maintenanceBookingEvents, setMaintenanceBookingEvents] = useState([]);
 
@@ -745,7 +794,7 @@ export default function VehiclesHomePage() {
     fetchWorkBookings();
   }, []);
 
-  /* ───────── ✅ REAL BOOKINGS: maintenanceBookings => calendar events ───────── */
+  /* ─────────  REAL BOOKINGS: maintenanceBookings => calendar events ───────── */
   useEffect(() => {
     const fetchMaintenanceBookings = async () => {
       const snap = await getDocs(collection(db, "maintenanceBookings"));
@@ -955,9 +1004,9 @@ export default function VehiclesHomePage() {
 
   /* ───────── Combined calendar events ───────── */
   const calendarEvents = useMemo(() => {
-    // ✅ Include real booked events from maintenanceBookings
-    // ✅ Keep due-date events
-    // ✅ Keep legacy workBookings if you still want them
+    //  Include real booked events from maintenanceBookings
+    //  Keep due-date events
+    //  Keep legacy workBookings if you still want them
     return [
       ...(maintenanceBookingEvents || []),
       ...(motServiceEvents || []),
@@ -1159,7 +1208,7 @@ export default function VehiclesHomePage() {
       baseBg = "#fff7ed";
       baseBorder = "#fed7aa";
       baseText = "#7c2d12";
-      // ✅ booked MOT due should look "success-ish"
+      //  booked MOT due should look "success-ish"
       if (event?.booked) {
         baseBg = "#ecfdf5";
         baseBorder = "#bbf7d0";
@@ -1259,21 +1308,68 @@ export default function VehiclesHomePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Vehicle Management</h1>
-            <div style={sub}>Overview • Defects • Usage • MOT • Service</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>
-              Pending defects: <b style={{ marginLeft: 6 }}>{kpiPending}</b>
-            </div>
-            <div style={chipSoft}>
-              MOT overdue: <b style={{ marginLeft: 6 }}>{motCounts.overdue}</b>
-            </div>
-            <div style={chipSoft}>
-              Service overdue: <b style={{ marginLeft: 6 }}>{serviceCounts.overdue}</b>
-            </div>
+            <div style={sub}>Fleet operations overview covering defects, utilisation, MOT compliance and service planning.</div>
           </div>
         </div>
+
+        <section style={{ ...executivePanel, marginBottom: UI.gap }}>
+          <div style={{ ...sectionHeader, marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(226,234,243,0.72)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                Fleet command
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#f8fbff", marginTop: 6, letterSpacing: "-0.02em" }}>
+                Operational fleet summary
+              </div>
+              <div style={{ color: "rgba(232,239,247,0.82)", fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
+                Monitor active defects, compliance risk and maintenance readiness from a single fleet control surface.
+              </div>
+            </div>
+            <span
+              style={{
+                ...sectionTag,
+                background: "rgba(255,255,255,0.08)",
+                borderColor: "rgba(255,255,255,0.14)",
+                color: "#f8fbff",
+              }}
+            >
+              Fleet operations
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gap: 12,
+            }}
+          >
+            <div style={metricCard}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{kpiPending}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
+                Pending Defects
+              </div>
+            </div>
+            <div style={metricCard}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{motCounts.overdue}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
+                MOT Overdue
+              </div>
+            </div>
+            <div style={metricCard}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{serviceCounts.overdue}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
+                Service Overdue
+              </div>
+            </div>
+            <div style={metricCard}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{usageData.length}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
+                Active Usage Entries
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Quick links */}
         <div style={grid(5)}>
@@ -1291,17 +1387,17 @@ export default function VehiclesHomePage() {
         </div>
 
         {/* Defect Review */}
-        <section style={{ ...cardBase, marginTop: UI.gap, overflow: "hidden" }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "hidden" }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Defect review</h2>
               <div style={hint}>
-                Pending approval for submitted checks. Approve and route to the correct bucket; decline to mark as not
-                actionable.
+                Review submitted vehicle defects, approve and route them to the correct operational bucket, or decline where no action is required.
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span style={sectionTag}>Defect queue</span>
               <span style={chipSoft}>{pendingDefects.length} pending</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
                 Open checks
@@ -1314,14 +1410,14 @@ export default function VehiclesHomePage() {
           <div style={{ overflowX: "auto" }}>
             <table style={table}>
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Date</th>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Vehicle</th>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Defect</th>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Note</th>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 900, color: UI.text }}>Driver</th>
-                  <th style={{ ...thtd, textAlign: "center", fontWeight: 900, color: UI.text }}>Photos</th>
-                  <th style={{ ...thtd, textAlign: "right", fontWeight: 900, color: UI.text }}>Actions</th>
+                <tr style={{ background: "#f7f9fc" }}>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Date</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Vehicle</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Defect</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Note</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Driver</th>
+                  <th style={{ ...thtd, textAlign: "center", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Photos</th>
+                  <th style={{ ...thtd, textAlign: "right", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1386,12 +1482,12 @@ export default function VehiclesHomePage() {
         </section>
 
         {/* Usage chart */}
-        <section style={{ ...cardBase, marginTop: UI.gap, overflow: "visible" }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "visible" }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Vehicle usage</h2>
               <div style={hint}>
-                Counting days where note contains <b>“On Set”</b> or <b>“Shoot day”</b>.
+                Counts vehicle days where the booking note contains <b>“On Set”</b> or <b>“Shoot day”</b>.
               </div>
             </div>
 
@@ -1404,6 +1500,7 @@ export default function VehiclesHomePage() {
                 alignItems: "center",
               }}
             >
+              <span style={sectionTag}>Usage analysis</span>
               <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
                 ← Prev
               </button>
@@ -1452,17 +1549,17 @@ export default function VehiclesHomePage() {
         </section>
 
         {/* Calendar */}
-        <section style={{ ...cardBase, marginTop: UI.gap }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Maintenance calendar</h2>
               <div style={hint}>
-                Shows: <b>maintenanceBookings</b> booking blocks + <b>vehicles.nextMOT</b> + <b>vehicles.nextService</b>.
-                Uses the same maintenance fetch and display model as the dashboard.
+                Shows scheduled maintenance bookings together with upcoming <b>MOT</b> and <b>service</b> due dates using the same operational model as the dashboard.
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+              <span style={sectionTag}>Calendar view</span>
               <span style={chipSoft}>{calView}</span>
               <span style={badge("#fff7ed", "#9a3412")}>MOT due</span>
               <span style={badge("#ecfdf5", "#065f46")}>Booked MOT</span>
@@ -1832,7 +1929,14 @@ function ToolbarBtn({ children, onClick, active }) {
 function Tile({ title, description, onClick, rightBadges = [] }) {
   return (
     <div
-      style={cardBase}
+      style={{
+        ...cardBase,
+        background: "#ffffff",
+        minHeight: 62,
+        padding: "10px 14px",
+        display: "flex",
+        alignItems: "center",
+      }}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -1840,28 +1944,33 @@ function Tile({ title, description, onClick, rightBadges = [] }) {
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>{title}</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {rightBadges.map((b, idx) => {
-            const tone = b.tone || "soft";
-            const s =
-              tone === "danger"
-                ? badge("#fef2f2", "#991b1b")
-                : tone === "amber"
-                ? badge("#fff7ed", "#9a3412")
-                : badge(UI.brandSoft, UI.brand);
-            return (
-              <span key={idx} style={s}>
-                {b.label}
-              </span>
-            );
-          })}
+      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ flex: 1, display: "grid", gap: rightBadges.length ? 8 : 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.18, color: UI.text }}>
+            {title}
+          </div>
+          {rightBadges.length ? (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {rightBadges.map((b, idx) => {
+                const tone = b.tone || "soft";
+                const s =
+                  tone === "danger"
+                    ? badge("#fef2f2", "#991b1b")
+                    : tone === "amber"
+                    ? badge("#fff7ed", "#9a3412")
+                    : badge(UI.brandSoft, UI.brand);
+                return (
+                  <span key={idx} style={s}>
+                    {b.label}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
+        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>›</span>
       </div>
 
-      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{description}</div>
-      <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>
     </div>
   );
 }
@@ -1873,41 +1982,47 @@ function VehicleCheckTile({ onClick }) {
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
-      style={cardBase}
+      style={{
+        ...cardBase,
+        background: "#ffffff",
+        minHeight: 62,
+        padding: "10px 14px",
+      }}
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span
-          aria-hidden="true"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 10,
-            border: "2px solid #bfdbfe",
-            background: UI.brandSoft,
-            color: UI.brand,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 14,
-            fontWeight: 900,
-            lineHeight: 1,
-            userSelect: "none",
-          }}
-        >
-          ✓
-        </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              border: `1px solid ${UI.brandBorder}`,
+              background: "#eef4f9",
+              color: UI.brand,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10.5,
+              fontWeight: 800,
+              lineHeight: 1,
+              userSelect: "none",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
+            }}
+          >
+            Yes
+          </span>
 
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 900, fontSize: 16, color: UI.text, marginBottom: 2 }}>
-            Vehicle Check
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.18, color: UI.text }}>
+              Vehicle Check
+            </div>
           </div>
-          <div style={{ color: UI.muted, fontSize: 13 }}>Open today’s pre-use vehicle check form.</div>
         </div>
+        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>›</span>
       </div>
-
-      <div style={{ marginTop: 10, fontWeight: 900, color: UI.brand }}>Open →</div>
     </div>
   );
 }

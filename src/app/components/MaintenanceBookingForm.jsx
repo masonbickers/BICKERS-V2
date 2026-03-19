@@ -1,9 +1,9 @@
 // src/app/components/MaintenanceBookingForm.jsx
-// ✅ Matches the UPDATED vehicle-edit page logic
-// ✅ Creates maintenanceBookings doc with real Date objects (calendar-safe)
-// ✅ Writes summary fields back to vehicle
-// ✅ If status === "Completed": updates core due dates (last + next) using vehicle frequencies
-// ✅ Conflict check ignores Cancelled/Declined and compares proper date ranges
+//  Matches the UPDATED vehicle-edit page logic
+//  Creates maintenanceBookings doc with real Date objects (calendar-safe)
+//  Writes summary fields back to vehicle
+//  If status === "Completed": updates core due dates (last + next) using vehicle frequencies
+//  Conflict check ignores Cancelled/Declined and compares proper date ranges
 
 "use client";
 
@@ -179,7 +179,7 @@ export default function MaintenanceBookingForm({
       if (st.includes("cancel")) return false;
       if (st.includes("declin")) return false;
 
-      // ✅ robust date extraction
+      //  robust date extraction
       const bs =
         toDate(b.startDate) ||
         toDate(b.date) ||
@@ -226,7 +226,7 @@ export default function MaintenanceBookingForm({
       return;
     }
     setConflictMsg(
-      `⚠️ Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
+      `Warning Conflict: This vehicle already has a maintenance booking overlapping ${fmt(
         activeConflict.from
       )} → ${fmt(activeConflict.to)} (${activeConflict.type}, ${activeConflict.status})${
         activeConflict.provider ? ` — ${activeConflict.provider}` : ""
@@ -476,7 +476,7 @@ export default function MaintenanceBookingForm({
           </div>
 
           <button onClick={handleClose} style={closeBtn} aria-label="Close" type="button">
-            ✕
+            x
           </button>
         </div>
 

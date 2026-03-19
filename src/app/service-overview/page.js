@@ -656,7 +656,7 @@ export default function ServiceOverviewPage() {
     const base = pill(UI.bookedBg, UI.bookedFg);
     return (
       <span style={base} title={label}>
-        {v.bookedStatus === "Requested" ? "🟦 Requested" : "🟪 Booked"}
+        {v.bookedStatus === "Requested" ? " Requested" : " Booked"}
         {v.bookedNow ? " (now)" : ""}
         <span style={{ fontWeight: 800, opacity: 0.85 }}> · {label}</span>
       </span>
@@ -880,7 +880,7 @@ export default function ServiceOverviewPage() {
                             <span style={pill("#f1f5f9", UI.text)}>Missing date</span>
                           ) : (
                             <span style={statusPillStyle(status)}>
-                              {status === "overdue" ? "❌ Overdue" : status === "soon" ? "⚠️ Due Soon" : "✅ OK"}
+                              {status === "overdue" ? " Overdue" : status === "soon" ? "Warning Due Soon" : " OK"}
                             </span>
                           )}
                         </td>

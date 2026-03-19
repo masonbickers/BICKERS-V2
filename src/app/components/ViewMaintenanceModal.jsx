@@ -93,7 +93,7 @@ const toAttachmentList = (b = {}) => {
 
 export default function ViewMaintenanceModal({
   id,
-  collectionName = "maintenanceBookings", // ✅ default, but dashboard can override
+  collectionName = "maintenanceBookings", //  default, but dashboard can override
   onClose,
 }) {
   const [booking, setBooking] = useState(null);
@@ -365,7 +365,7 @@ function Field({ label, value }) {
 
 const Chip = ({ good, label, title }) => (
   <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
-    {label} {good ? "✓" : "✗"}
+    {label} {good ? "Yes" : "No"}
   </span>
 );
 

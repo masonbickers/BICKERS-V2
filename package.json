@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:access": "node --test tests/accessControl.test.mjs",
+    "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.18",

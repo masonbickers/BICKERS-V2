@@ -171,7 +171,7 @@ export default function EditNoteForm() {
   );
 }
 
-// 🔷 Styles (reuse from original NoteForm)
+//  Styles (reuse from original NoteForm)
 const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "#1e1e1e", color: "#fff", minHeight: "100vh", padding: "40px" };
 const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "#121212", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };

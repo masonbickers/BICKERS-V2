@@ -56,7 +56,7 @@ const tableEl = {
   borderCollapse: "separate",
   borderSpacing: 0,
   fontSize: 13.5,
-  tableLayout: "fixed", // ✅ keeps columns aligned across all tables
+  tableLayout: "fixed", //  keeps columns aligned across all tables
 };
 const th = {
   textAlign: "left",
@@ -219,7 +219,7 @@ export default function ReviewQueuePage() {
   const [search, setSearch] = useState("");
   const searchRef = useRef(null);
 
-  // ✅ NEW filters
+  //  NEW filters
   const [statusFilter, setStatusFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -271,13 +271,13 @@ export default function ReviewQueuePage() {
     [queue]
   );
 
-  // ✅ NEW: statuses list for dropdown (only those you care about)
+  //  NEW: statuses list for dropdown (only those you care about)
   const statusOptions = useMemo(
     () => ["all", "Ready to Invoice", "Confirmed", "Complete", "Action Required"],
     []
   );
 
-  // ✅ UPDATED filtered with more filters
+  //  UPDATED filtered with more filters
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
 
@@ -361,7 +361,7 @@ export default function ReviewQueuePage() {
 
       <div style={tableWrap}>
         <table style={tableEl} aria-label={title}>
-          {/* ✅ fixed column widths so every table aligns */}
+          {/*  fixed column widths so every table aligns */}
           <colgroup>
             <col style={{ width: 120 }} />
             <col style={{ width: 220 }} />
@@ -439,7 +439,7 @@ export default function ReviewQueuePage() {
           <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} jobs`}</div>
         </div>
 
-        {/* ✅ Filters (expanded) */}
+        {/*  Filters (expanded) */}
         <div
           style={{
             ...surface,

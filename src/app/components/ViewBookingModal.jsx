@@ -435,7 +435,7 @@ export default function ViewBookingModal({
       const delDocId = booking?.__deletedDocId || deletedId || id;
       await deleteDoc(doc(db, "deletedBookings", String(delDocId)));
 
-      alert("Restored ✅");
+      alert("Restored ");
       onClose?.();
     } catch (e) {
       console.error("Restore failed:", e);
@@ -526,7 +526,7 @@ export default function ViewBookingModal({
           {booking.shootType && <Tag>{booking.shootType}</Tag>}
         </div>
 
-        {/* ✅ TOP ROW: Overview & People+Kit split 50/50 */}
+        {/*  TOP ROW: Overview & People+Kit split 50/50 */}
         <div style={topSplit}>
           <div style={topCol}>
             <h3 style={sectionTitle}>Overview</h3>
@@ -635,7 +635,7 @@ export default function ViewBookingModal({
           </div>
         </div>
 
-        {/* ✅ REST OF CONTENT full width below */}
+        {/*  REST OF CONTENT full width below */}
         <div style={belowStack}>
           {hasEmployeesByDate && dayKeys.length > 0 && (
             <Section title="Employees by Day">
@@ -953,7 +953,7 @@ const Chip = ({ good, label, title }) => (
     title={title}
     style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}
   >
-    {label} {good ? "✓" : "✗"}
+    {label} {good ? "Yes" : "No"}
   </span>
 );
 
@@ -1019,7 +1019,7 @@ const badge = {
 
 const chipRow = { display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 12px" };
 
-/* ✅ NEW: top split layout */
+/*  NEW: top split layout */
 const topSplit = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
@@ -1028,7 +1028,7 @@ const topSplit = {
 };
 const topCol = { minWidth: 0 }; // prevents overflow
 
-/* ✅ NEW: below stack */
+/*  NEW: below stack */
 const belowStack = {
   marginTop: 12,
   display: "grid",

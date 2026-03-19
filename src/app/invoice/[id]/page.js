@@ -716,7 +716,7 @@ export default function InvoiceJobPage() {
               cursor: saving ? "not-allowed" : "pointer",
             }}
           >
-            {saving ? "Saving..." : "✅ Mark as Invoiced"}
+            {saving ? "Saving..." : " Mark as Invoiced"}
           </button>
         </div>
       </div>

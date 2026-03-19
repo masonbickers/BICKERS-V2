@@ -209,12 +209,12 @@ export default function EditEquipmentPage() {
       };
 
       await updateDoc(refDoc, payload);
-      alert("✅ Equipment updated.");
+      alert(" Equipment updated.");
       router.push("/equipment");
       router.refresh?.();
     } catch (e) {
       console.error("Update equipment failed:", e);
-      alert("❌ Could not save changes.");
+      alert(" Could not save changes.");
     } finally {
       setSaving(false);
     }
@@ -228,12 +228,12 @@ export default function EditEquipmentPage() {
     setDeleting(true);
     try {
       await deleteDoc(doc(db, "equipment", id));
-      alert("🗑️ Equipment deleted.");
+      alert(" Equipment deleted.");
       router.push("/equipment");
       router.refresh?.();
     } catch (e) {
       console.error("Delete equipment failed:", e);
-      alert("❌ Failed to delete equipment.");
+      alert(" Failed to delete equipment.");
     } finally {
       setDeleting(false);
     }

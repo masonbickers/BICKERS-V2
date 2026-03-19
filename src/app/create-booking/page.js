@@ -12,22 +12,25 @@ import DatePicker from "react-multi-date-picker";
    Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
-  radius: 10,
-  radiusSm: 8,
-  radiusXs: 6,
-  shadow: "0 6px 18px rgba(0,0,0,0.08)",
-  border: "1px solid #e5e7eb",
+  radius: 16,
+  radiusSm: 12,
+  radiusXs: 10,
+  shadow: "0 12px 32px rgba(15,23,42,0.07)",
+  border: "1px solid #dbe2ea",
   bg: "#ffffff",
-  bgAlt: "#f8fafc",
-  text: "#111827",
-  muted: "#6b7280",
+  bgAlt: "#f5f8fb",
+  text: "#0f172a",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c9d6e2",
 };
 
 const pageWrap = {
   display: "flex",
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
-  background: "#f1f5f9",
+  background: "#eef3f8",
 };
 
 const mainWrap = {
@@ -35,23 +38,23 @@ const mainWrap = {
   color: UI.text,
   maxWidth: 1600,
   margin: "0 auto",
-  padding: "20px 24px",
+  padding: "24px 28px 32px",
 };
 
 const h1Style = {
   color: UI.text,
   marginBottom: 0,
-  fontSize: 26,
+  fontSize: 30,
   fontWeight: 800,
-  letterSpacing: 0.2,
+  letterSpacing: "-0.02em",
 };
 
 const pageHeader = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 12,
+  gap: 18,
+  marginBottom: 18,
   flexWrap: "wrap",
 };
 
@@ -67,17 +70,18 @@ const headerChecksBox = {
   alignItems: "center",
   gap: 18,
   flexWrap: "wrap",
-  padding: "10px 14px",
+  padding: "12px 16px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   background: UI.bg,
+  boxShadow: "0 4px 18px rgba(15,23,42,0.04)",
 };
 
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 0.72fr) minmax(440px, 1.14fr) minmax(440px, 1.14fr)",
-  gap: 16,
-  marginTop: 8,
+  gap: 18,
+  marginTop: 10,
 };
 
 const card = {
@@ -85,34 +89,45 @@ const card = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
-  padding: 16,
+  padding: 18,
 };
-const cardTitle = { margin: "0 0 10px", fontSize: 15, fontWeight: 700 };
+const cardTitle = {
+  margin: "0 0 14px",
+  fontSize: 16,
+  fontWeight: 800,
+  color: UI.text,
+  letterSpacing: "-0.01em",
+};
 
 const field = {
   label: {
     display: "block",
-    fontWeight: 600,
-    marginBottom: 6,
+    fontWeight: 700,
+    marginBottom: 7,
     color: UI.text,
+    fontSize: 13,
   },
   input: {
     width: "100%",
-    height: 38,
-    padding: "8px 10px",
+    height: 40,
+    padding: "9px 12px",
     fontSize: 14,
     borderRadius: UI.radiusXs,
-    border: "1px solid #d1d5db",
+    border: "1px solid #ccd6e0",
     background: "#fff",
+    color: UI.text,
+    boxSizing: "border-box",
   },
   textarea: {
     width: "100%",
     minHeight: 80,
-    padding: "10px 12px",
+    padding: "11px 12px",
     fontSize: 14,
     borderRadius: UI.radiusXs,
-    border: "1px solid #d1d5db",
+    border: "1px solid #ccd6e0",
     background: "#fff",
+    color: UI.text,
+    boxSizing: "border-box",
   },
   checkboxRow: {
     display: "flex",
@@ -128,26 +143,29 @@ const accordionBtn = {
   alignItems: "center",
   justifyContent: "space-between",
   width: "100%",
-  padding: "8px 10px",
+  padding: "10px 12px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  background: UI.bgAlt,
+  border: "1px solid #d4dde7",
+  background: "#f8fafc",
   cursor: "pointer",
   fontWeight: 700,
+  color: UI.text,
 };
 
 const pill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "2px 8px",
+  padding: "3px 9px",
   fontSize: 12,
   borderRadius: 999,
-  background: "#e5e7eb",
-  border: "1px solid #d1d5db",
+  background: UI.brandSoft,
+  border: `1px solid ${UI.brandBorder}`,
+  color: UI.brand,
+  fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "12px 0" };
+const divider = { height: 1, background: "#e2e8f0", margin: "16px 0" };
 
 const checkboxGrid = {
   display: "grid",
@@ -160,41 +178,53 @@ const actionsRow = {
   display: "flex",
   gap: 10,
   justifyContent: "flex-end",
-  marginTop: 14,
+  marginTop: 16,
 };
 
 const subCard = {
-  padding: 12,
+  padding: 14,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
+  border: "1px solid #e2e8f0",
 };
 
 const btn = {
-  padding: "9px 13px",
+  padding: "10px 14px",
   borderRadius: UI.radiusXs,
-  border: "1px solid #111",
+  border: `1px solid ${UI.brand}`,
   cursor: "pointer",
   fontWeight: 700,
 };
-const btnPrimary = { ...btn, background: "#111", color: "#fff" };
-const btnGhost = { ...btn, background: "#fff", color: "#111" };
+const btnPrimary = {
+  ...btn,
+  background: UI.brand,
+  color: "#fff",
+  boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+};
+const btnGhost = {
+  ...btn,
+  background: "#fff",
+  color: UI.text,
+  border: `1px solid ${UI.brandBorder}`,
+};
 
 const summaryCard = {
   ...card,
   position: "sticky",
   top: 12,
   alignSelf: "start",
-  background: "#0b1220",
-  color: "#e6edf7",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "#162434",
+  color: "#e8eef5",
+  border: "1px solid rgba(255,255,255,0.06)",
+  boxShadow: "0 18px 36px rgba(15,23,42,0.16)",
 };
 
 const summaryRow = {
   display: "grid",
   gridTemplateColumns: "140px 1fr",
   gap: 10,
-  padding: "6px 0",
-  borderBottom: "1px dashed rgba(255,255,255,0.08)",
+  padding: "8px 0",
+  borderBottom: "1px dashed rgba(255,255,255,0.12)",
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -408,9 +438,6 @@ export default function CreateBookingPage() {
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
-  const [locationSuggestions, setLocationSuggestions] = useState([]);
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
-  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
 
   const [status, setStatus] = useState("Confirmed");
   const [shootType, setShootType] = useState("Day");
@@ -447,7 +474,7 @@ export default function CreateBookingPage() {
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
 
-  // ✅ NEW: crew requirement (how many crew must be allocated before "Crewed" becomes true)
+  //  NEW: crew requirement (how many crew must be allocated before "Crewed" becomes true)
   // If set to 0, auto-crewing is disabled and the checkbox can be used manually.
   const [requiredCrewCount, setRequiredCrewCount] = useState(1);
 
@@ -542,7 +569,7 @@ export default function CreateBookingPage() {
       : 0;
 
   /* ────────────────────────────────────────────────────────────
-     ✅ NEW: auto-crewing logic
+      NEW: auto-crewing logic
      - Counts allocated crew (selected employees + custom names, excluding "Other")
      - When allocated >= requiredCrewCount => isCrewed becomes true (unless requiredCrewCount = 0)
   ───────────────────────────────────────────────────────────── */
@@ -691,44 +718,7 @@ export default function CreateBookingPage() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    const query = location.trim();
 
-    if (locationConfirmed || query.length < 3) {
-      setLocationSuggestions([]);
-      setLocationSearchLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        setLocationSearchLoading(true);
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(query)}`,
-          {
-            signal: controller.signal,
-            headers: { Accept: "application/json" },
-          }
-        );
-        if (!res.ok) throw new Error(`Location lookup failed (${res.status})`);
-        const data = await res.json();
-        setLocationSuggestions(Array.isArray(data) ? data : []);
-      } catch (err) {
-        if (err?.name !== "AbortError") {
-          console.error("Location lookup failed:", err);
-          setLocationSuggestions([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) setLocationSearchLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [location, locationConfirmed]);
 
   /* ────────────────────────────────────────────────────────────
      Conflicts
@@ -1063,10 +1053,6 @@ export default function CreateBookingPage() {
       return alert("Please provide: " + missing.join(", ") + ".");
     }
 
-    if ((location || "").trim() && !locationConfirmed) {
-      return alert("Please choose a valid location from the address suggestions.");
-    }
-
     const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
     if (needsReason) {
       if (!statusReasons.length) return alert("Please choose at least one reason.");
@@ -1194,7 +1180,7 @@ export default function CreateBookingPage() {
 
     const user = auth.currentUser;
 
-    // ✅ Compute final crewed flag at save-time as well (in case requiredCrewCount > 0)
+    //  Compute final crewed flag at save-time as well (in case requiredCrewCount > 0)
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length; // cleaned employees already includes custom names
     const isCrewedAtSave = Number.isFinite(req) && req > 0 ? allocatedAtSave >= req : isCrewed;
@@ -1221,7 +1207,7 @@ export default function CreateBookingPage() {
       hasRiskAssessment,
       notes,
 
-      // ✅ NEW fields stored
+      //  NEW fields stored
       requiredCrewCount: Number.isFinite(req) ? req : 0,
       allocatedCrewCount: allocatedAtSave,
 
@@ -1300,11 +1286,11 @@ export default function CreateBookingPage() {
 
       setPdfProgress(0);
       setNewFiles([]);
-      alert("Booking Saved ✅");
+      alert("Booking Saved");
       router.push("/dashboard?saved=true");
     } catch (err) {
-      console.error("❌ Error saving booking:", err);
-      alert("Failed to save booking ❌\n\n" + err.message);
+      console.error(" Error saving booking:", err);
+      alert("Failed to save booking \n\n" + err.message);
     }
   };
 
@@ -1316,7 +1302,7 @@ export default function CreateBookingPage() {
       <div style={pageWrap}>
         <div style={mainWrap}>
           <div style={pageHeader}>
-            <h1 style={h1Style}>➕ Create New Booking</h1>
+            <h1 style={h1Style}>Create New Booking</h1>
             <div style={headerChecksBox}>
               <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                 <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
@@ -1540,63 +1526,12 @@ export default function CreateBookingPage() {
                 </div>
 
                 <label style={field.label}>Location</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    value={location}
-                    onChange={(e) => {
-                      setLocation(e.target.value);
-                      setLocationConfirmed(false);
-                    }}
-                    style={field.input}
-                    required
-                    autoComplete="off"
-                  />
-                  {locationSearchLoading && (
-                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>Searching locations...</div>
-                  )}
-                  {!locationConfirmed && locationSuggestions.length > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "calc(100% + 4px)",
-                        left: 0,
-                        right: 0,
-                        background: "#fff",
-                        border: UI.border,
-                        borderRadius: UI.radiusSm,
-                        boxShadow: "0 8px 22px rgba(15,23,42,0.12)",
-                        maxHeight: 220,
-                        overflow: "auto",
-                        zIndex: 20,
-                      }}
-                    >
-                      {locationSuggestions.map((suggestion) => (
-                        <button
-                          key={suggestion.place_id}
-                          type="button"
-                          onClick={() => {
-                            setLocation(suggestion.display_name || "");
-                            setLocationConfirmed(true);
-                            setLocationSuggestions([]);
-                          }}
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            textAlign: "left",
-                            padding: "10px 12px",
-                            border: "none",
-                            background: "transparent",
-                            cursor: "pointer",
-                            borderBottom: "1px solid #eef2f7",
-                            fontSize: 13,
-                          }}
-                        >
-                          {suggestion.display_name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  style={field.input}
+                  required
+                />
               </div>
 
               {/* Column 2: Dates & People */}
@@ -1744,7 +1679,7 @@ export default function CreateBookingPage() {
                     const isHeld = isEmployeeHeld(name);
                     const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
 
-                    // ✅ changed: do NOT block selection just because booking is crewed.
+                    //  changed: do NOT block selection just because booking is crewed.
                     const disabled = (isBooked || isHoliday) && !isSelected;
 
                     return (
@@ -1774,7 +1709,7 @@ export default function CreateBookingPage() {
                   })}
                 </div>
 
-                {/* ✅ NEW: required crew selector + auto crewed indicator */}
+                {/*  NEW: required crew selector + auto crewed indicator */}
                 <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
                     <div>
@@ -1810,7 +1745,7 @@ export default function CreateBookingPage() {
                         {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
                       </div>
                       <div style={{ fontSize: 12, color: isCrewed ? "#16a34a" : "#b45309", fontWeight: 700 }}>
-                        {Number(requiredCrewCount) > 0 ? (isCrewed ? "Crewed ✓" : "Not crewed yet") : isCrewed ? "Crewed ✓ (manual)" : "Not crewed (manual)"}
+                        {Number(requiredCrewCount) > 0 ? (isCrewed ? "Crewed Yes" : "Not crewed yet") : isCrewed ? "Crewed Yes (manual)" : "Not crewed (manual)"}
                       </div>
                     </div>
                   </div>
@@ -2230,7 +2165,7 @@ export default function CreateBookingPage() {
             {/* Summary */}
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={summaryCard}>
-                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>📋 Summary</h3>
+                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>Summary</h3>
 
                 <div style={summaryRow}>
                   <div>Job Number</div>
@@ -2289,8 +2224,8 @@ export default function CreateBookingPage() {
                   <div>Crewing</div>
                   <div>
                     {Number(requiredCrewCount) > 0
-                      ? `Allocated ${allocatedCrewCount} / Required ${requiredCrewCount} • ${isCrewed ? "Crewed ✓" : "Not crewed"}`
-                      : `Manual • ${isCrewed ? "Crewed ✓" : "Not crewed"}`}
+                      ? `Allocated ${allocatedCrewCount} / Required ${requiredCrewCount} • ${isCrewed ? "Crewed Yes" : "Not crewed"}`
+                      : `Manual • ${isCrewed ? "Crewed Yes" : "Not crewed"}`}
                   </div>
                 </div>
 
@@ -2333,7 +2268,7 @@ export default function CreateBookingPage() {
                 <div style={summaryRow}>
                   <div>Hotel / CT</div>
                   <div>
-                    {hasHotel ? "Hotel ✓" : "Hotel ✗"}
+                    {hasHotel ? "Hotel Yes" : "Hotel No"}
                     {" • "}
                     {selectedDates.length > 1
                       ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "—"}`).join(" | ")

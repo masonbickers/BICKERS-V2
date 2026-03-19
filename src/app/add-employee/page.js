@@ -146,11 +146,11 @@ export default function AddEmployeePage() {
         ...formData,
         createdAt: serverTimestamp(),
       });
-      alert("✅ Employee added");
+      alert(" Employee added");
       router.push("/employees");
     } catch (err) {
       console.error("Error adding employee:", err);
-      alert("❌ Failed to add employee");
+      alert(" Failed to add employee");
     } finally {
       setSaving(false);
     }

@@ -166,7 +166,7 @@ function yearOf(d) {
   return dt ? dt.getFullYear() : null;
 }
 
-/* ✅ IMPORTANT: default export MUST be a component */
+/*  IMPORTANT: default export MUST be a component */
 export default function Page() {
   const router = useRouter();
 
@@ -285,7 +285,7 @@ export default function Page() {
 
       await addDoc(collection(db, "sickLeave"), payload);
 
-      alert("✅ Sick leave recorded");
+      alert(" Sick leave recorded");
       setEmployeeId("");
       setEmployeeName("");
       setStartDate("");
@@ -299,7 +299,7 @@ export default function Page() {
       await fetchAll();
     } catch (err) {
       console.error(err);
-      alert(`❌ Could not save sick leave.\n${err?.message || ""}`);
+      alert(` Could not save sick leave.\n${err?.message || ""}`);
     } finally {
       setSaving(false);
     }
@@ -311,7 +311,7 @@ export default function Page() {
       await fetchAll();
     } catch (e) {
       console.error(e);
-      alert("❌ Failed to update status");
+      alert(" Failed to update status");
     }
   };
 
@@ -322,7 +322,7 @@ export default function Page() {
       await fetchAll();
     } catch (e) {
       console.error(e);
-      alert("❌ Failed to delete record");
+      alert(" Failed to delete record");
     }
   };
 

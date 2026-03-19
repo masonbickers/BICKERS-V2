@@ -1493,7 +1493,7 @@ export default function PrepListPage() {
                                   className="print-check"
                                   aria-label="Toggle prep check"
                                 >
-                                  {it.checked ? "✓" : ""}
+                                  {it.checked ? "Yes" : ""}
                                 </button>
 
                                 <div

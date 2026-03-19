@@ -5,14 +5,14 @@ import OpenAI from "openai";
 import { db } from "../../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 
-// 🔐 Conditionally set up OpenAI if key exists
+//  Conditionally set up OpenAI if key exists
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
 export async function POST(req) {
   try {
     if (!openai) {
-      console.warn("⚠️ OPENAI_API_KEY missing, skipping AI assistant.");
+      console.warn("Warning OPENAI_API_KEY missing, skipping AI assistant.");
       return NextResponse.json(
         { error: "AI Assistant temporarily disabled (no API key set)." },
         { status: 503 }
@@ -24,7 +24,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing prompt." }, { status: 400 });
     }
 
-    // 🧲 Fetch data from Firebase
+    //  Fetch data from Firebase
     const [bookingsSnap, employeesSnap, vehiclesSnap, holidaysSnap, hrSnap, maintenanceSnap] = await Promise.all([
       getDocs(collection(db, "bookings")),
       getDocs(collection(db, "employees")),
@@ -34,7 +34,7 @@ export async function POST(req) {
       getDocs(collection(db, "maintenance")),
     ]);
 
-    // 🗃️ Map snapshot data
+    //  Map snapshot data
     const bookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const employees = employeesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const vehicles = vehiclesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -42,7 +42,7 @@ export async function POST(req) {
     const hr = hrSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const maintenance = maintenanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // 🧠 Compact context for token limit
+    //  Compact context for token limit
     const systemContext = `
 You are an assistant helping manage bookings, employees, vehicles, and maintenance.
 Here is a sample of the current data:
@@ -57,7 +57,7 @@ Here is a sample of the current data:
 Use this to answer operational questions efficiently and concisely.
 `;
 
-    // 🧠 Ask ChatGPT
+    //  Ask ChatGPT
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
@@ -71,7 +71,7 @@ Use this to answer operational questions efficiently and concisely.
     return NextResponse.json({ reply });
 
   } catch (error) {
-    console.error("❌ AI Assistant Error:", error);
+    console.error(" AI Assistant Error:", error);
     return NextResponse.json({ error: "Something went wrong with the assistant." }, { status: 500 });
   }
 }

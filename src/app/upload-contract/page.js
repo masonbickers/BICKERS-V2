@@ -218,7 +218,7 @@ export default function UploadContractPage() {
 
     const err = validate();
     if (err) {
-      alert(`❌ ${err}`);
+      alert(` ${err}`);
       return;
     }
 
@@ -268,11 +268,11 @@ export default function UploadContractPage() {
         createdAt: serverTimestamp(),
       });
 
-      alert("✅ Uploaded successfully");
+      alert(" Uploaded successfully");
       resetForm();
     } catch (error) {
       console.error("Upload failed:", error);
-      alert(`❌ Upload failed.\n${error?.message || ""}`);
+      alert(` Upload failed.\n${error?.message || ""}`);
     } finally {
       setSaving(false);
     }

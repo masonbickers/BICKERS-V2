@@ -148,8 +148,8 @@ const parseDate = (raw) => {
 
 
 
-// ✅ Find the most-recent meaningful date on the job
-// ✅ Most-recent scheduled date (ignores metadata like updatedAt)
+//  Find the most-recent meaningful date on the job
+//  Most-recent scheduled date (ignores metadata like updatedAt)
 const latestScheduledDateOfJob = (job) => {
   const candidates = [];
   const add = (v) => { const d = parseDate(v); if (d) candidates.push(d.getTime()); };
@@ -302,7 +302,7 @@ const datesForJob = (job) => {
 
 
 
-// 🔹 Handle job numbers like "2024-001"
+// - Handle job numbers like "2024-001"
 const splitJobNumber = (num) => {
   if (!num) return { prefix: "—", suffix: "" };
   const str = num.toString();
@@ -501,7 +501,7 @@ const renderTimesheet = (ts, job) => {
   // All ISO job dates for this job
   const jobDates = getJobIsoDates(job);
 
-  // 🔑 Normalise any timesheet.days shape to Monday..Sunday
+  //  Normalise any timesheet.days shape to Monday..Sunday
   const dayMap = normaliseDays(ts?.days, ts?.weekStart);
 
   // Helper: small badge
@@ -712,7 +712,7 @@ const renderTimesheet = (ts, job) => {
         if (!snap.exists()) throw new Error("Booking no longer exists.");
         const fresh = snap.data();
 
-// ⚠️ No longer blocking status changes on Paid
+// Warning No longer blocking status changes on Paid
 // We just save the new status regardless
 
         tx.update(ref, {
@@ -728,7 +728,7 @@ const renderTimesheet = (ts, job) => {
     }
   };
 
-  // ✅ Delete Booking
+  //  Delete Booking
   const deleteJob = async (jobId) => {
     if (!confirm("Are you sure you want to delete this booking?")) return;
     try {
@@ -1008,7 +1008,7 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
         border: "1px solid #16a34a66",
       }}
     >
-      Paid 🔒
+      Paid Locked
     </span>
   );
 
@@ -1160,7 +1160,7 @@ const uploadPdfForJob = async (jobId) => {
             const currentDbStatus = statusByJob[job.id] || "Pending";
             const selected = selectedStatusByJob[job.id] ?? currentDbStatus;
 
-            // 🔒 derive from the job object directly to avoid drift
+            // Locked derive from the job object directly to avoid drift
             const isPaid = computeIsPaid(job);
 
             return (
@@ -1501,7 +1501,7 @@ const toTime = (v) => {
 
 const list = (timesheetsByJob[job.id] || [])
   .slice()
-  .sort((a, b) => toTime(b.weekStart) - toTime(a.weekStart)); // ✅ numeric diff
+  .sort((a, b) => toTime(b.weekStart) - toTime(a.weekStart)); //  numeric diff
 
     if (!list.length) {
       return (
@@ -1548,7 +1548,7 @@ return list.map((ts) => (
                       Status
                       {isPaid && (
                         <span title="Paid: status locked" style={{ fontSize: 12, color: "#374151" }}>
-                          (Paid — locked 🔒)
+                          (Paid — locked Locked)
                         </span>
                       )}
                     </div>
@@ -1560,7 +1560,7 @@ return list.map((ts) => (
       <button
         key={opt}
         onClick={() => {
-          if (isPaid) return; // 🔒 UI lock
+          if (isPaid) return; // Locked UI lock
           setSelectedStatusByJob((prev) => ({ ...prev, [job.id]: opt }));
         }}
         disabled={isPaid}

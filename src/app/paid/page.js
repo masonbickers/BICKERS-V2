@@ -66,7 +66,7 @@ const tinyHint = { color: UI.muted, fontSize: 12 };
 const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
 const tableEl = {
   width: "100%",
-  tableLayout: "fixed", // ✅ lock columns
+  tableLayout: "fixed", //  lock columns
   borderCollapse: "separate",
   borderSpacing: 0,
   fontSize: 13.5,
@@ -324,7 +324,7 @@ export default function PaidTablePage() {
   const Table = ({ jobs }) => (
     <div style={tableWrap}>
       <table style={tableEl} aria-label="Paid jobs">
-        {/* ✅ Fixed column widths so every row lines up */}
+        {/*  Fixed column widths so every row lines up */}
         <colgroup>
           <col style={{ width: "90px" }} /> {/* Job # */}
           <col style={{ width: "180px" }} /> {/* Client */}

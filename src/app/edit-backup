@@ -133,13 +133,13 @@ const [riggingAddress, setRiggingAddress] = useState("");
   const [employeeList, setEmployeeList] = useState([]);
   useEffect(() => {
     const loadData = async () => {
-      // ✅ Fetch bookings, holidays, employees, and vehicles
+      //  Fetch bookings, holidays, employees, and vehicles
 const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap] = await Promise.all([
         getDocs(collection(db, "bookings")),
         getDocs(collection(db, "holidays")),
         getDocs(collection(db, "employees")),
         getDocs(collection(db, "vehicles")),
-        getDocs(collection(db, "equipment")), // ✅ NEW
+        getDocs(collection(db, "equipment")), //  NEW
       ]);
   
       const bookings = bookingSnap.docs.map(doc => ({
@@ -213,24 +213,24 @@ setFreelancerList(
         else if (category.includes("low loader")) grouped["Low Loaders"].push(vehicleInfo);
         else if (category.includes("lorry")) grouped["Transport Lorry"].push(vehicleInfo);
         else if (category.includes("van")) grouped["Transport Van"].push(vehicleInfo);
-          else grouped["Other Vehicles"].push(vehicleInfo);   // ✅ catch-all
+          else grouped["Other Vehicles"].push(vehicleInfo);   //  catch-all
 
       });
       
       
       setVehicleGroups(grouped);
   
-      // ✅ If editing, load the booking by ID and prefill form
+      //  If editing, load the booking by ID and prefill form
       if (bookingId) {
-        console.log("🔍 Loading booking for ID:", bookingId);
+        console.log(" Loading booking for ID:", bookingId);
 
           const ref = doc(db, "bookings", bookingId);
           const snap = await getDoc(ref);
 
           if (!snap.exists()) {
-            console.error("❌ No booking found for ID:", bookingId);
+            console.error(" No booking found for ID:", bookingId);
           } else {
-            console.log("✅ Booking found:", snap.data());
+            console.log(" Booking found:", snap.data());
           }
 
         if (snap.exists()) {
@@ -285,7 +285,7 @@ setRiggingAddress(b.riggingAddress || "");
 
     setEquipmentGroups(groupedEquip);
 
-    // ✅ Set initial open state for each category
+    //  Set initial open state for each category
     const openEquip = {};
     Object.keys(groupedEquip).forEach(cat => {
       openEquip[cat] = false;
@@ -397,14 +397,14 @@ const heldEmployees = allBookings
 
 
 const handleSubmit = async () => {
-  console.log("📋 Submitting booking for ID:", bookingId);
+  console.log(" Submitting booking for ID:", bookingId);
 
   if (status !== "Enquiry") {
     if (!startDate) return alert("Please select a start date.");
     if (isRange && !endDate) return alert("Please select an end date.");
   }
 
-  // ✅ NEW: reason validation goes here
+  //  NEW: reason validation goes here
   const needsReason = ["Lost", "Postponed", "Cancelled"].includes(status);
   if (needsReason) {
     if (!statusReasons.length) return alert("Please choose at least one reason.");
@@ -528,18 +528,18 @@ riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
 
     try {
       if (bookingId) {
-        console.log("📦 Updating booking with ID:", bookingId);
-        console.log("➡️ Booking data to update:", booking);
+        console.log(" Updating booking with ID:", bookingId);
+        console.log("-> Booking data to update:", booking);
       
         const bookingRef = doc(db, "bookings", bookingId);
 
-        console.log("➡️ Booking data to update:", booking);
+        console.log("-> Booking data to update:", booking);
         try {
           await updateDoc(bookingRef, booking);
-          console.log("🔥 UpdateDoc ran");
-          console.log("✅ Booking updated successfully");
+          console.log(" UpdateDoc ran");
+          console.log(" Booking updated successfully");
         } catch (err) {
-          console.error("❌ Firestore update error:", err);
+          console.error(" Firestore update error:", err);
           alert("Update failed: " + err.message);
         }
       }
@@ -547,13 +547,13 @@ riggingAddress: hasRiggingAddress ? (riggingAddress || "") : "",
         await addDoc(collection(db, "bookings"), booking);
       }
       
-alert(bookingId ? "Booking Updated ✅" : "Booking Saved ✅");
-router.back();  // ✅ return to previous page instead of forcing dashboard
+alert(bookingId ? "Booking Updated " : "Booking Saved ");
+router.back();  //  return to previous page instead of forcing dashboard
 
 
     } catch (err) {
-      console.error("❌ Error saving booking:", err);
-      alert("Failed to save booking ❌\n\n" + err.message);
+      console.error(" Error saving booking:", err);
+      alert("Failed to save booking \n\n" + err.message);
     }
   };
 
@@ -580,7 +580,7 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 
 
 <h1 style={{ color: "#111", marginBottom: "20px" }}>
-  {bookingId ? "✏️ Edit Booking" : "➕ Create New Booking"}
+  {bookingId ? " Edit Booking" : " Create New Booking"}
 </h1>
 
   
@@ -590,7 +590,7 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 <div style={{
   display: "flex",
   gap: "30px",
-  alignItems: "flex-start", // ✅ ensures columns align top
+  alignItems: "flex-start", //  ensures columns align top
   flexWrap: "wrap",
   marginTop: "20px",
   backgroundColor: "#f9f9f9",
@@ -846,7 +846,7 @@ router.back();  // ✅ return to previous page instead of forcing dashboard
 <option value="Rest Day">Rest Day</option>
 <option value="Rig Day">Rig Day</option>
 <option value="Standby Day">Standby Day</option>
-<option value="Spilt Day">Spilt Day</option> {/* ✅ NEW */}
+<option value="Spilt Day">Spilt Day</option> {/*  NEW */}
 <option value="Travel Day">Travel Day</option>
 <option value="Travel Time">Travel Time</option>
 <option value="Turnaround Day">Turnaround Day</option>
@@ -1287,7 +1287,7 @@ const disabled  = isBooked || isHoliday || isCrewed; // enquiry/held do NOT disa
   borderRadius: "8px",
   maxHeight: "100%",
 }}>
-  <h2 style={{ marginBottom: 20 }}>📋 Summary</h2>
+  <h2 style={{ marginBottom: 20 }}> Summary</h2>
 
   <p><strong>Job Number:</strong> {jobNumber}</p>
   <p><strong>Status:</strong> {status}</p>

@@ -94,7 +94,7 @@ const dangerBtn = { ...buttonStyle, backgroundColor: "#ef4444" };
 
 /* ───────────────────────────────────────────
    Edit Booking Page (Matches Create Page logic + layout)
-   ✅ Equipment NOT shown (but still preserved in data unless you remove it)
+    Equipment NOT shown (but still preserved in data unless you remove it)
 ─────────────────────────────────────────── */
 export default function EditBookingPage() {
   const router = useRouter();
@@ -141,7 +141,7 @@ export default function EditBookingPage() {
     "Transport Lorry": [],
   });
 
-  // ✅ Create-page style crew pool:
+  //  Create-page style crew pool:
   // Employees + U-Crane Freelancers filtered by uCraneVisible + uCraneRoles
   const [crewPool, setCrewPool] = useState([]);
 
@@ -457,7 +457,7 @@ export default function EditBookingPage() {
         location,
         employees: cleanedEmployees,
         vehicles,
-        equipment, // ✅ preserved even though hidden
+        equipment, //  preserved even though hidden
         isSecondPencil,
         isCrewed,
         notes,
@@ -488,11 +488,11 @@ export default function EditBookingPage() {
       };
 
       await updateDoc(refDoc, updatePayload);
-      alert("Booking updated ✅");
+      alert("Booking updated ");
       router.push(`/job-numbers/${id}`);
     } catch (err) {
       console.error(err);
-      alert("Failed to update booking ❌\n\n" + err.message);
+      alert("Failed to update booking \n\n" + err.message);
     } finally {
       setSaving(false);
     }
@@ -503,7 +503,7 @@ export default function EditBookingPage() {
       <HeaderSidebarLayout>
         <div style={pageBg}>
           <div style={main}>
-            <h1 style={{ color: "#111", marginBottom: 12 }}>✏️ Edit Booking</h1>
+            <h1 style={{ color: "#111", marginBottom: 12 }}> Edit Booking</h1>
             <p>Loading booking…</p>
           </div>
         </div>
@@ -516,7 +516,7 @@ export default function EditBookingPage() {
       <div style={pageBg}>
         <div style={main}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <h1 style={{ color: "#111", marginBottom: 0 }}>✏️ Edit Booking</h1>
+            <h1 style={{ color: "#111", marginBottom: 0 }}> Edit Booking</h1>
             <span style={{ color: "#6b7280" }}>ID: {id}</span>
 
             <Link
@@ -868,7 +868,7 @@ export default function EditBookingPage() {
                     };
 
                     const newRef = await addDoc(collection(db, "bookings"), payload);
-                    alert("Copy created ✅");
+                    alert("Copy created ");
                     router.push(`/job-numbers/${newRef.id}`);
                   } catch (err) {
                     console.error(err);
@@ -908,10 +908,10 @@ export default function EditBookingPage() {
             </p>
 
             <p>
-              <strong>Health & Safety:</strong> {hasHS ? "✅ Completed" : "❌ Not Done"}
+              <strong>Health & Safety:</strong> {hasHS ? " Completed" : " Not Done"}
             </p>
             <p>
-              <strong>Risk Assessment:</strong> {hasRiskAssessment ? "✅ Completed" : "❌ Not Done"}
+              <strong>Risk Assessment:</strong> {hasRiskAssessment ? " Completed" : " Not Done"}
             </p>
 
             <p>

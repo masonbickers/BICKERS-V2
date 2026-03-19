@@ -38,44 +38,59 @@ import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
    New styling tokens (match your HR page)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 16,
+  radiusSm: 12,
+  gap: 14,
+  shadowSm: "0 10px 30px rgba(15,23,42,0.06)",
+  shadowHover: "0 16px 36px rgba(15,23,42,0.10)",
+  border: "1px solid #dbe2ea",
+  bg: "#eef3f8",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c7d6e3",
+  accent: "#8b5e3c",
+  accentSoft: "#f5ede6",
+  successSoft: "#edf7f2",
+  warningSoft: "#fcf3e6",
+  dangerSoft: "#fcefee",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "22px 18px 34px",
   background: UI.bg,
   minHeight: "100vh",
 };
 
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 30,
+  lineHeight: 1.08,
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
   margin: 0,
 };
 
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+
+const headerActions = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  alignItems: "center",
+};
 
 const surface = {
   background: UI.card,
@@ -86,25 +101,34 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 16,
+  padding: 14,
 };
 
 const sectionHeader = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 10,
+  flexWrap: "wrap",
 };
 
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+
+const sectionActions = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  alignItems: "center",
+};
 
 const chip = {
-  padding: "6px 10px",
+  padding: "7px 11px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 700,
@@ -113,37 +137,39 @@ const chip = {
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      padding: "9px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
+      border: `1px solid ${UI.brandBorder}`,
       background: "#fff",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 700,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
     };
   }
   if (kind === "danger") {
     return {
-      padding: "10px 12px",
+      padding: "9px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
+      border: "1px solid #e9c6c4",
+      background: UI.dangerSoft,
       color: "#991b1b",
-      fontWeight: 900,
+      fontWeight: 700,
       cursor: "pointer",
       whiteSpace: "nowrap",
     };
   }
   return {
-    padding: "10px 12px",
+    padding: "9px 12px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 700,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
 };
 
@@ -156,14 +182,13 @@ const btnDisabled = (base) => ({
 });
 
 const successBanner = {
-  background: "#ecfdf5",
+  background: UI.successSoft,
   color: "#065f46",
-  border: "1px solid #10b981",
+  border: "1px solid #b7dec7",
   borderRadius: UI.radiusSm,
-  padding: "10px 12px",
+  padding: "9px 12px",
   fontSize: 13,
-  fontWeight: 800,
-  marginBottom: 14,
+  fontWeight: 700,
 };
 
 const tableWrap = {
@@ -172,6 +197,7 @@ const tableWrap = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   background: "#fff",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const table = {
   width: "100%",
@@ -182,20 +208,29 @@ const table = {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid #dde5ee",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "#f7f9fc",
   zIndex: 1,
   whiteSpace: "nowrap",
-  fontWeight: 900,
+  fontWeight: 800,
   fontSize: 12,
-  color: UI.text,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 };
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid #edf2f7",
   verticalAlign: "middle",
+};
+
+const calendarFrame = {
+  borderRadius: UI.radiusSm,
+  background: "#fff",
+  border: UI.border,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 
 const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
@@ -207,14 +242,12 @@ const STATUS_COLORS = {
   "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
   "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
   Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
-  Maintenance: { bg: "#f97316", text: "#111", border: "#0b0b0b" },
-  Complete: { bg: "#719b6eff", text: "#111", border: "#0b0b0b" },
+  Maintenance: { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" },
+  Complete: { bg: "#92d18cff", text: "#111", border: "#0b0b0b" },
   "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
   DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
   Postponed: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
   Deleted: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-
-  // ✅ NEW: Bank Holidays (Work Diary highlight)
   "Bank Holiday": { bg: "#dbeafe", text: "#111", border: "#0b0b0b" },
 };
 
@@ -292,6 +325,48 @@ const addDays = (d, n) => {
   return x;
 };
 
+const mapNoteDocsToCalendarEvents = (docSnaps) => {
+  const grouped = new Map();
+
+  docSnaps.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const startRaw = toJsDate(data.startDate || data.date);
+    const endRaw = toJsDate(data.endDate || data.startDate || data.date);
+    if (!startRaw) return;
+
+    const startBase = startOfLocalDay(startRaw);
+    const endBase = endRaw ? startOfLocalDay(endRaw) : startBase;
+    const safeEnd = endBase >= startBase ? endBase : startBase;
+    const employee = String(data.employee || "").trim();
+    const title = data.text || "Note";
+
+    const key = [
+      employee,
+      title,
+      startBase.toISOString(),
+      safeEnd.toISOString(),
+    ].join("::");
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        id: docSnap.id,
+        title,
+        start: startBase,
+        end: addDays(safeEnd, 1),
+        allDay: true,
+        status: "Note",
+        employee,
+        sourceNoteIds: [docSnap.id],
+      });
+      return;
+    }
+
+    grouped.get(key).sourceNoteIds.push(docSnap.id);
+  });
+
+  return Array.from(grouped.values());
+};
+
 const isInactiveMaintenanceBooking = (status = "") => {
   const s = String(status || "").trim().toLowerCase();
   return INACTIVE_MAINTENANCE_STATUSES.some((x) => s.includes(x));
@@ -348,7 +423,7 @@ const labelFromMins = (mins) => {
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
 
-// 🔥 helper for timestamps / dates / strings  (use this for HOLIDAYS + NOTES)
+//  helper for timestamps / dates / strings  (use this for HOLIDAYS + NOTES)
 const toJsDate = (value) => {
   if (!value) return null;
 
@@ -374,7 +449,7 @@ const jobKey = (val) => {
   return { num, raw: s };
 };
 
-// ✅ Call time normaliser (single day, multi-day map, legacy formats)
+//  Call time normaliser (single day, multi-day map, legacy formats)
 const normaliseCallTime = (raw) => {
   if (!raw) return "";
   const s = String(raw).trim();
@@ -412,7 +487,7 @@ const ymdKey = (d) => {
   }
 };
 
-// ✅ Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
+//  Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
 const ensureCallTimesByDate = (booking) => {
   const map = {};
   const src =
@@ -478,7 +553,7 @@ const ensureCallTimesByDate = (booking) => {
   return map;
 };
 
-// ✅ pick call time to show for a calendar event (works for single day + recce day + multi-day)
+//  pick call time to show for a calendar event (works for single day + recce day + multi-day)
 const callTimeForEventDay = (event) => {
   const map = event?.callTimesByDate || {};
   const keys = Object.keys(map || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
@@ -500,7 +575,7 @@ const callTimeForEventDay = (event) => {
   return "";
 };
 
-// ✅ Single source of truth for both BOOKINGS + MAINTENANCE
+//  Single source of truth for both BOOKINGS + MAINTENANCE
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
   // normal bookings → full events
   const bookingEvents = (bookings || []).map((b) => {
@@ -509,10 +584,10 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     const endBase = parseLocalDate(endRaw);
     const safeEnd = endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
 
-    // ✅ ensure per-day call times exist even for single-day / recce-day
+    //  ensure per-day call times exist even for single-day / recce-day
     const ctByDate = ensureCallTimesByDate(b);
 
-    // ✅ normalise callTime too so badge logic + display are consistent
+    //  normalise callTime too so badge logic + display are consistent
     const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
 
     return {
@@ -546,7 +621,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
       `${label} • ${typeLabel}` +
       (provider ? ` • ${provider}` : "");
 
-    // ✅ If bookingDates exists, create one all-day event per selected day
+    //  If bookingDates exists, create one all-day event per selected day
     if (dates.length) {
       return dates
         .map((ymd) => {
@@ -556,9 +631,9 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
           return {
             ...m,
             __collection: "maintenanceBookings",
-            __parentId: m.id, // ✅ link back to true doc id
+            __parentId: m.id, //  link back to true doc id
             __occurrence: ymd, // optional: which day this is
-            id: `${m.id}__${ymd}`, // ✅ unique per-day id for calendar rendering
+            id: `${m.id}__${ymd}`, //  unique per-day id for calendar rendering
 
             jobNumber: m.jobNumber ?? "",
             title: baseTitle,
@@ -577,7 +652,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
         .filter(Boolean);
     }
 
-    // ✅ Fallback for older docs that don’t have bookingDates
+    //  Fallback for older docs that don’t have bookingDates
     const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
     if (!startBase) return [];
 
@@ -646,7 +721,7 @@ const formatCrew = (employees) => {
     .join(", ");
 };
 
-// ✅ NEW: get crew needed / required (supports multiple field names + role arrays)
+//  NEW: get crew needed / required (supports multiple field names + role arrays)
 const getCrewNeeded = (bookingOrEvent) => {
   const b = bookingOrEvent || {};
 
@@ -702,12 +777,18 @@ function CalendarEvent({ event }) {
             .join("");
         })
         .filter(Boolean)
-        .join(", ")
-    : "";
+    : [];
+
+  const employeeInitialLines = employeeInitials.reduce((rows, initials, index) => {
+    const rowIndex = Math.floor(index / 2);
+    if (!rows[rowIndex]) rows[rowIndex] = [];
+    rows[rowIndex].push(initials);
+    return rows;
+  }, []);
 
   const isMaintenance = event.status === "Maintenance";
 
-  // ✅ robust per-day call time detection + display
+  //  robust per-day call time detection + display
   const hasPerDayCallTimes =
     event.callTimesByDate && Object.keys(event.callTimesByDate).length > 0;
 
@@ -716,10 +797,10 @@ function CalendarEvent({ event }) {
 
   const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
 
-  // ✅ NEW: crew needed for this job
+  //  NEW: crew needed for this job
   const crewNeeded = useMemo(() => getCrewNeeded(event), [event]);
 
-  // ✅ NEW: "Crewed" handling (no crew-needed counts once crewed)
+  //  NEW: "Crewed" handling (no crew-needed counts once crewed)
   const isCrewed = !isMaintenance && !!event.isCrewed;
 
   return (
@@ -729,14 +810,14 @@ function CalendarEvent({ event }) {
         display: "flex",
         flexDirection: "column",
         fontSize: "0.85rem",
-        lineHeight: 1.2,
+        lineHeight: 1.1,
         color: "#0b0b0b",
         fontWeight: 600,
         fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
-        padding: 6,
-        gap: 2,
+        padding: "5px 6px",
+        gap: 1,
         borderRadius: 6,
         whiteSpace: "normal",
         wordBreak: "break-word",
@@ -767,7 +848,7 @@ function CalendarEvent({ event }) {
               gap: 6,
             }}
           >
-            {employeeInitials && (
+            {employeeInitials.length > 0 && (
               <span
                 style={{
                   backgroundColor: "white",
@@ -776,9 +857,14 @@ function CalendarEvent({ event }) {
                   fontSize: "0.8rem",
                   fontWeight: 600,
                   border: "1px solid #0b0b0b",
+                  display: "grid",
+                  gap: 1,
+                  lineHeight: 1.05,
                 }}
               >
-                {employeeInitials}
+                {employeeInitialLines.map((line, index) => (
+                  <span key={`${line.join("-")}-${index}`}>{line.join(", ")}</span>
+                ))}
               </span>
             )}
 
@@ -788,7 +874,7 @@ function CalendarEvent({ event }) {
                   {event.status}
                 </span>
 
-                {/* ✅ UPDATED: if crewed, show "CREWED" only (no crew needed counts) */}
+                {/*  UPDATED: if crewed, show "CREWED" only (no crew needed counts) */}
                 {isCrewed && (
                   <span
                     style={{
@@ -805,7 +891,7 @@ function CalendarEvent({ event }) {
                   </span>
                 )}
 
-                {/* ✅ UPDATED: only show crew needed badge when NOT crewed */}
+                {/*  UPDATED: only show crew needed badge when NOT crewed */}
                 {!isMaintenance && !isCrewed && crewNeeded !== null && (
                   <span
                     style={{
@@ -849,7 +935,7 @@ function CalendarEvent({ event }) {
             </span>
           )}
 
-          {/* ✅ Call Time line (shows correctly for single day + recce day + multi-day) */}
+          {/*  Call Time line (shows correctly for single day + recce day + multi-day) */}
           {!isMaintenance && (
             <span style={{ fontSize: "0.78rem", fontWeight: 900 }}>
               {callTimeForThisEvent ? `CT ${callTimeForThisEvent}` : ""}
@@ -918,7 +1004,7 @@ function CalendarEvent({ event }) {
                       color: "#fff",
                       fontWeight: 700,
                       border: "1px solid #0b0b0b",
-                      marginTop: 2,
+                      marginTop: 1,
                     }}
                     title="Vehicle non-compliant (SORN / Not Insured) — future confirmed job"
                   >
@@ -964,7 +1050,7 @@ function CalendarEvent({ event }) {
                       backgroundColor: style.bg,
                       color: style.text,
                       border: `0px solid ${style.border}`,
-                      marginTop: 2,
+                      marginTop: 1,
                     }}
                     title={`Vehicle status: ${itemStatus}`}
                   >
@@ -991,12 +1077,12 @@ function CalendarEvent({ event }) {
               !hideDayNotes &&
               event.notesByDate &&
               Object.keys(event.notesByDate).length > 0)) && (
-            <div style={{ width: "100%", marginTop: 4 }}>
+            <div style={{ width: "100%", marginTop: 2 }}>
               {!isMaintenance &&
                 !hideDayNotes &&
                 event.notesByDate &&
                 Object.keys(event.notesByDate).length > 0 && (
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
                     {Object.keys(event.notesByDate)
                       .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                       .sort((a, b) => new Date(a) - new Date(b))
@@ -1162,7 +1248,7 @@ function CalendarEvent({ event }) {
                 </span>
 
                 {(() => {
-                  // ✅ CT check: exact day match OR callTime OR any per-day
+                  //  CT check: exact day match OR callTime OR any per-day
                   const hasAnyCallTime =
                     !!callTimeForEventDay(event) ||
                     !!event.callTime ||
@@ -1287,32 +1373,32 @@ function CalendarEvent({ event }) {
 function maintenanceEventPropGetter(event) {
   const kind = event?.kind || "MAINTENANCE";
 
-  let bg = "#eff6ff";
-  let border = "#bfdbfe";
-  let text = "#0f172a";
+  let bg = "#c4d6e4";
+  let border = "#95b3ca";
+  let text = "#172a3d";
 
   if (kind === "MOT") {
-    bg = "#fff7ed";
-    border = "#fed7aa";
-    text = "#7c2d12";
+    bg = "#dfc4a0";
+    border = "#bb8d52";
+    text = "#56361d";
     if (event?.booked) {
-      bg = "#ecfdf5";
-      border = "#bbf7d0";
-      text = "#065f46";
+      bg = "#c3dccb";
+      border = "#7fa590";
+      text = "#173a27";
     }
   } else if (kind === "MOT_BOOKING") {
-    bg = "#ecfdf5";
-    border = "#bbf7d0";
-    text = "#065f46";
+    bg = "#c3dccb";
+    border = "#7fa590";
+    text = "#173a27";
     if (String(event?.bookingStatus || "").includes("After Expiry")) {
-      bg = "#fef2f2";
-      border = "#fecaca";
-      text = "#991b1b";
+      bg = "#e4c0bd";
+      border = "#bf847f";
+      text = "#631f1a";
     }
   } else if (kind === "SERVICE" || kind === "SERVICE_BOOKING") {
-    bg = "#ecfdf5";
-    border = "#bbf7d0";
-    text = "#065f46";
+    bg = "#c3dccb";
+    border = "#7fa590";
+    text = "#173a27";
   }
 
   const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
@@ -1321,13 +1407,13 @@ function maintenanceEventPropGetter(event) {
 
   if (!suppressEscalation) {
     if (tone === "overdue") {
-      bg = "#fef2f2";
-      border = "#fecaca";
-      text = "#991b1b";
+      bg = "#e4c0bd";
+      border = "#bf847f";
+      text = "#631f1a";
     } else if (tone === "soon") {
-      bg = "#fff7ed";
-      border = "#fed7aa";
-      text = "#9a3412";
+      bg = "#e1c79c";
+      border = "#c19458";
+      text = "#5a3918";
     }
   }
 
@@ -1338,7 +1424,7 @@ function maintenanceEventPropGetter(event) {
       background: bg,
       color: text,
       padding: 0,
-      boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
+      boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
       overflow: "hidden",
       cursor: "pointer",
     },
@@ -1359,8 +1445,8 @@ function MaintenanceCalendarEvent({ event }) {
           return name || registration || "";
         })
         .filter(Boolean)
-        .join(", ")
-    : "";
+    : [];
+
   const equipmentText = Array.isArray(event?.equipment)
     ? event.equipment
         .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
@@ -1465,10 +1551,10 @@ export default function DashboardPage({ bookingSaved }) {
   const [createMaintenanceType, setCreateMaintenanceType] = useState("WORK");
   const [createMaintenanceEquipment, setCreateMaintenanceEquipment] = useState("");
 
-  // ✅ Holiday modal
+  //  Holiday modal
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
-  // ✅ Create Note modal
+  //  Create Note modal
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
 
   const [maintenanceView, setMaintenanceView] = useState("week");
@@ -1481,7 +1567,7 @@ export default function DashboardPage({ bookingSaved }) {
     return d;
   };
 
-  // ✅ NEW: UK Bank Holidays (GOV.UK)
+  //  NEW: UK Bank Holidays (GOV.UK)
   const [bankHolidays, setBankHolidays] = useState([]);
 
   // Gate Calendar rendering to client only
@@ -1596,7 +1682,7 @@ export default function DashboardPage({ bookingSaved }) {
     return () => unsubRecces();
   }, []);
 
-  // ✅ NEW: fetch UK bank holidays from GOV.UK
+  //  NEW: fetch UK bank holidays from GOV.UK
   useEffect(() => {
     const REGION = "england-and-wales"; // change to "scotland" / "northern-ireland" if needed
 
@@ -1698,7 +1784,7 @@ export default function DashboardPage({ bookingSaved }) {
       setBookings(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
     });
 
-    // ✅ FIX: holidays show properly (Timestamp/Date/string safe)
+    //  FIX: holidays show properly (Timestamp/Date/string safe)
     const unsubHolidays = onSnapshot(collection(db, "holidays"), (snap) => {
       const holidayEvents = snap.docs
         .map((docSnap) => {
@@ -1733,23 +1819,7 @@ export default function DashboardPage({ bookingSaved }) {
     });
 
     const unsubNotes = onSnapshot(collection(db, "notes"), (snap) => {
-      const noteEvents = snap.docs
-        .map((docSnap) => {
-          const data = docSnap.data();
-          const d0 = toJsDate(data.date);
-          if (!d0) return null;
-          const day = startOfLocalDay(d0);
-          return {
-            id: docSnap.id,
-            title: data.text || "Note",
-            start: day,
-            end: addDays(day, 1), // exclusive end keeps all-day rendering consistent
-            allDay: true,
-            status: "Note",
-            employee: data.employee || "",
-          };
-        })
-        .filter(Boolean);
+      const noteEvents = mapNoteDocsToCalendarEvents(snap.docs);
       setNotes(noteEvents);
     });
 
@@ -1852,23 +1922,7 @@ export default function DashboardPage({ bookingSaved }) {
 
   const fetchNotes = async () => {
     const snapshot = await getDocs(collection(db, "notes"));
-    const noteEvents = snapshot.docs
-      .map((docSnap) => {
-        const data = docSnap.data();
-        const d0 = toJsDate(data.date);
-        if (!d0) return null;
-        const day = startOfLocalDay(d0);
-        return {
-          id: docSnap.id,
-          title: data.text || "Note",
-          start: day,
-          end: addDays(day, 1),
-          allDay: true,
-          status: "Note",
-          employee: data.employee || "",
-        };
-      })
-      .filter(Boolean);
+    const noteEvents = mapNoteDocsToCalendarEvents(snapshot.docs);
     setNotes(noteEvents);
   };
 
@@ -1892,7 +1946,7 @@ export default function DashboardPage({ bookingSaved }) {
       });
   }, [authReady]);
 
-  // ✅ minimal saveBooking so the existing modal doesn't crash if used
+  //  minimal saveBooking so the existing modal doesn't crash if used
   const saveBooking = async (payload) => {
     try {
       await addDoc(collection(db, "bookings"), {
@@ -2085,7 +2139,7 @@ export default function DashboardPage({ bookingSaved }) {
     return out;
   }, [vehiclesData, maintenanceBookedMetaByVehicle]);
 
-  // ✅ Build all calendar events from a single function (jobs + maintenance)
+  //  Build all calendar events from a single function (jobs + maintenance)
   const allEventsRaw = useMemo(() => {
     const sourceBookings = canSeeDeletedOnCalendar
       ? [...bookings, ...deletedBookings]
@@ -2120,14 +2174,14 @@ export default function DashboardPage({ bookingSaved }) {
         recceId: recce?.id || null,
         recceCreatedAt: recce?.createdAt || null,
 
-        // ✅ ensure callTimesByDate always present (covers any event from older docs too)
+        //  ensure callTimesByDate always present (covers any event from older docs too)
         callTimesByDate: ensureCallTimesByDate(ev),
         callTime: normaliseCallTime(ev.callTime || ev.calltime || ev.call_time),
       };
     });
   }, [allEventsRaw, normalizeVehicles, reccesByBooking]);
 
-  // ✅ NEW: quick lookup for bank holiday day highlighting
+  //  NEW: quick lookup for bank holiday day highlighting
   const bankHolidaySet = useMemo(() => {
     const set = new Set();
     (bankHolidays || []).forEach((e) => {
@@ -2163,9 +2217,8 @@ export default function DashboardPage({ bookingSaved }) {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Dashboard</h1>
-            <div style={sub}>Work diary, maintenance, holidays and notes.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={headerActions}>
             <button
               style={btn("ghost")}
               type="button"
@@ -2187,18 +2240,40 @@ export default function DashboardPage({ bookingSaved }) {
             >
               Stunt Prep
             </button>
-            {bookingSaved && <div style={successBanner}>✅ Booking saved successfully!</div>}
+            {canSeeDeletedOnCalendar && (
+              <button
+                style={showDeletedInView ? btn("ghost") : btn("danger")}
+                onClick={() => setShowDeletedInView((v) => !v)}
+                type="button"
+              >
+                {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
+              </button>
+            )}
+            <button
+              style={showInactiveInView ? btn("ghost") : btn("danger")}
+              onClick={() => setShowInactiveInView((v) => !v)}
+              type="button"
+            >
+              {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
+            </button>
+            {bookingSaved && <div style={successBanner}>Booking saved successfully.</div>}
           </div>
         </div>
 
         {/* Work Diary */}
         <section style={card}>
           <div style={sectionHeader}>
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h2 style={titleMd}>Work Diary</h2>
-              <div style={hint}>Jobs calendar (week/month). Click empty day to add quick note.</div>
+              <button
+                style={btn("ghost")}
+                onClick={() => setCurrentDate(new Date())}
+                type="button"
+              >
+                Today
+              </button>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={sectionActions}>
               <button
                 style={btn("ghost")}
                 onClick={() => {
@@ -2221,24 +2296,6 @@ export default function DashboardPage({ bookingSaved }) {
                 Next Week →
               </button>
 
-              {canSeeDeletedOnCalendar && (
-                <button
-                  style={showDeletedInView ? btn("ghost") : btn("danger")}
-                  onClick={() => setShowDeletedInView((v) => !v)}
-                  type="button"
-                >
-                  {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
-                </button>
-              )}
-
-              <button
-                style={showInactiveInView ? btn("ghost") : btn("danger")}
-                onClick={() => setShowInactiveInView((v) => !v)}
-                type="button"
-              >
-                {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
-              </button>
-
               <button
                 style={isRestricted ? btnDisabled(btn()) : btn()}
                 onClick={goToCreateBooking}
@@ -2259,7 +2316,7 @@ export default function DashboardPage({ bookingSaved }) {
                 + Add Maintenance
               </button>
 
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+              <div style={{ ...chip, color: UI.brand }}>
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
             </div>
@@ -2268,7 +2325,7 @@ export default function DashboardPage({ bookingSaved }) {
           {mounted && (
             <BigCalendar
               localizer={localizer}
-              // ✅ include bank holidays in Work Diary
+              //  include bank holidays in Work Diary
               events={[...bankHolidays, ...workDiaryEvents]}
               view={calendarView}
               views={["week", "month"]}
@@ -2308,23 +2365,23 @@ export default function DashboardPage({ bookingSaved }) {
                 return {
                   style: {
                     backgroundColor: isToday
-                      ? "rgba(29,78,216,0.10)"
+                      ? "rgba(31,75,122,0.3)"
                       : isBankHoliday
-                      ? "rgba(59,130,246,0.08)"
+                      ? "rgba(103,128,157,0.08)"
                       : undefined,
                     border: isToday
-                      ? "1px solid rgba(29,78,216,0.55)"
+                      ? "1px solid rgba(31,75,122,0.56)"
                       : isBankHoliday
-                      ? "1px dashed rgba(59,130,246,0.55)"
+                      ? "1px dashed rgba(103,128,157,0.38)"
                       : undefined,
                   },
                 };
               }}
-              style={{ borderRadius: UI.radius, background: "#fff" }}
+              style={calendarFrame}
               onSelectEvent={(e) => {
                 if (!e) return;
 
-                // ✅ bank holidays are display-only
+                //  bank holidays are display-only
                 if (e.status === "Bank Holiday") return;
 
                 if (e.status === "Holiday") {
@@ -2353,41 +2410,27 @@ export default function DashboardPage({ bookingSaved }) {
               }}
               components={{ event: CalendarEvent }}
               eventPropGetter={(event) => {
-                // ✅ bank holiday styling
+                //  bank holiday styling
                 if (event.status === "Bank Holiday") {
                   return {
                     style: {
-                      backgroundColor: "#dbeafe",
-                      color: "#111",
-                      fontWeight: 900,
+                      backgroundColor: "#e9eef5",
+                      color: "#314257",
+                      fontWeight: 800,
                       padding: 0,
                       borderRadius: 8,
-                      border: "2px dashed #0b0b0b",
-                      boxShadow: "0 2px 2px rgba(0,0,0,0.10)",
-                      pointerEvents: "none", // ✅ doesn't steal clicks from jobs
+                      border: "1px dashed #9eb0c6",
+                      boxShadow: "0 4px 10px rgba(15,23,42,0.05)",
+                      pointerEvents: "none", //  doesn't steal clicks from jobs
                     },
                   };
                 }
 
                 const status = normalizeStatusLabel(event.status || "Confirmed");
-
-              let bg =
-  {
-    Confirmed: "#f3f970",
-    Stunt: "#fcffb9", // ✅ NEW: Stunt same yellow as Confirmed
-    "First Pencil": "#89caf5",
-    "Second Pencil": "#f73939",
-    Holiday: "#d3d3d3",
-    Maintenance: "#da8e58ff",
-    Complete: "#92d18cff",
-    "Action Required": "#FF973B",
-    DNH: "#c2c2c2",
-    Postponed: "#c2c2c2",
-    Deleted: "#c2c2c2",
-  }[status] || "#ccc";
-
-
-                let text = bg === "#f3f970" || bg === "#d3d3d3" ? "#111" : "#fff";
+                const tone = getStatusStyle(status);
+                let bg = tone.bg;
+                let text = tone.text;
+                let border = tone.border;
 
                 let risky = !!event.isRisky;
                 if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
@@ -2410,6 +2453,7 @@ export default function DashboardPage({ bookingSaved }) {
                 if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
                   bg = NIGHT_SHOOT_STYLE.bg;
                   text = NIGHT_SHOOT_STYLE.text;
+                  border = NIGHT_SHOOT_STYLE.border;
                   return {
                     style: {
                       backgroundColor: bg,
@@ -2417,8 +2461,8 @@ export default function DashboardPage({ bookingSaved }) {
                       fontWeight: 700,
                       padding: 0,
                       borderRadius: 8,
-                      border: `2px solid ${NIGHT_SHOOT_STYLE.border}`,
-                      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                      border: `1px solid ${border}`,
+                      boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
                     },
                   };
                 }
@@ -2430,8 +2474,8 @@ export default function DashboardPage({ bookingSaved }) {
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                    border: "2px solid #0b0b0b",
-                    boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                    border: `1px solid ${border}`,
+                    boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
                   },
                 };
               }}
@@ -2444,10 +2488,10 @@ export default function DashboardPage({ bookingSaved }) {
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Maintenance Calendar</h2>
-              <div style={hint}>MOT due, service due, maintenance bookings and active maintenance jobs.</div>
+              <div style={hint}>MOT, service, maintenance bookings and active workshop activity.</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={sectionActions}>
 
               <button
                 type="button"
@@ -2508,12 +2552,12 @@ export default function DashboardPage({ bookingSaved }) {
 
                 return {
                   style: {
-                    backgroundColor: isToday ? "rgba(249,115,22,0.12)" : undefined,
-                    border: isToday ? "1px solid rgba(249,115,22,0.55)" : undefined,
+                    backgroundColor: isToday ? "rgba(139,94,60,0.3)" : undefined,
+                    border: isToday ? "1px solid rgba(139,94,60,0.56)" : undefined,
                   },
                 };
               }}
-              style={{ borderRadius: UI.radius, background: "#fff" }}
+              style={calendarFrame}
             />
           )}
 
@@ -2530,9 +2574,9 @@ export default function DashboardPage({ bookingSaved }) {
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Holiday + Notes Calendar</h2>
-              <div style={hint}>Holidays and notes only.</div>
+              <div style={hint}>Shared leave and note visibility in one place.</div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={sectionActions}>
               <button style={btn()} type="button" onClick={() => setHolidayModalOpen(true)}>
                 + Add Holiday
               </button>
@@ -2588,7 +2632,7 @@ export default function DashboardPage({ bookingSaved }) {
                   setNoteModalOpen(true);
                 }
               }}
-              style={{ borderRadius: UI.radius, background: "#fff" }}
+              style={calendarFrame}
               components={{
                 event: ({ event }) => (
                   <div
@@ -2604,17 +2648,22 @@ export default function DashboardPage({ bookingSaved }) {
                       textAlign: "left",
                       padding: 6,
                       minHeight: 40,
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
+                      wordBreak: "break-word",
                     }}
                   >
                     {event.status === "Holiday" ? (
                       <>
-                        <span>{event.employee}</span>
+                        <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
                         <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
                       </>
                     ) : (
                       <>
-                        <span>{event.employee}</span>
-                        <span style={{ fontWeight: 800 }}>{event.title}</span>
+                        <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
+                        <span style={{ fontWeight: 800, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                          {event.title}
+                        </span>
                         <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
                       </>
                     )}
@@ -2623,13 +2672,13 @@ export default function DashboardPage({ bookingSaved }) {
               }}
               eventPropGetter={(event) => ({
                 style: {
-                  backgroundColor: event.status === "Holiday" ? "#d3d3d3" : "#9e9e9e",
-                  color: "#111",
+                  backgroundColor: event.status === "Holiday" ? "#ced8e3" : "#c6d3df",
+                  color: "#1b3044",
                   fontWeight: 700,
                   padding: 0,
                   borderRadius: 8,
-                  border: "2px solid #999",
-                  boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                  border: event.status === "Holiday" ? "1px solid #9fb2c4" : "1px solid #97adc0",
+                  boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
                 },
               })}
               dayPropGetter={() => ({
@@ -2647,7 +2696,7 @@ export default function DashboardPage({ bookingSaved }) {
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Today’s Jobs</h2>
-              <div style={hint}>Quick view of jobs happening today.</div>
+              <div style={hint}>Today’s confirmed operational schedule.</div>
             </div>
             <div style={chip}>{todaysJobs.length}</div>
           </div>
@@ -2702,7 +2751,7 @@ export default function DashboardPage({ bookingSaved }) {
                           {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "—"}
                         </td>
 
-                        {/* ✅ UPDATED: if crewed, show "Crewed" and hide counts */}
+                        {/*  UPDATED: if crewed, show "Crewed" and hide counts */}
                         <td style={td}>
                           {isCrewed ? (
                             <span style={{ fontWeight: 900 }}>Crewed</span>
@@ -2993,7 +3042,7 @@ export default function DashboardPage({ bookingSaved }) {
         />
       )}
 
-      {/* ✅ HolidayForm modal overlay (unchanged logic) */}
+      {/*  HolidayForm modal overlay (unchanged logic) */}
       {holidayModalOpen && (
         <div
           style={{
@@ -3030,7 +3079,7 @@ export default function DashboardPage({ bookingSaved }) {
         </div>
       )}
 
-      {/* ✅ CreateNote modal overlay */}
+      {/*  CreateNote modal overlay */}
       {createNoteOpen && (
         <div
           style={{
@@ -3114,7 +3163,7 @@ export default function DashboardPage({ bookingSaved }) {
                   cursor: "pointer",
                 }}
               >
-                ✕
+                x
               </button>
             </div>
 

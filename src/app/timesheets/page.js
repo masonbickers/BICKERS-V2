@@ -1,19 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-/* -------------------------------------------------------------------------- */
-/*                              DATE HELPERS                                   */
-/* -------------------------------------------------------------------------- */
-
 function getMonday(d) {
   d = new Date(d);
-  const day = d.getDay(); // 0 = Sun, 1 = Mon
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust to Monday
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
 
@@ -24,14 +20,13 @@ function formatWeekRange(mondayStr) {
   return `${monday.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
-  })} – ${sunday.toLocaleDateString("en-GB", {
+  })} - ${sunday.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   })}`;
 }
 
-/** Safely convert Firestore Timestamp / Date / string → millis */
 function toMillis(val) {
   if (!val) return 0;
 
@@ -48,13 +43,12 @@ function toMillis(val) {
 
   if (typeof val === "string") {
     const d = new Date(val);
-    return isNaN(d.getTime()) ? 0 : d.getTime();
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
   }
 
   return 0;
 }
 
-/** Best-effort "last updated" millis for a timesheet */
 function getTimesheetUpdatedMs(ts) {
   return (
     toMillis(ts.updatedAt) ||
@@ -65,117 +59,273 @@ function getTimesheetUpdatedMs(ts) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                  PAGE                                      */
-/* -------------------------------------------------------------------------- */
+function getTimesheetStatus(ts) {
+  if (!ts) {
+    return {
+      key: "missing",
+      label: "Missing",
+      helper: "No saved timesheet for this week.",
+      text: "#9f1239",
+      bg: "#fff1f2",
+      border: "#fecdd3",
+      accent: "#e11d48",
+      clickable: false,
+    };
+  }
+
+  const approved =
+    String(ts.status || "").toLowerCase() === "approved" ||
+    ts.approved === true ||
+    !!ts.approvedAt;
+
+  if (approved) {
+    return {
+      key: "approved",
+      label: "Approved",
+      helper: "Approved and closed for review.",
+      text: "#166534",
+      bg: "#dcfce7",
+      border: "#86efac",
+      accent: "#16a34a",
+      clickable: true,
+    };
+  }
+
+  if (ts.submitted) {
+    return {
+      key: "submitted",
+      label: "Submitted",
+      helper: "Submitted and awaiting final review.",
+      text: "#14532d",
+      bg: "#ecfdf5",
+      border: "#86efac",
+      accent: "#22c55e",
+      clickable: true,
+    };
+  }
+
+  return {
+    key: "draft",
+    label: "Draft",
+    helper: "Saved but not submitted by the employee.",
+    text: "#92400e",
+    bg: "#fffbeb",
+    border: "#fcd34d",
+    accent: "#f59e0b",
+    clickable: true,
+  };
+}
+
+const UI = {
+  radius: 18,
+  radiusSm: 12,
+  bg: "#edf3f8",
+  panelTint: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  ink: "#0f172a",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  border: "1px solid #dbe2ea",
+  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+};
+
+function countStatuses(timesheets, weeks) {
+  const summary = { approved: 0, submitted: 0, draft: 0, missing: 0 };
+
+  weeks.forEach((week) => {
+    const ts = timesheets.find((item) => item.weekStart === week);
+    const status = getTimesheetStatus(ts).key;
+    summary[status] += 1;
+  });
+
+  return summary;
+}
 
 export default function TimesheetListPage() {
-  const [grouped, setGrouped] = useState({});
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // all, submitted, missing
-  const [weekFilter, setWeekFilter] = useState("all"); // all or specific weekStart ISO
   const router = useRouter();
+
+  const [grouped, setGrouped] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [weekFilter, setWeekFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("attention");
+
+  const weekOptions = useMemo(
+    () =>
+      [...Array(4)].map((_, i) => {
+        const monday = getMonday(new Date());
+        monday.setDate(monday.getDate() - 7 * i);
+        return monday.toISOString().split("T")[0];
+      }),
+    []
+  );
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
+      setError("");
+
       try {
-        // Employees
-        const empSnap = await getDocs(collection(db, "employees"));
+        const [empSnap, tsSnap] = await Promise.all([
+          getDocs(collection(db, "employees")),
+          getDocs(collection(db, "timesheets")),
+        ]);
+
         const employees = empSnap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
-        // Timesheets
-        const tsSnap = await getDocs(collection(db, "timesheets"));
         const timesheets = tsSnap.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
-        // Deduplicate → latest per employeeCode + weekStart
         const latestMap = {};
         timesheets.forEach((ts) => {
-          const key = `${ts.employeeCode}_${ts.weekStart}`;
+          const key = `${ts.employeeCode || "unknown"}_${ts.weekStart || "unknown"}`;
           const current = latestMap[key];
-          if (!current) {
-            latestMap[key] = ts;
-            return;
-          }
-          const curMs = getTimesheetUpdatedMs(current);
-          const nextMs = getTimesheetUpdatedMs(ts);
-          if (nextMs > curMs) {
+          if (!current || getTimesheetUpdatedMs(ts) > getTimesheetUpdatedMs(current)) {
             latestMap[key] = ts;
           }
         });
-        const deduped = Object.values(latestMap);
 
-        // Group by employeeCode
+        const deduped = Object.values(latestMap);
         const groupedByEmp = {};
+
         employees.forEach((emp) => {
           const code = emp.userCode || emp.code || "";
-          const empTimesheets = deduped
-            .filter((ts) => ts.employeeCode === code)
-            .sort(
-              (a, b) =>
-                new Date(b.weekStart).getTime() -
-                new Date(a.weekStart).getTime()
-            );
+          if (!code) return;
 
           groupedByEmp[code] = {
-            name: emp.name || "Unnamed",
+            name: emp.name || "Unnamed employee",
             code,
-            timesheets: empTimesheets,
+            employeeId: emp.id,
+            timesheets: [],
           };
+        });
+
+        deduped.forEach((ts) => {
+          const code = ts.employeeCode || "unknown";
+          if (!groupedByEmp[code]) {
+            groupedByEmp[code] = {
+              name: ts.employeeName || "Unknown employee",
+              code,
+              employeeId: null,
+              timesheets: [],
+            };
+          }
+          groupedByEmp[code].timesheets.push(ts);
+        });
+
+        Object.values(groupedByEmp).forEach((emp) => {
+          emp.timesheets.sort(
+            (a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+          );
         });
 
         setGrouped(groupedByEmp);
       } catch (err) {
         console.error("Error loading timesheets:", err);
+        setError("Unable to load timesheet data right now.");
+      } finally {
+        setLoading(false);
       }
     };
 
     loadData();
   }, []);
 
-  // Past 4 weeks (including current)
-  const weekOptions = [...Array(4)].map((_, i) => {
-    const monday = getMonday(new Date());
-    monday.setDate(monday.getDate() - 7 * i);
-    return monday.toISOString().split("T")[0];
-  });
+  const displayedWeeks = useMemo(
+    () => (weekFilter === "all" ? weekOptions : [weekFilter]),
+    [weekFilter, weekOptions]
+  );
+  const employees = useMemo(() => Object.values(grouped), [grouped]);
 
-  /* --------------------------- FILTERED EMPLOYEES -------------------------- */
+  const filteredEmployees = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
 
-  const filteredEmployees = Object.values(grouped).filter((emp) => {
-    const matchesSearch =
-      (emp.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (emp.code || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const filtered = employees.filter((emp) => {
+      const matchesSearch =
+        !search ||
+        (emp.name || "").toLowerCase().includes(search) ||
+        (emp.code || "").toLowerCase().includes(search);
 
-    let matchesStatus = true;
+      const summary = countStatuses(emp.timesheets, weekOptions);
 
-    if (statusFilter === "submitted") {
-      // at least one submitted in last 4 weeks
-      matchesStatus = weekOptions.some((week) =>
-        emp.timesheets.some(
-          (t) => t.weekStart === week && t.submitted === true
-        )
-      );
-    } else if (statusFilter === "missing") {
-      // none submitted in last 4 weeks
-      matchesStatus = weekOptions.every(
-        (week) =>
-          !emp.timesheets.some(
-            (t) => t.weekStart === week && t.submitted === true
-          )
-      );
-    }
+      let matchesStatus = true;
+      if (statusFilter === "approved") matchesStatus = summary.approved > 0;
+      if (statusFilter === "submitted") matchesStatus = summary.submitted > 0;
+      if (statusFilter === "draft") matchesStatus = summary.draft > 0;
+      if (statusFilter === "missing") matchesStatus = summary.missing > 0;
+      if (statusFilter === "attention") {
+        matchesStatus = summary.submitted > 0 || summary.draft > 0 || summary.missing > 0;
+      }
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    });
 
-  const displayedWeeks =
-    weekFilter === "all" ? weekOptions : [weekFilter];
+    filtered.sort((a, b) => {
+      const aSummary = countStatuses(a.timesheets, displayedWeeks);
+      const bSummary = countStatuses(b.timesheets, displayedWeeks);
+      const aLatest = Math.max(0, ...a.timesheets.map(getTimesheetUpdatedMs));
+      const bLatest = Math.max(0, ...b.timesheets.map(getTimesheetUpdatedMs));
+
+      if (sortBy === "name") {
+        return (a.name || "").localeCompare(b.name || "");
+      }
+
+      if (sortBy === "recent") {
+        return bLatest - aLatest;
+      }
+
+      const score = (summary) =>
+        summary.missing * 4 + summary.draft * 3 + summary.submitted * 2 + summary.approved;
+
+      return score(bSummary) - score(aSummary) || (a.name || "").localeCompare(b.name || "");
+    });
+
+    return filtered;
+  }, [displayedWeeks, employees, searchTerm, sortBy, statusFilter, weekOptions]);
+
+  const overview = useMemo(
+    () =>
+      filteredEmployees.reduce(
+        (acc, emp) => {
+          acc.employees += 1;
+          const summary = countStatuses(emp.timesheets, displayedWeeks);
+          acc.approved += summary.approved;
+          acc.submitted += summary.submitted;
+          acc.draft += summary.draft;
+          acc.missing += summary.missing;
+          return acc;
+        },
+        { employees: 0, approved: 0, submitted: 0, draft: 0, missing: 0 }
+      ),
+    [displayedWeeks, filteredEmployees]
+  );
+
+  const inputStyle = {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: UI.radiusSm,
+    border: UI.border,
+    fontSize: 13,
+    background: "#f8fbfd",
+    outline: "none",
+    color: UI.ink,
+  };
+
+  const metricCards = [
+    { label: "Employees in view", value: overview.employees },
+    { label: "Submitted for review", value: overview.submitted },
+    { label: "Approved", value: overview.approved },
+    { label: "Draft only", value: overview.draft },
+    { label: "Missing weeks", value: overview.missing },
+  ];
 
   return (
     <HeaderSidebarLayout>
@@ -183,244 +333,257 @@ export default function TimesheetListPage() {
         style={{
           flex: 1,
           minHeight: "100vh",
-          backgroundColor: "#f4f4f5",
-          color: "#111827",
-          fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          padding: "32px 32px 40px 32px",
+          background: UI.bg,
+          color: UI.ink,
+          padding: "22px 18px 34px",
           boxSizing: "border-box",
           width: "100%",
         }}
       >
-        {/* Top content wrapper – full width */}
-        <div style={{ width: "100%" }}>
-          {/* Header row */}
+        <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
           <div
             style={{
               display: "flex",
-              alignItems: "baseline",
+              alignItems: "flex-start",
               justifyContent: "space-between",
-              gap: 16,
-              marginBottom: 18,
+              gap: 12,
+              marginBottom: 14,
               flexWrap: "wrap",
             }}
           >
             <div>
-              <h1
-                style={{
-                  fontSize: 28,
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                📂 Timesheet Submissions
+              <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>
+                Timesheet Submissions
               </h1>
               <p
                 style={{
                   marginTop: 6,
                   marginBottom: 0,
                   fontSize: 13,
-                  color: "#6b7280",
+                  color: UI.muted,
+                  maxWidth: 760,
                 }}
               >
-                Review weekly timesheets by employee. Dark green = approved, light
-                green = submitted, amber = draft only, red = missing.
+                Review weekly submissions by employee, prioritise missing and draft weeks,
+                and open any saved timesheet directly for approval follow-up.
               </p>
             </div>
 
-            {/* Legend */}
             <div
               style={{
                 display: "flex",
                 gap: 8,
-                fontSize: 11,
-                color: "#4b5563",
                 flexWrap: "wrap",
                 justifyContent: "flex-end",
               }}
             >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  background: "#dcfce7",
-                  borderRadius: 999,
-                }}
-              >
+              {[
+                { label: "Approved", bg: "#dcfce7", dot: "#16a34a" },
+                { label: "Submitted", bg: "#ecfdf5", dot: "#22c55e" },
+                { label: "Draft", bg: "#fffbeb", dot: "#f59e0b" },
+                { label: "Missing", bg: "#fff1f2", dot: "#e11d48" },
+              ].map((item) => (
                 <span
+                  key={item.label}
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "999px",
-                    background: "#16a34a",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: item.bg,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#334155",
                   }}
-                />
-                Submitted
-              </span>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  background: "#bbf7d0",
-                  borderRadius: 999,
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "999px",
-                    background: "#15803d",
-                  }}
-                />
-                Approved
-              </span>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  background: "#fef3c7",
-                  borderRadius: 999,
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "999px",
-                    background: "#f59e0b",
-                  }}
-                />
-                Draft only
-              </span>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 8px",
-                  background: "#fee2e2",
-                  borderRadius: 999,
-                }}
-              >
-                <span
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "999px",
-                    background: "#ef4444",
-                  }}
-                />
-                Missing
-              </span>
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: item.dot,
+                    }}
+                  />
+                  {item.label}
+                </span>
+              ))}
             </div>
           </div>
 
-          {/* Filters card */}
           <div
             style={{
-              background: "#ffffff",
+              background: "linear-gradient(135deg, #17324f 0%, #234a71 100%)",
+              borderRadius: UI.radius,
+              color: "#ffffff",
               padding: 16,
-              borderRadius: 12,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              border: "1px solid #e5e7eb",
-              marginBottom: 24,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 16,
-              alignItems: "flex-end",
+              boxShadow: UI.shadowSm,
+              marginBottom: 14,
             }}
           >
-            <div style={{ flex: 1, minWidth: 220 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  Timesheet control
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>
+                  Weekly submission overview
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "7px 11px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  background: "rgba(255,255,255,0.08)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Window:
+                <span>
+                  {weekFilter === "all" ? "Last 4 weeks" : formatWeekRange(weekFilter)}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {metricCards.map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 14,
+                    padding: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "rgba(255,255,255,0.7)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {card.label}
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>
+                    {card.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: UI.panelTint,
+              padding: 14,
+              borderRadius: UI.radius,
+              boxShadow: UI.shadowSm,
+              border: UI.border,
+              marginBottom: 14,
+              display: "grid",
+              gridTemplateColumns: "minmax(240px, 1.2fr) repeat(3, minmax(180px, 0.75fr)) auto",
+              gap: 12,
+              alignItems: "end",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
               <label
                 style={{
                   display: "block",
                   fontSize: 12,
-                  fontWeight: 600,
-                  color: "#4b5563",
-                  marginBottom: 4,
+                  fontWeight: 700,
+                  color: UI.muted,
+                  marginBottom: 5,
                 }}
               >
-                Search
+                Search employee
               </label>
               <input
                 type="text"
-                placeholder="Search by employee name or code"
+                placeholder="Name or employee code"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  outline: "none",
-                  background: "#f9fafb",
-                }}
+                style={inputStyle}
               />
             </div>
 
-            <div style={{ minWidth: 180 }}>
+            <div>
               <label
                 style={{
                   display: "block",
                   fontSize: 12,
-                  fontWeight: 600,
-                  color: "#4b5563",
-                  marginBottom: 4,
+                  fontWeight: 700,
+                  color: UI.muted,
+                  marginBottom: 5,
                 }}
               >
-                Employee status (last 4 weeks)
+                Status focus
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  background: "#f9fafb",
-                }}
+                style={inputStyle}
               >
                 <option value="all">All employees</option>
-                <option value="submitted">Has submissions</option>
-                <option value="missing">No submissions</option>
+                <option value="attention">Needs attention</option>
+                <option value="submitted">Submitted</option>
+                <option value="approved">Approved</option>
+                <option value="draft">Draft only</option>
+                <option value="missing">Missing weeks</option>
               </select>
             </div>
 
-            <div style={{ minWidth: 200 }}>
+            <div>
               <label
                 style={{
                   display: "block",
                   fontSize: 12,
-                  fontWeight: 600,
-                  color: "#4b5563",
-                  marginBottom: 4,
+                  fontWeight: 700,
+                  color: UI.muted,
+                  marginBottom: 5,
                 }}
               >
-                Week
+                Reporting week
               </label>
               <select
                 value={weekFilter}
                 onChange={(e) => setWeekFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid #d1d5db",
-                  fontSize: 13,
-                  background: "#f9fafb",
-                }}
+                style={inputStyle}
               >
-                <option value="all">All weeks (last 4)</option>
+                <option value="all">Last 4 weeks</option>
                 {weekOptions.map((week) => (
                   <option key={week} value={week}>
                     {formatWeekRange(week)}
@@ -428,318 +591,401 @@ export default function TimesheetListPage() {
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* EMPLOYEE LIST */}
-          {filteredEmployees.length === 0 ? (
-            <p style={{ color: "#6b7280", fontSize: 14 }}>
-              No matching employees found. Try adjusting your filters.
-            </p>
-          ) : (
-            filteredEmployees.map((emp) => (
-              <div
-                key={emp.code}
+            <div>
+              <label
                 style={{
-                  background: "#ffffff",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                  padding: 16,
-                  marginBottom: 18,
-                  width: "100%",
-                  boxSizing: "border-box",
+                  display: "block",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: UI.muted,
+                  marginBottom: 5,
                 }}
               >
-                {/* Employee header */}
+                Sort by
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="attention">Attention needed</option>
+                <option value="recent">Recent activity</option>
+                <option value="name">Employee name</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+                setWeekFilter("all");
+                setSortBy("attention");
+              }}
+              style={{
+                padding: "10px 14px",
+                borderRadius: UI.radiusSm,
+                border: UI.border,
+                background: "#ffffff",
+                color: UI.brand,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                minHeight: 41,
+              }}
+            >
+              Reset filters
+            </button>
+          </div>
+
+          {loading ? (
+            <div
+              style={{
+                background: UI.panelTint,
+                borderRadius: UI.radius,
+                border: UI.border,
+                boxShadow: UI.shadowSm,
+                padding: 18,
+                color: UI.muted,
+                fontSize: 14,
+              }}
+            >
+              Loading timesheet submissions...
+            </div>
+          ) : error ? (
+            <div
+              style={{
+                background: "#fff1f2",
+                borderRadius: UI.radius,
+                border: "1px solid #fecdd3",
+                padding: 18,
+                color: "#9f1239",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {error}
+            </div>
+          ) : filteredEmployees.length === 0 ? (
+            <div
+              style={{
+                background: UI.panelTint,
+                borderRadius: UI.radius,
+                border: UI.border,
+                boxShadow: UI.shadowSm,
+                padding: 18,
+                color: UI.muted,
+                fontSize: 14,
+              }}
+            >
+              No matching employees found. Try widening the filters or clearing the search.
+            </div>
+          ) : (
+            filteredEmployees.map((emp) => {
+              const summary = countStatuses(emp.timesheets, displayedWeeks);
+
+              return (
                 <div
+                  key={emp.code}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginBottom: 10,
-                    gap: 8,
-                    flexWrap: "wrap",
+                    background: UI.panelTint,
+                    borderRadius: UI.radius,
+                    border: UI.border,
+                    boxShadow: UI.shadowSm,
+                    padding: 14,
+                    marginBottom: 14,
                   }}
                 >
-                  <div>
-                    <h2
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 600,
-                        margin: 0,
-                        color: "#111827",
-                      }}
-                    >
-                      {emp.name || "Unknown employee"}
-                    </h2>
-                    <p
-                      style={{
-                        margin: 0,
-                        marginTop: 2,
-                        fontSize: 12,
-                        color: "#6b7280",
-                      }}
-                    >
-                      Code:{" "}
-                      <span style={{ fontWeight: 600 }}>{emp.code}</span>
-                    </p>
-                  </div>
-
-                  {/* Quick summary */}
                   <div
                     style={{
-                      fontSize: 11,
-                      color: "#6b7280",
-                      textAlign: "right",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginBottom: 12,
                     }}
                   >
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "3px 8px",
-                        borderRadius: 999,
-                        background: "#f9fafb",
-                        border: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "999px",
-                          background: "#22c55e",
-                        }}
-                      />
-                      {
-                        emp.timesheets.filter(
-                          (t) =>
-                            weekOptions.includes(t.weekStart) &&
-                            t.submitted === true
-                        ).length
-                      }{" "}
-                      submitted in window
-                    </span>
-                  </div>
-                </div>
-
-                {/* Week cards */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(260px, 1fr))",
-                    gap: 14,
-                    marginTop: 4,
-                    width: "100%",
-                  }}
-                >
-                  {displayedWeeks.map((weekStart) => {
-                    const ts = emp.timesheets.find(
-                      (t) => t.weekStart === weekStart
-                    );
-
-                    // 🔒 Detect approved status
-                    const isApproved =
-                      ts &&
-                      (String(ts.status || "").toLowerCase() === "approved" ||
-                        ts.approved === true ||
-                        !!ts.approvedAt);
-
-                    let statusLabel = "No timesheet submitted";
-                    let statusColour = "#b91c1c";
-                    let statusBg = "#fee2e2";
-                    let borderColour = "#fca5a5";
-                    let clickable = false;
-                    let pillIcon = "❌";
-
-                    if (ts) {
-                      clickable = true;
-
-                      if (isApproved) {
-                        statusLabel = "Approved";
-                        statusColour = "#15803d";
-                        statusBg = "#bbf7d0";
-                        borderColour = "#22c55e";
-                        pillIcon = "✅";
-                      } else if (ts.submitted) {
-                        statusLabel = "Submitted";
-                        statusColour = "#166534";
-                        statusBg = "#dcfce7";
-                        borderColour = "#4ade80";
-                        pillIcon = "✅";
-                      } else {
-                        statusLabel = "Draft (not submitted)";
-                        statusColour = "#92400e";
-                        statusBg = "#fef3c7";
-                        borderColour = "#fbbf24";
-                        pillIcon = "📝";
-                      }
-                    }
-
-                    const lastUpdateMs = ts ? getTimesheetUpdatedMs(ts) : 0;
-                    const lastUpdateText =
-                      lastUpdateMs > 0
-                        ? new Date(lastUpdateMs).toLocaleString("en-GB")
-                        : null;
-
-                    return (
+                    <div>
                       <div
-                        key={weekStart}
                         style={{
-                          backgroundColor: "#ffffff",
-                          padding: 14,
-                          borderRadius: 10,
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-                          cursor: clickable ? "pointer" : "default",
-                          border: `1px solid ${borderColour}`,
-                          transition:
-                            "transform 0.05s ease-out, box-shadow 0.05s ease-out, border-color 0.05s ease-out",
-                        }}
-                        onClick={() =>
-                          ts && router.push(`/timesheet-id/${ts.id}`)
-                        }
-                        onMouseEnter={(e) => {
-                          if (!clickable) return;
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.boxShadow =
-                            "0 4px 12px rgba(0,0,0,0.07)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "none";
-                          e.currentTarget.style.boxShadow =
-                            "0 1px 2px rgba(0,0,0,0.03)";
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
                         }}
                       >
-                        <div
+                        <h2
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: 8,
+                            fontSize: 18,
+                            fontWeight: 800,
+                            margin: 0,
+                            color: UI.ink,
                           }}
                         >
-                          <div>
-                            <h3
-                              style={{
-                                margin: 0,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                color: "#111827",
-                              }}
-                            >
-                              {formatWeekRange(weekStart)}
-                            </h3>
-                            <p
-                              style={{
-                                margin: 0,
-                                marginTop: 3,
-                                fontSize: 11,
-                                color: "#6b7280",
-                              }}
-                            >
-                              Week starting{" "}
-                              <span style={{ fontWeight: 500 }}>
-                                {new Date(weekStart).toLocaleDateString(
-                                  "en-GB"
-                                )}
-                              </span>
-                            </p>
-                          </div>
+                          {emp.name || "Unknown employee"}
+                        </h2>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: UI.brandSoft,
+                            border: `1px solid ${UI.brandBorder}`,
+                            color: UI.brand,
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {emp.code || "No code"}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          color: UI.muted,
+                          fontSize: 12,
+                        }}
+                      >
+                        {displayedWeeks.length === 1
+                          ? "Single-week review window"
+                          : `Reviewing ${displayedWeeks.length} weekly slots for this employee`}
+                      </p>
+                    </div>
 
-                          {/* Status pill */}
-                          <span
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        flexWrap: "wrap",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      {[
+                        {
+                          label: "Approved",
+                          value: summary.approved,
+                          bg: "#dcfce7",
+                          color: "#166534",
+                        },
+                        {
+                          label: "Submitted",
+                          value: summary.submitted,
+                          bg: "#ecfdf5",
+                          color: "#166534",
+                        },
+                        {
+                          label: "Draft",
+                          value: summary.draft,
+                          bg: "#fffbeb",
+                          color: "#92400e",
+                        },
+                        {
+                          label: "Missing",
+                          value: summary.missing,
+                          bg: "#fff1f2",
+                          color: "#9f1239",
+                        },
+                      ].map((item) => (
+                        <span
+                          key={item.label}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            background: item.bg,
+                            color: item.color,
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {item.label}
+                          <span>{item.value}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    {displayedWeeks.map((weekStart) => {
+                      const ts = emp.timesheets.find((t) => t.weekStart === weekStart);
+                      const status = getTimesheetStatus(ts);
+                      const lastUpdateMs = ts ? getTimesheetUpdatedMs(ts) : 0;
+                      const lastUpdateText =
+                        lastUpdateMs > 0
+                          ? new Date(lastUpdateMs).toLocaleString("en-GB")
+                          : "No activity recorded";
+
+                      return (
+                        <div
+                          key={weekStart}
+                          onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
+                          style={{
+                            background: "#ffffff",
+                            borderRadius: 14,
+                            border: `1px solid ${status.border}`,
+                            boxShadow: "0 8px 22px rgba(15,23,42,0.05)",
+                            padding: 13,
+                            cursor: status.clickable ? "pointer" : "default",
+                            transition: "transform 0.12s ease, box-shadow 0.12s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!status.clickable) return;
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                            e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.09)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "none";
+                            e.currentTarget.style.boxShadow = "0 8px 22px rgba(15,23,42,0.05)";
+                          }}
+                        >
+                          <div
                             style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              padding: "4px 8px",
-                              borderRadius: 999,
-                              background: statusBg,
-                              color: statusColour,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              whiteSpace: "nowrap",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              alignItems: "flex-start",
                             }}
                           >
-                            {pillIcon} {statusLabel}
-                          </span>
-                        </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: 14,
+                                  fontWeight: 800,
+                                  color: UI.ink,
+                                  lineHeight: 1.2,
+                                }}
+                              >
+                                {formatWeekRange(weekStart)}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 3,
+                                  fontSize: 11,
+                                  color: UI.muted,
+                                }}
+                              >
+                                Week starting {new Date(weekStart).toLocaleDateString("en-GB")}
+                              </div>
+                            </div>
 
-                        {ts && (
-                          <div style={{ marginTop: 8 }}>
-                            <p
+                            <span
                               style={{
-                                margin: 0,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "5px 9px",
+                                borderRadius: 999,
+                                background: status.bg,
+                                color: status.text,
                                 fontSize: 11,
-                                color: "#6b7280",
+                                fontWeight: 800,
+                                whiteSpace: "nowrap",
                               }}
                             >
-                              Timesheet ID:{" "}
                               <span
                                 style={{
-                                  fontFamily: "monospace",
-                                  fontSize: 11,
-                                  color: "#4b5563",
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 999,
+                                  background: status.accent,
                                 }}
-                              >
-                                {ts.id}
-                              </span>
-                            </p>
-                            {lastUpdateText && (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  marginTop: 2,
-                                  fontSize: 11,
-                                  color: "#6b7280",
-                                }}
-                              >
-                                Last update:{" "}
-                                <span style={{ fontWeight: 500 }}>
-                                  {lastUpdateText}
-                                </span>
-                              </p>
-                            )}
+                              />
+                              {status.label}
+                            </span>
                           </div>
-                        )}
 
-                        {!ts && (
-                          <p
+                          <div
                             style={{
-                              margin: 0,
-                              marginTop: 8,
-                              fontSize: 12,
-                              color: "#991b1b",
-                            }}
-                          >
-                            No saved timesheet for this week.
-                          </p>
-                        )}
-
-                        {clickable && (
-                          <p
-                            style={{
-                              margin: 0,
                               marginTop: 10,
-                              fontSize: 11,
-                              color: "#2563eb",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
+                              display: "grid",
+                              gap: 6,
                             }}
                           >
-                            <span>View timesheet</span>
-                            <span>↗</span>
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: UI.muted,
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {status.helper}
+                            </div>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 4,
+                                padding: "10px 11px",
+                                borderRadius: 12,
+                                background: "#f8fbfd",
+                                border: UI.border,
+                              }}
+                            >
+                              <div style={{ fontSize: 11, color: UI.muted }}>Timesheet ID</div>
+                              <div
+                                style={{
+                                  fontFamily:
+                                    "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                                  fontSize: 11,
+                                  color: UI.ink,
+                                  wordBreak: "break-all",
+                                }}
+                              >
+                                {ts?.id || "Not created"}
+                              </div>
+                              <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
+                                Last update
+                              </div>
+                              <div style={{ fontSize: 11, color: UI.ink }}>{lastUpdateText}</div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: 10,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: status.clickable ? UI.brand : UI.muted,
+                              }}
+                            >
+                              {status.clickable ? "Open timesheet" : "Awaiting submission"}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 800,
+                                color: status.clickable ? UI.brand : "#94a3b8",
+                              }}
+                            >
+                              {status.clickable ? ">" : "-"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

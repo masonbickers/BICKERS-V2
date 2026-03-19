@@ -78,12 +78,12 @@ export default function ContactsPage() {
           <p style={{ margin: 0, fontWeight: "bold" }}>{c.role}</p>
           {c.email && (
             <p style={{ margin: "4px 0" }}>
-              📧 <a href={`mailto:${c.email}`}>{c.email}</a>
+               <a href={`mailto:${c.email}`}>{c.email}</a>
             </p>
           )}
           {c.phone && (
             <p style={{ margin: "4px 0" }}>
-              📞 <a href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}>{c.phone}</a>
+               <a href={`tel:${c.phone.replace(/[^+\d]/g, "")}`}>{c.phone}</a>
             </p>
           )}
         </div>

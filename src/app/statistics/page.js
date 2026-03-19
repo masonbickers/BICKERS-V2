@@ -78,7 +78,7 @@ const parseDate = (raw) => {
   try {
     if (typeof raw?.toDate === "function") return raw.toDate(); // Firestore Timestamp
 
-    // ✅ safer parse for YYYY-MM-DD (avoid BST off-by-one)
+    //  safer parse for YYYY-MM-DD (avoid BST off-by-one)
     if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return new Date(`${raw}T00:00:00.000Z`);
     }
@@ -281,7 +281,7 @@ const toEquipmentTokens = (equipment) => {
 };
 
 /* ───────────────────────────────────────────
-   Hotel helpers (✅ updated: paidBy support)
+   Hotel helpers ( updated: paidBy support)
 ─────────────────────────────────────────── */
 const num = (v) => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -334,7 +334,7 @@ const getHotelForJob = (job = {}) => {
     isProductionPaid,
     costPerNight,
     nights,
-    // ✅ analytics total: exclude production-paid spend
+    //  analytics total: exclude production-paid spend
     total: isProductionPaid ? 0 : total,
     // optional: raw total if you ever want to show "production-paid total"
     rawTotal: total,
@@ -714,7 +714,7 @@ export default function StatisticsPage() {
     return { totalShootDays, thisMonth, avgPerMonth, monthsWithDataCount: monthsWithData.length };
   }, [jobsFiltered, todayMidnight]);
 
-  /* ✅ UPDATED: Hotel KPIs + hotel cost per month (paidBy aware) */
+  /*  UPDATED: Hotel KPIs + hotel cost per month (paidBy aware) */
   const hotelStats = useMemo(() => {
     let hotelJobs = 0;
     let hotelNights = 0;
@@ -1053,7 +1053,7 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date ≥ today</div>
             </div>
 
-            {/* ✅ UPDATED: Hotel cost excludes Production-paid */}
+            {/*  UPDATED: Hotel cost excludes Production-paid */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
@@ -1062,7 +1062,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            {/* ✅ UPDATED: Avg hotel / night payable */}
+            {/*  UPDATED: Avg hotel / night payable */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
@@ -1107,7 +1107,7 @@ export default function StatisticsPage() {
               <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
                 Avg hotel / job (payable): <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
               </span>
-              {/* ✅ NEW tiny split line (keeps rest the same, just more clarity) */}
+              {/*  NEW tiny split line (keeps rest the same, just more clarity) */}
               <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
                 Production-paid: <b style={{ marginLeft: 6 }}>{hotelStats.productionPaidHotelNights}</b> nights
               </span>
@@ -1131,7 +1131,7 @@ export default function StatisticsPage() {
           />
         </div>
 
-        {/* ✅ UPDATED: Hotel cost chart shows payable only */}
+        {/*  UPDATED: Hotel cost chart shows payable only */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart
             title="Hotel cost per month (payable)"

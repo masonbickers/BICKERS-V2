@@ -5,8 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-import { db } from "../../../../firebaseConfig";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { auth, db } from "../../../../firebaseConfig";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import {
+  deriveRoleFromAccess,
+  resolveDefaultWorkspace,
+  getWorkspaceRoute,
+  validateEmployeeAccessDraft,
+} from "@/app/utils/accessControl";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Holiday page)
@@ -141,6 +147,17 @@ const inputBase = {
   color: UI.text,
 };
 
+const chip = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  border: "1px solid #e5e7eb",
+  background: "#f1f5f9",
+  color: UI.text,
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
 const labelStyle = {
   display: "block",
   marginBottom: 6,
@@ -150,6 +167,16 @@ const labelStyle = {
 };
 
 const helperStyle = { marginTop: 6, color: UI.muted, fontSize: 12 };
+const inlineNotice = (tone = "success") => ({
+  padding: "8px 10px",
+  borderRadius: 10,
+  fontSize: 12,
+  fontWeight: 700,
+  border:
+    tone === "error" ? "1px solid #fecdd3" : "1px solid #bbf7d0",
+  background: tone === "error" ? "#fff1f2" : "#ecfdf5",
+  color: tone === "error" ? "#9f1239" : "#166534",
+});
 
 /* ── Utils ─────────────────────────────────────────────────────────────── */
 const asStr = (v) => (v == null ? "" : String(v));
@@ -198,6 +225,9 @@ export default function EditEmployeePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [accessErrors, setAccessErrors] = useState({});
 
   const [formData, setFormData] = useState({
     name: "",
@@ -205,7 +235,11 @@ export default function EditEmployeePage() {
     email: "",
     dob: "",
     licenceNumber: "",
-    jobTitle: [], // ✅ array
+    jobTitle: [], //  array
+    role: "employee",
+    isService: false,
+    appAccess: { user: true, service: false },
+    defaultWorkspace: "user",
   });
 
   useEffect(() => {
@@ -226,6 +260,17 @@ export default function EditEmployeePage() {
         const jt = Array.isArray(data.jobTitle)
           ? data.jobTitle
           : [data.jobTitle].filter(Boolean);
+        const loadedAccess = {
+          user:
+            typeof data?.appAccess?.user === "boolean"
+              ? data.appAccess.user
+              : !(data.isService === true || String(data.role || "").trim().toLowerCase() === "service"),
+          service:
+            typeof data?.appAccess?.service === "boolean"
+              ? data.appAccess.service
+              : data.isService === true ||
+                ["service", "hybrid"].includes(String(data.role || "").trim().toLowerCase()),
+        };
 
         setFormData({
           name: asStr(data.name || data.fullName || ""),
@@ -234,10 +279,19 @@ export default function EditEmployeePage() {
           dob: asDateInput(data.dob || data.dateOfBirth || ""),
           licenceNumber: asStr(data.licenceNumber || data.licenseNumber || ""),
           jobTitle: jt,
+          role:
+            String(data.role || "").trim().toLowerCase() === "service"
+              ? "service"
+              : String(data.role || "").trim().toLowerCase() === "hybrid"
+                ? "hybrid"
+                : "employee",
+          isService: data.isService === true,
+          appAccess: loadedAccess,
+          defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
         });
       } catch (err) {
         console.error("Error fetching employee:", err);
-        alert("❌ Failed to load employee");
+        alert(" Failed to load employee");
         router.push("/employees");
       } finally {
         setLoading(false);
@@ -252,6 +306,45 @@ export default function EditEmployeePage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleAccessToggle = (workspace) => {
+    setSaveMessage("");
+    setSaveError("");
+    setAccessErrors({});
+    setFormData((prev) => {
+      const nextAccess = {
+        ...prev.appAccess,
+        [workspace]: !prev.appAccess?.[workspace],
+      };
+
+      const fallbackWorkspace = nextAccess.user ? "user" : nextAccess.service ? "service" : prev.defaultWorkspace;
+
+      return {
+        ...prev,
+        appAccess: nextAccess,
+        isService: !!nextAccess.service,
+        role: deriveRoleFromAccess(nextAccess),
+        defaultWorkspace:
+          prev.defaultWorkspace === workspace && !nextAccess[workspace]
+            ? fallbackWorkspace
+            : prev.defaultWorkspace,
+      };
+    });
+  };
+
+  const handleDefaultWorkspaceChange = (e) => {
+    const nextWorkspace = e.target.value;
+    setSaveMessage("");
+    setSaveError("");
+    setAccessErrors({});
+    setFormData((prev) => ({
+      ...prev,
+      defaultWorkspace: nextWorkspace,
+    }));
+  };
+
+  const effectiveRole = deriveRoleFromAccess(formData.appAccess || {});
+  const routingPreview = getWorkspaceRoute(formData.defaultWorkspace || "user");
+
   const toggleJob = (job) => {
     setFormData((prev) => {
       const next = prev.jobTitle.includes(job)
@@ -265,20 +358,41 @@ export default function EditEmployeePage() {
     e.preventDefault();
     if (!employeeId) return;
 
+    const validation = validateEmployeeAccessDraft(formData);
+    setAccessErrors(validation.errors || {});
+    setSaveMessage("");
+    setSaveError("");
+
+    if (!validation.isValid) {
+      setSaveError("Please fix the access settings before saving.");
+      return;
+    }
+
     setSaving(true);
     try {
       const docRef = doc(db, "employees", employeeId);
-      await updateDoc(docRef, {
+      await setDoc(docRef, {
         ...formData,
         // keep dob as YYYY-MM-DD string (matches your other pages)
         dob: formData.dob || "",
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
-      });
-      alert("✅ Employee updated");
-      router.push("/employees");
+        role: effectiveRole,
+        isService: !!formData?.appAccess?.service,
+        appAccess: {
+          user: !!formData?.appAccess?.user,
+          service: !!formData?.appAccess?.service,
+        },
+        defaultWorkspace: formData.defaultWorkspace === "service" ? "service" : "user",
+        updatedAt: serverTimestamp(),
+        updatedBy:
+          auth?.currentUser?.email ||
+          auth?.currentUser?.uid ||
+          "",
+      }, { merge: true });
+      setSaveMessage("Employee access and profile updated.");
     } catch (err) {
       console.error("Error updating employee:", err);
-      alert("❌ Failed to update employee");
+      setSaveError("Failed to update employee.");
     } finally {
       setSaving(false);
     }
@@ -295,11 +409,11 @@ export default function EditEmployeePage() {
     setDeleting(true);
     try {
       await deleteDoc(doc(db, "employees", employeeId));
-      alert("🗑️ Employee deleted");
+      alert(" Employee deleted");
       router.push("/employees");
     } catch (err) {
       console.error("Error deleting employee:", err);
-      alert("❌ Failed to delete employee");
+      alert(" Failed to delete employee");
     } finally {
       setDeleting(false);
     }
@@ -431,11 +545,98 @@ export default function EditEmployeePage() {
                         active={formData.jobTitle.includes(job)}
                         onClick={() => toggleJob(job)}
                       >
-                        {formData.jobTitle.includes(job) ? "✓ " : ""}{job}
+                        {formData.jobTitle.includes(job) ? "Yes " : ""}{job}
                       </Pill>
                     ))}
                   </div>
                 </div>
+
+                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 14, display: "grid", gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>
+                      Access & Role
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Control whether this employee can use the User workspace, the Service workspace, or both.
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleAccessToggle("user")}
+                      style={{
+                        ...btn(formData.appAccess.user ? "primary" : "ghost"),
+                        justifyContent: "space-between",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>User app access</span>
+                      <span>{formData.appAccess.user ? "On" : "Off"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAccessToggle("service")}
+                      style={{
+                        ...btn(formData.appAccess.service ? "primary" : "ghost"),
+                        justifyContent: "space-between",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>Service app access</span>
+                      <span>{formData.appAccess.service ? "On" : "Off"}</span>
+                    </button>
+                  </div>
+
+                  {accessErrors.appAccess && <div style={inlineNotice("error")}>{accessErrors.appAccess}</div>}
+
+                  <div>
+                    <label style={labelStyle}>Default workspace</label>
+                    <select
+                      value={formData.defaultWorkspace}
+                      onChange={handleDefaultWorkspaceChange}
+                      style={inputBase}
+                    >
+                      {formData.appAccess.user && <option value="user">User</option>}
+                      {formData.appAccess.service && <option value="service">Service</option>}
+                    </select>
+                    <div style={helperStyle}>
+                      Dual-access users will land here unless they have an active workspace saved locally.
+                    </div>
+                    {accessErrors.defaultWorkspace && (
+                      <div style={{ ...helperStyle, color: "#9f1239", fontWeight: 700 }}>
+                        {accessErrors.defaultWorkspace}
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #dbe2ea",
+                      borderRadius: UI.radiusSm,
+                      background: "#f8fbfd",
+                      padding: 12,
+                      display: "grid",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 900, color: UI.muted, textTransform: "uppercase" }}>
+                      Access preview
+                    </div>
+                    <div style={{ color: UI.text, fontWeight: 900 }}>
+                      Effective role: {effectiveRole}
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Routing target: <span style={mono}>{routingPreview}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {saveError && <div style={inlineNotice("error")}>{saveError}</div>}
+                {saveMessage && <div style={inlineNotice()}>{saveMessage}</div>}
 
                 {/* Mobile bottom actions (nice when header buttons off-screen) */}
                 <div
@@ -508,6 +709,26 @@ export default function EditEmployeePage() {
                       {formData.mobile || "—"}
                       <br />
                       {formData.email || "—"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
+                      Access
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <span style={{ ...chip, background: formData.appAccess.user ? "#ecfdf5" : "#f8fafc" }}>
+                        User: {formData.appAccess.user ? "On" : "Off"}
+                      </span>
+                      <span style={{ ...chip, background: formData.appAccess.service ? "#eff6ff" : "#f8fafc" }}>
+                        Service: {formData.appAccess.service ? "On" : "Off"}
+                      </span>
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Effective role: <b style={{ color: UI.text }}>{effectiveRole}</b>
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Route target: <span style={mono}>{routingPreview}</span>
                     </div>
                   </div>
 

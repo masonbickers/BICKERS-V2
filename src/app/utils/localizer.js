@@ -6,7 +6,7 @@ const locales = {
   'en-GB': enGB,
 };
 
-// ✅ Force Monday as the start of the week (returns a real Date)
+//  Force Monday as the start of the week (returns a real Date)
 const startOfWeek = (date, locale) => {
   return dfStartOfWeek(date, { locale: enGB });
 };

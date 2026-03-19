@@ -17,7 +17,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const [startDate, setStartDate] = useState(defaultDate || ""); // yyyy-mm-dd
   const [endDate, setEndDate] = useState(defaultDate || ""); // yyyy-mm-dd
 
-  // ✅ Half-day support
+  //  Half-day support
   const [startHalfDay, setStartHalfDay] = useState(false);
   const [startAMPM, setStartAMPM] = useState("AM");
   const [endHalfDay, setEndHalfDay] = useState(false);
@@ -29,15 +29,15 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const [employees, setEmployees] = useState([]); // {id,name,holidayAllowances,holidayAllowance}
   const [saving, setSaving] = useState(false);
 
-  // ✅ Double-booking protection (holiday overlaps)
+  //  Double-booking protection (holiday overlaps)
   const [existingHolidays, setExistingHolidays] = useState([]);
   const [holidayConflictMsg, setHolidayConflictMsg] = useState("");
 
-  // ✅ Job/crew protection (don’t allow holiday over a job)
+  //  Job/crew protection (don’t allow holiday over a job)
   const [existingBookings, setExistingBookings] = useState([]);
   const [jobConflictMsg, setJobConflictMsg] = useState("");
 
-  // ✅ Allowance enforcement (if no paid days left => force unpaid)
+  //  Allowance enforcement (if no paid days left => force unpaid)
   const [allowanceInfo, setAllowanceInfo] = useState({
     year: new Date().getFullYear(),
     allowance: 0,
@@ -48,7 +48,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     msg: "",
   });
 
-  // ✅ Bank holidays (exclude from allowance usage)
+  //  Bank holidays (exclude from allowance usage)
   const [bankHolidaySet, setBankHolidaySet] = useState(new Set());
 
   /* ---------------- helpers ---------------- */
@@ -135,7 +135,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     });
   };
 
-  // ✅ match your HR logic: count PAID ONLY (strict)
+  //  match your HR logic: count PAID ONLY (strict)
   const isPaidHoliday = (h = {}) => {
     const ps = String(h.paidStatus ?? h.paid ?? h.isPaid ?? "").trim().toLowerCase();
     const lt = String(h.leaveType ?? h.type ?? "").trim().toLowerCase();
@@ -147,8 +147,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     return false; // default: don't count unless explicitly paid
   };
 
-  // ✅ compute requested weekday days for the new request (full=1, half=0.5)
-  // ✅ UPDATED: excludes bank holidays too
+  //  compute requested weekday days for the new request (full=1, half=0.5)
+  //  UPDATED: excludes bank holidays too
   const computeRequestedDays = ({ s, e, single }) => {
     if (!s || !e) return 0;
     const days = eachDateInclusive(s, e);
@@ -157,7 +157,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     for (let i = 0; i < days.length; i++) {
       const d = days[i];
       if (isWeekend(d)) continue;
-      if (isBankHoliday(d)) continue; // ✅ NEW
+      if (isBankHoliday(d)) continue; //  NEW
 
       let inc = 1;
 
@@ -173,8 +173,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     return total;
   };
 
-  // ✅ compute paid used days from existing holidays (approved + paid only + weekdays + half-days)
-  // ✅ UPDATED: excludes bank holidays too
+  //  compute paid used days from existing holidays (approved + paid only + weekdays + half-days)
+  //  UPDATED: excludes bank holidays too
   const daysForHoliday = (h) => {
     const hs = toDate(h.startDate);
     const he = toDate(h.endDate) || hs;
@@ -190,7 +190,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     for (let i = 0; i < days.length; i++) {
       const d = days[i];
       if (isWeekend(d)) continue;
-      if (isBankHoliday(d)) continue; // ✅ NEW
+      if (isBankHoliday(d)) continue; //  NEW
 
       let inc = 1;
       if (single) {
@@ -302,7 +302,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMultiDay, startHalfDay, startAMPM]);
 
-  // ✅ compute proposed start/end (as Date) from UI
+  //  compute proposed start/end (as Date) from UI
   const proposed = useMemo(() => {
     let s = null;
     let e = null;
@@ -390,7 +390,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       return;
     }
     setHolidayConflictMsg(
-      `⚠️ ${employee} already has a holiday that overlaps: ${fmt(holidayConflict.from)} → ${fmt(
+      `Warning ${employee} already has a holiday that overlaps: ${fmt(holidayConflict.from)} → ${fmt(
         holidayConflict.to
       )} (${holidayConflict.type}, ${holidayConflict.status}).`
     );
@@ -502,7 +502,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       return;
     }
     setJobConflictMsg(
-      `⚠️ ${employee} is already crewed on a job during these dates: ${jobConflict.title}${
+      `Warning ${employee} is already crewed on a job during these dates: ${jobConflict.title}${
         jobConflict.where ? ` (${jobConflict.where})` : ""
       } — ${fmt(jobConflict.from)} → ${fmt(jobConflict.to)}.`
     );
@@ -587,7 +587,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         msg,
       });
 
-      // ✅ Force unpaid if no paid days remaining
+      //  Force unpaid if no paid days remaining
       if (remainingPaid <= 0 && paidStatus !== "Unpaid") {
         setPaidStatus("Unpaid");
       }
@@ -604,7 +604,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     endHalfDay,
     employees,
     existingHolidays,
-    bankHolidaySet, // ✅ ensure recalculates when BH list loads
+    bankHolidaySet, //  ensure recalculates when BH list loads
   ]);
 
   const paidAllowed = allowanceInfo.remainingPaid > 0;
@@ -748,7 +748,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         <div style={headerRow}>
           <h2 style={modalTitle}>Add Holiday</h2>
           <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
-            ✕
+            x
           </button>
         </div>
 
@@ -805,7 +805,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </>
           )}
 
-          {/* ✅ Allowance banner */}
+          {/*  Allowance banner */}
           {employee && proposed.start && proposed.end ? (
             <div
               style={{
@@ -839,7 +839,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </div>
           ) : null}
 
-          {/* ✅ Holiday conflict warning */}
+          {/*  Holiday conflict warning */}
           {holidayConflictMsg ? (
             <div
               style={{
@@ -860,7 +860,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </div>
           ) : null}
 
-          {/* ✅ Job/crew conflict warning */}
+          {/*  Job/crew conflict warning */}
           {jobConflictMsg ? (
             <div
               style={{
@@ -881,7 +881,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </div>
           ) : null}
 
-          {/* ✅ Half day controls */}
+          {/*  Half day controls */}
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>

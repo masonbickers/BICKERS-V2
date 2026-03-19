@@ -24,44 +24,48 @@ import { Check } from "lucide-react";
    Styling tokens (MATCH main diary page)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 18,
+  radiusSm: 12,
+  gap: 14,
+  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
+  border: "1px solid #dbe2ea",
+  bg: "#edf3f8",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  accent: "#8b5e3c",
+  accentSoft: "#f5ede6",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "22px 18px 34px",
   background: UI.bg,
   minHeight: "100vh",
 };
 
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 30,
+  lineHeight: 1.08,
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
   margin: 0,
 };
 
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = {
   background: UI.card,
@@ -72,25 +76,26 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 16,
+  padding: 14,
 };
 
 const sectionHeader = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 10,
+  flexWrap: "wrap",
 };
 
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "7px 11px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 700,
@@ -99,25 +104,27 @@ const chip = {
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      padding: "9px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
+      border: `1px solid ${UI.brandBorder}`,
       background: "#fff",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
     };
   }
   return {
-    padding: "10px 12px",
+    padding: "9px 12px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
 };
 
@@ -130,13 +137,13 @@ const btnDisabled = (base) => ({
 });
 
 const successBanner = {
-  background: "#ecfdf5",
+  background: "#edf7f2",
   color: "#065f46",
-  border: "1px solid #10b981",
+  border: "1px solid #b7dec7",
   borderRadius: UI.radiusSm,
-  padding: "10px 12px",
+  padding: "9px 12px",
   fontSize: 13,
-  fontWeight: 800,
+  fontWeight: 700,
   marginBottom: 14,
 };
 
@@ -202,7 +209,7 @@ const jobKey = (val) => {
   return { num, raw: s };
 };
 
-// ✅ bookings → events (sorted by job number like main diary)
+//  bookings → events (sorted by job number like main diary)
 const eventsByJobNumberBookingsOnly = (bookings) => {
   const bookingEvents = (bookings || [])
     .map((b) => {
@@ -285,7 +292,7 @@ const isFutureJobEvent = (event) => {
   return lastDay > today0;
 };
 
-// ✅ match by resolved vehicle NAME containing "u-crane"
+//  match by resolved vehicle NAME containing "u-crane"
 const bookingIsUCrane = (booking, vehiclesData) => {
   const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
 
@@ -384,14 +391,14 @@ function CalendarEvent({ event }) {
         display: "flex",
         flexDirection: "column",
         fontSize: "0.85rem",
-        lineHeight: 1.2,
+        lineHeight: 1.1,
         color: "#0b0b0b",
         fontWeight: 600,
         fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
-        padding: 6,
-        gap: 2,
+        padding: "5px 6px",
+        gap: 1,
         borderRadius: 6,
         whiteSpace: "normal",
         wordBreak: "break-word",
@@ -534,7 +541,7 @@ function CalendarEvent({ event }) {
                     color: "#fff",
                     fontWeight: 700,
                     border: "1px solid #0b0b0b",
-                    marginTop: 2,
+                    marginTop: 1,
                   }}
                   title="Vehicle non-compliant (SORN / Not Insured) — future confirmed job"
                 >
@@ -581,7 +588,7 @@ function CalendarEvent({ event }) {
                     backgroundColor: style.bg,
                     color: style.text,
                     border: `0px solid ${style.border}`,
-                    marginTop: 2,
+                    marginTop: 1,
                   }}
                   title={`Vehicle status: ${itemStatus}`}
                 >
@@ -607,11 +614,11 @@ function CalendarEvent({ event }) {
           (!hideDayNotes &&
             event.notesByDate &&
             Object.keys(event.notesByDate).length > 0)) && (
-          <div style={{ width: "100%", marginTop: 4 }}>
+          <div style={{ width: "100%", marginTop: 2 }}>
             {!hideDayNotes &&
               event.notesByDate &&
               Object.keys(event.notesByDate).length > 0 && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
                   {Object.keys(event.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
@@ -690,7 +697,7 @@ function CalendarEvent({ event }) {
                       fontWeight: 500,
                       fontSize: "0.75rem",
                       lineHeight: 1.25,
-                      marginTop: 4,
+                      marginTop: 2,
                     }}
                   >
                     {event.notes}
@@ -714,7 +721,7 @@ function CalendarEvent({ event }) {
                 gap: 6,
                 alignItems: "center",
                 justifyContent: "flex-start",
-                marginTop: 6,
+                marginTop: 4,
                 width: "100%",
                 flexWrap: "wrap",
               }}
@@ -730,7 +737,7 @@ function CalendarEvent({ event }) {
                   border: "1px solid rgba(0,0,0,0.8)",
                 }}
               >
-                HS {event.hasHS ? "✓" : "✗"}
+                HS {event.hasHS ? "Yes" : "No"}
               </span>
 
               <span
@@ -744,7 +751,7 @@ function CalendarEvent({ event }) {
                   border: "1px solid rgba(0,0,0,0.8)",
                 }}
               >
-                RA {event.hasRiskAssessment ? "✓" : "✗"}
+                RA {event.hasRiskAssessment ? "Yes" : "No"}
               </span>
             </div>
           );
@@ -902,7 +909,7 @@ export default function DashboardPage({ bookingSaved }) {
     [vehiclesData]
   );
 
-  // ✅ Filter to U-CRANE by resolved vehicle NAME
+  //  Filter to U-CRANE by resolved vehicle NAME
   const uCraneBookings = useMemo(() => {
     const base = Array.isArray(allBookingsRaw) ? allBookingsRaw : [];
     if (!vehiclesData.length) {
@@ -930,7 +937,7 @@ export default function DashboardPage({ bookingSaved }) {
     });
   }, [uCraneBookings, normalizeVehicles]);
 
-  // ✅ Upcoming (below calendar): Confirmed / First Pencil / Second Pencil (future only)
+  //  Upcoming (below calendar): Confirmed / First Pencil / Second Pencil (future only)
   const upcomingByStatus = useMemo(() => {
     const wanted = new Set(["confirmed", "first pencil", "second pencil"]);
 
@@ -1083,10 +1090,10 @@ export default function DashboardPage({ bookingSaved }) {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>U-Crane</h1>
-            <div style={sub}>Work diary (shows any job where a vehicle name includes “U-Crane”).</div>
+            <div style={sub}>Dedicated operations diary for U-Crane activity and related vehicle bookings.</div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {bookingSaved && <div style={successBanner}>✅ Booking saved successfully!</div>}
+            {bookingSaved && <div style={successBanner}> Booking saved successfully!</div>}
           </div>
         </div>
 
@@ -1094,7 +1101,7 @@ export default function DashboardPage({ bookingSaved }) {
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>U-Crane Work Diary</h2>
-              <div style={hint}>Blocks + layout match the main Work Diary page.</div>
+              <div style={hint}>Live operational calendar for U-Crane bookings using the same diary logic as the main schedule.</div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -1133,7 +1140,7 @@ export default function DashboardPage({ bookingSaved }) {
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
-                + Add U-Crane Booking
+                Create U-Crane Booking
               </button>
 
               <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
@@ -1237,12 +1244,12 @@ export default function DashboardPage({ bookingSaved }) {
             />
           )}
 
-          {/* ✅ UPCOMING SECTION (below calendar) */}
+          {/*  UPCOMING SECTION (below calendar) */}
           <div style={{ marginTop: 16 }}>
             <div style={{ ...sectionHeader, marginBottom: 12 }}>
               <div>
                 <h3 style={{ ...titleMd, fontSize: 15 }}>Upcoming</h3>
-                <div style={hint}>Future jobs grouped by status (Confirmed / First Pencil / Second Pencil).</div>
+                <div style={hint}>Future U-Crane work grouped by booking status for quick operational review.</div>
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
