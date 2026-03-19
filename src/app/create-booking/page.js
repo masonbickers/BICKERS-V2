@@ -535,6 +535,7 @@ export default function CreateBookingPage() {
   const [additionalContacts, setAdditionalContacts] = useState([]);
   const [savedContacts, setSavedContacts] = useState([]);
   const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
+  const [savedContactSearch, setSavedContactSearch] = useState("");
 
   // Files
   const [attachments, setAttachments] = useState([]);
@@ -944,6 +945,30 @@ export default function CreateBookingPage() {
       })
       .filter(([, items]) => items.length);
   }, [equipmentGroups, normalizedAssetSearch]);
+
+  const sortedSavedContacts = useMemo(() => {
+    return [...savedContacts].sort((a, b) => {
+      const aLabel = `${String(a?.name || "").trim()} ${String(a?.department || "").trim()}`.trim().toLowerCase();
+      const bLabel = `${String(b?.name || "").trim()} ${String(b?.department || "").trim()}`.trim().toLowerCase();
+      return aLabel.localeCompare(bLabel);
+    });
+  }, [savedContacts]);
+
+  const filteredSavedContacts = useMemo(() => {
+    const query = savedContactSearch.trim().toLowerCase();
+    if (!query) return sortedSavedContacts;
+    return sortedSavedContacts.filter((contact) => {
+      const haystack = [
+        contact?.name,
+        contact?.department,
+        contact?.email,
+        contact?.phone,
+      ]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join(" ");
+      return haystack.includes(query);
+    });
+  }, [sortedSavedContacts, savedContactSearch]);
 
   /* ────────────────────────────────────────────────────────────
      Employee schedule helpers (per-day)
@@ -1497,6 +1522,13 @@ export default function CreateBookingPage() {
                   {savedContacts.length > 0 && (
                     <div style={{ marginTop: 6 }}>
                       <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Quick add from saved contacts</label>
+                      <input
+                        type="text"
+                        value={savedContactSearch}
+                        onChange={(e) => setSavedContactSearch(e.target.value)}
+                        placeholder="Search saved contacts..."
+                        style={{ ...field.input, marginBottom: 6 }}
+                      />
                       <select
                         value={selectedSavedContactId}
                         onChange={(e) => {
@@ -1509,8 +1541,8 @@ export default function CreateBookingPage() {
                         }}
                         style={field.input}
                       >
-                        <option value="">Select saved contact</option>
-                        {savedContacts.map((c) => {
+                        <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
+                        {filteredSavedContacts.map((c) => {
                           const labelBase = c.name || c.email || "Unnamed";
                           const deptLabel = c.department ? ` – ${c.department}` : "";
                           return (

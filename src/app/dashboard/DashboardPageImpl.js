@@ -92,6 +92,24 @@ const headerActions = {
   alignItems: "center",
 };
 
+const headerSearchWrap = {
+  position: "relative",
+  minWidth: 260,
+  maxWidth: 320,
+  width: "100%",
+};
+
+const headerSearchInput = {
+  width: "100%",
+  padding: "9px 12px",
+  borderRadius: 10,
+  border: "1px solid #d6dee8",
+  background: "#fff",
+  color: UI.text,
+  fontSize: 13.5,
+  outline: "none",
+};
+
 const surface = {
   background: UI.card,
   borderRadius: UI.radius,
@@ -1540,6 +1558,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingHolidayId, setEditingHolidayId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [dashboardSearch, setDashboardSearch] = useState("");
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -2209,6 +2228,72 @@ export default function DashboardPage({ bookingSaved }) {
     () => [...allEvents.filter((e) => e.status === "Maintenance"), ...motServiceDueEvents],
     [allEvents, motServiceDueEvents]
   );
+  const formatSearchBookingDates = (booking) => {
+    const formatDate = (value) => {
+      const date = toJsDate(value);
+      return date ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
+    };
+
+    if (Array.isArray(booking?.bookingDates) && booking.bookingDates.length) {
+      const sortedDates = booking.bookingDates
+        .map((value) => formatDate(value))
+        .filter(Boolean);
+      if (!sortedDates.length) return "No date";
+      return sortedDates.length === 1 ? sortedDates[0] : `${sortedDates[0]} - ${sortedDates[sortedDates.length - 1]}`;
+    }
+
+    const start = formatDate(booking?.startDate || booking?.date);
+    const end = formatDate(booking?.endDate);
+    if (start && end && start !== end) return `${start} - ${end}`;
+    return start || end || "No date";
+  };
+  const formatSearchBookingVehicles = (booking) => {
+    const labels = normalizeVehicles(booking?.vehicles)
+      .map((vehicle) => {
+        if (!vehicle || typeof vehicle !== "object") return "";
+        const name = String(vehicle.name || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ") || "").trim();
+        const registration = String(vehicle.registration || vehicle.reg || "").trim().toUpperCase();
+        if (name && registration) return `${name} (${registration})`;
+        return name || registration || "";
+      })
+      .filter(Boolean);
+    return labels.length ? labels.join(", ") : "No vehicles";
+  };
+  const dashboardSearchResults = useMemo(() => {
+    const query = dashboardSearch.trim().toLowerCase();
+    if (!query) return [];
+
+    return bookings
+      .filter((booking) => {
+        const haystack = [
+          booking?.jobNumber,
+          booking?.client,
+          booking?.location,
+          booking?.notes,
+        ]
+          .map((value) => String(value || "").toLowerCase())
+          .join(" ");
+        return haystack.includes(query);
+      })
+      .sort((a, b) => {
+        const getFirstTime = (booking) => {
+          if (Array.isArray(booking?.bookingDates) && booking.bookingDates.length) {
+            const times = booking.bookingDates
+              .map((value) => toJsDate(value))
+              .filter(Boolean)
+              .map((date) => date.getTime())
+              .sort((x, y) => x - y);
+            if (times.length) return times[0];
+          }
+
+          const firstDate = toJsDate(booking?.startDate || booking?.date || booking?.endDate);
+          return firstDate ? firstDate.getTime() : Number.MAX_SAFE_INTEGER;
+        };
+
+        return getFirstTime(a) - getFirstTime(b);
+      })
+      .slice(0, 8);
+  }, [bookings, dashboardSearch]);
 
   return (
     <HeaderSidebarLayout>
@@ -2219,6 +2304,65 @@ export default function DashboardPage({ bookingSaved }) {
             <h1 style={h1}>Dashboard</h1>
           </div>
           <div style={headerActions}>
+            <div style={headerSearchWrap}>
+              <input
+                type="text"
+                value={dashboardSearch}
+                onChange={(e) => setDashboardSearch(e.target.value)}
+                placeholder="Search jobs..."
+                style={headerSearchInput}
+              />
+              {dashboardSearch.trim() && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    left: 0,
+                    right: 0,
+                    background: "#fff",
+                    border: "1px solid #d6dee8",
+                    borderRadius: 12,
+                    boxShadow: "0 12px 28px rgba(15,23,42,0.12)",
+                    overflow: "hidden",
+                    zIndex: 30,
+                  }}
+                >
+                  {dashboardSearchResults.length ? (
+                    dashboardSearchResults.map((booking) => (
+                      <button
+                        key={booking.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBookingId(booking.id);
+                          setDashboardSearch("");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "10px 12px",
+                          border: "none",
+                          borderBottom: "1px solid #edf2f7",
+                          background: "#fff",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ fontWeight: 800, color: UI.text }}>
+                          {booking.jobNumber || "No Job #"} - {booking.client || "No client"}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: UI.muted }}>
+                          {formatSearchBookingDates(booking)} • {formatSearchBookingVehicles(booking)} • {booking.location || "No location"}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div style={{ padding: "10px 12px", fontSize: 12.5, color: UI.muted }}>
+                      No jobs match that search.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <button
               style={btn("ghost")}
               type="button"

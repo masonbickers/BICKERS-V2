@@ -767,6 +767,7 @@ export default function EditBookingPage() {
   const [additionalContacts, setAdditionalContacts] = useState([]);
   const [savedContacts, setSavedContacts] = useState([]);
   const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
+  const [savedContactSearch, setSavedContactSearch] = useState("");
 
   // Attachments
   const [attachments, setAttachments] = useState([]); // existing
@@ -843,6 +844,30 @@ export default function EditBookingPage() {
     });
     return out;
   }, [equipmentGroups, assetSearchLower]);
+
+  const sortedSavedContacts = useMemo(() => {
+    return [...savedContacts].sort((a, b) => {
+      const aLabel = `${String(a?.name || "").trim()} ${String(a?.department || "").trim()}`.trim().toLowerCase();
+      const bLabel = `${String(b?.name || "").trim()} ${String(b?.department || "").trim()}`.trim().toLowerCase();
+      return aLabel.localeCompare(bLabel);
+    });
+  }, [savedContacts]);
+
+  const filteredSavedContacts = useMemo(() => {
+    const query = savedContactSearch.trim().toLowerCase();
+    if (!query) return sortedSavedContacts;
+    return sortedSavedContacts.filter((contact) => {
+      const haystack = [
+        contact?.name,
+        contact?.department,
+        contact?.email,
+        contact?.phone,
+      ]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join(" ");
+      return haystack.includes(query);
+    });
+  }, [sortedSavedContacts, savedContactSearch]);
 
   // Preserve existing history on save
   const [existingHistory, setExistingHistory] = useState([]);
@@ -2204,6 +2229,13 @@ export default function EditBookingPage() {
                       >
                         Quick add from saved contacts
                       </label>
+                      <input
+                        type="text"
+                        value={savedContactSearch}
+                        onChange={(e) => setSavedContactSearch(e.target.value)}
+                        placeholder="Search saved contacts..."
+                        style={{ ...field.input, marginBottom: 6 }}
+                      />
                       <select
                         value={selectedSavedContactId}
                         onChange={(e) => {
@@ -2216,8 +2248,8 @@ export default function EditBookingPage() {
                         }}
                         style={field.input}
                       >
-                        <option value="">Select saved contact</option>
-                        {savedContacts.map((c) => {
+                        <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
+                        {filteredSavedContacts.map((c) => {
                           const labelBase = c.name || c.email || "Unnamed";
                           const deptLabel = c.department ? ` – ${c.department}` : "";
                           return (
