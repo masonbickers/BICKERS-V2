@@ -8,6 +8,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
 import {
   addDoc,
@@ -42,10 +43,12 @@ export default function MaintenanceBookingForm({
   // form fields
   const [status, setStatus] = useState("Booked");
   const [isMultiDay, setIsMultiDay] = useState(false);
+  const [useCustomDates, setUseCustomDates] = useState(false);
 
   const [appointmentDate, setAppointmentDate] = useState(defaultDate || "");
   const [startDate, setStartDate] = useState(defaultDate || "");
   const [endDate, setEndDate] = useState(defaultDate || "");
+  const [customDates, setCustomDates] = useState(defaultDate ? [defaultDate] : []);
 
   const [provider, setProvider] = useState("");
   const [bookingRef, setBookingRef] = useState("");
@@ -85,6 +88,18 @@ export default function MaintenanceBookingForm({
     return d.toISOString().split("T")[0];
   };
   const todayISO = () => clampISODate(new Date());
+  const enumerateDaysYMD = (startYMD, endYMD) => {
+    const start = ymdToDate(startYMD);
+    const end = ymdToDate(endYMD);
+    if (!start || !end) return [];
+    const out = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      out.push(dateToYMD(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  };
 
   const parseISOorBlank = (v) => {
     if (!v) return null;
@@ -134,6 +149,25 @@ export default function MaintenanceBookingForm({
     const be = endOfDay(bEnd).getTime();
     return as <= be && bs <= ae;
   };
+  const bookingToDateKeys = (booking) => {
+    if (Array.isArray(booking?.bookingDates) && booking.bookingDates.length) {
+      return booking.bookingDates
+        .map((value) => String(value || "").slice(0, 10))
+        .filter(Boolean)
+        .sort();
+    }
+
+    const appointmentISO = String(booking?.appointmentDateISO || "").slice(0, 10);
+    const startISO = String(booking?.startDateISO || "").slice(0, 10);
+    const endISO = String(booking?.endDateISO || "").slice(0, 10);
+    if (appointmentISO) return [appointmentISO];
+    if (startISO && endISO) return enumerateDaysYMD(startISO, endISO);
+
+    const start = toDate(booking?.startDate || booking?.date || booking?.appointmentDate);
+    const end = toDate(booking?.endDate || booking?.date || booking?.appointmentDate || booking?.startDate);
+    if (!start || !end) return [];
+    return enumerateDaysYMD(dateToYMD(start), dateToYMD(end));
+  };
 
   const fmt = (d) => {
     if (!d) return "—";
@@ -161,39 +195,35 @@ export default function MaintenanceBookingForm({
     return v.name || v.registration || v.reg || vehicleId || "";
   }, [vehicle, vehicleId]);
 
+  const selectedDateKeys = useMemo(() => {
+    if (useCustomDates) return [...customDates].filter(Boolean).slice().sort();
+    if (!isMultiDay) return appointmentDate ? [appointmentDate] : [];
+    return enumerateDaysYMD(startDate, endDate);
+  }, [useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate]);
+
   const bookingDates = useMemo(() => {
-    if (!isMultiDay) {
-      const d = ymdToDate(appointmentDate);
-      return { start: d, end: d };
-    }
-    return { start: ymdToDate(startDate), end: ymdToDate(endDate) };
-  }, [isMultiDay, appointmentDate, startDate, endDate]);
+    const first = selectedDateKeys[0] || "";
+    const last = selectedDateKeys[selectedDateKeys.length - 1] || first;
+    return {
+      start: ymdToDate(first),
+      end: ymdToDate(last),
+      keys: selectedDateKeys,
+    };
+  }, [selectedDateKeys]);
 
   const activeConflict = useMemo(() => {
     setConflictMsg("");
 
-    if (!bookingDates.start || !bookingDates.end) return null;
+    if (!bookingDates.keys.length) return null;
 
     const conflict = existing.find((b) => {
       const st = String(b.status || "").toLowerCase();
       if (st.includes("cancel")) return false;
       if (st.includes("declin")) return false;
-
-      //  robust date extraction
-      const bs =
-        toDate(b.startDate) ||
-        toDate(b.date) ||
-        toDate(b.appointmentDate) ||
-        null;
-
-      const be =
-        toDate(b.endDate) ||
-        toDate(b.date) ||
-        toDate(b.appointmentDate) ||
-        bs;
-
-      if (!bs || !be) return false;
-      return rangesOverlap(bookingDates.start, bookingDates.end, bs, be);
+      const existingKeys = bookingToDateKeys(b);
+      if (!existingKeys.length) return false;
+      const selectedKeySet = new Set(bookingDates.keys);
+      return existingKeys.some((key) => selectedKeySet.has(key));
     });
 
     if (!conflict) return null;
@@ -218,7 +248,7 @@ export default function MaintenanceBookingForm({
       to: be,
       provider: conflict.provider || "",
     };
-  }, [existing, bookingDates.start, bookingDates.end]);
+  }, [existing, bookingDates.keys]);
 
   useEffect(() => {
     if (!activeConflict) {
@@ -277,8 +307,10 @@ export default function MaintenanceBookingForm({
     setSelectedEquipment(Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []);
   }, [initialEquipment]);
 
-  // keep multi-day dates in sync when toggling
+  // keep date fields in sync when toggling modes
   useEffect(() => {
+    if (useCustomDates) return;
+
     if (!isMultiDay) {
       setStartDate(appointmentDate || "");
       setEndDate(appointmentDate || "");
@@ -287,13 +319,15 @@ export default function MaintenanceBookingForm({
       setEndDate((p) => p || appointmentDate || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultiDay]);
+  }, [isMultiDay, useCustomDates]);
 
   const canSubmit = useMemo(() => {
     if (saving) return false;
     if (!vehicleId && selectedEquipment.length === 0) return false;
 
-    if (!isMultiDay) {
+    if (useCustomDates) {
+      if (!customDates.length) return false;
+    } else if (!isMultiDay) {
       if (!appointmentDate) return false;
     } else {
       if (!startDate || !endDate) return false;
@@ -305,7 +339,7 @@ export default function MaintenanceBookingForm({
 
     if (activeConflict) return false;
     return true;
-  }, [saving, vehicleId, selectedEquipment, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
+  }, [saving, vehicleId, selectedEquipment, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
@@ -329,10 +363,19 @@ export default function MaintenanceBookingForm({
     try {
       const nowISO = todayISO();
 
-      const apptDateObj = !isMultiDay ? ymdToDate(appointmentDate) : null;
+      const isNonConsecutive = useCustomDates;
+      const effectiveIsMultiDay = isNonConsecutive || isMultiDay;
+      const firstSelectedDate = bookingDates.keys[0] || "";
+      const lastSelectedDate = bookingDates.keys[bookingDates.keys.length - 1] || firstSelectedDate;
+      const apptDateObj = !effectiveIsMultiDay ? ymdToDate(appointmentDate) : null;
       const completedISO =
         status === "Completed"
-          ? completionISOFromBooking({ isMultiDay, appointmentDate, startDate, endDate })
+          ? completionISOFromBooking({
+              isMultiDay: effectiveIsMultiDay,
+              appointmentDate: effectiveIsMultiDay ? firstSelectedDate : appointmentDate,
+              startDate: effectiveIsMultiDay ? firstSelectedDate : startDate,
+              endDate: effectiveIsMultiDay ? lastSelectedDate : endDate,
+            })
           : "";
 
       // 1) Create booking doc (calendar-safe Dates)
@@ -342,13 +385,14 @@ export default function MaintenanceBookingForm({
         vehicleId,
         vehicleLabel: vehicleLabel || "",
         status,
-        isMultiDay,
+        isMultiDay: effectiveIsMultiDay,
         startDate: start,
         endDate: end,
         appointmentDate: apptDateObj,
-        appointmentDateISO: !isMultiDay ? appointmentDate : "",
-        startDateISO: isMultiDay ? startDate : "",
-        endDateISO: isMultiDay ? endDate : "",
+        bookingDates: bookingDates.keys,
+        appointmentDateISO: !effectiveIsMultiDay ? appointmentDate : "",
+        startDateISO: effectiveIsMultiDay ? firstSelectedDate : "",
+        endDateISO: effectiveIsMultiDay ? lastSelectedDate : "",
         completedAtISO: completedISO || "",
         provider: provider.trim(),
         bookingRef: bookingRef.trim(),
@@ -370,9 +414,9 @@ export default function MaintenanceBookingForm({
         const updates = {
           motBookedStatus: status,
           motBookedOn: nowISO,
-          motAppointmentDate: !isMultiDay ? appointmentDate : "",
-          motBookingStartDate: isMultiDay ? startDate : "",
-          motBookingEndDate: isMultiDay ? endDate : "",
+          motAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
+          motBookingStartDate: effectiveIsMultiDay ? firstSelectedDate : "",
+          motBookingEndDate: effectiveIsMultiDay ? lastSelectedDate : "",
           motProvider: provider.trim(),
           motBookingRef: bookingRef.trim(),
           motLocation: location.trim(),
@@ -409,9 +453,9 @@ export default function MaintenanceBookingForm({
         const updates = {
           serviceBookedStatus: status,
           serviceBookedOn: nowISO,
-          serviceAppointmentDate: !isMultiDay ? appointmentDate : "",
-          serviceBookingStartDate: isMultiDay ? startDate : "",
-          serviceBookingEndDate: isMultiDay ? endDate : "",
+          serviceAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
+          serviceBookingStartDate: effectiveIsMultiDay ? firstSelectedDate : "",
+          serviceBookingEndDate: effectiveIsMultiDay ? lastSelectedDate : "",
           serviceProvider: provider.trim(),
           serviceBookingRef: bookingRef.trim(),
           serviceLocation: location.trim(),
@@ -442,9 +486,9 @@ export default function MaintenanceBookingForm({
         await updateDoc(vRef, {
           workBookedStatus: status,
           workBookingId: created.id,
-          workBookingDate: !isMultiDay ? appointmentDate : "",
-          workBookingStartDate: isMultiDay ? startDate : "",
-          workBookingEndDate: isMultiDay ? endDate : "",
+          workBookingDate: !effectiveIsMultiDay ? appointmentDate : "",
+          workBookingStartDate: effectiveIsMultiDay ? firstSelectedDate : "",
+          workBookingEndDate: effectiveIsMultiDay ? lastSelectedDate : "",
           workProvider: provider.trim(),
           workBookingRef: bookingRef.trim(),
           workLocation: location.trim(),
@@ -506,16 +550,67 @@ export default function MaintenanceBookingForm({
           <div style={fieldBlock}>
             <label style={label}>Booking type</label>
             <select
-              value={isMultiDay ? "multi" : "single"}
-              onChange={(e) => setIsMultiDay(e.target.value === "multi")}
+              value={useCustomDates ? "custom" : isMultiDay ? "multi" : "single"}
+              onChange={(e) => {
+                const mode = e.target.value;
+                if (mode === "custom") {
+                  const seed = bookingDates.keys.length
+                    ? bookingDates.keys.slice()
+                    : defaultDate
+                    ? [defaultDate]
+                    : [];
+                  setUseCustomDates(true);
+                  setIsMultiDay(false);
+                  setCustomDates(seed);
+                  if (seed[0]) {
+                    setAppointmentDate(seed[0]);
+                    setStartDate(seed[0]);
+                    setEndDate(seed[seed.length - 1] || seed[0]);
+                  }
+                  return;
+                }
+
+                if (useCustomDates) {
+                  const first = (customDates?.[0] || "").slice(0, 10);
+                  setAppointmentDate(first || appointmentDate || "");
+                  setStartDate(first || "");
+                  setEndDate(first || "");
+                  setCustomDates([]);
+                }
+
+                setUseCustomDates(false);
+                setIsMultiDay(mode === "multi");
+              }}
               style={input}
             >
               <option value="single">Single day (appointment)</option>
               <option value="multi">Multi-day (off-road / workshop)</option>
+              <option value="custom">Multi-day (non-consecutive)</option>
             </select>
           </div>
 
-          {!isMultiDay ? (
+          {useCustomDates ? (
+            <div style={{ ...fieldBlock, ...fullWidth }}>
+              <label style={label}>Selected dates</label>
+              <DatePicker
+                multiple
+                value={customDates}
+                format="YYYY-MM-DD"
+                onChange={(vals) => {
+                  const normalised = (Array.isArray(vals) ? vals : [])
+                    .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                    .filter(Boolean)
+                    .sort();
+                  setCustomDates(normalised);
+                }}
+              />
+              {customDates.length > 0 ? (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: "rgba(255,255,255,0.78)" }}>
+                  {customDates.join(", ")}
+                </div>
+              ) : null}
+            </div>
+          ) : !isMultiDay ? (
             <div style={fieldBlock}>
               <label style={label}>Appointment date</label>
               <input

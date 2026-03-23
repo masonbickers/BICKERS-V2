@@ -47,6 +47,25 @@ const UI = {
   shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
 };
 
+const payAdviceCell = {
+  border: "1px solid #cbd5e1",
+  padding: "6px 5px",
+  textAlign: "center",
+  color: "#0f172a",
+  background: "#ffffff",
+};
+
+const payAdviceInput = {
+  width: "100%",
+  border: "none",
+  outline: "none",
+  background: "transparent",
+  textAlign: "center",
+  fontSize: 11.5,
+  color: "#0f172a",
+  padding: 0,
+};
+
 /* Parse Date / Timestamp / String */
 function parseDateFlexible(raw) {
   if (!raw) return null;
@@ -111,6 +130,9 @@ function extractYardSegments(entry) {
 function shouldDeductYardLunch(entry) {
   if (!entry) return true;
 
+  if (entry?.managerLunchDeduct === true) return true;
+  if (entry?.managerLunchDeduct === false) return false;
+
   // If you ever add an explicit override in schema, honour it.
   if (entry?.yardLunchDeduct === false) return false;
 
@@ -156,30 +178,94 @@ function computeTravelHours(entry) {
   return diffHours(entry.leaveTime, entry.arriveTime);
 }
 
-/* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
-function computeOnSetHours(entry) {
-  // Prefer call -> wrap (work window)
-  const onSetCore =
-    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
+function computeWaitingAllowanceHours(entry) {
+  const arrive = entry?.arriveTime;
+  const call = entry?.callTime;
+  if (!arrive || !call) return 0;
 
-  // If no call/wrap, fallback to leave -> arriveBack
-  const fallback =
-    !onSetCore && entry?.leaveTime && entry?.arriveBack
-      ? diffHours(entry.leaveTime, entry.arriveBack)
+  const preCallHrs = getPrecallHours(entry);
+  const callMinutes = toMinutes(call);
+  const arriveMinutes = toMinutes(arrive);
+  if (callMinutes == null || arriveMinutes == null) return 0;
+
+  let targetMinutes = callMinutes - Math.round(preCallHrs * 60);
+  while (targetMinutes < 0) targetMinutes += 24 * 60;
+
+  let diffMinutes = targetMinutes - arriveMinutes;
+  if (diffMinutes < 0) diffMinutes += 24 * 60;
+
+  return Math.min(Math.max(0, diffMinutes / 60), 1);
+}
+
+function computeHotelTravelExemptionHours(entry) {
+  return entry?.overnight ? 0.5 : 0;
+}
+
+function getPrecallHours(entry) {
+  const value = Number(entry?.precallDuration);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return value / 60;
+}
+
+function computeOnSetBreakdown(entry) {
+  const travelToHrs = computeTravelHours(entry);
+  const preCallHrs = getPrecallHours(entry);
+  const callToWrapHrs =
+    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
+  const travelBackHrs =
+    entry?.wrapTime && entry?.arriveBack ? diffHours(entry.wrapTime, entry.arriveBack) : 0;
+
+  if (entry?.callTime) {
+    const callToFinishHrs = entry?.arriveBack
+      ? diffHours(entry.callTime, entry.arriveBack)
+      : entry?.wrapTime
+      ? diffHours(entry.callTime, entry.wrapTime)
       : 0;
 
-  let total = onSetCore || fallback;
+    const onSetPaidHrs = 10;
+    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
 
-  // Add precallDuration (minutes) if present and callTime exists
-  if (
-    entry?.callTime &&
-    typeof entry?.precallDuration === "number" &&
-    Number.isFinite(entry.precallDuration)
-  ) {
-    total += Math.max(0, entry.precallDuration) / 60;
+    return {
+      travelToHrs,
+      preCallHrs,
+      onSetBlockHrs: callToWrapHrs,
+      onSetPaidHrs,
+      travelBackHrs,
+      extraAfterTenHrs,
+      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
+    };
   }
 
-  return Math.max(0, total);
+  const fallbackWindowHrs =
+    entry?.leaveTime && entry?.arriveBack ? diffHours(entry.leaveTime, entry.arriveBack) : 0;
+  const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
+
+  return {
+    travelToHrs,
+    preCallHrs,
+    onSetBlockHrs: legacyOnSetHrs,
+    onSetPaidHrs: legacyOnSetHrs,
+    travelBackHrs,
+    extraAfterTenHrs: travelBackHrs,
+    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
+  };
+}
+
+/* On-set hours (match mobile's intention: call->wrap (+precall) OR leave->arriveBack fallback) */
+function computeOnSetHours(entry) {
+  return computeOnSetBreakdown(entry).totalHrs;
+}
+
+function isCancellationDay(entry) {
+  if (!entry) return false;
+
+  if (entry.cancellationDay === true) return true;
+  if (entry.cancelDay === true) return true;
+  if (entry.cancelledDay === true) return true;
+  if (entry.canceledDay === true) return true;
+
+  const rawType = String(entry.type || entry.mode || entry.dayType || "").toLowerCase();
+  return rawType.includes("cancel");
 }
 
 /*  TURNAROUND DETECTION (matches how mobile saves it) */
@@ -247,6 +333,135 @@ function formatPrecallMinutes(min) {
   return `${hrs} hr${hrs > 1 ? "s" : ""} ${rem} min`;
 }
 
+function formatShortDate(value) {
+  const d = parseDateFlexible(value);
+  if (!d) return "-";
+  return d.toLocaleDateString("en-GB");
+}
+
+function printElementById(elementId, title) {
+  if (typeof window === "undefined") return;
+
+  const printRoot = document.getElementById(elementId);
+  if (!printRoot) {
+    window.print();
+    return;
+  }
+
+  const printWindow = window.open("", "_blank", "width=1400,height=900");
+  if (!printWindow) return;
+
+  const printHtml = printRoot.outerHTML;
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>${title}</title>
+        <style>
+          * { box-sizing: border-box; }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            color: #0f172a;
+            font-family: Arial, sans-serif;
+          }
+          body { padding: 10px; }
+          h1, h2, h3, p, div, span, li, strong, button, td, th {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          #timesheet-print-root,
+          #pay-advice-print-root {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+          }
+          #timesheet-print-root > div:nth-of-type(2) {
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            overflow: visible !important;
+            padding-bottom: 0 !important;
+          }
+          #timesheet-print-root > div:nth-of-type(2) > div {
+            min-width: 0 !important;
+            padding: 8px !important;
+            border-radius: 8px !important;
+            font-size: 10px !important;
+            break-inside: avoid;
+          }
+          #timesheet-print-root > div:nth-of-type(2) > div button {
+            display: none !important;
+          }
+          #timesheet-print-root > div:nth-of-type(3) {
+            gap: 6px !important;
+            margin-top: 8px !important;
+          }
+          #timesheet-print-root > div:nth-of-type(3) > div {
+            border-radius: 8px !important;
+          }
+          #timesheet-print-root ul {
+            margin-top: 2px !important;
+            margin-bottom: 0 !important;
+            padding-left: 14px !important;
+          }
+          #timesheet-print-root li {
+            margin-bottom: 1px !important;
+          }
+          #timesheet-print-root [style*="font-size: 24px"] {
+            font-size: 18px !important;
+          }
+          #timesheet-print-root [style*="font-size: 15"] {
+            font-size: 12px !important;
+          }
+          #timesheet-print-root [style*="font-size: 14"] {
+            font-size: 11px !important;
+          }
+          #timesheet-print-root [style*="font-size: 13"] {
+            font-size: 10px !important;
+          }
+          #pay-advice-print-root table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 10px;
+          }
+          #pay-advice-print-root th,
+          #pay-advice-print-root td {
+            border: 1px solid #111827;
+            padding: 4px 5px;
+            vertical-align: middle;
+            text-align: center;
+            word-break: break-word;
+          }
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+        </style>
+      </head>
+      <body>${printHtml}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.onload = () => {
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 150);
+  };
+}
+
 /* Expand a holiday start/end into an array of Y-M-D strings */
 function eachDateYMD(startRaw, endRaw) {
   const start = parseDateFlexible(startRaw);
@@ -291,6 +506,10 @@ export default function TimesheetDetailPage() {
   const [queryError, setQueryError] = useState("");
   const [querySuccess, setQuerySuccess] = useState("");
   const [queries, setQueries] = useState([]);
+  const [lunchSavingDay, setLunchSavingDay] = useState("");
+  const [payAdviceEdits, setPayAdviceEdits] = useState({});
+  const [payAdviceSaving, setPayAdviceSaving] = useState(false);
+  const [payAdviceMessage, setPayAdviceMessage] = useState("");
 
   /* ----------------------- Load timesheet ----------------------- */
   useEffect(() => {
@@ -463,114 +682,54 @@ export default function TimesheetDetailPage() {
 
   /* ------------------------------ PRINT ----------------------------------- */
   const handlePrint = () => {
-    if (typeof window === "undefined") return;
-
-    const printRoot = document.getElementById("timesheet-print-root");
-    if (!printRoot) {
-      window.print();
-      return;
-    }
-
-    const printWindow = window.open("", "_blank", "width=1200,height=900");
-    if (!printWindow) return;
-
-    const printHtml = printRoot.outerHTML;
-
-    printWindow.document.open();
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <title>Timesheet Print</title>
-          <style>
-            * { box-sizing: border-box; }
-            html, body {
-              margin: 0;
-              padding: 0;
-              background: #ffffff;
-              color: #0f172a;
-              font-family: Arial, sans-serif;
-            }
-            body {
-              padding: 10px;
-            }
-            h1, h2, h3, p, div, span, li, strong, button {
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            #timesheet-print-root {
-              box-shadow: none !important;
-              border: none !important;
-              border-radius: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              overflow: visible !important;
-            }
-            #timesheet-print-root > div:nth-of-type(2) {
-              display: grid !important;
-              grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-              gap: 6px !important;
-              overflow: visible !important;
-              padding-bottom: 0 !important;
-            }
-            #timesheet-print-root > div:nth-of-type(2) > div {
-              min-width: 0 !important;
-              padding: 8px !important;
-              border-radius: 8px !important;
-              font-size: 10px !important;
-              break-inside: avoid;
-            }
-            #timesheet-print-root > div:nth-of-type(2) > div button {
-              display: none !important;
-            }
-            #timesheet-print-root > div:nth-of-type(3) {
-              gap: 6px !important;
-              margin-top: 8px !important;
-            }
-            #timesheet-print-root > div:nth-of-type(3) > div {
-              border-radius: 8px !important;
-            }
-            #timesheet-print-root ul {
-              margin-top: 2px !important;
-              margin-bottom: 0 !important;
-              padding-left: 14px !important;
-            }
-            #timesheet-print-root li {
-              margin-bottom: 1px !important;
-            }
-            #timesheet-print-root [style*="font-size: 24px"] {
-              font-size: 18px !important;
-            }
-            #timesheet-print-root [style*="font-size: 15"] {
-              font-size: 12px !important;
-            }
-            #timesheet-print-root [style*="font-size: 14"] {
-              font-size: 11px !important;
-            }
-            #timesheet-print-root [style*="font-size: 13"] {
-              font-size: 10px !important;
-            }
-            @page {
-              size: A4 landscape;
-              margin: 8mm;
-            }
-          </style>
-        </head>
-        <body>${printHtml}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.focus();
-      window.setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 150);
-    };
+    printElementById("timesheet-print-root", "Timesheet Print");
   };
+
+  const handlePrintPayAdvice = () => {
+    printElementById("pay-advice-print-root", "Weekly Pay Advice");
+  };
+
+  const handleLunchDeductionToggle = async (day, checked) => {
+    if (!timesheet?.id || !day) return;
+
+    setLunchSavingDay(day);
+    try {
+      const existingDays = normaliseDays(timesheet.days);
+      const currentEntry = existingDays?.[day] || {};
+      const nextEntry = {
+        ...currentEntry,
+        managerLunchDeduct: checked,
+      };
+      const nextDays = {
+        ...existingDays,
+        [day]: nextEntry,
+      };
+
+      await updateDoc(doc(db, "timesheets", timesheet.id), {
+        days: nextDays,
+        updatedAt: serverTimestamp(),
+      });
+
+      setTimesheet((prev) =>
+        prev
+          ? {
+              ...prev,
+              days: nextDays,
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error("Error updating lunch deduction override:", err);
+      setApproveError("Failed to update lunch deduction. Please try again.");
+    } finally {
+      setLunchSavingDay("");
+    }
+  };
+
+  useEffect(() => {
+    setPayAdviceEdits(timesheet?.payAdviceOverrides?.rows || {});
+    setPayAdviceMessage("");
+  }, [timesheet?.id, timesheet?.payAdviceOverrides]);
 
   /* ------------------------------ APPROVE --------------------------------- */
   const handleApprove = async () => {
@@ -726,6 +885,10 @@ export default function TimesheetDetailPage() {
 
       let mode = detectMode(entry, isWeekend);
 
+      if (isWeekend && hasLiveHoliday && (paidLabel || mode === "holiday")) {
+        paidLabel = "Unpaid";
+      }
+
       // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
       if ((mode === "holiday" || mode === "bankholiday") && !hasLiveHoliday) {
         // Keep bankholiday if the timesheet explicitly says it (mobile locks it),
@@ -748,13 +911,14 @@ export default function TimesheetDetailPage() {
       total += dayHours;
 
       const dayTotalLabel = formatHoursLabel(dayHours);
-      const precallLabel =
-        entryExists && entry?.precallDuration ? formatPrecallMinutes(entry.precallDuration) : "";
-
-      // For breakdown display in on-set
-      const travelToHrs = entryExists ? diffHours(entry?.leaveTime, entry?.arriveTime) : 0;
-      const onSetBlockHrs = entryExists ? diffHours(entry?.callTime, entry?.wrapTime) : 0;
-      const travelBackHrs = entryExists ? diffHours(entry?.wrapTime, entry?.arriveBack) : 0;
+      const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
+      const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
+      const travelToHrs = onSetBreakdown?.travelToHrs || 0;
+      const preCallHrs = onSetBreakdown?.preCallHrs || 0;
+      const onSetBlockHrs = onSetBreakdown?.onSetBlockHrs || 0;
+      const onSetPaidHrs = onSetBreakdown?.onSetPaidHrs || 0;
+      const travelBackHrs = onSetBreakdown?.travelBackHrs || 0;
+      const extraAfterTenHrs = onSetBreakdown?.extraAfterTenHrs || 0;
 
       // Turnaround job (how mobile saves it)
       const turnaroundJob = entryExists ? entry?.turnaroundJob || null : null;
@@ -779,8 +943,11 @@ export default function TimesheetDetailPage() {
         dayTotalLabel,
         precallLabel,
         travelToHrs,
+        preCallHrs,
         onSetBlockHrs,
+        onSetPaidHrs,
         travelBackHrs,
+        extraAfterTenHrs,
         yardSegs,
         turnaroundJob,
         hasTurnaroundJob,
@@ -790,6 +957,151 @@ export default function TimesheetDetailPage() {
 
     return { dayCards: cards, weeklyTotal: total };
   }, [dayMap, jobsByDay, holidaysByDate, weekStartDate]);
+
+  const payAdvice = useMemo(() => {
+    const rows = dayCards.map((card, index) => {
+      const entry = card.entry || {};
+      const dt = weekStartDate ? new Date(weekStartDate) : null;
+      if (dt) {
+        dt.setDate(dt.getDate() + index);
+      }
+
+      const primaryJob = Array.isArray(card.jobsToday) && card.jobsToday.length ? card.jobsToday[0] : null;
+      const workshopHrs = card.mode === "yard" ? computeYardHours(entry) : 0;
+      const isTurnaroundPayDay = card.mode === "turnaround";
+      const isCancellationPayDay = isCancellationDay(entry);
+      const actualTravelToHrs = card.travelToHrs || 0;
+      const preCallHrs = card.preCallHrs || 0;
+      const waitingAllowanceHrs = card.mode === "onset" ? computeWaitingAllowanceHours(entry) : 0;
+      const callElapsedToWrap =
+        entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
+      const callElapsedToBack =
+        entry?.callTime && entry?.arriveBack ? diffHours(entry.callTime, entry.arriveBack) : 0;
+      const wrapOvertimeHrs = card.mode === "onset" ? Math.max(0, callElapsedToWrap - 10) : 0;
+      const rawTravelAfterTenHrs =
+        card.mode === "onset" ? Math.max(0, callElapsedToBack - Math.max(10, callElapsedToWrap || 0)) : 0;
+      const travelAfterTenHrs =
+        card.mode === "onset"
+          ? Math.max(0, rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry))
+          : 0;
+      const travelHrs =
+        card.mode === "travel"
+          ? computeTravelHours(entry)
+          : card.mode === "onset"
+          ? actualTravelToHrs + waitingAllowanceHrs + travelAfterTenHrs
+          : 0;
+      const onSetHrs = card.mode === "onset" || isTurnaroundPayDay || isCancellationPayDay ? 10 : 0;
+      const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
+      const payableDayTotalHrs =
+        card.mode === "onset"
+          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
+          : isTurnaroundPayDay || isCancellationPayDay
+          ? onSetHrs
+          : workshopHrs + travelHrs;
+      const sundayHrs = card.day === "Sunday" && card.mode === "travel" ? travelHrs : 0;
+      const overnightUnits = entry?.overnight ? 1 : 0;
+      const travelMealUnits = card.mode === "travel" && (entry?.travelLunchSup || entry?.mealSup) ? 1 : 0;
+      const hasWorkedDay = payableDayTotalHrs > 0;
+      const weekendSupplementUnits = hasWorkedDay
+        ? card.day === "Saturday"
+          ? 0.5
+          : card.day === "Sunday"
+          ? 1
+          : 0
+        : 0;
+
+      const baseRow = {
+        day: card.day,
+        dateLabel: dt ? formatShortDate(dt) : "-",
+        jobName: primaryJob?.jobNumber
+          ? `#${primaryJob.jobNumber}${primaryJob.client ? ` - ${primaryJob.client}` : ""}`
+          : primaryJob?.client || primaryJob?.title || "-",
+        workshopHrs,
+        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
+        travelHrs,
+        sundayHrs,
+        onSetHrs,
+        onSetOvertimeHrs,
+        weekendSupplementUnits,
+        overnightUnits,
+        travelMealUnits,
+        preCallHrs: 0,
+        dailyTotalHrs: payableDayTotalHrs,
+      };
+
+      const override = payAdviceEdits?.[card.day] || {};
+      return {
+        ...baseRow,
+        ...override,
+      };
+    });
+
+    const totalFor = (key) => rows.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+
+    return {
+      rows,
+      totals: {
+        workshopHrs: totalFor("workshopHrs"),
+        overtimeHrs: totalFor("overtimeHrs"),
+        travelHrs: totalFor("travelHrs"),
+        sundayHrs: totalFor("sundayHrs"),
+        onSetHrs: totalFor("onSetHrs"),
+        onSetOvertimeHrs: totalFor("onSetOvertimeHrs"),
+        weekendSupplementUnits: totalFor("weekendSupplementUnits"),
+        overnightUnits: totalFor("overnightUnits"),
+        travelMealUnits: totalFor("travelMealUnits"),
+        preCallHrs: 0,
+        dailyTotalHrs: totalFor("dailyTotalHrs"),
+      },
+    };
+  }, [dayCards, weekStartDate, payAdviceEdits]);
+
+  const handlePayAdviceFieldChange = (day, field, value) => {
+    setPayAdviceEdits((prev) => ({
+      ...prev,
+      [day]: {
+        ...(prev?.[day] || {}),
+        [field]:
+          field === "jobName" || field === "dateLabel" || value === ""
+            ? value
+            : Number(value),
+      },
+    }));
+    setPayAdviceMessage("");
+  };
+
+  const handleSavePayAdvice = async () => {
+    if (!timesheet?.id) return;
+    setPayAdviceSaving(true);
+    setPayAdviceMessage("");
+    try {
+      await updateDoc(doc(db, "timesheets", timesheet.id), {
+        payAdviceOverrides: {
+          rows: payAdviceEdits,
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: serverTimestamp(),
+      });
+
+      setTimesheet((prev) =>
+        prev
+          ? {
+              ...prev,
+              payAdviceOverrides: {
+                rows: payAdviceEdits,
+                updatedAt: new Date().toISOString(),
+              },
+            }
+          : prev
+      );
+      setPayAdviceMessage("Pay advice saved.");
+    } catch (err) {
+      console.error("Error saving pay advice overrides:", err);
+      setPayAdviceMessage("Failed to save pay advice.");
+    } finally {
+      setPayAdviceSaving(false);
+    }
+  };
 
   /* -------------------------------------------------------------------------- */
   /*                                   RENDER                                   */
@@ -885,6 +1197,22 @@ export default function TimesheetDetailPage() {
               }}
             >
                Print Timesheet
+            </button>
+
+            <button
+              onClick={handlePrintPayAdvice}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 999,
+                border: `1px solid ${UI.brandBorder}`,
+                backgroundColor: "#ffffff",
+                color: UI.brand,
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              Print Pay Advice
             </button>
 
             <button
@@ -1016,8 +1344,11 @@ export default function TimesheetDetailPage() {
                 dayTotalLabel,
                 precallLabel,
                 travelToHrs,
+                preCallHrs,
                 onSetBlockHrs,
+                onSetPaidHrs,
                 travelBackHrs,
+                extraAfterTenHrs,
                 yardSegs,
                 turnaroundJob,
                 hasTurnaroundJob,
@@ -1221,6 +1552,27 @@ export default function TimesheetDetailPage() {
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
+                      {mode === "yard" && (
+                        <label
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: UI.ink,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={yardLunchDeducted}
+                            disabled={isApproved || lunchSavingDay === day}
+                            onChange={(e) => handleLunchDeductionToggle(day, e.target.checked)}
+                          />
+                          {lunchSavingDay === day ? "Saving lunch deduction..." : "Deduct lunch"}
+                        </label>
+                      )}
                     </div>
                   )}
 
@@ -1256,8 +1608,22 @@ export default function TimesheetDetailPage() {
                       <div style={{ marginTop: 2 }}>
                         <div style={{ fontWeight: 700, fontSize: 12 }}>Breakdown:</div>
                         <div style={{ fontSize: 12 }}>Travel to: {formatHoursLabel(travelToHrs)}</div>
-                        <div style={{ fontSize: 12 }}>On set: {formatHoursLabel(onSetBlockHrs)}</div>
-                        <div style={{ fontSize: 12 }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
+                        <div style={{ fontSize: 12 }}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
+                        <div style={{ fontSize: 12 }}>
+                          On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
+                        </div>
+                        {entry.callTime ? (
+                          <div style={{ fontSize: 12 }}>
+                            Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12 }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
+                        )}
+                        {entry.callTime && entry.wrapTime ? (
+                          <div style={{ fontSize: 12, color: UI.muted }}>
+                            Actual on-set window: {formatHoursLabel(onSetBlockHrs)}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -1329,6 +1695,233 @@ export default function TimesheetDetailPage() {
               </div>
               <div>{formatHoursLabel(weeklyTotal)}</div>
             </div>
+          </div>
+        </div>
+
+        <div
+          id="pay-advice-print-root"
+          style={{
+            marginTop: 14,
+            background: "#ffffff",
+            borderRadius: UI.radius,
+            border: UI.border,
+            boxShadow: UI.shadowSm,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "14px 16px 10px",
+              background: "linear-gradient(180deg, #eef2f7 0%, #e3e8ef 100%)",
+              borderBottom: UI.border,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: UI.brand, letterSpacing: 0.4 }}>
+              Weekly Pay Advice
+            </div>
+            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: UI.ink }}>
+              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(timesheet.weekStart)}
+            </div>
+            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+              Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
+            </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={handleSavePayAdvice}
+                disabled={payAdviceSaving || isApproved}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: `1px solid ${UI.brand}`,
+                  background: UI.brand,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: payAdviceSaving || isApproved ? "not-allowed" : "pointer",
+                  opacity: payAdviceSaving || isApproved ? 0.6 : 1,
+                }}
+              >
+                {payAdviceSaving ? "Saving..." : "Save Pay Advice"}
+              </button>
+              {payAdviceMessage ? (
+                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "#b91c1c" : "#166534" }}>
+                  {payAdviceMessage}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto", padding: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11.5 }}>
+              <thead>
+                <tr style={{ background: "#e5e7eb" }}>
+                  <th
+                    colSpan={3}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    {timesheet.employeeName || timesheet.employeeCode}
+                  </th>
+                  <th
+                    colSpan={2}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Workshop
+                  </th>
+                  <th
+                    colSpan={2}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Travel
+                  </th>
+                  <th
+                    colSpan={2}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    On Set
+                  </th>
+                  <th
+                    colSpan={3}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Extra Supplements
+                  </th>
+                  <th
+                    colSpan={1}
+                    style={{
+                      border: "1px solid #94a3b8",
+                      padding: "6px 5px",
+                      color: UI.ink,
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    Total
+                  </th>
+                </tr>
+                <tr style={{ background: "#f3f4f6" }}>
+                  {[
+                    "Date",
+                    "Job Name",
+                    "Week Day",
+                    "W/shop Hrs",
+                    "O/Time Hrs",
+                    "Travel Hrs",
+                    "Sunday Hrs",
+                    "On Set Hrs",
+                    "On Set O/T",
+                    "Sa/Su Units",
+                    "O/N Units",
+                    "Travel Meal",
+                    "Total",
+                  ].map((heading) => (
+                    <th
+                      key={heading}
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        padding: "7px 6px",
+                        color: UI.ink,
+                        fontWeight: 800,
+                        textAlign: "center",
+                      }}
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payAdvice.rows.map((row) => (
+                  <tr key={row.day}>
+                    <td style={payAdviceCell}>
+                      <input
+                        value={row.dateLabel}
+                        onChange={(e) => handlePayAdviceFieldChange(row.day, "dateLabel", e.target.value)}
+                        style={payAdviceInput}
+                        disabled={isApproved}
+                      />
+                    </td>
+                    <td style={{ ...payAdviceCell, textAlign: "left" }}>
+                      <input
+                        value={row.jobName}
+                        onChange={(e) => handlePayAdviceFieldChange(row.day, "jobName", e.target.value)}
+                        style={{ ...payAdviceInput, textAlign: "left" }}
+                        disabled={isApproved}
+                      />
+                    </td>
+                    <td style={payAdviceCell}>{row.day}</td>
+                    {[
+                      "workshopHrs",
+                      "overtimeHrs",
+                      "travelHrs",
+                      "sundayHrs",
+                      "onSetHrs",
+                      "onSetOvertimeHrs",
+                      "weekendSupplementUnits",
+                      "overnightUnits",
+                      "travelMealUnits",
+                      "dailyTotalHrs",
+                    ].map((field) => (
+                      <td key={`${row.day}-${field}`} style={{ ...payAdviceCell, fontWeight: field === "dailyTotalHrs" ? 800 : 400 }}>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={Number(row[field] || 0)}
+                          onChange={(e) => handlePayAdviceFieldChange(row.day, field, e.target.value)}
+                          style={payAdviceInput}
+                          disabled={isApproved}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr style={{ background: "#f8fafc" }}>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                    Totals
+                  </td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.workshopHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.overtimeHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.sundayHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.onSetHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.onSetOvertimeHrs.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.weekendSupplementUnits.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.overnightUnits.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
+                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.dailyTotalHrs.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 

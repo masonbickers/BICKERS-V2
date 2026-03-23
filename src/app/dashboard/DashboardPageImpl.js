@@ -33,6 +33,7 @@ import HolidayForm from "../components/holidayform";
 import CreateNote from "../components/create-note";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
+import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
 
 /* ───────────────────────────────────────────
    New styling tokens (match your HR page)
@@ -3010,162 +3011,25 @@ export default function DashboardPage({ bookingSaved }) {
           </div>
         )}
 
-        {showCreateMaintenancePicker && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(2,6,23,0.55)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 55,
-              padding: 18,
-            }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setShowCreateMaintenancePicker(false);
-            }}
-          >
-            <div
-              style={{
-                ...surface,
-                width: 520,
-                maxWidth: "94vw",
-                padding: 16,
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: UI.text }}>
-                Add Maintenance Booking
-              </h3>
-              <div style={{ ...hint, marginTop: 6 }}>
-                Choose a vehicle and/or equipment, then the new maintenance booking form will open.
-              </div>
-
-              <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.text, marginBottom: 6 }}>
-                    Vehicle
-                  </label>
-                  <select
-                    value={createMaintenanceVehicleId}
-                    onChange={(e) => {
-                      setCreateMaintenanceVehicleId(e.target.value);
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      outline: "none",
-                      fontSize: 13.5,
-                      background: "#fff",
-                    }}
-                  >
-                    <option value="">Select vehicle...</option>
-                    {vehiclesData
-                      .slice()
-                      .sort((a, b) =>
-                        `${a.name || ""} ${a.registration || ""}`.localeCompare(
-                          `${b.name || ""} ${b.registration || ""}`
-                        )
-                      )
-                      .map((vehicle) => {
-                        const registration = String(vehicle.registration || vehicle.reg || "").toUpperCase().trim();
-                        const label = vehicle.name
-                          ? registration
-                            ? `${vehicle.name} (${registration})`
-                            : vehicle.name
-                          : registration || vehicle.id;
-
-                        return (
-                          <option key={vehicle.id} value={vehicle.id}>
-                            {label}
-                          </option>
-                        );
-                      })}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.text, marginBottom: 6 }}>
-                    Booking type
-                  </label>
-                  <select
-                    value={createMaintenanceType}
-                    onChange={(e) => setCreateMaintenanceType(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      outline: "none",
-                      fontSize: 13.5,
-                      background: "#fff",
-                    }}
-                  >
-                    <option value="WORK">Work / Inspection</option>
-                    <option value="MOT">MOT</option>
-                    <option value="SERVICE">Service</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.text, marginBottom: 6 }}>
-                    Equipment
-                  </label>
-                  <select
-                    value={createMaintenanceEquipment}
-                    onChange={(e) => setCreateMaintenanceEquipment(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      outline: "none",
-                      fontSize: 13.5,
-                      background: "#fff",
-                    }}
-                  >
-                    <option value="">No equipment</option>
-                    {equipmentOptions.map((equipmentName) => (
-                      <option key={equipmentName} value={equipmentName}>
-                        {equipmentName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateMaintenancePicker(false);
-                      setCreateMaintenanceEquipment("");
-                    }}
-                    style={btn("ghost")}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!createMaintenanceVehicleId && !createMaintenanceEquipment) return;
-                      setShowCreateMaintenancePicker(false);
-                    }}
-                    disabled={!createMaintenanceVehicleId && !createMaintenanceEquipment}
-                    style={
-                      !createMaintenanceVehicleId && !createMaintenanceEquipment
-                        ? btnDisabled(btn())
-                        : btn()
-                    }
-                  >
-                    Continue
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <MaintenanceBookingPickerModal
+          open={showCreateMaintenancePicker}
+          vehicles={vehiclesData}
+          equipmentOptions={equipmentOptions}
+          maintenanceType={createMaintenanceType}
+          vehicleId={createMaintenanceVehicleId}
+          equipment={createMaintenanceEquipment}
+          onClose={() => {
+            setShowCreateMaintenancePicker(false);
+            setCreateMaintenanceEquipment("");
+          }}
+          onContinue={() => {
+            if (!createMaintenanceVehicleId && !createMaintenanceEquipment) return;
+            setShowCreateMaintenancePicker(false);
+          }}
+          onVehicleChange={setCreateMaintenanceVehicleId}
+          onTypeChange={setCreateMaintenanceType}
+          onEquipmentChange={setCreateMaintenanceEquipment}
+        />
       </div>
 
       {!showCreateMaintenancePicker && (createMaintenanceVehicleId || createMaintenanceEquipment) && (
