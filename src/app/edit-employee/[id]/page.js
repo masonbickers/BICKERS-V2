@@ -14,6 +14,30 @@ import {
   validateEmployeeAccessDraft,
 } from "@/app/utils/accessControl";
 
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adam@bickers.co.uk",
+];
+
+const EMPTY_PAYROLL_RATES = {
+  workshopRate: "",
+  overtimeRate: "",
+  travelRate: "",
+  sundayRate: "",
+  onSetRate: "",
+  onSetOvertimeRate: "",
+  weekendSupplementRate: "",
+  overnightRate: "",
+  travelMealRate: "",
+};
+
+const EMPTY_GLOBAL_PAYROLL_RATES = {
+  travelRate: "",
+  overnightRate: "",
+  travelMealRate: "",
+};
+
 /* ───────────────────────────────────────────
    Mini design system (matches your Holiday page)
 ─────────────────────────────────────────── */
@@ -228,6 +252,8 @@ export default function EditEmployeePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
+  const [userEmail, setUserEmail] = useState("");
+  const [globalPayrollRates, setGlobalPayrollRates] = useState(EMPTY_GLOBAL_PAYROLL_RATES);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -240,7 +266,17 @@ export default function EditEmployeePage() {
     isService: false,
     appAccess: { user: true, service: false },
     defaultWorkspace: "user",
+    payrollRates: EMPTY_PAYROLL_RATES,
   });
+
+  useEffect(() => {
+    const unsub = auth?.onAuthStateChanged?.((u) => {
+      setUserEmail((u?.email || "").toLowerCase());
+    });
+    return () => unsub?.();
+  }, []);
+
+  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
 
   useEffect(() => {
     const fetchEmployee = async () => {
@@ -248,7 +284,8 @@ export default function EditEmployeePage() {
       setLoading(true);
       try {
         const docRef = doc(db, "employees", employeeId);
-        const docSnap = await getDoc(docRef);
+        const settingsRef = doc(db, "settings", "payrollRates");
+        const [docSnap, settingsSnap] = await Promise.all([getDoc(docRef), getDoc(settingsRef)]);
 
         if (!docSnap.exists()) {
           alert("Employee not found");
@@ -257,6 +294,12 @@ export default function EditEmployeePage() {
         }
 
         const data = docSnap.data() || {};
+        const sharedRates = settingsSnap.exists()
+          ? {
+              ...EMPTY_GLOBAL_PAYROLL_RATES,
+              ...(settingsSnap.data() || {}),
+            }
+          : EMPTY_GLOBAL_PAYROLL_RATES;
         const jt = Array.isArray(data.jobTitle)
           ? data.jobTitle
           : [data.jobTitle].filter(Boolean);
@@ -271,6 +314,17 @@ export default function EditEmployeePage() {
               : data.isService === true ||
                 ["service", "hybrid"].includes(String(data.role || "").trim().toLowerCase()),
         };
+
+        setGlobalPayrollRates({
+          travelRate:
+            sharedRates.travelRate === "" || sharedRates.travelRate == null ? "" : Number(sharedRates.travelRate),
+          overnightRate:
+            sharedRates.overnightRate === "" || sharedRates.overnightRate == null ? "" : Number(sharedRates.overnightRate),
+          travelMealRate:
+            sharedRates.travelMealRate === "" || sharedRates.travelMealRate == null
+              ? ""
+              : Number(sharedRates.travelMealRate),
+        });
 
         setFormData({
           name: asStr(data.name || data.fullName || ""),
@@ -288,6 +342,22 @@ export default function EditEmployeePage() {
           isService: data.isService === true,
           appAccess: loadedAccess,
           defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
+          payrollRates: {
+            ...EMPTY_PAYROLL_RATES,
+            ...(data.payrollRates || {}),
+            travelRate:
+              sharedRates.travelRate === "" || sharedRates.travelRate == null
+                ? data.payrollRates?.travelRate ?? ""
+                : Number(sharedRates.travelRate),
+            overnightRate:
+              sharedRates.overnightRate === "" || sharedRates.overnightRate == null
+                ? data.payrollRates?.overnightRate ?? ""
+                : Number(sharedRates.overnightRate),
+            travelMealRate:
+              sharedRates.travelMealRate === "" || sharedRates.travelMealRate == null
+                ? data.payrollRates?.travelMealRate ?? ""
+                : Number(sharedRates.travelMealRate),
+          },
         });
       } catch (err) {
         console.error("Error fetching employee:", err);
@@ -342,6 +412,32 @@ export default function EditEmployeePage() {
     }));
   };
 
+  const handlePayrollRateChange = (field, value) => {
+    setSaveMessage("");
+    setSaveError("");
+    if (field === "travelRate" || field === "overnightRate" || field === "travelMealRate") {
+      setGlobalPayrollRates((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+      setFormData((prev) => ({
+        ...prev,
+        payrollRates: {
+          ...(prev.payrollRates || EMPTY_PAYROLL_RATES),
+          [field]: value,
+        },
+      }));
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      payrollRates: {
+        ...(prev.payrollRates || EMPTY_PAYROLL_RATES),
+        [field]: value,
+      },
+    }));
+  };
+
   const effectiveRole = deriveRoleFromAccess(formData.appAccess || {});
   const routingPreview = getWorkspaceRoute(formData.defaultWorkspace || "user");
 
@@ -371,7 +467,9 @@ export default function EditEmployeePage() {
     setSaving(true);
     try {
       const docRef = doc(db, "employees", employeeId);
-      await setDoc(docRef, {
+      const settingsRef = doc(db, "settings", "payrollRates");
+      await Promise.all([
+        setDoc(docRef, {
         ...formData,
         // keep dob as YYYY-MM-DD string (matches your other pages)
         dob: formData.dob || "",
@@ -383,12 +481,44 @@ export default function EditEmployeePage() {
           service: !!formData?.appAccess?.service,
         },
         defaultWorkspace: formData.defaultWorkspace === "service" ? "service" : "user",
+        payrollRates: Object.fromEntries(
+          Object.entries(formData.payrollRates || {}).map(([key, value]) => [
+            key,
+            key === "travelRate"
+              ? globalPayrollRates.travelRate === ""
+                ? ""
+                : Number(globalPayrollRates.travelRate)
+              : key === "overnightRate"
+                ? globalPayrollRates.overnightRate === ""
+                  ? ""
+                  : Number(globalPayrollRates.overnightRate)
+                : key === "travelMealRate"
+                  ? globalPayrollRates.travelMealRate === ""
+                    ? ""
+                    : Number(globalPayrollRates.travelMealRate)
+                : value === ""
+                  ? ""
+                  : Number(value),
+          ])
+        ),
         updatedAt: serverTimestamp(),
         updatedBy:
           auth?.currentUser?.email ||
           auth?.currentUser?.uid ||
           "",
-      }, { merge: true });
+      }, { merge: true }),
+        setDoc(settingsRef, {
+          travelRate: globalPayrollRates.travelRate === "" ? "" : Number(globalPayrollRates.travelRate),
+          overnightRate: globalPayrollRates.overnightRate === "" ? "" : Number(globalPayrollRates.overnightRate),
+          travelMealRate:
+            globalPayrollRates.travelMealRate === "" ? "" : Number(globalPayrollRates.travelMealRate),
+          updatedAt: serverTimestamp(),
+          updatedBy:
+            auth?.currentUser?.email ||
+            auth?.currentUser?.uid ||
+            "",
+        }, { merge: true }),
+      ]);
       setSaveMessage("Employee access and profile updated.");
     } catch (err) {
       console.error("Error updating employee:", err);
@@ -635,6 +765,55 @@ export default function EditEmployeePage() {
                   </div>
                 </div>
 
+                {isAdmin ? (
+                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 14, display: "grid", gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>
+                        Payroll Rates
+                      </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Admin-only rates used by finance on the weekly pay advice sheet.
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                      Travel, overnight, and travel meal are shared company-wide rates and update all employees.
+                    </div>
+                  </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      {[
+                        ["workshopRate", "Workshop rate"],
+                        ["overtimeRate", "Overtime rate"],
+                        ["travelRate", "Travel rate (Universal)"],
+                        ["sundayRate", "Sunday rate"],
+                        ["onSetRate", "On set rate"],
+                        ["onSetOvertimeRate", "On set O/T rate"],
+                        ["weekendSupplementRate", "Sa/Su unit rate"],
+                        ["overnightRate", "Overnight rate (Universal)"],
+                        ["travelMealRate", "Travel meal rate (Universal)"],
+                      ].map(([field, label]) => (
+                        <div key={field}>
+                          <label style={labelStyle}>{label}</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={
+                              field === "travelRate" || field === "overnightRate" || field === "travelMealRate"
+                                ? globalPayrollRates?.[field] ?? ""
+                                : formData.payrollRates?.[field] ?? ""
+                            }
+                            onChange={(e) => handlePayrollRateChange(field, e.target.value)}
+                            style={inputBase}
+                            placeholder="0.00"
+                          />
+                          {field === "travelRate" || field === "overnightRate" || field === "travelMealRate" ? (
+                            <div style={helperStyle}>Shared across all employees.</div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {saveError && <div style={inlineNotice("error")}>{saveError}</div>}
                 {saveMessage && <div style={inlineNotice()}>{saveMessage}</div>}
 
@@ -727,10 +906,38 @@ export default function EditEmployeePage() {
                     <div style={{ color: UI.muted, fontSize: 12 }}>
                       Effective role: <b style={{ color: UI.text }}>{effectiveRole}</b>
                     </div>
-                    <div style={{ color: UI.muted, fontSize: 12 }}>
-                      Route target: <span style={mono}>{routingPreview}</span>
-                    </div>
+                  <div style={{ color: UI.muted, fontSize: 12 }}>
+                    Route target: <span style={mono}>{routingPreview}</span>
                   </div>
+                  </div>
+
+                  {isAdmin ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
+                        Payroll Rates
+                      </div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {[
+                          ["Workshop", formData.payrollRates?.workshopRate],
+                          ["Overtime", formData.payrollRates?.overtimeRate],
+                          ["Travel", globalPayrollRates?.travelRate],
+                          ["Sunday", formData.payrollRates?.sundayRate],
+                          ["On Set", formData.payrollRates?.onSetRate],
+                          ["On Set O/T", formData.payrollRates?.onSetOvertimeRate],
+                          ["Sa/Su Unit", formData.payrollRates?.weekendSupplementRate],
+                          ["Overnight", globalPayrollRates?.overnightRate],
+                          ["Travel Meal", globalPayrollRates?.travelMealRate],
+                        ].map(([label, value]) => (
+                          <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
+                            <span style={{ color: UI.muted }}>{label}</span>
+                            <span style={{ color: UI.text, fontWeight: 800 }}>
+                              {value === "" || value == null ? "—" : value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
                     <button type="button" onClick={handleCancel} style={btn("ghost")}>

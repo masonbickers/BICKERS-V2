@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
@@ -720,6 +720,13 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         paidStatus,
 
         status: "requested",
+        requestedByUid: auth.currentUser?.uid || "",
+        requestedByName:
+          auth.currentUser?.displayName ||
+          auth.currentUser?.email ||
+          auth.currentUser?.uid ||
+          "",
+        requestedByEmail: auth.currentUser?.email || "",
         createdAt: serverTimestamp(),
       };
 

@@ -14,8 +14,14 @@ import {
   where,
   onSnapshot,
 } from "firebase/firestore";
-import { db } from "../../../../firebaseConfig";
+import { auth, db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adam@bickers.co.uk",
+];
 
 /* -------------------------------------------------------------------------- */
 /*                               HELPERS                                      */
@@ -339,6 +345,12 @@ function formatShortDate(value) {
   return d.toLocaleDateString("en-GB");
 }
 
+function toMoney(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0.00";
+  return num.toFixed(2);
+}
+
 function printElementById(elementId, title) {
   if (typeof window === "undefined") return;
 
@@ -508,8 +520,21 @@ export default function TimesheetDetailPage() {
   const [queries, setQueries] = useState([]);
   const [lunchSavingDay, setLunchSavingDay] = useState("");
   const [payAdviceEdits, setPayAdviceEdits] = useState({});
+  const [payAdviceRateEdits, setPayAdviceRateEdits] = useState({});
   const [payAdviceSaving, setPayAdviceSaving] = useState(false);
   const [payAdviceMessage, setPayAdviceMessage] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
+  const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
+
+  useEffect(() => {
+    const unsub = auth?.onAuthStateChanged?.((u) => {
+      setUserEmail((u?.email || "").toLowerCase());
+    });
+    return () => unsub?.();
+  }, []);
+
+  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
 
   /* ----------------------- Load timesheet ----------------------- */
   useEffect(() => {
@@ -728,8 +753,36 @@ export default function TimesheetDetailPage() {
 
   useEffect(() => {
     setPayAdviceEdits(timesheet?.payAdviceOverrides?.rows || {});
+    setPayAdviceRateEdits(timesheet?.payAdviceOverrides?.rates || {});
     setPayAdviceMessage("");
   }, [timesheet?.id, timesheet?.payAdviceOverrides]);
+
+  useEffect(() => {
+    if (!timesheet) return;
+
+    (async () => {
+      try {
+        const settingsSnap = await getDoc(doc(db, "settings", "payrollRates"));
+        setGlobalPayrollRates(settingsSnap.exists() ? settingsSnap.data() || {} : null);
+
+        const snap = await getDocs(collection(db, "employees"));
+        const employees = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const match = employees.find((emp) => {
+          const code = String(emp.employeeCode || emp.code || "").trim().toLowerCase();
+          const name = String(emp.name || emp.fullName || "").trim().toLowerCase();
+          return (
+            (timesheet.employeeCode && code && code === String(timesheet.employeeCode).trim().toLowerCase()) ||
+            (timesheet.employeeName && name && name === String(timesheet.employeeName).trim().toLowerCase())
+          );
+        });
+        setEmployeePayrollRates(match?.payrollRates || null);
+      } catch (err) {
+        console.error("Error loading employee payroll rates:", err);
+        setEmployeePayrollRates(null);
+        setGlobalPayrollRates(null);
+      }
+    })();
+  }, [timesheet]);
 
   /* ------------------------------ APPROVE --------------------------------- */
   const handleApprove = async () => {
@@ -959,6 +1012,24 @@ export default function TimesheetDetailPage() {
   }, [dayMap, jobsByDay, holidaysByDate, weekStartDate]);
 
   const payAdvice = useMemo(() => {
+    const baseRates = {
+      workshopRate: Number(employeePayrollRates?.workshopRate || 0),
+      overtimeRate: Number(employeePayrollRates?.overtimeRate || 0),
+      travelRate: Number((globalPayrollRates?.travelRate ?? employeePayrollRates?.travelRate) || 0),
+      sundayRate: Number(employeePayrollRates?.sundayRate || 0),
+      onSetRate: Number(employeePayrollRates?.onSetRate || 0),
+      onSetOvertimeRate: Number(employeePayrollRates?.onSetOvertimeRate || 0),
+      weekendSupplementRate: Number(employeePayrollRates?.weekendSupplementRate || 0),
+      overnightRate: Number((globalPayrollRates?.overnightRate ?? employeePayrollRates?.overnightRate) || 0),
+      travelMealRate: Number((globalPayrollRates?.travelMealRate ?? employeePayrollRates?.travelMealRate) || 0),
+    };
+    const rates = {
+      ...baseRates,
+      ...Object.fromEntries(
+        Object.entries(payAdviceRateEdits || {}).map(([key, value]) => [key, Number(value || 0)])
+      ),
+    };
+
     const rows = dayCards.map((card, index) => {
       const entry = card.entry || {};
       const dt = weekStartDate ? new Date(weekStartDate) : null;
@@ -1030,9 +1101,25 @@ export default function TimesheetDetailPage() {
       };
 
       const override = payAdviceEdits?.[card.day] || {};
-      return {
+      const mergedRow = {
         ...baseRow,
         ...override,
+      };
+
+      const monetaryTotal =
+        (Number(mergedRow.workshopHrs) || 0) * rates.workshopRate +
+        (Number(mergedRow.overtimeHrs) || 0) * rates.overtimeRate +
+        (Number(mergedRow.travelHrs) || 0) * rates.travelRate +
+        (Number(mergedRow.sundayHrs) || 0) * rates.sundayRate +
+        (Number(mergedRow.onSetHrs) || 0) * rates.onSetRate +
+        (Number(mergedRow.onSetOvertimeHrs) || 0) * rates.onSetOvertimeRate +
+        (Number(mergedRow.weekendSupplementUnits) || 0) * rates.weekendSupplementRate +
+        (Number(mergedRow.overnightUnits) || 0) * rates.overnightRate +
+        (Number(mergedRow.travelMealUnits) || 0) * rates.travelMealRate;
+
+      return {
+        ...mergedRow,
+        totalMonetary: Number(monetaryTotal.toFixed(2)),
       };
     });
 
@@ -1052,9 +1139,22 @@ export default function TimesheetDetailPage() {
         travelMealUnits: totalFor("travelMealUnits"),
         preCallHrs: 0,
         dailyTotalHrs: totalFor("dailyTotalHrs"),
+        workshopAmount: Number((totalFor("workshopHrs") * rates.workshopRate).toFixed(2)),
+        overtimeAmount: Number((totalFor("overtimeHrs") * rates.overtimeRate).toFixed(2)),
+        travelAmount: Number((totalFor("travelHrs") * rates.travelRate).toFixed(2)),
+        sundayAmount: Number((totalFor("sundayHrs") * rates.sundayRate).toFixed(2)),
+        onSetAmount: Number((totalFor("onSetHrs") * rates.onSetRate).toFixed(2)),
+        onSetOvertimeAmount: Number((totalFor("onSetOvertimeHrs") * rates.onSetOvertimeRate).toFixed(2)),
+        weekendSupplementAmount: Number(
+          (totalFor("weekendSupplementUnits") * rates.weekendSupplementRate).toFixed(2)
+        ),
+        overnightAmount: Number((totalFor("overnightUnits") * rates.overnightRate).toFixed(2)),
+        travelMealAmount: Number((totalFor("travelMealUnits") * rates.travelMealRate).toFixed(2)),
+        totalMonetary: totalFor("totalMonetary"),
       },
+      rates,
     };
-  }, [dayCards, weekStartDate, payAdviceEdits]);
+  }, [dayCards, weekStartDate, payAdviceEdits, employeePayrollRates, globalPayrollRates, payAdviceRateEdits]);
 
   const handlePayAdviceFieldChange = (day, field, value) => {
     setPayAdviceEdits((prev) => ({
@@ -1070,6 +1170,14 @@ export default function TimesheetDetailPage() {
     setPayAdviceMessage("");
   };
 
+  const handlePayAdviceRateChange = (field, value) => {
+    setPayAdviceRateEdits((prev) => ({
+      ...prev,
+      [field]: value === "" ? "" : Number(value),
+    }));
+    setPayAdviceMessage("");
+  };
+
   const handleSavePayAdvice = async () => {
     if (!timesheet?.id) return;
     setPayAdviceSaving(true);
@@ -1078,6 +1186,7 @@ export default function TimesheetDetailPage() {
       await updateDoc(doc(db, "timesheets", timesheet.id), {
         payAdviceOverrides: {
           rows: payAdviceEdits,
+          rates: payAdviceRateEdits,
           updatedAt: new Date().toISOString(),
         },
         updatedAt: serverTimestamp(),
@@ -1089,6 +1198,7 @@ export default function TimesheetDetailPage() {
               ...prev,
               payAdviceOverrides: {
                 rows: payAdviceEdits,
+                rates: payAdviceRateEdits,
                 updatedAt: new Date().toISOString(),
               },
             }
@@ -1920,6 +2030,53 @@ export default function TimesheetDetailPage() {
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.dailyTotalHrs.toFixed(2)}</td>
                 </tr>
+                {isAdmin ? (
+                  <tr style={{ background: "#eff6ff" }}>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                      Rates
+                    </td>
+                    {[
+                      "workshopRate",
+                      "overtimeRate",
+                      "travelRate",
+                      "sundayRate",
+                      "onSetRate",
+                      "onSetOvertimeRate",
+                      "weekendSupplementRate",
+                      "overnightRate",
+                      "travelMealRate",
+                    ].map((field) => (
+                      <td key={field} style={{ ...payAdviceCell, fontWeight: 800 }}>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={Number(payAdvice.rates[field] || 0)}
+                          onChange={(e) => handlePayAdviceRateChange(field, e.target.value)}
+                          style={payAdviceInput}
+                          disabled={isApproved}
+                        />
+                      </td>
+                    ))}
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }} />
+                  </tr>
+                ) : null}
+                {isAdmin ? (
+                  <tr style={{ background: "#dbeafe" }}>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
+                      Total Monetary
+                    </td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.workshopAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.overtimeAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.travelAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.sundayAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.onSetAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.onSetOvertimeAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.weekendSupplementAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.overnightAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.travelMealAmount)}</td>
+                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.totalMonetary)}</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>

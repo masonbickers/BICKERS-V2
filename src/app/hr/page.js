@@ -959,6 +959,14 @@ export default function HRPage() {
                     const fromD = toDate(h.startDate);
                     const toD = toDate(h.endDate) || fromD;
                     const type = String(h.leaveType || h.paidStatus || "Other");
+                    const requestedBy =
+                      String(
+                        h.requestedByName ||
+                          h.requestedByEmail ||
+                          h.createdByName ||
+                          h.createdByEmail ||
+                          ""
+                      ).trim() || "Not recorded";
                     const { single, start, end } = getHalfInfo(h);
 
                     let typeHint = "";
@@ -1002,6 +1010,11 @@ export default function HRPage() {
                               • {typeHint}
                             </span>
                           ) : null}
+                        </div>
+
+                        <div style={{ marginTop: 4, color: UI.muted, fontSize: 12.5 }}>
+                          Requested by:{" "}
+                          <span style={{ fontWeight: 800, color: UI.text }}>{requestedBy}</span>
                         </div>
 
                         <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
