@@ -524,17 +524,31 @@ export default function TimesheetDetailPage() {
   const [payAdviceSaving, setPayAdviceSaving] = useState(false);
   const [payAdviceMessage, setPayAdviceMessage] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
 
   useEffect(() => {
-    const unsub = auth?.onAuthStateChanged?.((u) => {
+    const unsub = auth?.onAuthStateChanged?.(async (u) => {
       setUserEmail((u?.email || "").toLowerCase());
+      if (!u?.uid) {
+        setUserRole("");
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        setUserRole(String(snap.data()?.role || "").toLowerCase());
+      } catch {
+        setUserRole("");
+      }
     });
     return () => unsub?.();
   }, []);
 
-  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
+  const isAdmin = useMemo(
+    () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
+    [userEmail, userRole]
+  );
 
   /* ----------------------- Load timesheet ----------------------- */
   useEffect(() => {

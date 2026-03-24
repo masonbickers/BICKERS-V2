@@ -253,6 +253,7 @@ export default function EditEmployeePage() {
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
   const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [globalPayrollRates, setGlobalPayrollRates] = useState(EMPTY_GLOBAL_PAYROLL_RATES);
 
   const [formData, setFormData] = useState({
@@ -270,13 +271,26 @@ export default function EditEmployeePage() {
   });
 
   useEffect(() => {
-    const unsub = auth?.onAuthStateChanged?.((u) => {
+    const unsub = auth?.onAuthStateChanged?.(async (u) => {
       setUserEmail((u?.email || "").toLowerCase());
+      if (!u?.uid) {
+        setUserRole("");
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        setUserRole(String(snap.data()?.role || "").toLowerCase());
+      } catch {
+        setUserRole("");
+      }
     });
     return () => unsub?.();
   }, []);
 
-  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
+  const isAdmin = useMemo(
+    () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
+    [userEmail, userRole]
+  );
 
   useEffect(() => {
     const fetchEmployee = async () => {
