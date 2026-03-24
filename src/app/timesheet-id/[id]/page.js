@@ -529,20 +529,25 @@ export default function TimesheetDetailPage() {
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
 
   useEffect(() => {
-    const unsub = auth?.onAuthStateChanged?.(async (u) => {
+    let roleUnsub = null;
+    const unsub = auth?.onAuthStateChanged?.((u) => {
       setUserEmail((u?.email || "").toLowerCase());
+      roleUnsub?.();
+      roleUnsub = null;
       if (!u?.uid) {
         setUserRole("");
         return;
       }
-      try {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        setUserRole(String(snap.data()?.role || "").toLowerCase());
-      } catch {
-        setUserRole("");
-      }
+      roleUnsub = onSnapshot(
+        doc(db, "users", u.uid),
+        (snap) => setUserRole(String(snap.data()?.role || "").toLowerCase()),
+        () => setUserRole("")
+      );
     });
-    return () => unsub?.();
+    return () => {
+      roleUnsub?.();
+      unsub?.();
+    };
   }, []);
 
   const isAdmin = useMemo(

@@ -6,7 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 import { auth, db } from "../../../../firebaseConfig";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import {
   deriveRoleFromAccess,
   resolveDefaultWorkspace,
@@ -271,20 +271,25 @@ export default function EditEmployeePage() {
   });
 
   useEffect(() => {
-    const unsub = auth?.onAuthStateChanged?.(async (u) => {
+    let roleUnsub = null;
+    const unsub = auth?.onAuthStateChanged?.((u) => {
       setUserEmail((u?.email || "").toLowerCase());
+      roleUnsub?.();
+      roleUnsub = null;
       if (!u?.uid) {
         setUserRole("");
         return;
       }
-      try {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        setUserRole(String(snap.data()?.role || "").toLowerCase());
-      } catch {
-        setUserRole("");
-      }
+      roleUnsub = onSnapshot(
+        doc(db, "users", u.uid),
+        (snap) => setUserRole(String(snap.data()?.role || "").toLowerCase()),
+        () => setUserRole("")
+      );
     });
-    return () => unsub?.();
+    return () => {
+      roleUnsub?.();
+      unsub?.();
+    };
   }, []);
 
   const isAdmin = useMemo(
