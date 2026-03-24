@@ -9,13 +9,6 @@ const DVLA_VES_URL =
 // GET /api/dvla/vehicle?vrm=AB12CDE
 export async function GET(request) {
   try {
-    // Debug: check env is loaded (safe – only shows first few chars)
-    console.log(
-      "DVLA key present?",
-      !!DVLA_API_KEY,
-      DVLA_API_KEY ? DVLA_API_KEY.slice(0, 4) + "..." : "no-key"
-    );
-
     if (!DVLA_API_KEY) {
       return Response.json(
         { error: "DVLA_API_KEY not set on server" },
@@ -61,7 +54,6 @@ export async function GET(request) {
       motExpiryDate: d.motExpiryDate,
       taxStatus: d.taxStatus,
       taxDueDate: d.taxDueDate,
-      raw: d, // keep full response in case you need more fields later
     };
 
     return Response.json(payload, { status: 200 });
@@ -69,14 +61,13 @@ export async function GET(request) {
     console.error(
       "DVLA lookup error:",
       err.response?.status,
-      err.response?.data || err.message
+      err.message
     );
 
     if (err.response) {
       return Response.json(
         {
           error: "DVLA API error",
-          details: err.response.data,
         },
         { status: err.response.status }
       );

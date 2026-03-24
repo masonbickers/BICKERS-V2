@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { auth } from "../../../firebaseConfig";
 
 export default function AssistantPage() {
   const [input, setInput] = useState("");
@@ -13,9 +14,17 @@ export default function AssistantPage() {
     setResponse("");
 
     try {
+      const idToken = await auth.currentUser?.getIdToken?.();
+      if (!idToken) {
+        throw new Error("Please sign in again.");
+      }
+
       const res = await fetch("/api/chatgpt", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({ prompt: input }),
       });
 

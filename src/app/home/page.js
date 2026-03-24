@@ -13,7 +13,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
 import moment from "moment";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
 
@@ -713,16 +713,28 @@ export default function HomePage() {
   const askAssistant = async () => {
     setLoading(true);
     try {
+      const idToken = await auth.currentUser?.getIdToken?.();
+      if (!idToken) {
+        throw new Error("Please sign in again.");
+      }
+
       const res = await fetch("/api/chatgpt", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({ prompt: input }),
       });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || "Something went wrong.");
+      }
       const data = await res.json();
       setResponse(data.reply || "No response.");
     } catch (err) {
       console.error(err);
-      setResponse("Something went wrong.");
+      setResponse(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }

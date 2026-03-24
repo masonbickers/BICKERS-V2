@@ -1309,21 +1309,23 @@ export default function TimesheetDetailPage() {
                Print Timesheet
             </button>
 
-            <button
-              onClick={handlePrintPayAdvice}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                border: `1px solid ${UI.brandBorder}`,
-                backgroundColor: "#ffffff",
-                color: UI.brand,
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              Print Pay Advice
-            </button>
+            {isAdmin ? (
+              <button
+                onClick={handlePrintPayAdvice}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: `1px solid ${UI.brandBorder}`,
+                  backgroundColor: "#ffffff",
+                  color: UI.brand,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Print Pay Advice
+              </button>
+            ) : null}
 
             <button
               onClick={handleApprove}
@@ -1808,6 +1810,7 @@ export default function TimesheetDetailPage() {
           </div>
         </div>
 
+        {isAdmin ? (
         <div
           id="pay-advice-print-root"
           style={{
@@ -2081,6 +2084,7 @@ export default function TimesheetDetailPage() {
             </table>
           </div>
         </div>
+        ) : null}
 
         {/* MANAGER QUERIES */}
         <div

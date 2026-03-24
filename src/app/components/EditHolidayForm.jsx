@@ -290,12 +290,8 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       const endAsDate = ymdToDate(finalEnd);
       const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
 
-      //  keep existing status by default (don’t accidentally unapprove)
-      const statusToKeep = existingStatus || (holidayRec?.status ? String(holidayRec.status) : "");
-      const finalStatus =
-        statusToKeep && norm(statusToKeep) !== "requested"
-          ? statusToKeep
-          : statusToKeep || "requested";
+      // Any edit must go back through approval.
+      const finalStatus = "requested";
 
       const payload = {
         employee,
@@ -312,6 +308,8 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         paidStatus,
 
         status: finalStatus,
+        approvalStatus: "requested",
+        approved: false,
 
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",

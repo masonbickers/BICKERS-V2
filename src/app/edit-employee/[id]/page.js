@@ -464,6 +464,11 @@ export default function EditEmployeePage() {
       return;
     }
 
+    if (!isAdmin) {
+      setSaveError("Only admins can update employee access or payroll settings.");
+      return;
+    }
+
     setSaving(true);
     try {
       const docRef = doc(db, "employees", employeeId);
@@ -532,6 +537,11 @@ export default function EditEmployeePage() {
 
   const handleDelete = async () => {
     if (!employeeId) return;
+
+    if (!isAdmin) {
+      setSaveError("Only admins can delete employees.");
+      return;
+    }
 
     const confirmDelete = confirm("Are you sure you want to delete this employee?");
     if (!confirmDelete) return;
