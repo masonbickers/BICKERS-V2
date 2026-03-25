@@ -8,6 +8,7 @@ import {
   browserSessionPersistence,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   sendEmailVerification,
   setPersistence,
 } from "firebase/auth";
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
 
   const routeUserToWorkspace = async (user) => {
@@ -84,6 +86,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setMessage("");
 
     try {
       const cleanEmail = (email || "").trim().toLowerCase();
@@ -152,6 +155,30 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError(err?.message || "Login error");
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+    if (!cleanEmail) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    if (!cleanEmail.endsWith("@bickers.co.uk")) {
+      setError("Only @bickers.co.uk emails are allowed.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setMessage(`Password reset email sent to ${cleanEmail}.`);
+    } catch (err) {
+      setError(err?.message || "Failed to send password reset email.");
     }
   };
 
@@ -241,7 +268,7 @@ export default function LoginPage() {
                       Remember for 30 days
                     </label>
                   )}
-                  <a href="#" style={styles.link}>
+                  <a href="#" onClick={handleForgotPassword} style={styles.link}>
                     Forgot password
                   </a>
                 </div>
@@ -262,8 +289,8 @@ export default function LoginPage() {
                 </p>
 
                 {error && <p style={styles.error}>{error}</p>}
+                {message && <p style={styles.success}>{message}</p>}
               </form>
-              {error && <p style={styles.error}>{error}</p>}
           </>
         </div>
       </div>
@@ -296,6 +323,7 @@ const styles = {
   link: { color: "#f87171", textDecoration: "none", cursor: "pointer" },
   primaryButton: { width: "100%", padding: "12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginBottom: "12px", transition: "background 0.3s" },
   error: { color: "#f87171", marginTop: "15px", fontSize: "14px" },
+  success: { color: "#86efac", marginTop: "15px", fontSize: "14px" },
   imageSide: { flex: 1.3, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" },
   image: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "right" },
 };
