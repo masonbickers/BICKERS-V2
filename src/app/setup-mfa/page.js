@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { QRCodeCanvas } from "qrcode.react";   //  QRCodeCanvas
-import speakeasy from "speakeasy";
 import {
   linkWithCredential,
   PhoneAuthProvider,
@@ -14,9 +12,6 @@ import {
 
 export default function SetupMFA() {
   const router = useRouter();
-  const [secret, setSecret] = useState(null);
-  const [otpauthUrl, setOtpauthUrl] = useState("");
-  const [method, setMethod] = useState("sms");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [smsCode, setSmsCode] = useState("");
   const [smsVerificationId, setSmsVerificationId] = useState("");
@@ -24,16 +19,6 @@ export default function SetupMFA() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const recaptchaRef = useRef(null);
-
-  // Generate MFA secret when page loads
-  useEffect(() => {
-    const secretGen = speakeasy.generateSecret({
-      name: "Bickers Booking",
-    });
-
-    setSecret(secretGen.base32);
-    setOtpauthUrl(secretGen.otpauth_url);
-  }, []);
 
   useEffect(() => {
     const loadPhone = async () => {
@@ -98,43 +83,31 @@ export default function SetupMFA() {
         return;
       }
 
-      if (method === "sms") {
-        if (!smsVerificationId || !smsCode.trim()) {
-          setError("Send and enter the SMS code first.");
-          setSaving(false);
-          return;
-        }
-
-        const credential = PhoneAuthProvider.credential(smsVerificationId, smsCode.trim());
-        try {
-          await linkWithCredential(user, credential);
-        } catch (err) {
-          if (err?.code !== "auth/provider-already-linked") {
-            throw err;
-          }
-        }
-
-        await setDoc(
-          doc(db, "users", user.uid),
-          {
-            mfaMethod: "sms",
-            mfaEnabled: true,
-            mfaPhoneNumber: phoneNumber.trim(),
-            mfaSecret: null,
-          },
-          { merge: true }
-        );
-      } else {
-        await setDoc(
-          doc(db, "users", user.uid),
-          {
-            mfaMethod: "totp",
-            mfaEnabled: true,
-            mfaSecret: secret,
-          },
-          { merge: true }
-        );
+      if (!smsVerificationId || !smsCode.trim()) {
+        setError("Send and enter the SMS code first.");
+        setSaving(false);
+        return;
       }
+
+      const credential = PhoneAuthProvider.credential(smsVerificationId, smsCode.trim());
+      try {
+        await linkWithCredential(user, credential);
+      } catch (err) {
+        if (err?.code !== "auth/provider-already-linked") {
+          throw err;
+        }
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          mfaMethod: "sms",
+          mfaEnabled: true,
+          mfaPhoneNumber: phoneNumber.trim(),
+          mfaSecret: null,
+        },
+        { merge: true }
+      );
 
       router.push("/home");
     } catch (err) {
@@ -150,53 +123,28 @@ export default function SetupMFA() {
         <div style={styles.formWrapper}>
           <h1 style={styles.title}>Set up MFA</h1>
           <p style={styles.subtitle}>
-            Choose how users should verify: SMS code or authenticator app.
+            Confirm SMS verification to finish securing this account.
           </p>
 
-          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-            <button
-              type="button"
-              onClick={() => setMethod("sms")}
-              style={method === "sms" ? styles.activeMethodButton : styles.methodButton}
-            >
-              SMS
+          <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+447..."
+              style={styles.input}
+            />
+            <button type="button" onClick={handleSendSmsCode} style={styles.secondaryButton}>
+              {smsSent ? "Resend SMS Code" : "Send SMS Code"}
             </button>
-            <button
-              type="button"
-              onClick={() => setMethod("totp")}
-              style={method === "totp" ? styles.activeMethodButton : styles.methodButton}
-            >
-              Authenticator
-            </button>
+            <input
+              type="text"
+              value={smsCode}
+              onChange={(e) => setSmsCode(e.target.value)}
+              placeholder="Enter SMS code"
+              style={styles.input}
+            />
           </div>
-
-          {method === "sms" ? (
-            <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+447..."
-                style={styles.input}
-              />
-              <button type="button" onClick={handleSendSmsCode} style={styles.secondaryButton}>
-                {smsSent ? "Resend SMS Code" : "Send SMS Code"}
-              </button>
-              <input
-                type="text"
-                value={smsCode}
-                onChange={(e) => setSmsCode(e.target.value)}
-                placeholder="Enter SMS code"
-                style={styles.input}
-              />
-            </div>
-          ) : (
-            otpauthUrl && (
-              <div style={{ marginBottom: 20 }}>
-                <QRCodeCanvas value={otpauthUrl} size={200} />
-              </div>
-            )
-          )}
 
           <button onClick={handleConfirm} style={styles.primaryButton} disabled={saving}>
             {saving ? "Saving..." : "Confirm Setup"}
@@ -249,26 +197,6 @@ const styles = {
     fontSize: "15px",
     backgroundColor: "#111827",
     color: "#fff",
-  },
-  methodButton: {
-    flex: 1,
-    padding: "10px 12px",
-    borderRadius: "6px",
-    border: "1px solid #374151",
-    backgroundColor: "#111827",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  activeMethodButton: {
-    flex: 1,
-    padding: "10px 12px",
-    borderRadius: "6px",
-    border: "1px solid #ef4444",
-    backgroundColor: "#ef4444",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: "bold",
   },
   primaryButton: {
     width: "100%",

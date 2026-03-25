@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   doc,
   getDoc,
@@ -345,6 +345,92 @@ function formatShortDate(value) {
   return d.toLocaleDateString("en-GB");
 }
 
+function resolveBookingDayNote(booking, ymd) {
+  if (!booking || !ymd) return "";
+  const notesByDate =
+    booking?.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate : null;
+  if (!notesByDate) return "";
+
+  const note = String(notesByDate[ymd] || "").trim();
+  if (!note) return "";
+
+  if (note === "Other") {
+    return String(notesByDate[`${ymd}-other`] || "").trim() || note;
+  }
+
+  if (note === "Travel Time") {
+    const mins = String(notesByDate[`${ymd}-travelMins`] || "").trim();
+    return mins ? `Travel Time - ${mins} mins` : note;
+  }
+
+  return note;
+}
+
+function resolveBookingDayNoteMeta(booking, ymd) {
+  if (!booking || !ymd) return { type: "", text: "", travelMins: 0 };
+  const notesByDate =
+    booking?.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate : null;
+  if (!notesByDate) return { type: "", text: "", travelMins: 0 };
+
+  const rawType = String(notesByDate[ymd] || "").trim();
+  if (!rawType) return { type: "", text: "", travelMins: 0 };
+
+  if (rawType === "Other") {
+    return {
+      type: rawType,
+      text: String(notesByDate[`${ymd}-other`] || "").trim() || rawType,
+      travelMins: 0,
+    };
+  }
+
+  if (rawType === "Travel Time") {
+    const mins = Number(notesByDate[`${ymd}-travelMins`] || 0);
+    return {
+      type: rawType,
+      text: mins > 0 ? `Travel Time - ${mins} mins` : rawType,
+      travelMins: mins > 0 ? mins : 0,
+    };
+  }
+
+  return { type: rawType, text: rawType, travelMins: 0 };
+}
+
+function getPayAdviceJobName(card, primaryJob) {
+  if (primaryJob?.jobNumber) {
+    return `#${primaryJob.jobNumber}${primaryJob.client ? ` - ${primaryJob.client}` : ""}`;
+  }
+
+  if (primaryJob?.client || primaryJob?.title) {
+    return primaryJob.client || primaryJob.title;
+  }
+
+  if (card.hasLiveHoliday) {
+    const paid = String(card.paidLabel || "").trim().toLowerCase();
+    if (paid === "unpaid") return "Holiday - Unpaid";
+    if (paid) return `Holiday - ${card.paidLabel}`;
+    return "Holiday";
+  }
+
+  switch (card.mode) {
+    case "yard":
+      return "Yard";
+    case "travel":
+      return "Travel";
+    case "turnaround":
+      return "Turnaround";
+    case "bankholiday":
+      return "Bank Holiday";
+    case "holiday":
+      return "Holiday";
+    case "off":
+      return "Day Off";
+    case "onset":
+      return "On Set";
+    default:
+      return "-";
+  }
+}
+
 function toMoney(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return "0.00";
@@ -527,6 +613,9 @@ export default function TimesheetDetailPage() {
   const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
+  const payAdviceLoadedRef = useRef(false);
+  const payAdviceSaveTimerRef = useRef(null);
+  const lastSavedPayAdviceRef = useRef("");
 
   useEffect(() => {
     let roleUnsub = null;
@@ -683,15 +772,29 @@ export default function TimesheetDetailPage() {
         const mergedJobMap = {};
         DAYS.forEach((day) => {
           const arr = jobMap[day] || [];
+          const dayIndex = DAYS.indexOf(day);
+          const ymdForDay = (() => {
+            const weekStart = parseDateFlexible(timesheet?.weekStart);
+            if (!weekStart || dayIndex < 0) return "";
+            const dt = new Date(weekStart);
+            dt.setDate(dt.getDate() + dayIndex);
+            dt.setHours(0, 0, 0, 0);
+            return dt.toISOString().slice(0, 10);
+          })();
+
           mergedJobMap[day] = arr.map((j) => {
             const b = j.bookingId && bookingDetailsById[j.bookingId];
             if (!b) return j;
+            const dayNoteMeta = resolveBookingDayNoteMeta(b, ymdForDay);
             return {
               ...j,
               jobNumber: j.jobNumber || b.jobNumber || "",
               client: j.client || b.client || "",
               location: j.location || b.location || "",
               vehicles: Array.isArray(b.vehicles) ? b.vehicles : [],
+              dayNote: dayNoteMeta.text,
+              dayNoteType: dayNoteMeta.type,
+              dayNoteTravelMins: dayNoteMeta.travelMins,
               booking: b,
             };
           });
@@ -774,6 +877,11 @@ export default function TimesheetDetailPage() {
     setPayAdviceEdits(timesheet?.payAdviceOverrides?.rows || {});
     setPayAdviceRateEdits(timesheet?.payAdviceOverrides?.rates || {});
     setPayAdviceMessage("");
+    lastSavedPayAdviceRef.current = JSON.stringify({
+      rows: timesheet?.payAdviceOverrides?.rows || {},
+      rates: timesheet?.payAdviceOverrides?.rates || {},
+    });
+    payAdviceLoadedRef.current = true;
   }, [timesheet?.id, timesheet?.payAdviceOverrides]);
 
   useEffect(() => {
@@ -1057,7 +1165,19 @@ export default function TimesheetDetailPage() {
       }
 
       const primaryJob = Array.isArray(card.jobsToday) && card.jobsToday.length ? card.jobsToday[0] : null;
-      const workshopHrs = card.mode === "yard" ? computeYardHours(entry) : 0;
+      const hasJobOnTravelDay = card.mode === "travel" && !!primaryJob;
+      const dayNoteType = String(primaryJob?.dayNoteType || "").toLowerCase();
+      const isTravelTimeNoteDay = hasJobOnTravelDay && dayNoteType === "travel time";
+      const isHalfDayTravelNoteDay =
+        hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
+      const isPaidHolidayDay =
+        card.hasLiveHoliday && String(card.paidLabel || "").trim().toLowerCase() !== "unpaid";
+      const workshopHrs =
+        card.mode === "yard"
+          ? computeYardHours(entry)
+          : isPaidHolidayDay
+          ? 8
+          : 0;
       const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
       const actualTravelToHrs = card.travelToHrs || 0;
@@ -1075,27 +1195,58 @@ export default function TimesheetDetailPage() {
           ? Math.max(0, rawTravelAfterTenHrs - computeHotelTravelExemptionHours(entry))
           : 0;
       const travelHrs =
-        card.mode === "travel"
+        hasJobOnTravelDay
+          ? 0
+          : card.mode === "travel"
           ? computeTravelHours(entry)
           : card.mode === "onset"
           ? actualTravelToHrs + waitingAllowanceHrs + travelAfterTenHrs
           : 0;
-      const onSetHrs = card.mode === "onset" || isTurnaroundPayDay || isCancellationPayDay ? 10 : 0;
+      const onSetHrs =
+        card.mode === "onset"
+          ? 10
+          : isHalfDayTravelNoteDay
+          ? 5
+          : isTravelTimeNoteDay
+          ? computeTravelHours(entry)
+          : hasJobOnTravelDay || isTurnaroundPayDay || isCancellationPayDay
+          ? 10
+          : 0;
       const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
       const payableDayTotalHrs =
         card.mode === "onset"
           ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
+          : isHalfDayTravelNoteDay
+          ? onSetHrs
+          : isTravelTimeNoteDay
+          ? onSetHrs
+          : hasJobOnTravelDay
+          ? onSetHrs
           : isTurnaroundPayDay || isCancellationPayDay
           ? onSetHrs
           : workshopHrs + travelHrs;
-      const sundayHrs = card.day === "Sunday" && card.mode === "travel" ? travelHrs : 0;
+      const sundayHrs = card.day === "Sunday" && card.mode === "travel" && !hasJobOnTravelDay ? travelHrs : 0;
       const overnightUnits = entry?.overnight ? 1 : 0;
-      const travelMealUnits = card.mode === "travel" && (entry?.travelLunchSup || entry?.mealSup) ? 1 : 0;
+      const travelMealUnits =
+        ((card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay) || isHalfDayTravelNoteDay) &&
+        (entry?.travelLunchSup || entry?.mealSup || isHalfDayTravelNoteDay)
+          ? 1
+          : 0;
       const hasWorkedDay = payableDayTotalHrs > 0;
+      const wrapMinutes = toMinutes(entry?.wrapTime);
+      const hasLateWrapSupplement = wrapMinutes != null && wrapMinutes > 22 * 60;
+      const isPlainTravelDay =
+        card.mode === "travel" && !hasJobOnTravelDay && !isTravelTimeNoteDay && !isHalfDayTravelNoteDay;
       const weekendSupplementUnits = hasWorkedDay
-        ? card.day === "Saturday"
-          ? 0.5
-          : card.day === "Sunday"
+        ? card.day === "Sunday"
+          ? 2
+          : card.day === "Saturday"
+          ? isPlainTravelDay
+            ? 0
+            : hasLateWrapSupplement
+            ? 1
+            : 0.5
+          : hasLateWrapSupplement
           ? 1
           : 0
         : 0;
@@ -1103,9 +1254,7 @@ export default function TimesheetDetailPage() {
       const baseRow = {
         day: card.day,
         dateLabel: dt ? formatShortDate(dt) : "-",
-        jobName: primaryJob?.jobNumber
-          ? `#${primaryJob.jobNumber}${primaryJob.client ? ` - ${primaryJob.client}` : ""}`
-          : primaryJob?.client || primaryJob?.title || "-",
+        jobName: getPayAdviceJobName(card, primaryJob),
         workshopHrs,
         overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
         travelHrs,
@@ -1197,40 +1346,81 @@ export default function TimesheetDetailPage() {
     setPayAdviceMessage("");
   };
 
-  const handleSavePayAdvice = async () => {
+  const savePayAdviceState = useCallback(async (rows, rates, successMessage = "Pay advice saved.") => {
     if (!timesheet?.id) return;
     setPayAdviceSaving(true);
     setPayAdviceMessage("");
+    const payload = {
+      rows: rows || {},
+      rates: rates || {},
+      updatedAt: new Date().toISOString(),
+    };
     try {
       await updateDoc(doc(db, "timesheets", timesheet.id), {
-        payAdviceOverrides: {
-          rows: payAdviceEdits,
-          rates: payAdviceRateEdits,
-          updatedAt: new Date().toISOString(),
-        },
+        payAdviceOverrides: payload,
         updatedAt: serverTimestamp(),
+      });
+
+      lastSavedPayAdviceRef.current = JSON.stringify({
+        rows: payload.rows,
+        rates: payload.rates,
       });
 
       setTimesheet((prev) =>
         prev
           ? {
               ...prev,
-              payAdviceOverrides: {
-                rows: payAdviceEdits,
-                rates: payAdviceRateEdits,
-                updatedAt: new Date().toISOString(),
-              },
+              payAdviceOverrides: payload,
             }
           : prev
       );
-      setPayAdviceMessage("Pay advice saved.");
+      setPayAdviceMessage(successMessage);
     } catch (err) {
       console.error("Error saving pay advice overrides:", err);
       setPayAdviceMessage("Failed to save pay advice.");
     } finally {
       setPayAdviceSaving(false);
     }
+  }, [timesheet?.id]);
+
+  const handleSavePayAdvice = async () => {
+    await savePayAdviceState(payAdviceEdits, payAdviceRateEdits, "Pay advice saved.");
   };
+
+  useEffect(() => {
+    if (!isAdmin || isApproved || !timesheet?.id || !payAdviceLoadedRef.current) return;
+
+    const nextSnapshot = JSON.stringify({
+      rows: payAdviceEdits || {},
+      rates: payAdviceRateEdits || {},
+    });
+
+    if (nextSnapshot === lastSavedPayAdviceRef.current) return;
+
+    if (payAdviceSaveTimerRef.current) {
+      clearTimeout(payAdviceSaveTimerRef.current);
+    }
+
+    setPayAdviceMessage("Saving changes...");
+    payAdviceSaveTimerRef.current = setTimeout(() => {
+      savePayAdviceState(payAdviceEdits, payAdviceRateEdits, "Changes saved.");
+    }, 900);
+
+    return () => {
+      if (payAdviceSaveTimerRef.current) {
+        clearTimeout(payAdviceSaveTimerRef.current);
+        payAdviceSaveTimerRef.current = null;
+      }
+    };
+  }, [isAdmin, isApproved, timesheet?.id, payAdviceEdits, payAdviceRateEdits, savePayAdviceState]);
+
+  useEffect(() => {
+    return () => {
+      if (payAdviceSaveTimerRef.current) {
+        clearTimeout(payAdviceSaveTimerRef.current);
+      }
+    };
+  }, []);
 
   /* -------------------------------------------------------------------------- */
   /*                                   RENDER                                   */
@@ -1662,6 +1852,20 @@ export default function TimesheetDetailPage() {
                                 </div>
                               );
                             })}
+
+                          {job.dayNote ? (
+                            <div
+                              style={{
+                                marginTop: 5,
+                                fontSize: 12,
+                                color: "#6b7280",
+                                fontStyle: "italic",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              Day note: {job.dayNote}
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -1948,18 +2152,6 @@ export default function TimesheetDetailPage() {
                   >
                     Extra Supplements
                   </th>
-                  <th
-                    colSpan={1}
-                    style={{
-                      border: "1px solid #94a3b8",
-                      padding: "6px 5px",
-                      color: UI.ink,
-                      fontWeight: 800,
-                      textAlign: "center",
-                    }}
-                  >
-                    Total
-                  </th>
                 </tr>
                 <tr style={{ background: "#f3f4f6" }}>
                   {[
@@ -1975,7 +2167,6 @@ export default function TimesheetDetailPage() {
                     "Sa/Su Units",
                     "O/N Units",
                     "Travel Meal",
-                    "Total",
                   ].map((heading) => (
                     <th
                       key={heading}
@@ -2022,12 +2213,17 @@ export default function TimesheetDetailPage() {
                       "weekendSupplementUnits",
                       "overnightUnits",
                       "travelMealUnits",
-                      "dailyTotalHrs",
                     ].map((field) => (
                       <td key={`${row.day}-${field}`} style={{ ...payAdviceCell, fontWeight: field === "dailyTotalHrs" ? 800 : 400 }}>
                         <input
                           type="number"
-                          step="0.25"
+                          step={
+                            field === "travelMealUnits"
+                              ? "1"
+                              : field === "overnightUnits"
+                                ? "0.1"
+                                : "0.25"
+                          }
                           value={Number(row[field] || 0)}
                           onChange={(e) => handlePayAdviceFieldChange(row.day, field, e.target.value)}
                           style={payAdviceInput}
@@ -2050,7 +2246,6 @@ export default function TimesheetDetailPage() {
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.weekendSupplementUnits.toFixed(2)}</td>
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.overnightUnits.toFixed(2)}</td>
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
-                  <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.dailyTotalHrs.toFixed(2)}</td>
                 </tr>
                 {isAdmin ? (
                   <tr style={{ background: "#eff6ff" }}>
@@ -2071,7 +2266,13 @@ export default function TimesheetDetailPage() {
                       <td key={field} style={{ ...payAdviceCell, fontWeight: 800 }}>
                         <input
                           type="number"
-                          step="0.01"
+                          step={
+                            field === "travelMealRate"
+                              ? "1"
+                              : field === "overnightRate"
+                                ? "0.1"
+                                : "0.01"
+                          }
                           value={Number(payAdvice.rates[field] || 0)}
                           onChange={(e) => handlePayAdviceRateChange(field, e.target.value)}
                           style={payAdviceInput}
@@ -2079,7 +2280,6 @@ export default function TimesheetDetailPage() {
                         />
                       </td>
                     ))}
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }} />
                   </tr>
                 ) : null}
                 {isAdmin ? (
@@ -2096,11 +2296,55 @@ export default function TimesheetDetailPage() {
                     <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.weekendSupplementAmount)}</td>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.overnightAmount)}</td>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.travelMealAmount)}</td>
-                    <td style={{ ...payAdviceCell, fontWeight: 800 }}>{toMoney(payAdvice.totals.totalMonetary)}</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
+            {isAdmin ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  paddingTop: 12,
+                }}
+              >
+                <div
+                  style={{
+                    minWidth: 180,
+                    display: "grid",
+                    gap: 3,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #93c5fd",
+                    background: "linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%)",
+                    boxShadow: "0 8px 20px rgba(30,64,175,0.10)",
+                    textAlign: "right",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: 0.5,
+                      color: "#1d4ed8",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Grand Total
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 18,
+                      lineHeight: 1.1,
+                      fontWeight: 900,
+                      color: UI.ink,
+                    }}
+                  >
+                    {toMoney(payAdvice.totals.totalMonetary)}
+                  </span>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         ) : null}

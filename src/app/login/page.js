@@ -34,7 +34,6 @@ export default function LoginPage() {
   const [step, setStep] = useState(1); // 1 = login/signup, 2 = MFA code
   const [mfaCode, setMfaCode] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
-  const [mfaMethod, setMfaMethod] = useState("totp");
   const [smsVerificationId, setSmsVerificationId] = useState("");
   const recaptchaRef = useRef(null);
 
@@ -141,12 +140,10 @@ export default function LoginPage() {
           return;
         }
 
-        //  Make sure the UID user doc exists + updatedAt is refreshed (won't wipe mfaSecret)
+        //  Make sure the UID user doc exists + updatedAt is refreshed
         const ref = await upsertUserDoc(user);
 
-        //  Fetch MFA secret
         const snap = await getDoc(ref);
-
         const mfaData = snap.data() || {};
 
         if (mfaData.mfaMethod === "sms" && mfaData.mfaEnabled && (mfaData.mfaPhoneNumber || mfaData.phone)) {
@@ -162,25 +159,13 @@ export default function LoginPage() {
             phoneNumber: smsPhone,
             user,
           });
-          setMfaMethod("sms");
           setStep(2);
           await sendSmsCode(smsPhone);
           return;
         }
 
-        if (!snap.exists() || !mfaData.mfaSecret) {
-          router.push("/setup-mfa");
-          return;
-        }
-
-        setCurrentUser({
-          uid: user.uid,
-          email: user.email,
-          secret: mfaData.mfaSecret,
-          user,
-        });
-        setMfaMethod("totp");
-        setStep(2);
+        router.push("/setup-mfa");
+        return;
       } else {
         // SIGN UP
         if (!isStrongPassword(password)) {
@@ -214,7 +199,6 @@ export default function LoginPage() {
     }
   };
 
-  // MFA Verification (placeholder for now)
   const handleVerifyMFA = async () => {
     try {
       if (!currentUser?.uid) {
@@ -222,29 +206,13 @@ export default function LoginPage() {
         return;
       }
 
-      if (mfaMethod === "sms") {
-        if (!smsVerificationId) {
-          setError("No SMS verification session found.");
-          return;
-        }
-
-        const credential = PhoneAuthProvider.credential(smsVerificationId, mfaCode);
-        await reauthenticateWithCredential(auth.currentUser, credential);
-        await routeUserToWorkspace(currentUser.user || currentUser);
+      if (!smsVerificationId) {
+        setError("No SMS verification session found.");
         return;
       }
 
-      const res = await fetch("/api/verify-mfa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: currentUser.uid, token: mfaCode }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "Invalid code");
-      }
-
+      const credential = PhoneAuthProvider.credential(smsVerificationId, mfaCode);
+      await reauthenticateWithCredential(auth.currentUser, credential);
       await routeUserToWorkspace(currentUser.user || currentUser);
     } catch (err) {
       setError(err?.message || "Error verifying code");
@@ -360,13 +328,9 @@ export default function LoginPage() {
 
           {step === 2 && (
             <>
-              <h1 style={styles.title}>
-                {mfaMethod === "sms" ? "Enter SMS Code" : "Enter Authenticator Code"}
-              </h1>
+              <h1 style={styles.title}>Enter SMS Code</h1>
               <p style={styles.subtitle}>
-                {mfaMethod === "sms"
-                  ? `We sent a 6-digit code to ${currentUser?.phoneNumber || "your phone"}`
-                  : "Open your Google Authenticator app and enter the 6-digit code"}
+                {`We sent a 6-digit code to ${currentUser?.phoneNumber || "your phone"}`}
               </p>
               <input
                 type="text"

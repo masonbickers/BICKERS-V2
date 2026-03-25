@@ -824,7 +824,13 @@ export default function EditEmployeePage() {
                           <label style={labelStyle}>{label}</label>
                           <input
                             type="number"
-                            step="0.01"
+                            step={
+                              field === "travelMealRate"
+                                ? "1"
+                                : field === "overnightRate"
+                                  ? "0.1"
+                                  : "0.01"
+                            }
                             value={
                               field === "travelRate" || field === "overnightRate" || field === "travelMealRate"
                                 ? globalPayrollRates?.[field] ?? ""
