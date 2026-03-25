@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import {
+  browserLocalPersistence,
+  browserSessionPersistence,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  setPersistence,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
@@ -26,6 +29,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(true);
 
   const routeUserToWorkspace = async (user) => {
     const [userSnap, employeeDoc] = await Promise.all([
@@ -89,6 +93,11 @@ export default function LoginPage() {
         setError("Only @bickers.co.uk emails are allowed.");
         return;
       }
+
+      await setPersistence(
+        auth,
+        rememberDevice ? browserLocalPersistence : browserSessionPersistence
+      );
 
       if (isLogin) {
         // LOGIN
@@ -223,7 +232,12 @@ export default function LoginPage() {
                 <div style={styles.formFooter}>
                   {isLogin && (
                     <label style={styles.checkboxLabel}>
-                      <input type="checkbox" style={styles.checkbox} />
+                      <input
+                        type="checkbox"
+                        checked={rememberDevice}
+                        onChange={(e) => setRememberDevice(e.target.checked)}
+                        style={styles.checkbox}
+                      />
                       Remember for 30 days
                     </label>
                   )}
