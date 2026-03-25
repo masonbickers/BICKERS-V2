@@ -9,6 +9,12 @@ import {
   PhoneAuthProvider,
   RecaptchaVerifier,
 } from "firebase/auth";
+import {
+  findEmployeeForUser,
+  getStoredActiveWorkspace,
+  resolveEmployeeAccess,
+  selectLandingRoute,
+} from "@/app/utils/accessControl";
 
 export default function SetupMFA() {
   const router = useRouter();
@@ -19,6 +25,28 @@ export default function SetupMFA() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const recaptchaRef = useRef(null);
+
+  const routeUserToWorkspace = async (user) => {
+    const [userSnap, employeeDoc] = await Promise.all([
+      getDoc(doc(db, "users", user.uid)),
+      findEmployeeForUser(db, user),
+    ]);
+
+    const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
+    const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+    const preferred =
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+    router.push(selectLandingRoute(access, preferred));
+  };
+
+  const normalizePhoneNumber = (value) => {
+    const raw = String(value || "").trim().replace(/\s+/g, "");
+    if (!raw) return "";
+    if (raw.startsWith("+")) return raw;
+    if (raw.startsWith("07")) return `+44${raw.slice(1)}`;
+    return raw;
+  };
 
   useEffect(() => {
     const loadPhone = async () => {
@@ -53,7 +81,8 @@ export default function SetupMFA() {
   const handleSendSmsCode = async () => {
     try {
       setError("");
-      if (!phoneNumber.trim()) {
+      const normalizedPhone = normalizePhoneNumber(phoneNumber);
+      if (!normalizedPhone) {
         setError("Enter a phone number first.");
         return;
       }
@@ -65,9 +94,10 @@ export default function SetupMFA() {
       }
 
       const provider = new PhoneAuthProvider(auth);
-      const verificationId = await provider.verifyPhoneNumber(phoneNumber.trim(), verifier);
+      const verificationId = await provider.verifyPhoneNumber(normalizedPhone, verifier);
       setSmsVerificationId(verificationId);
       setSmsSent(true);
+      setPhoneNumber(normalizedPhone);
     } catch (err) {
       setError("Error sending SMS code: " + err.message);
     }
@@ -98,18 +128,22 @@ export default function SetupMFA() {
         }
       }
 
+      const normalizedPhone = normalizePhoneNumber(phoneNumber);
       await setDoc(
         doc(db, "users", user.uid),
         {
-          mfaMethod: "sms",
-          mfaEnabled: true,
-          mfaPhoneNumber: phoneNumber.trim(),
+          phone: normalizedPhone,
+          phoneVerified: true,
+          phoneVerifiedAt: new Date().toISOString(),
+          mfaMethod: null,
+          mfaEnabled: false,
+          mfaPhoneNumber: normalizedPhone,
           mfaSecret: null,
         },
         { merge: true }
       );
 
-      router.push("/home");
+      await routeUserToWorkspace(user);
     } catch (err) {
       setError("Error saving setup: " + err.message);
     } finally {
@@ -121,9 +155,9 @@ export default function SetupMFA() {
     <div style={styles.page}>
       <div style={styles.formSide}>
         <div style={styles.formWrapper}>
-          <h1 style={styles.title}>Set up MFA</h1>
+          <h1 style={styles.title}>Confirm Phone Number</h1>
           <p style={styles.subtitle}>
-            Confirm SMS verification to finish securing this account.
+            Confirm your phone number by SMS to finish signing in.
           </p>
 
           <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>

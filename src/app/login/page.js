@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import {
-  PhoneAuthProvider,
-  RecaptchaVerifier,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  reauthenticateWithCredential,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
@@ -29,13 +26,6 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
-
-  // MFA state
-  const [step, setStep] = useState(1); // 1 = login/signup, 2 = MFA code
-  const [mfaCode, setMfaCode] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
-  const [smsVerificationId, setSmsVerificationId] = useState("");
-  const recaptchaRef = useRef(null);
 
   const routeUserToWorkspace = async (user) => {
     const [userSnap, employeeDoc] = await Promise.all([
@@ -58,7 +48,6 @@ export default function LoginPage() {
     return regex.test(password);
   };
 
-  //  Safe upsert: never overwrites existing mfaSecret unless you explicitly set it elsewhere
   const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
@@ -69,7 +58,6 @@ export default function LoginPage() {
           createdAt: serverTimestamp(),
           isEnabled: true,
           role: "user",
-          mfaSecret: null, // default for new users only
         };
 
     await setDoc(
@@ -86,34 +74,6 @@ export default function LoginPage() {
     );
 
     return ref;
-  };
-
-  useEffect(() => {
-    return () => {
-      recaptchaRef.current?.clear?.();
-      recaptchaRef.current = null;
-    };
-  }, []);
-
-  const ensureRecaptcha = () => {
-    if (typeof window === "undefined") return null;
-    if (recaptchaRef.current) return recaptchaRef.current;
-
-    recaptchaRef.current = new RecaptchaVerifier(auth, "login-sms-recaptcha", {
-      size: "invisible",
-      callback: () => {},
-    });
-
-    return recaptchaRef.current;
-  };
-
-  const sendSmsCode = async (phoneNumber) => {
-    const verifier = ensureRecaptcha();
-    if (!verifier) throw new Error("SMS verification is unavailable.");
-
-    const provider = new PhoneAuthProvider(auth);
-    const verificationId = await provider.verifyPhoneNumber(phoneNumber, verifier);
-    setSmsVerificationId(verificationId);
   };
 
   //  Handle Login / Signup
@@ -144,27 +104,14 @@ export default function LoginPage() {
         const ref = await upsertUserDoc(user);
 
         const snap = await getDoc(ref);
-        const mfaData = snap.data() || {};
+        const userData = snap.data() || {};
 
-        if (mfaData.mfaMethod === "sms" && mfaData.mfaEnabled && (mfaData.mfaPhoneNumber || mfaData.phone)) {
-          const smsPhone = String(mfaData.mfaPhoneNumber || mfaData.phone || "").trim();
-          if (!smsPhone) {
-            setError("No MFA phone number found. Please contact admin.");
-            return;
-          }
-
-          setCurrentUser({
-            uid: user.uid,
-            email: user.email,
-            phoneNumber: smsPhone,
-            user,
-          });
-          setStep(2);
-          await sendSmsCode(smsPhone);
+        if (!userData.phoneVerified) {
+          router.push("/setup-mfa");
           return;
         }
 
-        router.push("/setup-mfa");
+        await routeUserToWorkspace(user);
         return;
       } else {
         // SIGN UP
@@ -199,26 +146,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyMFA = async () => {
-    try {
-      if (!currentUser?.uid) {
-        setError("No user found. Please login again.");
-        return;
-      }
-
-      if (!smsVerificationId) {
-        setError("No SMS verification session found.");
-        return;
-      }
-
-      const credential = PhoneAuthProvider.credential(smsVerificationId, mfaCode);
-      await reauthenticateWithCredential(auth.currentUser, credential);
-      await routeUserToWorkspace(currentUser.user || currentUser);
-    } catch (err) {
-      setError(err?.message || "Error verifying code");
-    }
-  };
-
   return (
     <div style={styles.page}>
       <div style={styles.formSide}>
@@ -231,8 +158,7 @@ export default function LoginPage() {
             style={styles.logo}
           />
 
-          {step === 1 && (
-            <>
+          <>
               <h1 style={styles.title}>
                 {isLogin ? "Welcome back" : "Create your account"}
               </h1>
@@ -323,35 +249,9 @@ export default function LoginPage() {
 
                 {error && <p style={styles.error}>{error}</p>}
               </form>
-            </>
-          )}
-
-          {step === 2 && (
-            <>
-              <h1 style={styles.title}>Enter SMS Code</h1>
-              <p style={styles.subtitle}>
-                {`We sent a 6-digit code to ${currentUser?.phoneNumber || "your phone"}`}
-              </p>
-              <input
-                type="text"
-                value={mfaCode}
-                onChange={(e) => setMfaCode(e.target.value)}
-                maxLength={6}
-                placeholder="123456"
-                style={styles.input}
-              />
-              <button
-                type="button"
-                style={styles.primaryButton}
-                onClick={handleVerifyMFA}
-              >
-                Verify Code
-              </button>
               {error && <p style={styles.error}>{error}</p>}
-            </>
-          )}
+          </>
         </div>
-        <div id="login-sms-recaptcha" />
       </div>
 
       <div style={styles.imageSide}>
