@@ -40,6 +40,7 @@ export default function SetupMFA() {
   const [authSecret, setAuthSecret] = useState(null);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const recaptchaRef = useRef(null);
+  const smsCodeInputRef = useRef(null);
 
   const routeUserToWorkspace = useCallback(async (user) => {
     const [userSnap, employeeDoc] = await Promise.all([
@@ -145,6 +146,8 @@ export default function SetupMFA() {
       setSmsVerificationId(verificationId);
       setSmsSent(true);
       setPhoneNumber(normalizedPhone);
+      setInfo("SMS code sent. Enter it below to verify your phone number.");
+      setTimeout(() => smsCodeInputRef.current?.focus?.(), 0);
     } catch (err) {
       setError("Error sending SMS code: " + err.message);
     }
@@ -265,6 +268,7 @@ export default function SetupMFA() {
 
   const phoneDone = isPhoneVerified(userData);
   const authenticatorDone = hasAuthenticatorMfa(userData);
+  const canEditPhone = !phoneDone && !saving;
 
   return (
     <div style={styles.page}>
@@ -276,38 +280,53 @@ export default function SetupMFA() {
             the system.
           </p>
 
-          <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>1. Verify Phone Number</h2>
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+447..."
-              style={styles.input}
-              disabled={phoneDone}
-            />
-            <button type="button" onClick={handleSendSmsCode} style={styles.secondaryButton}>
-              {smsSent ? "Resend SMS Code" : "Send SMS Code"}
-            </button>
-            <input
-              type="text"
-              value={smsCode}
-              onChange={(e) => setSmsCode(e.target.value)}
-              placeholder="Enter SMS code"
-              style={styles.input}
-              disabled={phoneDone}
-            />
-            <button
-              onClick={handleConfirm}
-              style={styles.primaryButton}
-              disabled={saving || phoneDone}
-            >
-              {phoneDone ? "Phone Verified" : saving ? "Saving..." : "Confirm Phone"}
-            </button>
-          </div>
+          {!phoneDone ? (
+            <div style={styles.section}>
+              <h2 style={styles.sectionTitle}>1. Verify Phone Number</h2>
+              <p style={styles.helper}>
+                Send an SMS code to this number, then enter that code here to verify it.
+              </p>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+447..."
+                style={styles.input}
+                disabled={!canEditPhone}
+              />
+              <button
+                type="button"
+                onClick={handleSendSmsCode}
+                style={styles.secondaryButton}
+                disabled={!canEditPhone}
+              >
+                {smsSent ? "Resend SMS Code" : "Send SMS Code"}
+              </button>
+              <input
+                ref={smsCodeInputRef}
+                type="text"
+                value={smsCode}
+                onChange={(e) => setSmsCode(e.target.value)}
+                placeholder="Enter SMS code"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                style={styles.input}
+                disabled={!canEditPhone}
+              />
+              <button
+                onClick={handleConfirm}
+                style={styles.primaryButton}
+                disabled={saving || phoneDone}
+              >
+                {saving ? "Saving..." : "Confirm Phone"}
+              </button>
+            </div>
+          ) : null}
 
           <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>2. Enable Authenticator</h2>
+            <h2 style={styles.sectionTitle}>
+              {phoneDone ? "1. Enable Authenticator" : "2. Enable Authenticator"}
+            </h2>
             {authenticatorDone ? (
               <p style={styles.success}>Authenticator is already enabled on this account.</p>
             ) : (
