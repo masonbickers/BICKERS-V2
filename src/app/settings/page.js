@@ -8,9 +8,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
 const UI = {
   radius: 14,
   radiusSm: 10,
@@ -24,11 +21,29 @@ const UI = {
   muted: "#64748b",
   brand: "#1d4ed8",
   brandSoft: "#eff6ff",
+  successSoft: "#ecfdf5",
+  successText: "#166534",
+  warnSoft: "#fff7ed",
+  warnText: "#9a3412",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const headerBar = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 16,
+  flexWrap: "wrap",
+};
+const h1 = {
+  color: UI.text,
+  fontSize: 26,
+  lineHeight: 1.15,
+  fontWeight: 900,
+  letterSpacing: "-0.01em",
+  margin: 0,
+};
 const sub = { color: UI.muted, fontSize: 13 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -58,7 +73,13 @@ const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, bo
 const sectionTitle = { fontWeight: 900, fontSize: 16, color: UI.text, marginBottom: 8 };
 const sectionSub = { color: UI.muted, fontSize: 12, marginBottom: 12 };
 
-const fieldLabel = { fontSize: 12, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.02em" };
+const fieldLabel = {
+  fontSize: 12,
+  fontWeight: 800,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.02em",
+};
 const fieldValue = { fontSize: 14, fontWeight: 900, color: UI.text };
 
 const btnBase = {
@@ -82,8 +103,8 @@ const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: "#dbeafe", 
 const btnDanger = { ...btnBase, background: "#fee2e2", borderColor: "#fecaca", color: "#991b1b" };
 
 const avatarWrap = {
-  width: 44,
-  height: 44,
+  width: 52,
+  height: 52,
   borderRadius: 999,
   overflow: "hidden",
   border: "1px solid #e5e7eb",
@@ -102,9 +123,22 @@ function initials(name = "") {
   return (a + b).toUpperCase();
 }
 
+function statusPill(label, ok) {
+  return {
+    label,
+    style: {
+      ...chip,
+      background: ok ? UI.successSoft : UI.warnSoft,
+      borderColor: ok ? "#bbf7d0" : "#fed7aa",
+      color: ok ? UI.successText : UI.warnText,
+    },
+  };
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [userData, setUserData] = useState(null);
+  const [userDocData, setUserDocData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -117,33 +151,38 @@ export default function SettingsPage() {
       try {
         const docRef = doc(db, "users", user.uid);
         const docSnap = await getDoc(docRef);
+        const data = docSnap.exists() ? docSnap.data() || {} : {};
 
-        if (docSnap.exists()) {
-          const data = docSnap.data() || {};
-          setUserData({
-            name: data.name || "No name",
-            email: user.email || "No email",
-            role: data.role || "No role",
-            photoURL: data.photoURL || null,
-            uid: user.uid,
-          });
-        } else {
-          setUserData({
-            name: "No name",
-            email: user.email || "No email",
-            role: "No role",
-            photoURL: null,
-            uid: user.uid,
-          });
-        }
-      } catch {
-        // fallback if firestore fails
+        setUserDocData(docSnap.exists() ? data : null);
         setUserData({
-          name: "No name",
+          name: data.name || user.displayName || "No name",
+          email: user.email || "No email",
+          role: data.role || "No role",
+          photoURL: data.photoURL || user.photoURL || null,
+          uid: user.uid,
+          emailVerified: !!user.emailVerified,
+          displayName: user.displayName || data.name || "",
+          authPhoneNumber: user.phoneNumber || "",
+          providerId:
+            Array.isArray(user.providerData) && user.providerData.length
+              ? user.providerData.map((p) => p.providerId).filter(Boolean).join(", ")
+              : "password",
+        });
+      } catch {
+        setUserDocData(null);
+        setUserData({
+          name: user.displayName || "No name",
           email: user.email || "No email",
           role: "No role",
-          photoURL: null,
+          photoURL: user.photoURL || null,
           uid: user.uid,
+          emailVerified: !!user.emailVerified,
+          displayName: user.displayName || "",
+          authPhoneNumber: user.phoneNumber || "",
+          providerId:
+            Array.isArray(user.providerData) && user.providerData.length
+              ? user.providerData.map((p) => p.providerId).filter(Boolean).join(", ")
+              : "password",
         });
       } finally {
         setLoading(false);
@@ -161,7 +200,6 @@ export default function SettingsPage() {
   const avatarNode = useMemo(() => {
     if (!userData) return null;
     if (userData.photoURL) {
-      // avoid next/image here for simplicity in app router pages
       return (
         <img
           src={userData.photoURL}
@@ -172,6 +210,41 @@ export default function SettingsPage() {
     }
     return <span>{initials(userData.name)}</span>;
   }, [userData]);
+
+  const workspaceSummary = useMemo(() => {
+    const appAccess =
+      userDocData?.appAccess && typeof userDocData.appAccess === "object"
+        ? userDocData.appAccess
+        : {};
+    const items = [];
+    if (appAccess.user) items.push("User workspace");
+    if (appAccess.service) items.push("Service workspace");
+    if (!items.length && userDocData?.defaultWorkspace) {
+      items.push(`${String(userDocData.defaultWorkspace)} workspace`);
+    }
+    return items.length ? items.join(" • ") : "Standard access";
+  }, [userDocData]);
+
+  const securitySummary = useMemo(
+    () => ({
+      accountStatus: userDocData?.isEnabled === false ? "Disabled" : "Active",
+      emailVerified: userData?.emailVerified === true,
+      phoneVerified: userDocData?.phoneVerified === true,
+      authenticator: userDocData?.mfaEnabled === true,
+      mfaMethod: userDocData?.mfaMethod || "Not configured",
+    }),
+    [userData?.emailVerified, userDocData]
+  );
+
+  const summaryStats = useMemo(
+    () => [
+      { label: "Role", value: userData?.role || "User" },
+      { label: "Workspace", value: userDocData?.defaultWorkspace || "User" },
+      { label: "Email", value: securitySummary.emailVerified ? "Verified" : "Pending" },
+      { label: "Authenticator", value: securitySummary.authenticator ? "Enabled" : "Not enabled" },
+    ],
+    [securitySummary.authenticator, securitySummary.emailVerified, userData?.role, userDocData?.defaultWorkspace]
+  );
 
   const actionCard = (href, title, subtitle, pill = "Open →") => (
     <Link
@@ -192,15 +265,14 @@ export default function SettingsPage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        {/* Header */}
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Settings</h1>
-            <div style={sub}>Account + preferences. Same layout system as Jobs Home.</div>
+            <div style={sub}>A clean view of your account, access, and security settings.</div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>{loading ? "Loading…" : "Account"}</div>
+            <div style={chip}>{loading ? "Loading..." : "Account"}</div>
             {userData?.role ? (
               <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
                 Role: <b style={{ marginLeft: 6 }}>{userData.role}</b>
@@ -211,7 +283,7 @@ export default function SettingsPage() {
 
         {loading ? (
           <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>
-            Loading settings…
+            Loading settings...
           </div>
         ) : !userData ? (
           <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>
@@ -219,7 +291,6 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div style={grid(12)}>
-            {/* Left: Profile */}
             <div style={{ gridColumn: "span 7" }}>
               <div style={card}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -233,8 +304,14 @@ export default function SettingsPage() {
 
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <span style={chip}>{userData.role}</span>
-                    <span style={{ ...chip, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" }}>
-                      {String(userData.uid || "").slice(0, 8)}…
+                    <span
+                      style={{
+                        ...chip,
+                        fontFamily:
+                          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                      }}
+                    >
+                      {String(userData.uid || "").slice(0, 8)}...
                     </span>
                   </div>
                 </div>
@@ -244,15 +321,15 @@ export default function SettingsPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                   <div>
                     <div style={fieldLabel}>Name</div>
-                    <div style={fieldValue}>{userData.name || "—"}</div>
+                    <div style={fieldValue}>{userData.name || "-"}</div>
                   </div>
                   <div>
                     <div style={fieldLabel}>Email</div>
-                    <div style={fieldValue}>{userData.email || "—"}</div>
+                    <div style={fieldValue}>{userData.email || "-"}</div>
                   </div>
                   <div>
                     <div style={fieldLabel}>Role</div>
-                    <div style={fieldValue}>{userData.role || "—"}</div>
+                    <div style={fieldValue}>{userData.role || "-"}</div>
                   </div>
                 </div>
 
@@ -267,59 +344,141 @@ export default function SettingsPage() {
                     Sign out
                   </button>
                 </div>
+              </div>
 
-                <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
-                  Tip: if you don’t have a profile photo, we show your initials automatically.
+              <div style={{ ...card, marginTop: UI.gap }}>
+                <div style={sectionTitle}>Account Summary</div>
+                <div style={sectionSub}>A professional overview of your account, access, and protection.</div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+                  {summaryStats.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}
+                    >
+                      <div style={fieldLabel}>{item.label}</div>
+                      <div style={{ ...fieldValue, marginTop: 8 }}>{item.value}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Placeholder sections (ignore content, style only) */}
               <div style={{ ...card, marginTop: UI.gap }}>
-                <div style={sectionTitle}>Preferences</div>
-                <div style={sectionSub}>Visual + workflow preferences (placeholder)</div>
+                <div style={sectionTitle}>Profile Details</div>
+                <div style={sectionSub}>The information used to identify and contact you across the platform.</div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
-                    <div style={fieldLabel}>Theme</div>
-                    <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>Placeholder</div>
+                    <div style={fieldLabel}>Full name</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.displayName || userData.name || "-"}</div>
                   </div>
                   <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
-                    <div style={fieldLabel}>Notifications</div>
-                    <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>Placeholder</div>
+                    <div style={fieldLabel}>Email address</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.email || "-"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Phone number</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userDocData?.phone || userData.authPhoneNumber || "-"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Sign-in method</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.providerId || "-"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Role</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userData.role || "-"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Account reference</div>
+                    <div
+                      style={{
+                        ...fieldValue,
+                        marginTop: 6,
+                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      }}
+                    >
+                      {userData.uid || "-"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...card, marginTop: UI.gap }}>
+                <div style={sectionTitle}>Access Overview</div>
+                <div style={sectionSub}>A concise view of how this account is configured inside the system.</div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Workspace access</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{workspaceSummary}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Account status</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.accountStatus}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Phone verification</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.phoneVerified ? "Verified" : "Pending"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Authenticator MFA</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.authenticator ? "Enabled" : "Not enabled"}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>MFA method</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{securitySummary.mfaMethod}</div>
+                  </div>
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Directory status</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>{userDocData ? "Profile configured" : "Basic auth profile"}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right: Quick actions / links */}
             <div style={{ gridColumn: "span 5" }}>
               <div style={{ ...surface, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 900, fontSize: 16 }}>Quick actions</div>
-                  <span style={chip}>Shortcuts</span>
+                  <span style={chip}>Account</span>
                 </div>
                 <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                  Common account tasks. (Content is placeholder — style matches Jobs Home cards.)
+                  Common account tasks and shortcuts to the parts of the platform you use most.
                 </div>
 
                 <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-                  {actionCard("/employees", "Employees", "Manage employee details, holidays, and roles", "Open →")}
-                  {actionCard("/vehicles", "Vehicles", "View fleet, status, and maintenance", "Open →")}
-                  {actionCard("/job-home", "Jobs Home", "Jump back to the jobs dashboard", "Open →")}
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <button type="button" style={btnPrimary} onClick={() => router.push("/job-home")}>
-                    Return to Jobs Home →
-                  </button>
+                  {actionCard("/edit-profile", "Edit profile", "Update your name, profile photo, and contact details")}
+                  {actionCard("/change-password", "Change password", "Refresh your sign-in credentials and keep your account secure")}
+                  {actionCard("/job-home", "Jobs Home", "Return to the main operational dashboard", "Open")}
                 </div>
               </div>
 
               <div style={{ ...card, marginTop: UI.gap }}>
                 <div style={sectionTitle}>Security</div>
-                <div style={sectionSub}>Account security actions (placeholder)</div>
+                <div style={sectionSub}>Your current account protection and available security actions.</div>
 
                 <div style={{ display: "grid", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
+                      Email {securitySummary.emailVerified ? "verified" : "pending"}
+                    </span>
+                    <span style={statusPill("Phone verified", securitySummary.phoneVerified).style}>
+                      Phone {securitySummary.phoneVerified ? "verified" : "pending"}
+                    </span>
+                    <span style={statusPill("Authenticator", securitySummary.authenticator).style}>
+                      Authenticator {securitySummary.authenticator ? "enabled" : "not enabled"}
+                    </span>
+                  </div>
+
+                  <div style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" }}>
+                    <div style={fieldLabel}>Current security posture</div>
+                    <div style={{ ...fieldValue, marginTop: 6 }}>
+                      {securitySummary.authenticator && securitySummary.phoneVerified
+                        ? "Strong account protection enabled"
+                        : "Additional security setup recommended"}
+                    </div>
+                  </div>
+
                   <button type="button" style={btnBase} onClick={() => router.push("/change-password")}>
                     Change password
                   </button>

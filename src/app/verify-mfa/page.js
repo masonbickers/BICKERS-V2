@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import speakeasy from "speakeasy"; //  install: npm install speakeasy
 import Image from "next/image";
 import {
   findEmployeeForUser,
@@ -68,16 +67,26 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      const { mfaSecret } = userData;
+      const normalizedCode = code.replace(/\s+/g, "").trim();
+      if (!normalizedCode) {
+        setError("Enter the 6-digit authenticator code.");
+        return;
+      }
 
-      //  Verify code with speakeasy
-      const verified = speakeasy.totp.verify({
-        secret: mfaSecret,
-        encoding: "base32",
-        token: code,
+      const idToken = await user.getIdToken();
+      const verifyRes = await fetch("/api/mfa/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          token: normalizedCode,
+        }),
       });
+      const verifyData = await verifyRes.json();
 
-      if (verified) {
+      if (verifyRes.ok) {
         const [userSnap, employeeDoc] = await Promise.all([
           getDoc(doc(db, "users", user.uid)),
           findEmployeeForUser(db, user),
@@ -93,7 +102,7 @@ export default function VerifyMfaPage() {
         );
         router.push(selectLandingRoute(access, preferred));
       } else {
-        setError("Invalid code, try again.");
+        setError(verifyData?.error || "Invalid code, try again.");
       }
     } catch (err) {
       setError(err.message);

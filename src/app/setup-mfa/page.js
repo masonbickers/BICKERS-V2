@@ -12,7 +12,6 @@ import {
   RecaptchaVerifier,
 } from "firebase/auth";
 import QRCode from "qrcode";
-import speakeasy from "speakeasy";
 import {
   findEmployeeForUser,
   getStoredActiveWorkspace,
@@ -37,7 +36,7 @@ export default function SetupMFA() {
   const [info, setInfo] = useState("");
   const [userData, setUserData] = useState(null);
   const [authenticatorCode, setAuthenticatorCode] = useState("");
-  const [authSecret, setAuthSecret] = useState(null);
+  const [authSecret, setAuthSecret] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const recaptchaRef = useRef(null);
   const smsCodeInputRef = useRef(null);
@@ -98,20 +97,33 @@ export default function SetupMFA() {
   }, [routeUserToWorkspace, router]);
 
   useEffect(() => {
-    if (!auth.currentUser || hasAuthenticatorMfa(userData)) return;
-    const secret = speakeasy.generateSecret({
-      name: auth.currentUser.email || "Bickers Booking",
-      issuer: "Bickers Booking",
-      length: 20,
-    });
-    setAuthSecret(secret);
-    QRCode.toDataURL(secret.otpauth_url)
-      .then(setQrCodeUrl)
-      .catch((err) => {
+    if (!auth.currentUser || hasAuthenticatorMfa(userData) || authSecret) return;
+
+    const loadAuthenticatorSetup = async () => {
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const res = await fetch("/api/mfa/setup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.base32 || !data?.otpauthUrl) {
+          throw new Error(data?.error || "Failed to prepare authenticator setup.");
+        }
+        setAuthSecret(String(data.base32));
+        const nextQrCodeUrl = await QRCode.toDataURL(String(data.otpauthUrl));
+        setQrCodeUrl(nextQrCodeUrl);
+      } catch (err) {
         console.error("Failed to create authenticator QR code:", err);
-        setError("Failed to prepare authenticator setup.");
-      });
-  }, [userData]);
+        setError(err?.message || "Failed to prepare authenticator setup.");
+      }
+    };
+
+    loadAuthenticatorSetup();
+  }, [authSecret, userData]);
 
   const ensureRecaptcha = () => {
     if (typeof window === "undefined") return null;
@@ -220,24 +232,33 @@ export default function SetupMFA() {
         setError("Verify your phone number first.");
         return;
       }
-      if (!authSecret?.base32) {
+      if (!authSecret) {
         setError("Authenticator setup is unavailable.");
         return;
       }
-      if (!authenticatorCode.trim()) {
+      const normalizedAuthenticatorCode = authenticatorCode.replace(/\s+/g, "").trim();
+
+      if (!normalizedAuthenticatorCode) {
         setError("Enter the 6-digit code from your authenticator app.");
         return;
       }
 
-      const verified = speakeasy.totp.verify({
-        secret: authSecret.base32,
-        encoding: "base32",
-        token: authenticatorCode.trim(),
-        window: 1,
+      const idToken = await user.getIdToken();
+      const verifyRes = await fetch("/api/mfa/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          token: normalizedAuthenticatorCode,
+          secret: authSecret,
+        }),
       });
+      const verifyData = await verifyRes.json();
 
-      if (!verified) {
-        setError("Invalid authenticator code. Please try again.");
+      if (!verifyRes.ok) {
+        setError(verifyData?.error || "Invalid authenticator code. Please try again.");
         return;
       }
 
@@ -247,7 +268,7 @@ export default function SetupMFA() {
         {
           mfaMethod: "totp",
           mfaEnabled: true,
-          mfaSecret: authSecret.base32,
+          mfaSecret: authSecret,
           mfaEnrolledAt: nowIso,
           updatedAt: nowIso,
         },
