@@ -15,6 +15,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
 import {
+  clearMfaBypassed,
   clearMfaVerified,
   hasAuthenticatorMfa,
   isPhoneVerified,
@@ -106,6 +107,7 @@ export default function LoginPage() {
 
         const snap = await getDoc(ref);
         const userData = snap.data() || {};
+        clearMfaBypassed(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
         clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
 
         if (!isPhoneVerified(userData)) {

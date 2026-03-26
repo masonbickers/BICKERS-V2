@@ -14,6 +14,10 @@ export function getMfaVerifiedStorageKey(uid) {
   return `mfa:verified:${uid}`;
 }
 
+export function getMfaBypassStorageKey(uid) {
+  return `mfa:bypass:${uid}`;
+}
+
 export function isMfaVerified(storage, uid) {
   if (!storage || !uid) return false;
   try {
@@ -34,5 +38,28 @@ export function clearMfaVerified(storage, uid) {
   if (!storage || !uid) return;
   try {
     storage.removeItem(getMfaVerifiedStorageKey(uid));
+  } catch {}
+}
+
+export function isMfaBypassed(storage, uid) {
+  if (!storage || !uid) return false;
+  try {
+    return storage.getItem(getMfaBypassStorageKey(uid)) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function markMfaBypassed(storage, uid) {
+  if (!storage || !uid) return;
+  try {
+    storage.setItem(getMfaBypassStorageKey(uid), "true");
+  } catch {}
+}
+
+export function clearMfaBypassed(storage, uid) {
+  if (!storage || !uid) return;
+  try {
+    storage.removeItem(getMfaBypassStorageKey(uid));
   } catch {}
 }

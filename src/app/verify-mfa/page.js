@@ -17,6 +17,7 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import {
+  markMfaBypassed,
   clearMfaVerified,
   hasAuthenticatorMfa,
   isPhoneVerified,
@@ -227,6 +228,34 @@ export default function VerifyMfaPage() {
     }
   };
 
+  const handleSkipForNow = async () => {
+    try {
+      setError("");
+      setInfo("");
+      const user = auth.currentUser;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      const [userSnap, employeeDoc] = await Promise.all([
+        getDoc(doc(db, "users", user.uid)),
+        findEmployeeForUser(db, user),
+      ]);
+      const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
+      const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+      const preferred =
+        getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+        getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+      markMfaBypassed(
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
+      router.push(selectLandingRoute(access, preferred));
+    } catch (err) {
+      setError(err?.message || "Unable to skip verification right now.");
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.page}>
@@ -267,6 +296,13 @@ export default function VerifyMfaPage() {
           style={styles.secondaryButton}
         >
           Back to login
+        </button>
+        <button
+          type="button"
+          onClick={handleSkipForNow}
+          style={styles.tertiaryButton}
+        >
+          Skip for now
         </button>
         <button
           type="button"

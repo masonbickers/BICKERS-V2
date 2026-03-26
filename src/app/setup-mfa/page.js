@@ -20,6 +20,7 @@ import {
 } from "@/app/utils/accessControl";
 import {
   hasAuthenticatorMfa,
+  markMfaBypassed,
   isMfaVerified,
   isPhoneVerified,
   markMfaVerified,
@@ -295,6 +296,28 @@ export default function SetupMFA() {
     }
   };
 
+  const handleSkipForNow = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+      const user = auth.currentUser;
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+      markMfaBypassed(
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
+      await routeUserToWorkspace(user);
+    } catch (err) {
+      setError(err?.message || "Unable to skip setup right now.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const phoneDone = isPhoneVerified(userData);
   const authenticatorDone = hasAuthenticatorMfa(userData);
   const canEditPhone = !phoneDone && !saving;
@@ -396,6 +419,14 @@ export default function SetupMFA() {
 
           {error && <p style={styles.error}>{error}</p>}
           {info && <p style={styles.success}>{info}</p>}
+          <button
+            type="button"
+            onClick={handleSkipForNow}
+            style={styles.tertiaryButton}
+            disabled={saving}
+          >
+            Skip for now
+          </button>
         </div>
         <div id="setup-sms-recaptcha" />
       </div>
@@ -484,6 +515,18 @@ const styles = {
     fontSize: "15px",
     fontWeight: "bold",
     cursor: "pointer",
+  },
+  tertiaryButton: {
+    width: "100%",
+    padding: "12px",
+    backgroundColor: "transparent",
+    color: "#cbd5e1",
+    border: "1px solid #334155",
+    borderRadius: "6px",
+    fontSize: "14px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    marginTop: "10px",
   },
   qrCode: {
     width: 180,
