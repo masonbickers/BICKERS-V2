@@ -14,8 +14,8 @@ export function getMfaVerifiedStorageKey(uid) {
   return `mfa:verified:${uid}`;
 }
 
-export function getMfaBypassStorageKey(uid) {
-  return `mfa:bypass:${uid}`;
+export function getPendingMfaSetupStorageKey(uid) {
+  return `mfa:pending-setup:${uid}`;
 }
 
 export function isMfaVerified(storage, uid) {
@@ -41,25 +41,38 @@ export function clearMfaVerified(storage, uid) {
   } catch {}
 }
 
-export function isMfaBypassed(storage, uid) {
-  if (!storage || !uid) return false;
+export function getPendingMfaSetup(storage, uid) {
+  if (!storage || !uid) return null;
   try {
-    return storage.getItem(getMfaBypassStorageKey(uid)) === "true";
+    const raw = storage.getItem(getPendingMfaSetupStorageKey(uid));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const base32 = String(parsed.base32 || "").trim();
+    const otpauthUrl = String(parsed.otpauthUrl || "").trim();
+    if (!base32 || !otpauthUrl) return null;
+    return { base32, otpauthUrl };
   } catch {
-    return false;
+    return null;
   }
 }
 
-export function markMfaBypassed(storage, uid) {
-  if (!storage || !uid) return;
+export function setPendingMfaSetup(storage, uid, value) {
+  if (!storage || !uid || !value) return;
   try {
-    storage.setItem(getMfaBypassStorageKey(uid), "true");
+    storage.setItem(
+      getPendingMfaSetupStorageKey(uid),
+      JSON.stringify({
+        base32: String(value.base32 || "").trim(),
+        otpauthUrl: String(value.otpauthUrl || "").trim(),
+      })
+    );
   } catch {}
 }
 
-export function clearMfaBypassed(storage, uid) {
+export function clearPendingMfaSetup(storage, uid) {
   if (!storage || !uid) return;
   try {
-    storage.removeItem(getMfaBypassStorageKey(uid));
+    storage.removeItem(getPendingMfaSetupStorageKey(uid));
   } catch {}
 }

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../../../firebaseConfig";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
 
 export const runtime = "nodejs";
@@ -21,11 +19,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing code." }, { status: 400 });
     }
 
-    let secret = enrollmentSecret;
-    if (!secret) {
-      const userSnap = await getDoc(doc(db, "users", verifiedUser.uid));
-      secret = String(userSnap.data()?.mfaSecret || "").trim();
-    }
+    const secret = enrollmentSecret;
 
     if (!secret) {
       return NextResponse.json({ error: "MFA not set up." }, { status: 400 });

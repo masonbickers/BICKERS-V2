@@ -19,11 +19,13 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import {
+  clearPendingMfaSetup,
+  getPendingMfaSetup,
   hasAuthenticatorMfa,
-  markMfaBypassed,
   isMfaVerified,
   isPhoneVerified,
   markMfaVerified,
+  setPendingMfaSetup,
 } from "@/app/utils/authSecurity";
 
 export default function SetupMFA() {
@@ -102,6 +104,17 @@ export default function SetupMFA() {
 
     const loadAuthenticatorSetup = async () => {
       try {
+        const pendingSetup = getPendingMfaSetup(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          auth.currentUser.uid
+        );
+        if (pendingSetup?.base32 && pendingSetup?.otpauthUrl) {
+          setAuthSecret(String(pendingSetup.base32));
+          const nextQrCodeUrl = await QRCode.toDataURL(String(pendingSetup.otpauthUrl));
+          setQrCodeUrl(nextQrCodeUrl);
+          return;
+        }
+
         const idToken = await auth.currentUser.getIdToken();
         const res = await fetch("/api/mfa/setup", {
           method: "POST",
@@ -115,6 +128,14 @@ export default function SetupMFA() {
           throw new Error(data?.error || "Failed to prepare authenticator setup.");
         }
         setAuthSecret(String(data.base32));
+        setPendingMfaSetup(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          auth.currentUser.uid,
+          {
+            base32: String(data.base32),
+            otpauthUrl: String(data.otpauthUrl),
+          }
+        );
         const nextQrCodeUrl = await QRCode.toDataURL(String(data.otpauthUrl));
         setQrCodeUrl(nextQrCodeUrl);
       } catch (err) {
@@ -283,6 +304,10 @@ export default function SetupMFA() {
         mfaSecret: authSecret,
         mfaEnrolledAt: nowIso,
       }));
+      clearPendingMfaSetup(
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
 
       markMfaVerified(
         typeof window !== "undefined" ? window.sessionStorage : null,
@@ -291,28 +316,6 @@ export default function SetupMFA() {
       await routeUserToWorkspace(user);
     } catch (err) {
       setError("Error enabling authenticator: " + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSkipForNow = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setInfo("");
-      const user = auth.currentUser;
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-      markMfaBypassed(
-        typeof window !== "undefined" ? window.sessionStorage : null,
-        user.uid
-      );
-      await routeUserToWorkspace(user);
-    } catch (err) {
-      setError(err?.message || "Unable to skip setup right now.");
     } finally {
       setSaving(false);
     }
@@ -419,14 +422,6 @@ export default function SetupMFA() {
 
           {error && <p style={styles.error}>{error}</p>}
           {info && <p style={styles.success}>{info}</p>}
-          <button
-            type="button"
-            onClick={handleSkipForNow}
-            style={styles.tertiaryButton}
-            disabled={saving}
-          >
-            Skip for now
-          </button>
         </div>
         <div id="setup-sms-recaptcha" />
       </div>
@@ -515,18 +510,6 @@ const styles = {
     fontSize: "15px",
     fontWeight: "bold",
     cursor: "pointer",
-  },
-  tertiaryButton: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "transparent",
-    color: "#cbd5e1",
-    border: "1px solid #334155",
-    borderRadius: "6px",
-    fontSize: "14px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginTop: "10px",
   },
   qrCode: {
     width: 180,

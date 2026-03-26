@@ -15,7 +15,6 @@ import {
 } from "@/app/utils/accessControl";
 import {
   hasAuthenticatorMfa,
-  isMfaBypassed,
   isMfaVerified,
   isPhoneVerified,
 } from "@/app/utils/authSecurity";
@@ -57,16 +56,12 @@ export default function ProtectedLayout({ children }) {
         const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
         const phoneReady = isPhoneVerified(userData);
         const mfaReady = hasAuthenticatorMfa(userData);
-        const mfaBypassed = isMfaBypassed(
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          currentUser.uid
-        );
         const mfaPassed = isMfaVerified(
           typeof window !== "undefined" ? window.sessionStorage : null,
           currentUser.uid
         );
 
-        if (!mfaBypassed && !phoneReady) {
+        if (!phoneReady) {
           if (pathname !== "/setup-mfa") {
             router.replace("/setup-mfa");
             return;
@@ -75,7 +70,7 @@ export default function ProtectedLayout({ children }) {
           return;
         }
 
-        if (!mfaBypassed && !mfaReady) {
+        if (!mfaReady) {
           if (pathname !== "/setup-mfa") {
             router.replace("/setup-mfa");
             return;
@@ -84,7 +79,7 @@ export default function ProtectedLayout({ children }) {
           return;
         }
 
-        if (!mfaBypassed && !mfaPassed) {
+        if (!mfaPassed) {
           if (pathname !== "/verify-mfa") {
             router.replace("/verify-mfa");
             return;
