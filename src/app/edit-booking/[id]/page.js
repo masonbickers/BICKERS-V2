@@ -20,6 +20,13 @@ import {
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
+import {
+  buildBookingDerivedFields,
+  buildInitialLifecycle,
+  buildInitialStatusHistory,
+  buildNextLifecycle,
+  buildNextStatusHistory,
+} from "@/app/utils/bookingLifecycle";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles (MATCH CREATE)
@@ -827,6 +834,8 @@ export default function EditBookingPage() {
   const [createdAtIso, setCreatedAtIso] = useState(null);
   const [createdByEmail, setCreatedByEmail] = useState(null);
   const [createdByUid, setCreatedByUid] = useState(null);
+  const [existingStatusHistory, setExistingStatusHistory] = useState([]);
+  const [existingLifecycle, setExistingLifecycle] = useState(null);
   const [originalBookingData, setOriginalBookingData] = useState(null);
 
   const isMaintenance = status === "Maintenance";
@@ -1167,6 +1176,14 @@ export default function EditBookingPage() {
 
       // created meta/history
       setExistingHistory(Array.isArray(bookingData.history) ? bookingData.history : []);
+      setExistingStatusHistory(
+        Array.isArray(bookingData.statusHistory) ? bookingData.statusHistory : []
+      );
+      setExistingLifecycle(
+        bookingData.lifecycle && typeof bookingData.lifecycle === "object"
+          ? bookingData.lifecycle
+          : null
+      );
       setCreatedAtIso(bookingData.createdAt || null);
       setCreatedByEmail(bookingData.createdBy || null);
       setCreatedByUid(bookingData.createdByUid || null);
@@ -1693,6 +1710,39 @@ export default function EditBookingPage() {
       ? Number(String(hotelPricePerNight || "").trim())
       : 0;
 
+    const nowIso = new Date().toISOString();
+    const previousStatus = originalBookingData?.status || "Confirmed";
+    const statusChanged = previousStatus !== status;
+    const baseStatusHistory = Array.isArray(existingStatusHistory) && existingStatusHistory.length
+      ? existingStatusHistory
+      : buildInitialStatusHistory(previousStatus, createdAtIso || nowIso, {
+          email: createdByEmail || user?.email || "Unknown",
+          uid: createdByUid || user?.uid || "",
+        });
+    const ensuredStatusHistory = statusChanged
+      ? buildNextStatusHistory(baseStatusHistory, previousStatus, status, nowIso, {
+          email: user?.email || "Unknown",
+          uid: user?.uid || "",
+        })
+      : baseStatusHistory;
+    const nextLifecycleBase = existingLifecycle && typeof existingLifecycle === "object"
+      ? existingLifecycle
+      : buildInitialLifecycle(previousStatus, createdAtIso || nowIso);
+    const nextLifecycle = buildNextLifecycle(nextLifecycleBase, previousStatus, status, nowIso);
+
+    const derivedFields = buildBookingDerivedFields({
+      status,
+      bookingDates,
+      createdAt: createdAtIso || nowIso,
+      employees: cleanedEmployees,
+      vehicles,
+      equipment,
+      additionalContacts: additionalContactsToSave,
+      attachments: nextAttachments,
+      requiredCrewCount: Number.isFinite(req) ? req : 0,
+      allocatedCrewCount: allocatedAtSave,
+    });
+
     const payload = {
       jobNumber,
       client,
@@ -1765,12 +1815,18 @@ export default function EditBookingPage() {
       // preserve created meta
       createdBy: createdByEmail || user?.email || "Unknown",
       createdByUid: createdByUid || user?.uid || "",
-      createdAt: createdAtIso || new Date().toISOString(),
+      createdAt: createdAtIso || nowIso,
 
       // update meta
       lastEditedBy: user?.email || "Unknown",
       lastEditedByUid: user?.uid || "",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      statusChangedAt: statusChanged
+        ? nowIso
+        : originalBookingData?.statusChangedAt || createdAtIso || nowIso,
+      statusHistory: ensuredStatusHistory,
+      lifecycle: nextLifecycle,
+      ...derivedFields,
     };
 
     const changeLines = buildBookingChangeList(originalBookingData || {}, payload);
@@ -1780,7 +1836,7 @@ export default function EditBookingPage() {
       {
         action: "Edited",
         user: user?.email || "Unknown",
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso,
         changes: changeLines,
         details: changeLines.join("\n") || "No field-level changes detected.",
       },

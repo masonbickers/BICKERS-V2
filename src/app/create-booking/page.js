@@ -13,6 +13,10 @@ import {
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
+import {
+  buildInitialLifecycle,
+  buildInitialStatusHistory,
+} from "@/app/utils/bookingLifecycle";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
@@ -96,6 +100,13 @@ const card = {
   border: UI.border,
   boxShadow: UI.shadow,
   padding: 18,
+};
+const formShell = {
+  display: "grid",
+  gap: 18,
+};
+const seamlessSection = {
+  ...card,
 };
 const cardTitle = {
   margin: "0 0 14px",
@@ -215,14 +226,11 @@ const btnGhost = {
 };
 
 const summaryCard = {
-  ...card,
-  position: "sticky",
-  top: 12,
-  alignSelf: "start",
-  background: "#162434",
-  color: "#e8eef5",
-  border: "1px solid rgba(255,255,255,0.06)",
-  boxShadow: "0 18px 36px rgba(15,23,42,0.16)",
+  ...subCard,
+  background: "#f8fbff",
+  color: UI.text,
+  border: "1px solid #dbe2ea",
+  boxShadow: "none",
 };
 
 const summaryRow = {
@@ -230,7 +238,7 @@ const summaryRow = {
   gridTemplateColumns: "140px 1fr",
   gap: 10,
   padding: "8px 0",
-  borderBottom: "1px dashed rgba(255,255,255,0.12)",
+  borderBottom: "1px dashed #d6e0ea",
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1171,6 +1179,26 @@ export default function CreateBookingPage() {
     const hotelNightsNum = hasHotel ? Number(String(hotelNights || "").trim()) : 0;
     const hotelPricePerNightNum = hasHotel ? Number(String(hotelPricePerNight || "").trim()) : 0;
 
+    const nowIso = new Date().toISOString();
+    const initialStatusHistory = buildInitialStatusHistory(status, nowIso, {
+      email: user?.email || "Unknown",
+      uid: user?.uid || "",
+    });
+    const initialLifecycle = buildInitialLifecycle(status, nowIso);
+
+    const derivedFields = buildBookingDerivedFields({
+      status,
+      bookingDates,
+      createdAt: nowIso,
+      employees: cleanedEmployees,
+      vehicles,
+      equipment,
+      additionalContacts: additionalContactsToSave,
+      attachments: nextAttachments,
+      requiredCrewCount: Number.isFinite(req) ? req : 0,
+      allocatedCrewCount: allocatedAtSave,
+    });
+
     const payload = {
       jobNumber,
       client,
@@ -1238,13 +1266,17 @@ export default function CreateBookingPage() {
       createdByUid: user?.uid || "",
       lastEditedBy: user?.email || "Unknown",
       lastEditedByUid: user?.uid || "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      statusChangedAt: nowIso,
+      statusHistory: initialStatusHistory,
+      lifecycle: initialLifecycle,
+      ...derivedFields,
       history: [
         {
           action: "Created",
           user: user?.email || "Unknown",
-          timestamp: new Date().toISOString(),
+          timestamp: nowIso,
         },
       ],
     };
@@ -1307,9 +1339,10 @@ export default function CreateBookingPage() {
               handleSubmit();
             }}
           >
+            <div style={formShell}>
             <div style={sectionGrid}>
               {/* Column 1: Job Info */}
-              <div style={card}>
+              <div style={seamlessSection}>
                 <h3 style={cardTitle}>Job Info</h3>
 
                 <label style={field.label}>Job Number</label>
@@ -1527,7 +1560,7 @@ export default function CreateBookingPage() {
               </div>
 
               {/* Column 2: Dates & People */}
-              <div style={card}>
+              <div style={seamlessSection}>
                 <h3 style={cardTitle}>Dates & People</h3>
 
                 <label style={field.checkboxRow}>
@@ -1838,7 +1871,7 @@ export default function CreateBookingPage() {
               </div>
 
               {/* Column 3: Vehicles + Equipment */}
-              <div style={card}>
+              <div style={{ ...seamlessSection, borderBottom: "none", paddingBottom: 0 }}>
                 <h3 style={cardTitle}>Vehicles</h3>
                 <input
                   type="text"
@@ -1995,11 +2028,12 @@ export default function CreateBookingPage() {
                 {filteredEquipmentGroups.length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
                 )}
+
               </div>
             </div>
 
             {/* Files & Notes */}
-            <div style={{ ...card, marginTop: 18 }}>
+            <div style={{ ...seamlessSection, borderBottom: "none", paddingBottom: 0 }}>
               <h3 style={cardTitle}>Files & Notes</h3>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
@@ -2275,6 +2309,7 @@ export default function CreateBookingPage() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
           </form>
         </div>

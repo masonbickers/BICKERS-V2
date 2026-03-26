@@ -24,6 +24,7 @@ import {
   selectLandingRoute,
   setStoredActiveWorkspace,
 } from "@/app/utils/accessControl";
+import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -346,6 +347,23 @@ export default function HeaderSidebarLayout({ children }) {
     return (hrNotif?.requests || 0) + (hrNotif?.deletes || 0);
   }, [hrNotif]);
 
+  const accountSetup = useMemo(() => {
+    const emailReady = user?.emailVerified === true;
+    const phoneReady = isPhoneVerified(userDoc || {});
+    const mfaReady = hasAuthenticatorMfa(userDoc || {});
+    const complete = emailReady && phoneReady && mfaReady;
+
+    return {
+      complete,
+      label: complete ? "Verified" : "Setup incomplete",
+      detail: complete
+        ? "Email, phone, and authenticator are active"
+        : [emailReady ? null : "Email", phoneReady ? null : "Phone", mfaReady ? null : "Authenticator"]
+            .filter(Boolean)
+            .join(" • "),
+    };
+  }, [user?.emailVerified, userDoc]);
+
   useEffect(() => {
     if (!employeeAccess) return;
     if (currentWorkspace === "service" && employeeAccess.hasServiceAccess) {
@@ -590,6 +608,46 @@ export default function HeaderSidebarLayout({ children }) {
               justifyContent: "flex-end",
             }}
           >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                padding: accountSetup.complete ? "8px 12px" : "7px 12px",
+                borderRadius: 999,
+                background: accountSetup.complete
+                  ? "rgba(107,179,127,0.14)"
+                  : "rgba(248,113,113,0.12)",
+                border: accountSetup.complete
+                  ? "1px solid rgba(107,179,127,0.38)"
+                  : "1px solid rgba(248,113,113,0.28)",
+                color: accountSetup.complete ? "#d7f6e0" : "#ffd6d6",
+              }}
+              title={accountSetup.complete ? accountSetup.detail : `Missing: ${accountSetup.detail}`}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: accountSetup.complete ? UI.success : "#f87171",
+                  boxShadow: accountSetup.complete
+                    ? "0 0 0 4px rgba(107,179,127,0.14)"
+                    : "0 0 0 4px rgba(248,113,113,0.12)",
+                }}
+              />
+              <div style={{ display: "grid", gap: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.02em" }}>
+                  {accountSetup.label}
+                </span>
+                {!accountSetup.complete && (
+                  <span style={{ fontSize: 10.5, color: "#f8b4b4" }}>
+                    Missing: {accountSetup.detail}
+                  </span>
+                )}
+              </div>
+            </div>
+
             {employeeAccess?.hasUserAccess && employeeAccess?.hasServiceAccess && (
               <div
                 style={{

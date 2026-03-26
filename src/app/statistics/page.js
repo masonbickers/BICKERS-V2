@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
@@ -280,6 +280,63 @@ const toEquipmentTokens = (equipment) => {
   return [];
 };
 
+const DELETED_BOOKING_WRAPPER_KEYS = new Set([
+  "booking",
+  "data",
+  "payload",
+  "deletedAt",
+  "deletedBy",
+  "originalCollection",
+  "originalId",
+  "deleteReasons",
+  "deleteReasonOther",
+  "restoredAt",
+  "restoredBy",
+]);
+
+const getDeletedBookingPayload = (entry = {}) => {
+  if (entry?.data && typeof entry.data === "object") return entry.data;
+  if (entry?.payload && typeof entry.payload === "object") return entry.payload;
+  if (entry?.booking && typeof entry.booking === "object") return entry.booking;
+
+  return Object.fromEntries(
+    Object.entries(entry || {}).filter(([key]) => !DELETED_BOOKING_WRAPPER_KEYS.has(key))
+  );
+};
+
+const historyMentionsFirstPencil = (job = {}) => {
+  if (prettifyStatus(job?.status || "") === "First Pencil") return true;
+
+  const history = Array.isArray(job?.history) ? job.history : [];
+  return history.some((item) => {
+    const blob = [
+      item?.action,
+      item?.details,
+      ...(Array.isArray(item?.changes) ? item.changes : []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return blob.includes("first pencil");
+  });
+};
+
+const getJobLengthDays = (job = {}) => {
+  const days = normaliseJobDates(job);
+  return days.length;
+};
+
+const classifyLengthBucket = (days) => {
+  if (days <= 1) return "1 day";
+  if (days === 2) return "2 days";
+  if (days <= 5) return "3-5 days";
+  if (days <= 10) return "6-10 days";
+  return "11+ days";
+};
+
+const pct = (part, total) => (total ? Math.round((part / total) * 1000) / 10 : 0);
+
 /* ───────────────────────────────────────────
    Hotel helpers ( updated: paidBy support)
 ─────────────────────────────────────────── */
@@ -538,7 +595,7 @@ export default function StatisticsPage() {
   const jobsAll = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
 
   // Resolve vehicle strings to name+reg (handles id, registration, or name)
-  const resolveVehicleLabel = (token) => {
+  const resolveVehicleLabel = useCallback((token) => {
     const needle = String(token || "").trim();
     if (!needle) return "";
     const byId = vehicles.find((v) => v.id === needle);
@@ -560,7 +617,7 @@ export default function StatisticsPage() {
       return reg ? `${name} – ${reg}` : name;
     }
     return needle;
-  };
+  }, [vehicles]);
 
   const jobsFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -602,6 +659,59 @@ export default function StatisticsPage() {
     for (const j of jobsAll) set.add(prettifyStatus(j.status || ""));
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [jobsAll]);
+
+  const deletedJobsNormalized = useMemo(() => {
+    return deletedBookings.map((entry) => {
+      const payload = getDeletedBookingPayload(entry);
+      return {
+        id: entry.id,
+        __deleted: true,
+        deletedAt: entry.deletedAt || null,
+        restoredAt: entry.restoredAt || null,
+        ...(payload || {}),
+      };
+    });
+  }, [deletedBookings]);
+
+  const deletedJobsFiltered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    return deletedJobsNormalized.filter((j) => {
+      if (statusFilter !== "All" && statusFilter !== "Deleted") return false;
+
+      const days = normaliseJobDates(j);
+      if (rangeStart) {
+        const anyInRange = days.some((d) => d.getTime() >= rangeStart.getTime());
+        const created = parseDate(j.createdAt || j.deletedAt);
+        const createdInRange = created ? created.getTime() >= rangeStart.getTime() : false;
+        if (!anyInRange && !createdInRange) return false;
+      }
+
+      if (!q) return true;
+
+      const hay = [
+        j.id,
+        j.jobNumber,
+        j.client,
+        j.location,
+        j.notes,
+        "Deleted",
+        prettifyStatus(j.status || ""),
+        ...(toCrewNames(j.employees) || []),
+        ...(toVehicleTokens(j.vehicles) || []),
+        ...(toEquipmentTokens(j.equipment) || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return hay.includes(q);
+    });
+  }, [deletedJobsNormalized, rangeStart, search, statusFilter]);
+
+  const analyticsOutcomeJobs = useMemo(() => {
+    return [...jobsFiltered, ...deletedJobsFiltered];
+  }, [jobsFiltered, deletedJobsFiltered]);
 
   /* ───────────────────────────────────────────
      Core analytics
@@ -784,6 +894,196 @@ export default function StatisticsPage() {
     };
   }, [jobsFiltered, todayMidnight]);
 
+  const jobLengthStats = useMemo(() => {
+    const lengths = jobsFiltered
+      .map((j) => ({
+        days: getJobLengthDays(j),
+        status: prettifyStatus(j.status || ""),
+      }))
+      .filter((item) => item.days > 0);
+
+    const allDays = lengths.map((item) => item.days).sort((a, b) => a - b);
+    const confirmedDays = lengths
+      .filter((item) => item.status === "Confirmed")
+      .map((item) => item.days)
+      .sort((a, b) => a - b);
+
+    const avgLengthDays = allDays.length
+      ? Math.round((allDays.reduce((sum, n) => sum + n, 0) / allDays.length) * 10) / 10
+      : 0;
+    const avgConfirmedLengthDays = confirmedDays.length
+      ? Math.round((confirmedDays.reduce((sum, n) => sum + n, 0) / confirmedDays.length) * 10) / 10
+      : 0;
+    const medianLengthDays = allDays.length
+      ? allDays[Math.floor((allDays.length - 1) / 2)]
+      : 0;
+
+    const buckets = new Map();
+    for (const days of allDays) inc(buckets, classifyLengthBucket(days), 1);
+
+    const bucketOrder = ["1 day", "2 days", "3-5 days", "6-10 days", "11+ days"];
+    const distribution = bucketOrder
+      .map((label) => ({ label, value: buckets.get(label) || 0 }))
+      .filter((row) => row.value > 0);
+
+    return {
+      avgLengthDays,
+      avgConfirmedLengthDays,
+      medianLengthDays,
+      multiDayJobs: allDays.filter((days) => days > 1).length,
+      distribution,
+    };
+  }, [jobsFiltered]);
+
+  const crewStats = useMemo(() => {
+    const crewSizes = jobsFiltered
+      .map((j) => {
+        const stored =
+          typeof j.allocatedCrewCountDerived === "number"
+            ? j.allocatedCrewCountDerived
+            : typeof j.allocatedCrewCount === "number"
+              ? j.allocatedCrewCount
+              : Array.isArray(j.employees)
+                ? j.employees.length
+                : 0;
+        return {
+          size: Number.isFinite(stored) ? stored : 0,
+          status: prettifyStatus(j.status || ""),
+        };
+      })
+      .filter((item) => item.size > 0);
+
+    const all = crewSizes.map((item) => item.size);
+    const confirmed = crewSizes
+      .filter((item) => item.status === "Confirmed")
+      .map((item) => item.size);
+
+    const avgCrewPerJob = all.length
+      ? Math.round((all.reduce((sum, n) => sum + n, 0) / all.length) * 10) / 10
+      : 0;
+    const avgConfirmedCrewPerJob = confirmed.length
+      ? Math.round((confirmed.reduce((sum, n) => sum + n, 0) / confirmed.length) * 10) / 10
+      : 0;
+    const largestCrew = all.length ? Math.max(...all) : 0;
+
+    return {
+      avgCrewPerJob,
+      avgConfirmedCrewPerJob,
+      largestCrew,
+      crewedJobs: all.length,
+    };
+  }, [jobsFiltered]);
+
+  const timelineStats = useMemo(() => {
+    const createToConfirmed = [];
+    const createToShoot = [];
+
+    for (const j of jobsFiltered) {
+      const createdAt = parseDate(j.createdAt);
+      if (!createdAt) continue;
+
+      const confirmedAt =
+        parseDate(j.lifecycle?.confirmedAt) ||
+        (prettifyStatus(j.status || "") === "Confirmed"
+          ? parseDate(j.statusChangedAt || j.updatedAt || j.createdAt)
+          : null);
+
+      if (confirmedAt) {
+        const diff = Math.round((confirmedAt.getTime() - createdAt.getTime()) / 86400000);
+        if (Number.isFinite(diff) && diff >= 0) createToConfirmed.push(diff);
+      }
+
+      const firstShootDate =
+        parseDate(j.firstBookingDate) ||
+        normaliseJobDates(j)[0] ||
+        parseDate(j.startDate) ||
+        parseDate(j.date);
+
+      if (firstShootDate) {
+        const diff = Math.round((firstShootDate.getTime() - createdAt.getTime()) / 86400000);
+        if (Number.isFinite(diff)) createToShoot.push(diff);
+      }
+    }
+
+    const avgCreateToConfirmedDays = createToConfirmed.length
+      ? Math.round((createToConfirmed.reduce((sum, n) => sum + n, 0) / createToConfirmed.length) * 10) / 10
+      : 0;
+    const avgCreateToShootDays = createToShoot.length
+      ? Math.round((createToShoot.reduce((sum, n) => sum + n, 0) / createToShoot.length) * 10) / 10
+      : 0;
+
+    return {
+      avgCreateToConfirmedDays,
+      avgCreateToShootDays,
+      confirmedSample: createToConfirmed.length,
+      shootSample: createToShoot.length,
+    };
+  }, [jobsFiltered]);
+
+  const firstPencilFunnel = useMemo(() => {
+    const outcomeMap = new Map();
+    let total = 0;
+
+    for (const j of analyticsOutcomeJobs) {
+      if (!historyMentionsFirstPencil(j)) continue;
+      total += 1;
+      const outcome = j.__deleted ? "Deleted" : prettifyStatus(j.status || "");
+      inc(outcomeMap, outcome || "Unknown", 1);
+    }
+
+    const confirmed = outcomeMap.get("Confirmed") || 0;
+    const deleted = outcomeMap.get("Deleted") || 0;
+    const dnh = outcomeMap.get("DNH") || 0;
+    const lost = outcomeMap.get("Lost") || 0;
+    const cancelled = outcomeMap.get("Cancelled") || 0;
+    const postponed = outcomeMap.get("Postponed") || 0;
+    const dead = deleted + dnh + lost + cancelled + postponed;
+    const stillOpen = Math.max(0, total - confirmed - dead);
+
+    const preferredOrder = [
+      "Confirmed",
+      "Deleted",
+      "DNH",
+      "Lost",
+      "Cancelled",
+      "Postponed",
+      "First Pencil",
+      "Second Pencil",
+      "Enquiry",
+      "Action Required",
+      "Complete",
+      "Ready to Invoice",
+      "Invoiced",
+      "Paid",
+    ];
+
+    const chart = [
+      ...preferredOrder
+        .filter((label) => outcomeMap.has(label))
+        .map((label) => ({ label, value: outcomeMap.get(label) || 0 })),
+      ...[...outcomeMap.entries()]
+        .filter(([label]) => !preferredOrder.includes(label))
+        .sort((a, b) => b[1] - a[1])
+        .map(([label, value]) => ({ label, value })),
+    ];
+
+    return {
+      total,
+      confirmed,
+      deleted,
+      dnh,
+      lost,
+      cancelled,
+      postponed,
+      dead,
+      stillOpen,
+      confirmedRate: pct(confirmed, total),
+      deadRate: pct(dead, total),
+      deletedRate: pct(deleted, total),
+      chart,
+    };
+  }, [analyticsOutcomeJobs]);
+
   const topClients = useMemo(() => {
     const m = new Map();
     for (const j of jobsFiltered) inc(m, (j.client || "—").trim(), 1);
@@ -821,7 +1121,7 @@ export default function StatisticsPage() {
       }
     }
     return clampTopN(m.entries(), 10).map(([label, value]) => ({ label, value }));
-  }, [jobsFiltered, vehicles]);
+  }, [jobsFiltered, resolveVehicleLabel]);
 
   const upcomingNext = useMemo(() => {
     const now = todayMidnight.getTime();
@@ -914,6 +1214,9 @@ export default function StatisticsPage() {
             <div style={{ ...chip }}>{loading ? "Loading…" : `${jobsAll.length} jobs`}</div>
             <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
               Filtered: <b style={{ marginLeft: 6 }}>{jobsFiltered.length}</b>
+            </div>
+            <div style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>
+              Deleted in scope: <b style={{ marginLeft: 6 }}>{deletedJobsFiltered.length}</b>
             </div>
           </div>
         </div>
@@ -1011,6 +1314,7 @@ export default function StatisticsPage() {
           </div>
           <div style={grid(4)}>
             {navCard("/job-sheet", "Job Sheet", "All jobs table", `${jobsAll.length}`)}
+            {navCard("/client-info", "Client Info", "Client list and history", "Directory")}
             {navCard("/review-queue", "Review Queue", "Ops review stage", "Open →")}
             {navCard("/finance-queue", "Ready to Invoice", "Finance queue", "Open →")}
             {navCard("/deleted-bookings", "Deleted Bookings", "Restore / purge", `${deletedBookings.length}`)}
@@ -1051,6 +1355,78 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.upcomingJobs}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date ≥ today</div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#d1fae5" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg job length</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{jobLengthStats.avgLengthDays}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Median: <b>{jobLengthStats.medianLengthDays || 0}</b> day(s)
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#d1fae5" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed length</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{jobLengthStats.avgConfirmedLengthDays}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Multi-day jobs: <b>{jobLengthStats.multiDayJobs}</b>
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#cffafe" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg crew / job</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{crewStats.avgCrewPerJob}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Across <b>{crewStats.crewedJobs}</b> crewed job(s)
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#cffafe" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed crew</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{crewStats.avgConfirmedCrewPerJob}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Largest crew: <b>{crewStats.largestCrew}</b>
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#fde68a" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Added to confirmed</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{timelineStats.avgCreateToConfirmedDays}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Avg days across <b>{timelineStats.confirmedSample}</b> confirmed job(s)
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#fde68a" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Added to first shoot</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{timelineStats.avgCreateToShootDays}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Avg days across <b>{timelineStats.shootSample}</b> job(s)
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#bfdbfe" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil cohort</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.total}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Current + deleted in scope
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#bfdbfe" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil to confirmed</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.confirmedRate}%</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                {firstPencilFunnel.confirmed} of {firstPencilFunnel.total}
+              </div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: "#fecaca" }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil dead outcomes</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.deadRate}%</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                Deleted / DNH / Lost / Cancelled / Postponed
+              </div>
             </div>
 
             {/*  UPDATED: Hotel cost excludes Production-paid */}
@@ -1101,6 +1477,24 @@ export default function StatisticsPage() {
               <span style={{ ...chip, background: "#f3f4f6" }}>
                 Cancelled: <b style={{ marginLeft: 6 }}>{kpis.cancelledJobs}</b>
               </span>
+              <span style={{ ...chip, background: "#eff6ff", borderColor: "#bfdbfe" }}>
+                First pencil confirmed: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.confirmedRate}%</b>
+              </span>
+              <span style={{ ...chip, background: "#fef2f2", borderColor: "#fecaca" }}>
+                First pencil dead: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.deadRate}%</b>
+              </span>
+              <span style={{ ...chip, background: "#ecfccb", borderColor: "#bef264" }}>
+                Avg job length: <b style={{ marginLeft: 6 }}>{jobLengthStats.avgLengthDays}</b> day(s)
+              </span>
+              <span style={{ ...chip, background: "#ecfeff", borderColor: "#a5f3fc" }}>
+                Avg crew / job: <b style={{ marginLeft: 6 }}>{crewStats.avgCrewPerJob}</b>
+              </span>
+              <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>
+                Added to confirmed: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToConfirmedDays}</b> day(s)
+              </span>
+              <span style={{ ...chip, background: "#fffbeb", borderColor: "#fde68a" }}>
+                Added to first shoot: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToShootDays}</b> day(s)
+              </span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
                 Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
               </span>
@@ -1128,6 +1522,21 @@ export default function StatisticsPage() {
             subtitle="Counts days where the per-day note is On Set / Night Shoot"
             data={shootDaysByMonth}
             rightLabel="Shoot"
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <BarChart
+            title="First pencil outcomes"
+            subtitle="Based on current status plus deleted bookings, and history logs where available"
+            data={firstPencilFunnel.chart}
+            rightLabel="Jobs"
+          />
+          <BarChart
+            title="Job length distribution"
+            subtitle="How many booking days each job spans"
+            data={jobLengthStats.distribution}
+            rightLabel="Jobs"
           />
         </div>
 
