@@ -362,7 +362,8 @@ export default function HeaderSidebarLayout({ children }) {
       className={inter.variable}
       style={{
         display: "flex",
-        height: "100vh",
+        height: "100dvh",
+        minHeight: "100dvh",
         overflow: "hidden",
         fontFamily: "var(--font-inter)",
         background: UI.shellBg,
@@ -372,6 +373,8 @@ export default function HeaderSidebarLayout({ children }) {
       <aside
         style={{
           width: isCollapsed ? "60px" : "220px",
+          flexShrink: 0,
+          boxSizing: "border-box",
           background: UI.sidebarBg,
           color: UI.sidebarText,
           padding: isCollapsed ? "18px 10px" : "22px 16px",
@@ -548,7 +551,7 @@ export default function HeaderSidebarLayout({ children }) {
       </aside>
 
       {/* ───────────────── Main ───────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <header
           style={{
@@ -643,11 +646,12 @@ export default function HeaderSidebarLayout({ children }) {
 
         {/* Content */}
         <div
+          className="app-shell-content"
           style={{
             flex: 1,
             overflowY: "auto",
             background: UI.contentBg,
-            padding: 12,
+            padding: 0,
           }}
         >
           {children}

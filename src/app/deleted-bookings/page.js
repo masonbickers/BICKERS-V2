@@ -7,6 +7,7 @@ import {
   collection,
   onSnapshot,
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   serverTimestamp,
@@ -19,7 +20,7 @@ import { RotateCcw, Trash2, ChevronDown, ChevronUp, Search } from "lucide-react"
 /* ───────────────────────────────────────────
    Admin gate (ONLY these emails)
 ─────────────────────────────────────────── */
-const ADMIN_EMAILS = ["mason@bickers.co.uk", "paul@bickers.co.uk"];
+const ADMIN_EMAILS = ["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"];
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = {
@@ -370,17 +371,30 @@ export default function DeletedBookingsPage() {
      Admin gate (email allowlist)
   ──────────────────────────────────────────── */
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
       try {
         if (!u) {
           router.push("/login");
           return;
         }
-        const email = (u.email || "").toLowerCase();
-        const ok = ADMIN_EMAILS.includes(email);
-        setIsAdmin(ok);
-        if (!ok) {
-          router.push("/home"); // or "/dashboard"
+
+        const email = String(u.email || "").trim().toLowerCase();
+        if (ADMIN_EMAILS.includes(email)) {
+          setIsAdmin(true);
+          return;
+        }
+
+        try {
+          const userSnap = await getDoc(doc(db, "users", u.uid));
+          const role = String(userSnap.data()?.role || "").trim().toLowerCase();
+          const ok = role === "admin";
+          setIsAdmin(ok);
+          if (!ok) {
+            router.push("/home");
+          }
+        } catch {
+          setIsAdmin(false);
+          router.push("/home");
         }
       } finally {
         setCheckingAccess(false);

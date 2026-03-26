@@ -19,7 +19,7 @@ import {
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
-  "adma@bickers.co.uk",
+  "adam@bickers.co.uk",
 ];
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -110,10 +110,28 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
   /* ---------------- Auth / admin ---------------- */
   useEffect(() => {
-    const unsub = auth?.onAuthStateChanged?.((u) => {
+    const unsub = auth?.onAuthStateChanged?.(async (u) => {
       const email = u?.email || "";
       setUserEmail(email);
-      setIsAdmin(ADMIN_EMAILS.map(norm).includes(norm(email)));
+
+      if (!u) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const allowlisted = ADMIN_EMAILS.map(norm).includes(norm(email));
+      if (allowlisted) {
+        setIsAdmin(true);
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", u.uid));
+        const role = String(userSnap.data()?.role || "").trim().toLowerCase();
+        setIsAdmin(role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
     });
     return () => unsub?.();
   }, []);
@@ -230,6 +248,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     if (loading) return false;
     if (saving) return false;
     if (!holidayId) return false;
+    if (approved && !isAdmin) return false;
 
     if (!employee) return false;
     if (!holidayReason.trim()) return false;
@@ -248,11 +267,19 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
     startDate,
     endDate,
     holidayDate,
+    approved,
+    isAdmin,
   ]);
+
+  const canEditRecord = isAdmin || !approved;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!holidayId) return;
+    if (!canEditRecord) {
+      alert("Approved holidays can only be edited by an admin.");
+      return;
+    }
 
     if (!employee) return alert("Please select an employee.");
     if (!holidayReason.trim()) return alert("Please enter a reason.");
@@ -290,8 +317,8 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       const endAsDate = ymdToDate(finalEnd);
       const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
 
-      // Any edit must go back through approval.
-      const finalStatus = "requested";
+      const preserveApproval = isAdmin && approved;
+      const finalStatus = preserveApproval ? String(existingStatus || "approved") : "requested";
 
       const payload = {
         employee,
@@ -308,8 +335,8 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         paidStatus,
 
         status: finalStatus,
-        approvalStatus: "requested",
-        approved: false,
+        approvalStatus: preserveApproval ? "approved" : "requested",
+        approved: preserveApproval,
 
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",
@@ -415,6 +442,25 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+          {!canEditRecord ? (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "rgba(245,158,11,0.12)",
+                border: "1px solid rgba(245,158,11,0.35)",
+                color: "rgba(255,244,214,0.92)",
+                fontSize: 12.5,
+                lineHeight: 1.45,
+              }}
+            >
+              This holiday has already been approved. Only an admin can edit it now.
+            </div>
+          ) : null}
+          <fieldset
+            disabled={loading || saving || !canEditRecord}
+            style={{ display: "grid", gap: 12, border: "none", padding: 0, margin: 0, minWidth: 0 }}
+          >
           {/* Employee */}
           <div>
             <label style={label}>Employee</label>
@@ -628,9 +674,10 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
               opacity: canSubmit ? 1 : 0.55,
               cursor: canSubmit ? "pointer" : "not-allowed",
             }}
-          >
-            {saving ? "Saving..." : "Update holiday"}
-          </button>
+            >
+              {saving ? "Saving..." : "Update holiday"}
+            </button>
+          </fieldset>
 
           <div style={{ display: "grid", gap: 10 }}>
             <button

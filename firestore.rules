@@ -1,0 +1,286 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return userDoc().data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().exists() && userData().role == "admin";
+    }
+
+    function hasUserAccess() {
+      return isAdmin()
+        || (isSignedIn()
+          && userDoc().exists()
+          && (
+            userData().appAccess.user == true
+            || userData().defaultWorkspace == "user"
+            || userData().role in ["employee", "hybrid"]
+          ));
+    }
+
+    function hasServiceAccess() {
+      return isAdmin()
+        || (isSignedIn()
+          && userDoc().exists()
+          && (
+            userData().appAccess.service == true
+            || userData().isService == true
+            || userData().defaultWorkspace == "service"
+            || userData().role in ["service", "hybrid"]
+          ));
+    }
+
+    function isOwnUserDoc(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isOwnEmployeeDoc() {
+      return isSignedIn()
+        && (
+          resource.data.uid == request.auth.uid
+          || resource.data.authUid == request.auth.uid
+          || resource.id == request.auth.uid
+        );
+    }
+
+    function isOwnEmployeeDocAfterWrite() {
+      return isSignedIn()
+        && (
+          request.resource.data.uid == request.auth.uid
+          || request.resource.data.authUid == request.auth.uid
+          || resource.id == request.auth.uid
+        );
+    }
+
+    function keepsOwnEmployeeIdentity() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.authUid == resource.data.authUid
+        && request.resource.data.email == resource.data.email;
+    }
+
+    function isSafeOwnUserCreate(uid) {
+      return isOwnUserDoc(uid)
+        && request.resource.data.keys().hasOnly([
+          "appAccess",
+          "createdAt",
+          "defaultWorkspace",
+          "email",
+          "isEnabled",
+          "isService",
+          "name",
+          "phone",
+          "phoneVerified",
+          "role",
+          "uid",
+          "updatedAt"
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && matchesAuthEmail(request.resource.data.email)
+        && request.resource.data.role == "user"
+        && request.resource.data.isEnabled == true
+        && request.resource.data.isService == false
+        && request.resource.data.defaultWorkspace == "user"
+        && request.resource.data.appAccess is map
+        && request.resource.data.appAccess.user == true
+        && request.resource.data.appAccess.service == false;
+    }
+
+    function matchesAuthEmail(email) {
+      return isSignedIn()
+        && email is string
+        && request.auth.token.email is string
+        && email == request.auth.token.email;
+    }
+
+    function isHolidayOwner() {
+      return isSignedIn()
+        && (
+          resource.data.requestedByUid == request.auth.uid
+          || matchesAuthEmail(resource.data.requestedByEmail)
+        );
+    }
+
+    function isHolidayOwnerOnCreate() {
+      return isSignedIn()
+        && (
+          request.resource.data.requestedByUid == request.auth.uid
+          || matchesAuthEmail(request.resource.data.requestedByEmail)
+        );
+    }
+
+    function keepsHolidayOwnerIdentity() {
+      return request.resource.data.requestedByUid == resource.data.requestedByUid
+        && request.resource.data.requestedByEmail == resource.data.requestedByEmail;
+    }
+
+    function isApprovedHolidayRecord() {
+      return resource.data.approved == true
+        || resource.data.status == "approved"
+        || resource.data.approvalStatus == "approved"
+        || resource.data.state == "approved"
+        || resource.data.leaveStatus == "approved"
+        || resource.data.holidayStatus == "approved";
+    }
+
+    function isApprovedHolidayAfterWrite() {
+      return request.resource.data.approved == true
+        || request.resource.data.status == "approved"
+        || request.resource.data.approvalStatus == "approved"
+        || request.resource.data.state == "approved"
+        || request.resource.data.leaveStatus == "approved"
+        || request.resource.data.holidayStatus == "approved";
+    }
+
+    function hasBookingAuditFieldsOnCreate() {
+      return isSignedIn()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.lastEditedByUid == request.auth.uid;
+    }
+
+    function keepsBookingAuditIdentity() {
+      return request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          resource.data.createdByUid == null
+          || request.resource.data.createdByUid == resource.data.createdByUid
+        );
+    }
+
+    function keepsTimesheetIdentity() {
+      return request.resource.data.employeeCode == resource.data.employeeCode
+        && request.resource.data.employeeName == resource.data.employeeName
+        && request.resource.data.weekStart == resource.data.weekStart;
+    }
+
+    function keepsTimesheetQueryIdentity() {
+      return request.resource.data.timesheetId == resource.data.timesheetId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByRole == resource.data.createdByRole;
+    }
+
+    function userOnlyFieldsChanged() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        "name",
+        "phone",
+        "updatedAt",
+        "phoneVerified",
+        "phoneVerifiedAt",
+        "mfaMethod",
+        "mfaEnabled",
+        "mfaPhoneNumber",
+        "mfaSecret"
+      ]);
+    }
+
+    match /users/{uid} {
+      allow read: if isOwnUserDoc(uid) || isAdmin();
+      allow create: if isAdmin() || isSafeOwnUserCreate(uid);
+      allow update: if isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged());
+      allow delete: if isAdmin();
+    }
+
+    match /employees/{employeeId} {
+      allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isOwnEmployeeDoc() && keepsOwnEmployeeIdentity());
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if hasUserAccess();
+      allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
+      allow update: if hasUserAccess()
+        && hasBookingAuditFieldsOnCreate()
+        && keepsBookingAuditIdentity();
+      allow delete: if isAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow read, write: if hasUserAccess();
+    }
+
+    match /holidays/{holidayId} {
+      allow read: if hasUserAccess() || hasServiceAccess();
+      allow create: if (hasUserAccess() || hasServiceAccess()) && isHolidayOwnerOnCreate();
+      allow update: if isAdmin()
+        || (
+          (hasUserAccess() || hasServiceAccess())
+          && isHolidayOwner()
+          && keepsHolidayOwnerIdentity()
+          && !isApprovedHolidayRecord()
+          && !isApprovedHolidayAfterWrite()
+        );
+      allow delete: if isAdmin()
+        || (
+          (hasUserAccess() || hasServiceAccess())
+          && isHolidayOwner()
+          && !isApprovedHolidayRecord()
+        );
+    }
+
+    match /hr/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /timesheets/{timesheetId} {
+      allow read: if isAdmin() || hasUserAccess();
+      allow create: if isAdmin() || hasUserAccess();
+      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetIdentity();
+      allow delete: if isAdmin();
+    }
+
+    match /timesheetQueries/{queryId} {
+      allow read: if isAdmin() || hasUserAccess();
+      allow create: if isAdmin() || hasUserAccess();
+      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetQueryIdentity();
+      allow delete: if isAdmin();
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /equipment/{equipmentId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /maintenance/{docId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /maintenanceJobs/{jobId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /maintenanceBookings/{bookingId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /vehicleChecks/{docId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /defects/{docId} {
+      allow read, write: if hasServiceAccess();
+    }
+
+    match /settings/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

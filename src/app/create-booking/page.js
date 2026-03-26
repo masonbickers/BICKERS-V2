@@ -7,6 +7,12 @@ import { db, auth, storage as storageInstance } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import DatePicker from "react-multi-date-picker";
+import {
+  contactIdFromEmail,
+  employeesKey,
+  normalizeVehicleKeysListForLookup,
+  uniqEmpObjects,
+} from "@/app/utils/bookingFormShared";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
@@ -235,6 +241,7 @@ const VEHICLE_STATUSES = [
   "First Pencil",
   "Second Pencil",
   "Enquiry",
+  "Stunt",
   "Maintenance",
   "DNH",
   "Lost",
@@ -361,65 +368,14 @@ const FILM_DEPARTMENTS = [
   "Other",
 ];
 
-const contactIdFromEmail = (email) =>
-  (email || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "_") || null;
-
 /* ────────────────────────────────────────────────────────────────────────────
    Employee helpers
 ──────────────────────────────────────────────────────────────────────────── */
 const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 
-const employeesKey = (e) => `${e?.role || ""}::${e?.name || ""}`;
-
-const uniqEmpObjects = (arr) => {
-  const seen = new Set();
-  const out = [];
-  (arr || []).forEach((e) => {
-    if (!e?.name || !e?.role) return;
-    const k = employeesKey(e);
-    if (seen.has(k)) return;
-    seen.add(k);
-    out.push({ role: e.role, name: e.name });
-  });
-  return out;
-};
-
 /* ────────────────────────────────────────────────────────────────────────────
    Vehicle lookup: id / reg / name
 ──────────────────────────────────────────────────────────────────────────── */
-const normalizeVehicleKeysListForLookup = (list, lookup) => {
-  if (!Array.isArray(list) || !list.length) return [];
-  const { byId = {}, byReg = {}, byName = {} } = lookup || {};
-  const out = [];
-
-  list.forEach((raw) => {
-    let match = null;
-
-    if (raw && typeof raw === "object") {
-      const id = raw.id || raw.vehicleId;
-      const reg = raw.registration;
-      const nm = raw.name;
-
-      if (id && byId[id]) match = byId[id];
-      else if (reg && byReg[String(reg).toUpperCase()]) match = byReg[String(reg).toUpperCase()];
-      else if (nm && byName[String(nm).toLowerCase()]) match = byName[String(nm).toLowerCase()];
-    } else {
-      const s = String(raw || "").trim();
-      if (!s) return;
-      if (byId[s]) match = byId[s];
-      else if (byReg[s.toUpperCase()]) match = byReg[s.toUpperCase()];
-      else if (byName[s.toLowerCase()]) match = byName[s.toLowerCase()];
-    }
-
-    if (match?.id) out.push(match.id);
-  });
-
-  return Array.from(new Set(out));
-};
-
 const toJsDate = (raw) => {
   if (!raw) return null;
   if (raw instanceof Date) return raw;
@@ -1279,7 +1235,9 @@ export default function CreateBookingPage() {
         : { date: null, startDate: null, endDate: null }),
 
       createdBy: user?.email || "Unknown",
+      createdByUid: user?.uid || "",
       lastEditedBy: user?.email || "Unknown",
+      lastEditedByUid: user?.uid || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       history: [

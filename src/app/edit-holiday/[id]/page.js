@@ -3,8 +3,29 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
-import { signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
+
+const toDateValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const raw = typeof value?.toDate === "function" ? value.toDate() : value;
+  const date = raw instanceof Date ? raw : new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const ymdToDate = (value) => {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 export default function EditHolidayPage() {
   const router = useRouter();
@@ -27,8 +48,8 @@ export default function EditHolidayPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setEmployee(data.employee);
-        setStartDate(data.startDate);
-        setEndDate(data.endDate);
+        setStartDate(toDateValue(data.startDate));
+        setEndDate(toDateValue(data.endDate || data.startDate));
         setHolidayReason(data.holidayReason);
         setPaidStatus(data.paidStatus || "Paid");
       }
@@ -52,13 +73,24 @@ export default function EditHolidayPage() {
     }
 
     try {
+      const startAsDate = ymdToDate(startDate);
+      const endAsDate = ymdToDate(endDate);
+      if (!startAsDate || !endAsDate) {
+        alert("Please enter valid start and end dates.");
+        return;
+      }
+      if (startAsDate > endAsDate) {
+        alert("End date must be the same or after the start date.");
+        return;
+      }
+
       const docRef = doc(db, "holidays", holidayId);
       await updateDoc(docRef, {
         employee,
-        startDate,
-        endDate,
-        holidayReason,
-        paidStatus
+        startDate: startAsDate,
+        endDate: endAsDate,
+        holidayReason: holidayReason.trim(),
+        paidStatus,
       });
       alert("Holiday updated successfully!");
       router.push("/dashboard");
@@ -69,10 +101,6 @@ export default function EditHolidayPage() {
   };
 
   const handleCancel = () => router.push("/dashboard");
-  const handleHome = async () => {
-    await signOut(auth);
-    router.push("/home");
-  };
 
   const handleDelete = async () => {
     if (!holidayId) return;

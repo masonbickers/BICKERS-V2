@@ -15,11 +15,10 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
 import {
-  findEmployeeForUser,
-  getStoredActiveWorkspace,
-  resolveEmployeeAccess,
-  selectLandingRoute,
-} from "@/app/utils/accessControl";
+  clearMfaVerified,
+  hasAuthenticatorMfa,
+  isPhoneVerified,
+} from "@/app/utils/authSecurity";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,20 +31,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
-
-  const routeUserToWorkspace = async (user) => {
-    const [userSnap, employeeDoc] = await Promise.all([
-      getDoc(doc(db, "users", user.uid)),
-      findEmployeeForUser(db, user),
-    ]);
-
-    const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-    const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
-    const preferred =
-      getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
-      getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
-    router.push(selectLandingRoute(access, preferred));
-  };
 
   //  Password strength check
   const isStrongPassword = (password) => {
@@ -64,6 +49,10 @@ export default function LoginPage() {
           createdAt: serverTimestamp(),
           isEnabled: true,
           role: "user",
+          isService: false,
+          appAccess: { user: true, service: false },
+          defaultWorkspace: "user",
+          phoneVerified: false,
         };
 
     await setDoc(
@@ -117,13 +106,19 @@ export default function LoginPage() {
 
         const snap = await getDoc(ref);
         const userData = snap.data() || {};
+        clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
 
-        if (!userData.phoneVerified) {
+        if (!isPhoneVerified(userData)) {
           router.push("/setup-mfa");
           return;
         }
 
-        await routeUserToWorkspace(user);
+        if (!hasAuthenticatorMfa(userData)) {
+          router.push("/setup-mfa");
+          return;
+        }
+
+        router.push("/verify-mfa");
         return;
       } else {
         // SIGN UP

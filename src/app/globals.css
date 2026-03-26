@@ -125,3 +125,19 @@ a {
   background-color: rgba(137, 174, 255, 0.15) !important;
 }
 
+.app-shell-content {
+  min-width: 0;
+}
+
+.app-shell-content > * {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100% !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell-content > * {
+    min-height: auto !important;
+  }
+}
+

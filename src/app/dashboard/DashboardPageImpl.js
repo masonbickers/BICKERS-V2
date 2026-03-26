@@ -1595,10 +1595,12 @@ export default function DashboardPage({ bookingSaved }) {
   useEffect(() => setMounted(true), []);
 
   const [userEmail, setUserEmail] = useState(null);
+  const [userUid, setUserUid] = useState(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUserEmail(u?.email?.toLowerCase() || null);
+      setUserUid(u?.uid || null);
       setAuthReady(true);
     });
     return () => unsub();
@@ -1971,6 +1973,8 @@ export default function DashboardPage({ bookingSaved }) {
     try {
       await addDoc(collection(db, "bookings"), {
         ...payload,
+        createdByUid: payload?.createdByUid || userUid || "",
+        lastEditedByUid: payload?.lastEditedByUid || userUid || "",
         createdAt: new Date(),
       });
       setShowModal(false);

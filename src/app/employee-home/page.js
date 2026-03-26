@@ -236,6 +236,40 @@ function creditForNote(rawNote) {
   return 1;
 }
 
+const BREAKDOWN_COLUMNS = [
+  { key: "onSet", label: "On Set" },
+  { key: "travel", label: "Travel" },
+  { key: "halfTravel", label: "1/2 Travel" },
+  { key: "yard", label: "Yard / Rig" },
+  { key: "standby", label: "Standby" },
+  { key: "turnaround", label: "Turnaround" },
+  { key: "rest", label: "Rest" },
+  { key: "nightShoot", label: "Night Shoot" },
+  { key: "rehearsal", label: "Rehearsal" },
+  { key: "recce", label: "Recce" },
+  { key: "splitDay", label: "Split Day" },
+  { key: "other", label: "Other" },
+];
+
+function classifyNote(rawNote) {
+  const norm = String(rawNote || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!norm) return { key: "onSet", priority: 50 };
+  if (norm === "on set" || norm === "shoot day") return { key: "onSet", priority: 50 };
+  if (norm === "travel day" || norm === "travel time") return { key: "travel", priority: 40 };
+  if (norm === "1/2 day travel" || norm === "1/2 day travel day" || norm === "half day travel") {
+    return { key: "halfTravel", priority: 35 };
+  }
+  if (norm === "rig day") return { key: "yard", priority: 34 };
+  if (norm === "standby day") return { key: "standby", priority: 33 };
+  if (norm.includes("turnaround")) return { key: "turnaround", priority: 32 };
+  if (norm === "rest day") return { key: "rest", priority: 10 };
+  if (norm.includes("night shoot")) return { key: "nightShoot", priority: 45 };
+  if (norm.includes("split day") || norm.includes("spilt day")) return { key: "splitDay", priority: 30 };
+  if (norm === "rehearsal day") return { key: "rehearsal", priority: 28 };
+  if (norm === "recce day") return { key: "recce", priority: 27 };
+  return { key: "other", priority: 20 };
+}
+
 /* Pull note for a given YYYY-MM-DD from known shapes */
 function getNoteForDate(booking, dayKey) {
   let v =
@@ -274,6 +308,7 @@ export default function EmployeesHomePage() {
 
   // chart state
   const [usageData, setUsageData] = useState([]);
+  const [usageBreakdownData, setUsageBreakdownData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // compute effective range (past only, excluding today)
@@ -311,6 +346,7 @@ export default function EmployeesHomePage() {
 
         // empKey -> Map<YYYY-MM-DD, credit>
         const credits = new Map();
+        const breakdown = new Map();
         const since = effectiveRange.since;
         const until = effectiveRange.until;
 
@@ -328,7 +364,10 @@ export default function EmployeesHomePage() {
               return { id: e && e.id ? e.id : null, name: (e && (e.name || e.fullName)) || "", role: (e && e.role) || "" };
             })
             .filter((e) => (e.id || e.name)?.trim())
-            .filter((e) => String(e.role || "").toLowerCase() !== "freelancer");
+            .filter((e) => {
+              const role = String(e.role || "").trim().toLowerCase();
+              return role !== "freelancer" && role !== "freelance";
+            });
 
           const uniqEmployees = dedupeEmployees(employees);
           if (uniqEmployees.length === 0) return;
@@ -363,11 +402,20 @@ export default function EmployeesHomePage() {
               // take MAX if multiple bookings for same emp & day
               const prev = byDate.get(dayKey) ?? 0;
               if (credit > prev) byDate.set(dayKey, credit);
+
+              if (!breakdown.has(empKey)) breakdown.set(empKey, new Map());
+              const byDateCategory = breakdown.get(empKey);
+              const prevCategory = byDateCategory.get(dayKey);
+              const nextCategory = classifyNote(note);
+              if (!prevCategory || nextCategory.priority > prevCategory.priority) {
+                byDateCategory.set(dayKey, nextCategory);
+              }
             }
           }
         });
 
         const rows = [];
+        const breakdownRows = [];
         for (const [empKey, byDate] of credits.entries()) {
           let total = 0;
           for (const v of byDate.values()) total += v;
@@ -378,14 +426,37 @@ export default function EmployeesHomePage() {
             fullName: titleCase(display),
             days: Number(total.toFixed(2)),
           });
+
+          const dayTypeCounts = Object.fromEntries(BREAKDOWN_COLUMNS.map((col) => [col.key, 0]));
+          const byDateCategory = breakdown.get(empKey) || new Map();
+          for (const category of byDateCategory.values()) {
+            const key = category?.key;
+            if (key && Object.prototype.hasOwnProperty.call(dayTypeCounts, key)) {
+              dayTypeCounts[key] += 1;
+            }
+          }
+
+          breakdownRows.push({
+            key: empKey,
+            name: titleCase(display),
+            totalDays: Number(total.toFixed(2)),
+            ...dayTypeCounts,
+          });
         }
 
         rows.sort((a, b) => b.days - a.days);
+        breakdownRows.sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name));
 
-        if (isMounted) setUsageData(rows);
+        if (isMounted) {
+          setUsageData(rows);
+          setUsageBreakdownData(breakdownRows);
+        }
       } catch (err) {
         console.error("Error fetching bookings:", err);
-        if (isMounted) setUsageData([]);
+        if (isMounted) {
+          setUsageData([]);
+          setUsageBreakdownData([]);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -636,6 +707,68 @@ export default function EmployeesHomePage() {
             </div>
           )}
         </section>
+
+        <section style={{ ...surface, padding: 14, marginTop: 14 }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Work Type Breakdown</h2>
+              <div style={hint}>
+                Per-employee day counts by booking note type across the selected reporting window.
+              </div>
+            </div>
+            <div style={chipSoft}>{usageBreakdownData.length} employees</div>
+          </div>
+
+          {loading ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "86%" }} />
+            </div>
+          ) : usageBreakdownData.length === 0 ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>No employee work breakdown found in this reporting period.</div>
+          ) : (
+            <div style={{ overflowX: "auto", marginTop: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1100 }}>
+                <thead>
+                  <tr>
+                    <th style={tableHeadLeft}>Employee</th>
+                    {BREAKDOWN_COLUMNS.map((column) => (
+                      <th key={column.key} style={tableHead}>{column.label}</th>
+                    ))}
+                    <th style={tableHead}>Total Credits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usageBreakdownData.map((row) => (
+                    <tr
+                      key={row.key}
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          name: row.name,
+                          mode,
+                          rangeDays: String(rangeDays),
+                          fromDate,
+                          toDate,
+                        });
+                        router.push(`/employee-home/${encodeURIComponent(row.key)}?${params.toString()}`);
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td style={tableCellLeftInteractive}>{row.name}</td>
+                      {BREAKDOWN_COLUMNS.map((column) => (
+                        <td key={`${row.key}-${column.key}`} style={tableCell}>
+                          {row[column.key] || 0}
+                        </td>
+                      ))}
+                      <td style={{ ...tableCell, fontWeight: 900 }}>{row.totalDays}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
     </HeaderSidebarLayout>
   );
@@ -650,8 +783,58 @@ function EmptyState() {
       <div style={{ fontWeight: 800, marginBottom: 6, color: UI.text }}>No data in this reporting period</div>
       <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
         Only <b>Confirmed</b> and <b>Complete</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
-        Try a longer range, or confirm your bookings include <code>notesByDate["YYYY-MM-DD"]</code> and/or <code>bookingDates</code>.
+        Try a longer range, or confirm your bookings include <code>notesByDate[&quot;YYYY-MM-DD&quot;]</code> and/or <code>bookingDates</code>.
       </div>
     </div>
   );
 }
+
+const tableHead = {
+  padding: "10px 12px",
+  background: "#f8fbfd",
+  borderTop: UI.border,
+  borderBottom: UI.border,
+  borderRight: UI.border,
+  fontSize: 12,
+  fontWeight: 900,
+  color: UI.text,
+  textAlign: "center",
+  whiteSpace: "nowrap",
+};
+
+const tableHeadLeft = {
+  ...tableHead,
+  borderLeft: UI.border,
+  textAlign: "left",
+  position: "sticky",
+  left: 0,
+  zIndex: 2,
+};
+
+const tableCell = {
+  padding: "9px 12px",
+  borderBottom: UI.border,
+  borderRight: UI.border,
+  fontSize: 13,
+  color: UI.text,
+  textAlign: "center",
+  background: "#fff",
+  whiteSpace: "nowrap",
+};
+
+const tableCellLeft = {
+  ...tableCell,
+  borderLeft: UI.border,
+  textAlign: "left",
+  fontWeight: 800,
+  position: "sticky",
+  left: 0,
+  zIndex: 1,
+};
+
+const tableCellLeftInteractive = {
+  ...tableCellLeft,
+  color: UI.brand,
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
+};

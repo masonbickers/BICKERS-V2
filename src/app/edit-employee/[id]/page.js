@@ -492,6 +492,39 @@ export default function EditEmployeePage() {
     try {
       const docRef = doc(db, "employees", employeeId);
       const settingsRef = doc(db, "settings", "payrollRates");
+      const normalizedAppAccess = {
+        user: !!formData?.appAccess?.user,
+        service: !!formData?.appAccess?.service,
+      };
+      const normalizedDefaultWorkspace =
+        formData.defaultWorkspace === "service" ? "service" : "user";
+      const normalizedPayrollRates = Object.fromEntries(
+        Object.entries(formData.payrollRates || {}).map(([key, value]) => [
+          key,
+          key === "travelRate"
+            ? globalPayrollRates.travelRate === ""
+              ? ""
+              : Number(globalPayrollRates.travelRate)
+            : key === "overnightRate"
+              ? globalPayrollRates.overnightRate === ""
+                ? ""
+                : Number(globalPayrollRates.overnightRate)
+              : key === "travelMealRate"
+                ? globalPayrollRates.travelMealRate === ""
+                  ? ""
+                  : Number(globalPayrollRates.travelMealRate)
+              : value === ""
+                ? ""
+                : Number(value),
+        ])
+      );
+      const linkedUserId = String(formData.uid || formData.authUid || "").trim();
+      const userRef = linkedUserId ? doc(db, "users", linkedUserId) : null;
+      const updatedBy =
+        auth?.currentUser?.email ||
+        auth?.currentUser?.uid ||
+        "";
+
       await Promise.all([
         setDoc(docRef, {
         ...formData,
@@ -499,48 +532,39 @@ export default function EditEmployeePage() {
         dob: formData.dob || "",
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
         role: effectiveRole,
-        isService: !!formData?.appAccess?.service,
-        appAccess: {
-          user: !!formData?.appAccess?.user,
-          service: !!formData?.appAccess?.service,
-        },
-        defaultWorkspace: formData.defaultWorkspace === "service" ? "service" : "user",
-        payrollRates: Object.fromEntries(
-          Object.entries(formData.payrollRates || {}).map(([key, value]) => [
-            key,
-            key === "travelRate"
-              ? globalPayrollRates.travelRate === ""
-                ? ""
-                : Number(globalPayrollRates.travelRate)
-              : key === "overnightRate"
-                ? globalPayrollRates.overnightRate === ""
-                  ? ""
-                  : Number(globalPayrollRates.overnightRate)
-                : key === "travelMealRate"
-                  ? globalPayrollRates.travelMealRate === ""
-                    ? ""
-                    : Number(globalPayrollRates.travelMealRate)
-                : value === ""
-                  ? ""
-                  : Number(value),
-          ])
-        ),
+        isService: !!normalizedAppAccess.service,
+        appAccess: normalizedAppAccess,
+        defaultWorkspace: normalizedDefaultWorkspace,
+        payrollRates: normalizedPayrollRates,
         updatedAt: serverTimestamp(),
-        updatedBy:
-          auth?.currentUser?.email ||
-          auth?.currentUser?.uid ||
-          "",
+        updatedBy,
       }, { merge: true }),
+        ...(userRef
+          ? [
+              setDoc(
+                userRef,
+                {
+                  role: effectiveRole,
+                  isService: !!normalizedAppAccess.service,
+                  appAccess: normalizedAppAccess,
+                  defaultWorkspace: normalizedDefaultWorkspace,
+                  email: String(formData.email || "").trim().toLowerCase(),
+                  name: formData.name || "",
+                  phone: formData.mobile || "",
+                  updatedAt: serverTimestamp(),
+                  updatedBy,
+                },
+                { merge: true }
+              ),
+            ]
+          : []),
         setDoc(settingsRef, {
           travelRate: globalPayrollRates.travelRate === "" ? "" : Number(globalPayrollRates.travelRate),
           overnightRate: globalPayrollRates.overnightRate === "" ? "" : Number(globalPayrollRates.overnightRate),
           travelMealRate:
             globalPayrollRates.travelMealRate === "" ? "" : Number(globalPayrollRates.travelMealRate),
           updatedAt: serverTimestamp(),
-          updatedBy:
-            auth?.currentUser?.email ||
-            auth?.currentUser?.uid ||
-            "",
+          updatedBy,
         }, { merge: true }),
       ]);
       setSaveMessage("Employee access and profile updated.");

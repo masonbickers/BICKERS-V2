@@ -56,7 +56,7 @@ export default function ProfilePage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ backgroundColor: "#f4f4f5", minHeight: "100vh", padding: "40px 16px" }}>
+      <div style={{ backgroundColor: "#f4f4f5", padding: "28px 20px 36px" }}>
         <div style={{ maxWidth: "600px", margin: "0 auto" }}>
           <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "32px", color: "#111" }}>
             Account Settings

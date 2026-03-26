@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import speakeasy from "speakeasy"; //  install: npm install speakeasy
 import Image from "next/image";
 import {
@@ -11,16 +12,41 @@ import {
   resolveEmployeeAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
+import {
+  hasAuthenticatorMfa,
+  isPhoneVerified,
+  markMfaVerified,
+} from "@/app/utils/authSecurity";
 
 export default function VerifyMfaPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const snap = await getDoc(doc(db, "users", user.uid));
+      const userData = snap.data() || {};
+      if (!isPhoneVerified(userData) || !hasAuthenticatorMfa(userData)) {
+        router.replace("/setup-mfa");
+        return;
+      }
+
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const handleVerify = async () => {
     try {
-      //  Get current user from localStorage or Firebase Auth
-      const user = JSON.parse(localStorage.getItem("user")); 
+      const user = auth.currentUser;
       if (!user) {
         setError("No user found. Please login again.");
         router.push("/login");
@@ -36,7 +62,13 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      const { mfaSecret } = snap.data();
+      const userData = snap.data() || {};
+      if (!isPhoneVerified(userData) || !hasAuthenticatorMfa(userData)) {
+        router.replace("/setup-mfa");
+        return;
+      }
+
+      const { mfaSecret } = userData;
 
       //  Verify code with speakeasy
       const verified = speakeasy.totp.verify({
@@ -55,6 +87,10 @@ export default function VerifyMfaPage() {
         const preferred =
           getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
           getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+        markMfaVerified(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          user.uid
+        );
         router.push(selectLandingRoute(access, preferred));
       } else {
         setError("Invalid code, try again.");
@@ -63,6 +99,16 @@ export default function VerifyMfaPage() {
       setError(err.message);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.formWrapper}>
+          <p style={styles.subtitle}>Loading security check...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>

@@ -425,7 +425,9 @@ export default function CreateBookingPage() {
         : {}),
 
       createdBy: user?.email || "Unknown",
+      createdByUid: user?.uid || "",
       lastEditedBy: user?.email || "Unknown",
+      lastEditedByUid: user?.uid || "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
 

@@ -45,6 +45,14 @@ export const SERVICE_PATH_PREFIXES = [
   "/workshop",
 ];
 
+export const ADMIN_PATH_PREFIXES = [
+  "/admin",
+  "/employees",
+  "/add-employee",
+  "/edit-employee",
+  "/deleted-bookings",
+];
+
 export function inferAccessFromLegacyFields(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();
   const legacyService = raw?.isService === true || role === "service";
@@ -150,6 +158,11 @@ export function getWorkspaceForPath(pathname = "") {
   return SERVICE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
     ? "service"
     : "user";
+}
+
+export function isAdminPath(pathname = "") {
+  const path = String(pathname || "").toLowerCase();
+  return ADMIN_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 export function isWorkspaceAllowed(access, workspace) {

@@ -5,7 +5,8 @@ import DashboardPage from "./DashboardPageImpl";
 
 export default function DashboardClientWrapper() {
   const searchParams = useSearchParams();
-  const bookingSaved = searchParams.get("success") === "true";
+  const bookingSaved =
+    searchParams.get("success") === "true" || searchParams.get("saved") === "true";
 
   return <DashboardPage bookingSaved={bookingSaved} />;
 }

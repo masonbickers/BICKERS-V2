@@ -16,34 +16,46 @@ export default function CreateBookingPage() {
     },
     {
       title: "Recce Booking",
-      description: "Book a recce to inspect locations before a shoot.",
-      link: "/create-booking/recce"
+      description: "Book a recce to inspect locations before a shoot using the main booking form.",
+      link: "/create-booking"
     },
     {
       title: "Stunt Booking",
-      description: "Schedule a stunt-specific booking with required kit.",
-      link: "/create-booking/stunt"
+      description: "Schedule a stunt-specific booking using the main booking form.",
+      link: "/create-booking"
     }
   ];
 
   return (
     <HeaderSidebarLayout>
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", color: "#333", fontFamily: "Arial, sans-serif" }}>
- 
+      <div
+        style={{
+          backgroundColor: "#f4f4f5",
+          color: "#333",
+          fontFamily: "Arial, sans-serif",
+          padding: "24px 20px 32px",
+        }}
+      >
+        <main style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>Booking Options</h1>
 
-      <main style={{ flex: 1, padding: 40 }}>
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>Booking Options</h1>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 20,
+              alignItems: "stretch",
+            }}
+          >
           {bookingOptions.map((item, idx) => (
             <div key={idx} style={cardStyle} onClick={() => router.push(item.link)}>
               <h2 style={{ marginBottom: 10 }}>{item.title}</h2>
               <p>{item.description}</p>
             </div>
           ))}
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
     </HeaderSidebarLayout>
   );
 }
@@ -66,4 +78,5 @@ const cardStyle = {
   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   cursor: "pointer",
   transition: "transform 0.2s ease",
+  height: "100%",
 };

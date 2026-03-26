@@ -1,0 +1,125 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return userDoc().data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userData() != null && userData().role == "admin";
+    }
+
+    function hasUserAccess() {
+      return isAdmin()
+        || (isSignedIn()
+          && userData() != null
+          && (
+            userData().appAccess.user == true
+            || userData().defaultWorkspace == "user"
+            || userData().role in ["employee", "hybrid"]
+          ));
+    }
+
+    function hasServiceAccess() {
+      return isAdmin()
+        || (isSignedIn()
+          && userData() != null
+          && (
+            userData().appAccess.service == true
+            || userData().isService == true
+            || userData().defaultWorkspace == "service"
+            || userData().role in ["service", "hybrid"]
+          ));
+    }
+
+    function isSafeFileSize(maxBytes) {
+      return request.resource.size != null && request.resource.size <= maxBytes;
+    }
+
+    function isSafeMimeType(allowed) {
+      return request.resource.contentType != null
+        && request.resource.contentType.matches(allowed);
+    }
+
+    match /profilePhotos/{uid}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && (request.auth.uid == uid || isAdmin())
+        && isSafeFileSize(10 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /recce-photos/{uid}/{bookingId}/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && request.auth.uid == uid
+        && isSafeFileSize(20 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /booking_pdfs/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf');
+    }
+
+    match /quotes/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+    }
+
+    match /job_attachments/{jobId}/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /maintenance-quotes/{allPaths=**} {
+      allow read: if hasServiceAccess();
+      allow write: if hasServiceAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /vehicles/{vehicleId}/{field}/{allPaths=**} {
+      allow read: if hasServiceAccess();
+      allow write: if hasServiceAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /hr/contracts/{employeeRef}/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+        && isSafeFileSize(25 * 1024 * 1024);
+    }
+
+    match /images/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+        && isSafeFileSize(10 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /debug/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

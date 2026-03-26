@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   getWorkspaceForPath,
   inferAccessFromLegacyFields,
+  isAdminPath,
   resolveEmployeeAccess,
   selectLandingRoute,
   validateEmployeeAccessDraft,
@@ -54,4 +55,12 @@ test("maps service paths to service workspace", () => {
   assert.equal(getWorkspaceForPath("/service/home"), "service");
   assert.equal(getWorkspaceForPath("/service-overview"), "service");
   assert.equal(getWorkspaceForPath("/screens/homescreen"), "user");
+});
+
+test("identifies admin-only routes", () => {
+  assert.equal(isAdminPath("/admin"), true);
+  assert.equal(isAdminPath("/employees"), true);
+  assert.equal(isAdminPath("/edit-employee/abc123"), true);
+  assert.equal(isAdminPath("/deleted-bookings"), true);
+  assert.equal(isAdminPath("/dashboard"), false);
 });

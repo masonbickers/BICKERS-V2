@@ -1,20 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
   linkWithCredential,
+  onAuthStateChanged,
   PhoneAuthProvider,
   RecaptchaVerifier,
 } from "firebase/auth";
+import QRCode from "qrcode";
+import speakeasy from "speakeasy";
 import {
   findEmployeeForUser,
   getStoredActiveWorkspace,
   resolveEmployeeAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
+import {
+  hasAuthenticatorMfa,
+  isMfaVerified,
+  isPhoneVerified,
+  markMfaVerified,
+} from "@/app/utils/authSecurity";
 
 export default function SetupMFA() {
   const router = useRouter();
@@ -24,9 +34,14 @@ export default function SetupMFA() {
   const [smsSent, setSmsSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [userData, setUserData] = useState(null);
+  const [authenticatorCode, setAuthenticatorCode] = useState("");
+  const [authSecret, setAuthSecret] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
   const recaptchaRef = useRef(null);
 
-  const routeUserToWorkspace = async (user) => {
+  const routeUserToWorkspace = useCallback(async (user) => {
     const [userSnap, employeeDoc] = await Promise.all([
       getDoc(doc(db, "users", user.uid)),
       findEmployeeForUser(db, user),
@@ -38,7 +53,7 @@ export default function SetupMFA() {
       getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
       getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
     router.push(selectLandingRoute(access, preferred));
-  };
+  }, [router]);
 
   const normalizePhoneNumber = (value) => {
     const raw = String(value || "").trim().replace(/\s+/g, "");
@@ -49,22 +64,53 @@ export default function SetupMFA() {
   };
 
   useEffect(() => {
-    const loadPhone = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
-        setPhoneNumber(String(snap.data()?.phone || snap.data()?.mfaPhoneNumber || ""));
+        const nextUserData = snap.data() || {};
+        setUserData(nextUserData);
+        setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
+        if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
+          const alreadyVerified = isMfaVerified(
+            typeof window !== "undefined" ? window.sessionStorage : null,
+            user.uid
+          );
+          if (alreadyVerified) {
+            await routeUserToWorkspace(user);
+          } else {
+            router.replace("/verify-mfa");
+          }
+          return;
+        }
       }
-    };
-
-    loadPhone().catch((err) => console.error("Failed to load MFA phone:", err));
+    });
 
     return () => {
+      unsubscribe();
       recaptchaRef.current?.clear?.();
       recaptchaRef.current = null;
     };
-  }, []);
+  }, [routeUserToWorkspace, router]);
+
+  useEffect(() => {
+    if (!auth.currentUser || hasAuthenticatorMfa(userData)) return;
+    const secret = speakeasy.generateSecret({
+      name: auth.currentUser.email || "Bickers Booking",
+      issuer: "Bickers Booking",
+      length: 20,
+    });
+    setAuthSecret(secret);
+    QRCode.toDataURL(secret.otpauth_url)
+      .then(setQrCodeUrl)
+      .catch((err) => {
+        console.error("Failed to create authenticator QR code:", err);
+        setError("Failed to prepare authenticator setup.");
+      });
+  }, [userData]);
 
   const ensureRecaptcha = () => {
     if (typeof window === "undefined") return null;
@@ -81,6 +127,7 @@ export default function SetupMFA() {
   const handleSendSmsCode = async () => {
     try {
       setError("");
+      setInfo("");
       const normalizedPhone = normalizePhoneNumber(phoneNumber);
       if (!normalizedPhone) {
         setError("Enter a phone number first.");
@@ -106,6 +153,8 @@ export default function SetupMFA() {
   const handleConfirm = async () => {
     try {
       setSaving(true);
+      setError("");
+      setInfo("");
       const user = auth.currentUser;
       if (!user) {
         setError("No logged in user.");
@@ -135,15 +184,18 @@ export default function SetupMFA() {
           phone: normalizedPhone,
           phoneVerified: true,
           phoneVerifiedAt: new Date().toISOString(),
-          mfaMethod: null,
-          mfaEnabled: false,
           mfaPhoneNumber: normalizedPhone,
-          mfaSecret: null,
         },
         { merge: true }
       );
-
-      await routeUserToWorkspace(user);
+      setUserData((prev) => ({
+        ...(prev || {}),
+        phone: normalizedPhone,
+        phoneVerified: true,
+        phoneVerifiedAt: new Date().toISOString(),
+        mfaPhoneNumber: normalizedPhone,
+      }));
+      setInfo("Phone number verified. Finish authenticator setup below.");
     } catch (err) {
       setError("Error saving setup: " + err.message);
     } finally {
@@ -151,22 +203,88 @@ export default function SetupMFA() {
     }
   };
 
+  const handleEnableAuthenticator = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setInfo("");
+      const user = auth.currentUser;
+      if (!user) {
+        setError("No logged in user.");
+        return;
+      }
+      if (!isPhoneVerified(userData)) {
+        setError("Verify your phone number first.");
+        return;
+      }
+      if (!authSecret?.base32) {
+        setError("Authenticator setup is unavailable.");
+        return;
+      }
+      if (!authenticatorCode.trim()) {
+        setError("Enter the 6-digit code from your authenticator app.");
+        return;
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: authSecret.base32,
+        encoding: "base32",
+        token: authenticatorCode.trim(),
+        window: 1,
+      });
+
+      if (!verified) {
+        setError("Invalid authenticator code. Please try again.");
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          mfaMethod: "totp",
+          mfaEnabled: true,
+          mfaSecret: authSecret.base32,
+          mfaEnrolledAt: nowIso,
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
+
+      markMfaVerified(
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
+      await routeUserToWorkspace(user);
+    } catch (err) {
+      setError("Error enabling authenticator: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const phoneDone = isPhoneVerified(userData);
+  const authenticatorDone = hasAuthenticatorMfa(userData);
+
   return (
     <div style={styles.page}>
       <div style={styles.formSide}>
         <div style={styles.formWrapper}>
-          <h1 style={styles.title}>Confirm Phone Number</h1>
+          <h1 style={styles.title}>Secure Your Account</h1>
           <p style={styles.subtitle}>
-            Confirm your phone number by SMS to finish signing in.
+            Verify your phone number, then connect your authenticator app before entering
+            the system.
           </p>
 
-          <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>1. Verify Phone Number</h2>
             <input
               type="tel"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               placeholder="+447..."
               style={styles.input}
+              disabled={phoneDone}
             />
             <button type="button" onClick={handleSendSmsCode} style={styles.secondaryButton}>
               {smsSent ? "Resend SMS Code" : "Send SMS Code"}
@@ -177,14 +295,59 @@ export default function SetupMFA() {
               onChange={(e) => setSmsCode(e.target.value)}
               placeholder="Enter SMS code"
               style={styles.input}
+              disabled={phoneDone}
             />
+            <button
+              onClick={handleConfirm}
+              style={styles.primaryButton}
+              disabled={saving || phoneDone}
+            >
+              {phoneDone ? "Phone Verified" : saving ? "Saving..." : "Confirm Phone"}
+            </button>
           </div>
 
-          <button onClick={handleConfirm} style={styles.primaryButton} disabled={saving}>
-            {saving ? "Saving..." : "Confirm Setup"}
-          </button>
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>2. Enable Authenticator</h2>
+            {authenticatorDone ? (
+              <p style={styles.success}>Authenticator is already enabled on this account.</p>
+            ) : (
+              <>
+                <p style={styles.helper}>
+                  Scan this QR code with Google Authenticator, Microsoft Authenticator, or 1Password.
+                </p>
+                {qrCodeUrl ? (
+                  <Image
+                    src={qrCodeUrl}
+                    alt="Authenticator QR code"
+                    width={180}
+                    height={180}
+                    style={styles.qrCode}
+                  />
+                ) : (
+                  <p style={styles.helper}>Preparing QR code...</p>
+                )}
+                <input
+                  type="text"
+                  value={authenticatorCode}
+                  onChange={(e) => setAuthenticatorCode(e.target.value)}
+                  placeholder="Enter 6-digit authenticator code"
+                  style={styles.input}
+                  disabled={!phoneDone}
+                />
+                <button
+                  type="button"
+                  onClick={handleEnableAuthenticator}
+                  style={styles.primaryButton}
+                  disabled={saving || !phoneDone}
+                >
+                  {saving ? "Saving..." : "Enable Authenticator"}
+                </button>
+              </>
+            )}
+          </div>
 
           {error && <p style={styles.error}>{error}</p>}
+          {info && <p style={styles.success}>{info}</p>}
         </div>
         <div id="setup-sms-recaptcha" />
       </div>
@@ -213,6 +376,20 @@ const styles = {
     width: "100%",
     textAlign: "center",
   },
+  section: {
+    display: "grid",
+    gap: 12,
+    marginBottom: 22,
+    padding: "18px",
+    border: "1px solid #262f3d",
+    borderRadius: "12px",
+    backgroundColor: "#101720",
+  },
+  sectionTitle: {
+    fontSize: "18px",
+    fontWeight: "bold",
+    textAlign: "left",
+  },
   title: {
     fontSize: "26px",
     fontWeight: "bold",
@@ -222,6 +399,12 @@ const styles = {
     fontSize: "14px",
     color: "#9ca3af",
     marginBottom: "20px",
+  },
+  helper: {
+    color: "#9ca3af",
+    fontSize: "13px",
+    lineHeight: 1.5,
+    textAlign: "left",
   },
   input: {
     width: "100%",
@@ -254,9 +437,22 @@ const styles = {
     fontWeight: "bold",
     cursor: "pointer",
   },
+  qrCode: {
+    width: 180,
+    height: 180,
+    margin: "0 auto",
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 12,
+  },
   error: {
     color: "#f87171",
     marginTop: "15px",
+    fontSize: "14px",
+  },
+  success: {
+    color: "#86efac",
+    marginTop: "12px",
     fontSize: "14px",
   },
 };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   collection,
+  getDoc,
   getDocs,
   updateDoc,
   doc,
@@ -494,8 +495,30 @@ export default function HRPage() {
   );
 
   useEffect(() => {
-    const email = (auth?.currentUser?.email || "").toLowerCase();
-    setIsAdmin(ADMIN_EMAILS.includes(email));
+    const run = async () => {
+      const user = auth?.currentUser;
+      const email = String(user?.email || "").trim().toLowerCase();
+
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      if (ADMIN_EMAILS.includes(email)) {
+        setIsAdmin(true);
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const role = String(userSnap.data()?.role || "").trim().toLowerCase();
+        setIsAdmin(role === "admin");
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    run();
   }, []);
 
   useEffect(() => {

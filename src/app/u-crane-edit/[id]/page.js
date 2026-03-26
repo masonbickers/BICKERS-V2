@@ -479,7 +479,9 @@ export default function EditBookingPage() {
             : { date: new Date(startDate).toISOString(), startDate: null, endDate: null }
           : { date: null, startDate: null, endDate: null }),
 
+        createdByUid: existing?.createdByUid || user?.uid || "",
         lastEditedBy: user?.email || "Unknown",
+        lastEditedByUid: user?.uid || "",
         updatedAt: new Date().toISOString(),
         history: [
           ...(Array.isArray(existing.history) ? existing.history : []),
@@ -855,7 +857,9 @@ export default function EditBookingPage() {
                           : { date: new Date(startDate).toISOString() }
                         : {}),
                       createdBy: user?.email || "Unknown",
+                      createdByUid: user?.uid || "",
                       lastEditedBy: user?.email || "Unknown",
+                      lastEditedByUid: user?.uid || "",
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
                       history: [

@@ -8,10 +8,16 @@ import { db } from "../../../firebaseConfig";
 import {
   findEmployeeForUser,
   getStoredActiveWorkspace,
+  isAdminPath,
   isPathAllowedForAccess,
   resolveEmployeeAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
+import {
+  hasAuthenticatorMfa,
+  isMfaVerified,
+  isPhoneVerified,
+} from "@/app/utils/authSecurity";
 
 const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
 
@@ -45,8 +51,47 @@ export default function ProtectedLayout({ children }) {
           findEmployeeForUser(db, currentUser),
         ]);
 
+        const userData = userSnap.data() || {};
         const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
         const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+        const phoneReady = isPhoneVerified(userData);
+        const mfaReady = hasAuthenticatorMfa(userData);
+        const mfaPassed = isMfaVerified(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          currentUser.uid
+        );
+
+        if (!phoneReady) {
+          if (pathname !== "/setup-mfa") {
+            router.replace("/setup-mfa");
+            return;
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (!mfaReady) {
+          if (pathname !== "/setup-mfa") {
+            router.replace("/setup-mfa");
+            return;
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (!mfaPassed) {
+          if (pathname !== "/verify-mfa") {
+            router.replace("/verify-mfa");
+            return;
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (isAdminPath(pathname) && !isAdmin) {
+          router.replace(selectLandingRoute(access));
+          return;
+        }
 
         if (!isPathAllowedForAccess(pathname, access)) {
           const preferred =

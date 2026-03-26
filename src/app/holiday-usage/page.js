@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
@@ -481,15 +481,33 @@ export default function HolidayUsagePage() {
 
   //  admin (edit/delete only)
   const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
   useEffect(() => {
+    let roleUnsub = null;
     const unsub = auth?.onAuthStateChanged?.((u) => {
       setUserEmail(u?.email || "");
+      roleUnsub?.();
+      roleUnsub = null;
+
+      if (!u?.uid) {
+        setUserRole("");
+        return;
+      }
+
+      roleUnsub = onSnapshot(
+        doc(db, "users", u.uid),
+        (snap) => setUserRole(String(snap.data()?.role || "").trim().toLowerCase()),
+        () => setUserRole("")
+      );
     });
-    return () => unsub?.();
+    return () => {
+      roleUnsub?.();
+      unsub?.();
+    };
   }, []);
   const isAdmin = useMemo(
-    () => ADMIN_EMAILS.map((e) => norm(e)).includes(norm(userEmail)),
-    [userEmail]
+    () => ADMIN_EMAILS.map((e) => norm(e)).includes(norm(userEmail)) || userRole === "admin",
+    [userEmail, userRole]
   );
 
   //  modal overlays
