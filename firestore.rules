@@ -179,7 +179,8 @@ service cloud.firestore {
         "mfaMethod",
         "mfaEnabled",
         "mfaPhoneNumber",
-        "mfaSecret"
+        "mfaSecret",
+        "mfaEnrolledAt"
       ]);
     }
 
