@@ -275,6 +275,14 @@ export default function SetupMFA() {
         { merge: true }
       );
 
+      setUserData((prev) => ({
+        ...(prev || {}),
+        mfaMethod: "totp",
+        mfaEnabled: true,
+        mfaSecret: authSecret,
+        mfaEnrolledAt: nowIso,
+      }));
+
       markMfaVerified(
         typeof window !== "undefined" ? window.sessionStorage : null,
         user.uid
