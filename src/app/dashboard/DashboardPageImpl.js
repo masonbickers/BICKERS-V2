@@ -14,7 +14,8 @@ const BigCalendar = dynamic(
 );
 
 import { localizer } from "../utils/localizer";
-import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
+import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, ymd } from "../utils/maintenanceSchema";
+import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   collection,
   onSnapshot,
@@ -31,6 +32,7 @@ import { Check } from "lucide-react";
 import EditHolidayForm from "../components/EditHolidayForm";
 import HolidayForm from "../components/holidayform";
 import CreateNote from "../components/create-note";
+import EditNoteModal from "../components/EditNoteModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
@@ -404,6 +406,12 @@ const dueTone = (dueDate) => {
   return "ok";
 };
 
+const addWeeks = (date, weeks) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + weeks * 7);
+  return d;
+};
+
 const isApptAfterExpiry = (appt, expiry) => {
   if (!appt || !expiry) return false;
   const a = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
@@ -415,6 +423,7 @@ const getMaintenanceBookingKind = (booking = {}) => {
   const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
   if (t === "MOT") return "MOT_BOOKING";
   if (t === "SERVICE") return "SERVICE_BOOKING";
+  if (t === "INSPECTION") return "INSPECTION_BOOKING";
   if (t === "WORK") return "MAINTENANCE_BOOKING";
   return "MAINTENANCE_BOOKING";
 };
@@ -458,6 +467,34 @@ const toJsDate = (value) => {
   }
 
   return new Date(value);
+};
+
+const formatHolidayDetail = (holiday = {}) => {
+  const paidRaw = String(holiday.paidStatus || holiday.leaveType || "").trim();
+  const paidLabel = paidRaw || "Holiday";
+
+  const start = toJsDate(holiday.startDate);
+  const end = toJsDate(holiday.endDate || holiday.startDate);
+  const sameDay =
+    start &&
+    end &&
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
+  const startHalf = holiday.startHalfDay === true || String(holiday.startHalfDay || "").toLowerCase() === "true";
+  const endHalf = holiday.endHalfDay === true || String(holiday.endHalfDay || "").toLowerCase() === "true";
+  const startWhen = String(holiday.startAMPM || holiday.halfDayPeriod || holiday.halfDayType || "").trim().toUpperCase();
+  const endWhen = String(holiday.endAMPM || "").trim().toUpperCase();
+
+  if (sameDay && startHalf) {
+    return `${paidLabel} • Half Day ${startWhen || "AM"}`;
+  }
+
+  const parts = [paidLabel];
+  if (startHalf) parts.push(`Start ${startWhen || "AM"} Half`);
+  if (endHalf) parts.push(`End ${endWhen || "PM"} Half`);
+  return parts.join(" • ");
 };
 
 // job sort helpers (unchanged)
@@ -852,7 +889,7 @@ function CalendarEvent({ event }) {
       ) : event.status === "Holiday" ? (
         <>
           <span>{event.employee}</span>
-          <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
+          <span style={{ fontStyle: "italic", opacity: 0.75 }}>{formatHolidayDetail(event)}</span>
         </>
       ) : (
         <>
@@ -1551,8 +1588,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [holidays, setHolidays] = useState([]);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
-  const [noteText, setNoteText] = useState("");
-  const [noteDate, setNoteDate] = useState(null);
+  const [createNoteDate, setCreateNoteDate] = useState("");
   const [notes, setNotes] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedDeletedId, setSelectedDeletedId] = useState(null);
@@ -1985,58 +2021,6 @@ export default function DashboardPage({ bookingSaved }) {
     }
   };
 
-  // --- note helpers (create / update / delete) ---
-  const handleSaveNote = async (e) => {
-    e.preventDefault();
-
-    if (!noteDate || !noteText.trim()) {
-      alert("Please fill in a date and some note text.");
-      return;
-    }
-
-    const payload = {
-      text: noteText.trim(),
-      date: noteDate,
-      employee: "",
-      updatedAt: new Date(),
-    };
-
-    try {
-      if (editingNoteId) {
-        await updateDoc(doc(db, "notes", editingNoteId), payload);
-      } else {
-        await addDoc(collection(db, "notes"), {
-          ...payload,
-          createdAt: new Date(),
-        });
-      }
-
-      setNoteModalOpen(false);
-      setEditingNoteId(null);
-      setNoteText("");
-      setNoteDate(null);
-    } catch (err) {
-      console.error("Error saving note:", err);
-      alert("Failed to save note. Please try again.");
-    }
-  };
-
-  const handleDeleteNote = async () => {
-    if (!editingNoteId) return;
-    if (!confirm("Delete this note?")) return;
-
-    try {
-      await deleteDoc(doc(db, "notes", editingNoteId));
-      setNoteModalOpen(false);
-      setEditingNoteId(null);
-      setNoteText("");
-      setNoteDate(null);
-    } catch (err) {
-      console.error("Error deleting note:", err);
-      alert("Failed to delete note. Please try again.");
-    }
-  };
-
   const today = new Date().toISOString().split("T")[0];
   const todaysJobs = bookings.filter((b) => {
     if (b.bookingDates && Array.isArray(b.bookingDates)) {
@@ -2101,9 +2085,101 @@ export default function DashboardPage({ bookingSaved }) {
     return map;
   }, [maintenanceBookings]);
 
+  const activeInspectionMetaByVehicle = useMemo(() => {
+    const map = {};
+
+    const bookingToDateKeys = (booking = {}) => {
+      if (Array.isArray(booking.bookingDates) && booking.bookingDates.length) {
+        return booking.bookingDates
+          .map((value) => String(value || "").slice(0, 10))
+          .filter(Boolean);
+      }
+
+      const appointmentISO = String(booking.appointmentDateISO || "").slice(0, 10);
+      if (appointmentISO) return [appointmentISO];
+
+      const startISO = String(booking.startDateISO || "").slice(0, 10);
+      const endISO = String(booking.endDateISO || "").slice(0, 10);
+      if (startISO && endISO) {
+        const out = [];
+        let cursor = parseLocalDate(startISO);
+        const end = parseLocalDate(endISO);
+        while (cursor && end && cursor.getTime() <= end.getTime()) {
+          out.push(ymd(cursor));
+          cursor = addDays(cursor, 1);
+        }
+        return out;
+      }
+
+      const start = parseLocalDate(booking.startDate || booking.appointmentDate || booking.date);
+      const end = parseLocalDate(
+        booking.endDate || booking.startDate || booking.appointmentDate || booking.date
+      );
+      if (!start || !end) return [];
+
+      const out = [];
+      let cursor = startOfLocalDay(start);
+      const endDay = startOfLocalDay(end);
+      while (cursor.getTime() <= endDay.getTime()) {
+        out.push(ymd(cursor));
+        cursor = addDays(cursor, 1);
+      }
+      return out;
+    };
+
+    (maintenanceBookings || []).forEach((booking) => {
+      if (isInactiveMaintenanceBooking(booking.status)) return;
+      if (String(booking.type || "").trim().toUpperCase() !== "INSPECTION") return;
+
+      const vehicleId = String(booking.vehicleId || "").trim();
+      if (!vehicleId) return;
+
+      if (!map[vehicleId]) {
+        map[vehicleId] = {
+          sourceDueKeys: new Set(),
+          sourceDueWeeks: new Set(),
+          bookedWeeks: new Set(),
+          bookings: [],
+        };
+      }
+
+      const meta = map[vehicleId];
+      const sourceDueKey = String(booking.sourceDueKey || "").trim();
+      const sourceDueWeek = String(booking.sourceDueIsoWeek || "").trim();
+      if (sourceDueKey) meta.sourceDueKeys.add(sourceDueKey);
+      if (sourceDueWeek) meta.sourceDueWeeks.add(sourceDueWeek);
+
+      bookingToDateKeys(booking).forEach((key) => {
+        if (!key) return;
+        meta.bookedWeeks.add(getIsoWeekLabel(key));
+      });
+
+      const firstKey = bookingToDateKeys(booking)[0] || "";
+      meta.bookings.push({
+        id: booking.id,
+        firstDateKey: firstKey,
+        firstDate: firstKey ? parseLocalDate(firstKey) : null,
+      });
+    });
+
+    return map;
+  }, [maintenanceBookings]);
+
+  useEffect(() => {
+    syncEightWeekInspectionRollovers({
+      db,
+      vehicles: vehiclesData,
+      maintenanceBookings,
+      loggerPrefix: "[dashboard] inspection rollover",
+    }).catch(() => {});
+  }, [vehiclesData, maintenanceBookings]);
+
   const motServiceDueEvents = useMemo(() => {
     if (!Array.isArray(vehiclesData) || !vehiclesData.length) return [];
     const out = [];
+    const today = startOfLocalDay(new Date());
+    const windowStart = addDays(today, -84);
+    const windowEnd = addDays(today, 420);
 
     vehiclesData.forEach((v) => {
       const vehicleId = String(v.id || "").trim();
@@ -2158,10 +2234,62 @@ export default function DashboardPage({ bookingSaved }) {
           maintenanceTypeLabel: "SERVICE",
         });
       }
+
+      const inspectionAnchor =
+        parseLocalDate(v.eightWeekInspectionStart) || parseLocalDate(v.nextEightWeekInspection);
+      if (inspectionAnchor) {
+        let occurrence = startOfLocalDay(inspectionAnchor);
+        while (occurrence.getTime() < windowStart.getTime()) {
+          occurrence = addWeeks(occurrence, 8);
+        }
+
+        const inspectionMeta = activeInspectionMetaByVehicle[vehicleId] || null;
+        while (occurrence.getTime() <= windowEnd.getTime()) {
+          const dueKey = ymd(occurrence);
+          const isoLabel = getIsoWeekLabel(occurrence);
+          const bookedBySource = !!inspectionMeta?.sourceDueKeys?.has(
+            `inspection_due__${vehicleId}__${dueKey}`
+          );
+          const bookedInWeek = !!inspectionMeta?.bookedWeeks?.has(isoLabel);
+          const bookedByWeekLink = !!inspectionMeta?.sourceDueWeeks?.has(isoLabel);
+          const inspectionBooked = bookedBySource || bookedInWeek || bookedByWeekLink;
+          const bookedOutsideWeek =
+            inspectionBooked && bookedBySource && !bookedInWeek && !bookedByWeekLink;
+
+          out.push({
+            id: `inspection_due__${vehicleId}__${dueKey}`,
+            __collection: "vehicleDueDates",
+            title: `${label} • 8 week inspection due${
+              inspectionBooked
+                ? bookedOutsideWeek
+                  ? " (Booked - Outside ISO Week)"
+                  : " (Booked)"
+                : ""
+            }`,
+            start: startOfLocalDay(occurrence),
+            end: startOfLocalDay(addDays(occurrence, 1)),
+            allDay: true,
+            status: "Maintenance",
+            kind: "INSPECTION",
+            vehicleId,
+            dueDate: startOfLocalDay(occurrence),
+            booked: inspectionBooked,
+            bookingStatus: inspectionBooked
+              ? bookedOutsideWeek
+                ? "Booked (Outside ISO Week)"
+                : "Booked"
+              : "",
+            maintenanceTypeLabel: "8 WEEK INSPECTION",
+            isoWeek: isoLabel,
+          });
+
+          occurrence = addWeeks(occurrence, 8);
+        }
+      }
     });
 
     return out;
-  }, [vehiclesData, maintenanceBookedMetaByVehicle]);
+  }, [vehiclesData, maintenanceBookedMetaByVehicle, activeInspectionMetaByVehicle]);
 
   //  Build all calendar events from a single function (jobs + maintenance)
   const allEventsRaw = useMemo(() => {
@@ -2484,8 +2612,7 @@ export default function DashboardPage({ bookingSaved }) {
               onSelectSlot={({ start }) => {
                 setEditingNoteId(null);
                 const d = start instanceof Date ? start : new Date(start);
-                setNoteDate(d.toISOString().split("T")[0]);
-                setNoteText("");
+                setCreateNoteDate(d.toISOString().split("T")[0]);
                 setNoteModalOpen(true);
               }}
               selectable
@@ -2540,9 +2667,6 @@ export default function DashboardPage({ bookingSaved }) {
 
                 if (e.status === "Note") {
                   setEditingNoteId(e.id);
-                  const d = e.start instanceof Date ? e.start : new Date(e.start);
-                  setNoteDate(d.toISOString().split("T")[0]);
-                  setNoteText(e.title || "");
                   setNoteModalOpen(true);
                   return;
                 }
@@ -2775,9 +2899,6 @@ export default function DashboardPage({ bookingSaved }) {
                   setEditingHolidayId(e.id);
                 } else if (e.status === "Note") {
                   setEditingNoteId(e.id);
-                  const d = e.start instanceof Date ? e.start : new Date(e.start);
-                  setNoteDate(d.toISOString().split("T")[0]);
-                  setNoteText(e.title || "");
                   setNoteModalOpen(true);
                 }
               }}
@@ -2805,7 +2926,7 @@ export default function DashboardPage({ bookingSaved }) {
                     {event.status === "Holiday" ? (
                       <>
                         <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
-                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>On Holiday</span>
+                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>{formatHolidayDetail(event)}</span>
                       </>
                     ) : (
                       <>
@@ -3130,116 +3251,43 @@ export default function DashboardPage({ bookingSaved }) {
       )}
 
       {/* Existing quick note modal (logic unchanged) */}
-      {noteModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 80,
-            padding: 18,
-          }}
-        >
+      {noteModalOpen &&
+        (editingNoteId ? (
+          <EditNoteModal
+            id={editingNoteId}
+            onClose={() => {
+              setNoteModalOpen(false);
+              setEditingNoteId(null);
+              fetchNotes();
+            }}
+          />
+        ) : (
           <div
             style={{
-              maxWidth: 420,
-              width: "95vw",
-              backgroundColor: "#121212",
-              color: "#fff",
-              padding: 24,
-              borderRadius: 16,
-              boxShadow: UI.shadowHover,
-              border: "1px solid rgba(255,255,255,0.08)",
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2,6,23,0.55)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 80,
+              padding: 18,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#fff" }}>
-                {editingNoteId ? "Edit Note" : "Add Note"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setNoteModalOpen(false);
-                  setEditingNoteId(null);
-                  setNoteText("");
-                  setNoteDate(null);
-                }}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "#9ca3af",
-                  fontSize: 18,
-                  cursor: "pointer",
-                }}
-              >
-                x
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNote} style={{ display: "grid", gap: 10 }}>
-              <div>
-                <label style={{ fontSize: 13, marginBottom: 4, display: "block" }}>Date</label>
-                <input
-                  type="date"
-                  value={noteDate || ""}
-                  onChange={(e) => setNoteDate(e.target.value)}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #444",
-                    backgroundColor: "#333",
-                    color: "#fff",
-                    fontSize: 14,
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 13, marginBottom: 4, display: "block" }}>Note text</label>
-                <textarea
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  rows={4}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #444",
-                    backgroundColor: "#333",
-                    color: "#fff",
-                    fontSize: 14,
-                    resize: "vertical",
-                  }}
-                />
-              </div>
-
-              <button type="submit" style={{ ...btn(), justifyContent: "center" }}>
-                {editingNoteId ? "Save changes" : "Save note"}
-              </button>
-
-              {editingNoteId && (
-                <button
-                  type="button"
-                  onClick={handleDeleteNote}
-                  style={{
-                    ...btn("danger"),
-                    justifyContent: "center",
-                    marginTop: 4,
-                  }}
-                >
-                  Delete note
-                </button>
-              )}
-            </form>
+            <CreateNote
+              defaultDate={createNoteDate || ""}
+              onClose={() => {
+                setNoteModalOpen(false);
+                setCreateNoteDate("");
+              }}
+              onSaved={() => {
+                setNoteModalOpen(false);
+                setCreateNoteDate("");
+                fetchNotes();
+              }}
+            />
           </div>
-        </div>
-      )}
+        ))}
 
       {editingHolidayId && (
         <div

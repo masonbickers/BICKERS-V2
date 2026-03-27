@@ -9,7 +9,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-multi-date-picker";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
+import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import {
+  buildMaintenanceHistoryEntry,
+  getMaintenanceAuditIdentity,
+} from "../utils/maintenanceAudit";
+import {
+  mergeInspectionHistory,
+  mergeMaintenanceHistory,
+} from "../utils/inspectionHistory";
 import {
   addDoc,
   collection,
@@ -25,7 +34,7 @@ import {
 /**
  * Props:
  * - vehicleId (optional)
- * - type: "MOT" | "SERVICE"
+ * - type: "MOT" | "SERVICE" | "INSPECTION" | "WORK"
  * - defaultDate: "YYYY-MM-DD" (optional)
  * - onClose() (optional)
  * - onSaved(payload) (optional)
@@ -35,6 +44,9 @@ export default function MaintenanceBookingForm({
   type = "MOT",
   defaultDate = "",
   initialEquipment = [],
+  sourceDueDate = "",
+  sourceDueIsoWeek = "",
+  sourceDueKey = "",
   onClose,
   onSaved,
 }) {
@@ -186,9 +198,35 @@ export default function MaintenanceBookingForm({
 
   const normalizedType = String(type || "").toUpperCase();
   const safeType =
-    normalizedType === "SERVICE" ? "SERVICE" : normalizedType === "WORK" ? "WORK" : "MOT";
+    normalizedType === "SERVICE"
+      ? "SERVICE"
+      : normalizedType === "WORK"
+      ? "WORK"
+      : normalizedType === "INSPECTION"
+      ? "INSPECTION"
+      : "MOT";
   const title =
-    safeType === "MOT" ? "Book MOT" : safeType === "SERVICE" ? "Book Service" : "Book Work";
+    safeType === "MOT"
+      ? "Book MOT"
+      : safeType === "SERVICE"
+      ? "Book Service"
+      : safeType === "INSPECTION"
+      ? "Book 8 Week Inspection"
+      : "Book Work";
+  const sourceDueDateObj = useMemo(() => ymdToDate(String(sourceDueDate || "").slice(0, 10)), [sourceDueDate]);
+  const selectedInspectionWeek = useMemo(() => {
+    const seed = useCustomDates
+      ? customDates[0] || ""
+      : isMultiDay
+      ? startDate || ""
+      : appointmentDate || "";
+    return seed ? getIsoWeekLabel(seed) : "";
+  }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
+  const inspectionOutsideDueWeek =
+    safeType === "INSPECTION" &&
+    !!sourceDueIsoWeek &&
+    !!selectedInspectionWeek &&
+    selectedInspectionWeek !== sourceDueIsoWeek;
 
   const vehicleLabel = useMemo(() => {
     const v = vehicle || {};
@@ -362,6 +400,8 @@ export default function MaintenanceBookingForm({
     setSaving(true);
     try {
       const nowISO = todayISO();
+      const nowAuditIso = new Date().toISOString();
+      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
 
       const isNonConsecutive = useCustomDates;
       const effectiveIsMultiDay = isNonConsecutive || isMultiDay;
@@ -400,8 +440,22 @@ export default function MaintenanceBookingForm({
         cost: cost ? String(cost).trim() : "",
         notes: notes.trim(),
         equipment: selectedEquipment,
+        sourceDueDateISO: String(sourceDueDate || "").slice(0, 10),
+        sourceDueIsoWeek: String(sourceDueIsoWeek || "").trim(),
+        sourceDueKey: String(sourceDueKey || "").trim(),
+        createdBy: auditUser.email,
+        createdByUid: auditUser.uid,
+        lastEditedBy: auditUser.email,
+        lastEditedByUid: auditUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        history: [
+          buildMaintenanceHistoryEntry({
+            action: "Created",
+            user: auditUser,
+            timestamp: nowAuditIso,
+          }),
+        ],
       };
 
       const created = await addDoc(collection(db, "maintenanceBookings"), bookingPayload);
@@ -429,6 +483,14 @@ export default function MaintenanceBookingForm({
         if (completedISO) {
           updates.lastMOT = completedISO;
           updates.nextMOT = calcNextFromWeeks(completedISO, motFreqWeeks);
+          updates.motHistory = mergeMaintenanceHistory(vehicle?.motHistory, {
+            completedDate: completedISO,
+            bookingId: created.id,
+            provider: provider.trim(),
+            bookingRef: bookingRef.trim(),
+            notes: notes.trim(),
+            recordedAt: new Date().toISOString(),
+          });
 
           // optional clear summary appointment fields once completed
           updates.motAppointmentDate = "";
@@ -468,6 +530,14 @@ export default function MaintenanceBookingForm({
         if (completedISO) {
           updates.lastService = completedISO;
           updates.nextService = calcNextFromWeeks(completedISO, serviceFreqWeeks);
+          updates.serviceHistory = mergeMaintenanceHistory(vehicle?.serviceHistory, {
+            completedDate: completedISO,
+            bookingId: created.id,
+            provider: provider.trim(),
+            bookingRef: bookingRef.trim(),
+            notes: notes.trim(),
+            recordedAt: new Date().toISOString(),
+          });
 
           // optional clear summary appointment fields once completed
           updates.serviceAppointmentDate = "";
@@ -478,6 +548,49 @@ export default function MaintenanceBookingForm({
           updates.serviceLocation = "";
           updates.serviceCost = "";
           updates.serviceBookingNotes = "";
+        }
+
+        await updateDoc(vRef, updates);
+      } else if (vehicleId && safeType === "INSPECTION") {
+        const vRef = doc(db, "vehicles", vehicleId);
+        const updates = {
+          inspectionBookedStatus: status,
+          inspectionBookedOn: nowISO,
+          inspectionAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
+          inspectionBookingStartDate: effectiveIsMultiDay ? firstSelectedDate : "",
+          inspectionBookingEndDate: effectiveIsMultiDay ? lastSelectedDate : "",
+          inspectionProvider: provider.trim(),
+          inspectionBookingRef: bookingRef.trim(),
+          inspectionLocation: location.trim(),
+          inspectionCost: cost ? String(cost).trim() : "",
+          inspectionBookingNotes: notes.trim(),
+          inspectionBookingId: created.id,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (completedISO) {
+          updates.eightWeekInspectionStart = completedISO;
+          updates.nextEightWeekInspection = calcNextFromWeeks(completedISO, 8);
+          updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
+          updates.eightWeekInspectionHistory = mergeInspectionHistory(
+            vehicle?.eightWeekInspectionHistory,
+            {
+              completedDate: completedISO,
+              bookingId: created.id,
+              provider: provider.trim(),
+              bookingRef: bookingRef.trim(),
+              notes: notes.trim(),
+              recordedAt: new Date().toISOString(),
+            }
+          );
+          updates.inspectionAppointmentDate = "";
+          updates.inspectionBookingStartDate = "";
+          updates.inspectionBookingEndDate = "";
+          updates.inspectionProvider = "";
+          updates.inspectionBookingRef = "";
+          updates.inspectionLocation = "";
+          updates.inspectionCost = "";
+          updates.inspectionBookingNotes = "";
         }
 
         await updateDoc(vRef, updates);
@@ -530,7 +643,15 @@ export default function MaintenanceBookingForm({
             <label style={label}>Maintenance type</label>
             <input
               style={input}
-              value={safeType === "MOT" ? "MOT" : safeType === "SERVICE" ? "Service" : "Work"}
+              value={
+                safeType === "MOT"
+                  ? "MOT"
+                  : safeType === "SERVICE"
+                  ? "Service"
+                  : safeType === "INSPECTION"
+                  ? "8 Week Inspection"
+                  : "Work"
+              }
               readOnly
             />
           </div>
@@ -588,6 +709,25 @@ export default function MaintenanceBookingForm({
               <option value="custom">Multi-day (non-consecutive)</option>
             </select>
           </div>
+
+          {safeType === "INSPECTION" && sourceDueDateObj ? (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
+                background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
+                color: "#e5eefb",
+                borderRadius: 12,
+                padding: "10px 12px",
+                fontSize: 13,
+                lineHeight: 1.4,
+              }}
+            >
+              Due week: <b>{sourceDueIsoWeek || "Unknown"}</b> for{" "}
+              <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
+              {inspectionOutsideDueWeek ? " This booking sits outside the due ISO week." : " This booking is inside the due ISO week."}
+            </div>
+          ) : null}
 
           {useCustomDates ? (
             <div style={{ ...fieldBlock, ...fullWidth }}>

@@ -20,6 +20,7 @@ import {
   normalizeAssetRecord,
   ymd as ymdDate,
 } from "../utils/maintenanceSchema";
+import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   collection,
@@ -932,6 +933,15 @@ export default function VehiclesHomePage() {
 
     setMaintenanceBookingEvents(events);
   }, [maintenanceBookingsRaw, vehicleNameMap]);
+
+  useEffect(() => {
+    syncEightWeekInspectionRollovers({
+      db,
+      vehicles: vehiclesRaw,
+      maintenanceBookings: maintenanceBookingsRaw,
+      loggerPrefix: "[vehicle-home] inspection rollover",
+    }).catch(() => {});
+  }, [vehiclesRaw, maintenanceBookingsRaw]);
 
   /* ───────── Booked maps (to mark due items as booked) ───────── */
   const bookedMetaByVehicle = useMemo(() => {

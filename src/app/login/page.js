@@ -17,6 +17,7 @@ import Image from "next/image";
 import {
   clearMfaVerified,
   hasAuthenticatorMfa,
+  isMfaVerified,
   isPhoneVerified,
 } from "@/app/utils/authSecurity";
 
@@ -115,6 +116,15 @@ export default function LoginPage() {
 
         if (!hasAuthenticatorMfa(userData)) {
           router.push("/setup-mfa");
+          return;
+        }
+
+        const trustedDeviceVerified = isMfaVerified(
+          typeof window !== "undefined" ? window.localStorage : null,
+          user.uid
+        );
+        if (trustedDeviceVerified) {
+          router.push("/dashboard");
           return;
         }
 

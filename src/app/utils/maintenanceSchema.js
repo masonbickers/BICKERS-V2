@@ -10,7 +10,7 @@ export const MAINTENANCE_JOB_STATUSES = [
 const DUE_FIELD_CANDIDATES = {
   mot: ["nextMOT", "motDate", "motDue"],
   service: ["nextService", "serviceDate", "serviceDue"],
-  inspection: ["inspectionDate"],
+  inspection: ["nextEightWeekInspection", "eightWeekInspectionStart", "inspectionDate"],
   rfl: ["nextRFL"],
   tachoInspection: ["nextTachoInspection"],
   brakeTest: ["nextBrakeTest"],
@@ -34,6 +34,25 @@ export const ymd = (value) => {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+};
+
+export const getIsoWeekParts = (value) => {
+  const date = toDateSafe(value);
+  if (!date) return null;
+
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+
+  return { year: utc.getUTCFullYear(), week };
+};
+
+export const getIsoWeekLabel = (value) => {
+  const parts = getIsoWeekParts(value);
+  if (!parts) return "";
+  return `${parts.year}-W${String(parts.week).padStart(2, "0")}`;
 };
 
 export const buildAssetLabel = (asset) => {
@@ -106,4 +125,3 @@ export const createMaintenanceJobPayload = ({
     updatedAt: now,
   };
 };
-

@@ -3399,3 +3399,4 @@ export default function EditBookingPage() {
     </HeaderSidebarLayout>
   );
 }
+

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth, storage as storageInstance } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
@@ -14,9 +14,12 @@ import {
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
 import {
+  buildBookingDerivedFields,
   buildInitialLifecycle,
   buildInitialStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+
+const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
@@ -356,6 +359,39 @@ const buildTimeOptions = () => {
 };
 const TIME_OPTIONS = buildTimeOptions();
 
+const createDraftId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `draft-${Date.now()}`;
+};
+
+const readDraftMap = () => {
+  try {
+    const raw = window.localStorage.getItem(DRAFTS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeDraftMap = (map) => {
+  try {
+    window.localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(map || {}));
+  } catch {
+    // noop
+  }
+};
+
+const removeDraftEntry = (draftId) => {
+  if (!draftId || typeof window === "undefined") return;
+  const next = { ...readDraftMap() };
+  delete next[draftId];
+  writeDraftMap(next);
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
    Contacts helpers
 ──────────────────────────────────────────────────────────────────────────── */
@@ -397,6 +433,9 @@ const toJsDate = (raw) => {
 ──────────────────────────────────────────────────────────────────────────── */
 export default function CreateBookingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const draftIdFromQuery = searchParams.get("draft") || "";
+  const hydratedDraftRef = useRef(false);
 
   // Core fields
   const [jobNumber, setJobNumber] = useState("");
@@ -505,6 +544,7 @@ export default function CreateBookingPage() {
   const [attachments, setAttachments] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
   const [pdfProgress, setPdfProgress] = useState(0);
+  const [activeDraftId, setActiveDraftId] = useState(draftIdFromQuery);
 
   const isMaintenance = status === "Maintenance";
 
@@ -532,6 +572,160 @@ export default function CreateBookingPage() {
     hasHotel && Number.isFinite(Number(hotelNights)) && Number.isFinite(Number(hotelPricePerNight))
       ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
       : 0;
+
+  const draftData = useMemo(
+    () => ({
+      jobNumber,
+      client,
+      location,
+      status,
+      shootType,
+      statusReasons,
+      statusReasonOther,
+      isRange,
+      useCustomDates,
+      customDates,
+      startDate,
+      endDate,
+      notesByDate,
+      notes,
+      callTime,
+      callTimesByDate,
+      hasHotel,
+      hotelPaidBy,
+      hotelNights,
+      hotelPricePerNight,
+      hasRiggingAddress,
+      riggingAddress,
+      isSecondPencil,
+      isCrewed,
+      hasHS,
+      hasRiskAssessment,
+      requiredCrewCount,
+      employees,
+      employeesByDate,
+      customEmployee,
+      vehicles,
+      vehicleStatus,
+      equipment,
+      additionalContacts,
+    }),
+    [
+      jobNumber,
+      client,
+      location,
+      status,
+      shootType,
+      statusReasons,
+      statusReasonOther,
+      isRange,
+      useCustomDates,
+      customDates,
+      startDate,
+      endDate,
+      notesByDate,
+      notes,
+      callTime,
+      callTimesByDate,
+      hasHotel,
+      hotelPaidBy,
+      hotelNights,
+      hotelPricePerNight,
+      hasRiggingAddress,
+      riggingAddress,
+      isSecondPencil,
+      isCrewed,
+      hasHS,
+      hasRiskAssessment,
+      requiredCrewCount,
+      employees,
+      employeesByDate,
+      customEmployee,
+      vehicles,
+      vehicleStatus,
+      equipment,
+      additionalContacts,
+    ]
+  );
+
+  const hasMeaningfulDraft = useMemo(() => {
+    return Boolean(
+      (client || "").trim() ||
+        (location || "").trim() ||
+        (notes || "").trim() ||
+        (statusReasonOther || "").trim() ||
+        startDate ||
+        endDate ||
+        (callTime || "").trim() ||
+        (hotelPaidBy || "").trim() ||
+        (hotelNights || "").trim() ||
+        (hotelPricePerNight || "").trim() ||
+        (riggingAddress || "").trim() ||
+        (customEmployee || "").trim() ||
+        status !== "Confirmed" ||
+        shootType !== "Day" ||
+        isRange ||
+        useCustomDates ||
+        hasHotel ||
+        hasRiggingAddress ||
+        isSecondPencil ||
+        isCrewed ||
+        hasHS ||
+        hasRiskAssessment ||
+        Number(requiredCrewCount) !== 1 ||
+        (Array.isArray(statusReasons) && statusReasons.length) ||
+        (Array.isArray(customDates) && customDates.length) ||
+        (Array.isArray(employees) && employees.length) ||
+        (Array.isArray(vehicles) && vehicles.length) ||
+        (Array.isArray(equipment) && equipment.length) ||
+        (Array.isArray(additionalContacts) && additionalContacts.length) ||
+        Object.keys(notesByDate || {}).length ||
+        Object.keys(callTimesByDate || {}).length ||
+        Object.keys(employeesByDate || {}).length ||
+        Object.keys(vehicleStatus || {}).length
+    );
+  }, [
+    additionalContacts,
+    callTime,
+    callTimesByDate,
+    client,
+    customDates,
+    customEmployee,
+    employees,
+    employeesByDate,
+    endDate,
+    equipment,
+    hasHS,
+    hasHotel,
+    hasRiggingAddress,
+    hasRiskAssessment,
+    hotelNights,
+    hotelPaidBy,
+    hotelPricePerNight,
+    isCrewed,
+    isRange,
+    isSecondPencil,
+    location,
+    notes,
+    notesByDate,
+    requiredCrewCount,
+    riggingAddress,
+    shootType,
+    startDate,
+    status,
+    statusReasonOther,
+    statusReasons,
+    useCustomDates,
+    vehicleStatus,
+    vehicles,
+  ]);
+
+  const draftTitle = useMemo(() => {
+    const parts = [jobNumber, client, location]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    return parts.length ? parts.join(" - ") : "Untitled Draft";
+  }, [client, jobNumber, location]);
 
   /* ────────────────────────────────────────────────────────────
       NEW: auto-crewing logic
@@ -584,7 +778,9 @@ export default function CreateBookingPage() {
         .filter((jn) => /^\d+$/.test(jn))
         .map((jn) => parseInt(jn, 10));
       const max = jobNumbers.length ? Math.max(...jobNumbers) : 0;
-      setJobNumber(String(max + 1).padStart(4, "0"));
+      if (!draftIdFromQuery || !hydratedDraftRef.current) {
+        setJobNumber(String(max + 1).padStart(4, "0"));
+      }
 
       setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
 
@@ -681,7 +877,83 @@ export default function CreateBookingPage() {
     };
 
     loadData();
-  }, []);
+  }, [draftIdFromQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!draftIdFromQuery) {
+      hydratedDraftRef.current = true;
+      return;
+    }
+
+    const draft = readDraftMap()[draftIdFromQuery];
+    if (!draft?.data) {
+      hydratedDraftRef.current = true;
+      return;
+    }
+
+    const saved = draft.data;
+    setActiveDraftId(draftIdFromQuery);
+    setJobNumber(saved.jobNumber || "");
+    setClient(saved.client || "");
+    setLocation(saved.location || "");
+    setStatus(saved.status || "Confirmed");
+    setShootType(saved.shootType || "Day");
+    setStatusReasons(Array.isArray(saved.statusReasons) ? saved.statusReasons : []);
+    setStatusReasonOther(saved.statusReasonOther || "");
+    setIsRange(Boolean(saved.isRange));
+    setUseCustomDates(Boolean(saved.useCustomDates));
+    setCustomDates(Array.isArray(saved.customDates) ? saved.customDates : []);
+    setStartDate(saved.startDate || "");
+    setEndDate(saved.endDate || "");
+    setNotesByDate(saved.notesByDate && typeof saved.notesByDate === "object" ? saved.notesByDate : {});
+    setNotes(saved.notes || "");
+    setCallTime(saved.callTime || "");
+    setCallTimesByDate(
+      saved.callTimesByDate && typeof saved.callTimesByDate === "object" ? saved.callTimesByDate : {}
+    );
+    setHasHotel(Boolean(saved.hasHotel));
+    setHotelPaidBy(saved.hotelPaidBy || "");
+    setHotelNights(saved.hotelNights ?? "");
+    setHotelPricePerNight(saved.hotelPricePerNight ?? "");
+    setHasRiggingAddress(Boolean(saved.hasRiggingAddress));
+    setRiggingAddress(saved.riggingAddress || "");
+    setIsSecondPencil(Boolean(saved.isSecondPencil));
+    setIsCrewed(Boolean(saved.isCrewed));
+    setHasHS(Boolean(saved.hasHS));
+    setHasRiskAssessment(Boolean(saved.hasRiskAssessment));
+    setRequiredCrewCount(Number.isFinite(Number(saved.requiredCrewCount)) ? Number(saved.requiredCrewCount) : 1);
+    setEmployees(Array.isArray(saved.employees) ? saved.employees : []);
+    setEmployeesByDate(saved.employeesByDate && typeof saved.employeesByDate === "object" ? saved.employeesByDate : {});
+    setCustomEmployee(saved.customEmployee || "");
+    setVehicles(Array.isArray(saved.vehicles) ? saved.vehicles : []);
+    setVehicleStatus(saved.vehicleStatus && typeof saved.vehicleStatus === "object" ? saved.vehicleStatus : {});
+    setEquipment(Array.isArray(saved.equipment) ? saved.equipment : []);
+    setAdditionalContacts(Array.isArray(saved.additionalContacts) ? saved.additionalContacts : []);
+    hydratedDraftRef.current = true;
+  }, [draftIdFromQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!hydratedDraftRef.current) return;
+
+    if (!hasMeaningfulDraft) {
+      if (activeDraftId) removeDraftEntry(activeDraftId);
+      return;
+    }
+
+    const draftId = activeDraftId || createDraftId();
+    if (!activeDraftId) setActiveDraftId(draftId);
+
+    const nextMap = readDraftMap();
+    nextMap[draftId] = {
+      id: draftId,
+      title: draftTitle,
+      updatedAt: new Date().toISOString(),
+      data: draftData,
+    };
+    writeDraftMap(nextMap);
+  }, [activeDraftId, draftData, draftTitle, hasMeaningfulDraft]);
 
 
 
@@ -1303,6 +1575,10 @@ export default function CreateBookingPage() {
 
       setPdfProgress(0);
       setNewFiles([]);
+      if (activeDraftId) {
+        removeDraftEntry(activeDraftId);
+        setActiveDraftId("");
+      }
       alert("Booking Saved");
       router.push("/dashboard?saved=true");
     } catch (err) {
@@ -1514,7 +1790,9 @@ export default function CreateBookingPage() {
 
                   {savedContacts.length > 0 && (
                     <div style={{ marginTop: 6 }}>
-                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Quick add from saved contacts</label>
+                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>
+                        Quick add from saved contacts
+                      </label>
                       <input
                         type="text"
                         value={savedContactSearch}

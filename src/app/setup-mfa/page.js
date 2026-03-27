@@ -22,7 +22,7 @@ import {
   clearPendingMfaSetup,
   getPendingMfaSetup,
   hasAuthenticatorMfa,
-  isMfaVerified,
+  isMfaVerifiedOnDevice,
   isPhoneVerified,
   markMfaVerified,
   setPendingMfaSetup,
@@ -78,7 +78,8 @@ export default function SetupMFA() {
         setUserData(nextUserData);
         setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
         if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
-          const alreadyVerified = isMfaVerified(
+          const alreadyVerified = isMfaVerifiedOnDevice(
+            typeof window !== "undefined" ? window.localStorage : null,
             typeof window !== "undefined" ? window.sessionStorage : null,
             user.uid
           );
@@ -310,8 +311,9 @@ export default function SetupMFA() {
       );
 
       markMfaVerified(
-        typeof window !== "undefined" ? window.sessionStorage : null,
-        user.uid
+        typeof window !== "undefined" ? window.localStorage : null,
+        user.uid,
+        { daysValid: 30 }
       );
       await routeUserToWorkspace(user);
     } catch (err) {

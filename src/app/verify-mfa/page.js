@@ -13,6 +13,7 @@ import {
 } from "@/app/utils/accessControl";
 import {
   hasAuthenticatorMfa,
+  isMfaVerifiedOnDevice,
   isPhoneVerified,
   markMfaVerified,
 } from "@/app/utils/authSecurity";
@@ -21,6 +22,7 @@ export default function VerifyMfaPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [rememberDevice, setRememberDevice] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -34,6 +36,25 @@ export default function VerifyMfaPage() {
       const userData = snap.data() || {};
       if (!isPhoneVerified(userData) || !hasAuthenticatorMfa(userData)) {
         router.replace("/setup-mfa");
+        return;
+      }
+
+      const alreadyTrusted = isMfaVerifiedOnDevice(
+        typeof window !== "undefined" ? window.localStorage : null,
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
+      if (alreadyTrusted) {
+        const [userSnap, employeeDoc] = await Promise.all([
+          getDoc(doc(db, "users", user.uid)),
+          findEmployeeForUser(db, user),
+        ]);
+        const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
+        const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+        const preferred =
+          getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+          getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+        router.replace(selectLandingRoute(access, preferred));
         return;
       }
 
@@ -98,10 +119,13 @@ export default function VerifyMfaPage() {
         const preferred =
           getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
           getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
-        markMfaVerified(
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          user.uid
-        );
+        const targetStorage =
+          typeof window === "undefined"
+            ? null
+            : rememberDevice
+            ? window.localStorage
+            : window.sessionStorage;
+        markMfaVerified(targetStorage, user.uid, rememberDevice ? { daysValid: 30 } : {});
         router.push(selectLandingRoute(access, preferred));
       } else {
         setError(verifyData?.error || "Invalid code, try again.");
@@ -142,6 +166,15 @@ export default function VerifyMfaPage() {
           placeholder="123456"
           style={styles.input}
         />
+        <label style={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            checked={rememberDevice}
+            onChange={(e) => setRememberDevice(e.target.checked)}
+            style={styles.checkbox}
+          />
+          Remember this computer for 30 days
+        </label>
         <button onClick={handleVerify} style={styles.button}>
           Verify Code
         </button>
@@ -187,6 +220,19 @@ const styles = {
     backgroundColor: "#1a1a1a",
     color: "#fff",
     textAlign: "center",
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    justifyContent: "center",
+    marginBottom: "16px",
+    color: "#d1d5db",
+    fontSize: "14px",
+  },
+  checkbox: {
+    width: "16px",
+    height: "16px",
   },
   button: {
     width: "100%",

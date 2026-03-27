@@ -893,6 +893,115 @@ function WallCalendarEvent({ event }) {
   );
 }
 
+function CompactWallCalendarEvent({ event }) {
+  const isMaintenance = event.status === "Maintenance";
+  const statusLabel = String(event?.bookingStatus || event?.status || "").trim();
+  const compactAsset =
+    formatEventVehicleText(event?.vehicles) ||
+    formatEventEquipmentText(event?.equipment) ||
+    String(event?.vehicleLabel || "").trim();
+  const compactLocation = String(event?.location || "").trim();
+  const compactClient = String(event?.client || event?.title || "").trim();
+  const compactJob = String(event?.jobNumber || "").trim();
+
+  if (event.status === "Note") {
+    return (
+      <div
+        title={event.title || ""}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          padding: 5,
+          fontSize: "0.72rem",
+          lineHeight: 1.08,
+          fontWeight: 800,
+          color: "#111",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: "0.62rem", opacity: 0.78 }}>NOTE</span>
+        <span>{event.title}</span>
+      </div>
+    );
+  }
+
+  if (event.status === "Holiday") {
+    return (
+      <div
+        title={event.employee || ""}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          padding: 5,
+          fontSize: "0.72rem",
+          lineHeight: 1.08,
+          fontWeight: 800,
+          color: "#111",
+          textAlign: "left",
+        }}
+      >
+        <span>{event.employee}</span>
+        <span style={{ fontStyle: "italic", opacity: 0.76 }}>
+          {String(event?.holidayType || "").trim() || "Holiday"}
+        </span>
+      </div>
+    );
+  }
+
+  if (isMaintenance) {
+    const displayType = getMaintenanceDisplayType(event);
+    return (
+      <div
+        title={event.noteToShow || event.title || ""}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          padding: 5,
+          fontSize: "0.72rem",
+          lineHeight: 1.08,
+          fontWeight: 800,
+          color: "#111",
+          textAlign: "left",
+        }}
+      >
+        <span>{compactAsset || event.title || "Maintenance"}</span>
+        <span style={{ opacity: 0.82 }}>
+          {displayType}
+          {compactLocation ? ` • ${compactLocation}` : ""}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      title={event.noteToShow || event.title || ""}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        padding: 5,
+        fontSize: "0.72rem",
+        lineHeight: 1.08,
+        fontWeight: 800,
+        color: "#111",
+        textAlign: "left",
+      }}
+    >
+      {compactJob ? <span style={{ fontSize: "0.62rem", opacity: 0.78 }}>#{compactJob}</span> : null}
+      <span>{compactClient || "Booking"}</span>
+      <span style={{ opacity: 0.82 }}>
+        {statusLabel || "Confirmed"}
+        {event.isCrewed ? " • Crewed" : ""}
+      </span>
+      {compactAsset ? <span style={{ opacity: 0.74 }}>{compactAsset}</span> : null}
+    </div>
+  );
+}
+
 /* ───────────────────────────────────────────
    Page
 ─────────────────────────────────────────── */
@@ -912,7 +1021,6 @@ export default function WallViewCalendarPage() {
   const [reccesByBooking, setReccesByBooking] = useState({});
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarView, setCalendarView] = useState("week");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -1134,7 +1242,7 @@ export default function WallViewCalendarPage() {
             onClick={() =>
               setCurrentDate((prev) => {
                 const newDate = new Date(prev);
-                newDate.setDate(newDate.getDate() - (calendarView === "month" ? 30 : 7));
+                newDate.setMonth(newDate.getMonth() - 1);
                 return newDate;
               })
             }
@@ -1148,7 +1256,7 @@ export default function WallViewCalendarPage() {
             onClick={() =>
               setCurrentDate((prev) => {
                 const newDate = new Date(prev);
-                newDate.setDate(newDate.getDate() + (calendarView === "month" ? 30 : 7));
+                newDate.setMonth(newDate.getMonth() + 1);
                 return newDate;
               })
             }
@@ -1156,22 +1264,6 @@ export default function WallViewCalendarPage() {
             type="button"
           >
             Next →
-          </button>
-
-          <button
-            onClick={() => setCalendarView("week")}
-            style={calendarView === "week" ? navBtnActive : navBtn}
-            type="button"
-          >
-            Week
-          </button>
-
-          <button
-            onClick={() => setCalendarView("month")}
-            style={calendarView === "month" ? navBtnActive : navBtn}
-            type="button"
-          >
-            Month
           </button>
 
           <button
@@ -1275,9 +1367,8 @@ export default function WallViewCalendarPage() {
             <BigCalendar
           localizer={localizer}
           events={wallEvents}
-          view={calendarView}
-          views={["week", "month"]}
-          onView={(v) => setCalendarView(v)}
+          view="month"
+          views={["month"]}
           date={currentDate}
           onNavigate={(d) => setCurrentDate(d)}
           selectable={false}
@@ -1335,7 +1426,7 @@ export default function WallViewCalendarPage() {
 
             if (e.id) router.push(`/view-booking/${e.id}`);
           }}
-          components={{ event: WallCalendarEvent }}
+          components={{ event: CompactWallCalendarEvent }}
           eventPropGetter={(event) => {
             const status = event.status || "Confirmed";
             let style = getStatusStyle(status);

@@ -447,6 +447,65 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     return { start: null, end: null };
   };
 
+  const dateKey = (d) => {
+    if (!d) return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(
+      2,
+      "0"
+    )}`;
+  };
+
+  const bookingNoteForDate = (b, d) => {
+    const key = dateKey(d);
+    if (!key) return "";
+
+    const notesByDate =
+      b?.notesByDate && typeof b.notesByDate === "object"
+        ? b.notesByDate
+        : b?.dayNotes && typeof b.dayNotes === "object"
+        ? b.dayNotes
+        : b?.notesForEachDay && typeof b.notesForEachDay === "object"
+        ? b.notesForEachDay
+        : b?.noteForDay && typeof b.noteForDay === "object"
+        ? b.noteForDay
+        : null;
+
+    if (!notesByDate) return "";
+    return String(notesByDate[key] || "").trim();
+  };
+
+  const isHalfDayTravelBookingOnDate = (b, d) => {
+    const note = norm(bookingNoteForDate(b, d));
+    return note === "1/2 day travel" || note === "half day travel";
+  };
+
+  const proposedHolidayDates = useMemo(() => {
+    if (!proposed.start || !proposed.end) return [];
+    return eachDateInclusive(proposed.start, proposed.end).map((d, index, arr) => {
+      let isHalf = false;
+
+      if (proposed.single) {
+        isHalf = !!startHalfDay;
+      } else {
+        if (index === 0 && startHalfDay) isHalf = true;
+        if (index === arr.length - 1 && endHalfDay) isHalf = true;
+      }
+
+      return { date: d, isHalf };
+    });
+  }, [proposed.start, proposed.end, proposed.single, startHalfDay, endHalfDay]);
+
+  const bookingBlocksProposedHoliday = (b) => {
+    const r = bookingRange(b);
+    if (!r.start || !r.end) return false;
+
+    return proposedHolidayDates.some(({ date, isHalf }) => {
+      if (!rangesOverlap(date, date, r.start, r.end)) return false;
+      if (isHalf && isHalfDayTravelBookingOnDate(b, date)) return false;
+      return true;
+    });
+  };
+
   const bookingIsActive = (b) => {
     const st = norm(b.status || b.bookingStatus || b.state);
     if (st.includes("cancel")) return false;
@@ -464,11 +523,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     const conflicts = existingBookings.filter((b) => {
       if (!bookingIsActive(b)) return false;
       if (!bookingHasEmployee(b, employee)) return false;
-
-      const r = bookingRange(b);
-      if (!r.start || !r.end) return false;
-
-      return rangesOverlap(proposed.start, proposed.end, r.start, r.end);
+      return bookingBlocksProposedHoliday(b);
     });
 
     if (!conflicts.length) return null;

@@ -11,7 +11,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-multi-date-picker";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
+import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import {
+  buildMaintenanceChangeList,
+  buildMaintenanceHistoryEntry,
+  getMaintenanceAuditIdentity,
+} from "../utils/maintenanceAudit";
+import {
+  mergeInspectionHistory,
+  mergeMaintenanceHistory,
+} from "../utils/inspectionHistory";
 import {
   collection,
   doc,
@@ -489,6 +499,14 @@ export default function EditMaintenanceBookingForm({
       if (completedISO) {
         updates.lastMOT = completedISO;
         updates.nextMOT = calcNextFromWeeks(completedISO, motFreqWeeks);
+        updates.motHistory = mergeMaintenanceHistory(vehicle?.motHistory, {
+          completedDate: completedISO,
+          bookingId,
+          provider: provider.trim(),
+          bookingRef: bookingRef.trim(),
+          notes: notes.trim(),
+          recordedAt: new Date().toISOString(),
+        });
 
         // optional clear summary details once completed
         updates.motAppointmentDate = "";
@@ -526,6 +544,14 @@ export default function EditMaintenanceBookingForm({
       if (completedISO) {
         updates.lastService = completedISO;
         updates.nextService = calcNextFromWeeks(completedISO, serviceFreqWeeks);
+        updates.serviceHistory = mergeMaintenanceHistory(vehicle?.serviceHistory, {
+          completedDate: completedISO,
+          bookingId,
+          provider: provider.trim(),
+          bookingRef: bookingRef.trim(),
+          notes: notes.trim(),
+          recordedAt: new Date().toISOString(),
+        });
 
         // optional clear summary details once completed
         updates.serviceAppointmentDate = "";
@@ -536,6 +562,48 @@ export default function EditMaintenanceBookingForm({
         updates.serviceLocation = "";
         updates.serviceCost = "";
         updates.serviceBookingNotes = "";
+      }
+
+      await updateDoc(vRef, updates);
+    } else if (safeType === "INSPECTION") {
+      const updates = {
+        inspectionBookedStatus: status,
+        inspectionBookedOn: todayISO(),
+        inspectionAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
+        inspectionBookingStartDate: effectiveIsMultiDay ? startDate : "",
+        inspectionBookingEndDate: effectiveIsMultiDay ? endDate : "",
+        inspectionProvider: provider.trim(),
+        inspectionBookingRef: bookingRef.trim(),
+        inspectionLocation: location.trim(),
+        inspectionCost: cost ? String(cost).trim() : "",
+        inspectionBookingNotes: notes.trim(),
+        inspectionBookingId: bookingId,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (completedISO) {
+        updates.eightWeekInspectionStart = completedISO;
+        updates.nextEightWeekInspection = calcNextFromWeeks(completedISO, 8);
+        updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
+        updates.eightWeekInspectionHistory = mergeInspectionHistory(
+          vehicle?.eightWeekInspectionHistory,
+          {
+            completedDate: completedISO,
+            bookingId,
+            provider: provider.trim(),
+            bookingRef: bookingRef.trim(),
+            notes: notes.trim(),
+            recordedAt: new Date().toISOString(),
+          }
+        );
+        updates.inspectionAppointmentDate = "";
+        updates.inspectionBookingStartDate = "";
+        updates.inspectionBookingEndDate = "";
+        updates.inspectionProvider = "";
+        updates.inspectionBookingRef = "";
+        updates.inspectionLocation = "";
+        updates.inspectionCost = "";
+        updates.inspectionBookingNotes = "";
       }
 
       await updateDoc(vRef, updates);
@@ -566,6 +634,8 @@ export default function EditMaintenanceBookingForm({
 
     setSaving(true);
     try {
+      const nowAuditIso = new Date().toISOString();
+      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
       const isNonConsecutive = useCustomDates;
       const effectiveIsMultiDay = isNonConsecutive || isMultiDay;
       const firstSelectedDate = bookingDates.keys[0] || "";
@@ -603,8 +673,26 @@ export default function EditMaintenanceBookingForm({
         cost: cost ? String(cost).trim() : "",
         notes: notes.trim(),
         equipment: selectedEquipment,
+        sourceDueDateISO: String(booking?.sourceDueDateISO || "").trim(),
+        sourceDueIsoWeek: String(booking?.sourceDueIsoWeek || "").trim(),
+        sourceDueKey: String(booking?.sourceDueKey || "").trim(),
+        createdBy: booking?.createdBy || auditUser.email,
+        createdByUid: booking?.createdByUid || auditUser.uid,
+        lastEditedBy: auditUser.email,
+        lastEditedByUid: auditUser.uid,
         updatedAt: serverTimestamp(),
       };
+
+      const changeLines = buildMaintenanceChangeList(booking || {}, bookingPayload);
+      bookingPayload.history = [
+        ...(Array.isArray(booking?.history) ? booking.history : []),
+        buildMaintenanceHistoryEntry({
+          action: "Edited",
+          user: auditUser,
+          timestamp: nowAuditIso,
+          changes: changeLines,
+        }),
+      ];
 
       await updateDoc(doc(db, "maintenanceBookings", bookingId), bookingPayload);
 
@@ -640,9 +728,23 @@ export default function EditMaintenanceBookingForm({
 
     setSaving(true);
     try {
+      const nowAuditIso = new Date().toISOString();
+      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
+      const cancelledHistory = [
+        ...(Array.isArray(booking?.history) ? booking.history : []),
+        buildMaintenanceHistoryEntry({
+          action: "Cancelled",
+          user: auditUser,
+          timestamp: nowAuditIso,
+          changes: [`Status: ${String(booking?.status || "Blank")} -> Cancelled`],
+        }),
+      ];
       // booking
       await updateDoc(doc(db, "maintenanceBookings", bookingId), {
         status: "Cancelled",
+        lastEditedBy: auditUser.email,
+        lastEditedByUid: auditUser.uid,
+        history: cancelledHistory,
         updatedAt: serverTimestamp(),
       });
 
@@ -696,6 +798,8 @@ export default function EditMaintenanceBookingForm({
         const vRef = doc(db, "vehicles", vehicleId);
         const shouldClearMot = String(vDoc.motBookingId || "") === String(bookingId);
         const shouldClearService = String(vDoc.serviceBookingId || "") === String(bookingId);
+        const shouldClearInspection =
+          String(vDoc.inspectionBookingId || "") === String(bookingId);
         const shouldClearWork = String(vDoc.workBookingId || "") === String(bookingId);
 
         const clears = {};
@@ -728,6 +832,21 @@ export default function EditMaintenanceBookingForm({
             serviceLocation: "",
             serviceCost: "",
             serviceBookingNotes: "",
+          });
+        }
+        if (shouldClearInspection) {
+          Object.assign(clears, {
+            inspectionBookingId: "",
+            inspectionBookedStatus: "",
+            inspectionBookedOn: "",
+            inspectionAppointmentDate: "",
+            inspectionBookingStartDate: "",
+            inspectionBookingEndDate: "",
+            inspectionProvider: "",
+            inspectionBookingRef: "",
+            inspectionLocation: "",
+            inspectionCost: "",
+            inspectionBookingNotes: "",
           });
         }
         if (shouldClearWork) {

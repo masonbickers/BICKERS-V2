@@ -350,6 +350,9 @@ export default function ClientInfoPage() {
             <span style={chip}>{clients.length} clients</span>
             <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>{bookings.length} active bookings</span>
             <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>{deletedJobs.length} deleted records</span>
+            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "#fff" }}>
+              View emails →
+            </Link>
           </div>
         </div>
 

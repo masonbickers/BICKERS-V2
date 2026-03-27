@@ -14,6 +14,26 @@ export function getMfaVerifiedStorageKey(uid) {
   return `mfa:verified:${uid}`;
 }
 
+function parseMfaVerifiedValue(raw) {
+  if (!raw) return false;
+  if (raw === "true") return true;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return false;
+    if (!parsed.verifiedAt) return false;
+    if (parsed.expiresAt) {
+      const expiresAt = new Date(parsed.expiresAt);
+      if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getPendingMfaSetupStorageKey(uid) {
   return `mfa:pending-setup:${uid}`;
 }
@@ -21,16 +41,26 @@ export function getPendingMfaSetupStorageKey(uid) {
 export function isMfaVerified(storage, uid) {
   if (!storage || !uid) return false;
   try {
-    return storage.getItem(getMfaVerifiedStorageKey(uid)) === "true";
+    return parseMfaVerifiedValue(storage.getItem(getMfaVerifiedStorageKey(uid)));
   } catch {
     return false;
   }
 }
 
-export function markMfaVerified(storage, uid) {
+export function markMfaVerified(storage, uid, options = {}) {
   if (!storage || !uid) return;
   try {
-    storage.setItem(getMfaVerifiedStorageKey(uid), "true");
+    const verifiedAt = new Date();
+    const payload = {
+      verifiedAt: verifiedAt.toISOString(),
+    };
+    const daysValid = Number(options.daysValid || 0);
+    if (daysValid > 0) {
+      const expiresAt = new Date(verifiedAt);
+      expiresAt.setDate(expiresAt.getDate() + daysValid);
+      payload.expiresAt = expiresAt.toISOString();
+    }
+    storage.setItem(getMfaVerifiedStorageKey(uid), JSON.stringify(payload));
   } catch {}
 }
 
@@ -39,6 +69,10 @@ export function clearMfaVerified(storage, uid) {
   try {
     storage.removeItem(getMfaVerifiedStorageKey(uid));
   } catch {}
+}
+
+export function isMfaVerifiedOnDevice(localStorageRef, sessionStorageRef, uid) {
+  return isMfaVerified(sessionStorageRef, uid) || isMfaVerified(localStorageRef, uid);
 }
 
 export function getPendingMfaSetup(storage, uid) {

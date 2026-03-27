@@ -16,6 +16,7 @@ import moment from "moment";
 import { auth, db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
+import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -447,6 +448,15 @@ export default function HomePage() {
     run();
   }, []);
 
+  useEffect(() => {
+    syncEightWeekInspectionRollovers({
+      db,
+      vehicles,
+      maintenanceBookings,
+      loggerPrefix: "[home] inspection rollover",
+    }).catch(() => {});
+  }, [vehicles, maintenanceBookings]);
+
   /* ────────────────────────────────────────────────────────────────────────
      Derived: events + windows
   ───────────────────────────────────────────────────────────────────────── */
@@ -678,35 +688,43 @@ export default function HomePage() {
   // Maintenance buckets (vehicles, global)
   const motDueSoon = useMemo(
     () =>
-      vehicles.filter((v) => {
-        const d = v.nextMOT ? toJSDate(v.nextMOT) : null;
-        return d && d <= in3Weeks;
+      maintenanceCalendarEvents.filter((event) => {
+        if (event.kind !== "MOT") return false;
+        if (event.booked) return false;
+        const d = event.dueDate ? toJSDate(event.dueDate) : null;
+        return d && d <= in3Weeks && d >= startOfDay(now);
       }),
-    [vehicles, in3Weeks]
+    [maintenanceCalendarEvents, in3Weeks, now]
   );
   const serviceDueSoon = useMemo(
     () =>
-      vehicles.filter((v) => {
-        const d = v.nextService ? toJSDate(v.nextService) : null;
-        return d && d <= in3Weeks;
+      maintenanceCalendarEvents.filter((event) => {
+        if (event.kind !== "SERVICE") return false;
+        if (event.booked) return false;
+        const d = event.dueDate ? toJSDate(event.dueDate) : null;
+        return d && d <= in3Weeks && d >= startOfDay(now);
       }),
-    [vehicles, in3Weeks]
+    [maintenanceCalendarEvents, in3Weeks, now]
   );
   const overdueMOT = useMemo(
     () =>
-      vehicles.filter((v) => {
-        const d = v.nextMOT ? toJSDate(v.nextMOT) : null;
+      maintenanceCalendarEvents.filter((event) => {
+        if (event.kind !== "MOT") return false;
+        if (event.booked) return false;
+        const d = event.dueDate ? toJSDate(event.dueDate) : null;
         return d && d < startOfDay(now);
       }),
-    [vehicles, now]
+    [maintenanceCalendarEvents, now]
   );
   const overdueService = useMemo(
     () =>
-      vehicles.filter((v) => {
-        const d = v.nextService ? toJSDate(v.nextService) : null;
+      maintenanceCalendarEvents.filter((event) => {
+        if (event.kind !== "SERVICE") return false;
+        if (event.booked) return false;
+        const d = event.dueDate ? toJSDate(event.dueDate) : null;
         return d && d < startOfDay(now);
       }),
-    [vehicles, now]
+    [maintenanceCalendarEvents, now]
   );
 
   // Assistant call

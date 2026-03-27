@@ -49,6 +49,7 @@ const deriveType = (event = {}) => {
   const kind = String(event.kind || "").toUpperCase();
   if (kind.includes("MOT")) return "MOT";
   if (kind.includes("SERVICE")) return "SERVICE";
+  if (kind.includes("INSPECTION")) return "INSPECTION";
   return String(event.maintenanceType || event.type || "MAINTENANCE").toUpperCase();
 };
 
@@ -77,10 +78,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const isDueEvent =
     event?.__collection === "vehicleDueDates" ||
     event?.kind === "MOT" ||
-    event?.kind === "SERVICE";
+    event?.kind === "SERVICE" ||
+    event?.kind === "INSPECTION";
   const isMaintenanceJob = event?.__collection === "maintenanceJobs";
   const isBookingLikeEvent = !isDueEvent && !isMaintenanceJob && !!bookingId;
-  const canBook = !!vehicleId && (eventType === "MOT" || eventType === "SERVICE");
+  const canBook =
+    !!vehicleId &&
+    (eventType === "MOT" || eventType === "SERVICE" || eventType === "INSPECTION");
   const canDeleteBooking = isBookingLikeEvent;
   const canEditBooking = isBookingLikeEvent;
   const canManageJob = isMaintenanceJob && !!bookingId;
@@ -264,11 +268,12 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         <div style={card}>
           <Row label="Vehicle" value={vehicleLabel} />
           <Row label="Type" value={eventType} />
-          <Row label="Status" value={bookingDetails.status} />
+          <Row label="Status" value={isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status} />
           <Row
             label={isDueEvent ? "Due Date" : "Date(s)"}
             value={isDueEvent ? fmtDate(event?.dueDate || event?.start) : rangeText}
           />
+          {isDueEvent && event?.isoWeek ? <Row label="ISO Week" value={event.isoWeek} /> : null}
           {canEditBooking && <Row label="Booking Type" value={bookingDetails.bookingType} />}
           {canEditBooking && bookingDetails.isSingleDay && (
             <Row label="Appointment" value={bookingDetails.appointmentDate} />
@@ -293,9 +298,21 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             <button
               type="button"
               style={primaryBtn}
-              onClick={() => setShowBookType(eventType === "SERVICE" ? "SERVICE" : "MOT")}
+              onClick={() =>
+                setShowBookType(
+                  eventType === "SERVICE"
+                    ? "SERVICE"
+                    : eventType === "INSPECTION"
+                    ? "INSPECTION"
+                    : "MOT"
+                )
+              }
             >
-              {eventType === "SERVICE" ? "Book Service" : "Book MOT"}
+              {eventType === "SERVICE"
+                ? "Book Service"
+                : eventType === "INSPECTION"
+                ? "Book Inspection"
+                : "Book MOT"}
             </button>
           )}
 
@@ -364,6 +381,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                   ?.toISOString?.()
                   .slice(0, 10) || ""
               }
+              sourceDueDate={
+                (event?.dueDate ? new Date(event.dueDate) : toJsDate(event?.start))
+                  ?.toISOString?.()
+                  .slice(0, 10) || ""
+              }
+              sourceDueIsoWeek={event?.isoWeek || ""}
+              sourceDueKey={String(event?.id || "")}
               onClose={() => setShowBookType("")}
               onSaved={() => {
                 setShowBookType("");

@@ -32,17 +32,17 @@ const inter = Inter({
 });
 
 const UI = {
-  shellBg: "#e9eff5",
+  shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
   sidebarBg: "#000000",
-  sidebarBorder: "rgba(255,255,255,0.08)",
-  sidebarMuted: "#9fb0c3",
-  sidebarText: "#f4f7fb",
-  sidebarActiveBg: "rgba(107,179,127,0.18)",
-  sidebarActiveBorder: "#6bb37f",
+  sidebarBorder: "rgba(255,255,255,0.14)",
+  sidebarMuted: "#b4c0cf",
+  sidebarText: "#f8fbff",
+  sidebarActiveBg: "rgba(255,255,255,0.08)",
+  sidebarActiveBorder: "rgba(133,211,155,0.44)",
   activeAccent: "#6bb37f",
   topbarBg: "#000000",
-  topbarBorder: "rgba(255,255,255,0.08)",
-  contentBg: "#eef3f8",
+  topbarBorder: "rgba(255,255,255,0.12)",
+  contentBg: "transparent",
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
   success: "#6bb37f",
@@ -58,6 +58,7 @@ const ADMIN_EMAILS = [
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
+
 
 /* ───────────────────────────────────────────
    Date helpers (match HR page logic)
@@ -100,7 +101,12 @@ function holidayYearBucket(h) {
   return s.getFullYear();
 }
 
-export default function HeaderSidebarLayout({ children }) {
+export default function HeaderSidebarLayout({
+  children,
+  showBackButton,
+  backHref,
+  backLabel = "Back",
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = getAuth();
@@ -281,32 +287,62 @@ export default function HeaderSidebarLayout({ children }) {
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 
-  const userSidebarItems = [
-    { label: "Home", path: "/screens/homescreen" },
-    { label: "Diary", path: "/dashboard" },
-    { label: "U-Crane", path: "/u-crane" },
-    { label: "HR / Timesheets", path: "/hr" },
-    { label: "Employees", path: "/employee-home" },
-    { label: "Vehicles & Equip", path: "/vehicle-home" },
-    { label: "Jobs Sheets", path: "/job-home" },
-    { label: "Invoicing", path: "/finance-dashboard" },
-    { label: "Statistics", path: "/statistics" },
-    { label: "Settings", path: "/settings" },
+  const userSidebarGroups = [
+    {
+      heading: "Operations",
+      items: [
+        { label: "Home", path: "/screens/homescreen" },
+        { label: "Diary", path: "/dashboard" },
+        { label: "U-Crane", path: "/u-crane" },
+        { label: "Jobs Sheets", path: "/job-home" },
+      ],
+    },
+    {
+      heading: "People & Fleet",
+      items: [
+        { label: "HR / Timesheets", path: "/hr" },
+        { label: "Employees", path: "/employee-home" },
+        { label: "Vehicles & Equip", path: "/vehicle-home" },
+      ],
+    },
+    {
+      heading: "Business",
+      items: [
+        { label: "Invoicing", path: "/finance-dashboard" },
+        { label: "Statistics", path: "/statistics" },
+        { label: "Settings", path: "/settings" },
+      ],
+    },
   ];
 
-  const serviceSidebarItems = [
-    { label: "Service Home", path: "/service/home" },
-    { label: "Service Overview", path: "/service-overview" },
-    { label: "Vehicles & Equip", path: "/vehicle-home" },
-    { label: "MOT Overview", path: "/mot-overview" },
-    { label: "Vehicle Checks", path: "/vehicle-checks" },
-    { label: "Usage Overview", path: "/usage-overview" },
-    { label: "Workshop", path: "/workshop" },
-    { label: "Maintenance Jobs", path: "/maintenance-jobs" },
-    { label: "Settings", path: "/settings" },
+  const serviceSidebarGroups = [
+    {
+      heading: "Service",
+      items: [
+        { label: "Service Home", path: "/service/home" },
+        { label: "Service Overview", path: "/service-overview" },
+        { label: "Workshop", path: "/workshop" },
+        { label: "Maintenance Jobs", path: "/maintenance-jobs" },
+      ],
+    },
+    {
+      heading: "Fleet",
+      items: [
+        { label: "Vehicles & Equip", path: "/vehicle-home" },
+        { label: "MOT Overview", path: "/mot-overview" },
+        { label: "Vehicle Checks", path: "/vehicle-checks" },
+        { label: "Usage Overview", path: "/usage-overview" },
+      ],
+    },
+    {
+      heading: "System",
+      items: [{ label: "Settings", path: "/settings" }],
+    },
   ];
 
-  const workspaceNav = activeWorkspace === "service" ? serviceSidebarItems : userSidebarItems;
+  const workspaceNavGroups =
+    activeWorkspace === "service" ? serviceSidebarGroups : userSidebarGroups;
+  const workspaceNav = workspaceNavGroups.flatMap((group) => group.items);
   const headerLinks = activeWorkspace === "service" ? serviceHeaderLinks : userHeaderLinks;
 
   /* ───────────────────────────────────────────
@@ -320,15 +356,6 @@ export default function HeaderSidebarLayout({ children }) {
   /* ───────────────────────────────────────────
      BACK BUTTON
   ──────────────────────────────────────────── */
-  const handleBack = () => {
-    try {
-      if (window.history.length > 1) router.back();
-      else router.push(selectLandingRoute(employeeAccess || null, activeWorkspace));
-    } catch {
-      router.push(selectLandingRoute(employeeAccess || null, activeWorkspace));
-    }
-  };
-
   const handleWorkspaceSwitch = (workspace) => {
     if (!employeeAccess) return;
     if (workspace === "service" && !employeeAccess.hasServiceAccess) return;
@@ -364,6 +391,41 @@ export default function HeaderSidebarLayout({ children }) {
     };
   }, [user?.emailVerified, userDoc]);
 
+  const currentNavItem = useMemo(() => {
+    return (
+      workspaceNav.find(({ path }) =>
+        pathname === path ||
+        (path === "/screens/homescreen" && pathname === "/home") ||
+        (path === "/service/home" && pathname === "/service-home")
+      ) || null
+    );
+  }, [pathname, workspaceNav]);
+
+  const landingRoute = useMemo(() => {
+    if (!employeeAccess) return "/dashboard";
+    return selectLandingRoute(employeeAccess, activeWorkspace);
+  }, [employeeAccess, activeWorkspace]);
+
+  const shouldShowBackButton = useMemo(() => {
+    if (typeof showBackButton === "boolean") return showBackButton;
+    if (!pathname) return false;
+    return pathname !== landingRoute;
+  }, [showBackButton, pathname, landingRoute]);
+
+  const handleBack = () => {
+    if (backHref) {
+      router.push(backHref);
+      return;
+    }
+
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push(landingRoute);
+  };
+
   useEffect(() => {
     if (!employeeAccess) return;
     if (currentWorkspace === "service" && employeeAccess.hasServiceAccess) {
@@ -398,15 +460,17 @@ export default function HeaderSidebarLayout({ children }) {
           padding: isCollapsed ? "18px 10px" : "22px 16px",
           display: "flex",
           flexDirection: "column",
-          borderRight: `1px solid ${UI.sidebarBorder}`,
+          borderRight: "none",
+          boxShadow: "16px 0 36px rgba(2,6,23,0.18)",
+          position: "relative",
           transition: "width 0.3s ease",
         }}
       >
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.12)",
             color: UI.sidebarMuted,
             cursor: "pointer",
             fontSize: "13px",
@@ -426,7 +490,7 @@ export default function HeaderSidebarLayout({ children }) {
             style={{
               padding: "4px 6px 18px",
               marginBottom: 12,
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
             }}
           >
             <img
@@ -447,8 +511,8 @@ export default function HeaderSidebarLayout({ children }) {
               width: 40,
               height: 40,
               borderRadius: 12,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
               color: UI.sidebarText,
               display: "flex",
               alignItems: "center",
@@ -462,93 +526,125 @@ export default function HeaderSidebarLayout({ children }) {
           </div>
         )}
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {workspaceNav.map(({ label, path }) => {
-            const active =
-              pathname === path ||
-              (path === "/screens/homescreen" && pathname === "/home") ||
-              (path === "/service/home" && pathname === "/service-home");
+        <nav style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {workspaceNavGroups.map((group) => (
+            <div key={group.heading}>
+              {!isCollapsed && (
+                <div
+                  style={{
+                    padding: "0 10px 8px",
+                    color: "rgba(255,255,255,0.46)",
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {group.heading}
+                </div>
+              )}
 
-            const isHrItem = path === "/hr";
-            const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {group.items.map(({ label, path }) => {
+                  const active =
+                    pathname === path ||
+                    (path === "/screens/homescreen" && pathname === "/home") ||
+                    (path === "/service/home" && pathname === "/service-home");
 
-            return (
-              <button
-                key={label}
-                onClick={() => router.push(path)}
-                style={{
-                  background: active ? UI.sidebarActiveBg : "transparent",
-                  border: active
-                    ? `1px solid ${UI.sidebarActiveBorder}`
-                    : "1px solid transparent",
-                  color: active ? UI.sidebarText : UI.sidebarMuted,
-                  fontSize: "14px",
-                  textAlign: isCollapsed ? "center" : "left",
-                  padding: isCollapsed ? "10px 8px" : "11px 14px",
-                  cursor: "pointer",
-                  position: "relative",
-                  borderRadius: 12,
-                  fontWeight: active ? 700 : 600,
-                  boxShadow: active ? `inset 3px 0 0 ${UI.activeAccent}` : "none",
-                  transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
-                }}
-                title={
-                  showHrBadge
-                    ? `${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
-                    : undefined
-                }
-              >
-                {!isCollapsed && (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    <span>{label}</span>
+                  const isHrItem = path === "/hr";
+                  const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => router.push(path)}
+                      style={{
+                        background: active ? UI.sidebarActiveBg : "transparent",
+                        border: active
+                          ? `1px solid ${UI.sidebarActiveBorder}`
+                          : "1px solid transparent",
+                        color: active ? UI.sidebarText : UI.sidebarMuted,
+                        fontSize: "14px",
+                        textAlign: isCollapsed ? "center" : "left",
+                        padding: isCollapsed ? "10px 8px" : "11px 14px",
+                        cursor: "pointer",
+                        position: "relative",
+                        borderRadius: 12,
+                        fontWeight: active ? 700 : 600,
+                        boxShadow: active ? `inset 3px 0 0 ${UI.activeAccent}` : "none",
+                        transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
+                      }}
+                      title={
+                        showHrBadge
+                          ? `${label}: ${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
+                          : label
+                      }
+                    >
+                      {!isCollapsed ? (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                          }}
+                        >
+                          <span>{label}</span>
+                          {showHrBadge && (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                minWidth: 18,
+                                height: 18,
+                                padding: "0 6px",
+                                borderRadius: 999,
+                                background: UI.success,
+                                color: "#102217",
+                                fontSize: 11,
+                                fontWeight: 900,
+                                lineHeight: "18px",
+                                marginLeft: "auto",
+                              }}
+                            >
+                              {hrBadgeTotal}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "100%",
+                            fontSize: 11,
+                            fontWeight: 800,
+                          }}
+                        >
+                          •
+                        </span>
+                      )}
 
-                    {/*  HR notification badge */}
-                    {showHrBadge && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          minWidth: 18,
-                          height: 18,
-                          padding: "0 6px",
-                          borderRadius: 999,
-                          background: UI.success,
-                          color: "#102217",
-                          fontSize: 11,
-                          fontWeight: 900,
-                          lineHeight: "18px",
-                        }}
-                      >
-                        {hrBadgeTotal}
-                      </span>
-                    )}
-                  </span>
-                )}
-
-                {/* collapsed mode: tiny dot */}
-                {isCollapsed && showHrBadge && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      top: 10,
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background: UI.success,
-                    }}
-                  />
-                )}
-              </button>
-            );
-          })}
+                      {isCollapsed && showHrBadge && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            right: 10,
+                            top: 10,
+                            width: 8,
+                            height: 8,
+                            borderRadius: 999,
+                            background: UI.success,
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div style={{ marginTop: "auto" }}>
@@ -574,30 +670,71 @@ export default function HeaderSidebarLayout({ children }) {
         <header
           style={{
             minHeight: "62px",
-            backgroundColor: UI.topbarBg,
+            background: UI.topbarBg,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             padding: "0 24px",
-            borderBottom: `1px solid ${UI.topbarBorder}`,
-            boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
+            borderBottom: "none",
+            boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
+            position: "sticky",
+            top: 0,
+            zIndex: 20,
           }}
         >
-          <button
-            onClick={handleBack}
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: `1px solid ${UI.topbarBorder}`,
-              color: "#ffffff",
-              padding: "8px 12px",
-              cursor: "pointer",
-              fontSize: "12.5px",
-              fontWeight: 700,
-              borderRadius: 10,
-            }}
-          >
-            ← Back
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+            {shouldShowBackButton && (
+              <button
+                type="button"
+                onClick={handleBack}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 999,
+                  border: `1px solid ${UI.topbarBorder}`,
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#f8fbff",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+                aria-label={backLabel}
+                title={backLabel}
+              >
+                <span aria-hidden="true">←</span>
+                <span>{backLabel}</span>
+              </button>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  color: "rgba(255,255,255,0.44)",
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {activeWorkspace === "service" ? "Service workspace" : "User workspace"}
+              </div>
+              <div
+                style={{
+                  color: "#f8fbff",
+                  fontSize: 17,
+                  fontWeight: 800,
+                  letterSpacing: "-0.01em",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {currentNavItem?.label || "Bickers Booking System"}
+              </div>
+            </div>
+          </div>
 
           <nav
             style={{
@@ -654,12 +791,12 @@ export default function HeaderSidebarLayout({ children }) {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 4,
-                  padding: 3,
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.06)",
-                  border: `1px solid ${UI.topbarBorder}`,
-                }}
-              >
+                padding: 3,
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.04)",
+                border: `1px solid ${UI.topbarBorder}`,
+              }}
+            >
                 {["user", "service"].map((workspace) => (
                   <button
                     key={workspace}
@@ -718,10 +855,10 @@ export default function HeaderSidebarLayout({ children }) {
         {/* Footer */}
         <footer
           style={{
-            backgroundColor: UI.topbarBg,
+            background: "#000000",
             minHeight: "26px",
             fontSize: "10px",
-            color: UI.muted,
+            color: "#d0dae6",
             textAlign: "center",
             borderTop: `1px solid ${UI.topbarBorder}`,
             display: "flex",

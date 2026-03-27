@@ -137,7 +137,7 @@ const formatDateWithStyle = (raw) => {
 const norm = (s) => String(s || "").trim().toLowerCase();
 
 /* columns count (IMPORTANT for colSpan) */
-const COLS = 17;
+const COLS = 15;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
@@ -267,8 +267,6 @@ export default function VehicleMaintenancePage() {
       "nextBrakeTest",
       "nextPMIInspection",
       "nextTachoDownload",
-      "nextTailLiftInspection",
-      "nextLOLERInspection",
     ];
 
     for (const v of filteredVehicles) {
@@ -407,8 +405,6 @@ export default function VehicleMaintenancePage() {
                       "Brake Test",
                       "PMI",
                       "Tacho DL",
-                      "Tail-lift",
-                      "LOLER",
                     ].map((h) => (
                       <th
                         key={h}
@@ -511,8 +507,6 @@ export default function VehicleMaintenancePage() {
                             {renderDateCell(v.nextBrakeTest, rowTd)}
                             {renderDateCell(v.nextPMIInspection, rowTd)}
                             {renderDateCell(v.nextTachoDownload, rowTd)}
-                            {renderDateCell(v.nextTailLiftInspection, rowTd)}
-                            {renderDateCell(v.nextLOLERInspection, rowTd)}
                           </tr>
                         );
                       })}

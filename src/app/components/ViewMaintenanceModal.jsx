@@ -99,6 +99,7 @@ export default function ViewMaintenanceModal({
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allVehicles, setAllVehicles] = useState([]);
+  const [showFullHistory, setShowFullHistory] = useState(false);
   const router = useRouter();
 
   // close on ESC
@@ -186,6 +187,25 @@ export default function ViewMaintenanceModal({
     booking.title ||
     booking.client ||
     "Maintenance Details";
+  const historyTrail = Array.isArray(booking.history)
+    ? [...booking.history]
+        .map((entry, index) => ({
+          id: `${entry?.timestamp || "no-time"}-${entry?.action || "change"}-${index}`,
+          action: entry?.action || "Updated",
+          user: entry?.user || entry?.updatedBy || entry?.by || "Unknown",
+          at: toJsDate(entry?.timestamp || entry?.updatedAt || entry?.date),
+          changes: Array.isArray(entry?.changes) ? entry.changes.filter(Boolean) : [],
+          note: entry?.note || entry?.description || entry?.details || "",
+        }))
+        .map((entry) => ({
+          ...entry,
+          note: entry.changes.length && entry.note === entry.changes.join("\n") ? "" : entry.note,
+        }))
+        .sort((a, b) => (a.at?.getTime?.() || 0) - (b.at?.getTime?.() || 0))
+    : [];
+  const visibleHistoryTrail = showFullHistory
+    ? historyTrail
+    : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
@@ -274,6 +294,51 @@ export default function ViewMaintenanceModal({
               <div style={noteBox}>{booking.notes}</div>
             </Section>
           )}
+
+          <Section title="Modification Trail" full>
+            <details style={historyDetails} open={historyTrail.length <= 3}>
+              <summary style={historySummary}>
+                <span>Change history</span>
+                <span style={historyCount}>{historyTrail.length}</span>
+              </summary>
+              <div style={historyBody}>
+                {visibleHistoryTrail.length ? (
+                  visibleHistoryTrail.map((entry) => (
+                    <div key={entry.id} style={historyItem}>
+                      <div style={historyTopRow}>
+                        <span style={historyAction}>{entry.action}</span>
+                        <span style={historyMeta}>
+                          {entry.user}
+                          {entry.at ? ` • ${entry.at.toLocaleString("en-GB")}` : ""}
+                        </span>
+                      </div>
+                      {entry.changes.length ? (
+                        <div style={historyChanges}>
+                          {entry.changes.map((change, idx) => (
+                            <div key={`${entry.id}-change-${idx}`} style={historyChangeLine}>
+                              {change}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entry.note ? <div style={historyNote}>{entry.note}</div> : null}
+                    </div>
+                  ))
+                ) : (
+                  <div style={historyEmpty}>No modification history recorded for this booking yet.</div>
+                )}
+                {historyTrail.length > 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullHistory((prev) => !prev)}
+                    style={historyToggleBtn}
+                  >
+                    {showFullHistory ? "Show less" : `See more (${historyTrail.length - 3} older)`}
+                  </button>
+                ) : null}
+              </div>
+            </details>
+          </Section>
 
           {(() => {
             const files = toAttachmentList(booking);
@@ -489,6 +554,92 @@ const fileBtn = {
   borderRadius: 8,
   textDecoration: "none",
   border: "1px solid #111",
+};
+const historyDetails = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  background: "#f8fafc",
+  overflow: "hidden",
+};
+const historySummary = {
+  listStyle: "none",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "14px 16px",
+  fontWeight: 700,
+  color: "#111",
+};
+const historyCount = {
+  minWidth: 28,
+  height: 28,
+  padding: "0 10px",
+  borderRadius: 999,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#e5e7eb",
+  color: "#111",
+  fontSize: 12,
+  fontWeight: 700,
+};
+const historyBody = {
+  display: "grid",
+  gap: 10,
+  padding: "0 16px 16px",
+};
+const historyItem = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  background: "#fff",
+  padding: 12,
+};
+const historyTopRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+};
+const historyAction = {
+  fontWeight: 700,
+  color: "#111",
+};
+const historyMeta = {
+  color: "#6b7280",
+  fontSize: 12,
+};
+const historyNote = {
+  marginTop: 8,
+  color: "#374151",
+  whiteSpace: "pre-wrap",
+  lineHeight: 1.45,
+};
+const historyChanges = {
+  marginTop: 8,
+  display: "grid",
+  gap: 6,
+};
+const historyChangeLine = {
+  color: "#374151",
+  fontSize: 13,
+  lineHeight: 1.4,
+};
+const historyEmpty = {
+  color: "#6b7280",
+  fontSize: 13,
+};
+const historyToggleBtn = {
+  justifySelf: "flex-start",
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  color: "#111",
+  borderRadius: 999,
+  padding: "8px 12px",
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const footerMeta = {

@@ -21,10 +21,19 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db, storage } from "../../../../firebaseConfig";
+import { auth, db, storage } from "../../../../firebaseConfig";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingForm";
+import {
+  buildMaintenanceHistoryEntry,
+  getMaintenanceAuditIdentity,
+} from "@/app/utils/maintenanceAudit";
+import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
+import {
+  mergeInspectionHistory,
+  mergeMaintenanceHistory,
+} from "@/app/utils/inspectionHistory";
 
 /* ───────────────── UI tokens (match your newer pages) ───────────────── */
 const UI = {
@@ -252,6 +261,20 @@ const ymdToDate = (ymd) => {
   return Number.isNaN(+dt) ? null : dt;
 };
 
+const isTransportLorryVehicle = (vehicle = {}) => {
+  const haystack = [
+    vehicle.category,
+    vehicle.type,
+    vehicle.name,
+    vehicle.manufacturer,
+    vehicle.model,
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join(" ");
+
+  return haystack.includes("lorry") || haystack.includes("transport");
+};
+
 /*  completion helpers (sync bookings -> core due dates) */
 const completionISOFromBooking = ({ isMultiDay, appointmentDate, endDate, startDate }) => {
   if (!isMultiDay) return appointmentDate || "";
@@ -275,12 +298,14 @@ export default function EditVehiclePage() {
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
   const [showServiceBooking, setShowServiceBooking] = useState(false);
+  const [showInspectionBooking, setShowInspectionBooking] = useState(false);
   const [showWorkBooking, setShowWorkBooking] = useState(false);
 
   // booking modals (edit)
   const [editBookingId, setEditBookingId] = useState(null);
   const [latestMotBooking, setLatestMotBooking] = useState(null);
   const [latestServiceBooking, setLatestServiceBooking] = useState(null);
+  const [latestInspectionBooking, setLatestInspectionBooking] = useState(null);
   const [vehicleBookings, setVehicleBookings] = useState([]);
 
   // categories list
@@ -323,9 +348,12 @@ export default function EditVehiclePage() {
       byNewest.find((b) => String(b.type || "").toUpperCase() === "MOT") || null;
     const serviceLatest =
       byNewest.find((b) => String(b.type || "").toUpperCase() === "SERVICE") || null;
+    const inspectionLatest =
+      byNewest.find((b) => String(b.type || "").toUpperCase() === "INSPECTION") || null;
 
     setLatestMotBooking(motLatest);
     setLatestServiceBooking(serviceLatest);
+    setLatestInspectionBooking(inspectionLatest);
 
     if (snap.exists()) {
       const base = { id: snap.id, ...snap.data() };
@@ -369,6 +397,30 @@ export default function EditVehiclePage() {
         hydrated.serviceBookingNotes = hydrated.serviceBookingNotes || serviceLatest.notes || "";
       }
 
+      if (inspectionLatest) {
+        hydrated.inspectionBookingId = hydrated.inspectionBookingId || inspectionLatest.id || "";
+        hydrated.inspectionBookedStatus =
+          hydrated.inspectionBookedStatus || inspectionLatest.status || "";
+        hydrated.inspectionBookedOn =
+          hydrated.inspectionBookedOn || toISODate(inspectionLatest.createdAt) || "";
+        hydrated.inspectionAppointmentDate =
+          hydrated.inspectionAppointmentDate ||
+          inspectionLatest.appointmentDateISO ||
+          inspectionLatest.startDateISO ||
+          toISODate(inspectionLatest.appointmentDate) ||
+          toISODate(inspectionLatest.startDate) ||
+          "";
+        hydrated.inspectionProvider =
+          hydrated.inspectionProvider || inspectionLatest.provider || "";
+        hydrated.inspectionBookingRef =
+          hydrated.inspectionBookingRef || inspectionLatest.bookingRef || "";
+        hydrated.inspectionLocation =
+          hydrated.inspectionLocation || inspectionLatest.location || "";
+        hydrated.inspectionCost = hydrated.inspectionCost || inspectionLatest.cost || "";
+        hydrated.inspectionBookingNotes =
+          hydrated.inspectionBookingNotes || inspectionLatest.notes || "";
+      }
+
       setVehicle(hydrated);
     }
   };
@@ -399,6 +451,20 @@ export default function EditVehiclePage() {
       resolveFreqWeeks(vehicle.serviceFreq, vehicle.lastService, vehicle.nextService)
     );
     if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
+
+    const nextEightWeekInspection = calcNextFromWeeks(vehicle.eightWeekInspectionStart, 8);
+    if (
+      nextEightWeekInspection &&
+      vehicle.nextEightWeekInspection !== nextEightWeekInspection
+    ) {
+      updates.nextEightWeekInspection = nextEightWeekInspection;
+    }
+    const inspectionIso = getIsoWeekLabel(
+      nextEightWeekInspection || vehicle.nextEightWeekInspection
+    );
+    if (inspectionIso && vehicle.eightWeekInspectionISOWeek !== inspectionIso) {
+      updates.eightWeekInspectionISOWeek = inspectionIso;
+    }
 
     // Tacho Inspection
     const nextTacho = calcNextFromWeeks(vehicle.lastTacho, vehicle.tachoFreq);
@@ -465,6 +531,8 @@ export default function EditVehiclePage() {
     vehicle?.motFreq,
     vehicle?.lastService,
     vehicle?.serviceFreq,
+    vehicle?.eightWeekInspectionStart,
+    vehicle?.nextEightWeekInspection,
     vehicle?.lastTacho,
     vehicle?.tachoFreq,
     vehicle?.lastBrakeTest,
@@ -587,8 +655,12 @@ export default function EditVehiclePage() {
 
   const activeMotBookingId = vehicle?.motBookingId || latestMotBooking?.id || "";
   const activeServiceBookingId = vehicle?.serviceBookingId || latestServiceBooking?.id || "";
+  const activeInspectionBookingId =
+    vehicle?.inspectionBookingId || latestInspectionBooking?.id || "";
   const hasMotBooking = Boolean(activeMotBookingId);
   const hasServiceBooking = Boolean(activeServiceBookingId);
+  const hasInspectionBooking = Boolean(activeInspectionBookingId);
+  const showEightWeekInspection = isTransportLorryVehicle(vehicle || {});
 
   const completedMotHistory = useMemo(
     () =>
@@ -609,6 +681,38 @@ export default function EditVehiclePage() {
       }),
     [vehicleBookings]
   );
+
+  const completedInspectionHistory = useMemo(
+    () =>
+      vehicleBookings.filter((b) => {
+        const type = String(b?.type || "").toUpperCase();
+        const status = String(b?.status || "").toLowerCase();
+        return type === "INSPECTION" && status === "completed";
+      }),
+    [vehicleBookings]
+  );
+
+  const motHistoryItems =
+    Array.isArray(vehicle?.motHistory) && vehicle.motHistory.length
+      ? vehicle.motHistory
+      : completedMotHistory.map((b) => ({
+          completedDate: bookingCompletedLabel(b),
+          bookingId: b.id,
+          provider: b.provider || "",
+          bookingRef: b.bookingRef || "",
+          notes: b.notes || "",
+        }));
+
+  const serviceHistoryItems =
+    Array.isArray(vehicle?.serviceHistory) && vehicle.serviceHistory.length
+      ? vehicle.serviceHistory
+      : completedServiceHistory.map((b) => ({
+          completedDate: bookingCompletedLabel(b),
+          bookingId: b.id,
+          provider: b.provider || "",
+          bookingRef: b.bookingRef || "",
+          notes: b.notes || "",
+        }));
 
   const motAppointmentDisplay =
     vehicle?.motAppointmentDate ||
@@ -759,6 +863,21 @@ export default function EditVehiclePage() {
               </button>
             ) : null}
 
+            {showEightWeekInspection ? (
+              <button onClick={() => setShowInspectionBooking(true)} style={btn("success")}>
+                Book 8 Week Inspection
+              </button>
+            ) : null}
+            {showEightWeekInspection && hasInspectionBooking ? (
+              <button
+                onClick={() => setEditBookingId(activeInspectionBookingId)}
+                style={btn("ghost")}
+                title="Edit the inspection booking record"
+              >
+                Edit Inspection Booking
+              </button>
+            ) : null}
+
             <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
               Book Work
             </button>
@@ -795,6 +914,20 @@ export default function EditVehiclePage() {
             onClose={() => setShowServiceBooking(false)}
             onSaved={async () => {
               setShowServiceBooking(false);
+              await reloadVehicle();
+            }}
+          />
+        ) : null}
+
+        {showInspectionBooking ? (
+          <MaintenanceBookingForm
+            vehicleId={id}
+            type="INSPECTION"
+            defaultDate={vehicle?.nextEightWeekInspection || todayISO()}
+            vehicleSnapshot={vehicle}
+            onClose={() => setShowInspectionBooking(false)}
+            onSaved={async () => {
+              setShowInspectionBooking(false);
               await reloadVehicle();
             }}
           />
@@ -897,6 +1030,33 @@ export default function EditVehiclePage() {
                 <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} />
                 <DateField label="Next Service" name="nextService" value={vehicle.nextService} onChange={handleChange} />
                 <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} />
+
+                {showEightWeekInspection ? (
+                  <>
+                    <DateField
+                      label="8 Week Inspection Base Date"
+                      name="eightWeekInspectionStart"
+                      value={vehicle.eightWeekInspectionStart}
+                      onChange={handleChange}
+                    />
+                    <div>
+                      <label style={labelStyle}>Inspection Freq (weeks)</label>
+                      <input type="text" value="8" readOnly style={inputField} />
+                    </div>
+                    <DateField
+                      label="Next 8 Week Inspection"
+                      name="nextEightWeekInspection"
+                      value={vehicle.nextEightWeekInspection}
+                      onChange={handleChange}
+                    />
+                    <Field
+                      label="Inspection ISO Week"
+                      name="eightWeekInspectionISOWeek"
+                      value={vehicle.eightWeekInspectionISOWeek}
+                      onChange={handleChange}
+                    />
+                  </>
+                ) : null}
               </div>
             </div>
 
@@ -1032,13 +1192,13 @@ export default function EditVehiclePage() {
                 <h2 style={sectionTitle}>MOT History</h2>
                 <div style={sectionMeta}>Completed MOT bookings for this vehicle.</div>
 
-                {completedMotHistory.length === 0 ? (
+                {motHistoryItems.length === 0 ? (
                   <div style={{ color: UI.muted, fontSize: 13 }}>No completed MOT history yet.</div>
                 ) : (
                   <div style={{ display: "grid", gap: 10 }}>
-                    {completedMotHistory.map((b) => (
+                    {motHistoryItems.map((item, index) => (
                       <div
-                        key={b.id}
+                        key={item.bookingId || `${item.completedDate}-${index}`}
                         style={{
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
@@ -1046,18 +1206,15 @@ export default function EditVehiclePage() {
                           background: "#fff",
                         }}
                       >
-                        <div style={{ fontWeight: 900, color: UI.text }}>{bookingDateLabel(b)}</div>
-                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
-                          Completed: {bookingCompletedLabel(b)}
+                        <div style={{ fontWeight: 900, color: UI.text }}>{item.completedDate || "-"}</div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
                         </div>
                         <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {b.provider ? `Provider: ${b.provider}` : "Provider: -"}
+                          {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
                         </div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: -"}
-                        </div>
-                        {b.notes ? (
-                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{b.notes}</div>
+                        {item.notes ? (
+                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
                         ) : null}
                       </div>
                     ))}
@@ -1069,13 +1226,13 @@ export default function EditVehiclePage() {
                 <h2 style={sectionTitle}>Service History</h2>
                 <div style={sectionMeta}>Completed service bookings for this vehicle.</div>
 
-                {completedServiceHistory.length === 0 ? (
+                {serviceHistoryItems.length === 0 ? (
                   <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
                 ) : (
                   <div style={{ display: "grid", gap: 10 }}>
-                    {completedServiceHistory.map((b) => (
+                    {serviceHistoryItems.map((item, index) => (
                       <div
-                        key={b.id}
+                        key={item.bookingId || `${item.completedDate}-${index}`}
                         style={{
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
@@ -1083,24 +1240,73 @@ export default function EditVehiclePage() {
                           background: "#fff",
                         }}
                       >
-                        <div style={{ fontWeight: 900, color: UI.text }}>{bookingDateLabel(b)}</div>
-                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
-                          Completed: {bookingCompletedLabel(b)}
+                        <div style={{ fontWeight: 900, color: UI.text }}>{item.completedDate || "-"}</div>
+                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
                         </div>
                         <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {b.provider ? `Provider: ${b.provider}` : "Provider: -"}
+                          {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
                         </div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: -"}
-                        </div>
-                        {b.notes ? (
-                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{b.notes}</div>
+                        {item.notes ? (
+                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
                         ) : null}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+              {showEightWeekInspection ? (
+                <div style={panel}>
+                  <h2 style={sectionTitle}>8 Week Inspection History</h2>
+                  <div style={sectionMeta}>Completed 8 week inspections stored on this vehicle.</div>
+
+                  {(vehicle.eightWeekInspectionHistory || []).length === 0 &&
+                  completedInspectionHistory.length === 0 ? (
+                    <div style={{ color: UI.muted, fontSize: 13 }}>No completed inspection history yet.</div>
+                  ) : (
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {(
+                        (Array.isArray(vehicle.eightWeekInspectionHistory)
+                          ? vehicle.eightWeekInspectionHistory
+                          : []
+                        ).length
+                          ? vehicle.eightWeekInspectionHistory
+                          : completedInspectionHistory.map((b) => ({
+                              completedDate: bookingCompletedLabel(b),
+                              bookingId: b.id,
+                              provider: b.provider || "",
+                              bookingRef: b.bookingRef || "",
+                              notes: b.notes || "",
+                            }))
+                      ).map((item, index) => (
+                        <div
+                          key={item.bookingId || `${item.completedDate}-${index}`}
+                          style={{
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 12,
+                            padding: 10,
+                            background: "#fff",
+                          }}
+                        >
+                          <div style={{ fontWeight: 900, color: UI.text }}>
+                            {item.completedDate || "-"}
+                          </div>
+                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
+                            {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
+                          </div>
+                          <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                            {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
+                          </div>
+                          {item.notes ? (
+                            <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div style={panel}>
@@ -1169,6 +1375,11 @@ export default function EditVehiclePage() {
                 <button style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
                   Vehicle Checks
                 </button>
+                {showEightWeekInspection ? (
+                  <button style={btn("ghost")} onClick={() => setShowInspectionBooking(true)}>
+                    Book Inspection
+                  </button>
+                ) : null}
                 <button style={btn("ghost")} onClick={() => setShowWorkBooking(true)}>
                   Book Work
                 </button>
@@ -1182,6 +1393,9 @@ export default function EditVehiclePage() {
                 <MiniLine label="MOT Appointment" value={motAppointmentDisplay} />
                 <MiniLine label="MOT Booked On" value={motBookedOnDisplay} />
                 <MiniLine label="Next Service" value={vehicle.nextService} />
+                {showEightWeekInspection ? (
+                  <MiniLine label="Next 8 Week Inspection" value={vehicle.nextEightWeekInspection} />
+                ) : null}
                 <MiniLine label="Next RFL" value={vehicle.nextRFL} />
                 <MiniLine label="Next Tacho" value={vehicle.nextTacho} />
                 <MiniLine label="Next Brake Test" value={vehicle.nextBrakeTest} />
@@ -1216,9 +1430,21 @@ export default function EditVehiclePage() {
 function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", vehicleSnapshot, onClose, onSaved }) {
   const normalizedType = String(type || "").toUpperCase();
   const safeType =
-    normalizedType === "SERVICE" ? "SERVICE" : normalizedType === "WORK" ? "WORK" : "MOT";
+    normalizedType === "SERVICE"
+      ? "SERVICE"
+      : normalizedType === "WORK"
+      ? "WORK"
+      : normalizedType === "INSPECTION"
+      ? "INSPECTION"
+      : "MOT";
   const title =
-    safeType === "MOT" ? "Book MOT" : safeType === "SERVICE" ? "Book Service" : "Book Work";
+    safeType === "MOT"
+      ? "Book MOT"
+      : safeType === "SERVICE"
+      ? "Book Service"
+      : safeType === "INSPECTION"
+      ? "Book 8 Week Inspection"
+      : "Book Work";
 
   const [saving, setSaving] = useState(false);
 
@@ -1339,6 +1565,8 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
 
     setSaving(true);
     try {
+      const nowAuditIso = new Date().toISOString();
+      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
       //  ALWAYS write real Date objects into maintenanceBookings
       const apptDateObj = !isMultiDay ? ymdToDate(appointmentDate) : null;
 
@@ -1367,8 +1595,19 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         location: location.trim(),
         cost: cost ? String(cost).trim() : "",
         notes: notes.trim(),
+        createdBy: auditUser.email,
+        createdByUid: auditUser.uid,
+        lastEditedBy: auditUser.email,
+        lastEditedByUid: auditUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        history: [
+          buildMaintenanceHistoryEntry({
+            action: "Created",
+            user: auditUser,
+            timestamp: nowAuditIso,
+          }),
+        ],
       };
 
       const created = await addDoc(collection(db, "maintenanceBookings"), bookingPayload);
@@ -1402,6 +1641,14 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         if (completedISO) {
           updates.lastMOT = completedISO;
           updates.nextMOT = computeNextDueFromCompletion(completedISO, motFreqWeeks);
+          updates.motHistory = mergeMaintenanceHistory(vehicleSnapshot?.motHistory, {
+            completedDate: completedISO,
+            bookingId: created.id,
+            provider: provider.trim(),
+            bookingRef: bookingRef.trim(),
+            notes: notes.trim(),
+            recordedAt: new Date().toISOString(),
+          });
 
           // Optional: clear appointment summary fields once completed
           updates.motAppointmentDate = "";
@@ -1441,6 +1688,14 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         if (completedISO) {
           updates.lastService = completedISO;
           updates.nextService = computeNextDueFromCompletion(completedISO, serviceFreqWeeks);
+          updates.serviceHistory = mergeMaintenanceHistory(vehicleSnapshot?.serviceHistory, {
+            completedDate: completedISO,
+            bookingId: created.id,
+            provider: provider.trim(),
+            bookingRef: bookingRef.trim(),
+            notes: notes.trim(),
+            recordedAt: new Date().toISOString(),
+          });
 
           // Optional: clear appointment summary fields once completed
           updates.serviceAppointmentDate = "";
@@ -1451,6 +1706,48 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
           updates.serviceLocation = "";
           updates.serviceCost = "";
           updates.serviceBookingNotes = "";
+        }
+
+        await updateDoc(vRef, updates);
+      } else if (safeType === "INSPECTION") {
+        const updates = {
+          inspectionBookedStatus: status,
+          inspectionBookedOn: todayISO(),
+          inspectionAppointmentDate: !isMultiDay ? appointmentDate : "",
+          inspectionBookingStartDate: isMultiDay ? startDate : "",
+          inspectionBookingEndDate: isMultiDay ? endDate : "",
+          inspectionProvider: provider.trim(),
+          inspectionBookingRef: bookingRef.trim(),
+          inspectionLocation: location.trim(),
+          inspectionCost: cost ? String(cost).trim() : "",
+          inspectionBookingNotes: notes.trim(),
+          inspectionBookingId: created.id,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (completedISO) {
+          updates.eightWeekInspectionStart = completedISO;
+          updates.nextEightWeekInspection = computeNextDueFromCompletion(completedISO, 8);
+          updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
+          updates.eightWeekInspectionHistory = mergeInspectionHistory(
+            vehicleSnapshot?.eightWeekInspectionHistory,
+            {
+              completedDate: completedISO,
+              bookingId: created.id,
+              provider: provider.trim(),
+              bookingRef: bookingRef.trim(),
+              notes: notes.trim(),
+              recordedAt: new Date().toISOString(),
+            }
+          );
+          updates.inspectionAppointmentDate = "";
+          updates.inspectionBookingStartDate = "";
+          updates.inspectionBookingEndDate = "";
+          updates.inspectionProvider = "";
+          updates.inspectionBookingRef = "";
+          updates.inspectionLocation = "";
+          updates.inspectionCost = "";
+          updates.inspectionBookingNotes = "";
         }
 
         await updateDoc(vRef, updates);

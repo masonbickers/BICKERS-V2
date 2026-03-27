@@ -1315,6 +1315,8 @@ export default function StatisticsPage() {
           <div style={grid(4)}>
             {navCard("/job-sheet", "Job Sheet", "All jobs table", `${jobsAll.length}`)}
             {navCard("/client-info", "Client Info", "Client list and history", "Directory")}
+            {navCard("/client-emails", "Client Emails", "Collated email list from jobs", "Contacts")}
+            {navCard("/saved-contacts", "Manage Saved Contacts", "Edit or remove saved booking contacts", "Contacts")}
             {navCard("/review-queue", "Review Queue", "Ops review stage", "Open →")}
             {navCard("/finance-queue", "Ready to Invoice", "Finance queue", "Open →")}
             {navCard("/deleted-bookings", "Deleted Bookings", "Restore / purge", `${deletedBookings.length}`)}

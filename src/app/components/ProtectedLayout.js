@@ -15,7 +15,7 @@ import {
 } from "@/app/utils/accessControl";
 import {
   hasAuthenticatorMfa,
-  isMfaVerified,
+  isMfaVerifiedOnDevice,
   isPhoneVerified,
 } from "@/app/utils/authSecurity";
 
@@ -56,7 +56,8 @@ export default function ProtectedLayout({ children }) {
         const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
         const phoneReady = isPhoneVerified(userData);
         const mfaReady = hasAuthenticatorMfa(userData);
-        const mfaPassed = isMfaVerified(
+        const mfaPassed = isMfaVerifiedOnDevice(
+          typeof window !== "undefined" ? window.localStorage : null,
           typeof window !== "undefined" ? window.sessionStorage : null,
           currentUser.uid
         );
