@@ -187,6 +187,31 @@ function isSunday(yyyyMmDd) {
   return d.getUTCDay() === 0;
 }
 
+function formatYyyyMmDd(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(+d)) return "";
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    d.getUTCDate()
+  ).padStart(2, "0")}`;
+}
+
+function eachDateYMD(startRaw, endRaw) {
+  const start = parseYyyyMmDd(startRaw) ?? new Date(startRaw);
+  const end = parseYyyyMmDd(endRaw) ?? parseYyyyMmDd(startRaw) ?? new Date(startRaw);
+  if (Number.isNaN(+start) || Number.isNaN(+end)) return [];
+
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const finalDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+  const out = [];
+
+  while (cursor <= finalDay) {
+    out.push(formatYyyyMmDd(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return out;
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Normalisers
 ──────────────────────────────────────────────────────────────────────────── */
@@ -217,6 +242,10 @@ function dedupeEmployees(list) {
   return out;
 }
 
+function isFourDigitJobNumber(value) {
+  return /^\d{4}$/.test(String(value || "").trim());
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Exact day-note → credit mapping
 ──────────────────────────────────────────────────────────────────────────── */
@@ -240,6 +269,7 @@ const BREAKDOWN_COLUMNS = [
   { key: "onSet", label: "On Set" },
   { key: "travel", label: "Travel" },
   { key: "halfTravel", label: "1/2 Travel" },
+  { key: "yardBase", label: "Yard Based" },
   { key: "yard", label: "Yard / Rig" },
   { key: "standby", label: "Standby" },
   { key: "turnaround", label: "Turnaround" },
@@ -342,19 +372,55 @@ export default function EmployeesHomePage() {
     (async () => {
       setLoading(true);
       try {
-        const snapshot = await getDocs(collection(db, "bookings"));
+        const [bookingsSnap, holidaysSnap, employeesSnap] = await Promise.all([
+          getDocs(collection(db, "bookings")),
+          getDocs(collection(db, "holidays")),
+          getDocs(collection(db, "employees")),
+        ]);
 
         // empKey -> Map<YYYY-MM-DD, credit>
         const credits = new Map();
         const breakdown = new Map();
+        const bookedDaysByEmployee = new Map();
+        const holidayDaysByEmployee = new Map();
+        const employeeMeta = new Map();
         const since = effectiveRange.since;
         const until = effectiveRange.until;
 
-        snapshot.forEach((docSnap) => {
+        const rememberDay = (store, empKey, dayKey) => {
+          if (!empKey || !dayKey) return;
+          if (!store.has(empKey)) store.set(empKey, new Set());
+          store.get(empKey).add(dayKey);
+        };
+
+        const registerEmployee = (employee = {}) => {
+          const rawName = employee.name || employee.fullName || [employee.firstName, employee.lastName].filter(Boolean).join(" ");
+          const key = String(employee.id || normaliseName(rawName) || "").trim();
+          const role = String(employee.role || employee.jobTitle || "").trim().toLowerCase();
+          if (!key || !rawName || role === "freelancer" || role === "freelance") return "";
+          if (!employeeMeta.has(key)) {
+            employeeMeta.set(key, {
+              key,
+              displayName: titleCase(rawName),
+            });
+          }
+          return key;
+        };
+
+        employeesSnap.forEach((docSnap) => {
+          const employee = { id: docSnap.id, ...(docSnap.data() || {}) };
+          const status = String(employee.status || employee.employmentStatus || "").trim().toLowerCase();
+          if (employee.deleted === true || employee.isDeleted === true || employee.archived === true) return;
+          if (status === "inactive" || status === "archived") return;
+          registerEmployee(employee);
+        });
+
+        bookingsSnap.forEach((docSnap) => {
           const booking = docSnap.data() || {};
           const status = String(booking.status || "").trim();
 
           if (status !== "Confirmed" && status !== "Complete") return;
+          if (!isFourDigitJobNumber(booking.jobNumber)) return;
 
           // employees array (strings or objects)
           const employeeListRaw = booking.employees || [];
@@ -395,13 +461,14 @@ export default function EmployeesHomePage() {
             }
 
             for (const emp of uniqEmployees) {
-              const empKey = emp.id || normaliseName(emp.name);
+              const empKey = registerEmployee(emp) || emp.id || normaliseName(emp.name);
               if (!credits.has(empKey)) credits.set(empKey, new Map());
               const byDate = credits.get(empKey);
 
               // take MAX if multiple bookings for same emp & day
               const prev = byDate.get(dayKey) ?? 0;
               if (credit > prev) byDate.set(dayKey, credit);
+              rememberDay(bookedDaysByEmployee, empKey, dayKey);
 
               if (!breakdown.has(empKey)) breakdown.set(empKey, new Map());
               const byDateCategory = breakdown.get(empKey);
@@ -414,18 +481,51 @@ export default function EmployeesHomePage() {
           }
         });
 
+        holidaysSnap.forEach((docSnap) => {
+          const holiday = docSnap.data() || {};
+          const status = String(holiday.status || "").trim().toLowerCase();
+          if (holiday.deleted === true || holiday.isDeleted === true || status === "deleted") return;
+
+          const holidayEmployeeName = String(holiday.employee || "").trim();
+          if (!holidayEmployeeName) return;
+
+          let empKey = "";
+          for (const [candidateKey, meta] of employeeMeta.entries()) {
+            if (normaliseName(meta.displayName) === normaliseName(holidayEmployeeName)) {
+              empKey = candidateKey;
+              break;
+            }
+          }
+
+          if (!empKey) {
+            empKey = registerEmployee({ name: holidayEmployeeName });
+          }
+          if (!empKey) return;
+
+          eachDateYMD(holiday.startDate, holiday.endDate).forEach((dayKey) => {
+            if (!isDateInRange(dayKey, since, until)) return;
+            rememberDay(holidayDaysByEmployee, empKey, dayKey);
+          });
+        });
+
         const rows = [];
         const breakdownRows = [];
         for (const [empKey, byDate] of credits.entries()) {
           let total = 0;
           for (const v of byDate.values()) total += v;
-          const display = empKey.includes("@@") ? empKey.split("@@")[0] : empKey;
+          const display = employeeMeta.get(empKey)?.displayName || (empKey.includes("@@") ? empKey.split("@@")[0] : empKey);
           rows.push({
             key: empKey,
             name: initialsOf(display),
             fullName: titleCase(display),
             days: Number(total.toFixed(2)),
           });
+        }
+
+        for (const [empKey, meta] of employeeMeta.entries()) {
+          const byDate = credits.get(empKey) || new Map();
+          let total = 0;
+          for (const v of byDate.values()) total += v;
 
           const dayTypeCounts = Object.fromEntries(BREAKDOWN_COLUMNS.map((col) => [col.key, 0]));
           const byDateCategory = breakdown.get(empKey) || new Map();
@@ -436,9 +536,25 @@ export default function EmployeesHomePage() {
             }
           }
 
+          const bookedDays = bookedDaysByEmployee.get(empKey) || new Set();
+          const holidayDays = holidayDaysByEmployee.get(empKey) || new Set();
+          let yardBaseDays = 0;
+          const cursor = new Date(since);
+          while (cursor <= until) {
+            const dayOfWeek = cursor.getUTCDay();
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+              const dayKey = formatYyyyMmDd(cursor);
+              if (!bookedDays.has(dayKey) && !holidayDays.has(dayKey)) {
+                yardBaseDays += 1;
+              }
+            }
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+          }
+          dayTypeCounts.yardBase = yardBaseDays;
+
           breakdownRows.push({
             key: empKey,
-            name: titleCase(display),
+            name: meta.displayName,
             totalDays: Number(total.toFixed(2)),
             ...dayTypeCounts,
           });
@@ -713,7 +829,8 @@ export default function EmployeesHomePage() {
             <div>
               <h2 style={titleMd}>Work Type Breakdown</h2>
               <div style={hint}>
-                Per-employee day counts by booking note type across the selected reporting window.
+                Per-employee day counts by booking note type across the selected reporting window. Yard Based counts
+                Monday to Friday days with no booking and no holiday.
               </div>
             </div>
             <div style={chipSoft}>{usageBreakdownData.length} employees</div>
@@ -729,7 +846,7 @@ export default function EmployeesHomePage() {
             <div style={{ color: UI.muted, fontSize: 13 }}>No employee work breakdown found in this reporting period.</div>
           ) : (
             <div style={{ overflowX: "auto", marginTop: 8 }}>
-              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1100 }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1200 }}>
                 <thead>
                   <tr>
                     <th style={tableHeadLeft}>Employee</th>
