@@ -50,9 +50,9 @@ const UI = {
   muted: "#5f6f82",
 };
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
    Admin allow-list (same as HR page)
-─────────────────────────────────────────── */
+------------------------------------------- */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
@@ -60,9 +60,9 @@ const ADMIN_EMAILS = [
 ];
 
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
    Date helpers (match HR page logic)
-─────────────────────────────────────────── */
+------------------------------------------- */
 function parseYMD(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ""));
   if (!m) return null;
@@ -141,9 +141,9 @@ export default function HeaderSidebarLayout({
     return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
   }, [emailLower, userDoc?.role]);
 
-  /* ───────────────────────────────────────────
+  /* -------------------------------------------
      Locked AUTH + LIVE DISABLE GUARD (robust user doc resolution)
-  ──────────────────────────────────────────── */
+  -------------------------------------------- */
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
       // clean old snapshots
@@ -222,7 +222,7 @@ export default function HeaderSidebarLayout({
             : nextAccess.defaultWorkspace
       );
 
-      //  LIVE WATCH — force logout if disabled (only if we resolved a doc)
+      //  LIVE WATCH � force logout if disabled (only if we resolved a doc)
       unsubUserRef.current = onSnapshot(resolvedRef, async (docSnap) => {
         const data = docSnap.data();
         setUserDoc(data);
@@ -240,7 +240,7 @@ export default function HeaderSidebarLayout({
         }
       });
 
-      //  LIVE HR NOTIFICATION — match HR year bucketing rules
+      //  LIVE HR NOTIFICATION � match HR year bucketing rules
       unsubHrRef.current = onSnapshot(collection(db, "holidays"), (qs) => {
         let requested = 0;
         let deleteReq = 0;
@@ -271,9 +271,9 @@ export default function HeaderSidebarLayout({
     };
   }, [auth, router]);
 
-  /* ───────────────────────────────────────────
+  /* -------------------------------------------
      NAV DEFINITIONS
-  ──────────────────────────────────────────── */
+  -------------------------------------------- */
   const userHeaderLinks = [
     { label: "Workshop", path: "/workshop" },
     { label: "Wall View", path: "/wall-view" },
@@ -345,30 +345,17 @@ export default function HeaderSidebarLayout({
   const workspaceNav = workspaceNavGroups.flatMap((group) => group.items);
   const headerLinks = activeWorkspace === "service" ? serviceHeaderLinks : userHeaderLinks;
 
-  /* ───────────────────────────────────────────
+  /* -------------------------------------------
      LOGOUT
-  ──────────────────────────────────────────── */
+  -------------------------------------------- */
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
-  /* ───────────────────────────────────────────
+  /* -------------------------------------------
      BACK BUTTON
-  ──────────────────────────────────────────── */
-  const handleWorkspaceSwitch = (workspace) => {
-    if (!employeeAccess) return;
-    if (workspace === "service" && !employeeAccess.hasServiceAccess) return;
-    if (workspace === "user" && !employeeAccess.hasUserAccess) return;
-
-    setActiveWorkspace(workspace);
-    if (typeof window !== "undefined") {
-      setStoredActiveWorkspace(window.localStorage, workspace);
-      setStoredActiveWorkspace(window.sessionStorage, workspace);
-    }
-    router.push(selectLandingRoute(employeeAccess, workspace));
-  };
-
+  -------------------------------------------- */
   //  badge total (requested + delete)
   const hrBadgeTotal = useMemo(() => {
     return (hrNotif?.requests || 0) + (hrNotif?.deletes || 0);
@@ -387,7 +374,7 @@ export default function HeaderSidebarLayout({
         ? "Email, phone, and authenticator are active"
         : [emailReady ? null : "Email", phoneReady ? null : "Phone", mfaReady ? null : "Authenticator"]
             .filter(Boolean)
-            .join(" • "),
+            .join(" � "),
     };
   }, [user?.emailVerified, userDoc]);
 
@@ -449,7 +436,7 @@ export default function HeaderSidebarLayout({
         background: UI.shellBg,
       }}
     >
-      {/* ───────────────── Sidebar ───────────────── */}
+      {/* ----------------- Sidebar ----------------- */}
       <aside
         style={{
           width: isCollapsed ? "60px" : "220px",
@@ -622,7 +609,7 @@ export default function HeaderSidebarLayout({
                             fontWeight: 800,
                           }}
                         >
-                          •
+                          �
                         </span>
                       )}
 
@@ -659,12 +646,12 @@ export default function HeaderSidebarLayout({
               fontSize: "14px",
             }}
           >
-            {isCollapsed ? "⏻" : "Logout"}
+            {isCollapsed ? "LO" : "Logout"}
           </button>
         </div>
       </aside>
 
-      {/* ───────────────── Main ───────────────── */}
+      {/* ----------------- Main ----------------- */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <header
@@ -704,7 +691,7 @@ export default function HeaderSidebarLayout({
                 aria-label={backLabel}
                 title={backLabel}
               >
-                <span aria-hidden="true">←</span>
+                <span aria-hidden="true">&larr;</span>
                 <span>{backLabel}</span>
               </button>
             )}
@@ -785,40 +772,6 @@ export default function HeaderSidebarLayout({
               </div>
             </div>
 
-            {employeeAccess?.hasUserAccess && employeeAccess?.hasServiceAccess && (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                padding: 3,
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.04)",
-                border: `1px solid ${UI.topbarBorder}`,
-              }}
-            >
-                {["user", "service"].map((workspace) => (
-                  <button
-                    key={workspace}
-                    type="button"
-                    onClick={() => handleWorkspaceSwitch(workspace)}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: "none",
-                      background: activeWorkspace === workspace ? UI.activeAccent : "transparent",
-                      color: activeWorkspace === workspace ? "#102217" : "#d5deea",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {workspace === "user" ? "User" : "Service"}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {headerLinks.map(({ label, path }) => (
               <Link
                 key={label}
@@ -866,7 +819,7 @@ export default function HeaderSidebarLayout({
             justifyContent: "center",
           }}
         >
-          © {new Date().getFullYear()} Bickers Booking System
+          Copyright {new Date().getFullYear()} Bickers Booking System v3.0.4
         </footer>
       </div>
     </div>

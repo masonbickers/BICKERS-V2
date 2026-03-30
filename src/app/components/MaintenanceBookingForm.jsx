@@ -67,7 +67,8 @@ export default function MaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
-  const [equipmentOptions, setEquipmentOptions] = useState([]);
+  const [equipmentGroups, setEquipmentGroups] = useState({});
+  const [openEquipmentGroups, setOpenEquipmentGroups] = useState({});
   const [selectedEquipment, setSelectedEquipment] = useState(
     Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []
   );
@@ -322,15 +323,27 @@ export default function MaintenanceBookingForm({
       } else {
         setVehicle(null);
       }
-      setEquipmentOptions(
-        equipmentSnap.docs
-          .map((d) => {
-            const data = d.data() || {};
-            return String(data.name || data.label || d.id || "").trim();
-          })
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b))
-      );
+      const groupedEquipment = {};
+      equipmentSnap.docs.forEach((d) => {
+        const data = d.data() || {};
+        const category = String(data.category || "Other").trim() || "Other";
+        const name = String(data.name || data.label || d.id || "").trim();
+        if (!name) return;
+        if (!groupedEquipment[category]) groupedEquipment[category] = [];
+        groupedEquipment[category].push(name);
+      });
+
+      Object.keys(groupedEquipment).forEach((category) => {
+        groupedEquipment[category].sort((a, b) => a.localeCompare(b));
+      });
+
+      const defaultOpenGroups = {};
+      Object.keys(groupedEquipment).forEach((category) => {
+        defaultOpenGroups[category] = false;
+      });
+
+      setEquipmentGroups(groupedEquipment);
+      setOpenEquipmentGroups(defaultOpenGroups);
 
       setExisting(existingSnap ? existingSnap.docs.map((d) => ({ id: d.id, ...d.data() })) : []);
     };
@@ -344,6 +357,21 @@ export default function MaintenanceBookingForm({
   useEffect(() => {
     setSelectedEquipment(Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []);
   }, [initialEquipment]);
+
+  useEffect(() => {
+    if (!Object.keys(equipmentGroups).length) return;
+    setOpenEquipmentGroups((prev) => {
+      const next = { ...(prev || {}) };
+      Object.entries(equipmentGroups).forEach(([category, items]) => {
+        if (Array.isArray(items) && items.some((name) => selectedEquipment.includes(name))) {
+          next[category] = true;
+        } else if (typeof next[category] !== "boolean") {
+          next[category] = false;
+        }
+      });
+      return next;
+    });
+  }, [equipmentGroups, selectedEquipment]);
 
   // keep date fields in sync when toggling modes
   useEffect(() => {
@@ -829,19 +857,45 @@ export default function MaintenanceBookingForm({
 
           <div style={{ ...fieldBlock, ...fullWidth }}>
             <label style={label}>Book equipment off</label>
-            {equipmentOptions.length ? (
-              <div style={pickerGrid}>
-                {equipmentOptions.map((name) => {
-                  const checked = selectedEquipment.includes(name);
+            {Object.keys(equipmentGroups).length ? (
+              <div style={categoryGrid}>
+                {Object.entries(equipmentGroups).map(([category, items]) => {
+                  const isOpen = openEquipmentGroups[category] || false;
+
                   return (
-                    <label key={name} style={pickerItem}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => toggleEquipment(name, e.target.checked)}
-                      />{" "}
-                      {name}
-                    </label>
+                    <div key={category} style={categoryCard}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenEquipmentGroups((prev) => ({
+                            ...prev,
+                            [category]: !prev[category],
+                          }))
+                        }
+                        style={categoryToggle}
+                      >
+                        <span>{isOpen ? "v" : ">"} {category}</span>
+                        <span style={categoryCount}>{items.length}</span>
+                      </button>
+
+                      {isOpen && (
+                        <div style={pickerGrid}>
+                          {items.map((name) => {
+                            const checked = selectedEquipment.includes(name);
+                            return (
+                              <label key={name} style={pickerItem}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => toggleEquipment(name, e.target.checked)}
+                                />{" "}
+                                {name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -982,12 +1036,56 @@ const fullWidth = {
 
 const pickerGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 8,
+  marginTop: 10,
   padding: 10,
   borderRadius: 12,
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.08)",
+};
+
+const categoryGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const categoryCard = {
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.06)",
+  overflow: "hidden",
+};
+
+const categoryToggle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 12px",
+  border: "none",
+  background: "rgba(255,255,255,0.04)",
+  color: "rgba(255,255,255,0.95)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const categoryCount = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 22,
+  height: 22,
+  padding: "0 8px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.12)",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 900,
 };
 
 const pickerItem = {

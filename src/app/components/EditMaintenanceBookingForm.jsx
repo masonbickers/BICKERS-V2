@@ -1247,7 +1247,7 @@ const fullWidth = {
 
 const pickerGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 8,
   padding: 10,
   borderRadius: 12,

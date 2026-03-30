@@ -478,6 +478,7 @@ export default function VehicleMaintenancePage() {
                               >
                                 <option value="Taxed">Taxed</option>
                                 <option value="Sorn">Sorn</option>
+                                <option value="N/A">N/A</option>
                               </select>
                             </td>
 
