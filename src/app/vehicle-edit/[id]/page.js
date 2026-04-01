@@ -241,6 +241,25 @@ const toISODate = (v) => {
   return d ? clampISODate(d) : "";
 };
 
+const getBookingAnchorDate = (booking) =>
+  toDate(booking?.endDate) ||
+  toDate(booking?.appointmentDate) ||
+  toDate(booking?.startDate) ||
+  null;
+
+const isPastBooking = (booking) => {
+  const anchor = getBookingAnchorDate(booking);
+  if (!anchor) return false;
+  return endOfDay(anchor).getTime() < startOfDay(new Date()).getTime();
+};
+
+const isArchivedMotBooking = (booking) => {
+  const type = String(booking?.type || "").toUpperCase();
+  const status = String(booking?.status || "").toLowerCase();
+  if (type !== "MOT") return false;
+  return status === "completed" || isPastBooking(booking);
+};
+
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
@@ -335,7 +354,7 @@ export default function EditVehiclePage() {
 
     const active = rows.filter((b) => {
       const s = String(b.status || "").toLowerCase();
-      return !s.includes("cancel") && !s.includes("declin");
+      return !s.includes("cancel") && !s.includes("declin") && !isArchivedMotBooking(b);
     });
 
     const byNewest = [...active].sort((a, b) => {
@@ -653,7 +672,11 @@ export default function EditVehiclePage() {
     return vehicle.name || vehicle.registration || vehicle.reg || vehicle.id;
   }, [vehicle]);
 
-  const activeMotBookingId = vehicle?.motBookingId || latestMotBooking?.id || "";
+  const summaryMotBooking = vehicleBookings.find((b) => b.id === vehicle?.motBookingId);
+  const activeMotBookingId =
+    summaryMotBooking && !isArchivedMotBooking(summaryMotBooking)
+      ? summaryMotBooking.id
+      : latestMotBooking?.id || "";
   const activeServiceBookingId = vehicle?.serviceBookingId || latestServiceBooking?.id || "";
   const activeInspectionBookingId =
     vehicle?.inspectionBookingId || latestInspectionBooking?.id || "";
@@ -662,12 +685,15 @@ export default function EditVehiclePage() {
   const hasInspectionBooking = Boolean(activeInspectionBookingId);
   const showEightWeekInspection = isTransportLorryVehicle(vehicle || {});
 
+  const activeVehicleBookings = useMemo(
+    () => vehicleBookings.filter((b) => !isArchivedMotBooking(b)),
+    [vehicleBookings]
+  );
+
   const completedMotHistory = useMemo(
     () =>
       vehicleBookings.filter((b) => {
-        const type = String(b?.type || "").toUpperCase();
-        const status = String(b?.status || "").toLowerCase();
-        return type === "MOT" && status === "completed";
+        return isArchivedMotBooking(b);
       }),
     [vehicleBookings]
   );
@@ -692,16 +718,24 @@ export default function EditVehiclePage() {
     [vehicleBookings]
   );
 
-  const motHistoryItems =
-    Array.isArray(vehicle?.motHistory) && vehicle.motHistory.length
-      ? vehicle.motHistory
-      : completedMotHistory.map((b) => ({
-          completedDate: bookingCompletedLabel(b),
-          bookingId: b.id,
-          provider: b.provider || "",
-          bookingRef: b.bookingRef || "",
-          notes: b.notes || "",
-        }));
+  const motHistoryItems = useMemo(() => {
+    const stored = Array.isArray(vehicle?.motHistory) ? vehicle.motHistory : [];
+    const derived = completedMotHistory.map((b) => ({
+      completedDate: bookingCompletedLabel(b),
+      bookingId: b.id,
+      provider: b.provider || "",
+      bookingRef: b.bookingRef || "",
+      notes: b.notes || "",
+    }));
+
+    const seen = new Set();
+    return [...stored, ...derived].filter((item, index) => {
+      const key = item?.bookingId || `${item?.completedDate || ""}-${item?.bookingRef || ""}-${index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [vehicle?.motHistory, completedMotHistory]);
 
   const serviceHistoryItems =
     Array.isArray(vehicle?.serviceHistory) && vehicle.serviceHistory.length
@@ -783,7 +817,7 @@ export default function EditVehiclePage() {
     return s === e ? s : `${s} → ${e}`;
   };
 
-  const bookingCompletedLabel = (b) => {
+  function bookingCompletedLabel(b) {
     const completed =
       b?.completedAtISO ||
       b?.endDateISO ||
@@ -793,7 +827,7 @@ export default function EditVehiclePage() {
       toISODate(b?.startDate) ||
       "";
     return completed || "-";
-  };
+  }
 
   const deleteMaintenanceBooking = async (bookingId) => {
     if (!bookingId) return;
@@ -1116,11 +1150,11 @@ export default function EditVehiclePage() {
                 All bookings linked to this vehicle (MOT, Service, and Maintenance/Work).
               </div>
 
-              {vehicleBookings.length === 0 ? (
+              {activeVehicleBookings.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13 }}>No maintenance bookings found for this vehicle.</div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {vehicleBookings.map((b) => (
+                  {activeVehicleBookings.map((b) => (
                     <div
                       key={b.id}
                       style={{
@@ -1190,21 +1224,24 @@ export default function EditVehiclePage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: UI.gap }}>
               <div style={panel}>
                 <h2 style={sectionTitle}>MOT History</h2>
-                <div style={sectionMeta}>Completed MOT bookings for this vehicle.</div>
+                <div style={sectionMeta}>Completed or past MOT bookings for this vehicle.</div>
 
                 {motHistoryItems.length === 0 ? (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No completed MOT history yet.</div>
+                  <div style={{ color: UI.muted, fontSize: 13 }}>No MOT history yet.</div>
                 ) : (
                   <div style={{ display: "grid", gap: 10 }}>
                     {motHistoryItems.map((item, index) => (
                       <div
                         key={item.bookingId || `${item.completedDate}-${index}`}
+                        onClick={() => item.bookingId && setEditBookingId(item.bookingId)}
                         style={{
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
                           padding: 10,
                           background: "#fff",
+                          cursor: item.bookingId ? "pointer" : "default",
                         }}
+                        title={item.bookingId ? "Open booking" : "No linked booking record"}
                       >
                         <div style={{ fontWeight: 900, color: UI.text }}>{item.completedDate || "-"}</div>
                         <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
@@ -1215,6 +1252,11 @@ export default function EditVehiclePage() {
                         </div>
                         {item.notes ? (
                           <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
+                        ) : null}
+                        {item.bookingId ? (
+                          <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 900, color: UI.brand }}>
+                            Click to open booking
+                          </div>
                         ) : null}
                       </div>
                     ))}

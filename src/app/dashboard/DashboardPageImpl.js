@@ -15,6 +15,12 @@ const BigCalendar = dynamic(
 
 import { localizer } from "../utils/localizer";
 import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, ymd } from "../utils/maintenanceSchema";
+import {
+  buildMaintenanceBookingEvents,
+  buildMaintenanceJobEvents,
+  getMaintenanceBookingKind,
+  getMaintenanceDisplayType,
+} from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   collection,
@@ -259,6 +265,7 @@ const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" }
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
   Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
+  Bickers: { bg: "#ffffff", text: "#111", border: "#0b0b0b" },
   Stunt: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
   "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
   "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
@@ -275,6 +282,7 @@ const STATUS_COLORS = {
 const normalizeStatusLabel = (raw = "") => {
   const s = String(raw || "").trim().toLowerCase();
   if (s === "confirmed") return "Confirmed";
+  if (s === "bickers") return "Bickers";
   if (s === "stunt") return "Stunt";
   if (s === "first pencil") return "First Pencil";
   if (s === "second pencil") return "Second Pencil";
@@ -297,12 +305,6 @@ const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
 const DELETED_ON_CALENDAR_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk"]);
 const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
 const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
-const ACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
-  "planned",
-  "awaiting_parts",
-  "in_progress",
-  "qa",
-]);
 const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
 
 /* ------------------------------- helpers ------------------------------- */
@@ -417,31 +419,6 @@ const isApptAfterExpiry = (appt, expiry) => {
   const a = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
   const e = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()).getTime();
   return a > e;
-};
-
-const getMaintenanceBookingKind = (booking = {}) => {
-  const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (t === "MOT") return "MOT_BOOKING";
-  if (t === "SERVICE") return "SERVICE_BOOKING";
-  if (t === "INSPECTION") return "INSPECTION_BOOKING";
-  if (t === "WORK") return "MAINTENANCE_BOOKING";
-  return "MAINTENANCE_BOOKING";
-};
-
-const getMaintenanceDisplayType = (booking = {}) => {
-  const explicit = String(booking.maintenanceTypeLabel || "").trim();
-  if (explicit) return explicit.toUpperCase();
-
-  const other = String(booking.maintenanceTypeOther || "").trim();
-  if (other) return other.toUpperCase();
-
-  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (rawType === "MOT") return "MOT";
-  if (rawType === "SERVICE") return "SERVICE";
-  if (rawType === "WORK") return "WORK";
-  if (rawType) return rawType;
-
-  return "MAINTENANCE";
 };
 
 const labelFromMins = (mins) => {
@@ -660,82 +637,14 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
     };
   });
 
-  // maintenance bookings → full events
-  const maintenanceEvents = (maintenanceBookings || []).flatMap((m) => {
-    if (isInactiveMaintenanceBooking(m.status)) return [];
-    const dates = Array.isArray(m.bookingDates) ? m.bookingDates.slice().sort() : [];
-    const kind = getMaintenanceBookingKind(m);
-    const typeLabel = getMaintenanceDisplayType(m);
-    const label =
-      m.vehicleLabel ||
-      m.vehicleName ||
-      m.title ||
-      m.jobNumber ||
-      "Vehicle";
-    const provider = String(m.provider || "").trim();
-    const baseTitle =
-      `${label} • ${typeLabel}` +
-      (provider ? ` • ${provider}` : "");
-
-    //  If bookingDates exists, create one all-day event per selected day
-    if (dates.length) {
-      return dates
-        .map((ymd) => {
-          const startBase = parseLocalDate(ymd);
-          if (!startBase) return null;
-
-          return {
-            ...m,
-            __collection: "maintenanceBookings",
-            __parentId: m.id, //  link back to true doc id
-            __occurrence: ymd, // optional: which day this is
-            id: `${m.id}__${ymd}`, //  unique per-day id for calendar rendering
-
-            jobNumber: m.jobNumber ?? "",
-            title: baseTitle,
-            kind,
-            bookingStatus: m.status || "Booked",
-            maintenanceType: m.maintenanceType || "",
-            maintenanceTypeOther: m.maintenanceTypeOther || "",
-            maintenanceTypeLabel: typeLabel,
-
-            start: startOfLocalDay(startBase),
-            end: startOfLocalDay(addDays(startBase, 1)),
-            allDay: true,
-            status: "Maintenance",
-          };
-        })
-        .filter(Boolean);
-    }
-
-    //  Fallback for older docs that don’t have bookingDates
-    const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
-    if (!startBase) return [];
-
-    const endRaw = m.endDate || m.end || m.date || m.startDate || m.start || m.startDay;
-    const endBase = parseLocalDate(endRaw);
-    const safeEnd = endBase && endBase >= startBase ? endBase : startBase;
-
-    return [
-      {
-        ...m,
-        __collection: "maintenanceBookings",
-        __parentId: m.id,
-        id: m.id,
-        jobNumber: m.jobNumber ?? "",
-        title: baseTitle,
-        kind,
-        bookingStatus: m.status || "Booked",
-        maintenanceType: m.maintenanceType || "",
-        maintenanceTypeOther: m.maintenanceTypeOther || "",
-        maintenanceTypeLabel: typeLabel,
-        start: startOfLocalDay(startBase),
-        end: startOfLocalDay(addDays(safeEnd, 1)),
-        allDay: true,
-        status: "Maintenance",
-      },
-    ];
-  });
+  const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
+    getVehicleLabel: (booking) =>
+      booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+    titleSeparator: " • ",
+  }).map((event) => ({
+    ...event,
+    jobNumber: event.jobNumber ?? "",
+  }));
 
   const all = [...bookingEvents, ...maintenanceEvents];
 
@@ -843,6 +752,7 @@ function CalendarEvent({ event }) {
   }, []);
 
   const isMaintenance = event.status === "Maintenance";
+  const isBickersJob = String(event.status || "").trim().toLowerCase() === "bickers";
 
   //  robust per-day call time detection + display
   const hasPerDayCallTimes =
@@ -850,6 +760,14 @@ function CalendarEvent({ event }) {
 
   const bookingStatusLC = String(event.status || "").toLowerCase();
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh"].includes(bookingStatusLC);
+  const equipmentText = Array.isArray(event?.equipment)
+    ? event.equipment
+        .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .join(", ")
+    : String(event?.equipment || "").trim();
+  const locationText = String(event?.location || "").trim();
 
   const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
 
@@ -1044,9 +962,14 @@ function CalendarEvent({ event }) {
               jobLastDay.setDate(jobLastDay.getDate() - 1);
               jobLastDay.setHours(0, 0, 0, 0);
 
-              const isFutureJob = jobLastDay > today0;
+              const isCurrentOrFutureJob = jobLastDay >= today0;
 
-              if (isConfirmed && isFutureJob && (isSornOrUntaxed || isUninsured)) {
+              if (
+                !event.offRoadTracking &&
+                isConfirmed &&
+                isCurrentOrFutureJob &&
+                (isSornOrUntaxed || isUninsured)
+              ) {
                 return (
                   <span
                     key={i}
@@ -1062,7 +985,7 @@ function CalendarEvent({ event }) {
                       border: "1px solid #0b0b0b",
                       marginTop: 1,
                     }}
-                    title="Vehicle non-compliant (SORN / Not Insured) — future confirmed job"
+                    title="Vehicle non-compliant (SORN / Not Insured) — current or future confirmed job"
                   >
                     {name}
                     {plate ? ` – ${plate}` : ""}
@@ -1088,9 +1011,15 @@ function CalendarEvent({ event }) {
                 const shoot = String(event.shootType || "").toLowerCase();
                 const bookingIsConfirmed = String(event.status || "").trim().toLowerCase() === "confirmed";
                 const vehicleIsConfirmed = String(itemStatus || "").trim().toLowerCase() === "confirmed";
+                const bookingIsComplete = String(event.status || "").trim().toLowerCase() === "complete";
+                const vehicleIsComplete = String(itemStatus || "").trim().toLowerCase() === "complete";
 
                 const style =
-                  shoot === "night" && bookingIsConfirmed && vehicleIsConfirmed
+                  shoot === "night" &&
+                  bookingIsConfirmed &&
+                  vehicleIsConfirmed &&
+                  !bookingIsComplete &&
+                  !vehicleIsComplete
                     ? NIGHT_SHOOT_STYLE
                     : getStatusStyle(itemStatus);
 
@@ -1124,8 +1053,16 @@ function CalendarEvent({ event }) {
               );
             })}
 
-          <span>{event.equipment}</span>
-          <span>{event.location}</span>
+          {equipmentText ? (
+            <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+              {equipmentText}
+            </span>
+          ) : null}
+          {locationText ? (
+            <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+              {locationText}
+            </span>
+          ) : null}
 
           {/* Notes */}
           {(event.notes ||
@@ -1246,33 +1183,37 @@ function CalendarEvent({ event }) {
                   flexWrap: "wrap",
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 400,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-                    color: "#fff",
-                    border: "1px solid rgba(0,0,0,0.8)",
-                  }}
-                >
-                  HS {event.hasHS ? "✓" : "✗"}
-                </span>
+                {!isBickersJob && (
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 400,
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
+                      color: "#fff",
+                      border: "1px solid rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    HS {event.hasHS ? "✓" : "✗"}
+                  </span>
+                )}
 
-                <span
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 400,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-                    color: "#fff",
-                    border: "1px solid rgba(0,0,0,0.8)",
-                  }}
-                >
-                  RA {event.hasRiskAssessment ? "✓" : "✗"}
-                </span>
+                {!isBickersJob && (
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 400,
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
+                      color: "#fff",
+                      border: "1px solid rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    RA {event.hasRiskAssessment ? "✓" : "✗"}
+                  </span>
+                )}
 
                 <span
                   style={{
@@ -1288,20 +1229,22 @@ function CalendarEvent({ event }) {
                   H {event.hasHotel ? "✓" : "✗"}
                 </span>
 
-                <span
-                  title={event.hasRiggingAddress ? event.riggingAddress || "" : ""}
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 400,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
-                    color: "#fff",
-                    border: "1px solid rgba(0,0,0,0.8)",
-                  }}
-                >
-                  UB {event.hasRiggingAddress ? "✓" : "✗"}
-                </span>
+                {!isBickersJob && (
+                  <span
+                    title={event.hasRiggingAddress ? event.riggingAddress || "" : ""}
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 400,
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
+                      color: "#fff",
+                      border: "1px solid rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    UB {event.hasRiggingAddress ? "✓" : "✗"}
+                  </span>
+                )}
 
                 {(() => {
                   //  CT check: exact day match OR callTime OR any per-day
@@ -1800,7 +1743,8 @@ export default function DashboardPage({ bookingSaved }) {
     [vehiclesData]
   );
 
-  const getVehicleRisk = (vehicles) => {
+  const getVehicleRisk = (vehicles, { offRoadTracking = false } = {}) => {
+    if (offRoadTracking) return { risky: false, reasons: [] };
     const reasons = [];
     const list = Array.isArray(vehicles) ? vehicles : [];
     list.forEach((v) => {
@@ -1818,7 +1762,7 @@ export default function DashboardPage({ bookingSaved }) {
     return { risky: reasons.length > 0, reasons };
   };
 
-  const isFutureJobEvent = (event) => {
+  const isCurrentOrFutureJobEvent = (event) => {
     const today0 = new Date();
     today0.setHours(0, 0, 0, 0);
 
@@ -1831,7 +1775,7 @@ export default function DashboardPage({ bookingSaved }) {
     lastDay.setDate(lastDay.getDate() - 1);
     lastDay.setHours(0, 0, 0, 0);
 
-    return lastDay > today0;
+    return lastDay >= today0;
   };
 
   // listeners
@@ -2032,34 +1976,10 @@ export default function DashboardPage({ bookingSaved }) {
     return singleDate === today || (start && end && today >= start && today <= end);
   });
 
-  const maintenanceJobEvents = useMemo(() => {
-    return (maintenanceJobs || [])
-      .filter((j) =>
-        ACTIVE_MAINTENANCE_JOB_STATUSES.has(String(j.status || "").trim().toLowerCase())
-      )
-      .map((j) => {
-        const when = parseLocalDate(j.plannedDate || j.dueDate);
-        if (!when) return null;
-        const statusLabel = String(j.status || "planned")
-          .replaceAll("_", " ")
-          .replace(/\b\w/g, (m) => m.toUpperCase());
-        return {
-          ...j,
-          id: `maintenanceJob__${j.id}`,
-          __parentId: j.id,
-          __collection: "maintenanceJobs",
-          title: j.assetLabel || j.title || "Maintenance Job",
-          kind: "MAINTENANCE",
-          start: startOfLocalDay(when),
-          end: startOfLocalDay(addDays(when, 1)),
-          allDay: true,
-          status: "Maintenance",
-          maintenanceType: j.type || "maintenance",
-          maintenanceTypeLabel: `Job Card (${statusLabel})`,
-        };
-      })
-      .filter(Boolean);
-  }, [maintenanceJobs]);
+  const maintenanceJobEvents = useMemo(
+    () => buildMaintenanceJobEvents(maintenanceJobs),
+    [maintenanceJobs]
+  );
 
   const maintenanceBookedMetaByVehicle = useMemo(() => {
     const map = {};
@@ -2311,7 +2231,12 @@ export default function DashboardPage({ bookingSaved }) {
   const allEvents = useMemo(() => {
     return allEventsRaw.map((ev) => {
       const normalizedVehicles = normalizeVehicles(ev.vehicles);
-      const risk = getVehicleRisk(normalizedVehicles);
+      const shouldShowRisk = isCurrentOrFutureJobEvent(ev);
+      const risk = shouldShowRisk
+        ? getVehicleRisk(normalizedVehicles, {
+            offRoadTracking: Boolean(ev?.offRoadTracking),
+          })
+        : { risky: false, reasons: [] };
       const recce = reccesByBooking[ev.id] || null;
 
       return {
@@ -2707,7 +2632,9 @@ export default function DashboardPage({ bookingSaved }) {
 
                 let risky = !!event.isRisky;
                 if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
-                  risky = getVehicleRisk(event.vehicles).risky;
+                  risky = getVehicleRisk(event.vehicles, {
+                    offRoadTracking: Boolean(event?.offRoadTracking),
+                  }).risky;
                 }
 
                 if (risky) {
@@ -2718,7 +2645,6 @@ export default function DashboardPage({ bookingSaved }) {
                   "confirmed",
                   "first pencil",
                   "second pencil",
-                  "complete",
                   "action required",
                   "dnh",
                 ]);

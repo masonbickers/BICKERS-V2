@@ -14,6 +14,10 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   LabelList,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 
 /* ───────────────────────────────────────────
@@ -246,6 +250,47 @@ function isFourDigitJobNumber(value) {
   return /^\d{4}$/.test(String(value || "").trim());
 }
 
+function isFullTimeEmployeeRecord(employee = {}) {
+  const role = String(employee.role || "").trim().toLowerCase();
+  const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
+    .trim()
+    .toLowerCase();
+  const jobTitleBlob = Array.isArray(employee.jobTitle)
+    ? employee.jobTitle.join(" ").toLowerCase()
+    : String(employee.jobTitle || "").toLowerCase();
+
+  if (employee.isService === true) return false;
+  if (role === "service" || role === "hybrid") return false;
+  if (role === "freelancer" || role === "freelance") return false;
+  if (employmentType.includes("part")) return false;
+  if (employmentType.includes("freelance")) return false;
+  if (employmentType.includes("contract")) return false;
+  if (jobTitleBlob.includes("freelance")) return false;
+  if (employmentType.includes("full")) return true;
+  return true;
+}
+
+async function fetchBankHolidayKeysInRange(since, until) {
+  try {
+    const res = await fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`Bank holiday fetch failed: ${res.status}`);
+    const data = await res.json();
+    const events = Array.isArray(data?.["england-and-wales"]?.events)
+      ? data["england-and-wales"].events
+      : [];
+    const keys = new Set();
+    events.forEach((event) => {
+      const dayKey = String(event?.date || "").slice(0, 10);
+      if (!dayKey) return;
+      if (isDateInRange(dayKey, since, until)) keys.add(dayKey);
+    });
+    return keys;
+  } catch (error) {
+    console.warn("[employee-home] bank holiday fetch failed:", error);
+    return new Set();
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Exact day-note → credit mapping
 ──────────────────────────────────────────────────────────────────────────── */
@@ -270,6 +315,7 @@ const BREAKDOWN_COLUMNS = [
   { key: "travel", label: "Travel" },
   { key: "halfTravel", label: "1/2 Travel" },
   { key: "yardBase", label: "Yard Based" },
+  { key: "weekendWorked", label: "Weekend Worked" },
   { key: "yard", label: "Yard / Rig" },
   { key: "standby", label: "Standby" },
   { key: "turnaround", label: "Turnaround" },
@@ -279,6 +325,31 @@ const BREAKDOWN_COLUMNS = [
   { key: "recce", label: "Recce" },
   { key: "splitDay", label: "Split Day" },
   { key: "other", label: "Other" },
+];
+
+const FULL_TIME_PIE_META = [
+  { key: "onSet", label: "On Set", weight: 1, color: "#1d4ed8" },
+  { key: "travel", label: "Travel", weight: 1, color: "#0f766e" },
+  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "#14b8a6" },
+  { key: "standby", label: "Standby", weight: 1, color: "#f59e0b" },
+  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "#7c3aed" },
+  { key: "recce", label: "Recce", weight: 1, color: "#ec4899" },
+  { key: "splitDay", label: "Split Day", weight: 1, color: "#ef4444" },
+];
+
+const EMPLOYEE_SERIES_COLORS = [
+  "#1d4ed8",
+  "#0f766e",
+  "#7c3aed",
+  "#f59e0b",
+  "#ec4899",
+  "#ef4444",
+  "#0891b2",
+  "#65a30d",
+  "#9333ea",
+  "#ea580c",
+  "#2563eb",
+  "#059669",
 ];
 
 function classifyNote(rawNote) {
@@ -372,10 +443,11 @@ export default function EmployeesHomePage() {
     (async () => {
       setLoading(true);
       try {
-        const [bookingsSnap, holidaysSnap, employeesSnap] = await Promise.all([
+        const [bookingsSnap, holidaysSnap, employeesSnap, bankHolidayKeys] = await Promise.all([
           getDocs(collection(db, "bookings")),
           getDocs(collection(db, "holidays")),
           getDocs(collection(db, "employees")),
+          fetchBankHolidayKeysInRange(effectiveRange.since, effectiveRange.until),
         ]);
 
         // empKey -> Map<YYYY-MM-DD, credit>
@@ -402,6 +474,7 @@ export default function EmployeesHomePage() {
             employeeMeta.set(key, {
               key,
               displayName: titleCase(rawName),
+              isFullTime: isFullTimeEmployeeRecord(employee),
             });
           }
           return key;
@@ -539,23 +612,30 @@ export default function EmployeesHomePage() {
           const bookedDays = bookedDaysByEmployee.get(empKey) || new Set();
           const holidayDays = holidayDaysByEmployee.get(empKey) || new Set();
           let yardBaseDays = 0;
+          let weekendWorkedDays = 0;
           const cursor = new Date(since);
           while (cursor <= until) {
             const dayOfWeek = cursor.getUTCDay();
-            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-              const dayKey = formatYyyyMmDd(cursor);
-              if (!bookedDays.has(dayKey) && !holidayDays.has(dayKey)) {
+            const dayKey = formatYyyyMmDd(cursor);
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+              if (bookedDays.has(dayKey)) {
+                weekendWorkedDays += 1;
+              }
+            } else if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+              if (!bookedDays.has(dayKey) && !holidayDays.has(dayKey) && !bankHolidayKeys.has(dayKey)) {
                 yardBaseDays += 1;
               }
             }
             cursor.setUTCDate(cursor.getUTCDate() + 1);
           }
           dayTypeCounts.yardBase = yardBaseDays;
+          dayTypeCounts.weekendWorked = weekendWorkedDays;
 
           breakdownRows.push({
             key: empKey,
             name: meta.displayName,
             totalDays: Number(total.toFixed(2)),
+            isFullTime: meta.isFullTime === true,
             ...dayTypeCounts,
           });
         }
@@ -593,6 +673,50 @@ export default function EmployeesHomePage() {
     []
   );
 
+  const fullTimeWorkTypePieData = useMemo(() => {
+    return FULL_TIME_PIE_META.map((item) => {
+      const total = usageBreakdownData
+        .filter((row) => row.isFullTime)
+        .reduce((sum, row) => sum + (Number(row[item.key] || 0) * item.weight), 0);
+      return {
+        key: item.key,
+        label: item.label,
+        value: Number(total.toFixed(2)),
+        color: item.color,
+      };
+    }).filter((item) => item.value > 0);
+  }, [usageBreakdownData]);
+
+  const fullTimePieTotal = useMemo(
+    () => Number(fullTimeWorkTypePieData.reduce((sum, item) => sum + item.value, 0).toFixed(2)),
+    [fullTimeWorkTypePieData]
+  );
+
+  const fullTimeEmployeeWeightedData = useMemo(() => {
+    return usageBreakdownData
+      .filter((row) => row.isFullTime)
+      .map((row, index) => {
+        const workTotal = FULL_TIME_PIE_META.reduce(
+          (sum, item) => sum + (Number(row[item.key] || 0) * item.weight),
+          0
+        );
+        const yardDays = Number(row.yardBase || 0);
+        const combinedTotal = workTotal + yardDays;
+        return {
+          key: row.key,
+          name: row.name,
+          value: Number(workTotal.toFixed(2)),
+          yardValue: Number(yardDays.toFixed(2)),
+          totalValue: Number(combinedTotal.toFixed(2)),
+          workPct: combinedTotal ? Number(((workTotal / combinedTotal) * 100).toFixed(1)) : 0,
+          yardPct: combinedTotal ? Number(((yardDays / combinedTotal) * 100).toFixed(1)) : 0,
+          color: EMPLOYEE_SERIES_COLORS[index % EMPLOYEE_SERIES_COLORS.length],
+        };
+      })
+      .filter((row) => row.value > 0 || row.yardValue > 0)
+      .sort((a, b) => b.totalValue - a.totalValue || a.name.localeCompare(b.name));
+  }, [usageBreakdownData]);
+
   const todayISO = (() => {
     const t = startOfTodayUTC();
     t.setUTCDate(t.getUTCDate() - 1); // yesterday as max
@@ -606,6 +730,27 @@ export default function EmployeesHomePage() {
     return (
       <text x={x + width / 2} y={y - 4} textAnchor="middle" fill={UI.text} style={{ fontSize: 11, fontWeight: 900 }}>
         {text}
+      </text>
+    );
+  };
+
+  const renderEmployeeSplitLabel = (props) => {
+    const { x = 0, y = 0, width = 0, payload } = props || {};
+    if (!payload) return null;
+    const totalText =
+      Math.abs(Number(payload.totalValue || 0) - Math.round(Number(payload.totalValue || 0))) < 1e-9
+        ? Number(payload.totalValue || 0).toFixed(0)
+        : Number(payload.totalValue || 0).toFixed(2);
+    const label = `${payload.workPct}% work / ${payload.yardPct}% yard (${totalText})`;
+    return (
+      <text
+        x={x + width + 8}
+        y={y + 12}
+        textAnchor="start"
+        fill={UI.text}
+        style={{ fontSize: 11, fontWeight: 900 }}
+      >
+        {label}
       </text>
     );
   };
@@ -830,7 +975,8 @@ export default function EmployeesHomePage() {
               <h2 style={titleMd}>Work Type Breakdown</h2>
               <div style={hint}>
                 Per-employee day counts by booking note type across the selected reporting window. Yard Based counts
-                Monday to Friday days with no booking and no holiday.
+                Monday to Friday days with no booking, no holiday, and no bank holiday. Weekend Worked counts
+                Saturday/Sunday booked job days.
               </div>
             </div>
             <div style={chipSoft}>{usageBreakdownData.length} employees</div>
@@ -883,6 +1029,181 @@ export default function EmployeesHomePage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </section>
+
+        <section style={{ ...surface, padding: 14, marginTop: 14 }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Full-Time Work Type Pie</h2>
+              <div style={hint}>
+                Full-time employees only. Weighted totals: On Set 1, Travel 1, Half Travel 0.5, Standby 1,
+                Night Shoot 1, Recce 1, Split Day 1.
+              </div>
+            </div>
+            <div style={chipSoft}>Total: {fullTimePieTotal}</div>
+          </div>
+
+          {loading ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "86%" }} />
+            </div>
+          ) : fullTimeWorkTypePieData.length === 0 ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>
+              No full-time employee work-type totals found in this reporting period.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(320px, 520px) minmax(260px, 1fr)",
+                gap: 18,
+                alignItems: "center",
+                marginTop: 8,
+              }}
+            >
+              <div style={{ width: "100%", height: 320 }}>
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={fullTimeWorkTypePieData}
+                      dataKey="value"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={112}
+                      innerRadius={58}
+                      paddingAngle={2}
+                    >
+                      {fullTimeWorkTypePieData.map((entry) => (
+                        <Cell key={entry.key} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, _name, payload) => {
+                        const num = Number(value || 0);
+                        const safe = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+                        return [`${safe}`, payload?.payload?.label || ""];
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {fullTimeWorkTypePieData.map((item) => (
+                  <div
+                    key={item.key}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "14px 1fr auto",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: "10px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      background: "#fff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 999,
+                        background: item.color,
+                      }}
+                    />
+                    <div style={{ fontWeight: 800, color: UI.text }}>{item.label}</div>
+                    <div style={{ fontWeight: 900, color: UI.brand }}>
+                      {Math.abs(item.value - Math.round(item.value)) < 1e-6 ? item.value.toFixed(0) : item.value.toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section style={{ ...surface, padding: 14, marginTop: 14 }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Weighted Work Notes By Employee</h2>
+              <div style={hint}>
+                Per full-time employee total for On Set, Travel, Half Travel, Standby, Night Shoot, Recce and
+                Split Day using the same weighting as the pie chart, stacked with yard days on the same bar.
+              </div>
+            </div>
+            <div style={chipSoft}>{fullTimeEmployeeWeightedData.length} employees</div>
+          </div>
+
+          {loading ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ ...skeleton, width: "70%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "92%", marginBottom: 10 }} />
+              <div style={{ ...skeleton, width: "86%" }} />
+            </div>
+          ) : fullTimeEmployeeWeightedData.length === 0 ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>
+              No per-employee weighted work-note totals found in this reporting period.
+            </div>
+          ) : (
+            <div style={{ width: "100%", height: Math.max(320, fullTimeEmployeeWeightedData.length * 42), marginTop: 8 }}>
+              <ResponsiveContainer>
+                <BarChart
+                  data={fullTimeEmployeeWeightedData}
+                  layout="vertical"
+                  margin={{ top: 8, right: 170, left: 18, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    type="number"
+                    tick={{ fill: UI.muted, fontSize: 12 }}
+                    axisLine={{ stroke: "#e5e7eb" }}
+                    tickLine={{ stroke: "#e5e7eb" }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fill: UI.text, fontSize: 12, fontWeight: 700 }}
+                    axisLine={{ stroke: "#e5e7eb" }}
+                    tickLine={{ stroke: "#e5e7eb" }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                    contentStyle={{
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                      fontSize: 12,
+                      color: UI.text,
+                    }}
+                    formatter={(value, name, payload) => {
+                      const num = Number(value || 0);
+                      const safe = Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+                      if (name === "yardValue") return [`${safe}`, "Yard days"];
+                      return [`${safe}`, "Weighted work notes"];
+                    }}
+                    labelFormatter={(_label, rows) => {
+                      const row = rows?.[0]?.payload;
+                      if (!row) return "";
+                      return `${row.name}: ${row.workPct}% work / ${row.yardPct}% yard`;
+                    }}
+                  />
+                  <Bar dataKey="value" stackId="employee" radius={[0, 0, 0, 0]}>
+                    {fullTimeEmployeeWeightedData.map((entry) => (
+                      <Cell key={entry.key} fill={entry.color} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="yardValue" stackId="employee" fill="#cbd5e1" radius={[0, 8, 8, 0]}>
+                    <LabelList dataKey="totalValue" position="right" content={renderEmployeeSplitLabel} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </section>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
@@ -158,6 +158,21 @@ const statusColors = (label) => {
   }
 };
 
+const getCheckBadgeState = (isComplete) =>
+  isComplete
+    ? {
+        label: "Yes",
+        bg: "#dcfce7",
+        border: "#86efac",
+        text: "#166534",
+      }
+    : {
+        label: "No",
+        bg: "#fee2e2",
+        border: "#fecaca",
+        text: "#991b1b",
+      };
+
 const StatusBadge = ({ value }) => {
   const c = statusColors(value);
   return (
@@ -213,6 +228,7 @@ const endOfDay = (d) => {
 export default function ReviewQueuePage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [savingJobId, setSavingJobId] = useState("");
 
   // existing filters
   const [clientFilter, setClientFilter] = useState("all");
@@ -339,6 +355,36 @@ export default function ReviewQueuePage() {
     return { weekGroups: groups, weekKeys: keys, noDate: noDateJobs };
   }, [filtered]);
 
+  const setQuickStatus = async (job, nextStatus) => {
+    if (!job?.id || savingJobId) return;
+
+    const previousBookings = bookings;
+    const optimisticPatch = {
+      status: nextStatus,
+      updatedAt: new Date(),
+      readyToInvoice: nextStatus === "Ready to Invoice",
+    };
+
+    setSavingJobId(job.id);
+    setBookings((current) =>
+      current.map((item) => (item.id === job.id ? { ...item, ...optimisticPatch } : item))
+    );
+
+    try {
+      await updateDoc(doc(db, "bookings", job.id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+        readyToInvoice: nextStatus === "Ready to Invoice",
+      });
+    } catch (error) {
+      console.error("Failed to update review queue status:", error);
+      setBookings(previousBookings);
+      alert("Could not update the job status. Please try again.");
+    } finally {
+      setSavingJobId("");
+    }
+  };
+
   const DatesCell = ({ job }) => {
     const ds = normaliseDates(job).sort((a, b) => a - b);
     const first = ds[0] ?? null;
@@ -366,9 +412,12 @@ export default function ReviewQueuePage() {
             <col style={{ width: 120 }} />
             <col style={{ width: 220 }} />
             <col />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 90 }} />
+            <col style={{ width: 120 }} />
             <col style={{ width: 160 }} />
             <col style={{ width: 170 }} />
-            <col style={{ width: 140 }} />
+            <col style={{ width: 320 }} />
           </colgroup>
 
           <thead>
@@ -376,15 +425,28 @@ export default function ReviewQueuePage() {
               <th style={th}>Job #</th>
               <th style={th}>Client</th>
               <th style={th}>Location</th>
+              <th style={th}>Notes</th>
+              <th style={th}>PO</th>
+              <th style={th}>Quote Attached</th>
               <th style={th}>Dates</th>
               <th style={th}>Status</th>
-              <th style={th}>Action</th>
+              <th style={th}>Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {jobs.map((j) => {
               const pretty = prettifyStatus(j.status);
+              const notesState = getCheckBadgeState(
+                [j?.generalNotes, j?.notes, j?.jobNotes].some(
+                  (value) => String(value || "").trim().length > 0
+                )
+              );
+              const poState = getCheckBadgeState(String(j?.po || "").trim().length > 0);
+              const quoteState = getCheckBadgeState(
+                String(j?.pdfUrl || "").trim().length > 0 ||
+                  (Array.isArray(j?.attachments) && j.attachments.length > 0)
+              );
               const href = `/job-numbers/${j.id}#job-${j.id}`;
 
               return (
@@ -397,12 +459,102 @@ export default function ReviewQueuePage() {
                   <td style={tdWrap}>{j.client || "—"}</td>
                   <td style={tdWrap}>{j.location || "—"}</td>
                   <td style={tdNoWrap}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 56,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${notesState.border}`,
+                        background: notesState.bg,
+                        color: notesState.text,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {notesState.label}
+                    </span>
+                  </td>
+                  <td style={tdNoWrap}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 56,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${poState.border}`,
+                        background: poState.bg,
+                        color: poState.text,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {poState.label}
+                    </span>
+                  </td>
+                  <td style={tdNoWrap}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 56,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${quoteState.border}`,
+                        background: quoteState.bg,
+                        color: quoteState.text,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {quoteState.label}
+                    </span>
+                  </td>
+                  <td style={tdNoWrap}>
                     <DatesCell job={j} />
                   </td>
                   <td style={tdNoWrap}>
                     <StatusBadge value={pretty} />
                   </td>
                   <td style={tdNoWrap}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                      {["Ready to Invoice", "Needs Action", "Complete"].map((option) => {
+                        const nextStatus = option === "Needs Action" ? "Action Required" : option;
+                        const currentStatus = prettifyStatus(j.status);
+                        const isActive = currentStatus === option || currentStatus === nextStatus;
+
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setQuickStatus(j, nextStatus)}
+                            disabled={savingJobId === j.id}
+                            style={{
+                              padding: "6px 9px",
+                              borderRadius: 999,
+                              border: `1px solid ${isActive ? UI.brand : "#d1d5db"}`,
+                              background: isActive ? "#dbeafe" : "#ffffff",
+                              color: isActive ? UI.brand : UI.text,
+                              fontSize: 11,
+                              fontWeight: 800,
+                              cursor: savingJobId === j.id ? "not-allowed" : "pointer",
+                              opacity: savingJobId === j.id ? 0.6 : 1,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <Link href={href} style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
                       Fill details →
                     </Link>

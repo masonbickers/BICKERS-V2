@@ -20,12 +20,21 @@ import {
   normalizeAssetRecord,
   ymd as ymdDate,
 } from "../utils/maintenanceSchema";
+import {
+  buildBookedMetaByVehicle,
+  buildMaintenanceBookingEvents,
+  buildMaintenanceJobEvents,
+  buildVehicleDueEvents,
+  getMaintenanceDisplayType,
+  isInactiveMaintenanceBooking,
+} from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   collection,
   getDocs,
   doc,
+  onSnapshot,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
@@ -40,9 +49,9 @@ const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 const DECLINED_DEFECTS_PATH = "/defects/declined";
 const MAINTENANCE_JOBS_PATH = "/maintenance-jobs";
 
-/* ───────────────────────────────────────────
+/* -------------------------------------------
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
-─────────────────────────────────────────── */
+------------------------------------------- */
 const UI = {
   radius: 18,
   radiusSm: 12,
@@ -286,7 +295,7 @@ const actionBtn = (kind = "ghost") => {
   return { ...btn("pill") };
 };
 
-/* ───────────────── Date helpers ───────────────── */
+/* ----------------- Date helpers ----------------- */
 const toDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
 
 //  Parse YYYY-MM-DD as LOCAL (avoids UTC date shift)
@@ -396,7 +405,7 @@ const buildVehicleLabelFromObject = (v) => {
   return "";
 };
 
-/* ───────────────── Defect utilities ───────────────── */
+/* ----------------- Defect utilities ----------------- */
 const isDefectItem = (it) => it?.status === "defect";
 const isPendingDefect = (it) => !it?.review?.status;
 
@@ -427,7 +436,7 @@ function extractPendingDefects(checkDocs) {
   return out;
 }
 
-/* ───────────────── Calendar event helpers ───────────────── */
+/* ----------------- Calendar event helpers ----------------- */
 const dueDateFromVehicleField = (raw) => {
   // vehicle dates can be Firestore Timestamp OR "YYYY-MM-DD" string OR full ISO
   return parseLocalDateOnly(raw) || toDate(raw);
@@ -448,60 +457,9 @@ const isApptAfterExpiry = (appt, expiry) => {
   return a > e;
 };
 
-const buildDueEvent = ({ vehicleId, label, kind, due, booked, bookingStatus }) => {
-  if (!due) return null;
-  const start = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-
-  const bookedTag =
-    kind === "MOT" && booked
-      ? bookingStatus && String(bookingStatus).includes("After Expiry")
-        ? " (Booked — After Expiry)"
-        : " (Booked)"
-      : kind === "SERVICE" && booked
-      ? " (Booked)"
-      : "";
-
-  return {
-    title: `${label} • ${kind} due${bookedTag}`,
-    start,
-    end: addDays(start, 1), // RBC exclusive end for all-day
-    allDay: true,
-    kind, // "MOT" | "SERVICE"
-    vehicleId,
-    dueDate: start,
-    booked: !!booked,
-    bookingStatus: bookingStatus || "",
-  };
-};
 
 const normStatus = (s) => String(s || "").trim().toLowerCase();
-const isInactiveBooking = (s) => {
-  const x = normStatus(s);
-  return x.includes("cancel") || x.includes("declin") || x.includes("deleted");
-};
-
-const getMaintenanceBookingKind = (booking = {}) => {
-  const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (t === "MOT") return "MOT_BOOKING";
-  if (t === "SERVICE") return "SERVICE_BOOKING";
-  return "MAINTENANCE_BOOKING";
-};
-
-const getMaintenanceDisplayType = (booking = {}) => {
-  const explicit = String(booking.maintenanceTypeLabel || "").trim();
-  if (explicit) return explicit.toUpperCase();
-
-  const other = String(booking.maintenanceTypeOther || "").trim();
-  if (other) return other.toUpperCase();
-
-  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (rawType === "MOT") return "MOT";
-  if (rawType === "SERVICE") return "SERVICE";
-  if (rawType === "WORK") return "WORK";
-  if (rawType) return rawType;
-
-  return "MAINTENANCE";
-};
+const isInactiveBooking = isInactiveMaintenanceBooking;
 
 const formatEventVehicleText = (vehicles = []) => {
   if (!Array.isArray(vehicles)) return "";
@@ -589,7 +547,7 @@ function VehicleHomeMaintenanceEvent({ event }) {
   );
 }
 
-/* ───────────────── Component ───────────────── */
+/* ----------------- Component ----------------- */
 export default function VehiclesHomePage() {
   const router = useRouter();
 
@@ -601,7 +559,7 @@ export default function VehiclesHomePage() {
 
   //  Booked MOT/SERVICE from maintenanceBookings (source of truth)
   const [maintenanceBookingsRaw, setMaintenanceBookingsRaw] = useState([]);
-  const [maintenanceBookingEvents, setMaintenanceBookingEvents] = useState([]);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
 
   // Legacy: workBookings (if you still use it)
   const [workBookings, setWorkBookings] = useState([]);
@@ -631,7 +589,7 @@ export default function VehiclesHomePage() {
 
   useEffect(() => setMounted(true), []);
 
-  /* ───────── Load all vehicles ONCE for name + due date lookups ───────── */
+  /* --------- Load all vehicles ONCE for name + due date lookups --------- */
   useEffect(() => {
     const fetchVehicles = async () => {
       const snap = await getDocs(collection(db, "vehicles"));
@@ -650,7 +608,7 @@ export default function VehiclesHomePage() {
     fetchVehicles();
   }, []);
 
-  /* ───────── MOT + Service counters (uses vehiclesRaw) ───────── */
+  /* --------- MOT + Service counters (uses vehiclesRaw) --------- */
   useEffect(() => {
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -681,7 +639,7 @@ export default function VehiclesHomePage() {
     setServiceCounts(calcCounts(vehiclesRaw.map((v) => getCanonicalDueDate(v, "service"))));
   }, [vehiclesRaw]);
 
-  /* ───────── Usage histogram (vehicle usage from bookings) ───────── */
+  /* --------- Usage histogram (vehicle usage from bookings) --------- */
   useEffect(() => {
     const fetchUsage = async () => {
       const { monthStart, monthEnd } = monthRange(usageMonth);
@@ -757,11 +715,11 @@ export default function VehiclesHomePage() {
     fetchUsage();
   }, [usageMonth, vehicleNameMap]);
 
-  /* ───────── OPTIONAL: legacy workBookings maintenance blocks ───────── */
+  /* --------- OPTIONAL: legacy workBookings maintenance blocks --------- */
   useEffect(() => {
-    const fetchWorkBookings = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "workBookings"));
+    const unsub = onSnapshot(
+      collection(db, "workBookings"),
+      (snapshot) => {
         const events = snapshot.docs
           .map((docSnap) => {
             const data = docSnap.data();
@@ -786,242 +744,93 @@ export default function VehiclesHomePage() {
           .filter(Boolean);
 
         setWorkBookings(events);
-      } catch (e) {
-        console.warn("[workBookings] fetch failed (ok if unused):", e);
+      },
+      (e) => {
+        console.warn("[workBookings] snapshot failed (ok if unused):", e);
         setWorkBookings([]);
       }
-    };
+    );
 
-    fetchWorkBookings();
+    return () => unsub();
   }, []);
 
-  /* ─────────  REAL BOOKINGS: maintenanceBookings => calendar events ───────── */
+  /* ---------  REAL BOOKINGS: maintenanceBookings => calendar events --------- */
   useEffect(() => {
-    const fetchMaintenanceBookings = async () => {
-      const snap = await getDocs(collection(db, "maintenanceBookings"));
-      const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const unsub = onSnapshot(
+      collection(db, "maintenanceBookings"),
+      (snap) => {
+        const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
 
-      // Build events (single day uses appointmentDate, multi day uses startDate/endDate)
-      const events = raw
-        .map((b) => {
-          const status = b.status || "";
-          if (isInactiveBooking(status)) return null;
-
-          const type = String(b.type || "").toUpperCase() === "SERVICE" ? "SERVICE" : "MOT";
-          const vehicleId = b.vehicleId || null;
-
-          // Prefer appointmentDate if present, else startDate/endDate
-          const appt = toDate(b.appointmentDate);
-          const st = toDate(b.startDate) || appt;
-          const en = toDate(b.endDate) || st;
-
-          if (!st || !en) return null;
-
-          const s = new Date(st.getFullYear(), st.getMonth(), st.getDate());
-          const e = new Date(en.getFullYear(), en.getMonth(), en.getDate());
-
-          const label = vehicleId ? (vehicleNameMap[vehicleId] || b.vehicleLabel || vehicleId) : (b.vehicleLabel || "Vehicle");
-          const provider = String(b.provider || "").trim();
-
-          const kind = type === "SERVICE" ? "SERVICE_BOOKING" : "MOT_BOOKING";
-          const isMulti = !appt && (st && en) && (dateKey(st) !== dateKey(en));
-
-          const title =
-            `${label} • ${type}${appt ? " appointment" : isMulti ? " (multi-day)" : ""}` +
-            (provider ? ` • ${provider}` : "");
-
-          return {
-            title,
-            start: s,
-            end: addDays(e, 1),
-            allDay: true,
-            kind,
-            vehicleId,
-            bookingId: b.id,
-            bookingStatus: b.status || "Booked",
-            provider,
-            source: "maintenanceBookings",
-          };
-        })
-        .filter(Boolean);
-
-      setMaintenanceBookingsRaw(raw);
-      setMaintenanceBookingEvents(events);
-    };
-
-    fetchMaintenanceBookings().catch((e) => {
-      console.error("[maintenanceBookings] fetch error:", e);
-      setMaintenanceBookingsRaw([]);
-      setMaintenanceBookingEvents([]);
-    });
-  }, [vehicleNameMap]);
-
-  useEffect(() => {
-    const events = (maintenanceBookingsRaw || []).flatMap((b) => {
-      if (isInactiveBooking(b.status)) return [];
-
-      const dates = Array.isArray(b.bookingDates) ? b.bookingDates.slice().sort() : [];
-      const kind = getMaintenanceBookingKind(b);
-      const typeLabel = getMaintenanceDisplayType(b);
-      const vehicleId = b.vehicleId || null;
-      const label = vehicleId
-        ? vehicleNameMap[vehicleId] || b.vehicleLabel || vehicleId
-        : b.vehicleLabel || b.vehicleName || b.title || b.jobNumber || "Vehicle";
-      const provider = String(b.provider || "").trim();
-      const baseTitle = `${label} • ${typeLabel}` + (provider ? ` • ${provider}` : "");
-
-      if (dates.length) {
-        return dates
-          .map((ymd) => {
-            const startBase = parseLocalDateOnly(ymd);
-            if (!startBase) return null;
-            return {
-              ...b,
-              __collection: "maintenanceBookings",
-              __parentId: b.id,
-              __occurrence: ymd,
-              id: `${b.id}__${ymd}`,
-              title: baseTitle,
-              kind,
-              vehicleId,
-              bookingStatus: b.status || "Booked",
-              maintenanceType: b.maintenanceType || "",
-              maintenanceTypeOther: b.maintenanceTypeOther || "",
-              maintenanceTypeLabel: typeLabel,
-              start: startBase,
-              end: addDays(startBase, 1),
-              allDay: true,
-              status: "Maintenance",
-            };
-          })
-          .filter(Boolean);
+        setMaintenanceBookingsRaw(raw);
+      },
+      (e) => {
+        console.error("[maintenanceBookings] snapshot error:", e);
+        setMaintenanceBookingsRaw([]);
       }
+    );
 
-      const st =
-        parseLocalDateOnly(b.startDateISO) ||
-        toDate(b.startDate) ||
-        parseLocalDateOnly(b.date) ||
-        toDate(b.date) ||
-        parseLocalDateOnly(b.appointmentDateISO) ||
-        toDate(b.appointmentDate);
-      if (!st) return [];
-
-      const en = parseLocalDateOnly(b.endDateISO) || toDate(b.endDate) || st;
-      const start = new Date(st.getFullYear(), st.getMonth(), st.getDate());
-      const end = new Date(en.getFullYear(), en.getMonth(), en.getDate());
-
-      return [
-        {
-          ...b,
-          __collection: "maintenanceBookings",
-          __parentId: b.id,
-          id: b.id,
-          title: baseTitle,
-          kind,
-          vehicleId,
-          bookingStatus: b.status || "Booked",
-          maintenanceType: b.maintenanceType || "",
-          maintenanceTypeOther: b.maintenanceTypeOther || "",
-          maintenanceTypeLabel: typeLabel,
-          start,
-          end: addDays(end, 1),
-          allDay: true,
-          status: "Maintenance",
-        },
-      ];
-    });
-
-    setMaintenanceBookingEvents(events);
-  }, [maintenanceBookingsRaw, vehicleNameMap]);
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
-    syncEightWeekInspectionRollovers({
-      db,
-      vehicles: vehiclesRaw,
-      maintenanceBookings: maintenanceBookingsRaw,
-      loggerPrefix: "[vehicle-home] inspection rollover",
-    }).catch(() => {});
-  }, [vehiclesRaw, maintenanceBookingsRaw]);
+    const unsub = onSnapshot(
+      collection(db, "maintenanceJobs"),
+      (snapshot) => {
+        setMaintenanceJobs(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
+      },
+      (e) => {
+        console.error("[maintenanceJobs] snapshot error:", e);
+        setMaintenanceJobs([]);
+      }
+    );
 
-  /* ───────── Booked maps (to mark due items as booked) ───────── */
-  const bookedMetaByVehicle = useMemo(() => {
-    // { [vehicleId]: { mot: { has, earliestAppt }, service: { has, earliestAppt } } }
-    const map = {};
-    for (const b of maintenanceBookingsRaw) {
-      const vehicleId = b.vehicleId;
-      if (!vehicleId) continue;
-      if (isInactiveBooking(b.status)) continue;
+    return () => unsub();
+  }, []);
 
-      const typeRaw = String(b.type || "").toUpperCase();
-      const type = typeRaw === "SERVICE" ? "service" : typeRaw === "MOT" ? "mot" : "";
-      if (!type) continue;
+  const maintenanceBookingEventsShared = useMemo(
+    () =>
+      buildMaintenanceBookingEvents(maintenanceBookingsRaw, {
+        getVehicleLabel: (booking) => {
+          const vehicleId = booking.vehicleId || null;
+          return vehicleId
+            ? vehicleNameMap[vehicleId] || booking.vehicleLabel || vehicleId
+            : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
+        },
+        titleSeparator: " • ",
+      }),
+    [maintenanceBookingsRaw, vehicleNameMap]
+  );
 
-      const appt = toDate(b.appointmentDate) || toDate(b.startDate) || null;
-      if (!appt) continue;
+  const bookedMetaByVehicleShared = useMemo(
+    () => buildBookedMetaByVehicle(maintenanceBookingsRaw),
+    [maintenanceBookingsRaw]
+  );
 
-      if (!map[vehicleId]) map[vehicleId] = { mot: { has: false, earliestAppt: null }, service: { has: false, earliestAppt: null } };
-      map[vehicleId][type].has = true;
+  const motServiceEventsShared = useMemo(
+    () =>
+      buildVehicleDueEvents(vehiclesRaw, {
+        bookedMetaByVehicle: bookedMetaByVehicleShared,
+        getVehicleLabel: (vehicle) =>
+          vehicleNameMap[vehicle.id] || buildVehicleLabelFromObject(vehicle) || vehicle.id,
+        isApptAfterExpiry,
+      }),
+    [vehiclesRaw, vehicleNameMap, bookedMetaByVehicleShared]
+  );
 
-      const cur = map[vehicleId][type].earliestAppt;
-      if (!cur || appt.getTime() < cur.getTime()) map[vehicleId][type].earliestAppt = appt;
-    }
-    return map;
-  }, [maintenanceBookingsRaw]);
+  const maintenanceJobEventsShared = useMemo(
+    () => buildMaintenanceJobEvents(maintenanceJobs),
+    [maintenanceJobs]
+  );
 
-  /* ───────── Build MOT + Service due-date events ───────── */
-  const motServiceEvents = useMemo(() => {
-    if (!vehiclesRaw.length) return [];
-    const events = [];
 
-    for (const v of vehiclesRaw) {
-      const label = vehicleNameMap[v.id] || buildVehicleLabelFromObject(v) || v.id;
-
-      const motDue = getCanonicalDueDate(v, "mot");
-      const svcDue = getCanonicalDueDate(v, "service");
-
-      const bookedMeta = bookedMetaByVehicle[v.id] || null;
-
-      // MOT due event (booked if there is a MOT booking)
-      const motBooked = !!bookedMeta?.mot?.has;
-      const motAppt = bookedMeta?.mot?.earliestAppt || null;
-      const motAfterExpiry = motBooked && motAppt && motDue ? isApptAfterExpiry(motAppt, motDue) : false;
-
-      const motEv = buildDueEvent({
-        vehicleId: v.id,
-        label,
-        kind: "MOT",
-        due: motDue,
-        booked: motBooked,
-        bookingStatus: motAfterExpiry ? "Booked (After Expiry)" : motBooked ? "Booked" : "",
-      });
-      if (motEv) events.push(motEv);
-
-      // SERVICE due event (booked if there is a SERVICE booking)
-      const svcBooked = !!bookedMeta?.service?.has;
-      const svcEv = buildDueEvent({
-        vehicleId: v.id,
-        label,
-        kind: "SERVICE",
-        due: svcDue,
-        booked: svcBooked,
-        bookingStatus: svcBooked ? "Booked" : "",
-      });
-      if (svcEv) events.push(svcEv);
-    }
-
-    return events;
-  }, [vehiclesRaw, vehicleNameMap, bookedMetaByVehicle]);
-
-  /* ───────── Combined calendar events ───────── */
+  /* --------- Combined calendar events --------- */
   const calendarEvents = useMemo(() => {
-    //  Include real booked events from maintenanceBookings
-    //  Keep due-date events
-    //  Keep legacy workBookings if you still want them
     return [
-      ...(maintenanceBookingEvents || []),
-      ...(motServiceEvents || []),
+      ...maintenanceBookingEventsShared,
+      ...maintenanceJobEventsShared,
+      ...motServiceEventsShared,
     ];
-  }, [maintenanceBookingEvents, motServiceEvents]);
+  }, [maintenanceBookingEventsShared, maintenanceJobEventsShared, motServiceEventsShared]);
 
   // Load submitted checks (for defects queue)
   useEffect(() => {
@@ -1472,7 +1281,7 @@ export default function VehiclesHomePage() {
                             alignItems: "center",
                           }}
                         >
-                          View check →
+                          {"View check ->"}
                         </a>
                         <span style={{ display: "inline-block", width: 8 }} />
                         <button onClick={() => openApprove(d)} style={actionBtn("approve")}>
@@ -1512,7 +1321,7 @@ export default function VehiclesHomePage() {
             >
               <span style={sectionTag}>Usage analysis</span>
               <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
-                ← Prev
+                {"<- Prev"}
               </button>
 
               <input
@@ -1526,7 +1335,7 @@ export default function VehiclesHomePage() {
               />
 
               <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
-                Next →
+                {"Next ->"}
               </button>
 
               <span style={chipSoft}>{usageData.length} vehicles</span>
@@ -1696,9 +1505,9 @@ export default function VehiclesHomePage() {
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>{props.label}</div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <ToolbarBtn onClick={() => props.onNavigate("PREV")}>←</ToolbarBtn>
+                        <ToolbarBtn onClick={() => props.onNavigate("PREV")}>{"<"}</ToolbarBtn>
                         <ToolbarBtn onClick={() => props.onNavigate("TODAY")}>Today</ToolbarBtn>
-                        <ToolbarBtn onClick={() => props.onNavigate("NEXT")}>→</ToolbarBtn>
+                        <ToolbarBtn onClick={() => props.onNavigate("NEXT")}>{">"}</ToolbarBtn>
 
                         <ToolbarBtn active={props.view === "month"} onClick={() => props.onView("month")}>
                           Month
@@ -1744,7 +1553,7 @@ export default function VehiclesHomePage() {
                   onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
                   style={btn("ghost")}
                 >
-                  Create job card →
+                  {"Create job card ->"}
                 </button>
               ) : null}
               {selectedEvent?.vehicleId ? (
@@ -1752,7 +1561,7 @@ export default function VehiclesHomePage() {
                   onClick={() => router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)}
                   style={btn("primary")}
                 >
-                  Open vehicle →
+                  {"Open vehicle ->"}
                 </button>
               ) : null}
               <button onClick={() => setSelectedEvent(null)} style={btn("ghost")}>
@@ -1912,7 +1721,7 @@ export default function VehiclesHomePage() {
   );
 }
 
-/* ───────── toolbar + tiles ───────── */
+/* --------- toolbar + tiles --------- */
 function ToolbarBtn({ children, onClick, active }) {
   return (
     <button

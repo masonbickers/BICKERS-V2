@@ -652,7 +652,14 @@ export default function HeaderSidebarLayout({
       </aside>
 
       {/* ----------------- Main ----------------- */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {/* Header */}
         <header
           style={{

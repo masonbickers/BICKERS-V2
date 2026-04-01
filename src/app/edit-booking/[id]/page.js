@@ -251,6 +251,7 @@ const summaryRow = {
 ──────────────────────────────────────────────────────────────────────────── */
 const VEHICLE_STATUSES = [
   "Confirmed",
+  "Bickers",
   "First Pencil",
   "Second Pencil",
   "Enquiry",
@@ -270,6 +271,12 @@ const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
+
+const OFF_ROAD_ALLOWED_GROUPS = new Set([
+  "Bike",
+  "Electric Tracking Vehicles",
+  "Small Tracking Vehicles",
+]);
 
 /* ────────────────────────────────────────────────────────────────────────────
    UTC day helpers
@@ -464,6 +471,7 @@ const AUDIT_FIELDS = [
   "requiredCrewCount",
   "hasHS",
   "hasRiskAssessment",
+  "offRoadTracking",
   "hasHotel",
   "hotelPaidBy",
   "hotelNights",
@@ -499,6 +507,7 @@ const AUDIT_LABELS = {
   requiredCrewCount: "Required crew count",
   hasHS: "HS",
   hasRiskAssessment: "Risk assessment",
+  offRoadTracking: "Off road tracking",
   hasHotel: "Hotel",
   hotelPaidBy: "Hotel paid by",
   hotelNights: "Hotel nights",
@@ -706,6 +715,7 @@ export default function EditBookingPage() {
 
   const [hasHS, setHasHS] = useState(false);
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
+  const [offRoadTracking, setOffRoadTracking] = useState(false);
 
   // Crew requirement (NO auto-crewed)
   const [requiredCrewCount, setRequiredCrewCount] = useState(1);
@@ -839,6 +849,7 @@ export default function EditBookingPage() {
   const [originalBookingData, setOriginalBookingData] = useState(null);
 
   const isMaintenance = status === "Maintenance";
+  const isBickersJob = status === "Bickers";
 
   // Derived dates (same as create)
   const selectedDates = useMemo(() => {
@@ -850,15 +861,55 @@ export default function EditBookingPage() {
 
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
+    : isBickersJob
+    ? Boolean((client || "").trim())
     : Boolean((client || "").trim() && (location || "").trim());
 
   const saveTooltip = isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
       : ""
+    : isBickersJob
+    ? !coreFilled
+      ? "Fill Production to save"
+      : ""
     : !coreFilled
     ? "Fill Production and Location to save"
     : "";
+
+  const selectedVehicleDetails = useMemo(() => {
+    return (vehicles || [])
+      .map((vehicleId) => vehicleLookup?.byId?.[vehicleId] || null)
+      .filter(Boolean);
+  }, [vehicles, vehicleLookup]);
+
+  const offRoadEligibility = useMemo(() => {
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return {
+        eligible: false,
+        reason: "Select at least one vehicle first.",
+        ineligible: [],
+      };
+    }
+
+    const ineligible = selectedVehicleDetails.filter(
+      (v) => !OFF_ROAD_ALLOWED_GROUPS.has(v.group)
+    );
+
+    if (ineligible.length) {
+      const names = ineligible
+        .map((v) => v.name || v.registration || "Vehicle")
+        .slice(0, 3)
+        .join(", ");
+      return {
+        eligible: false,
+        reason: `Only Bike / Electric Tracking / Small Tracking vehicles are allowed. Ineligible: ${names}`,
+        ineligible,
+      };
+    }
+
+    return { eligible: true, reason: "", ineligible: [] };
+  }, [selectedVehicleDetails, vehicles]);
 
   /* ────────────────────────────────────────────────────────────
       allocated crew count (display only) — NO auto setIsCrewed
@@ -983,25 +1034,21 @@ export default function EditBookingPage() {
         const registration = (v.registration || "").trim();
         if (!name && !registration) return;
 
-        const info = { id, name, registration };
+        let group = "Other Vehicles";
+        if (category.includes("bike")) group = "Bike";
+        else if (category.includes("electric")) group = "Electric Tracking Vehicles";
+        else if (category.includes("small")) group = "Small Tracking Vehicles";
+        else if (category.includes("large")) group = "Large Tracking Vehicles";
+        else if (category.includes("low loader")) group = "Low Loaders";
+        else if (category.includes("lorry")) group = "Transport Lorry";
+        else if (category.includes("van")) group = "Transport Van";
+
+        const info = { id, name, registration, group };
         if (id) byId[id] = info;
         if (registration) byReg[registration.toUpperCase()] = info;
         if (name) byName[name.toLowerCase()] = info;
 
-        if (category.includes("bike")) grouped["Bike"].push(info);
-        else if (category.includes("electric"))
-          grouped["Electric Tracking Vehicles"].push(info);
-        else if (category.includes("small"))
-          grouped["Small Tracking Vehicles"].push(info);
-        else if (category.includes("large"))
-          grouped["Large Tracking Vehicles"].push(info);
-        else if (category.includes("low loader"))
-          grouped["Low Loaders"].push(info);
-        else if (category.includes("lorry"))
-          grouped["Transport Lorry"].push(info);
-        else if (category.includes("van"))
-          grouped["Transport Van"].push(info);
-        else grouped["Other Vehicles"].push(info);
+        grouped[group].push(info);
       });
 
       setVehicleGroups(grouped);
@@ -1043,6 +1090,7 @@ export default function EditBookingPage() {
       setIsCrewed(Boolean(bookingData.isCrewed)); //  manual stored value
       setHasHS(Boolean(bookingData.hasHS));
       setHasRiskAssessment(Boolean(bookingData.hasRiskAssessment));
+      setOffRoadTracking(Boolean(bookingData.offRoadTracking));
 
       // crew requirement (kept as guidance)
       const req = Number(bookingData.requiredCrewCount);
@@ -1245,6 +1293,18 @@ export default function EditBookingPage() {
       router.push("/dashboard");
     });
   }, [bookingId, router]);
+
+  useEffect(() => {
+    if (!isBickersJob) return;
+    setHasHS(false);
+    setHasRiskAssessment(false);
+  }, [isBickersJob]);
+
+  useEffect(() => {
+    if (!offRoadTracking) return;
+    if (offRoadEligibility.eligible) return;
+    setOffRoadTracking(false);
+  }, [offRoadEligibility.eligible, offRoadTracking]);
 
   /* ────────────────────────────────────────────────────────────
      Conflicts (exclude current booking)
@@ -1556,7 +1616,7 @@ export default function EditBookingPage() {
     if (!coreFilled) {
       const missing = [];
       if (!isMaintenance && !(client || "").trim()) missing.push("Production");
-      if (!(location || "").trim()) missing.push("Location");
+      if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return alert("Please provide: " + missing.join(", ") + ".");
     }
 
@@ -1760,6 +1820,7 @@ export default function EditBookingPage() {
       isCrewed: isCrewedAtSave,
       hasHS,
       hasRiskAssessment,
+      offRoadTracking,
       notes,
 
       requiredCrewCount: Number.isFinite(req) ? req : 0,
@@ -1907,16 +1968,36 @@ export default function EditBookingPage() {
 
           <div style={pageHeader}>
             <div />
-            <div style={headerChecksBox}>
-              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                Health & Safety Completed
-              </label>
+            {!isBickersJob && (
+              <div style={headerChecksBox}>
+                <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                  <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                  Health & Safety Completed
+                </label>
 
-              <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                Risk Assessment Completed
+                <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                  <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                  Risk Assessment Completed
+                </label>
+              </div>
+            )}
+            <div style={headerChecksBox}>
+              <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
+                <input
+                  type="checkbox"
+                  checked={offRoadTracking}
+                  disabled={!offRoadEligibility.eligible}
+                  onChange={(e) => setOffRoadTracking(e.target.checked)}
+                />
+                Off Road Tracking (skip tax/insurance compliance)
               </label>
+              {!offRoadEligibility.eligible ? (
+                <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
+              ) : (
+                <div style={{ fontSize: 12, color: UI.muted }}>
+                  Valid for Bike, Electric Tracking Vehicles, and Small Tracking Vehicles.
+                </div>
+              )}
             </div>
           </div>
 

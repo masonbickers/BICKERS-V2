@@ -7,6 +7,12 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { collection, onSnapshot } from "firebase/firestore";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
+import {
+  buildBookedMetaByVehicle,
+  buildMaintenanceBookingEvents,
+  buildMaintenanceJobEvents,
+  buildVehicleDueEvents,
+} from "@/app/utils/maintenanceCalendar";
 import { db } from "../../../firebaseConfig";
 
 const UI = {
@@ -38,226 +44,16 @@ const card = {
   boxShadow: UI.shadow,
 };
 
-const parseDateSafe = (value) => {
-  if (!value) return null;
-  if (typeof value?.toDate === "function") return value.toDate();
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const date = new Date(`${value}T00:00:00`);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const toYmd = (value) => {
-  const date = parseDateSafe(value);
-  if (!date) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const addDays = (ymd, amount) => {
-  const date = parseDateSafe(ymd);
-  if (!date) return "";
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return toYmd(next);
-};
-
-const formatDate = (value) => {
-  const date = parseDateSafe(value);
-  return date
-    ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-    : "No date";
-};
-
-const isInactiveMaintenanceBooking = (status) => {
-  const normalized = String(status || "").trim().toLowerCase();
-  return [
-    "cancelled",
-    "canceled",
-    "completed",
-    "complete",
-    "closed",
-    "deleted",
-    "declined",
-  ].includes(normalized);
-};
-
-const getMaintenanceType = (booking) => {
-  const raw = String(
-    booking?.type ||
-      booking?.maintenanceTypeLabel ||
-      booking?.maintenanceType ||
-      booking?.kind ||
-      "MAINTENANCE"
-  )
-    .trim()
-    .toUpperCase();
-
-  if (raw.includes("MOT")) return "MOT";
-  if (raw.includes("SERVICE")) return "SERVICE";
-  return "MAINTENANCE";
-};
-
 const getMaintenanceColor = (type) => {
   if (type === "MOT") return UI.mot;
   if (type === "SERVICE") return UI.service;
   return UI.maintenance;
 };
 
-const buildMaintenanceEvents = (maintenanceBookings) => {
-  return (maintenanceBookings || [])
-    .flatMap((booking) => {
-      if (isInactiveMaintenanceBooking(booking.status)) return [];
-
-      const type = getMaintenanceType(booking);
-      const vehicleLabel =
-        booking.vehicleLabel ||
-        booking.vehicleName ||
-        booking.title ||
-        booking.jobNumber ||
-        "Vehicle";
-      const provider = String(booking.provider || "").trim();
-      const title = provider ? `${vehicleLabel} - ${type} - ${provider}` : `${vehicleLabel} - ${type}`;
-
-      const bookingDates = Array.isArray(booking.bookingDates)
-        ? booking.bookingDates.map((value) => String(value || "").trim()).filter(Boolean).sort()
-        : [];
-
-      if (bookingDates.length) {
-        return bookingDates.map((ymd) => ({
-          id: `${booking.id}__${ymd}`,
-          title,
-          start: ymd,
-          end: addDays(ymd, 1),
-          allDay: true,
-          backgroundColor: getMaintenanceColor(type),
-          borderColor: getMaintenanceColor(type),
-          textColor: "#0f172a",
-          extendedProps: {
-            ...booking,
-            id: `${booking.id}__${ymd}`,
-            __collection: "maintenanceBookings",
-            __parentId: booking.id,
-            __occurrence: ymd,
-            kind: type,
-            maintenanceTypeLabel: type,
-            vehicleLabel,
-          },
-        }));
-      }
-
-      const startYmd = toYmd(
-        booking.startDate || booking.date || booking.start || booking.startDay || booking.appointmentDate
-      );
-      const endYmd = toYmd(
-        booking.endDate ||
-          booking.end ||
-          booking.date ||
-          booking.startDate ||
-          booking.start ||
-          booking.startDay ||
-          booking.appointmentDate
-      );
-      if (!startYmd) return [];
-
-      const safeEnd = endYmd && endYmd >= startYmd ? endYmd : startYmd;
-
-      return [{
-        id: booking.id,
-        title,
-        start: startYmd,
-        end: addDays(safeEnd, 1),
-        allDay: true,
-        backgroundColor: getMaintenanceColor(type),
-        borderColor: getMaintenanceColor(type),
-        textColor: "#0f172a",
-        extendedProps: {
-          ...booking,
-          __collection: "maintenanceBookings",
-          __parentId: booking.id,
-          kind: type,
-          maintenanceTypeLabel: type,
-          vehicleLabel,
-        },
-      }];
-    })
-    .filter(Boolean);
-};
-
-const buildDueEvents = (vehicles, maintenanceBookings) => {
-  const activeBookedTypes = new Set(
-    (maintenanceBookings || [])
-      .filter((booking) => !isInactiveMaintenanceBooking(booking.status))
-      .map((booking) => {
-        const vehicleId = String(booking.vehicleId || "").trim();
-        const type = getMaintenanceType(booking);
-        return vehicleId && (type === "MOT" || type === "SERVICE") ? `${vehicleId}:${type}` : "";
-      })
-      .filter(Boolean)
-  );
-
-  return (vehicles || []).flatMap((vehicle) => {
-    const vehicleId = String(vehicle.id || "").trim();
-    const vehicleLabel =
-      [String(vehicle.name || "").trim(), String(vehicle.registration || vehicle.reg || "").trim().toUpperCase()]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || vehicleId || "Vehicle";
-
-    const items = [
-      {
-        kind: "SERVICE",
-        date: vehicle.nextService,
-        color: UI.dueService,
-        title: `${vehicleLabel} - Service Due`,
-      },
-      {
-        kind: "MOT",
-        date: vehicle.nextMOT,
-        color: UI.dueMot,
-        title: `${vehicleLabel} - MOT Due`,
-      },
-    ];
-
-    return items
-      .filter((item) => {
-        const ymd = toYmd(item.date);
-        if (!ymd) return false;
-        return !activeBookedTypes.has(`${vehicleId}:${item.kind}`);
-      })
-      .map((item) => {
-        const ymd = toYmd(item.date);
-        return {
-          id: `due:${vehicleId}:${item.kind}:${ymd}`,
-          title: item.title,
-          start: ymd,
-          end: addDays(ymd, 1),
-          allDay: true,
-          backgroundColor: item.color,
-          borderColor: item.color,
-          textColor: "#0f172a",
-          extendedProps: {
-            id: `due:${vehicleId}:${item.kind}:${ymd}`,
-            __collection: "vehicleDueDates",
-            vehicleId,
-            kind: item.kind,
-            status: "Due",
-            appointmentDateISO: ymd,
-            title: item.title,
-          },
-        };
-      });
-  });
-};
-
 export default function WorkshopPage() {
   const router = useRouter();
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -266,43 +62,113 @@ export default function WorkshopPage() {
       setMaintenanceBookings(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubJobs = onSnapshot(collection(db, "maintenanceJobs"), (snapshot) => {
+      setMaintenanceJobs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+
     const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snapshot) => {
       setVehicles(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
 
     return () => {
       unsubMaintenance();
+      unsubJobs();
       unsubVehicles();
     };
   }, []);
 
+  const bookedMetaByVehicle = useMemo(
+    () => buildBookedMetaByVehicle(maintenanceBookings),
+    [maintenanceBookings]
+  );
+
   const maintenanceEvents = useMemo(
-    () => buildMaintenanceEvents(maintenanceBookings),
+    () =>
+      buildMaintenanceBookingEvents(maintenanceBookings, {
+        getVehicleLabel: (booking) =>
+          booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+      }).map((event) => {
+        const type = String(event.maintenanceTypeLabel || "").toUpperCase();
+        const color = getMaintenanceColor(type.includes("MOT") ? "MOT" : type.includes("SERVICE") ? "SERVICE" : "MAINTENANCE");
+        return {
+          id: event.id,
+          title: event.title,
+          start: event.start,
+          end: event.end,
+          allDay: true,
+          backgroundColor: color,
+          borderColor: color,
+          textColor: "#0f172a",
+          extendedProps: event,
+        };
+      }),
     [maintenanceBookings]
   );
 
   const dueEvents = useMemo(
-    () => buildDueEvents(vehicles, maintenanceBookings),
-    [vehicles, maintenanceBookings]
+    () =>
+      buildVehicleDueEvents(vehicles, {
+        bookedMetaByVehicle,
+        getVehicleLabel: (vehicle) =>
+          [String(vehicle.name || "").trim(), String(vehicle.registration || vehicle.reg || "").trim().toUpperCase()]
+            .filter(Boolean)
+            .join(" ")
+            .trim() || String(vehicle.id || "").trim() || "Vehicle",
+      }).map((event) => {
+        const color = event.kind === "MOT" ? UI.dueMot : UI.dueService;
+        return {
+          id: event.id,
+          title: event.title,
+          start: event.start,
+          end: event.end,
+          allDay: true,
+          backgroundColor: color,
+          borderColor: color,
+          textColor: "#0f172a",
+          extendedProps: event,
+        };
+      }),
+    [vehicles, bookedMetaByVehicle]
+  );
+
+  const maintenanceJobEvents = useMemo(
+    () =>
+      buildMaintenanceJobEvents(maintenanceJobs).map((event) => ({
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        allDay: true,
+        backgroundColor: UI.maintenance,
+        borderColor: UI.maintenance,
+        textColor: "#0f172a",
+        extendedProps: event,
+      })),
+    [maintenanceJobs]
   );
 
   const calendarEvents = useMemo(
-    () => [...maintenanceEvents, ...dueEvents],
-    [maintenanceEvents, dueEvents]
+    () => [...maintenanceEvents, ...maintenanceJobEvents, ...dueEvents],
+    [maintenanceEvents, maintenanceJobEvents, dueEvents]
   );
 
   const counts = useMemo(() => {
-    const service = maintenanceEvents.filter((event) => event.extendedProps?.kind === "SERVICE").length;
-    const mot = maintenanceEvents.filter((event) => event.extendedProps?.kind === "MOT").length;
-    const maintenance = maintenanceEvents.filter((event) => event.extendedProps?.kind === "MAINTENANCE").length;
+    const service = maintenanceEvents.filter((event) => event.extendedProps?.kind === "SERVICE_BOOKING").length;
+    const mot = maintenanceEvents.filter((event) => event.extendedProps?.kind === "MOT_BOOKING").length;
+    const maintenance = maintenanceEvents.filter(
+      (event) =>
+        !["SERVICE_BOOKING", "MOT_BOOKING"].includes(String(event.extendedProps?.kind || ""))
+    ).length;
+    const jobs = maintenanceJobEvents.length;
     return {
       total: calendarEvents.length,
       service,
       mot,
       maintenance,
+      jobs,
       due: dueEvents.length,
     };
-  }, [calendarEvents.length, dueEvents.length, maintenanceEvents]);
+  }, [calendarEvents.length, dueEvents.length, maintenanceEvents, maintenanceJobEvents.length]);
 
   return (
     <div style={pageWrap}>
@@ -348,13 +214,14 @@ export default function WorkshopPage() {
                 Workshop Calendar
               </h1>
               <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                View all active maintenance bookings plus upcoming service and MOT due dates.
+                View active maintenance bookings, workshop job cards, and upcoming service and MOT due dates.
               </div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <span style={legendPill("#fff7ed", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
+            <span style={legendPill("#fff7ed", UI.maintenance)}>Job cards: {counts.jobs}</span>
             <span style={legendPill("#eff6ff", UI.service)}>Service booked: {counts.service}</span>
             <span style={legendPill("#fef2f2", UI.mot)}>MOT booked: {counts.mot}</span>
             <span style={legendPill("#f8fafc", UI.text)}>Due dates: {counts.due}</span>
@@ -398,6 +265,7 @@ export default function WorkshopPage() {
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
             <LegendSwatch color={UI.maintenance} label="General maintenance booking" />
+            <LegendSwatch color={UI.maintenance} label="Workshop job card" />
             <LegendSwatch color={UI.service} label="Booked service" />
             <LegendSwatch color={UI.mot} label="Booked MOT" />
             <LegendSwatch color={UI.dueService} label="Service due date" />

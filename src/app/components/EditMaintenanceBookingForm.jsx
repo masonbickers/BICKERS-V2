@@ -67,7 +67,8 @@ export default function EditMaintenanceBookingForm({
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
-  const [equipmentOptions, setEquipmentOptions] = useState([]);
+  const [equipmentGroups, setEquipmentGroups] = useState({});
+  const [openEquipmentGroups, setOpenEquipmentGroups] = useState({});
   const [selectedEquipment, setSelectedEquipment] = useState([]);
 
   const [saving, setSaving] = useState(false);
@@ -371,15 +372,27 @@ export default function EditMaintenanceBookingForm({
               .filter(Boolean)
           : []
       );
-      setEquipmentOptions(
-        equipmentSnap.docs
-          .map((d) => {
-            const data = d.data() || {};
-            return String(data.name || data.label || d.id || "").trim();
-          })
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b))
-      );
+      const groupedEquipment = {};
+      equipmentSnap.docs.forEach((d) => {
+        const data = d.data() || {};
+        const category = String(data.category || "Other").trim() || "Other";
+        const name = String(data.name || data.label || d.id || "").trim();
+        if (!name) return;
+        if (!groupedEquipment[category]) groupedEquipment[category] = [];
+        groupedEquipment[category].push(name);
+      });
+
+      Object.keys(groupedEquipment).forEach((category) => {
+        groupedEquipment[category].sort((a, b) => a.localeCompare(b));
+      });
+
+      const defaultOpenGroups = {};
+      Object.keys(groupedEquipment).forEach((category) => {
+        defaultOpenGroups[category] = false;
+      });
+
+      setEquipmentGroups(groupedEquipment);
+      setOpenEquipmentGroups(defaultOpenGroups);
 
       // vehicle
       if (resolvedVehicleId) {
@@ -409,6 +422,21 @@ export default function EditMaintenanceBookingForm({
     });
   }, [bookingId, vehicleIdProp]);
 
+  useEffect(() => {
+    if (!Object.keys(equipmentGroups).length) return;
+    setOpenEquipmentGroups((prev) => {
+      const next = { ...(prev || {}) };
+      Object.entries(equipmentGroups).forEach(([category, items]) => {
+        if (Array.isArray(items) && items.some((name) => selectedEquipment.includes(name))) {
+          next[category] = true;
+        } else if (typeof next[category] !== "boolean") {
+          next[category] = false;
+        }
+      });
+      return next;
+    });
+  }, [equipmentGroups, selectedEquipment]);
+
   // keep date fields in sync when toggling modes
   useEffect(() => {
     if (loading) return;
@@ -427,7 +455,7 @@ export default function EditMaintenanceBookingForm({
   const canSubmit = useMemo(() => {
     if (saving || loading) return false;
     if (!bookingId) return false;
-    if (!vehicleId) return false;
+    if (!vehicleId && selectedEquipment.length === 0) return false;
 
     if (useCustomDates) {
       if (!customDates.length) return false;
@@ -443,7 +471,20 @@ export default function EditMaintenanceBookingForm({
 
     if (activeConflict) return false;
     return true;
-  }, [saving, loading, bookingId, vehicleId, useCustomDates, customDates, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
+  }, [
+    saving,
+    loading,
+    bookingId,
+    vehicleId,
+    selectedEquipment,
+    useCustomDates,
+    customDates,
+    isMultiDay,
+    appointmentDate,
+    startDate,
+    endDate,
+    activeConflict,
+  ]);
 
   const handleClose = () => {
     if (typeof onClose === "function") onClose();
@@ -1062,19 +1103,45 @@ export default function EditMaintenanceBookingForm({
 
             <div style={{ ...fieldBlock, ...fullWidth }}>
               <label style={label}>Book equipment off</label>
-              {equipmentOptions.length ? (
-                <div style={pickerGrid}>
-                  {equipmentOptions.map((name) => {
-                    const checked = selectedEquipment.includes(name);
+              {Object.keys(equipmentGroups).length ? (
+                <div style={categoryGrid}>
+                  {Object.entries(equipmentGroups).map(([category, items]) => {
+                    const isOpen = openEquipmentGroups[category] || false;
+
                     return (
-                      <label key={name} style={pickerItem}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => toggleEquipment(name, e.target.checked)}
-                        />{" "}
-                        {name}
-                      </label>
+                      <div key={category} style={categoryCard}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenEquipmentGroups((prev) => ({
+                              ...prev,
+                              [category]: !prev[category],
+                            }))
+                          }
+                          style={categoryToggle}
+                        >
+                          <span>{isOpen ? "v" : ">"} {category}</span>
+                          <span style={categoryCount}>{items.length}</span>
+                        </button>
+
+                        {isOpen && (
+                          <div style={pickerGrid}>
+                            {items.map((name) => {
+                              const checked = selectedEquipment.includes(name);
+                              return (
+                                <label key={name} style={pickerItem}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => toggleEquipment(name, e.target.checked)}
+                                  />{" "}
+                                  {name}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -1243,6 +1310,49 @@ const fieldBlock = {
 
 const fullWidth = {
   gridColumn: "1 / -1",
+};
+
+const categoryGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const categoryCard = {
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.06)",
+  overflow: "hidden",
+};
+
+const categoryToggle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 12px",
+  border: "none",
+  background: "rgba(255,255,255,0.04)",
+  color: "rgba(255,255,255,0.95)",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const categoryCount = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 22,
+  height: 22,
+  padding: "0 8px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.12)",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 900,
 };
 
 const pickerGrid = {

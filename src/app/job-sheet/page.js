@@ -69,6 +69,8 @@ const pillBtn = (active = false) => ({
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
 const select = { padding: "7px 10px", borderRadius: UI.radiusSm, border: "1px solid #d6dee8", background: "#fff", fontSize: 12.5, minWidth: 140 };
 const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #cad6e2", background: UI.brandSoft, color: UI.brand, fontSize: 11.5, fontWeight: 800 };
+const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginTop: 12 };
+const statCard = { ...surface, padding: 14, background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)" };
 
 const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "18px 2px 10px", flexWrap: "wrap" };
 const weekTitle = { fontSize: 15, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.01em" };
@@ -242,6 +244,40 @@ const statusColors = (label) => {
       return { bg: "#acacacff", border: "#3f3f3fff", text: "#000000ff" };
   }
 };
+
+const getCheckState = (job) => ({
+  notes: [job?.generalNotes, job?.notes, job?.jobNotes].some((value) => String(value || "").trim().length > 0),
+  po: String(job?.po || "").trim().length > 0,
+  quote: String(job?.pdfUrl || "").trim().length > 0 || (Array.isArray(job?.attachments) && job.attachments.length > 0),
+});
+
+const CheckBadge = ({ label, ok }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "4px 8px",
+      borderRadius: 999,
+      border: `1px solid ${ok ? "#86efac" : "#fecaca"}`,
+      background: ok ? "#dcfce7" : "#fee2e2",
+      color: ok ? "#166534" : "#991b1b",
+      fontSize: 10.5,
+      fontWeight: 800,
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: 999,
+        background: ok ? "#16a34a" : "#dc2626",
+      }}
+    />
+    {label}
+  </span>
+);
 
 const StatusBadge = ({ job, section }) => {
   const label = displayStatusForSection(job, section);
@@ -594,6 +630,20 @@ export default function JobSheetPage() {
   };
 
   const totalVisible = activeItemsFiltered.length;
+  const visibleChecks = useMemo(
+    () =>
+      activeItemsFiltered.reduce(
+        (acc, job) => {
+          const checks = getCheckState(job);
+          if (checks.notes) acc.notes += 1;
+          if (checks.po) acc.po += 1;
+          if (checks.quote) acc.quote += 1;
+          return acc;
+        },
+        { notes: 0, po: 0, quote: 0 }
+      ),
+    [activeItemsFiltered]
+  );
 
   /* ---------- Mark complete (optimistic update) ---------- */
   const markComplete = async (job) => {
@@ -607,10 +657,26 @@ export default function JobSheetPage() {
     }
   };
 
+  const updateJobStatus = async (job, nextStatus) => {
+    const prev = job.status;
+    setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: nextStatus } : j)));
+    try {
+      await updateDoc(doc(db, "bookings", job.id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+        ...(nextStatus === "complete" ? { completedAt: serverTimestamp() } : {}),
+      });
+    } catch (e) {
+      setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
+      alert("Couldn’t update job status. Please try again.");
+    }
+  };
+
   /* ---------- Card (cozy/compact) + Ultra strip ---------- */
   const Card = ({ job, section }) => {
     const denseNow = density === "compact";
     const ultra = density === "ultra";
+    const checks = getCheckState(job);
 
     const team =
       Array.isArray(job.employees) && job.employees.length
@@ -661,7 +727,7 @@ export default function JobSheetPage() {
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                markComplete(job);
+                updateJobStatus(job, "complete");
               }}
               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
               title="Mark complete"
@@ -671,6 +737,9 @@ export default function JobSheetPage() {
           </div>
 
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+            <CheckBadge label="Notes" ok={checks.notes} />
+            <CheckBadge label="PO" ok={checks.po} />
+            <CheckBadge label="Quote" ok={checks.quote} />
             <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
             <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
             <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
@@ -760,6 +829,47 @@ export default function JobSheetPage() {
 
           <span style={{ color: "#94a3b8", fontSize: 11, letterSpacing: ".02em" }}>View →</span>
         
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          <CheckBadge label="Notes" ok={checks.notes} />
+          <CheckBadge label="PO" ok={checks.po} />
+          <CheckBadge label="Quote" ok={checks.quote} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                updateJobStatus(job, "Ready to Invoice");
+              }}
+              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+            >
+              Ready
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                updateJobStatus(job, "Action Required");
+              }}
+              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+            >
+              Action
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                updateJobStatus(job, "complete");
+              }}
+              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+            >
+              Complete
+            </button>
+          </div>
+          <span style={{ color: "#94a3b8", fontSize: 11, letterSpacing: ".02em" }}>Open job →</span>
+        </div>
       </Link>
     );
   };
@@ -776,8 +886,9 @@ export default function JobSheetPage() {
             <th style={th}>Dates</th>
             <th style={th}>Employees</th>
             <th style={th}>Vehicles</th>
+            <th style={th}>Checks</th>
             <th style={th}>Status</th>
-            <th style={th}>Action</th>
+            <th style={th}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -787,6 +898,8 @@ export default function JobSheetPage() {
                 ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
                 : "—";
             const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—";
+
+            const checks = getCheckState(job);
 
             return (
               <tr key={job.id}>
@@ -801,10 +914,39 @@ export default function JobSheetPage() {
                 <td style={td}>{team}</td>
                 <td style={td}>{vehicles}</td>
                 <td style={td}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <CheckBadge label="Notes" ok={checks.notes} />
+                    <CheckBadge label="PO" ok={checks.po} />
+                    <CheckBadge label="Quote" ok={checks.quote} />
+                  </div>
+                </td>
+                <td style={td}>
                   <StatusBadge job={job} section={section} />
                 </td>
                 <td style={td}>
- 
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => updateJobStatus(job, "Ready to Invoice")}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                    >
+                      Ready
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateJobStatus(job, "Action Required")}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                    >
+                      Action
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateJobStatus(job, "complete")}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                    >
+                      Complete
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
@@ -947,6 +1089,37 @@ export default function JobSheetPage() {
               })}
             </div>
             <span style={tinyHint}>Tip: ⌘/Ctrl+G cycles Grid → List → Table</span>
+          </div>
+        </div>
+
+        <div style={statGrid}>
+          <div style={statCard}>
+            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Active Section
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{activeSection}</div>
+            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{totalVisible} jobs match the current view</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Notes Filled
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
+            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with notes entered</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              PO Filled
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.po}</div>
+            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with PO added</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Quote Attached
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.quote}</div>
+            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with an uploaded file</div>
           </div>
         </div>
 

@@ -108,6 +108,8 @@ const addWeeksToISO = (isoDate, weeks) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const NEW_CATEGORY_OPTION = "__new_category__";
+
 export default function EditEquipmentPage() {
   const router = useRouter();
   const { id } = useParams();
@@ -118,6 +120,8 @@ export default function EditEquipmentPage() {
 
   const [equipment, setEquipment] = useState(null);
   const [existingCategories, setExistingCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   // Load categories for consistent grouping
   useEffect(() => {
@@ -160,6 +164,18 @@ export default function EditEquipmentPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "category") {
+      if (value === NEW_CATEGORY_OPTION) {
+        setIsCreatingCategory(true);
+        setEquipment((prev) => ({ ...(prev || {}), category: newCategory.trim() }));
+        return;
+      }
+      setIsCreatingCategory(false);
+      setNewCategory("");
+      setEquipment((prev) => ({ ...(prev || {}), category: value }));
+      return;
+    }
 
     const numeric = ["inspectionFrequency"];
     const v = numeric.includes(name) ? (value === "" ? "" : String(value).replace(/[^\d]/g, "")) : value;
@@ -319,7 +335,12 @@ export default function EditEquipmentPage() {
 
                 <div style={col(4)}>
                   <label style={label}>Category *</label>
-                  <select name="category" value={equipment.category || ""} onChange={handleChange} style={input}>
+                  <select
+                    name="category"
+                    value={isCreatingCategory ? NEW_CATEGORY_OPTION : equipment.category || ""}
+                    onChange={handleChange}
+                    style={input}
+                  >
                     <option value="">Select category…</option>
                     {existingCategories.map((c) => (
                       <option key={c} value={c}>
@@ -330,7 +351,21 @@ export default function EditEquipmentPage() {
                     {equipment.category && !existingCategories.includes(equipment.category) ? (
                       <option value={equipment.category}>{equipment.category}</option>
                     ) : null}
+                    <option value={NEW_CATEGORY_OPTION}>+ Add new category</option>
                   </select>
+                  {isCreatingCategory ? (
+                    <input
+                      value={newCategory}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setNewCategory(next);
+                        setEquipment((prev) => ({ ...(prev || {}), category: next }));
+                      }}
+                      style={{ ...input, marginTop: 8 }}
+                      placeholder="Type new category name"
+                      required
+                    />
+                  ) : null}
                   <div style={helpText}>Categories control grouping in Equipment Overview.</div>
                 </div>
 

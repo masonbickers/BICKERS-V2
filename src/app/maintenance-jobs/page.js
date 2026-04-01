@@ -14,11 +14,18 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import {
-  MAINTENANCE_JOB_STATUSES,
   buildAssetLabel,
   createMaintenanceJobPayload,
   normalizeAssetRecord,
 } from "../utils/maintenanceSchema";
+import {
+  MAINTENANCE_JOB_WORKFLOW_STAGES,
+  MAINTENANCE_STAGE_LABELS,
+  MAINTENANCE_WORKFLOW_VERSION,
+  canTransitionMaintenanceStage,
+  normalizeMaintenanceStage,
+  validateMaintenanceStageRequirements,
+} from "../utils/maintenanceWorkflowSpec";
 
 const UI = {
   bg: "#f8fafc",
@@ -71,6 +78,8 @@ export default function MaintenanceJobsPage() {
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [jobErrors, setJobErrors] = useState({});
 
   const [form, setForm] = useState({
     assetId: "",
@@ -81,6 +90,20 @@ export default function MaintenanceJobsPage() {
     priority: "normal",
     notes: "",
   });
+
+  const normalizeWorkflowStageCompat = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "complete") return "completed";
+    if (raw === "qa") return "completed";
+    if (raw === "awaiting_parts") return "booked";
+    return normalizeMaintenanceStage(raw);
+  };
+
+  const prettyField = (field) =>
+    String(field || "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (m) => m.toUpperCase());
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -131,7 +154,8 @@ export default function MaintenanceJobsPage() {
   const visibleJobs = useMemo(() => {
     const q = String(search || "").trim().toLowerCase();
     return jobs.filter((j) => {
-      if (statusFilter !== "all" && String(j.status || "") !== statusFilter) return false;
+      const stage = normalizeWorkflowStageCompat(j.status);
+      if (statusFilter !== "all" && stage !== statusFilter) return false;
       if (!q) return true;
       const blob = [
         j.title,
@@ -152,6 +176,7 @@ export default function MaintenanceJobsPage() {
     if (!form.assetId) return alert("Please select an asset.");
     if (!form.title.trim()) return alert("Please enter a job title.");
     setSaving(true);
+    setCreateError("");
     try {
       const selected = vehicles.find((v) => String(v.id) === String(form.assetId));
       const createdBy = auth?.currentUser?.email || "Unknown";
@@ -168,7 +193,18 @@ export default function MaintenanceJobsPage() {
         source: String(searchParams.get("source") || "manual"),
         sourceRef: String(searchParams.get("vehicleId") || ""),
       });
-      await addDoc(collection(db, "maintenanceJobs"), payload);
+      const nextPayload = {
+        ...payload,
+        status: "planned",
+        workflowVersion: MAINTENANCE_WORKFLOW_VERSION,
+      };
+      const validation = validateMaintenanceStageRequirements(nextPayload, "planned");
+      if (!validation.ok) {
+        setCreateError(`Missing required fields: ${validation.missing.map(prettyField).join(", ")}`);
+        setSaving(false);
+        return;
+      }
+      await addDoc(collection(db, "maintenanceJobs"), nextPayload);
       setForm((prev) => ({ ...prev, title: "", notes: "" }));
     } catch (error) {
       console.error("Failed creating maintenance job:", error);
@@ -178,14 +214,45 @@ export default function MaintenanceJobsPage() {
     }
   };
 
-  const setJobStatus = async (jobId, status) => {
+  const setJobStatus = async (job, nextRawStatus) => {
     try {
+      const currentStatus = normalizeWorkflowStageCompat(job?.status);
+      const nextStatus = normalizeWorkflowStageCompat(nextRawStatus);
+      if (!canTransitionMaintenanceStage(currentStatus, nextStatus)) {
+        setJobErrors((prev) => ({
+          ...prev,
+          [job.id]: `Invalid transition: ${MAINTENANCE_STAGE_LABELS[currentStatus]} -> ${MAINTENANCE_STAGE_LABELS[nextStatus]}`,
+        }));
+        return;
+      }
+
       const nowIso = new Date().toISOString();
-      const patch = { status, updatedAt: nowIso, updatedAtServer: serverTimestamp() };
-      if (status === "in_progress") patch.startedAt = nowIso;
-      if (status === "complete") patch.completedAt = nowIso;
-      if (status === "closed") patch.closedAt = nowIso;
-      await updateDoc(doc(db, "maintenanceJobs", jobId), patch);
+      const patch = {
+        status: nextStatus,
+        workflowVersion: MAINTENANCE_WORKFLOW_VERSION,
+        updatedAt: nowIso,
+        updatedAtServer: serverTimestamp(),
+      };
+      if (nextStatus === "in_progress" && !job?.startedAt) patch.startedAt = nowIso;
+      if (nextStatus === "completed" && !job?.completedAt) patch.completedAt = nowIso;
+      if (nextStatus === "closed" && !job?.closedAt) patch.closedAt = nowIso;
+
+      const candidate = { ...(job || {}), ...patch };
+      const validation = validateMaintenanceStageRequirements(candidate, nextStatus);
+      if (!validation.ok) {
+        setJobErrors((prev) => ({
+          ...prev,
+          [job.id]: `Missing required fields: ${validation.missing.map(prettyField).join(", ")}`,
+        }));
+        return;
+      }
+
+      await updateDoc(doc(db, "maintenanceJobs", job.id), patch);
+      setJobErrors((prev) => {
+        const next = { ...prev };
+        delete next[job.id];
+        return next;
+      });
     } catch (error) {
       console.error("Failed updating maintenance job status:", error);
       alert("Could not update status.");
@@ -249,6 +316,9 @@ export default function MaintenanceJobsPage() {
               {saving ? "Saving..." : "Create Job"}
             </button>
           </div>
+          {createError ? (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>{createError}</div>
+          ) : null}
         </div>
 
         <div style={card}>
@@ -262,9 +332,9 @@ export default function MaintenanceJobsPage() {
             />
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...input, maxWidth: 220 }}>
               <option value="all">All statuses</option>
-              {MAINTENANCE_JOB_STATUSES.map((s) => (
+              {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {MAINTENANCE_STAGE_LABELS[s] || s}
                 </option>
               ))}
             </select>
@@ -287,7 +357,9 @@ export default function MaintenanceJobsPage() {
                     </td>
                   </tr>
                 ) : (
-                  visibleJobs.map((j) => (
+                  visibleJobs.map((j) => {
+                    const stage = normalizeWorkflowStageCompat(j.status);
+                    return (
                     <tr key={j.id}>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontWeight: 800 }}>{j.title || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.assetLabel || j.assetId || "-"}</td>
@@ -297,22 +369,27 @@ export default function MaintenanceJobsPage() {
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.plannedDate || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>
                         <select
-                          value={j.status || "planned"}
-                          onChange={(e) => setJobStatus(j.id, e.target.value)}
+                          value={stage}
+                          onChange={(e) => setJobStatus(j, e.target.value)}
                           style={{ ...input, minWidth: 150 }}
                         >
-                          {MAINTENANCE_JOB_STATUSES.map((s) => (
+                          {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
                             <option key={s} value={s}>
-                              {s}
+                              {MAINTENANCE_STAGE_LABELS[s] || s}
                             </option>
                           ))}
                         </select>
+                        {jobErrors[j.id] ? (
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: "#b91c1c", fontWeight: 700 }}>
+                            {jobErrors[j.id]}
+                          </div>
+                        ) : null}
                       </td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", color: UI.muted }}>
                         {fmtDateTime(j.updatedAt || j.updatedAtServer)}
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
               </tbody>
             </table>
@@ -322,4 +399,3 @@ export default function MaintenanceJobsPage() {
     </HeaderSidebarLayout>
   );
 }
-

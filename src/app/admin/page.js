@@ -55,6 +55,13 @@ const Tabs = {
   ACCESS: "Access",
   HOLIDAY: "Holiday Allowance",
   SICK: "Sick Leave",
+  ACTIVITY: "Activity",
+  APRIL_FOOLS: "April Fools",
+};
+
+const isAprilFoolsDay = () => {
+  const now = new Date();
+  return now.getMonth() === 3 && now.getDate() === 1;
 };
 
 /* ───────────────────────────────────────────
@@ -149,6 +156,10 @@ export default function AdminPage() {
   const [employees, setEmployees] = useState([]);
   const [allowances, setAllowances] = useState([]);
   const [sickLeaves, setSickLeaves] = useState([]);
+  const [activityRows, setActivityRows] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityDay, setActivityDay] = useState(() => fmtYMD(new Date()));
+  const [systemRecovered, setSystemRecovered] = useState(false);
 
   // Sick form (add)
   const [newSick, setNewSick] = useState({
@@ -253,6 +264,7 @@ export default function AdminPage() {
       fetchEmployees(),
       fetchAllowances(),
       fetchSickLeaves(),
+      fetchActivity(),
     ]);
   };
 
@@ -303,6 +315,135 @@ export default function AdminPage() {
       query(collection(db, "sickLeave"), orderBy("createdAt", "desc"))
     );
     setSickLeaves(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  };
+
+  const fetchActivity = async () => {
+    setActivityLoading(true);
+    try {
+      const [
+        bookingsSnap,
+        maintenanceSnap,
+        maintenanceJobsSnap,
+        holidaysSnap,
+        sickSnap,
+        usersSnap,
+      ] = await Promise.all([
+        getDocs(collection(db, "bookings")),
+        getDocs(collection(db, "maintenanceBookings")),
+        getDocs(collection(db, "maintenanceJobs")),
+        getDocs(collection(db, "holidays")),
+        getDocs(collection(db, "sickLeave")),
+        getDocs(collection(db, "users")),
+      ]);
+
+      const rows = [];
+      const pushRow = (row) => {
+        const at = toDateSafe(row.at);
+        if (!at) return;
+        rows.push({
+          id: row.id,
+          at,
+          user: String(row.user || "Unknown").trim() || "Unknown",
+          action: String(row.action || "Updated").trim() || "Updated",
+          area: String(row.area || "").trim(),
+          details: String(row.details || "").trim(),
+        });
+      };
+
+      const addHistoryRows = (snap, areaLabel) => {
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const history = Array.isArray(data.history) ? data.history : [];
+          history.forEach((entry, index) => {
+            pushRow({
+              id: `${areaLabel}-${docSnap.id}-${index}`,
+              at: entry?.timestamp || entry?.updatedAt || data?.updatedAt || data?.createdAt,
+              user: entry?.user || entry?.updatedBy || entry?.by || data?.lastEditedBy || data?.createdBy,
+              action: entry?.action || "Updated",
+              area: areaLabel,
+              details:
+                entry?.details ||
+                (Array.isArray(entry?.changes) ? entry.changes.join(" | ") : "") ||
+                `${areaLabel} ${docSnap.id}`,
+            });
+          });
+
+          if (history.length === 0 && (data?.createdAt || data?.updatedAt)) {
+            pushRow({
+              id: `${areaLabel}-${docSnap.id}-fallback`,
+              at: data?.updatedAt || data?.createdAt,
+              user: data?.lastEditedBy || data?.updatedBy || data?.createdBy,
+              action: data?.updatedAt ? "Updated" : "Created",
+              area: areaLabel,
+              details: `${areaLabel} ${docSnap.id}`,
+            });
+          }
+        });
+      };
+
+      addHistoryRows(bookingsSnap, "Booking");
+      addHistoryRows(maintenanceSnap, "Maintenance");
+
+      maintenanceJobsSnap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        pushRow({
+          id: `Maintenance Job-${docSnap.id}`,
+          at: data.updatedAtServer || data.updatedAt || data.createdAt,
+          user: data.updatedBy || data.createdBy,
+          action: data.updatedAt ? "Updated" : "Created",
+          area: "Maintenance Job",
+          details: data.title || docSnap.id,
+        });
+      });
+
+      holidaysSnap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        pushRow({
+          id: `Holiday-${docSnap.id}`,
+          at: data.updatedAt || data.createdAt || data.startDate,
+          user: data.updatedBy || data.createdByEmail || data.createdByName || data.employee,
+          action: data.updatedAt ? "Updated holiday" : "Created holiday",
+          area: "Holiday",
+          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} → ${fmtYMD(
+            data.endDate || data.startDate
+          )}`,
+        });
+      });
+
+      sickSnap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        pushRow({
+          id: `Sick-${docSnap.id}`,
+          at: data.updatedAt || data.createdAt || data.startDate,
+          user: data.updatedBy || data.createdBy || "Unknown",
+          action: data.updatedAt ? "Updated sick leave" : "Created sick leave",
+          area: "Sick Leave",
+          details: `${data.employeeName || data.employeeId || "Unknown"} ${fmtYMD(
+            data.startDate
+          )} → ${fmtYMD(data.endDate || data.startDate)}`,
+        });
+      });
+
+      usersSnap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        pushRow({
+          id: `User-${docSnap.id}`,
+          at: data.updatedAt || data.createdAt,
+          user: data.updatedBy || data.email || docSnap.id,
+          action: data.updatedAt ? "Updated user access" : "Created user",
+          area: "Access",
+          details: data.email || docSnap.id,
+        });
+      });
+
+      rows.sort((a, b) => b.at.getTime() - a.at.getTime());
+      setActivityRows(rows.slice(0, 500));
+    } catch (err) {
+      console.error("Failed to load activity:", err);
+      setActivityRows([]);
+    } finally {
+      setActivityLoading(false);
+    }
   };
 
   /* ───────────────────────────────────────────
@@ -453,6 +594,57 @@ export default function AdminPage() {
     }
   };
 
+  const filteredActivityRows = useMemo(() => {
+    const q = qText.trim().toLowerCase();
+    return activityRows.filter((row) => {
+      if (!q) return true;
+      return [row.user, row.action, row.area, row.details]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [activityRows, qText]);
+
+  const activityByHour = useMemo(() => {
+    const selectedDay = String(activityDay || "").trim();
+    const counts = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      label: `${String(hour).padStart(2, "0")}:00`,
+      value: 0,
+    }));
+
+    filteredActivityRows.forEach((row) => {
+      if (!(row.at instanceof Date) || Number.isNaN(row.at.getTime())) return;
+      const rowDay = fmtYMD(row.at);
+      if (rowDay !== selectedDay) return;
+      const hour = row.at.getHours();
+      if (hour >= 0 && hour <= 23) counts[hour].value += 1;
+    });
+
+    return counts;
+  }, [filteredActivityRows, activityDay]);
+
+  const activityHourMax = useMemo(
+    () => Math.max(1, ...activityByHour.map((item) => item.value || 0)),
+    [activityByHour]
+  );
+  const showAprilFools = isAprilFoolsDay();
+
+  const aprilFoolsFeed = useMemo(
+    () => [
+      "Bypassing firewall rules...",
+      "Reassigning all crane keys to interns...",
+      "Uploading kettle inventory to mainframe...",
+      "Converting holiday allowances into bitcoin...",
+      "Reticulating stunt splines...",
+      "Locking workshop radio to pirate frequency...",
+      "Injecting geese into scheduling engine...",
+      "Almost done. Probably.",
+    ],
+    []
+  );
+
   /* ───────────────────────────────────────────
      Render
   ──────────────────────────────────────────── */
@@ -499,7 +691,11 @@ export default function AdminPage() {
             <input
               value={qText}
               onChange={(e) => setQText(e.target.value)}
-              placeholder="Search employees (name or email)…"
+              placeholder={
+                activeTab === Tabs.ACTIVITY
+                  ? "Search activity (user, action, area)…"
+                  : "Search employees (name or email)…"
+              }
               style={topSearchStyle}
             />
 
@@ -514,12 +710,33 @@ export default function AdminPage() {
             <button onClick={bootstrap} style={btnStyle} title="Refresh">
               Refresh
             </button>
+
+            {showAprilFools && (
+              <button
+                onClick={() => {
+                  setSystemRecovered(false);
+                  setActiveTab(Tabs.APRIL_FOOLS);
+                }}
+                style={{
+                  ...btnStyle,
+                  border: "1px solid #dc2626",
+                  background: "linear-gradient(135deg, #3f0000 0%, #7f1d1d 100%)",
+                  color: "#fff",
+                  fontWeight: 1000,
+                }}
+                title="Definitely do not press this"
+              >
+                April Fools
+              </button>
+            )}
           </div>
         </div>
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-          {Object.values(Tabs).map((t) => {
+          {Object.values(Tabs)
+            .filter((t) => showAprilFools || t !== Tabs.APRIL_FOOLS)
+            .map((t) => {
             const active = t === activeTab;
             return (
               <button
@@ -935,11 +1152,299 @@ export default function AdminPage() {
               </div>
             </Card>
           )}
+
+          {activeTab === Tabs.ACTIVITY && (
+            <Card
+              title="System Activity"
+              subtitle="Recent activity across bookings, maintenance, holidays, sick leave and access changes."
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 10,
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={pillStyle}>Showing {filteredActivityRows.length}</span>
+                  <label style={{ display: "flex", gap: 8, alignItems: "center", color: UI.text, fontWeight: 800 }}>
+                    <span>Day</span>
+                    <input
+                      type="date"
+                      value={activityDay === "—" ? "" : activityDay}
+                      onChange={(e) => setActivityDay(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </label>
+                </div>
+                <button onClick={fetchActivity} style={btnStyle}>
+                  Refresh activity
+                </button>
+              </div>
+
+              <div style={{ ...panelStyle, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 1000, color: UI.text }}>Activity per Hour</div>
+                  <span style={pillStyle}>{activityDay || "No day selected"}</span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(24, minmax(26px, 1fr))",
+                    gap: 6,
+                    alignItems: "end",
+                    minHeight: 220,
+                  }}
+                >
+                  {activityByHour.map((item) => (
+                    <div key={item.hour} style={{ display: "grid", gap: 6, alignItems: "end" }}>
+                      <div
+                        title={`${item.label} - ${item.value} activit${item.value === 1 ? "y" : "ies"}`}
+                        style={{
+                          height: `${Math.max(8, (item.value / activityHourMax) * 160)}px`,
+                          borderRadius: "10px 10px 4px 4px",
+                          border: `1px solid ${item.value ? UI.brand : "#dbe2ea"}`,
+                          background: item.value
+                            ? "linear-gradient(180deg, rgba(29,78,216,0.22) 0%, rgba(29,78,216,0.82) 100%)"
+                            : "#eef2f7",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "center",
+                          color: item.value ? "#fff" : UI.muted,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          paddingTop: 6,
+                        }}
+                      >
+                        {item.value}
+                      </div>
+                      <div style={{ fontSize: 10, color: UI.muted, textAlign: "center", whiteSpace: "nowrap" }}>
+                        {String(item.hour).padStart(2, "0")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <Th>When</Th>
+                      <Th>User</Th>
+                      <Th>Action</Th>
+                      <Th>Area</Th>
+                      <Th>Details</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLoading ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          Loading activity…
+                        </td>
+                      </tr>
+                    ) : filteredActivityRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          No activity found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredActivityRows.map((row) => (
+                        <tr key={row.id} style={rowStyle}>
+                          <Td>{row.at ? row.at.toLocaleString("en-GB") : "—"}</Td>
+                          <Td>{row.user}</Td>
+                          <Td>
+                            <span style={pillStyle}>{row.action}</span>
+                          </Td>
+                          <Td>{row.area}</Td>
+                          <Td>{row.details || "—"}</Td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {showAprilFools && activeTab === Tabs.APRIL_FOOLS && (
+            <div
+              style={{
+                borderRadius: 22,
+                overflow: "hidden",
+                border: "1px solid #3f3f46",
+                boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
+                background:
+                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, #020617 100%)",
+                color: "#d1fae5",
+              }}
+            >
+              <div
+                style={{
+                  padding: "16px 18px",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  background: "linear-gradient(90deg, rgba(127,29,29,0.88) 0%, rgba(17,24,39,0.88) 100%)",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.75 }}>
+                    Critical Incident Console
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4, color: "#f8fafc" }}>
+                    Bickers Systems Compromised
+                  </div>
+                  <div style={{ fontSize: 13, marginTop: 6, color: "#fecaca" }}>
+                    Internal admin access revoked. Payroll geese now in control.
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setSystemRecovered(true)}
+                    style={{
+                      ...btnStyle,
+                      border: "1px solid #22c55e",
+                      background: "#14532d",
+                      color: "#ecfdf5",
+                      fontWeight: 1000,
+                    }}
+                  >
+                    Restore systems
+                  </button>
+                  <button
+                    onClick={() => setActiveTab(Tabs.ACCESS)}
+                    style={{
+                      ...btnStyle,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.06)",
+                      color: "#f8fafc",
+                    }}
+                  >
+                    Exit prank
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ padding: 20, display: "grid", gap: 18 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 14,
+                  }}
+                >
+                  {[
+                    { label: "Threat level", value: systemRecovered ? "Contained" : "Maximum nonsense" },
+                    { label: "Main server", value: systemRecovered ? "Recovered" : "Running on vibes" },
+                    { label: "Workshop data", value: systemRecovered ? "Safe" : "Now named goose.db" },
+                    { label: "Invoice engine", value: systemRecovered ? "Recovered" : "Held for biscuits" },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        border: "1px solid rgba(74,222,128,0.24)",
+                        borderRadius: 16,
+                        padding: 14,
+                        background: "rgba(2,6,23,0.52)",
+                      }}
+                    >
+                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#86efac" }}>
+                        {item.label}
+                      </div>
+                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 1000, color: "#f0fdf4" }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.25fr 0.75fr",
+                    gap: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      border: "1px solid rgba(74,222,128,0.24)",
+                      borderRadius: 16,
+                      padding: 16,
+                      background: "rgba(2,6,23,0.58)",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 10 }}>
+                      Live breach feed
+                    </div>
+                    <div style={{ display: "grid", gap: 8, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: 13 }}>
+                      {aprilFoolsFeed.map((line, index) => (
+                        <div key={line} style={{ color: index % 2 === 0 ? "#dcfce7" : "#bbf7d0" }}>
+                          [{String(8 + index).padStart(2, "0")}:{String((index * 7) % 60).padStart(2, "0")}:14] {line}
+                        </div>
+                      ))}
+                      <div style={{ color: systemRecovered ? "#86efac" : "#fca5a5", marginTop: 6 }}>
+                        {systemRecovered
+                          ? "[09:12:00] Recovery complete. April Fools."
+                          : "[09:11:52] Suggestion: press 'Restore systems' before Finance notices."}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid rgba(74,222,128,0.24)",
+                      borderRadius: 16,
+                      padding: 16,
+                      background: "rgba(2,6,23,0.58)",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 12 }}>
+                      Recovery status
+                    </div>
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <FakeMeter label="Booking core" value={systemRecovered ? 100 : 13} />
+                      <FakeMeter label="Holiday service" value={systemRecovered ? 100 : 41} />
+                      <FakeMeter label="Workshop grid" value={systemRecovered ? 100 : 27} />
+                      <FakeMeter label="Tea protocol" value={systemRecovered ? 100 : 2} />
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    border: "1px dashed rgba(134,239,172,0.32)",
+                    borderRadius: 16,
+                    padding: 16,
+                    background: systemRecovered ? "rgba(20,83,45,0.35)" : "rgba(127,29,29,0.22)",
+                    color: systemRecovered ? "#dcfce7" : "#fee2e2",
+                    fontSize: 15,
+                    fontWeight: 900,
+                  }}
+                >
+                  {systemRecovered
+                    ? "Systems restored. Nobody was hacked. Happy April Fools."
+                    : "This is a prank screen for April 1. Nothing is actually wrong, but it does look dramatic."}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 18, color: UI.muted, fontSize: 12 }}>
           Collections expected: <code>users</code>, <code>employees</code>, <code>holidays</code>,{" "}
-          <code>sickLeave</code>. (Legacy optional: <code>holidayAllowances</code>)
+          <code>sickLeave</code>, <code>bookings</code>, <code>maintenanceBookings</code>, <code>maintenanceJobs</code>.
+          (Legacy optional: <code>holidayAllowances</code>)
         </div>
       </div>
     </HeaderSidebarLayout>
@@ -965,6 +1470,48 @@ function Card({ title, subtitle, children }) {
         {subtitle && <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>{subtitle}</div>}
       </div>
       <div style={{ marginTop: 12 }}>{children}</div>
+    </div>
+  );
+}
+
+function FakeMeter({ label, value }) {
+  const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
+  const tone =
+    safeValue >= 100 ? "#22c55e" : safeValue >= 50 ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 10,
+          fontSize: 12,
+          fontWeight: 800,
+          color: "#dcfce7",
+        }}
+      >
+        <span>{label}</span>
+        <span>{safeValue}%</span>
+      </div>
+      <div
+        style={{
+          height: 12,
+          borderRadius: 999,
+          overflow: "hidden",
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <div
+          style={{
+            width: `${safeValue}%`,
+            height: "100%",
+            background: `linear-gradient(90deg, ${tone} 0%, #86efac 100%)`,
+            transition: "width 240ms ease",
+          }}
+        />
+      </div>
     </div>
   );
 }

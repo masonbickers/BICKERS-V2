@@ -196,7 +196,89 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
     setDeleting(true);
     try {
+      let vDoc = null;
+      if (vehicleId) {
+        const vSnap = await getDoc(doc(db, "vehicles", vehicleId));
+        if (vSnap.exists()) vDoc = { id: vSnap.id, ...vSnap.data() };
+      }
+
       await deleteDoc(doc(db, "maintenanceBookings", bookingId));
+
+      if (vehicleId && vDoc) {
+        const vRef = doc(db, "vehicles", vehicleId);
+        const shouldClearMot = String(vDoc.motBookingId || "") === String(bookingId);
+        const shouldClearService = String(vDoc.serviceBookingId || "") === String(bookingId);
+        const shouldClearInspection =
+          String(vDoc.inspectionBookingId || "") === String(bookingId);
+        const shouldClearWork = String(vDoc.workBookingId || "") === String(bookingId);
+
+        const clears = {};
+        if (shouldClearMot) {
+          Object.assign(clears, {
+            motBookingId: "",
+            motBookedStatus: "",
+            motBookedOn: "",
+            motAppointmentDate: "",
+            motBookingStartDate: "",
+            motBookingEndDate: "",
+            motProvider: "",
+            motBookingRef: "",
+            motLocation: "",
+            motCost: "",
+            motBookingNotes: "",
+            motBookingFiles: [],
+          });
+        }
+        if (shouldClearService) {
+          Object.assign(clears, {
+            serviceBookingId: "",
+            serviceBookedStatus: "",
+            serviceBookedOn: "",
+            serviceAppointmentDate: "",
+            serviceBookingStartDate: "",
+            serviceBookingEndDate: "",
+            serviceProvider: "",
+            serviceBookingRef: "",
+            serviceLocation: "",
+            serviceCost: "",
+            serviceBookingNotes: "",
+          });
+        }
+        if (shouldClearInspection) {
+          Object.assign(clears, {
+            inspectionBookingId: "",
+            inspectionBookedStatus: "",
+            inspectionBookedOn: "",
+            inspectionAppointmentDate: "",
+            inspectionBookingStartDate: "",
+            inspectionBookingEndDate: "",
+            inspectionProvider: "",
+            inspectionBookingRef: "",
+            inspectionLocation: "",
+            inspectionCost: "",
+            inspectionBookingNotes: "",
+          });
+        }
+        if (shouldClearWork) {
+          Object.assign(clears, {
+            workBookingId: "",
+            workBookedStatus: "",
+            workBookingDate: "",
+            workBookingStartDate: "",
+            workBookingEndDate: "",
+            workProvider: "",
+            workBookingRef: "",
+            workLocation: "",
+            workCost: "",
+            workBookingNotes: "",
+          });
+        }
+
+        if (Object.keys(clears).length) {
+          await updateDoc(vRef, { ...clears, updatedAt: serverTimestamp() });
+        }
+      }
+
       onClose?.();
     } catch (error) {
       console.error("[DashboardMaintenanceModal] delete failed:", error);

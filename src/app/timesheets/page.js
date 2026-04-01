@@ -6,6 +6,18 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const LUNCH_DEDUCT_HRS = 0.5;
+
 function getMonday(d) {
   d = new Date(d);
   const day = d.getDay();
@@ -47,6 +59,158 @@ function toMillis(val) {
   }
 
   return 0;
+}
+
+function toMinutes(val) {
+  if (!val || typeof val !== "string") return null;
+  const m = val.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function diffHours(start, end) {
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+  if (s == null || e == null) return 0;
+
+  let d = (e - s) / 60;
+  if (d < 0) d += 24;
+  return Math.max(0, d);
+}
+
+function extractYardSegments(entry) {
+  if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
+  if (entry?.leaveTime && entry?.arriveBack) return [{ start: entry.leaveTime, end: entry.arriveBack }];
+  if (entry?.start && entry?.end) return [{ start: entry.start, end: entry.end }];
+  return [];
+}
+
+function shouldDeductYardLunch(entry) {
+  if (!entry) return true;
+  if (entry?.managerLunchDeduct === true) return true;
+  if (entry?.managerLunchDeduct === false) return false;
+  if (entry?.yardLunchDeduct === false) return false;
+  if (entry?.yardLunchSup === true || entry?.lunchSup === true) return false;
+  if (entry?.noLunch === true || entry?.skipLunch === true) return false;
+  if (entry?.lunchTaken === false || entry?.lunch === false) return false;
+  if (entry?.lunchTaken === true || entry?.lunch === true) return true;
+  return true;
+}
+
+function computeYardHours(entry) {
+  const segs = extractYardSegments(entry);
+  let total = 0;
+  segs.forEach((s) => {
+    total += diffHours(s.start, s.end);
+  });
+  if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
+  return Math.max(0, total);
+}
+
+function computeTravelHours(entry) {
+  return diffHours(entry?.leaveTime, entry?.arriveTime);
+}
+
+function getPrecallHours(entry) {
+  const value = Number(entry?.precallDuration);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return value / 60;
+}
+
+function computeOnSetBreakdown(entry) {
+  const travelToHrs = computeTravelHours(entry);
+  const preCallHrs = getPrecallHours(entry);
+  const callToWrapHrs =
+    entry?.callTime && entry?.wrapTime ? diffHours(entry.callTime, entry.wrapTime) : 0;
+
+  if (entry?.callTime) {
+    const callToFinishHrs = entry?.arriveBack
+      ? diffHours(entry.callTime, entry.arriveBack)
+      : entry?.wrapTime
+      ? diffHours(entry.callTime, entry.wrapTime)
+      : 0;
+
+    const onSetPaidHrs = 10;
+    const extraAfterTenHrs = Math.max(0, callToFinishHrs - onSetPaidHrs);
+
+    return {
+      totalHrs: travelToHrs + preCallHrs + onSetPaidHrs + extraAfterTenHrs,
+    };
+  }
+
+  const fallbackWindowHrs =
+    entry?.leaveTime && entry?.arriveBack ? diffHours(entry.leaveTime, entry.arriveBack) : 0;
+  const legacyOnSetHrs = callToWrapHrs || fallbackWindowHrs;
+
+  return {
+    totalHrs: Math.max(0, legacyOnSetHrs + preCallHrs),
+  };
+}
+
+function computeOnSetHours(entry) {
+  return computeOnSetBreakdown(entry).totalHrs;
+}
+
+function isTurnaroundDay(entry) {
+  if (!entry) return false;
+  if (entry.isTurnaround === true && String(entry.mode || "yard").toLowerCase() === "yard") return true;
+  if (entry.turnaround === true || entry.turnaroundDay === true) return true;
+  return false;
+}
+
+function computeTurnaroundHours(entry) {
+  const segs = extractYardSegments(entry);
+  if (!segs?.length) return 0;
+  let total = 0;
+  segs.forEach((s) => {
+    total += diffHours(s.start, s.end);
+  });
+  return Math.max(0, total);
+}
+
+function detectMode(entry, isWeekend) {
+  if (!entry) return isWeekend ? "off" : "missing";
+  const rawMode = String(entry.mode || "yard").toLowerCase();
+  if (rawMode === "holiday") return "holiday";
+  if (rawMode === "bankholiday") return "bankholiday";
+  if (rawMode === "off") return "off";
+  if (rawMode === "yard" && isTurnaroundDay(entry)) return "turnaround";
+  if (rawMode === "travel") return "travel";
+  if (rawMode === "onset") return "onset";
+  if (rawMode === "yard") return "yard";
+  return "yard";
+}
+
+function normaliseDays(daysObj) {
+  const out = {};
+  DAYS.forEach((day) => {
+    out[day] = daysObj?.[day] ?? null;
+  });
+  return out;
+}
+
+function getTimesheetWeekHours(ts) {
+  const explicitTotal = Number(ts?.weeklyTotal ?? ts?.totalHours ?? ts?.totalHrs);
+  if (Number.isFinite(explicitTotal) && explicitTotal > 0) return explicitTotal;
+
+  const dayMap = normaliseDays(ts?.days);
+  return DAYS.reduce((total, day) => {
+    const entry = dayMap[day];
+    if (!entry) return total;
+    const mode = detectMode(entry, day === "Saturday" || day === "Sunday");
+    if (mode === "yard") return total + computeYardHours(entry);
+    if (mode === "travel") return total + computeTravelHours(entry);
+    if (mode === "onset") return total + computeOnSetHours(entry);
+    if (mode === "turnaround") return total + computeTurnaroundHours(entry);
+    return total;
+  }, 0);
+}
+
+function formatHoursCompact(value) {
+  const hrs = Number(value || 0);
+  if (!Number.isFinite(hrs) || hrs <= 0) return "0 hrs";
+  const rounded = Math.round(hrs * 10) / 10;
+  return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)} hrs`;
 }
 
 function getTimesheetUpdatedMs(ts) {
@@ -126,7 +290,7 @@ const UI = {
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
   brandBorder: "#c8d6e3",
-  border: "1px solid #dbe2ea",
+  borderColor: "#dbe2ea",
   shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
 };
 
@@ -152,15 +316,21 @@ export default function TimesheetListPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [weekFilter, setWeekFilter] = useState("all");
   const [sortBy, setSortBy] = useState("attention");
+  const [weekWindowOffset, setWeekWindowOffset] = useState(0);
 
   const weekOptions = useMemo(
     () =>
-      [...Array(4)].map((_, i) => {
+      [...Array(26)].map((_, i) => {
         const monday = getMonday(new Date());
         monday.setDate(monday.getDate() - 7 * i);
         return monday.toISOString().split("T")[0];
       }),
     []
+  );
+
+  const windowWeeks = useMemo(
+    () => weekOptions.slice(weekWindowOffset, weekWindowOffset + 4),
+    [weekOptions, weekWindowOffset]
   );
 
   useEffect(() => {
@@ -240,10 +410,19 @@ export default function TimesheetListPage() {
   }, []);
 
   const displayedWeeks = useMemo(
-    () => (weekFilter === "all" ? weekOptions : [weekFilter]),
-    [weekFilter, weekOptions]
+    () => (weekFilter === "all" ? windowWeeks : [weekFilter]),
+    [weekFilter, windowWeeks]
   );
   const employees = useMemo(() => Object.values(grouped), [grouped]);
+
+  useEffect(() => {
+    if (weekFilter === "all") return;
+    const index = weekOptions.indexOf(weekFilter);
+    if (index === -1) return;
+    if (index < weekWindowOffset || index >= weekWindowOffset + 4) {
+      setWeekWindowOffset(index);
+    }
+  }, [weekFilter, weekOptions, weekWindowOffset]);
 
   const filteredEmployees = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -312,7 +491,9 @@ export default function TimesheetListPage() {
     width: "100%",
     padding: "10px 12px",
     borderRadius: UI.radiusSm,
-    border: UI.border,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: UI.borderColor,
     fontSize: 13,
     background: "#f8fbfd",
     outline: "none",
@@ -326,6 +507,37 @@ export default function TimesheetListPage() {
     { label: "Draft only", value: overview.draft },
     { label: "Missing weeks", value: overview.missing },
   ];
+
+  const canGoToNewerWindow = weekFilter === "all" ? weekWindowOffset > 0 : weekOptions.indexOf(weekFilter) > 0;
+  const canGoToOlderWindow =
+    weekFilter === "all"
+      ? weekWindowOffset + 4 < weekOptions.length
+      : (() => {
+          const index = weekOptions.indexOf(weekFilter);
+          return index !== -1 && index < weekOptions.length - 1;
+        })();
+
+  const handleWeekWindowBack = () => {
+    if (weekFilter === "all") {
+      setWeekWindowOffset((prev) => Math.min(prev + 1, Math.max(0, weekOptions.length - 4)));
+      return;
+    }
+
+    const currentIndex = weekOptions.indexOf(weekFilter);
+    if (currentIndex === -1 || currentIndex >= weekOptions.length - 1) return;
+    setWeekFilter(weekOptions[currentIndex + 1]);
+  };
+
+  const handleWeekWindowForward = () => {
+    if (weekFilter === "all") {
+      setWeekWindowOffset((prev) => Math.max(0, prev - 1));
+      return;
+    }
+
+    const currentIndex = weekOptions.indexOf(weekFilter);
+    if (currentIndex <= 0) return;
+    setWeekFilter(weekOptions[currentIndex - 1]);
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -392,7 +604,9 @@ export default function TimesheetListPage() {
                     padding: "6px 10px",
                     borderRadius: 999,
                     background: item.bg,
-                    border: "1px solid rgba(148,163,184,0.18)",
+                    borderWidth: 1,
+                    borderStyle: "solid",
+                    borderColor: "rgba(148,163,184,0.18)",
                     fontSize: 11,
                     fontWeight: 700,
                     color: "#334155",
@@ -456,7 +670,9 @@ export default function TimesheetListPage() {
                   gap: 8,
                   padding: "7px 11px",
                   borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.16)",
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderColor: "rgba(255,255,255,0.16)",
                   background: "rgba(255,255,255,0.08)",
                   fontSize: 12,
                   fontWeight: 700,
@@ -464,9 +680,64 @@ export default function TimesheetListPage() {
               >
                 Window:
                 <span>
-                  {weekFilter === "all" ? "Last 4 weeks" : formatWeekRange(weekFilter)}
+                  {weekFilter === "all"
+                    ? `${formatWeekRange(displayedWeeks[0])} to ${formatWeekRange(
+                        displayedWeeks[displayedWeeks.length - 1]
+                      )}`
+                    : formatWeekRange(weekFilter)}
                 </span>
               </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleWeekWindowForward}
+                disabled={!canGoToNewerWindow}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderColor: "rgba(255,255,255,0.16)",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: canGoToNewerWindow ? "pointer" : "not-allowed",
+                  opacity: canGoToNewerWindow ? 1 : 0.45,
+                }}
+              >
+                {"<- Newer"}
+              </button>
+              <button
+                type="button"
+                onClick={handleWeekWindowBack}
+                disabled={!canGoToOlderWindow}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  borderColor: "rgba(255,255,255,0.16)",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: canGoToOlderWindow ? "pointer" : "not-allowed",
+                  opacity: canGoToOlderWindow ? 1 : 0.45,
+                }}
+              >
+                {"Older ->"}
+              </button>
             </div>
 
             <div
@@ -481,7 +752,9 @@ export default function TimesheetListPage() {
                   key={card.label}
                   style={{
                     background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderWidth: 1,
+                    borderStyle: "solid",
+                    borderColor: "rgba(255,255,255,0.12)",
                     borderRadius: 14,
                     padding: 12,
                   }}
@@ -511,7 +784,9 @@ export default function TimesheetListPage() {
               padding: 14,
               borderRadius: UI.radius,
               boxShadow: UI.shadowSm,
-              border: UI.border,
+              borderWidth: 1,
+              borderStyle: "solid",
+              borderColor: UI.borderColor,
               marginBottom: 14,
               display: "grid",
               gridTemplateColumns: "minmax(240px, 1.2fr) repeat(3, minmax(180px, 0.75fr)) auto",
@@ -583,7 +858,7 @@ export default function TimesheetListPage() {
                 onChange={(e) => setWeekFilter(e.target.value)}
                 style={inputStyle}
               >
-                <option value="all">Last 4 weeks</option>
+                <option value="all">4-week window</option>
                 {weekOptions.map((week) => (
                   <option key={week} value={week}>
                     {formatWeekRange(week)}
@@ -621,12 +896,15 @@ export default function TimesheetListPage() {
                 setSearchTerm("");
                 setStatusFilter("all");
                 setWeekFilter("all");
+                setWeekWindowOffset(0);
                 setSortBy("attention");
               }}
               style={{
                 padding: "10px 14px",
                 borderRadius: UI.radiusSm,
-                border: UI.border,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: UI.borderColor,
                 background: "#ffffff",
                 color: UI.brand,
                 fontSize: 12,
@@ -644,7 +922,9 @@ export default function TimesheetListPage() {
               style={{
                 background: UI.panelTint,
                 borderRadius: UI.radius,
-                border: UI.border,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: UI.borderColor,
                 boxShadow: UI.shadowSm,
                 padding: 18,
                 color: UI.muted,
@@ -658,7 +938,9 @@ export default function TimesheetListPage() {
               style={{
                 background: "#fff1f2",
                 borderRadius: UI.radius,
-                border: "1px solid #fecdd3",
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: "#fecdd3",
                 padding: 18,
                 color: "#9f1239",
                 fontSize: 14,
@@ -672,7 +954,9 @@ export default function TimesheetListPage() {
               style={{
                 background: UI.panelTint,
                 borderRadius: UI.radius,
-                border: UI.border,
+                borderWidth: 1,
+                borderStyle: "solid",
+                borderColor: UI.borderColor,
                 boxShadow: UI.shadowSm,
                 padding: 18,
                 color: UI.muted,
@@ -691,7 +975,9 @@ export default function TimesheetListPage() {
                   style={{
                     background: UI.panelTint,
                     borderRadius: UI.radius,
-                    border: UI.border,
+                    borderWidth: 1,
+                    borderStyle: "solid",
+                    borderColor: UI.borderColor,
                     boxShadow: UI.shadowSm,
                     padding: 14,
                     marginBottom: 14,
@@ -733,7 +1019,9 @@ export default function TimesheetListPage() {
                             padding: "4px 8px",
                             borderRadius: 999,
                             background: UI.brandSoft,
-                            border: `1px solid ${UI.brandBorder}`,
+                            borderWidth: 1,
+                            borderStyle: "solid",
+                            borderColor: UI.brandBorder,
                             color: UI.brand,
                             fontSize: 11,
                             fontWeight: 700,
@@ -821,6 +1109,8 @@ export default function TimesheetListPage() {
                       const ts = emp.timesheets.find((t) => t.weekStart === weekStart);
                       const status = getTimesheetStatus(ts);
                       const lastUpdateMs = ts ? getTimesheetUpdatedMs(ts) : 0;
+                      const weeklyHours = ts ? getTimesheetWeekHours(ts) : 0;
+                      const showWeeklyHours = !!ts && (ts.submitted || status.key === "approved");
                       const lastUpdateText =
                         lastUpdateMs > 0
                           ? new Date(lastUpdateMs).toLocaleString("en-GB")
@@ -833,7 +1123,9 @@ export default function TimesheetListPage() {
                           style={{
                             background: "#ffffff",
                             borderRadius: 14,
-                            border: `1px solid ${status.border}`,
+                            borderWidth: 1,
+                            borderStyle: "solid",
+                            borderColor: status.border,
                             boxShadow: "0 8px 22px rgba(15,23,42,0.05)",
                             padding: 13,
                             cursor: status.clickable ? "pointer" : "default",
@@ -929,7 +1221,9 @@ export default function TimesheetListPage() {
                                 padding: "10px 11px",
                                 borderRadius: 12,
                                 background: "#f8fbfd",
-                                border: UI.border,
+                                borderWidth: 1,
+                                borderStyle: "solid",
+                                borderColor: UI.borderColor,
                               }}
                             >
                               <div style={{ fontSize: 11, color: UI.muted }}>Timesheet ID</div>
@@ -948,6 +1242,16 @@ export default function TimesheetListPage() {
                                 Last update
                               </div>
                               <div style={{ fontSize: 11, color: UI.ink }}>{lastUpdateText}</div>
+                              {showWeeklyHours ? (
+                                <>
+                                  <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
+                                    Weekly hours
+                                  </div>
+                                  <div style={{ fontSize: 11, color: UI.ink, fontWeight: 800 }}>
+                                    {formatHoursCompact(weeklyHours)}
+                                  </div>
+                                </>
+                              ) : null}
                             </div>
                           </div>
 

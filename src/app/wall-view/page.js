@@ -339,6 +339,14 @@ function WallCalendarEvent({ event }) {
 
   const bookingStatusLC = String(event.status || "").toLowerCase();
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh", "lost"].includes(bookingStatusLC);
+  const equipmentText = Array.isArray(event?.equipment)
+    ? event.equipment
+        .map((item) => (typeof item === "string" ? item : item?.name || item?.label || ""))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .join(", ")
+    : String(event?.equipment || "").trim();
+  const locationText = String(event?.location || "").trim();
 
   // NOTE EVENTS (single line)
   if (event.status === "Note") {
@@ -595,8 +603,16 @@ function WallCalendarEvent({ event }) {
               );
             })}
 
-          <span>{event.equipment}</span>
-          <span>{event.location}</span>
+          {equipmentText ? (
+            <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+              {equipmentText}
+            </span>
+          ) : null}
+          {locationText ? (
+            <span style={{ width: "100%", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>
+              {locationText}
+            </span>
+          ) : null}
 
           {/* Notes (per-day + main notes) */}
           {(event.notes ||

@@ -613,6 +613,7 @@ export default function TimesheetDetailPage() {
   const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
+  const [weekNav, setWeekNav] = useState({ previous: null, next: null });
   const payAdviceLoadedRef = useRef(false);
   const payAdviceSaveTimerRef = useRef(null);
   const lastSavedPayAdviceRef = useRef("");
@@ -662,6 +663,50 @@ export default function TimesheetDetailPage() {
       }
     })();
   }, [id]);
+
+  useEffect(() => {
+    if (!timesheet?.id) {
+      setWeekNav({ previous: null, next: null });
+      return;
+    }
+
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, "timesheets"));
+        const targetCode = String(timesheet.employeeCode || "").trim().toLowerCase();
+        const targetName = String(timesheet.employeeName || "").trim().toLowerCase();
+
+        const matching = snap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((item) => {
+            const code = String(item.employeeCode || "").trim().toLowerCase();
+            const name = String(item.employeeName || "").trim().toLowerCase();
+            return (targetCode && code === targetCode) || (!targetCode && targetName && name === targetName);
+          })
+          .map((item) => ({
+            id: item.id,
+            weekStart: item.weekStart,
+            weekStartMs: parseDateFlexible(item.weekStart)?.getTime() || 0,
+          }))
+          .filter((item) => item.weekStartMs > 0)
+          .sort((a, b) => a.weekStartMs - b.weekStartMs);
+
+        const currentIndex = matching.findIndex((item) => item.id === timesheet.id);
+        if (currentIndex === -1) {
+          setWeekNav({ previous: null, next: null });
+          return;
+        }
+
+        setWeekNav({
+          previous: matching[currentIndex - 1] || null,
+          next: matching[currentIndex + 1] || null,
+        });
+      } catch (err) {
+        console.error("Error loading adjacent employee timesheets:", err);
+        setWeekNav({ previous: null, next: null });
+      }
+    })();
+  }, [timesheet?.id, timesheet?.employeeCode, timesheet?.employeeName]);
 
   /* ----------------------- Derived flag: approved? ----------------------- */
   const isApproved =
@@ -1609,6 +1654,44 @@ export default function TimesheetDetailPage() {
                   {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString("en-GB")}
                 </strong>
               </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => weekNav.previous && router.push(`/timesheet-id/${weekNav.previous.id}`)}
+                  disabled={!weekNav.previous}
+                  style={{
+                    background: "#ffffff",
+                    border: UI.border,
+                    borderRadius: 999,
+                    color: UI.brand,
+                    cursor: weekNav.previous ? "pointer" : "not-allowed",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "7px 11px",
+                    opacity: weekNav.previous ? 1 : 0.5,
+                  }}
+                >
+                  Previous week{weekNav.previous ? ` (${formatShortDate(weekNav.previous.weekStart)})` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => weekNav.next && router.push(`/timesheet-id/${weekNav.next.id}`)}
+                  disabled={!weekNav.next}
+                  style={{
+                    background: "#ffffff",
+                    border: UI.border,
+                    borderRadius: 999,
+                    color: UI.brand,
+                    cursor: weekNav.next ? "pointer" : "not-allowed",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "7px 11px",
+                    opacity: weekNav.next ? 1 : 0.5,
+                  }}
+                >
+                  Next week{weekNav.next ? ` (${formatShortDate(weekNav.next.weekStart)})` : ""}
+                </button>
+              </div>
             </div>
 
             <div style={{ textAlign: "right", fontSize: 12 }}>
