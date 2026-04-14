@@ -1360,7 +1360,7 @@ export default function JobInfoPage() {
                               scrollMarginTop: LAYOUT.HEADER_H + 80,
                             }}
                           >
-                            <SectionTitle title="Update Status" />
+                            <SectionTitle title="Job Actions" />
 
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
@@ -1405,11 +1405,18 @@ export default function JobInfoPage() {
                             >
                               Save Status Change
                             </Btn>
-                          </Card>
-
-                          {/* Notes & PO */}
-                          <Card id={NOTES_PO_ID} tone="alt" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
-                            <SectionTitle title="Notes & PO" />
+                            <div
+                              id={NOTES_PO_ID}
+                              style={{
+                                marginTop: 12,
+                                paddingTop: 12,
+                                borderTop: "1px solid #c7d2fe",
+                                scrollMarginTop: LAYOUT.HEADER_H + 80,
+                              }}
+                            >
+                              <div style={{ fontWeight: 900, marginBottom: 8, fontSize: 12, color: UI.muted }}>
+                                Notes & PO
+                              </div>
 
                             <label style={{ fontWeight: 900, display: "block", marginBottom: 6, fontSize: 12, color: UI.muted }}>
                               General Summary
@@ -1467,11 +1474,20 @@ export default function JobInfoPage() {
                                 }}
                               />
                             </div>
-                          </Card>
+                            </div>
 
-                          {/* Attachments */}
-                          <Card id={ATTACHMENTS_ID} style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
-                            <SectionTitle title={job.pdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"} />
+                            <div
+                              id={ATTACHMENTS_ID}
+                              style={{
+                                marginTop: 12,
+                                paddingTop: 12,
+                                borderTop: "1px solid #c7d2fe",
+                                scrollMarginTop: LAYOUT.HEADER_H + 80,
+                              }}
+                            >
+                              <div style={{ fontWeight: 900, marginBottom: 8, fontSize: 12, color: UI.muted }}>
+                                {job.pdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"}
+                              </div>
 
                             {job.pdfUrl && (
                               <div style={{ marginBottom: 10 }}>
@@ -1533,6 +1549,7 @@ export default function JobInfoPage() {
                             </Btn>
 
                             {uploadError && <p style={{ color: "red", fontSize: 12, marginTop: 8 }}>{uploadError}</p>}
+                            </div>
                           </Card>
                         </div>
                       </div>

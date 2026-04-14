@@ -34,6 +34,9 @@ const UI = {
   muted: "#64748b",
   border: "1px solid #e5e7eb",
   brand: "#1d4ed8",
+  softBlue: "#eff6ff",
+  softBlueBorder: "#bfdbfe",
+  softBlueText: "#1d4ed8",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -57,6 +60,13 @@ const btn = (kind = "ghost") => ({
   cursor: "pointer",
 });
 
+const statCard = {
+  background: "#fff",
+  border: UI.border,
+  borderRadius: 12,
+  padding: "12px 14px",
+};
+
 const fmtDateTime = (raw) => {
   const d = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
   if (!d || Number.isNaN(d.getTime())) return "-";
@@ -69,6 +79,16 @@ const fmtDateTime = (raw) => {
   });
 };
 
+const buildJobDraft = (job = {}) => ({
+  provider: String(job.provider || "").trim(),
+  bookedDate: String(job.bookedDate || "").trim(),
+  assignedToName: String(job.assignedToName || "").trim(),
+  completionNotes: String(job.completionNotes || "").trim(),
+  totalCost: String(job.totalCost || "").trim(),
+  poNumber: String(job.poNumber || "").trim(),
+  invoiceRef: String(job.invoiceRef || "").trim(),
+});
+
 export default function MaintenanceJobsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,10 +96,12 @@ export default function MaintenanceJobsPage() {
   const [vehicles, setVehicles] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [savingJobId, setSavingJobId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [createError, setCreateError] = useState("");
   const [jobErrors, setJobErrors] = useState({});
+  const [jobDrafts, setJobDrafts] = useState({});
 
   const [form, setForm] = useState({
     assetId: "",
@@ -124,6 +146,21 @@ export default function MaintenanceJobsPage() {
         return bt - at;
       });
       setJobs(rows);
+      setJobDrafts((prev) => {
+        const next = { ...prev };
+        const rowIds = new Set(rows.map((row) => row.id));
+
+        rows.forEach((row) => {
+          const baseDraft = buildJobDraft(row);
+          next[row.id] = prev[row.id] ? { ...baseDraft, ...prev[row.id] } : baseDraft;
+        });
+
+        Object.keys(next).forEach((id) => {
+          if (!rowIds.has(id)) delete next[id];
+        });
+
+        return next;
+      });
     });
     return () => unsub();
   }, []);
@@ -172,6 +209,26 @@ export default function MaintenanceJobsPage() {
     });
   }, [jobs, search, statusFilter]);
 
+  const jobStats = useMemo(() => {
+    const counts = {
+      total: jobs.length,
+      planned: 0,
+      active: 0,
+      closed: 0,
+      commercial: 0,
+    };
+
+    jobs.forEach((job) => {
+      const stage = normalizeWorkflowStageCompat(job.status);
+      if (stage === "planned") counts.planned += 1;
+      if (stage === "booked" || stage === "in_progress") counts.active += 1;
+      if (stage === "completed" || stage === "ready_to_invoice") counts.commercial += 1;
+      if (stage === "closed") counts.closed += 1;
+    });
+
+    return counts;
+  }, [jobs]);
+
   const createJob = async () => {
     if (!form.assetId) return alert("Please select an asset.");
     if (!form.title.trim()) return alert("Please enter a job title.");
@@ -214,7 +271,58 @@ export default function MaintenanceJobsPage() {
     }
   };
 
+  const updateJobDraft = (jobId, field, value) => {
+    setJobDrafts((prev) => ({
+      ...prev,
+      [jobId]: {
+        ...(prev[jobId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const buildWorkflowPatch = (jobId) => {
+    const draft = jobDrafts[jobId] || {};
+    return {
+      provider: String(draft.provider || "").trim(),
+      bookedDate: String(draft.bookedDate || "").trim(),
+      assignedToName: String(draft.assignedToName || "").trim(),
+      completionNotes: String(draft.completionNotes || "").trim(),
+      totalCost: String(draft.totalCost || "").trim(),
+      poNumber: String(draft.poNumber || "").trim(),
+      invoiceRef: String(draft.invoiceRef || "").trim(),
+    };
+  };
+
+  const saveJobDetails = async (job) => {
+    if (!job?.id || savingJobId) return;
+
+    const patch = {
+      ...buildWorkflowPatch(job.id),
+      updatedAt: new Date().toISOString(),
+      updatedAtServer: serverTimestamp(),
+      updatedBy: auth?.currentUser?.email || "Unknown",
+    };
+
+    setSavingJobId(job.id);
+    try {
+      await updateDoc(doc(db, "maintenanceJobs", job.id), patch);
+      setJobErrors((prev) => {
+        const next = { ...prev };
+        delete next[job.id];
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed saving maintenance job details:", error);
+      alert("Could not save job details.");
+    } finally {
+      setSavingJobId("");
+    }
+  };
+
   const setJobStatus = async (job, nextRawStatus) => {
+    if (!job?.id || savingJobId) return;
+
     try {
       const currentStatus = normalizeWorkflowStageCompat(job?.status);
       const nextStatus = normalizeWorkflowStageCompat(nextRawStatus);
@@ -228,10 +336,12 @@ export default function MaintenanceJobsPage() {
 
       const nowIso = new Date().toISOString();
       const patch = {
+        ...buildWorkflowPatch(job.id),
         status: nextStatus,
         workflowVersion: MAINTENANCE_WORKFLOW_VERSION,
         updatedAt: nowIso,
         updatedAtServer: serverTimestamp(),
+        updatedBy: auth?.currentUser?.email || "Unknown",
       };
       if (nextStatus === "in_progress" && !job?.startedAt) patch.startedAt = nowIso;
       if (nextStatus === "completed" && !job?.completedAt) patch.completedAt = nowIso;
@@ -247,6 +357,7 @@ export default function MaintenanceJobsPage() {
         return;
       }
 
+      setSavingJobId(job.id);
       await updateDoc(doc(db, "maintenanceJobs", job.id), patch);
       setJobErrors((prev) => {
         const next = { ...prev };
@@ -256,6 +367,8 @@ export default function MaintenanceJobsPage() {
     } catch (error) {
       console.error("Failed updating maintenance job status:", error);
       alert("Could not update status.");
+    } finally {
+      setSavingJobId("");
     }
   };
 
@@ -267,7 +380,7 @@ export default function MaintenanceJobsPage() {
             <div>
               <h1 style={{ margin: 0, fontSize: 26, color: UI.text }}>Maintenance Jobs</h1>
               <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
-                Phase 2 job cards: plan, progress, complete and close workshop jobs.
+                Plan, track, complete, and close workshop jobs from one place.
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -278,8 +391,54 @@ export default function MaintenanceJobsPage() {
           </div>
         </div>
 
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: 10,
+            marginBottom: 14,
+          }}
+        >
+          <div style={statCard}>
+            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Total jobs</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.total}</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Planned</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.planned}</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Active</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.active}</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Commercial</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.commercial}</div>
+          </div>
+          <div style={statCard}>
+            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Closed</div>
+            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.closed}</div>
+          </div>
+        </div>
+
         <div style={{ ...card, marginBottom: 14 }}>
           <div style={{ fontWeight: 900, marginBottom: 10 }}>Create Job Card</div>
+          <div
+            style={{
+              marginBottom: 10,
+              border: `1px solid ${UI.softBlueBorder}`,
+              background: UI.softBlue,
+              color: UI.softBlueText,
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: 13,
+              lineHeight: 1.45,
+              fontWeight: 700,
+            }}
+          >
+            Keep job creation lean here. Add the workflow details in the table only when the job is actually booked,
+            assigned, completed, or ready to invoice.
+          </div>
           <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
             <select value={form.assetId} onChange={(e) => setForm((p) => ({ ...p, assetId: e.target.value }))} style={input}>
               <option value="">Select asset...</option>
@@ -340,11 +499,16 @@ export default function MaintenanceJobsPage() {
             </select>
           </div>
 
+          <div style={{ marginBottom: 10, color: UI.muted, fontSize: 12.5, lineHeight: 1.5 }}>
+            Each row is designed as one complete job workspace: save the commercial and completion details in the
+            "Workflow Details" column, then move the stage when the row is ready.
+          </div>
+
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#f8fafc" }}>
-                  {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Status", "Updated"].map((h) => (
+                  {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Workflow Details", "Status", "Updated"].map((h) => (
                     <th key={h} style={{ textAlign: "left", padding: "9px 10px", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
                   ))}
                 </tr>
@@ -352,13 +516,15 @@ export default function MaintenanceJobsPage() {
               <tbody>
                 {visibleJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: 12, color: UI.muted }}>
+                    <td colSpan={9} style={{ padding: 12, color: UI.muted }}>
                       No maintenance jobs.
                     </td>
                   </tr>
                 ) : (
                   visibleJobs.map((j) => {
                     const stage = normalizeWorkflowStageCompat(j.status);
+                    const draft = jobDrafts[j.id] || buildJobDraft(j);
+                    const isSavingRow = savingJobId === j.id;
                     return (
                     <tr key={j.id}>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontWeight: 800 }}>{j.title || "-"}</td>
@@ -367,11 +533,73 @@ export default function MaintenanceJobsPage() {
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.priority || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.dueDate || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.plannedDate || "-"}</td>
+                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", minWidth: 320 }}>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <input
+                            type="text"
+                            placeholder="Provider"
+                            value={draft.provider}
+                            onChange={(e) => updateJobDraft(j.id, "provider", e.target.value)}
+                            style={{ ...input, minWidth: 220 }}
+                          />
+                          <input
+                            type="date"
+                            value={draft.bookedDate}
+                            onChange={(e) => updateJobDraft(j.id, "bookedDate", e.target.value)}
+                            style={input}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Assigned to"
+                            value={draft.assignedToName}
+                            onChange={(e) => updateJobDraft(j.id, "assignedToName", e.target.value)}
+                            style={input}
+                          />
+                          <textarea
+                            placeholder="Completion notes"
+                            value={draft.completionNotes}
+                            onChange={(e) => updateJobDraft(j.id, "completionNotes", e.target.value)}
+                            style={{ ...input, minHeight: 62, resize: "vertical" }}
+                          />
+                          <div style={{ display: "grid", gap: 6, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+                            <input
+                              type="text"
+                              placeholder="Total cost"
+                              value={draft.totalCost}
+                              onChange={(e) => updateJobDraft(j.id, "totalCost", e.target.value)}
+                              style={input}
+                            />
+                            <input
+                              type="text"
+                              placeholder="PO number"
+                              value={draft.poNumber}
+                              onChange={(e) => updateJobDraft(j.id, "poNumber", e.target.value)}
+                              style={input}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Invoice ref"
+                              value={draft.invoiceRef}
+                              onChange={(e) => updateJobDraft(j.id, "invoiceRef", e.target.value)}
+                              style={input}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            style={{ ...btn(), width: "fit-content" }}
+                            onClick={() => saveJobDetails(j)}
+                            disabled={isSavingRow}
+                          >
+                            {isSavingRow ? "Saving..." : "Save details"}
+                          </button>
+                        </div>
+                      </td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>
                         <select
                           value={stage}
                           onChange={(e) => setJobStatus(j, e.target.value)}
                           style={{ ...input, minWidth: 150 }}
+                          disabled={isSavingRow}
                         >
                           {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
                             <option key={s} value={s}>

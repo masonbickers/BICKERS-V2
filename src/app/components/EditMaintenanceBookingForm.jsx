@@ -29,9 +29,8 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  updateDoc,
   where,
-  deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 /**
@@ -510,8 +509,7 @@ export default function EditMaintenanceBookingForm({
     notes,
     bookingId,
   }) => {
-    if (!vehicleId) return;
-    const vRef = doc(db, "vehicles", vehicleId);
+    if (!vehicleId) return null;
     const effectiveIsMultiDay = isMultiDay;
 
     const completedISO =
@@ -559,7 +557,7 @@ export default function EditMaintenanceBookingForm({
         updates.motCost = "";
         updates.motBookingNotes = "";
       }
-      await updateDoc(vRef, updates);
+      return updates;
     } else if (safeType === "SERVICE") {
       const serviceFreqWeeks = resolveFreqWeeks(
         vehicle?.serviceFreq,
@@ -605,7 +603,7 @@ export default function EditMaintenanceBookingForm({
         updates.serviceBookingNotes = "";
       }
 
-      await updateDoc(vRef, updates);
+      return updates;
     } else if (safeType === "INSPECTION") {
       const updates = {
         inspectionBookedStatus: status,
@@ -647,9 +645,9 @@ export default function EditMaintenanceBookingForm({
         updates.inspectionBookingNotes = "";
       }
 
-      await updateDoc(vRef, updates);
+      return updates;
     } else {
-      await updateDoc(vRef, {
+      return {
         workBookedStatus: status,
         workBookingId: bookingId,
         workBookingDate: !effectiveIsMultiDay ? appointmentDate : "",
@@ -661,7 +659,7 @@ export default function EditMaintenanceBookingForm({
         workCost: cost ? String(cost).trim() : "",
         workBookingNotes: notes.trim(),
         updatedAt: serverTimestamp(),
-      });
+      };
     }
   };
 
@@ -735,10 +733,10 @@ export default function EditMaintenanceBookingForm({
         }),
       ];
 
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), bookingPayload);
+      const batch = writeBatch(db);
+      batch.update(doc(db, "maintenanceBookings", bookingId), bookingPayload);
 
-      // 2) Sync vehicle summary (and last/next if Completed)
-      await syncVehicleSummary({
+      const vehicleSummaryUpdates = await syncVehicleSummary({
         safeType,
         status,
         isMultiDay: effectiveIsMultiDay,
@@ -752,6 +750,12 @@ export default function EditMaintenanceBookingForm({
         notes,
         bookingId,
       });
+
+      if (vehicleId && vehicleSummaryUpdates) {
+        batch.update(doc(db, "vehicles", vehicleId), vehicleSummaryUpdates);
+      }
+
+      await batch.commit();
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, ...bookingPayload });
       if (typeof onClose === "function") onClose();
@@ -780,8 +784,8 @@ export default function EditMaintenanceBookingForm({
           changes: [`Status: ${String(booking?.status || "Blank")} -> Cancelled`],
         }),
       ];
-      // booking
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "maintenanceBookings", bookingId), {
         status: "Cancelled",
         lastEditedBy: auditUser.email,
         lastEditedByUid: auditUser.uid,
@@ -789,23 +793,30 @@ export default function EditMaintenanceBookingForm({
         updatedAt: serverTimestamp(),
       });
 
-      // vehicle summary
-      if (vehicleId) {
-        await syncVehicleSummary({
-          safeType,
-          status: "Cancelled",
-          isMultiDay: useCustomDates || isMultiDay,
-          appointmentDate: bookingDates.keys[0] || appointmentDate,
-          startDate: bookingDates.keys[0] || startDate,
-          endDate: bookingDates.keys[bookingDates.keys.length - 1] || endDate,
-          provider,
-          bookingRef,
-          location,
-          cost,
-          notes,
-          bookingId,
-        });
+      const vehicleSummaryUpdates = vehicleId
+        ? await syncVehicleSummary({
+            safeType,
+            status: "Cancelled",
+            isMultiDay: useCustomDates || isMultiDay,
+            appointmentDate: bookingDates.keys[0] || appointmentDate,
+            startDate: bookingDates.keys[0] || startDate,
+            endDate: bookingDates.keys[bookingDates.keys.length - 1] || endDate,
+            provider,
+            bookingRef,
+            location,
+            cost,
+            notes,
+            bookingId,
+          })
+        : null;
+
+      if (vehicleId && vehicleSummaryUpdates) {
+        batch.update(doc(db, "vehicles", vehicleId), vehicleSummaryUpdates);
       }
+
+      await batch.commit();
+
+      setBooking((prev) => (prev ? { ...prev, status: "Cancelled", history: cancelledHistory } : prev));
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, status: "Cancelled" });
       if (typeof onClose === "function") onClose();
@@ -831,8 +842,8 @@ export default function EditMaintenanceBookingForm({
         if (vSnap.exists()) vDoc = { id: vSnap.id, ...vSnap.data() };
       }
 
-      // 1) delete booking
-      await deleteDoc(doc(db, "maintenanceBookings", bookingId));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "maintenanceBookings", bookingId));
 
       // 2) clear summary fields if vehicle points at this booking
       if (vehicleId && vDoc) {
@@ -906,9 +917,11 @@ export default function EditMaintenanceBookingForm({
         }
 
         if (Object.keys(clears).length) {
-          await updateDoc(vRef, { ...clears, updatedAt: serverTimestamp() });
+          batch.update(vRef, { ...clears, updatedAt: serverTimestamp() });
         }
       }
+
+      await batch.commit();
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, deleted: true });
       if (typeof onClose === "function") onClose();

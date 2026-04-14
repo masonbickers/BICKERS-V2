@@ -5,16 +5,12 @@ import { getCanonicalDueDate } from "./maintenanceSchema";
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "cancelled",
   "canceled",
-  "completed",
-  "complete",
   "closed",
   "deleted",
   "declined",
 ]);
 
 const INACTIVE_MAINTENANCE_JOB_STATUSES = new Set([
-  "complete",
-  "completed",
   "closed",
   "cancelled",
   "canceled",
@@ -200,6 +196,7 @@ export const buildMaintenanceJobEvents = (maintenanceJobs, options = {}) => {
         vehicleId: String(job.assetId || "").trim(),
         maintenanceType: job.type || "maintenance",
         maintenanceTypeLabel: `Job Card (${statusText})`,
+        workflowStatus: String(job.status || "planned").trim().toLowerCase(),
         start: when,
         end: addDaysToDate(when, 1),
         allDay: true,

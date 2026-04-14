@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
+import {
+  MAINTENANCE_JOB_WORKFLOW_STAGES,
+  MAINTENANCE_STAGE_LABELS,
+  MAINTENANCE_WORKFLOW_VERSION,
+  normalizeMaintenanceStage,
+  validateMaintenanceStageRequirements,
+} from "@/app/utils/maintenanceWorkflowSpec";
 
 const EMPTY_VALUE = "-";
 
@@ -53,6 +60,42 @@ const deriveType = (event = {}) => {
   return String(event.maintenanceType || event.type || "MAINTENANCE").toUpperCase();
 };
 
+const normalizeWorkflowStageCompat = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "complete") return "completed";
+  if (raw === "qa") return "completed";
+  if (raw === "awaiting_parts") return "booked";
+  return normalizeMaintenanceStage(raw);
+};
+
+const prettyField = (field) =>
+  String(field || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+
+const calcNextFromWeeks = (lastISO, freqWeeks) => {
+  const last = lastISO ? new Date(lastISO) : null;
+  const weeks = Number(freqWeeks || 0);
+  if (!last || Number.isNaN(last.getTime()) || !weeks) return "";
+  const next = new Date(last);
+  next.setDate(next.getDate() + weeks * 7);
+  return next.toISOString().slice(0, 10);
+};
+
+const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
+  const explicit = Number(explicitFreq || 0);
+  if (explicit > 0) return explicit;
+
+  const last = lastISO ? new Date(lastISO) : null;
+  const next = nextISO ? new Date(nextISO) : null;
+  if (!last || !next || Number.isNaN(last.getTime()) || Number.isNaN(next.getTime())) return 0;
+
+  const diffDays = Math.round((next.getTime() - last.getTime()) / 86400000);
+  if (diffDays <= 0) return 0;
+  return Math.max(1, Math.round(diffDays / 7));
+};
+
 export default function DashboardMaintenanceModal({ event, onClose }) {
   const router = useRouter();
   const [vehicle, setVehicle] = useState(null);
@@ -63,6 +106,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [showEditJob, setShowEditJob] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
+  const [completingBooking, setCompletingBooking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobType, setJobType] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -71,6 +115,15 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [jobPriority, setJobPriority] = useState("normal");
   const [jobStatus, setJobStatus] = useState("planned");
   const [jobNotes, setJobNotes] = useState("");
+  const [jobProvider, setJobProvider] = useState("");
+  const [jobBookedDate, setJobBookedDate] = useState("");
+  const [jobAssignedToName, setJobAssignedToName] = useState("");
+  const [jobCompletionNotes, setJobCompletionNotes] = useState("");
+  const [jobTotalCost, setJobTotalCost] = useState("");
+  const [jobPoNumber, setJobPoNumber] = useState("");
+  const [jobInvoiceRef, setJobInvoiceRef] = useState("");
+  const [jobEditorMessage, setJobEditorMessage] = useState("");
+  const [jobEditorError, setJobEditorError] = useState("");
 
   const vehicleId = String(event?.vehicleId || "").trim();
   const bookingId = String(event?.__parentId || event?.id || "").trim();
@@ -119,8 +172,15 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             setJobPlannedDate(String(jobData.plannedDate || "").slice(0, 10));
             setJobDueDate(String(jobData.dueDate || "").slice(0, 10));
             setJobPriority(String(jobData.priority || "normal").trim().toLowerCase());
-            setJobStatus(String(jobData.status || "planned").trim().toLowerCase());
+            setJobStatus(normalizeWorkflowStageCompat(jobData.status || "planned"));
             setJobNotes(String(jobData.notes || ""));
+            setJobProvider(String(jobData.provider || ""));
+            setJobBookedDate(String(jobData.bookedDate || "").slice(0, 10));
+            setJobAssignedToName(String(jobData.assignedToName || ""));
+            setJobCompletionNotes(String(jobData.completionNotes || ""));
+            setJobTotalCost(String(jobData.totalCost || ""));
+            setJobPoNumber(String(jobData.poNumber || ""));
+            setJobInvoiceRef(String(jobData.invoiceRef || ""));
           }
         }
       } finally {
@@ -160,6 +220,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     const appointment = source.appointmentDate || source.appointmentDateISO;
     const start = source.startDate || source.startDateISO || source.start;
     const end = source.endDate || source.endDateISO || source.end;
+    const normalizedStatus = String(source.status || source.bookingStatus || event?.status || "").trim().toLowerCase();
     const hasAppointment = !!appointment;
     const hasExplicitRange =
       !!source.startDate ||
@@ -184,8 +245,40 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       notes: fmtText(source.notes),
       vehicles: formatNamedList(source.vehicles),
       equipment: formatNamedList(source.equipment),
+      completedDate:
+        normalizedStatus === "completed" || normalizedStatus === "complete"
+          ? fmtDate(source.completedAtISO || source.endDateISO || source.appointmentDateISO || source.startDateISO)
+          : EMPTY_VALUE,
+      nextDue:
+        eventType === "MOT"
+          ? fmtDate(vehicle?.nextMOT)
+          : eventType === "SERVICE"
+          ? fmtDate(vehicle?.nextService)
+          : EMPTY_VALUE,
     };
-  }, [booking, job, event]);
+  }, [booking, job, event, eventType, vehicle]);
+
+  const workflowStatusLabel = useMemo(() => {
+    const stage = normalizeWorkflowStageCompat(jobStatus || job?.status || "planned");
+    return MAINTENANCE_STAGE_LABELS[stage] || stage;
+  }, [jobStatus, job?.status]);
+
+  const canQuickCompleteJob = useMemo(() => {
+    const stage = normalizeWorkflowStageCompat(jobStatus || job?.status || "planned");
+    return canManageJob && stage !== "completed" && stage !== "ready_to_invoice" && stage !== "closed";
+  }, [canManageJob, jobStatus, job?.status]);
+
+  const canQuickCompleteBooking = useMemo(() => {
+    const bookingStatus = String(booking?.status || event?.status || "").trim().toLowerCase();
+    const allowedType = eventType === "MOT" || eventType === "SERVICE";
+    return (
+      canEditBooking &&
+      allowedType &&
+      bookingStatus !== "completed" &&
+      bookingStatus !== "complete" &&
+      bookingStatus !== "cancelled"
+    );
+  }, [canEditBooking, eventType, booking?.status, event?.status]);
 
   if (!event || loading) return null;
 
@@ -305,30 +398,204 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     }
   };
 
+  const handleMarkBookingComplete = async () => {
+    if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
+
+    setCompletingBooking(true);
+    try {
+      const source = booking || event || {};
+      let committedVehiclePatch = null;
+      const completedISO = String(
+        source.endDateISO ||
+          source.appointmentDateISO ||
+          source.startDateISO ||
+          ""
+      ).slice(0, 10);
+
+      if (!completedISO) {
+        alert("This booking needs a valid booking date before it can be completed.");
+        setCompletingBooking(false);
+        return;
+      }
+
+      const batch = writeBatch(db);
+      batch.update(doc(db, "maintenanceBookings", bookingId), {
+        status: "Completed",
+        completedAtISO: completedISO,
+        updatedAt: serverTimestamp(),
+      });
+
+      if (vehicleId && vehicle) {
+        const vehicleRef = doc(db, "vehicles", vehicleId);
+        let vehiclePatch = null;
+
+        if (eventType === "MOT") {
+          const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
+          vehiclePatch = {
+            motBookedStatus: "Completed",
+            motBookedOn: completedISO,
+            motAppointmentDate: "",
+            motBookingStartDate: "",
+            motBookingEndDate: "",
+            motProvider: "",
+            motBookingRef: "",
+            motLocation: "",
+            motCost: "",
+            motBookingNotes: "",
+            lastMOT: completedISO,
+            nextMOT: calcNextFromWeeks(completedISO, motFreqWeeks),
+            updatedAt: serverTimestamp(),
+          };
+          batch.update(vehicleRef, vehiclePatch);
+        }
+
+        if (eventType === "SERVICE") {
+          const serviceFreqWeeks = resolveFreqWeeks(
+            vehicle?.serviceFreq,
+            vehicle?.lastService,
+            vehicle?.nextService
+          );
+          vehiclePatch = {
+            serviceBookedStatus: "Completed",
+            serviceBookedOn: completedISO,
+            serviceAppointmentDate: "",
+            serviceBookingStartDate: "",
+            serviceBookingEndDate: "",
+            serviceProvider: "",
+            serviceBookingRef: "",
+            serviceLocation: "",
+            serviceCost: "",
+            serviceBookingNotes: "",
+            lastService: completedISO,
+            nextService: calcNextFromWeeks(completedISO, serviceFreqWeeks),
+            updatedAt: serverTimestamp(),
+          };
+          batch.update(vehicleRef, vehiclePatch);
+        }
+
+        committedVehiclePatch = vehiclePatch;
+      }
+
+      await batch.commit();
+      if (committedVehiclePatch) {
+        setVehicle((prev) => (prev ? { ...prev, ...committedVehiclePatch } : prev));
+      }
+      setBooking((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "Completed",
+              completedAtISO: completedISO,
+            }
+          : prev
+      );
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] mark booking complete failed:", error);
+      alert("Could not mark booking as completed.");
+    } finally {
+      setCompletingBooking(false);
+    }
+  };
+
   const handleSaveJob = async () => {
     if (!canManageJob || savingJob) return;
-    if (!jobTitle.trim()) return alert("Enter a job title.");
+    if (!jobTitle.trim()) {
+      setJobEditorError("Enter a job title before saving.");
+      setJobEditorMessage("");
+      return;
+    }
 
     setSavingJob(true);
+    setJobEditorError("");
+    setJobEditorMessage("");
     try {
+      const normalizedStatus = normalizeWorkflowStageCompat(jobStatus || "planned");
       const patch = {
         type: String(jobType || "repair").trim().toLowerCase(),
         title: jobTitle.trim(),
         plannedDate: String(jobPlannedDate || "").trim(),
         dueDate: String(jobDueDate || "").trim(),
         priority: String(jobPriority || "normal").trim().toLowerCase(),
-        status: String(jobStatus || "planned").trim().toLowerCase(),
+        status: normalizedStatus,
         notes: String(jobNotes || "").trim(),
+        provider: String(jobProvider || "").trim(),
+        bookedDate: String(jobBookedDate || "").trim(),
+        assignedToName: String(jobAssignedToName || "").trim(),
+        completionNotes: String(jobCompletionNotes || "").trim(),
+        totalCost: String(jobTotalCost || "").trim(),
+        poNumber: String(jobPoNumber || "").trim(),
+        invoiceRef: String(jobInvoiceRef || "").trim(),
+        workflowVersion: MAINTENANCE_WORKFLOW_VERSION,
         updatedAt: new Date().toISOString(),
         updatedAtServer: serverTimestamp(),
       };
+
+      const candidate = { ...(job || {}), ...patch };
+      const validation = validateMaintenanceStageRequirements(candidate, normalizedStatus);
+      if (!validation.ok) {
+        setJobEditorError(`Missing required fields: ${validation.missing.map(prettyField).join(", ")}`);
+        setSavingJob(false);
+        return;
+      }
+
       await updateDoc(doc(db, "maintenanceJobs", bookingId), patch);
       setJob((prev) => ({ ...(prev || {}), ...patch }));
-      setShowEditJob(false);
-      onClose?.();
+      setJobEditorMessage(`Job updated. Stage: ${MAINTENANCE_STAGE_LABELS[normalizedStatus] || normalizedStatus}.`);
     } catch (error) {
       console.error("[DashboardMaintenanceModal] maintenance job save failed:", error);
-      alert("Could not update maintenance job.");
+      setJobEditorError("Could not update maintenance job.");
+    } finally {
+      setSavingJob(false);
+    }
+  };
+
+  const handleMarkJobComplete = async () => {
+    if (!canManageJob || savingJob) return;
+
+    setSavingJob(true);
+    setJobEditorError("");
+    setJobEditorMessage("");
+
+    try {
+      const nowIso = new Date().toISOString();
+      const patch = {
+        type: String(jobType || "repair").trim().toLowerCase(),
+        title: jobTitle.trim(),
+        plannedDate: String(jobPlannedDate || "").trim(),
+        dueDate: String(jobDueDate || "").trim(),
+        priority: String(jobPriority || "normal").trim().toLowerCase(),
+        status: "completed",
+        notes: String(jobNotes || "").trim(),
+        provider: String(jobProvider || "").trim(),
+        bookedDate: String(jobBookedDate || "").trim(),
+        assignedToName: String(jobAssignedToName || "").trim(),
+        completionNotes: String(jobCompletionNotes || "").trim(),
+        totalCost: String(jobTotalCost || "").trim(),
+        poNumber: String(jobPoNumber || "").trim(),
+        invoiceRef: String(jobInvoiceRef || "").trim(),
+        workflowVersion: MAINTENANCE_WORKFLOW_VERSION,
+        updatedAt: nowIso,
+        updatedAtServer: serverTimestamp(),
+        completedAt: job?.completedAt || nowIso,
+        startedAt: job?.startedAt || nowIso,
+      };
+
+      const candidate = { ...(job || {}), ...patch };
+      const validation = validateMaintenanceStageRequirements(candidate, "completed");
+      if (!validation.ok) {
+        setShowEditJob(true);
+        setJobEditorError(`Add these before completing: ${validation.missing.map(prettyField).join(", ")}`);
+        setSavingJob(false);
+        return;
+      }
+
+      await updateDoc(doc(db, "maintenanceJobs", bookingId), patch);
+      setJob((prev) => ({ ...(prev || {}), ...patch }));
+      setJobStatus("completed");
+      setJobEditorMessage("Job marked as completed.");
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] mark complete failed:", error);
+      setJobEditorError("Could not mark maintenance job as complete.");
     } finally {
       setSavingJob(false);
     }
@@ -348,6 +615,22 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         </div>
 
         <div style={card}>
+          {canManageJob && (
+            <div style={summaryStrip}>
+              <div style={summaryTile}>
+                <div style={summaryLabel}>Workflow Stage</div>
+                <div style={summaryValue}>{workflowStatusLabel}</div>
+              </div>
+              <div style={summaryTile}>
+                <div style={summaryLabel}>Asset</div>
+                <div style={summaryValue}>{vehicleLabel}</div>
+              </div>
+              <div style={summaryTile}>
+                <div style={summaryLabel}>Reference</div>
+                <div style={summaryValue}>{bookingId || EMPTY_VALUE}</div>
+              </div>
+            </div>
+          )}
           <Row label="Vehicle" value={vehicleLabel} />
           <Row label="Type" value={eventType} />
           <Row label="Status" value={isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status} />
@@ -370,6 +653,15 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           {canEditBooking && <Row label="Reference" value={bookingDetails.bookingRef} />}
           {canEditBooking && <Row label="Location" value={bookingDetails.location} />}
           {canEditBooking && <Row label="Cost" value={bookingDetails.cost} />}
+          {canEditBooking && bookingDetails.completedDate !== EMPTY_VALUE && (
+            <Row label="Completed" value={bookingDetails.completedDate} />
+          )}
+          {canEditBooking && eventType === "MOT" && bookingDetails.nextDue !== EMPTY_VALUE && (
+            <Row label="Next MOT Due" value={bookingDetails.nextDue} />
+          )}
+          {canEditBooking && eventType === "SERVICE" && bookingDetails.nextDue !== EMPTY_VALUE && (
+            <Row label="Next Service Due" value={bookingDetails.nextDue} />
+          )}
           {canEditBooking && <Row label="Vehicles" value={bookingDetails.vehicles} />}
           {canEditBooking && <Row label="Equipment" value={bookingDetails.equipment} />}
           <Row label="Notes" value={bookingDetails.notes} />
@@ -414,19 +706,26 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             </button>
           )}
 
+          {canQuickCompleteBooking && (
+            <button
+              type="button"
+              style={successBtn}
+              onClick={handleMarkBookingComplete}
+              disabled={completingBooking}
+            >
+              {completingBooking ? "Saving..." : "Mark Complete"}
+            </button>
+          )}
+
           {canManageJob && (
             <button type="button" style={primaryBtn} onClick={() => setShowEditJob((prev) => !prev)}>
               {showEditJob ? "Close Editor" : "Edit Job"}
             </button>
           )}
 
-          {canEditBooking && bookingId && (
-            <button
-              type="button"
-              style={ghostBtn}
-              onClick={() => router.push(`/maintenance/${encodeURIComponent(bookingId)}`)}
-            >
-              Open Booking
+          {canQuickCompleteJob && (
+            <button type="button" style={successBtn} onClick={handleMarkJobComplete} disabled={savingJob}>
+              {savingJob ? "Saving..." : "Mark Complete"}
             </button>
           )}
 
@@ -494,6 +793,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         {showEditJob && canManageJob && (
           <div style={jobEditorCard}>
             <div style={jobEditorTitle}>Edit Maintenance Job</div>
+            <div style={jobEditorSubtitle}>
+              Keep the workflow details complete here so the job can move cleanly from planning through invoice close-out.
+            </div>
+            {jobEditorError ? <div style={feedbackError}>{jobEditorError}</div> : null}
+            {jobEditorMessage ? <div style={feedbackSuccess}>{jobEditorMessage}</div> : null}
             <div style={jobGrid}>
               <Field label="Type">
                 <select value={jobType} onChange={(e) => setJobType(e.target.value)} style={fieldInput}>
@@ -505,12 +809,11 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
               </Field>
               <Field label="Status">
                 <select value={jobStatus} onChange={(e) => setJobStatus(e.target.value)} style={fieldInput}>
-                  <option value="planned">Planned</option>
-                  <option value="awaiting_parts">Awaiting Parts</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="qa">QA</option>
-                  <option value="complete">Complete</option>
-                  <option value="closed">Closed</option>
+                  {MAINTENANCE_JOB_WORKFLOW_STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {MAINTENANCE_STAGE_LABELS[stage] || stage}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <Field label="Job Title" full>
@@ -529,6 +832,32 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
                   <option value="high">High</option>
                   <option value="critical">Critical</option>
                 </select>
+              </Field>
+              <Field label="Provider">
+                <input value={jobProvider} onChange={(e) => setJobProvider(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="Booked Date">
+                <input type="date" value={jobBookedDate} onChange={(e) => setJobBookedDate(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="Assigned To">
+                <input value={jobAssignedToName} onChange={(e) => setJobAssignedToName(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="Total Cost">
+                <input value={jobTotalCost} onChange={(e) => setJobTotalCost(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="PO Number">
+                <input value={jobPoNumber} onChange={(e) => setJobPoNumber(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="Invoice Ref">
+                <input value={jobInvoiceRef} onChange={(e) => setJobInvoiceRef(e.target.value)} style={fieldInput} />
+              </Field>
+              <Field label="Completion Notes" full>
+                <textarea
+                  value={jobCompletionNotes}
+                  onChange={(e) => setJobCompletionNotes(e.target.value)}
+                  rows={4}
+                  style={{ ...fieldInput, resize: "vertical" }}
+                />
               </Field>
               <Field label="Notes" full>
                 <textarea value={jobNotes} onChange={(e) => setJobNotes(e.target.value)} rows={4} style={{ ...fieldInput, resize: "vertical" }} />
@@ -626,6 +955,35 @@ const card = {
   background: "#fafafa",
 };
 
+const summaryStrip = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: 10,
+  marginBottom: 12,
+};
+
+const summaryTile = {
+  border: "1px solid #dbe4f0",
+  background: "#ffffff",
+  borderRadius: 12,
+  padding: "10px 12px",
+};
+
+const summaryLabel = {
+  fontSize: 11,
+  color: "#64748b",
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: ".04em",
+  marginBottom: 4,
+};
+
+const summaryValue = {
+  fontSize: 14,
+  color: "#0f172a",
+  fontWeight: 800,
+};
+
 const row = {
   display: "grid",
   gridTemplateColumns: "140px 1fr",
@@ -674,6 +1032,16 @@ const ghostBtn = {
   cursor: "pointer",
 };
 
+const successBtn = {
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid #16a34a",
+  background: "#16a34a",
+  color: "#fff",
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
 const dangerBtn = {
   padding: "10px 12px",
   borderRadius: 10,
@@ -696,6 +1064,13 @@ const jobEditorTitle = {
   fontSize: 16,
   fontWeight: 800,
   color: "#0f172a",
+  marginBottom: 6,
+};
+
+const jobEditorSubtitle = {
+  fontSize: 13,
+  lineHeight: 1.45,
+  color: "#64748b",
   marginBottom: 12,
 };
 
@@ -721,6 +1096,28 @@ const fieldInput = {
   background: "#fff",
   color: "#0f172a",
   fontSize: 14,
+};
+
+const feedbackBase = {
+  borderRadius: 10,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  marginBottom: 12,
+};
+
+const feedbackError = {
+  ...feedbackBase,
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  color: "#991b1b",
+};
+
+const feedbackSuccess = {
+  ...feedbackBase,
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  color: "#1d4ed8",
 };
 
 const fullField = {

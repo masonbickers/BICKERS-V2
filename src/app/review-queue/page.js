@@ -355,8 +355,47 @@ export default function ReviewQueuePage() {
     return { weekGroups: groups, weekKeys: keys, noDate: noDateJobs };
   }, [filtered]);
 
+  const captureScrollPositions = () => {
+    if (typeof window === "undefined") return () => {};
+
+    const targets = [];
+    const seen = new Set();
+
+    const addTarget = (node) => {
+      if (!node || seen.has(node)) return;
+      seen.add(node);
+      targets.push(node);
+    };
+
+    addTarget(document.scrollingElement || document.documentElement);
+
+    let node = document.activeElement;
+    while (node && node instanceof HTMLElement) {
+      const style = window.getComputedStyle(node);
+      const canScrollY = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
+      const canScrollX = /(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth;
+      if (canScrollY || canScrollX) addTarget(node);
+      node = node.parentElement;
+    }
+
+    const saved = targets.map((target) => ({
+      target,
+      left: target.scrollLeft || 0,
+      top: target.scrollTop || 0,
+    }));
+
+    return () => {
+      for (const item of saved) {
+        if (!item?.target) continue;
+        item.target.scrollLeft = item.left;
+        item.target.scrollTop = item.top;
+      }
+    };
+  };
+
   const setQuickStatus = async (job, nextStatus) => {
     if (!job?.id || savingJobId) return;
+    const restoreScroll = captureScrollPositions();
 
     const previousBookings = bookings;
     const optimisticPatch = {
@@ -369,6 +408,7 @@ export default function ReviewQueuePage() {
     setBookings((current) =>
       current.map((item) => (item.id === job.id ? { ...item, ...optimisticPatch } : item))
     );
+    requestAnimationFrame(() => restoreScroll());
 
     try {
       await updateDoc(doc(db, "bookings", job.id), {
@@ -382,6 +422,7 @@ export default function ReviewQueuePage() {
       alert("Could not update the job status. Please try again.");
     } finally {
       setSavingJobId("");
+      requestAnimationFrame(() => restoreScroll());
     }
   };
 
@@ -425,7 +466,7 @@ export default function ReviewQueuePage() {
               <th style={th}>Job #</th>
               <th style={th}>Client</th>
               <th style={th}>Location</th>
-              <th style={th}>Notes</th>
+              <th style={th}>General Notes</th>
               <th style={th}>PO</th>
               <th style={th}>Quote Attached</th>
               <th style={th}>Dates</th>
@@ -438,9 +479,7 @@ export default function ReviewQueuePage() {
             {jobs.map((j) => {
               const pretty = prettifyStatus(j.status);
               const notesState = getCheckBadgeState(
-                [j?.generalNotes, j?.notes, j?.jobNotes].some(
-                  (value) => String(value || "").trim().length > 0
-                )
+                String(j?.generalNotes || "").trim().length > 0
               );
               const poState = getCheckBadgeState(String(j?.po || "").trim().length > 0);
               const quoteState = getCheckBadgeState(

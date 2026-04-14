@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -213,6 +213,11 @@ function formatHoursCompact(value) {
   return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)} hrs`;
 }
 
+function parseWindowOffset(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
 function getTimesheetUpdatedMs(ts) {
   return (
     toMillis(ts.updatedAt) ||
@@ -308,15 +313,57 @@ function countStatuses(timesheets, weeks) {
 
 export default function TimesheetListPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [weekFilter, setWeekFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("attention");
-  const [weekWindowOffset, setWeekWindowOffset] = useState(0);
+
+  const [searchTerm, setSearchTerm] = useState(() => searchParams?.get("q") || "");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams?.get("status") || "all");
+  const [weekFilter, setWeekFilter] = useState(() => searchParams?.get("week") || "all");
+  const [sortBy, setSortBy] = useState(() => searchParams?.get("sort") || "attention");
+  const [weekWindowOffset, setWeekWindowOffset] = useState(() =>
+    parseWindowOffset(searchParams?.get("wo"))
+  );
+
+  const updateFiltersInUrl = (updates = {}, options = {}) => {
+    const { history = "replace" } = options;
+    const next = new URLSearchParams(searchParams?.toString() || "");
+    const merged = {
+      q: updates.q ?? next.get("q") ?? "",
+      status: updates.status ?? next.get("status") ?? "all",
+      week: updates.week ?? next.get("week") ?? "all",
+      sort: updates.sort ?? next.get("sort") ?? "attention",
+      wo: updates.wo ?? next.get("wo") ?? 0,
+    };
+
+    const applyParam = (key, value, defaultValue = "") => {
+      const normalized = String(value ?? "");
+      if (!normalized || normalized === String(defaultValue)) next.delete(key);
+      else next.set(key, normalized);
+    };
+
+    applyParam("q", merged.q, "");
+    applyParam("status", merged.status, "all");
+    applyParam("week", merged.week, "all");
+    applyParam("sort", merged.sort, "attention");
+    applyParam("wo", merged.wo, "0");
+
+    const qs = next.toString();
+    const target = qs ? `${pathname}?${qs}` : pathname;
+    const current = searchParams?.toString()
+      ? `${pathname}?${searchParams.toString()}`
+      : pathname;
+    if (target === current) return;
+
+    if (history === "push") {
+      router.push(target, { scroll: false });
+      return;
+    }
+    router.replace(target, { scroll: false });
+  };
 
   const weekOptions = useMemo(
     () =>
@@ -408,6 +455,20 @@ export default function TimesheetListPage() {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    const q = searchParams?.get("q") || "";
+    const status = searchParams?.get("status") || "all";
+    const week = searchParams?.get("week") || "all";
+    const sort = searchParams?.get("sort") || "attention";
+    const wo = parseWindowOffset(searchParams?.get("wo"));
+
+    if (q !== searchTerm) setSearchTerm(q);
+    if (status !== statusFilter) setStatusFilter(status);
+    if (week !== weekFilter) setWeekFilter(week);
+    if (sort !== sortBy) setSortBy(sort);
+    if (wo !== weekWindowOffset) setWeekWindowOffset(wo);
+  }, [searchParams]);
 
   const displayedWeeks = useMemo(
     () => (weekFilter === "all" ? windowWeeks : [weekFilter]),
@@ -519,24 +580,32 @@ export default function TimesheetListPage() {
 
   const handleWeekWindowBack = () => {
     if (weekFilter === "all") {
-      setWeekWindowOffset((prev) => Math.min(prev + 1, Math.max(0, weekOptions.length - 4)));
+      const next = Math.min(weekWindowOffset + 1, Math.max(0, weekOptions.length - 4));
+      setWeekWindowOffset(next);
+      updateFiltersInUrl({ wo: next }, { history: "push" });
       return;
     }
 
     const currentIndex = weekOptions.indexOf(weekFilter);
     if (currentIndex === -1 || currentIndex >= weekOptions.length - 1) return;
-    setWeekFilter(weekOptions[currentIndex + 1]);
+    const nextWeek = weekOptions[currentIndex + 1];
+    setWeekFilter(nextWeek);
+    updateFiltersInUrl({ week: nextWeek }, { history: "push" });
   };
 
   const handleWeekWindowForward = () => {
     if (weekFilter === "all") {
-      setWeekWindowOffset((prev) => Math.max(0, prev - 1));
+      const next = Math.max(0, weekWindowOffset - 1);
+      setWeekWindowOffset(next);
+      updateFiltersInUrl({ wo: next }, { history: "push" });
       return;
     }
 
     const currentIndex = weekOptions.indexOf(weekFilter);
     if (currentIndex <= 0) return;
-    setWeekFilter(weekOptions[currentIndex - 1]);
+    const nextWeek = weekOptions[currentIndex - 1];
+    setWeekFilter(nextWeek);
+    updateFiltersInUrl({ week: nextWeek }, { history: "push" });
   };
 
   return (
@@ -810,7 +879,11 @@ export default function TimesheetListPage() {
                 type="text"
                 placeholder="Name or employee code"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSearchTerm(next);
+                  updateFiltersInUrl({ q: next }, { history: "replace" });
+                }}
                 style={inputStyle}
               />
             </div>
@@ -829,7 +902,11 @@ export default function TimesheetListPage() {
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setStatusFilter(next);
+                  updateFiltersInUrl({ status: next }, { history: "push" });
+                }}
                 style={inputStyle}
               >
                 <option value="all">All employees</option>
@@ -855,7 +932,11 @@ export default function TimesheetListPage() {
               </label>
               <select
                 value={weekFilter}
-                onChange={(e) => setWeekFilter(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setWeekFilter(next);
+                  updateFiltersInUrl({ week: next }, { history: "push" });
+                }}
                 style={inputStyle}
               >
                 <option value="all">4-week window</option>
@@ -881,7 +962,11 @@ export default function TimesheetListPage() {
               </label>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSortBy(next);
+                  updateFiltersInUrl({ sort: next }, { history: "push" });
+                }}
                 style={inputStyle}
               >
                 <option value="attention">Attention needed</option>
@@ -898,6 +983,13 @@ export default function TimesheetListPage() {
                 setWeekFilter("all");
                 setWeekWindowOffset(0);
                 setSortBy("attention");
+                updateFiltersInUrl({
+                  q: "",
+                  status: "all",
+                  week: "all",
+                  wo: 0,
+                  sort: "attention",
+                }, { history: "push" });
               }}
               style={{
                 padding: "10px 14px",
