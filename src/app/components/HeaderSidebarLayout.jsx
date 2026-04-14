@@ -123,6 +123,7 @@ export default function HeaderSidebarLayout({
 
   const unsubUserRef = useRef(null);
   const unsubHrRef = useRef(null);
+  const contentRef = useRef(null);
 
   const emailLower = useMemo(
     () => String(user?.email || "").trim().toLowerCase(),
@@ -393,6 +394,10 @@ export default function HeaderSidebarLayout({
     return selectLandingRoute(employeeAccess, activeWorkspace);
   }, [employeeAccess, activeWorkspace]);
 
+  const scrollRestoreKey = useMemo(() => {
+    return `layout-scroll:${pathname || "/"}`;
+  }, [pathname]);
+
   const shouldShowBackButton = useMemo(() => {
     if (typeof showBackButton === "boolean") return showBackButton;
     if (!pathname) return false;
@@ -423,6 +428,48 @@ export default function HeaderSidebarLayout({
       setActiveWorkspace("user");
     }
   }, [currentWorkspace, employeeAccess]);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const restore = () => {
+      try {
+        const saved = Number(sessionStorage.getItem(scrollRestoreKey) || 0);
+        if (Number.isFinite(saved) && saved > 0) {
+          el.scrollTop = saved;
+        } else {
+          el.scrollTop = 0;
+        }
+      } catch {
+        el.scrollTop = 0;
+      }
+    };
+
+    const raf = requestAnimationFrame(restore);
+    return () => cancelAnimationFrame(raf);
+  }, [scrollRestoreKey]);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const save = () => {
+      try {
+        sessionStorage.setItem(scrollRestoreKey, String(el.scrollTop || 0));
+      } catch {
+        // ignore sessionStorage errors
+      }
+    };
+
+    el.addEventListener("scroll", save, { passive: true });
+    window.addEventListener("pagehide", save);
+    return () => {
+      save();
+      el.removeEventListener("scroll", save);
+      window.removeEventListener("pagehide", save);
+    };
+  }, [scrollRestoreKey]);
 
   return (
     <div
@@ -802,6 +849,7 @@ export default function HeaderSidebarLayout({
         {/* Content */}
         <div
           className="app-shell-content"
+          ref={contentRef}
           style={{
             flex: 1,
             overflowY: "auto",

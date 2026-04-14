@@ -257,8 +257,6 @@ export default function ViewBookingModal({
 
     (async () => {
       try {
-        setBooking(null);
-
         if (fromDeleted) {
           const delRef = doc(db, "deletedBookings", String(deletedId || id));
           const delSnap = await getDoc(delRef);
@@ -303,7 +301,7 @@ export default function ViewBookingModal({
     })();
 
     return () => (mounted = false);
-  }, [id, fromDeleted, deletedId, onClose]);
+  }, [id, fromDeleted, deletedId]);
 
   useEffect(() => {
     let mounted = true;

@@ -342,6 +342,14 @@ const startOfLocalDay = (d) => {
   return x;
 };
 
+const addWeeksToLocalDate = (value, weeks) => {
+  const base = parseLocalDate(value);
+  if (!base) return "";
+  const next = new Date(base);
+  next.setDate(next.getDate() + Number(weeks || 0) * 7);
+  return ymd(next);
+};
+
 const addDays = (d, n) => {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
@@ -1371,6 +1379,13 @@ function CalendarEvent({ event }) {
 
 function maintenanceEventPropGetter(event) {
   const kind = event?.kind || "MAINTENANCE";
+  const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
+  const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
+  const isCompleted =
+    bookingStatus === "completed" ||
+    bookingStatus === "complete" ||
+    workflowStatus === "completed" ||
+    workflowStatus === "complete";
 
   let bg = "#c4d6e4";
   let border = "#95b3ca";
@@ -1416,6 +1431,12 @@ function maintenanceEventPropGetter(event) {
     }
   }
 
+  if (isCompleted) {
+    bg = "#d1fae5";
+    border = "#86efac";
+    text = "#065f46";
+  }
+
   return {
     style: {
       borderRadius: 10,
@@ -1433,6 +1454,13 @@ function maintenanceEventPropGetter(event) {
 function MaintenanceCalendarEvent({ event }) {
   const kind = event?.kind || "MAINTENANCE";
   const displayType = getMaintenanceDisplayType(event);
+  const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
+  const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
+  const isCompleted =
+    bookingStatus === "completed" ||
+    bookingStatus === "complete" ||
+    workflowStatus === "completed" ||
+    workflowStatus === "complete";
   const vehicleText = Array.isArray(event?.vehicles)
     ? event.vehicles
         .map((vehicle) => {
@@ -1476,8 +1504,16 @@ function MaintenanceCalendarEvent({ event }) {
   const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
   const tone = showTone && dd ? dueTone(dd) : "soft";
   const toneText = tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+  const nextDueLabel =
+    isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
+      ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
+      : isCompleted && kind === "SERVICE_BOOKING" && event?.nextService
+      ? `Next Service Due: ${new Date(event.nextService).toLocaleDateString("en-GB")}`
+      : "";
   const subline = isBookingBlock
     ? event?.bookingStatus || "Booked"
+    : workflowStatus
+    ? workflowStatus.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
     : event?.booked && (kind === "MOT" || kind === "SERVICE")
     ? event?.bookingStatus || "Booked"
     : toneText;
@@ -1510,6 +1546,9 @@ function MaintenanceCalendarEvent({ event }) {
       ) : null}
       {locationText ? (
         <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
+      ) : null}
+      {nextDueLabel ? (
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#0f766e", whiteSpace: "normal" }}>{nextDueLabel}</span>
       ) : null}
       {subline ? (
         <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
@@ -1555,6 +1594,11 @@ export default function DashboardPage({ bookingSaved }) {
 
   //  Create Note modal
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
+
+  const handleCloseBookingModal = useCallback(() => {
+    setSelectedBookingId(null);
+    setSelectedDeletedId(null);
+  }, []);
 
   const [maintenanceView, setMaintenanceView] = useState("week");
   const [maintenanceDate, setMaintenanceDate] = useState(new Date());
@@ -2282,10 +2326,48 @@ export default function DashboardPage({ bookingSaved }) {
       return true;
     });
   }, [allEvents, showDeletedInView, showInactiveInView]);
-  const maintenanceEvents = useMemo(
-    () => [...allEvents.filter((e) => e.status === "Maintenance"), ...motServiceDueEvents],
-    [allEvents, motServiceDueEvents]
-  );
+  const maintenanceEvents = useMemo(() => {
+    const vehicleById = Object.fromEntries(
+      (vehiclesData || []).map((vehicle) => [String(vehicle.id || "").trim(), vehicle])
+    );
+
+    const enrichedMaintenance = allEvents
+      .filter((e) => e.status === "Maintenance")
+      .map((event) => {
+        if (event?.__collection !== "maintenanceBookings") return event;
+        const vehicle = vehicleById[String(event?.vehicleId || "").trim()] || null;
+        const vehicleMotDue = vehicle ? ymd(getCanonicalDueDate(vehicle, "mot")) : "";
+        const vehicleServiceDue = vehicle ? ymd(getCanonicalDueDate(vehicle, "service")) : "";
+        const fallbackMotDate =
+          vehicleMotDue ||
+          event?.nextMOT ||
+          addWeeksToLocalDate(
+            vehicle?.lastMOT ||
+              event?.completedDate ||
+              event?.completedAt ||
+              event?.appointmentDateISO ||
+              event?.startDateISO ||
+              event?.date ||
+              event?.__occurrence ||
+              event?.start,
+            52
+          );
+        if (!vehicle) {
+          return {
+            ...event,
+            nextMOT: event?.kind === "MOT_BOOKING" ? fallbackMotDate : event?.nextMOT || "",
+          };
+        }
+
+        return {
+          ...event,
+          nextMOT: event?.kind === "MOT_BOOKING" ? fallbackMotDate : vehicle?.nextMOT || event?.nextMOT || "",
+          nextService: vehicleServiceDue || event?.nextService || "",
+        };
+      });
+
+    return [...enrichedMaintenance, ...motServiceDueEvents];
+  }, [allEvents, motServiceDueEvents, vehiclesData]);
   const formatSearchBookingDates = (booking) => {
     const formatDate = (value) => {
       const date = toJsDate(value);
@@ -2316,6 +2398,22 @@ export default function DashboardPage({ bookingSaved }) {
       })
       .filter(Boolean);
     return labels.length ? labels.join(", ") : "No vehicles";
+  };
+  const getSearchBookingAnchorDate = (booking) => {
+    if (Array.isArray(booking?.bookingDates) && booking.bookingDates.length) {
+      const first = booking.bookingDates
+        .map((value) => toJsDate(value))
+        .filter(Boolean)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+      if (first) return first;
+    }
+
+    return (
+      toJsDate(booking?.startDate) ||
+      toJsDate(booking?.date) ||
+      toJsDate(booking?.endDate) ||
+      null
+    );
   };
   const dashboardSearchResults = useMemo(() => {
     const query = dashboardSearch.trim().toLowerCase();
@@ -2391,6 +2489,11 @@ export default function DashboardPage({ bookingSaved }) {
                         key={booking.id}
                         type="button"
                         onClick={() => {
+                          const anchorDate = getSearchBookingAnchorDate(booking);
+                          if (anchorDate) {
+                            setCalendarView("week");
+                            setCurrentDate(anchorDate);
+                          }
                           setSelectedBookingId(booking.id);
                           setDashboardSearch("");
                         }}
@@ -3249,10 +3352,7 @@ export default function DashboardPage({ bookingSaved }) {
           id={selectedBookingId}
           fromDeleted={!!selectedDeletedId}
           deletedId={selectedDeletedId}
-          onClose={() => {
-            setSelectedBookingId(null);
-            setSelectedDeletedId(null);
-          }}
+          onClose={handleCloseBookingModal}
         />
       )}
     </HeaderSidebarLayout>
