@@ -73,6 +73,7 @@ export default function MaintenanceBookingForm({
   );
 
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   // conflict checks
   const [existing, setExisting] = useState([]);
@@ -582,6 +583,7 @@ export default function MaintenanceBookingForm({
     if (!start || !end) return;
 
     setSaving(true);
+    setFormError("");
     try {
       const nowISO = todayISO();
       const nowAuditIso = new Date().toISOString();
@@ -664,10 +666,10 @@ export default function MaintenanceBookingForm({
       await batch.commit();
 
       if (typeof onSaved === "function") onSaved({ id: bookingDocRef.id, ...bookingPayload });
-      if (typeof onClose === "function") onClose();
+      else if (typeof onClose === "function") onClose();
     } catch (err) {
       console.error("[MaintenanceBookingForm] save error:", err);
-      alert("Failed to save maintenance booking. Please try again.");
+      setFormError("Failed to save maintenance booking. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -688,6 +690,24 @@ export default function MaintenanceBookingForm({
             x
           </button>
         </div>
+
+        {formError ? (
+          <div
+            style={{
+              marginBottom: 12,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "10px 12px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              lineHeight: 1.45,
+            }}
+          >
+            {formError}
+          </div>
+        ) : null}
 
         <form onSubmit={handleSubmit} style={formGrid}>
           {/* Type */}

@@ -1,10 +1,9 @@
-import React, { Suspense } from "react";
-import DashboardClientWrapper from "./DashboardClientWrapper";
+import DashboardPage from "./DashboardPageImpl";
 
-export default function Page() {
-  return (
-    <Suspense fallback={<div>Loading dashboard...</div>}>
-      <DashboardClientWrapper />
-    </Suspense>
-  );
+export default async function Page({ searchParams }) {
+  const params = await searchParams;
+  const bookingSaved =
+    params?.success === "true" || params?.saved === "true";
+
+  return <DashboardPage bookingSaved={bookingSaved} />;
 }

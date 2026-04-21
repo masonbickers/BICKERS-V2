@@ -21,19 +21,19 @@ import {
   limit,
 } from "firebase/firestore";
 
-/* ───────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Admin gate
     allow if email is in ADMIN_EMAILS OR users.role === "admin"
-─────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
 
-/* ───────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Mini design system (matches your style)
-─────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const UI = {
   radius: 14,
   radiusSm: 10,
@@ -64,9 +64,9 @@ const isAprilFoolsDay = () => {
   return now.getMonth() === 3 && now.getDate() === 1;
 };
 
-/* ───────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Timestamp-safe helpers
-─────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const toDateSafe = (v) => {
   try {
     if (!v) return null;
@@ -89,10 +89,10 @@ const toDateSafe = (v) => {
 };
 
 const fmtYMD = (v) => {
-  if (!v) return "—";
+  if (!v) return "â€”";
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   const d = toDateSafe(v);
-  if (!d) return "—";
+  if (!d) return "â€”";
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -179,11 +179,11 @@ export default function AdminPage() {
     setTimeout(() => setToast(null), 2200);
   };
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Auth + Admin gate
       allow if email in ADMIN_EMAILS OR Firestore role === "admin"
       robust lookup: users/{uid} then query by email
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setChecking(true);
@@ -255,9 +255,9 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Fetch
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const bootstrap = async () => {
     await Promise.all([
       fetchUsers(),
@@ -404,7 +404,7 @@ export default function AdminPage() {
           user: data.updatedBy || data.createdByEmail || data.createdByName || data.employee,
           action: data.updatedAt ? "Updated holiday" : "Created holiday",
           area: "Holiday",
-          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} → ${fmtYMD(
+          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} â†’ ${fmtYMD(
             data.endDate || data.startDate
           )}`,
         });
@@ -420,7 +420,7 @@ export default function AdminPage() {
           area: "Sick Leave",
           details: `${data.employeeName || data.employeeId || "Unknown"} ${fmtYMD(
             data.startDate
-          )} → ${fmtYMD(data.endDate || data.startDate)}`,
+          )} â†’ ${fmtYMD(data.endDate || data.startDate)}`,
         });
       });
 
@@ -446,9 +446,9 @@ export default function AdminPage() {
     }
   };
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Access management
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const updateUserRole = async (userId, role) => {
     await updateDoc(doc(db, "users", userId), {
       role,
@@ -467,9 +467,9 @@ export default function AdminPage() {
     await fetchUsers();
   };
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Holiday allowance management (legacy table)
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const upsertAllowance = async (employeeId, patch) => {
     const ref = doc(db, "holidayAllowances", employeeId);
     const existing = await getDoc(ref);
@@ -498,9 +498,9 @@ export default function AdminPage() {
     await fetchAllowances();
   };
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Sick leave (add)
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const addSickLeave = async () => {
     if (!newSick.employeeId) return showToast("warn", "Select an employee");
     if (!newSick.startDate || !newSick.endDate)
@@ -534,15 +534,15 @@ export default function AdminPage() {
     await fetchSickLeaves();
   };
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Sick leave (edit)
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const startEditSick = (s) => {
     setEditingSick({
       id: s.id,
       employeeId: s.employeeId || "",
-      startDate: fmtYMD(s.startDate) === "—" ? "" : fmtYMD(s.startDate),
-      endDate: fmtYMD(s.endDate) === "—" ? "" : fmtYMD(s.endDate),
+      startDate: fmtYMD(s.startDate) === "â€”" ? "" : fmtYMD(s.startDate),
+      endDate: fmtYMD(s.endDate) === "â€”" ? "" : fmtYMD(s.endDate),
       reason: s.reason || "",
       notes: s.notes || "",
     });
@@ -629,6 +629,25 @@ export default function AdminPage() {
     () => Math.max(1, ...activityByHour.map((item) => item.value || 0)),
     [activityByHour]
   );
+  const activitySummary = useMemo(() => {
+    const selectedDay = String(activityDay || "").trim();
+    const rowsForDay = filteredActivityRows.filter((row) => fmtYMD(row.at) === selectedDay);
+    const uniqueUsers = new Set(rowsForDay.map((row) => row.user).filter(Boolean));
+    const byArea = rowsForDay.reduce((acc, row) => {
+      const key = row.area || "Other";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const topAreas = Object.entries(byArea)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    return {
+      total: rowsForDay.length,
+      uniqueUsers: uniqueUsers.size,
+      topAreas,
+    };
+  }, [filteredActivityRows, activityDay]);
   const showAprilFools = isAprilFoolsDay();
 
   const aprilFoolsFeed = useMemo(
@@ -645,13 +664,13 @@ export default function AdminPage() {
     []
   );
 
-  /* ───────────────────────────────────────────
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Render
-  ──────────────────────────────────────────── */
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   if (checking) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 22, color: UI.muted }}>Checking admin access…</div>
+        <div style={{ padding: 22, color: UI.muted }}>Checking admin accessâ€¦</div>
       </HeaderSidebarLayout>
     );
   }
@@ -693,8 +712,8 @@ export default function AdminPage() {
               onChange={(e) => setQText(e.target.value)}
               placeholder={
                 activeTab === Tabs.ACTIVITY
-                  ? "Search activity (user, action, area)…"
-                  : "Search employees (name or email)…"
+                  ? "Search activity (user, action, area)â€¦"
+                  : "Search employees (name or email)â€¦"
               }
               style={topSearchStyle}
             />
@@ -815,7 +834,7 @@ export default function AdminPage() {
                           <tr key={u.id} style={rowStyle}>
                             <Td>
                               <div style={{ fontWeight: 900, color: UI.text, whiteSpace: "nowrap" }}>
-                                {u.email || "—"}
+                                {u.email || "â€”"}
                                 {locked && <span style={pillStyle}>Admin gate</span>}
                               </div>
                               <div style={{ fontSize: 12, color: UI.muted }}>
@@ -891,7 +910,7 @@ export default function AdminPage() {
                       onChange={(e) => setNewSick((s) => ({ ...s, employeeId: e.target.value }))}
                       style={inputStyle}
                     >
-                      <option value="">Select employee…</option>
+                      <option value="">Select employeeâ€¦</option>
                       {employees.map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name || "Unnamed"}
@@ -937,7 +956,7 @@ export default function AdminPage() {
                     <input
                       value={newSick.notes}
                       onChange={(e) => setNewSick((s) => ({ ...s, notes: e.target.value }))}
-                      placeholder="Optional notes…"
+                      placeholder="Optional notesâ€¦"
                       style={inputStyle}
                     />
                   </div>
@@ -997,7 +1016,7 @@ export default function AdminPage() {
                         onChange={(e) => setEditingSick((p) => ({ ...p, employeeId: e.target.value }))}
                         style={inputStyle}
                       >
-                        <option value="">Select employee…</option>
+                        <option value="">Select employeeâ€¦</option>
                         {employees.map((e) => (
                           <option key={e.id} value={e.id}>
                             {e.name || "Unnamed"}
@@ -1062,7 +1081,7 @@ export default function AdminPage() {
                         fontWeight: 1000,
                       }}
                     >
-                      {savingSick ? "Saving…" : "Save changes"}
+                      {savingSick ? "Savingâ€¦" : "Save changes"}
                     </button>
                   </div>
                 </div>
@@ -1108,11 +1127,11 @@ export default function AdminPage() {
                             <Td style={{ whiteSpace: "nowrap" }}>{fmtYMD(s.endDate)}</Td>
 
                             <Td>
-                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "—"}</span>
+                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "â€”"}</span>
                             </Td>
 
-                            <Td>{s.reason || "—"}</Td>
-                            <Td style={{ color: UI.muted }}>{s.notes || "—"}</Td>
+                            <Td>{s.reason || "â€”"}</Td>
+                            <Td style={{ color: UI.muted }}>{s.notes || "â€”"}</Td>
 
                             <Td>
                               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1174,7 +1193,7 @@ export default function AdminPage() {
                     <span>Day</span>
                     <input
                       type="date"
-                      value={activityDay === "—" ? "" : activityDay}
+                      value={activityDay === "â€”" ? "" : activityDay}
                       onChange={(e) => setActivityDay(e.target.value)}
                       style={inputStyle}
                     />
@@ -1230,6 +1249,52 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 10,
+                  marginBottom: 12,
+                }}
+              >
+                <div style={panelStyle}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                    Selected Day
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
+                    {activitySummary.total}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>activity events</div>
+                </div>
+
+                <div style={panelStyle}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                    Active Users
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
+                    {activitySummary.uniqueUsers}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>unique users on this day</div>
+                </div>
+
+                <div style={panelStyle}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 6 }}>
+                    Top Areas
+                  </div>
+                  {activitySummary.topAreas.length ? (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {activitySummary.topAreas.map(([area, count]) => (
+                        <span key={area} style={pillStyle}>
+                          {area}: {count}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: UI.muted }}>No activity on this day.</div>
+                  )}
+                </div>
+              </div>
+
               <div style={{ overflowX: "auto" }}>
                 <table style={tableStyle}>
                   <thead>
@@ -1245,7 +1310,7 @@ export default function AdminPage() {
                     {activityLoading ? (
                       <tr>
                         <td colSpan={5} style={emptyTd}>
-                          Loading activity…
+                          Loading activityâ€¦
                         </td>
                       </tr>
                     ) : filteredActivityRows.length === 0 ? (
@@ -1257,13 +1322,35 @@ export default function AdminPage() {
                     ) : (
                       filteredActivityRows.map((row) => (
                         <tr key={row.id} style={rowStyle}>
-                          <Td>{row.at ? row.at.toLocaleString("en-GB") : "—"}</Td>
-                          <Td>{row.user}</Td>
+                                                    <Td>
+                            <div style={{ fontWeight: 900, color: UI.text }}>
+                              {row.at ? row.at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                            </div>
+                            <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                              {row.at ? row.at.toLocaleDateString("en-GB") : "—"}
+                            </div>
+                          </Td>
+                          <Td>
+                            <div style={{ fontWeight: 800, color: UI.text }}>{row.user}</div>
+                          </Td>
                           <Td>
                             <span style={pillStyle}>{row.action}</span>
                           </Td>
-                          <Td>{row.area}</Td>
-                          <Td>{row.details || "—"}</Td>
+                                                    <Td>
+                            <span
+                              style={{
+                                ...pillStyle,
+                                background: UI.brandSoft,
+                                color: UI.brand,
+                                borderColor: "rgba(29, 78, 216, 0.18)",
+                              }}
+                            >
+                              {row.area || "Other"}
+                            </span>
+                          </Td>
+                                                    <Td>
+                            <div style={{ color: UI.text }}>{row.details || "—"}</div>
+                          </Td>
                         </tr>
                       ))
                     )}
@@ -1451,9 +1538,9 @@ export default function AdminPage() {
   );
 }
 
-/* ───────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    UI bits
-─────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Card({ title, subtitle, children }) {
   return (
     <div
@@ -1524,9 +1611,9 @@ function Td({ children, style }) {
   return <td style={{ ...tdStyle, ...(style || {}) }}>{children}</td>;
 }
 
-/* ────────────────────────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Holiday Allowances Tab (Employees collection + Holidays usage)
-──────────────────────────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const HA_thisYear = new Date().getFullYear();
 const HA_nextYear = HA_thisYear + 1;
 
@@ -1853,7 +1940,7 @@ function EmployeesHolidayAllowancesTab() {
     const allowance = getAllowanceForYear(r, yearView);
     const carry = getCarryForYear(r, yearView);
 
-    if (allowance < 0 || carry < 0) return alert("Numbers must be ≥ 0.");
+    if (allowance < 0 || carry < 0) return alert("Numbers must be â‰¥ 0.");
     if (yearView === HA_nextYear && carry > HA_MAX_CARRY) return alert(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
 
     const yrKey = String(yearView);
@@ -1998,7 +2085,7 @@ function EmployeesHolidayAllowancesTab() {
 
   return (
     <Card
-      title="Employees — Holiday Allowances"
+      title="Employees â€” Holiday Allowances"
       subtitle={`Work pattern sets base allowance (FT = ${HA_BASE_FULL_TIME}). Carry into next year capped at ${HA_MAX_CARRY}.`}
     >
       {/* Controls */}
@@ -2012,7 +2099,7 @@ function EmployeesHolidayAllowancesTab() {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees…" style={topSearchStyle} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employeesâ€¦" style={topSearchStyle} />
           <span style={{ color: UI.muted, fontSize: 12 }}>
             Showing <b>{filteredRows.length}</b>
           </span>
@@ -2046,7 +2133,7 @@ function EmployeesHolidayAllowancesTab() {
             disabled={adding}
             style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
           >
-            {adding ? "Adding…" : "Add"}
+            {adding ? "Addingâ€¦" : "Add"}
           </button>
         </div>
       </div>
@@ -2086,7 +2173,7 @@ function EmployeesHolidayAllowancesTab() {
             {loading ? (
               <tr>
                 <td colSpan={8} style={emptyTd}>
-                  Loading…
+                  Loadingâ€¦
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
@@ -2156,7 +2243,7 @@ function EmployeesHolidayAllowancesTab() {
                         />
                         {yearView === HA_nextYear ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
-                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> • {HA_thisYear} bal: <b>{balThis}</b>
+                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> â€¢ {HA_thisYear} bal: <b>{balThis}</b>
                           </div>
                         ) : (
                           <div style={{ fontSize: 12, color: UI.muted }}>Current-year carry</div>
@@ -2181,7 +2268,7 @@ function EmployeesHolidayAllowancesTab() {
                           disabled={!!saving[r.id]}
                           style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
                         >
-                          {saving[r.id] ? "Saving…" : `Save (${yearView})`}
+                          {saving[r.id] ? "Savingâ€¦" : `Save (${yearView})`}
                         </button>
 
                         <button
@@ -2202,16 +2289,16 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       <div style={{ marginTop: 12, color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
-        Tip: “Used” is calculated from the <code>holidays</code> collection (Mon–Fri only). Ensure{" "}
+        Tip: â€œUsedâ€ is calculated from the <code>holidays</code> collection (Monâ€“Fri only). Ensure{" "}
         <code>holidays.employee</code> matches the employee <code>name</code> exactly.
       </div>
     </Card>
   );
 }
 
-/* ───────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Styles
-─────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const tableStyle = { width: "100%", borderCollapse: "collapse" };
 
 const thStyle = {
@@ -2314,3 +2401,4 @@ const panelStyle = {
 };
 
 const rowStyle = { background: UI.card };
+

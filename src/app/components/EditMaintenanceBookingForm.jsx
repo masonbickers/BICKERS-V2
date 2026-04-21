@@ -72,6 +72,8 @@ export default function EditMaintenanceBookingForm({
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [formError, setFormError] = useState("");
 
   // conflict checks
   const [existing, setExisting] = useState([]);
@@ -306,6 +308,7 @@ export default function EditMaintenanceBookingForm({
       if (!bookingId) return;
 
       setLoading(true);
+      setLoadError("");
 
       const [bSnap, equipmentSnap] = await Promise.all([
         getDoc(doc(db, "maintenanceBookings", bookingId)),
@@ -313,7 +316,7 @@ export default function EditMaintenanceBookingForm({
       ]);
       if (!bSnap.exists()) {
         setLoading(false);
-        alert("Booking not found.");
+        setLoadError("Booking not found.");
         return;
       }
 
@@ -417,7 +420,7 @@ export default function EditMaintenanceBookingForm({
       console.error("[EditMaintenanceBookingForm] load error:", e);
       setLoading(false);
       setExisting([]);
-      alert("Could not load booking. Please refresh.");
+      setLoadError("Could not load booking. Please refresh.");
     });
   }, [bookingId, vehicleIdProp]);
 
@@ -671,6 +674,7 @@ export default function EditMaintenanceBookingForm({
     const end = bookingDates.end;
     if (!start || !end) return;
 
+    setFormError("");
     setSaving(true);
     try {
       const nowAuditIso = new Date().toISOString();
@@ -758,10 +762,10 @@ export default function EditMaintenanceBookingForm({
       await batch.commit();
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, ...bookingPayload });
-      if (typeof onClose === "function") onClose();
+      else if (typeof onClose === "function") onClose();
     } catch (err) {
       console.error("[EditMaintenanceBookingForm] save error:", err);
-      alert("Failed to update maintenance booking. Please try again.");
+      setFormError("Failed to update maintenance booking. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -771,6 +775,7 @@ export default function EditMaintenanceBookingForm({
     if (!bookingId) return;
     if (!confirm("Mark this booking as Cancelled?")) return;
 
+    setFormError("");
     setSaving(true);
     try {
       const nowAuditIso = new Date().toISOString();
@@ -819,10 +824,10 @@ export default function EditMaintenanceBookingForm({
       setBooking((prev) => (prev ? { ...prev, status: "Cancelled", history: cancelledHistory } : prev));
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, status: "Cancelled" });
-      if (typeof onClose === "function") onClose();
+      else if (typeof onClose === "function") onClose();
     } catch (e) {
       console.error("[EditMaintenanceBookingForm] cancel error:", e);
-      alert("Could not cancel booking. Please try again.");
+      setFormError("Could not cancel booking. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -833,6 +838,7 @@ export default function EditMaintenanceBookingForm({
     if (!bookingId) return;
     if (!confirm("Delete this maintenance booking permanently? This cannot be undone.")) return;
 
+    setFormError("");
     setSaving(true);
     try {
       // refresh vehicle doc for linkage check
@@ -924,11 +930,11 @@ export default function EditMaintenanceBookingForm({
       await batch.commit();
 
       if (typeof onSaved === "function") onSaved({ id: bookingId, deleted: true });
-      if (typeof onClose === "function") onClose();
+      else if (typeof onClose === "function") onClose();
     } catch (e) {
       console.error("[EditMaintenanceBookingForm] delete error:", e);
-      alert(
-        "Could not delete booking. If you see 'Missing or insufficient permissions', update your Firestore rules to allow deletes for this collection."
+      setFormError(
+        "Could not delete booking. If permissions are blocking the delete, check the Firestore rules for this collection."
       );
     } finally {
       setSaving(false);
@@ -955,6 +961,41 @@ export default function EditMaintenanceBookingForm({
             x
           </button>
         </div>
+
+        {loadError ? (
+          <div
+            style={{
+              marginBottom: 12,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "10px 12px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              lineHeight: 1.45,
+            }}
+          >
+            {loadError}
+          </div>
+        ) : null}
+        {formError ? (
+          <div
+            style={{
+              marginBottom: 12,
+              border: "1px solid #fecaca",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "10px 12px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              lineHeight: 1.45,
+            }}
+          >
+            {formError}
+          </div>
+        ) : null}
 
         {loading ? (
           <div style={{ padding: 14, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>Loading booking…</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { auth, db } from "../../../firebaseConfig";
@@ -92,6 +92,7 @@ const buildJobDraft = (job = {}) => ({
 export default function MaintenanceJobsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const rowRefs = useRef({});
 
   const [vehicles, setVehicles] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -100,8 +101,10 @@ export default function MaintenanceJobsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [createError, setCreateError] = useState("");
+  const [createMessage, setCreateMessage] = useState("");
   const [jobErrors, setJobErrors] = useState({});
   const [jobDrafts, setJobDrafts] = useState({});
+  const [focusedJobId, setFocusedJobId] = useState("");
 
   const [form, setForm] = useState({
     assetId: "",
@@ -209,6 +212,32 @@ export default function MaintenanceJobsPage() {
     });
   }, [jobs, search, statusFilter]);
 
+  useEffect(() => {
+    const jobId = String(searchParams.get("jobId") || "").trim();
+    if (jobId) setFocusedJobId(jobId);
+    if (!jobId) return;
+
+    const frame = requestAnimationFrame(() => {
+      const row = rowRefs.current[jobId];
+      if (!row) return;
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [searchParams, visibleJobs]);
+
+  useEffect(() => {
+    if (!focusedJobId) return;
+
+    const frame = requestAnimationFrame(() => {
+      const row = rowRefs.current[focusedJobId];
+      if (!row) return;
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [focusedJobId, visibleJobs]);
+
   const jobStats = useMemo(() => {
     const counts = {
       total: jobs.length,
@@ -230,13 +259,23 @@ export default function MaintenanceJobsPage() {
   }, [jobs]);
 
   const createJob = async () => {
-    if (!form.assetId) return alert("Please select an asset.");
-    if (!form.title.trim()) return alert("Please enter a job title.");
+    if (!form.assetId) {
+      setCreateError("Please select an asset.");
+      setCreateMessage("");
+      return;
+    }
+    if (!form.title.trim()) {
+      setCreateError("Please enter a job title.");
+      setCreateMessage("");
+      return;
+    }
     setSaving(true);
     setCreateError("");
+    setCreateMessage("");
     try {
       const selected = vehicles.find((v) => String(v.id) === String(form.assetId));
       const createdBy = auth?.currentUser?.email || "Unknown";
+      const createdTitle = String(form.title || "").trim();
       const payload = createMaintenanceJobPayload({
         assetId: form.assetId,
         assetLabel: buildAssetLabel(selected) || form.assetId,
@@ -261,11 +300,13 @@ export default function MaintenanceJobsPage() {
         setSaving(false);
         return;
       }
-      await addDoc(collection(db, "maintenanceJobs"), nextPayload);
+      const docRef = await addDoc(collection(db, "maintenanceJobs"), nextPayload);
       setForm((prev) => ({ ...prev, title: "", notes: "" }));
+      setFocusedJobId(docRef.id);
+      setCreateMessage(`Job card created for ${createdTitle || "this asset"}. The new row is highlighted below.`);
     } catch (error) {
       console.error("Failed creating maintenance job:", error);
-      alert("Could not create job card.");
+      setCreateError("Could not create job card.");
     } finally {
       setSaving(false);
     }
@@ -314,7 +355,10 @@ export default function MaintenanceJobsPage() {
       });
     } catch (error) {
       console.error("Failed saving maintenance job details:", error);
-      alert("Could not save job details.");
+      setJobErrors((prev) => ({
+        ...prev,
+        [job.id]: "Could not save job details.",
+      }));
     } finally {
       setSavingJobId("");
     }
@@ -366,7 +410,10 @@ export default function MaintenanceJobsPage() {
       });
     } catch (error) {
       console.error("Failed updating maintenance job status:", error);
-      alert("Could not update status.");
+      setJobErrors((prev) => ({
+        ...prev,
+        [job.id]: "Could not update status.",
+      }));
     } finally {
       setSavingJobId("");
     }
@@ -478,9 +525,42 @@ export default function MaintenanceJobsPage() {
           {createError ? (
             <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>{createError}</div>
           ) : null}
+          {createMessage ? (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 12.5,
+                color: "#166534",
+                fontWeight: 700,
+                border: "1px solid #bbf7d0",
+                background: "#f0fdf4",
+                borderRadius: 10,
+                padding: "10px 12px",
+              }}
+            >
+              {createMessage}
+            </div>
+          ) : null}
         </div>
 
         <div style={card}>
+          {focusedJobId ? (
+            <div
+              style={{
+                marginBottom: 10,
+                border: `1px solid ${UI.softBlueBorder}`,
+                background: UI.softBlue,
+                color: UI.softBlueText,
+                borderRadius: 10,
+                padding: "10px 12px",
+                fontSize: 13,
+                lineHeight: 1.45,
+                fontWeight: 700,
+              }}
+            >
+              Opened from dashboard. The selected job row is highlighted below.
+            </div>
+          ) : null}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             <input
               type="text"
@@ -525,8 +605,16 @@ export default function MaintenanceJobsPage() {
                     const stage = normalizeWorkflowStageCompat(j.status);
                     const draft = jobDrafts[j.id] || buildJobDraft(j);
                     const isSavingRow = savingJobId === j.id;
+                    const isFocused = focusedJobId === j.id;
                     return (
-                    <tr key={j.id}>
+                    <tr
+                      key={j.id}
+                      ref={(node) => {
+                        if (node) rowRefs.current[j.id] = node;
+                        else delete rowRefs.current[j.id];
+                      }}
+                      style={isFocused ? { background: "#eff6ff" } : undefined}
+                    >
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontWeight: 800 }}>{j.title || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.assetLabel || j.assetId || "-"}</td>
                       <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.type || "-"}</td>

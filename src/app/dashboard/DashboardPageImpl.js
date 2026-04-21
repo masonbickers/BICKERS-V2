@@ -4,13 +4,31 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const BigCalendar = dynamic(
   () => import("react-big-calendar").then((m) => m.Calendar),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          ...calendarFrame,
+          minHeight: 620,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: UI.muted,
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Loading calendar...
+      </div>
+    ),
+  }
 );
 
 import { localizer } from "../utils/localizer";
@@ -1560,7 +1578,6 @@ function MaintenanceCalendarEvent({ event }) {
 /* ------------------------------- Page component ----------------------------- */
 export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -1612,10 +1629,6 @@ export default function DashboardPage({ bookingSaved }) {
 
   //  NEW: UK Bank Holidays (GOV.UK)
   const [bankHolidays, setBankHolidays] = useState([]);
-
-  // Gate Calendar rendering to client only
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   const [userEmail, setUserEmail] = useState(null);
   const [userUid, setUserUid] = useState(null);
@@ -1791,6 +1804,8 @@ export default function DashboardPage({ bookingSaved }) {
     if (offRoadTracking) return { risky: false, reasons: [] };
     const reasons = [];
     const list = Array.isArray(vehicles) ? vehicles : [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     list.forEach((v) => {
       if (!v || typeof v !== "object") return;
       const name =
@@ -1798,10 +1813,18 @@ export default function DashboardPage({ bookingSaved }) {
       const plate = v.registration ? ` (${String(v.registration).toUpperCase()})` : "";
       const tax = String(v.taxStatus ?? "").trim().toLowerCase();
       const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
+      const motDue = getCanonicalDueDate(v, "mot");
       if (tax === "sorn" || tax === "untaxed" || tax === "no tax")
         reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
       if (ins === "not insured" || ins === "uninsured" || ins === "no insurance")
         reasons.push(`NO INSURANCE: ${name}${plate}`);
+      if (motDue instanceof Date && !Number.isNaN(motDue.getTime())) {
+        const motDay = new Date(motDue);
+        motDay.setHours(0, 0, 0, 0);
+        if (motDay < today) {
+          reasons.push(`MOT OVERDUE: ${name}${plate}`);
+        }
+      }
     });
     return { risky: reasons.length > 0, reasons };
   };
@@ -2627,148 +2650,134 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
           </div>
 
-          {mounted && (
-            <BigCalendar
-              localizer={localizer}
-              //  include bank holidays in Work Diary
-              events={[...bankHolidays, ...workDiaryEvents]}
-              view={calendarView}
-              views={["week", "month"]}
-              onView={(v) => setCalendarView(v)}
-              date={currentDate}
-              onNavigate={(d) => setCurrentDate(d)}
-              onSelectSlot={({ start }) => {
-                setEditingNoteId(null);
-                const d = start instanceof Date ? start : new Date(start);
-                setCreateNoteDate(d.toISOString().split("T")[0]);
+          <BigCalendar
+            localizer={localizer}
+            //  include bank holidays in Work Diary
+            events={[...bankHolidays, ...workDiaryEvents]}
+            view={calendarView}
+            views={["week", "month"]}
+            onView={(v) => setCalendarView(v)}
+            date={currentDate}
+            onNavigate={(d) => setCurrentDate(d)}
+            onSelectSlot={({ start }) => {
+              setEditingNoteId(null);
+              const d = start instanceof Date ? start : new Date(start);
+              setCreateNoteDate(d.toISOString().split("T")[0]);
+              setNoteModalOpen(true);
+            }}
+            selectable
+            startAccessor="start"
+            endAccessor="end"
+            popup
+            allDayAccessor={() => true}
+            allDaySlot
+            dayLayoutAlgorithm="no-overlap"
+            toolbar={false}
+            nowIndicator={false}
+            getNow={() => new Date(2000, 0, 1)}
+            formats={{
+              dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
+            }}
+            dayPropGetter={(date) => {
+              const todayD = new Date();
+              const isToday =
+                date.getDate() === todayD.getDate() &&
+                date.getMonth() === todayD.getMonth() &&
+                date.getFullYear() === todayD.getFullYear();
+
+              const key = date.toISOString().slice(0, 10);
+              const isBankHoliday = bankHolidaySet.has(key);
+
+              return {
+                style: {
+                  backgroundColor: isToday
+                    ? "rgba(31,75,122,0.3)"
+                    : isBankHoliday
+                    ? "rgba(103,128,157,0.08)"
+                    : undefined,
+                  border: isToday
+                    ? "1px solid rgba(31,75,122,0.56)"
+                    : isBankHoliday
+                    ? "1px dashed rgba(103,128,157,0.38)"
+                    : undefined,
+                },
+              };
+            }}
+            style={calendarFrame}
+            onSelectEvent={(e) => {
+              if (!e) return;
+
+              //  bank holidays are display-only
+              if (e.status === "Bank Holiday") return;
+
+              if (e.status === "Holiday") {
+                setEditingHolidayId(e.id);
+                return;
+              }
+
+              if (e.status === "Note") {
+                setEditingNoteId(e.id);
                 setNoteModalOpen(true);
-              }}
-              selectable
-              startAccessor="start"
-              endAccessor="end"
-              popup
-              allDayAccessor={() => true}
-              allDaySlot
-              dayLayoutAlgorithm="no-overlap"
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              formats={{
-                dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
-              }}
-              dayPropGetter={(date) => {
-                const todayD = new Date();
-                const isToday =
-                  date.getDate() === todayD.getDate() &&
-                  date.getMonth() === todayD.getMonth() &&
-                  date.getFullYear() === todayD.getFullYear();
+                return;
+              }
 
-                const key = date.toISOString().slice(0, 10);
-                const isBankHoliday = bankHolidaySet.has(key);
-
+              if (e.id) {
+                if (e.__collection === "deletedBookings") {
+                  setSelectedDeletedId(e.__deletedDocId || e.id);
+                  setSelectedBookingId(e.id);
+                } else {
+                  setSelectedDeletedId(null);
+                  setSelectedBookingId(e.id);
+                }
+              }
+            }}
+            components={{ event: CalendarEvent }}
+            eventPropGetter={(event) => {
+              //  bank holiday styling
+              if (event.status === "Bank Holiday") {
                 return {
                   style: {
-                    backgroundColor: isToday
-                      ? "rgba(31,75,122,0.3)"
-                      : isBankHoliday
-                      ? "rgba(103,128,157,0.08)"
-                      : undefined,
-                    border: isToday
-                      ? "1px solid rgba(31,75,122,0.56)"
-                      : isBankHoliday
-                      ? "1px dashed rgba(103,128,157,0.38)"
-                      : undefined,
+                    backgroundColor: "#e9eef5",
+                    color: "#314257",
+                    fontWeight: 800,
+                    padding: 0,
+                    borderRadius: 8,
+                    border: "1px dashed #9eb0c6",
+                    boxShadow: "0 4px 10px rgba(15,23,42,0.05)",
+                    pointerEvents: "none", //  doesn't steal clicks from jobs
                   },
                 };
-              }}
-              style={calendarFrame}
-              onSelectEvent={(e) => {
-                if (!e) return;
+              }
 
-                //  bank holidays are display-only
-                if (e.status === "Bank Holiday") return;
+              const status = normalizeStatusLabel(event.status || "Confirmed");
+              const tone = getStatusStyle(status);
+              let bg = tone.bg;
+              let text = tone.text;
+              let border = tone.border;
 
-                if (e.status === "Holiday") {
-                  setEditingHolidayId(e.id);
-                  return;
-                }
+              let risky = !!event.isRisky;
+              if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
+                risky = getVehicleRisk(event.vehicles, {
+                  offRoadTracking: Boolean(event?.offRoadTracking),
+                }).risky;
+              }
 
-                if (e.status === "Note") {
-                  setEditingNoteId(e.id);
-                  setNoteModalOpen(true);
-                  return;
-                }
+              if (risky) {
+              }
 
-                if (e.id) {
-                  if (e.__collection === "deletedBookings") {
-                    setSelectedDeletedId(e.__deletedDocId || e.id);
-                    setSelectedBookingId(e.id);
-                  } else {
-                    setSelectedDeletedId(null);
-                    setSelectedBookingId(e.id);
-                  }
-                }
-              }}
-              components={{ event: CalendarEvent }}
-              eventPropGetter={(event) => {
-                //  bank holiday styling
-                if (event.status === "Bank Holiday") {
-                  return {
-                    style: {
-                      backgroundColor: "#e9eef5",
-                      color: "#314257",
-                      fontWeight: 800,
-                      padding: 0,
-                      borderRadius: 8,
-                      border: "1px dashed #9eb0c6",
-                      boxShadow: "0 4px 10px rgba(15,23,42,0.05)",
-                      pointerEvents: "none", //  doesn't steal clicks from jobs
-                    },
-                  };
-                }
+              const shoot = String(event.shootType || "").toLowerCase();
+              const bookingStatuses = new Set([
+                "confirmed",
+                "first pencil",
+                "second pencil",
+                "action required",
+                "dnh",
+              ]);
 
-                const status = normalizeStatusLabel(event.status || "Confirmed");
-                const tone = getStatusStyle(status);
-                let bg = tone.bg;
-                let text = tone.text;
-                let border = tone.border;
-
-                let risky = !!event.isRisky;
-                if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
-                  risky = getVehicleRisk(event.vehicles, {
-                    offRoadTracking: Boolean(event?.offRoadTracking),
-                  }).risky;
-                }
-
-                if (risky) {
-                }
-
-                const shoot = String(event.shootType || "").toLowerCase();
-                const bookingStatuses = new Set([
-                  "confirmed",
-                  "first pencil",
-                  "second pencil",
-                  "action required",
-                  "dnh",
-                ]);
-
-                if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
-                  bg = NIGHT_SHOOT_STYLE.bg;
-                  text = NIGHT_SHOOT_STYLE.text;
-                  border = NIGHT_SHOOT_STYLE.border;
-                  return {
-                    style: {
-                      backgroundColor: bg,
-                      color: text,
-                      fontWeight: 700,
-                      padding: 0,
-                      borderRadius: 8,
-                      border: `1px solid ${border}`,
-                      boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
-                    },
-                  };
-                }
-
+              if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
+                bg = NIGHT_SHOOT_STYLE.bg;
+                text = NIGHT_SHOOT_STYLE.text;
+                border = NIGHT_SHOOT_STYLE.border;
                 return {
                   style: {
                     backgroundColor: bg,
@@ -2780,9 +2789,21 @@ export default function DashboardPage({ bookingSaved }) {
                     boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
                   },
                 };
-              }}
-            />
-          )}
+              }
+
+              return {
+                style: {
+                  backgroundColor: bg,
+                  color: text,
+                  fontWeight: 700,
+                  padding: 0,
+                  borderRadius: 8,
+                  border: `1px solid ${border}`,
+                  boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                },
+              };
+            }}
+          />
         </section>
 
         {/* Maintenance Calendar */}
@@ -2817,51 +2838,49 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
           </div>
 
-          {mounted && (
-            <BigCalendar
-              localizer={localizer}
-              events={maintenanceEvents}
-              view={maintenanceView}
-              views={["week", "month"]}
-              onView={(v) => setMaintenanceView(v)}
-              date={maintenanceDate}
-              onNavigate={(d) => setMaintenanceDate(d)}
-              startAccessor="start"
-              endAccessor="end"
-              allDayAccessor={() => true}
-              allDaySlot
-              selectable={false}
-              popup
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              components={{ event: MaintenanceCalendarEvent }}
-              onSelectEvent={(e) => {
-                if (!e) return;
-                if (e.__collection === "maintenanceJobs") {
-                  router.push("/maintenance-jobs");
-                  return;
-                }
-                setSelectedMaintenanceEvent(e);
-              }}
-              eventPropGetter={maintenanceEventPropGetter}
-              dayPropGetter={(date) => {
-                const todayD = new Date();
-                const isToday =
-                  date.getDate() === todayD.getDate() &&
-                  date.getMonth() === todayD.getMonth() &&
-                  date.getFullYear() === todayD.getFullYear();
+          <BigCalendar
+            localizer={localizer}
+            events={maintenanceEvents}
+            view={maintenanceView}
+            views={["week", "month"]}
+            onView={(v) => setMaintenanceView(v)}
+            date={maintenanceDate}
+            onNavigate={(d) => setMaintenanceDate(d)}
+            startAccessor="start"
+            endAccessor="end"
+            allDayAccessor={() => true}
+            allDaySlot
+            selectable={false}
+            popup
+            toolbar={false}
+            nowIndicator={false}
+            getNow={() => new Date(2000, 0, 1)}
+            components={{ event: MaintenanceCalendarEvent }}
+            onSelectEvent={(e) => {
+              if (!e) return;
+              if (e.__collection === "maintenanceJobs") {
+                router.push(`/maintenance-jobs?jobId=${encodeURIComponent(e.id)}`);
+                return;
+              }
+              setSelectedMaintenanceEvent(e);
+            }}
+            eventPropGetter={maintenanceEventPropGetter}
+            dayPropGetter={(date) => {
+              const todayD = new Date();
+              const isToday =
+                date.getDate() === todayD.getDate() &&
+                date.getMonth() === todayD.getMonth() &&
+                date.getFullYear() === todayD.getFullYear();
 
-                return {
-                  style: {
-                    backgroundColor: isToday ? "rgba(139,94,60,0.3)" : undefined,
-                    border: isToday ? "1px solid rgba(139,94,60,0.56)" : undefined,
-                  },
-                };
-              }}
-              style={calendarFrame}
-            />
-          )}
+              return {
+                style: {
+                  backgroundColor: isToday ? "rgba(139,94,60,0.3)" : undefined,
+                  border: isToday ? "1px solid rgba(139,94,60,0.56)" : undefined,
+                },
+              };
+            }}
+            style={calendarFrame}
+          />
 
           {selectedMaintenanceEvent && (
             <DashboardMaintenanceModal
@@ -2888,106 +2907,104 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
           </div>
 
-          {mounted && (
-            <BigCalendar
-              localizer={localizer}
-              events={[
-                ...holidays.map((h) => ({
-                  ...h,
-                  title: h.title,
-                  start: new Date(h.start),
-                  end: new Date(h.end),
-                  allDay: true,
-                  status: "Holiday",
-                })),
-                ...notes.map((n) => ({
-                  ...n,
-                  title: n.title || "Note",
-                  start: new Date(n.start),
-                  end: new Date(n.end),
-                  allDay: true,
-                  status: "Note",
-                })),
-              ]}
-              view={calendarView}
-              views={["week", "month"]}
-              onView={(v) => setCalendarView(v)}
-              date={currentDate}
-              onNavigate={(d) => setCurrentDate(d)}
-              selectable
-              startAccessor="start"
-              endAccessor="end"
-              popup
-              allDayAccessor={() => true}
-              dayLayoutAlgorithm="overlap"
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              onSelectEvent={(e) => {
-                if (e.status === "Holiday") {
-                  setEditingHolidayId(e.id);
-                } else if (e.status === "Note") {
-                  setEditingNoteId(e.id);
-                  setNoteModalOpen(true);
-                }
-              }}
-              style={calendarFrame}
-              components={{
-                event: ({ event }) => (
-                  <div
-                    title={event.title}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      fontSize: "0.85rem",
-                      lineHeight: 1.35,
-                      color: "#0b0b0b",
-                      fontWeight: 600,
-                      fontFamily: "Inter, system-ui, Arial, sans-serif",
-                      textAlign: "left",
-                      padding: 6,
-                      minHeight: 40,
-                      whiteSpace: "normal",
-                      overflowWrap: "anywhere",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {event.status === "Holiday" ? (
-                      <>
-                        <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
-                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>{formatHolidayDetail(event)}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
-                        <span style={{ fontWeight: 800, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                          {event.title}
-                        </span>
-                        <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
-                      </>
-                    )}
-                  </div>
-                ),
-              }}
-              eventPropGetter={(event) => ({
-                style: {
-                  backgroundColor: event.status === "Holiday" ? "#ced8e3" : "#c6d3df",
-                  color: "#1b3044",
-                  fontWeight: 700,
-                  padding: 0,
-                  borderRadius: 8,
-                  border: event.status === "Holiday" ? "1px solid #9fb2c4" : "1px solid #97adc0",
-                  boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
-                },
-              })}
-              dayPropGetter={() => ({
-                style: {
-                  borderRight: "1px solid #e5e7eb",
-                  borderTop: "1px solid #e5e7eb",
-                },
-              })}
-            />
-          )}
+          <BigCalendar
+            localizer={localizer}
+            events={[
+              ...holidays.map((h) => ({
+                ...h,
+                title: h.title,
+                start: new Date(h.start),
+                end: new Date(h.end),
+                allDay: true,
+                status: "Holiday",
+              })),
+              ...notes.map((n) => ({
+                ...n,
+                title: n.title || "Note",
+                start: new Date(n.start),
+                end: new Date(n.end),
+                allDay: true,
+                status: "Note",
+              })),
+            ]}
+            view={calendarView}
+            views={["week", "month"]}
+            onView={(v) => setCalendarView(v)}
+            date={currentDate}
+            onNavigate={(d) => setCurrentDate(d)}
+            selectable
+            startAccessor="start"
+            endAccessor="end"
+            popup
+            allDayAccessor={() => true}
+            dayLayoutAlgorithm="overlap"
+            toolbar={false}
+            nowIndicator={false}
+            getNow={() => new Date(2000, 0, 1)}
+            onSelectEvent={(e) => {
+              if (e.status === "Holiday") {
+                setEditingHolidayId(e.id);
+              } else if (e.status === "Note") {
+                setEditingNoteId(e.id);
+                setNoteModalOpen(true);
+              }
+            }}
+            style={calendarFrame}
+            components={{
+              event: ({ event }) => (
+                <div
+                  title={event.title}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    fontSize: "0.85rem",
+                    lineHeight: 1.35,
+                    color: "#0b0b0b",
+                    fontWeight: 600,
+                    fontFamily: "Inter, system-ui, Arial, sans-serif",
+                    textAlign: "left",
+                    padding: 6,
+                    minHeight: 40,
+                    whiteSpace: "normal",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {event.status === "Holiday" ? (
+                    <>
+                      <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
+                      <span style={{ fontStyle: "italic", opacity: 0.75 }}>{formatHolidayDetail(event)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
+                      <span style={{ fontWeight: 800, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                        {event.title}
+                      </span>
+                      <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
+                    </>
+                  )}
+                </div>
+              ),
+            }}
+            eventPropGetter={(event) => ({
+              style: {
+                backgroundColor: event.status === "Holiday" ? "#ced8e3" : "#c6d3df",
+                color: "#1b3044",
+                fontWeight: 700,
+                padding: 0,
+                borderRadius: 8,
+                border: event.status === "Holiday" ? "1px solid #9fb2c4" : "1px solid #97adc0",
+                boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
+              },
+            })}
+            dayPropGetter={() => ({
+              style: {
+                borderRight: "1px solid #e5e7eb",
+                borderTop: "1px solid #e5e7eb",
+              },
+            })}
+          />
         </section>
 
         {/* Today’s Jobs */}

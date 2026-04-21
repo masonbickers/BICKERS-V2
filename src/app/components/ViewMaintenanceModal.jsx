@@ -385,7 +385,7 @@ export default function ViewMaintenanceModal({
 
         <div style={actions}>
 <button
-  onClick={() => router.push(`/maintenance/${id}`)}
+  onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
   style={{ ...btn, background: "#0d6efd" }}
 >
   Edit Maintenance
@@ -396,7 +396,10 @@ export default function ViewMaintenanceModal({
             Delete
           </button>
 
-          <button onClick={() => router.push(`/maintenance/${id}`)} style={{ ...btn, background: "#111" }}>
+          <button
+            onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
+            style={{ ...btn, background: "#111" }}
+          >
             Open full page
           </button>
 

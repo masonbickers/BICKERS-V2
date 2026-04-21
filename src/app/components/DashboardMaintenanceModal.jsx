@@ -124,6 +124,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [jobInvoiceRef, setJobInvoiceRef] = useState("");
   const [jobEditorMessage, setJobEditorMessage] = useState("");
   const [jobEditorError, setJobEditorError] = useState("");
+  const [bookingActionMessage, setBookingActionMessage] = useState("");
+  const [bookingActionError, setBookingActionError] = useState("");
 
   const vehicleId = String(event?.vehicleId || "").trim();
   const bookingId = String(event?.__parentId || event?.id || "").trim();
@@ -288,6 +290,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (!ok) return;
 
     setDeleting(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
     try {
       let vDoc = null;
       if (vehicleId) {
@@ -295,7 +299,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         if (vSnap.exists()) vDoc = { id: vSnap.id, ...vSnap.data() };
       }
 
-      await deleteDoc(doc(db, "maintenanceBookings", bookingId));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "maintenanceBookings", bookingId));
 
       if (vehicleId && vDoc) {
         const vRef = doc(db, "vehicles", vehicleId);
@@ -368,14 +373,15 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         }
 
         if (Object.keys(clears).length) {
-          await updateDoc(vRef, { ...clears, updatedAt: serverTimestamp() });
+          batch.update(vRef, { ...clears, updatedAt: serverTimestamp() });
         }
       }
 
+      await batch.commit();
       onClose?.();
     } catch (error) {
       console.error("[DashboardMaintenanceModal] delete failed:", error);
-      alert("Could not delete booking.");
+      setBookingActionError("Could not delete booking.");
     } finally {
       setDeleting(false);
     }
@@ -387,12 +393,14 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (!ok) return;
 
     setDeleting(true);
+    setJobEditorError("");
+    setJobEditorMessage("");
     try {
       await deleteDoc(doc(db, "maintenanceJobs", bookingId));
       onClose?.();
     } catch (error) {
       console.error("[DashboardMaintenanceModal] maintenance job delete failed:", error);
-      alert("Could not delete maintenance job.");
+      setJobEditorError("Could not delete maintenance job.");
     } finally {
       setDeleting(false);
     }
@@ -402,6 +410,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (!canQuickCompleteBooking || completingBooking || !bookingId) return;
 
     setCompletingBooking(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
     try {
       const source = booking || event || {};
       let committedVehiclePatch = null;
@@ -413,7 +423,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       ).slice(0, 10);
 
       if (!completedISO) {
-        alert("This booking needs a valid booking date before it can be completed.");
+        setBookingActionError("This booking needs a valid booking date before it can be completed.");
         setCompletingBooking(false);
         return;
       }
@@ -489,9 +499,10 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             }
           : prev
       );
+      setBookingActionMessage("Booking marked as completed.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] mark booking complete failed:", error);
-      alert("Could not mark booking as completed.");
+      setBookingActionError("Could not mark booking as completed.");
     } finally {
       setCompletingBooking(false);
     }
@@ -615,6 +626,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         </div>
 
         <div style={card}>
+          {bookingActionError ? <div style={{ ...feedbackError, marginBottom: 12 }}>{bookingActionError}</div> : null}
+          {bookingActionMessage ? <div style={{ ...feedbackSuccess, marginBottom: 12 }}>{bookingActionMessage}</div> : null}
           {canManageJob && (
             <div style={summaryStrip}>
               <div style={summaryTile}>
@@ -733,7 +746,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             <button
               type="button"
               style={ghostBtn}
-              onClick={() => router.push("/maintenance-jobs")}
+              onClick={() => router.push(`/maintenance-jobs?jobId=${encodeURIComponent(bookingId)}`)}
             >
               Open Jobs
             </button>

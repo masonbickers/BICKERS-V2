@@ -13,6 +13,7 @@ import {
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
+import { getCanonicalDueDate, ymd as toYmd } from "@/app/utils/maintenanceSchema";
 import {
   buildBookingDerivedFields,
   buildInitialLifecycle,
@@ -20,6 +21,7 @@ import {
 } from "@/app/utils/bookingLifecycle";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
+const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
 
 /* ────────────────────────────────────────────────────────────────────────────
    Visual tokens + shared styles
@@ -538,6 +540,7 @@ export default function CreateBookingPage() {
 
   // Maintenance bookings
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [vehicleChecks, setVehicleChecks] = useState([]);
 
   // Employee code map
   const [nameToCode, setNameToCode] = useState({});
@@ -812,7 +815,7 @@ export default function CreateBookingPage() {
   ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const loadData = async () => {
-      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, maintenanceSnap, contactsSnap] =
+      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, maintenanceSnap, contactsSnap, checksSnap] =
         await Promise.all([
           getDocs(collection(db, "bookings")),
           getDocs(collection(db, "holidays")),
@@ -821,6 +824,7 @@ export default function CreateBookingPage() {
           getDocs(collection(db, "equipment")),
           getDocs(collection(db, "maintenanceBookings")),
           getDocs(collection(db, "contacts")),
+          getDocs(collection(db, "vehicleChecks")),
         ]);
 
       const bookings = bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -900,7 +904,7 @@ export default function CreateBookingPage() {
         else if (category.includes("lorry")) group = "Transport Lorry";
         else if (category.includes("van")) group = "Transport Van";
 
-        const info = { id, name, registration, group };
+        const info = { id, name, registration, group, ...(v || {}) };
         if (id) byId[id] = info;
         if (registration) byReg[registration.toUpperCase()] = info;
         if (name) byName[name.toLowerCase()] = info;
@@ -927,6 +931,7 @@ export default function CreateBookingPage() {
       setOpenEquipGroups(openEquip);
 
       setMaintenanceBookings(maintenanceSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setVehicleChecks(checksSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
       setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
@@ -1022,6 +1027,11 @@ export default function CreateBookingPage() {
     if (offRoadEligibility.eligible) return;
     setOffRoadTracking(false);
   }, [offRoadEligibility.eligible, offRoadTracking]);
+
+  const bookingWindowEnd = useMemo(() => {
+    const sorted = [...(selectedDates || [])].map((d) => String(d || "").trim()).filter(Boolean).sort();
+    return sorted[sorted.length - 1] || toYmd(new Date());
+  }, [selectedDates]);
 
 
 
@@ -1171,6 +1181,71 @@ export default function CreateBookingPage() {
 
     return { names, reasonByName };
   }, [maintenanceBookings, selectedDates]);
+
+  const complianceVehicleBlocking = useMemo(() => {
+    const ids = new Set();
+    const reasonById = {};
+    const refDate = new Date(`${bookingWindowEnd}T00:00:00`);
+
+    Object.values(vehicleLookup?.byId || {}).forEach((vehicle) => {
+      const id = String(vehicle?.id || "").trim();
+      if (!id) return;
+
+      const taxStatus = String(vehicle?.taxStatus || "").trim().toLowerCase();
+      const offRoadStatus = OFF_ROAD_STATUS_FIELDS
+        .map((field) => String(vehicle?.[field] || "").trim().toLowerCase())
+        .find((value) => value.includes("off road") || value.includes("off-road"));
+
+      if (taxStatus === "sorn" || taxStatus === "untaxed" || taxStatus === "no tax" || offRoadStatus) {
+        ids.add(id);
+        reasonById[id] = taxStatus === "sorn" ? "SORN / off road" : "Off road";
+        return;
+      }
+
+      const motDue = getCanonicalDueDate(vehicle, "mot");
+      const serviceDue = getCanonicalDueDate(vehicle, "service");
+      const inspectionDue = getCanonicalDueDate(vehicle, "inspection");
+      const overdueMatch = [
+        ["MOT overdue", motDue],
+        ["Service overdue", serviceDue],
+        ["Inspection overdue", inspectionDue],
+      ].find(([, due]) => due instanceof Date && !Number.isNaN(due.getTime()) && due < refDate);
+
+      if (overdueMatch) {
+        ids.add(id);
+        reasonById[id] = overdueMatch[0];
+      }
+    });
+
+    return { ids, reasonById };
+  }, [bookingWindowEnd, vehicleLookup]);
+
+  const defectVehicleBlocking = useMemo(() => {
+    const ids = new Set();
+    const reasonById = {};
+
+    (vehicleChecks || []).forEach((check) => {
+      if (!Array.isArray(check?.items)) return;
+
+      const hasImmediateDefect = check.items.some((item) => {
+        const review = item?.review || {};
+        const category = String(review.category || review.route || review.bucket || "").trim().toLowerCase();
+        const maintenanceStatus = String(item?.maintenance?.status || "").trim().toLowerCase();
+        return item?.status === "defect" && review.status === "approved" && category === "immediate" && maintenanceStatus !== "resolved";
+      });
+
+      if (!hasImmediateDefect) return;
+
+      const candidates = [check.vehicleId, check.vehicle, check.registration, check.reg];
+      const resolved = normalizeVehicleKeysListForLookup(candidates, vehicleLookup);
+      resolved.forEach((id) => {
+        ids.add(id);
+        if (!reasonById[id]) reasonById[id] = "Open safety defect";
+      });
+    });
+
+    return { ids, reasonById };
+  }, [vehicleChecks, vehicleLookup]);
 
   /* ────────────────────────────────────────────────────────────
      Holiday checks
@@ -2270,7 +2345,12 @@ export default function CreateBookingPage() {
 
                               const isMaintBlocked = maintenanceVehicleBlocking.ids.has(key);
                               const maintReason = maintenanceVehicleBlocking.reasonById[key] || "Maintenance";
-                              const disabled = (isBooked || isMaintBlocked) && !isSelected;
+                              const isComplianceBlocked = complianceVehicleBlocking.ids.has(key);
+                              const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
+                              const isDefectBlocked = defectVehicleBlocking.ids.has(key);
+                              const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
+                              const disabled =
+                                (isBooked || isMaintBlocked || isComplianceBlocked || isDefectBlocked) && !isSelected;
 
                               return (
                                 <div
@@ -2287,6 +2367,10 @@ export default function CreateBookingPage() {
                                     disabled
                                       ? isMaintBlocked
                                         ? `Vehicle is out for ${maintReason} during selected date(s)`
+                                        : isComplianceBlocked
+                                        ? `Vehicle is blocked: ${complianceReason}`
+                                        : isDefectBlocked
+                                        ? `Vehicle is blocked: ${defectReason}`
                                         : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
                                       : ""
                                   }
@@ -2295,6 +2379,8 @@ export default function CreateBookingPage() {
                                   <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` – ${vehicle.registration}` : ""}
+                                    {isDefectBlocked && !isBooked && !isMaintBlocked && !isComplianceBlocked && ` (${defectReason})`}
+                                    {isComplianceBlocked && !isBooked && !isMaintBlocked && ` (${complianceReason})`}
                                     {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                     {isBooked && ` (${blockedStatus || "Blocked"})`}
                                     {!isBooked && !isMaintBlocked && isHeld && " (Held)"}

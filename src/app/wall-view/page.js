@@ -1431,7 +1431,9 @@ export default function WallViewCalendarPage() {
                 router.push("/maintenance-jobs");
                 return;
               }
-              router.push(`/maintenance/${encodeURIComponent(e.__parentId || e.id)}`);
+              router.push(
+                `/maintenance/${encodeURIComponent(e.__parentId || e.id)}?returnTo=${encodeURIComponent("/wall-view")}`
+              );
               return;
             }
 

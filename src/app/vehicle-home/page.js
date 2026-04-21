@@ -1553,7 +1553,7 @@ export default function VehiclesHomePage() {
                   onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
                   style={btn("ghost")}
                 >
-                  {"Create job card ->"}
+                  {"Open jobs workspace ->"}
                 </button>
               ) : null}
               {selectedEvent?.vehicleId ? (

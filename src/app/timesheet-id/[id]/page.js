@@ -38,6 +38,8 @@ const DAYS = [
 ];
 
 const LUNCH_DEDUCT_HRS = 0.5;
+const DEFAULT_YARD_START = "08:00";
+const DEFAULT_YARD_END = "16:30";
 const UI = {
   radius: 18,
   radiusSm: 12,
@@ -104,6 +106,35 @@ function diffHours(start, end) {
   let d = (e - s) / 60;
   if (d < 0) d += 24;
   return Math.max(0, d);
+}
+
+function normaliseTimeValue(value) {
+  const mins = toMinutes(value);
+  if (mins == null) return null;
+  const hours = Math.floor(mins / 60);
+  const minutes = mins % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getEmployeeYardAutofill(employee) {
+  const start =
+    normaliseTimeValue(
+      employee?.timesheetDefaults?.yardStart ||
+        employee?.yardStartTime ||
+        employee?.yardStart
+    ) || DEFAULT_YARD_START;
+  const end =
+    normaliseTimeValue(
+      employee?.timesheetDefaults?.yardEnd ||
+        employee?.yardEndTime ||
+        employee?.yardEnd
+    ) || DEFAULT_YARD_END;
+
+  return {
+    start,
+    end,
+    rawHours: diffHours(start, end),
+  };
 }
 
 /* Convert numeric hours to "X hrs Y min" */
@@ -613,6 +644,11 @@ export default function TimesheetDetailPage() {
   const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
+  const [employeeYardAutofill, setEmployeeYardAutofill] = useState({
+    start: DEFAULT_YARD_START,
+    end: DEFAULT_YARD_END,
+    rawHours: diffHours(DEFAULT_YARD_START, DEFAULT_YARD_END),
+  });
   const [weekNav, setWeekNav] = useState({ previous: null, next: null });
   const payAdviceLoadedRef = useRef(false);
   const payAdviceSaveTimerRef = useRef(null);
@@ -948,10 +984,12 @@ export default function TimesheetDetailPage() {
           );
         });
         setEmployeePayrollRates(match?.payrollRates || null);
+        setEmployeeYardAutofill(getEmployeeYardAutofill(match));
       } catch (err) {
         console.error("Error loading employee payroll rates:", err);
         setEmployeePayrollRates(null);
         setGlobalPayrollRates(null);
+        setEmployeeYardAutofill(getEmployeeYardAutofill(null));
       }
     })();
   }, [timesheet]);
@@ -1114,6 +1152,10 @@ export default function TimesheetDetailPage() {
         paidLabel = "Unpaid";
       }
 
+      if (!entryExists && hasLiveHoliday) {
+        mode = "holiday";
+      }
+
       // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
       if ((mode === "holiday" || mode === "bankholiday") && !hasLiveHoliday) {
         // Keep bankholiday if the timesheet explicitly says it (mobile locks it),
@@ -1122,6 +1164,15 @@ export default function TimesheetDetailPage() {
       }
 
       let dayHours = 0;
+      const isPaidHolidayDay =
+        hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid";
+      const paidHolidayLunchDeducted = isPaidHolidayDay ? shouldDeductYardLunch(entry) : false;
+      const paidHolidayHours = isPaidHolidayDay
+        ? Math.max(
+            0,
+            employeeYardAutofill.rawHours - (paidHolidayLunchDeducted ? LUNCH_DEDUCT_HRS : 0)
+          )
+        : 0;
       if (entryExists) {
         if (mode === "yard") dayHours = computeYardHours(entry);
         if (mode === "travel") dayHours = computeTravelHours(entry);
@@ -1130,7 +1181,11 @@ export default function TimesheetDetailPage() {
         //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
         if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
-        if (mode === "holiday" || mode === "bankholiday" || mode === "off") dayHours = 0;
+        if (mode === "holiday" || mode === "bankholiday" || mode === "off") {
+          dayHours = paidHolidayHours;
+        }
+      } else if (mode === "holiday" || mode === "bankholiday") {
+        dayHours = paidHolidayHours;
       }
 
       total += dayHours;
@@ -1165,6 +1220,10 @@ export default function TimesheetDetailPage() {
         mode,
         hasLiveHoliday,
         paidLabel,
+        isPaidHolidayDay,
+        paidHolidayHours,
+        paidHolidayLunchDeducted,
+        paidHolidayTimeLabel: `${employeeYardAutofill.start} → ${employeeYardAutofill.end}`,
         dayTotalLabel,
         precallLabel,
         travelToHrs,
@@ -1181,7 +1240,7 @@ export default function TimesheetDetailPage() {
     });
 
     return { dayCards: cards, weeklyTotal: total };
-  }, [dayMap, jobsByDay, holidaysByDate, weekStartDate]);
+  }, [dayMap, jobsByDay, holidaysByDate, weekStartDate, employeeYardAutofill]);
 
   const payAdvice = useMemo(() => {
     const baseRates = {
@@ -1215,13 +1274,11 @@ export default function TimesheetDetailPage() {
       const isTravelTimeNoteDay = hasJobOnTravelDay && dayNoteType === "travel time";
       const isHalfDayTravelNoteDay =
         hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
-      const isPaidHolidayDay =
-        card.hasLiveHoliday && String(card.paidLabel || "").trim().toLowerCase() !== "unpaid";
       const workshopHrs =
         card.mode === "yard"
           ? computeYardHours(entry)
-          : isPaidHolidayDay
-          ? 8
+          : card.isPaidHolidayDay
+          ? card.paidHolidayHours
           : 0;
       const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
@@ -1745,6 +1802,10 @@ export default function TimesheetDetailPage() {
                 mode,
                 hasLiveHoliday,
                 paidLabel,
+                isPaidHolidayDay,
+                paidHolidayHours,
+                paidHolidayLunchDeducted,
+                paidHolidayTimeLabel,
                 dayTotalLabel,
                 precallLabel,
                 travelToHrs,
@@ -1873,19 +1934,67 @@ export default function TimesheetDetailPage() {
                   {/* HOLIDAY / BANK HOLIDAY / OFF */}
                   {isHolidayCard && (
                     <div style={{ fontWeight: 600 }}>
-                      <span style={{ color: "#007da3ff" }}>
-                        {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
-                      </span>
-                      {hasLiveHoliday && paidLabel && (
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            color:
-                              paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
-                          }}
-                        >
-                          ({paidLabel})
+                      <div>
+                        <span style={{ color: "#007da3ff" }}>
+                          {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                         </span>
+                        {hasLiveHoliday && paidLabel && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              color:
+                                paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
+                            }}
+                          >
+                            ({paidLabel})
+                          </span>
+                        )}
+                      </div>
+                      {isPaidHolidayDay && (
+                        <>
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontSize: 12,
+                              color: UI.muted,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Paid at yard autofill: {paidHolidayTimeLabel} ({formatHoursLabel(paidHolidayHours)})
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 6,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              fontSize: 11.5,
+                              color: "#475569",
+                            }}
+                          >
+                            <span>
+                              {paidHolidayLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
+                            </span>
+                            <label
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontWeight: 600,
+                                cursor: isApproved ? "default" : "pointer",
+                                opacity: isApproved ? 0.55 : 1,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={paidHolidayLunchDeducted}
+                                disabled={isApproved || lunchSavingDay === day}
+                                onChange={(e) => handleLunchDeductionToggle(day, e.target.checked)}
+                              />
+                              {lunchSavingDay === day ? "Saving lunch deduction..." : "Deduct lunch"}
+                            </label>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}

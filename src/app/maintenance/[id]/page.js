@@ -64,6 +64,20 @@ const backBtn = {
   cursor: "pointer",
 };
 
+const normalizeReturnTo = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("/")) return "";
+  if (raw.startsWith("//")) return "";
+  return raw;
+};
+
+const withUpdatedFlag = (target) => {
+  const safe = normalizeReturnTo(target);
+  if (!safe) return "/dashboard?updated=true";
+  const joiner = safe.includes("?") ? "&" : "?";
+  return `${safe}${joiner}updated=true`;
+};
+
 export default function MaintenanceRoutePage() {
   const params = useParams();
   const router = useRouter();
@@ -79,6 +93,7 @@ export default function MaintenanceRoutePage() {
   const sourceDueDate = String(searchParams.get("sourceDueDate") || defaultDate || "").slice(0, 10);
   const sourceDueIsoWeek = String(searchParams.get("sourceDueIsoWeek") || "").trim();
   const sourceDueKey = String(searchParams.get("sourceDueKey") || "").trim();
+  const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
 
   const title = useMemo(
     () => (isNew ? "Create Maintenance Booking" : "Edit Maintenance Booking"),
@@ -90,10 +105,26 @@ export default function MaintenanceRoutePage() {
     : "This booking now opens through the shared maintenance editor, so edits stay aligned with dashboard and vehicle maintenance.";
 
   const handleDone = () => {
+    if (returnTo) {
+      router.push(withUpdatedFlag(returnTo));
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
     router.push("/dashboard?updated=true");
   };
 
   const handleClose = () => {
+    if (returnTo) {
+      router.push(returnTo);
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
     router.push("/dashboard");
   };
 
@@ -106,7 +137,7 @@ export default function MaintenanceRoutePage() {
             <h1 style={heading}>{title}</h1>
             <p style={subtext}>{helperText}</p>
             <button type="button" style={backBtn} onClick={handleClose}>
-              Back to dashboard
+              Back
             </button>
           </div>
         </div>

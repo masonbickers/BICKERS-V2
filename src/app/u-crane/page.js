@@ -10,7 +10,25 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const BigCalendar = dynamic(
   () => import("react-big-calendar").then((m) => m.Calendar),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          ...surface,
+          minHeight: 620,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: UI.muted,
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Loading U-Crane diary...
+      </div>
+    ),
+  }
 );
 
 import { localizer } from "../utils/localizer";
@@ -866,9 +884,6 @@ export default function DashboardPage({ bookingSaved }) {
   const [authReady, setAuthReady] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const [allBookingsRaw, setAllBookingsRaw] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
 
@@ -1165,100 +1180,98 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
           </div>
 
-          {mounted && (
-            <BigCalendar
-              localizer={localizer}
-              events={workDiaryEvents}
-              view={calendarView}
-              views={["week", "month"]}
-              onView={(v) => setCalendarView(v)}
-              date={currentDate}
-              onNavigate={(d) => setCurrentDate(d)}
-              selectable={false}
-              startAccessor="start"
-              endAccessor="end"
-              popup
-              allDayAccessor={() => true}
-              allDaySlot
-              dayLayoutAlgorithm="no-overlap"
-              toolbar={false}
-              nowIndicator={false}
-              getNow={() => new Date(2000, 0, 1)}
-              formats={{
-                dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
-              }}
-              dayPropGetter={(date) => {
-                const todayD = new Date();
-                const isToday =
-                  date.getDate() === todayD.getDate() &&
-                  date.getMonth() === todayD.getMonth() &&
-                  date.getFullYear() === todayD.getFullYear();
+          <BigCalendar
+            localizer={localizer}
+            events={workDiaryEvents}
+            view={calendarView}
+            views={["week", "month"]}
+            onView={(v) => setCalendarView(v)}
+            date={currentDate}
+            onNavigate={(d) => setCurrentDate(d)}
+            selectable={false}
+            startAccessor="start"
+            endAccessor="end"
+            popup
+            allDayAccessor={() => true}
+            allDaySlot
+            dayLayoutAlgorithm="no-overlap"
+            toolbar={false}
+            nowIndicator={false}
+            getNow={() => new Date(2000, 0, 1)}
+            formats={{
+              dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
+            }}
+            dayPropGetter={(date) => {
+              const todayD = new Date();
+              const isToday =
+                date.getDate() === todayD.getDate() &&
+                date.getMonth() === todayD.getMonth() &&
+                date.getFullYear() === todayD.getFullYear();
 
+              return {
+                style: {
+                  backgroundColor: isToday ? "rgba(29,78,216,0.10)" : undefined,
+                  border: isToday ? "1px solid rgba(29,78,216,0.55)" : undefined,
+                },
+              };
+            }}
+            style={{ borderRadius: UI.radius, background: "#fff" }}
+            onSelectEvent={(e) => {
+              if (e?.id) setSelectedBookingId(e.id);
+            }}
+            components={{ event: CalendarEvent }}
+            eventPropGetter={(event) => {
+              const status = event.status || "Confirmed";
+
+              // base style by status
+              let style = getStatusStyle(status);
+
+              // risky future confirmed jobs go red
+              const risky = !!event.isRisky;
+              if (risky && isFutureJobEvent(event)) {
                 return {
                   style: {
-                    backgroundColor: isToday ? "rgba(29,78,216,0.10)" : undefined,
-                    border: isToday ? "1px solid rgba(29,78,216,0.55)" : undefined,
-                  },
-                };
-              }}
-              style={{ borderRadius: UI.radius, background: "#fff" }}
-              onSelectEvent={(e) => {
-                if (e?.id) setSelectedBookingId(e.id);
-              }}
-              components={{ event: CalendarEvent }}
-              eventPropGetter={(event) => {
-                const status = event.status || "Confirmed";
-
-                // base style by status
-                let style = getStatusStyle(status);
-
-                // risky future confirmed jobs go red
-                const risky = !!event.isRisky;
-                if (risky && isFutureJobEvent(event)) {
-                  return {
-                    style: {
-                      backgroundColor: "#e53935",
-                      color: "#fff",
-                      fontWeight: 700,
-                      padding: 0,
-                      borderRadius: 8,
-                      border: "2px solid #0b0b0b",
-                      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
-                      cursor: "pointer",
-                    },
-                  };
-                }
-
-                // night shoot styling (same rule set as main page)
-                const shoot = String(event.shootType || "").toLowerCase();
-                const bookingStatuses = new Set([
-                  "confirmed",
-                  "first pencil",
-                  "second pencil",
-                  "complete",
-                  "action required",
-                  "dnh",
-                ]);
-
-                if (shoot === "night" && bookingStatuses.has(String(status || "").toLowerCase())) {
-                  style = NIGHT_SHOOT_STYLE;
-                }
-
-                return {
-                  style: {
-                    backgroundColor: style.bg,
-                    color: style.text,
+                    backgroundColor: "#e53935",
+                    color: "#fff",
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                    border: `2px solid ${style.border}`,
+                    border: "2px solid #0b0b0b",
                     boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
                     cursor: "pointer",
                   },
                 };
-              }}
-            />
-          )}
+              }
+
+              // night shoot styling (same rule set as main page)
+              const shoot = String(event.shootType || "").toLowerCase();
+              const bookingStatuses = new Set([
+                "confirmed",
+                "first pencil",
+                "second pencil",
+                "complete",
+                "action required",
+                "dnh",
+              ]);
+
+              if (shoot === "night" && bookingStatuses.has(String(status || "").toLowerCase())) {
+                style = NIGHT_SHOOT_STYLE;
+              }
+
+              return {
+                style: {
+                  backgroundColor: style.bg,
+                  color: style.text,
+                  fontWeight: 700,
+                  padding: 0,
+                  borderRadius: 8,
+                  border: `2px solid ${style.border}`,
+                  boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                  cursor: "pointer",
+                },
+              };
+            }}
+          />
 
           {/*  UPCOMING SECTION (below calendar) */}
           <div style={{ marginTop: 16 }}>

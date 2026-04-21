@@ -39,7 +39,7 @@ import {
 const UI = {
   radius: 14,
   radiusSm: 10,
-  gap: 16,
+  gap: 6,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
   border: "1px solid #e5e7eb",
@@ -53,20 +53,20 @@ const UI = {
   green: "#16a34a",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
 const topBar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: 5,
   flexWrap: "wrap",
-  marginBottom: 14,
+  marginBottom: 6,
 };
-const title = { margin: 0, fontSize: 26, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
-const subtitle = { marginTop: 6, fontSize: 12.5, color: UI.muted };
+const title = { margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
+const subtitle = { marginTop: 2, fontSize: 12, color: UI.muted };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 14 };
+const panel = { ...card, padding: 8 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
@@ -74,8 +74,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      padding: "10px 12px",
+      gap: 4,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: "1px solid #d1d5db",
       background: "#fff",
@@ -91,8 +91,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      padding: "10px 12px",
+      gap: 4,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
@@ -107,8 +107,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      padding: "10px 12px",
+      gap: 4,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.green}`,
       background: UI.green,
@@ -122,8 +122,8 @@ const btn = (kind = "primary") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: "10px 12px",
+    gap: 4,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
@@ -136,7 +136,7 @@ const btn = (kind = "primary") => {
 
 const labelStyle = {
   display: "block",
-  marginBottom: 6,
+  marginBottom: 2,
   fontSize: 12,
   fontWeight: 900,
   color: UI.muted,
@@ -146,8 +146,8 @@ const labelStyle = {
 
 const inputField = {
   width: "100%",
-  padding: "10px 10px",
-  fontSize: 13.5,
+  padding: "6px 8px",
+  fontSize: 12.5,
   border: "1px solid #e5e7eb",
   borderRadius: 12,
   background: "#fff",
@@ -157,25 +157,25 @@ const inputField = {
 
 const textarea = {
   ...inputField,
-  minHeight: 140,
+  minHeight: 92,
   resize: "vertical",
   lineHeight: 1.35,
 };
 
 const sectionTitle = {
-  margin: "0 0 10px",
-  fontSize: 14,
+  margin: "0 0 5px",
+  fontSize: 13.5,
   fontWeight: 950,
   color: UI.text,
   letterSpacing: ".01em",
 };
 
-const sectionMeta = { marginTop: -6, marginBottom: 10, fontSize: 12, color: UI.muted };
+const sectionMeta = { marginTop: -2, marginBottom: 5, fontSize: 11.5, color: UI.muted };
 
 const grid = (cols = 2) => ({
   display: "grid",
   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: 12,
+  gap: 6,
 });
 
 /* ───────────────── helpers ───────────────── */
@@ -326,6 +326,7 @@ export default function EditVehiclePage() {
   const [latestServiceBooking, setLatestServiceBooking] = useState(null);
   const [latestInspectionBooking, setLatestInspectionBooking] = useState(null);
   const [vehicleBookings, setVehicleBookings] = useState([]);
+  const [serviceRecords, setServiceRecords] = useState([]);
 
   // categories list
   useEffect(() => {
@@ -340,17 +341,25 @@ export default function EditVehiclePage() {
   const reloadVehicle = async () => {
     if (!id) return;
     const refDoc = fsDoc(db, "vehicles", id);
-    const [snap, bookingSnap] = await Promise.all([
+    const [snap, bookingSnap, serviceRecordSnap] = await Promise.all([
       getDoc(refDoc),
       getDocs(query(collection(db, "maintenanceBookings"), where("vehicleId", "==", id))),
+      getDocs(query(collection(db, "serviceRecords"), where("vehicleId", "==", id))),
     ]);
     const rows = bookingSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const serviceRows = serviceRecordSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
     const sortedRows = [...rows].sort((a, b) => {
       const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
       const bd = toDate(b.appointmentDate || b.startDate || b.createdAt) || new Date(0);
       return bd.getTime() - ad.getTime();
     });
+    const sortedServiceRows = [...serviceRows].sort((a, b) => {
+      const ad = toDate(a.serviceDateOnly || a.serviceDate || a.createdAt) || new Date(0);
+      const bd = toDate(b.serviceDateOnly || b.serviceDate || b.createdAt) || new Date(0);
+      return bd.getTime() - ad.getTime();
+    });
     setVehicleBookings(sortedRows);
+    setServiceRecords(sortedServiceRows);
 
     const active = rows.filter((b) => {
       const s = String(b.status || "").toLowerCase();
@@ -698,16 +707,6 @@ export default function EditVehiclePage() {
     [vehicleBookings]
   );
 
-  const completedServiceHistory = useMemo(
-    () =>
-      vehicleBookings.filter((b) => {
-        const type = String(b?.type || "").toUpperCase();
-        const status = String(b?.status || "").toLowerCase();
-        return type === "SERVICE" && status === "completed";
-      }),
-    [vehicleBookings]
-  );
-
   const completedInspectionHistory = useMemo(
     () =>
       vehicleBookings.filter((b) => {
@@ -740,12 +739,14 @@ export default function EditVehiclePage() {
   const serviceHistoryItems =
     Array.isArray(vehicle?.serviceHistory) && vehicle.serviceHistory.length
       ? vehicle.serviceHistory
-      : completedServiceHistory.map((b) => ({
-          completedDate: bookingCompletedLabel(b),
-          bookingId: b.id,
-          provider: b.provider || "",
-          bookingRef: b.bookingRef || "",
-          notes: b.notes || "",
+      : serviceRecords.map((record) => ({
+          completedDate: record.serviceDateOnly || record.serviceDate || "",
+          bookingId: record.id,
+          provider: record.signedBy || "",
+          bookingRef: record.serviceType || "",
+          notes: record.workSummary || record.extraNotes || "",
+          location: record.registration || "",
+          cost: "",
         }));
 
   const motAppointmentDisplay =
@@ -1093,6 +1094,7 @@ export default function EditVehiclePage() {
                 ) : null}
               </div>
             </div>
+            
 
             {/* MOT Booking (summary) */}
             <div style={panel}>
@@ -1128,7 +1130,7 @@ export default function EditVehiclePage() {
                   name="motBookingNotes"
                   value={vehicle.motBookingNotes || ""}
                   onChange={handleMotChange}
-                  placeholder="Anything relevant: drop-off time, contacts, reminders, requirements…"
+                  placeholder="Anything relevant: drop-off time, contacts, reminders, requirements..."
                 />
               </div>
 
@@ -1142,6 +1144,7 @@ export default function EditVehiclePage() {
                 />
               </div>
             </div>
+
 
             {/* Additional Maintenance (as per your snippet) */}
             <div style={panel}>
@@ -1265,8 +1268,19 @@ export default function EditVehiclePage() {
               </div>
 
               <div style={panel}>
-                <h2 style={sectionTitle}>Service History</h2>
-                <div style={sectionMeta}>Completed service bookings for this vehicle.</div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div>
+                    <h2 style={sectionTitle}>Service History</h2>
+                    <div style={sectionMeta}>Completed service bookings for this vehicle.</div>
+                  </div>
+                  <button
+                    type="button"
+                    style={btn("ghost")}
+                    onClick={() => router.push(`/vehicle-edit/${vehicle.id}/service-history`)}
+                  >
+                    Open Full History
+                  </button>
+                </div>
 
                 {serviceHistoryItems.length === 0 ? (
                   <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>

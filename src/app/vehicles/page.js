@@ -21,7 +21,7 @@ import Papa from "papaparse";
 const UI = {
   radius: 14,
   radiusSm: 10,
-  gap: 14,
+  gap: 6,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
   border: "1px solid #e5e7eb",
@@ -35,13 +35,12 @@ const UI = {
   green: "#16a34a",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 };
-const h1 = { margin: 0, fontSize: 26, lineHeight: 1.15, fontWeight: 950, color: UI.text, letterSpacing: "-0.01em" };
-const sub = { marginTop: 6, fontSize: 12.5, color: UI.muted };
+const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 3, flexWrap: "wrap", marginBottom: 3 };
+const h1 = { margin: 0, fontSize: 24, lineHeight: 1.1, fontWeight: 950, color: UI.text, letterSpacing: "-0.01em" };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 14 };
+const panel = { ...card, padding: 6 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
@@ -49,8 +48,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      padding: "10px 12px",
+      gap: 5,
+      padding: "7px 10px",
       borderRadius: UI.radiusSm,
       border: "1px solid #d1d5db",
       background: "#fff",
@@ -64,8 +63,8 @@ const btn = (kind = "primary") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: "10px 12px",
+    gap: 5,
+    padding: "7px 10px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
@@ -78,22 +77,22 @@ const btn = (kind = "primary") => {
 
 const input = {
   width: "100%",
-  padding: "9px 10px",
-  borderRadius: 12,
+  padding: "6px 9px",
+  borderRadius: 10,
   border: "1px solid #e5e7eb",
   outline: "none",
-  fontSize: 13.5,
+  fontSize: 13,
   background: "#fff",
   color: UI.text,
 };
 
-const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em" };
+const smallLabel = { fontSize: 11, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 1 };
 
 const chip = (bg, fg) => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  padding: "6px 10px",
+  padding: "3px 8px",
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 900,
@@ -135,6 +134,14 @@ const formatDateWithStyle = (raw) => {
 };
 
 const norm = (s) => String(s || "").trim().toLowerCase();
+const taxStatusRank = (value) => {
+  if (!String(value || "").trim()) return 0;
+  const v = norm(value);
+  if (v === "taxed") return 0;
+  if (v === "sorn") return 1;
+  if (v === "n/a") return 2;
+  return 3;
+};
 
 /* columns count (IMPORTANT for colSpan) */
 const COLS = 15;
@@ -149,6 +156,9 @@ export default function VehicleMaintenancePage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [renameFromCategory, setRenameFromCategory] = useState("");
+  const [renameToCategory, setRenameToCategory] = useState("");
+  const [renamingCategory, setRenamingCategory] = useState(false);
 
   const toggleCategory = (category) => {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
@@ -184,6 +194,61 @@ export default function VehicleMaintenancePage() {
       // rollback not attempted (optional)
     } finally {
       setSavingKey(null);
+    }
+  };
+
+  const handleRenameCategory = async () => {
+    const from = String(renameFromCategory || "").trim();
+    const to = String(renameToCategory || "").trim();
+
+    if (!from) {
+      alert("Choose a category to rename.");
+      return;
+    }
+    if (!to) {
+      alert("Enter the new category name.");
+      return;
+    }
+    if (norm(from) === norm(to)) {
+      alert("New category name must be different.");
+      return;
+    }
+    if (categories.some((category) => norm(category) === norm(to))) {
+      alert("A category with that name already exists.");
+      return;
+    }
+
+    const matchingVehicles = vehicles.filter((vehicle) => norm(vehicle.category) === norm(from));
+    if (!matchingVehicles.length) {
+      alert("No vehicles found in that category.");
+      return;
+    }
+
+    setRenamingCategory(true);
+    try {
+      await Promise.all(
+        matchingVehicles.map((vehicle) => updateDoc(doc(db, "vehicles", vehicle.id), { category: to }))
+      );
+
+      setVehicles((prev) =>
+        prev.map((vehicle) =>
+          norm(vehicle.category) === norm(from) ? { ...vehicle, category: to } : vehicle
+        )
+      );
+      setExpandedCategories((prev) => {
+        const next = { ...prev };
+        const wasExpanded = !!prev[from];
+        delete next[from];
+        next[to] = wasExpanded || !(to in next);
+        return next;
+      });
+      setRenameFromCategory(to);
+      setRenameToCategory("");
+    } catch (err) {
+      console.error("Failed to rename category:", err);
+      alert("Could not rename category. Please try again.");
+    } finally {
+      setRenamingCategory(false);
     }
   };
 
@@ -249,7 +314,13 @@ export default function VehicleMaintenancePage() {
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(v);
     });
-    Object.keys(acc).forEach((cat) => acc[cat].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))));
+    Object.keys(acc).forEach((cat) =>
+      acc[cat].sort((a, b) => {
+        const statusDiff = taxStatusRank(a.taxStatus) - taxStatusRank(b.taxStatus);
+        if (statusDiff !== 0) return statusDiff;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      })
+    );
     return acc;
   }, [filteredVehicles]);
 
@@ -291,7 +362,14 @@ export default function VehicleMaintenancePage() {
           border-color: #bfdbfe !important;
         }
         .vh-sticky thead th { position: sticky; top: 0; z-index: 5; }
-        .vh-sticky .catRow { position: sticky; top: 36px; z-index: 4; } /* keeps category header under table head */
+        .vh-sticky .catRow { position: sticky; top: 29px; z-index: 4; } /* keeps category header under table head */
+        .vehicleDataRow td:nth-child(2) {
+          width: 168px;
+          max-width: 168px;
+          font-weight: 400 !important;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -299,12 +377,9 @@ export default function VehicleMaintenancePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Vehicle Maintenance Overview</h1>
-            <div style={sub}>
-              Fixed header, collapsible categories, search + filters, and inline status saves.
-            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
               ← Back
             </button>
@@ -315,8 +390,8 @@ export default function VehicleMaintenancePage() {
         </div>
 
         {/* Controls */}
-        <div style={{ ...panel, marginBottom: UI.gap }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 220px 220px auto", gap: 10, alignItems: "end" }}>
+        <div style={{ marginBottom: UI.gap }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 198px 198px auto", gap: 3, alignItems: "end" }}>
             <div>
               <div style={smallLabel}>Search</div>
               <input
@@ -349,7 +424,7 @@ export default function VehicleMaintenancePage() {
               </select>
             </div>
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
               <span style={chip("#fff", UI.text)}>{kpis.count} vehicles</span>
               <span style={chip("#fff7ed", "#9a3412")}>Due soon: {kpis.soon}</span>
               <span style={chip("#fef2f2", "#991b1b")}>Overdue: {kpis.overdue}</span>
@@ -368,8 +443,46 @@ export default function VehicleMaintenancePage() {
             </div>
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: "198px 1fr auto", gap: 3, alignItems: "end", marginTop: 3 }}>
+            <div>
+              <div style={smallLabel}>Rename Category</div>
+              <select
+                value={renameFromCategory}
+                onChange={(e) => setRenameFromCategory(e.target.value)}
+                style={input}
+                disabled={renamingCategory}
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div style={smallLabel}>New Name</div>
+              <input
+                type="text"
+                value={renameToCategory}
+                onChange={(e) => setRenameToCategory(e.target.value)}
+                placeholder="Enter new category name"
+                style={input}
+                disabled={renamingCategory}
+              />
+            </div>
+
+            <button
+              type="button"
+              style={btn("ghost")}
+              onClick={handleRenameCategory}
+              disabled={renamingCategory}
+            >
+              {renamingCategory ? "Renaming..." : "Rename"}
+            </button>
+          </div>
+
           {/* CSV import */}
-          <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ marginTop: 2, display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
             <VehicleCSVImport
               disabled={importing}
               onImportStart={() => setImporting(true)}
@@ -383,33 +496,32 @@ export default function VehicleMaintenancePage() {
         </div>
 
         {/* Table */}
-        <div style={{ ...card, overflow: "hidden" }}>
+        <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ maxHeight: "72vh", overflowY: "auto" }} className="vh-sticky">
+            <div className="vh-sticky">
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
                     {[
+                      "Registration",
                       "Vehicle",
                       "Manufacturer",
                       "Model",
-                      "Registration",
                       "Tax Status",
                       "Insurance",
-                      "Inspection",
-                      "Due MOT",
+                      "MOT",
                       "Road Tax",
-                      "Due Service",
-                      "Service Odo",
-                      "Tacho Insp.",
-                      "Brake Test",
+                      "Service",
                       "PMI",
+                      "Brake Test",
+                      "Tacho Insp.",
                       "Tacho DL",
+                      "Service Odo",
                     ].map((h) => (
                       <th
                         key={h}
                         style={{
-                          padding: "8px 10px",
+                          padding: "5px 10px",
                           background: "#0f172a",
                           color: "#fff",
                           borderBottom: "1px solid #0b1220",
@@ -418,6 +530,9 @@ export default function VehicleMaintenancePage() {
                           fontWeight: 900,
                           fontSize: 11.5,
                           letterSpacing: ".02em",
+                          ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
+                          ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
+                          ...(h === "Insurance" ? { width: 118 } : {}),
                         }}
                       >
                         {h}
@@ -432,14 +547,24 @@ export default function VehicleMaintenancePage() {
                       onClick={() => toggleCategory(category)}
                       className="catRow"
                       style={{
-                        background: "#f1f5f9",
+                        background: "#f3f4f6",
                         cursor: "pointer",
-                        borderTop: "1px solid #e5e7eb",
-                        borderBottom: "1px solid #e5e7eb",
+                        borderTop: "1px solid #dbe1ea",
+                        borderBottom: "1px solid #dbe1ea",
                       }}
                       title="Click to expand/collapse"
                     >
-                      <td colSpan={COLS} style={{ padding: "8px 10px", fontWeight: 950, color: UI.text }}>
+                      <td
+                        colSpan={COLS}
+                        style={{
+                          padding: "3px 10px",
+                          fontWeight: 900,
+                          fontSize: 12,
+                          lineHeight: 1.1,
+                          color: UI.text,
+                          verticalAlign: "middle",
+                        }}
+                      >
                         {expandedCategories[category] ? "▼" : "▶"} {category}{" "}
                         <span style={{ color: UI.muted, fontWeight: 800 }}>({list.length})</span>
                       </td>
@@ -447,29 +572,49 @@ export default function VehicleMaintenancePage() {
 
                     {expandedCategories[category] &&
                       list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "#fff" : "#fafafa";
+                        const zebra = i % 2 === 0 ? "#ffffff" : "#f3f4f6";
                         const reg = v.registration || v.reg || "—";
 
                         const rowTd = {
-                          padding: "8px 10px",
-                          borderBottom: "1px solid #eef2f7",
+                          padding: "4px 10px",
+                          borderBottom: "1px solid #dbe1ea",
                           whiteSpace: "nowrap",
                           verticalAlign: "middle",
                         };
+                        const regCell = { ...rowTd, fontWeight: 900 };
+                        const vehicleCell = { ...rowTd, fontWeight: 400 };
+                        const vehicleNameCell = {
+                          ...vehicleCell,
+                          width: 168,
+                          maxWidth: 168,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        };
+                        const modelCell = {
+                          ...rowTd,
+                          paddingRight: 5,
+                          width: 150,
+                          maxWidth: 150,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        };
+                        const taxCell = { ...rowTd, paddingLeft: 5 };
+                        const insuranceCell = { ...rowTd, width: 118, maxWidth: 118 };
 
                         return (
                           <tr
                             key={v.id}
+                            className="vehicleDataRow"
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
                             style={{ background: zebra, cursor: "pointer" }}
                           >
+                            <td style={regCell}>{reg}</td>
                             <td style={{ ...rowTd, fontWeight: 900 }}>{v.name || "—"}</td>
                             <td style={rowTd}>{v.manufacturer || "—"}</td>
-                            <td style={rowTd}>{v.model || "—"}</td>
-                            <td style={rowTd}>{reg}</td>
+                            <td style={modelCell}>{v.model || "—"}</td>
 
                             {/* Tax Status */}
-                            <td style={rowTd} onClick={(e) => e.stopPropagation()}>
+                            <td style={taxCell} onClick={(e) => e.stopPropagation()}>
                               <select
                                 style={miniSelect}
                                 value={v.taxStatus || "Taxed"}
@@ -483,7 +628,7 @@ export default function VehicleMaintenancePage() {
                             </td>
 
                             {/* Insurance Status */}
-                            <td style={rowTd} onClick={(e) => e.stopPropagation()}>
+                            <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
                               <select
                                 style={miniSelect}
                                 value={v.insuranceStatus || "Insured"}
@@ -497,17 +642,14 @@ export default function VehicleMaintenancePage() {
                             </td>
 
                             {/* Dates with colour-coded status */}
-                            {renderDateCell(v.inspectionDate, rowTd)}
                             {renderDateCell(v.nextMOT, rowTd)}
                             {renderDateCell(v.nextRFL, rowTd)}
                             {renderDateCell(v.nextService, rowTd)}
-
-                            <td style={rowTd}>{v.serviceOdometer || "—"}</td>
-
-                            {renderDateCell(v.nextTachoInspection, rowTd)}
-                            {renderDateCell(v.nextBrakeTest, rowTd)}
                             {renderDateCell(v.nextPMIInspection, rowTd)}
+                            {renderDateCell(v.nextBrakeTest, rowTd)}
+                            {renderDateCell(v.nextTachoInspection, rowTd)}
                             {renderDateCell(v.nextTachoDownload, rowTd)}
+                            <td style={rowTd}>{v.serviceOdometer || "—"}</td>
                           </tr>
                         );
                       })}
@@ -528,7 +670,7 @@ export default function VehicleMaintenancePage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 12, color: UI.muted, fontSize: 12 }}>
+        <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
           <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
         </div>
@@ -606,7 +748,7 @@ function renderDateCell(raw, baseStyle) {
 
 const miniSelect = {
   width: "100%",
-  padding: "6px 8px",
+  padding: "3px 8px",
   border: "1px solid #e5e7eb",
   borderRadius: 10,
   background: "#fff",
