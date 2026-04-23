@@ -272,10 +272,27 @@ const isVehicleBlockingStatus = (status) => {
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
-  "Bike",
-  "Electric Tracking Vehicles",
-  "Small Tracking Vehicles",
+  "bike",
+  "electric tracking vehicles",
+  "small tracking vehicles",
 ]);
+const getVehicleCategoryGroup = (vehicle = {}) =>
+  String(vehicle.category || "").trim() || "Uncategorised";
+const shouldShowVehicleCategory = (group) =>
+  String(group || "").trim().toLowerCase() !== "taurus";
+const isOffRoadAllowedGroup = (group) =>
+  OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
+const sortVehicleGroupEntries = (groups) =>
+  Object.fromEntries(
+    Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([group, items]) => [
+        group,
+        [...items].sort((a, b) =>
+          String(a.name || a.registration || "").localeCompare(String(b.name || b.registration || ""))
+        ),
+      ])
+  );
 
 /* ────────────────────────────────────────────────────────────────────────────
    UTC day helpers
@@ -511,26 +528,8 @@ export default function CreateBookingPage() {
   const [employeeList, setEmployeeList] = useState([]); // [{id,name}]
   const [freelancerList, setFreelancerList] = useState([]); // [{id,name}]
 
-  const [vehicleGroups, setVehicleGroups] = useState({
-    Bike: [],
-    "Electric Tracking Vehicles": [],
-    "Small Tracking Vehicles": [],
-    "Large Tracking Vehicles": [],
-    "Low Loaders": [],
-    "Transport Lorry": [],
-    "Transport Van": [],
-    "Other Vehicles": [],
-  });
-  const [openGroups, setOpenGroups] = useState({
-    Bike: false,
-    "Electric Tracking Vehicles": false,
-    "Small Tracking Vehicles": false,
-    "Large Tracking Vehicles": false,
-    "Low Loaders": false,
-    "Transport Lorry": false,
-    "Transport Van": false,
-    "Other Vehicles": false,
-  });
+  const [vehicleGroups, setVehicleGroups] = useState({});
+  const [openGroups, setOpenGroups] = useState({});
 
   const [equipmentGroups, setEquipmentGroups] = useState({});
   const [openEquipGroups, setOpenEquipGroups] = useState({});
@@ -764,9 +763,7 @@ export default function CreateBookingPage() {
       };
     }
 
-    const ineligible = selectedVehicleDetails.filter(
-      (v) => !OFF_ROAD_ALLOWED_GROUPS.has(v.group)
-    );
+    const ineligible = selectedVehicleDetails.filter((v) => !isOffRoadAllowedGroup(v.group));
 
     if (ineligible.length) {
       const names = ineligible
@@ -775,7 +772,7 @@ export default function CreateBookingPage() {
         .join(", ");
       return {
         eligible: false,
-        reason: `Only Bike / Electric Tracking / Small Tracking vehicles are allowed. Ineligible: ${names}`,
+        reason: `Only Bike / Electric Tracking Vehicles / Small Tracking Vehicles are allowed. Ineligible: ${names}`,
         ineligible,
       };
     }
@@ -872,16 +869,7 @@ export default function CreateBookingPage() {
       }
       setNameToCode(map);
 
-      const grouped = {
-        Bike: [],
-        "Electric Tracking Vehicles": [],
-        "Small Tracking Vehicles": [],
-        "Large Tracking Vehicles": [],
-        "Low Loaders": [],
-        "Transport Lorry": [],
-        "Transport Van": [],
-        "Other Vehicles": [],
-      };
+      const grouped = {};
 
       const byId = {};
       const byReg = {};
@@ -890,29 +878,24 @@ export default function CreateBookingPage() {
       vehicleSnap.docs.forEach((docu) => {
         const v = docu.data();
         const id = docu.id;
-        const category = (v.category || "").trim().toLowerCase();
         const name = (v.name || "").trim();
         const registration = (v.registration || "").trim();
         if (!name && !registration) return;
 
-        let group = "Other Vehicles";
-        if (category.includes("bike")) group = "Bike";
-        else if (category.includes("electric")) group = "Electric Tracking Vehicles";
-        else if (category.includes("small")) group = "Small Tracking Vehicles";
-        else if (category.includes("large")) group = "Large Tracking Vehicles";
-        else if (category.includes("low loader")) group = "Low Loaders";
-        else if (category.includes("lorry")) group = "Transport Lorry";
-        else if (category.includes("van")) group = "Transport Van";
+        const group = getVehicleCategoryGroup(v);
 
         const info = { id, name, registration, group, ...(v || {}) };
         if (id) byId[id] = info;
         if (registration) byReg[registration.toUpperCase()] = info;
         if (name) byName[name.toLowerCase()] = info;
 
-        grouped[group].push(info);
+        if (shouldShowVehicleCategory(group)) {
+          if (!grouped[group]) grouped[group] = [];
+          grouped[group].push(info);
+        }
       });
 
-      setVehicleGroups(grouped);
+      setVehicleGroups(sortVehicleGroupEntries(grouped));
       setVehicleLookup({ byId, byReg, byName });
 
       const groupedEquip = {};
