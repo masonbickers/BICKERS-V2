@@ -277,6 +277,7 @@ export default function HeaderSidebarLayout({
   -------------------------------------------- */
   const userHeaderLinks = [
     { label: "Workshop", path: "/workshop" },
+    { label: "Assistant", path: "/assistant", icon: "AI" },
     { label: "Wall View", path: "/wall-view" },
     { label: "Dashboard", path: "/dashboard" },
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
@@ -284,6 +285,7 @@ export default function HeaderSidebarLayout({
 
   const serviceHeaderLinks = [
     { label: "Workshop", path: "/workshop" },
+    { label: "Assistant", path: "/assistant", icon: "AI" },
     { label: "Service Overview", path: "/service-overview" },
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
@@ -826,7 +828,7 @@ export default function HeaderSidebarLayout({
               </div>
             </div>
 
-            {headerLinks.map(({ label, path }) => (
+            {headerLinks.map(({ label, path, icon }) => (
               <Link
                 key={label}
                 href={path}
@@ -838,8 +840,36 @@ export default function HeaderSidebarLayout({
                   paddingBottom: 2,
                   borderBottom:
                     pathname === path ? `2px solid ${UI.activeAccent}` : "2px solid transparent",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
                 }}
               >
+                {icon ? (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 22,
+                      height: 22,
+                      borderRadius: 999,
+                      border:
+                        pathname === path
+                          ? `1px solid ${UI.activeAccent}`
+                          : "1px solid rgba(168,179,194,0.34)",
+                      background:
+                        pathname === path
+                          ? "rgba(107,179,127,0.16)"
+                          : "rgba(255,255,255,0.04)",
+                      fontSize: 10.5,
+                      fontWeight: 900,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {icon}
+                  </span>
+                ) : null}
                 {label}
               </Link>
             ))}

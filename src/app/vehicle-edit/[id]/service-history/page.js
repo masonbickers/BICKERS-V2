@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../../../firebaseConfig";
+import { normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
 
 const UI = {
   radius: 14,
@@ -47,12 +48,7 @@ const btn = {
   whiteSpace: "nowrap",
 };
 
-const toDate = (v) => {
-  if (!v) return null;
-  if (typeof v?.toDate === "function") return v.toDate();
-  const d = new Date(v);
-  return Number.isNaN(+d) ? null : d;
-};
+const toDate = (v) => toDateLike(v);
 
 const clampISODate = (d) => {
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
@@ -97,7 +93,9 @@ export default function VehicleServiceHistoryPage() {
           setVehicle({ id: vehicleSnap.id, ...vehicleSnap.data() });
         }
 
-        const rows = serviceRecordSnap.docs.map((item) => ({ id: item.id, ...(item.data() || {}) }));
+        const rows = serviceRecordSnap.docs.map((item) =>
+          normalizeServiceRecord({ id: item.id, ...(item.data() || {}) })
+        );
         rows.sort((a, b) => {
           const ad = toDate(a.serviceDateOnly || a.serviceDate || a.createdAt) || new Date(0);
           const bd = toDate(b.serviceDateOnly || b.serviceDate || b.createdAt) || new Date(0);
@@ -118,7 +116,7 @@ export default function VehicleServiceHistoryPage() {
   const serviceHistoryItems = useMemo(() => {
     const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];
     const derived = serviceRecords.map((record) => ({
-      completedDate: record.serviceDateOnly || record.serviceDate || "",
+      completedDate: record.serviceDateOnly || "",
       bookingId: record.id,
       bookingRef: record.serviceType || "",
       notes: record.workSummary || record.extraNotes || "",

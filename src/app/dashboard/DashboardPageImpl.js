@@ -634,34 +634,55 @@ const callTimeForEventDay = (event) => {
   return "";
 };
 
+const getBookingCalendarRange = (booking) => {
+  const bookingDateList = Array.isArray(booking?.bookingDates)
+    ? booking.bookingDates
+        .map((value) => parseLocalDate(value))
+        .filter((value) => value instanceof Date && !Number.isNaN(value.getTime()))
+        .sort((a, b) => a.getTime() - b.getTime())
+    : [];
+
+  const primaryStart = parseLocalDate(booking?.startDate || booking?.date);
+  const primaryEnd = parseLocalDate(booking?.endDate || booking?.date || booking?.startDate);
+
+  const startBase = primaryStart || bookingDateList[0] || null;
+  const endBase = primaryEnd || bookingDateList[bookingDateList.length - 1] || startBase;
+
+  if (!startBase) return null;
+
+  const safeEnd = endBase && endBase < startBase ? startBase : endBase || startBase;
+  return { startBase, safeEnd };
+};
+
 //  Single source of truth for both BOOKINGS + MAINTENANCE
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
   // normal bookings → full events
-  const bookingEvents = (bookings || []).map((b) => {
-    const startBase = parseLocalDate(b.startDate || b.date);
-    const endRaw = b.endDate || b.date || b.startDate;
-    const endBase = parseLocalDate(endRaw);
-    const safeEnd = endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
+  const bookingEvents = (bookings || [])
+    .map((b) => {
+      const range = getBookingCalendarRange(b);
+      if (!range) return null;
+      const { startBase, safeEnd } = range;
 
-    //  ensure per-day call times exist even for single-day / recce-day
-    const ctByDate = ensureCallTimesByDate(b);
+      //  ensure per-day call times exist even for single-day / recce-day
+      const ctByDate = ensureCallTimesByDate(b);
 
-    //  normalise callTime too so badge logic + display are consistent
-    const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
+      //  normalise callTime too so badge logic + display are consistent
+      const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
 
-    return {
-      ...b,
-      __collection: b.__collection || "bookings",
-      __deletedDocId: b.__deletedDocId || null,
-      title: b.client || "",
-      start: startOfLocalDay(startBase),
-      end: startOfLocalDay(addDays(safeEnd, 1)),
-      allDay: true,
-      status: b.status || "Confirmed",
-      callTime,
-      callTimesByDate: ctByDate,
-    };
-  });
+      return {
+        ...b,
+        __collection: b.__collection || "bookings",
+        __deletedDocId: b.__deletedDocId || null,
+        title: b.client || "",
+        start: startOfLocalDay(startBase),
+        end: startOfLocalDay(addDays(safeEnd, 1)),
+        allDay: true,
+        status: b.status || "Confirmed",
+        callTime,
+        callTimesByDate: ctByDate,
+      };
+    })
+    .filter(Boolean);
 
   const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
     getVehicleLabel: (booking) =>

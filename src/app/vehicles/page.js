@@ -156,9 +156,6 @@ export default function VehicleMaintenancePage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [renameFromCategory, setRenameFromCategory] = useState("");
-  const [renameToCategory, setRenameToCategory] = useState("");
-  const [renamingCategory, setRenamingCategory] = useState(false);
 
   const toggleCategory = (category) => {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
@@ -194,61 +191,6 @@ export default function VehicleMaintenancePage() {
       // rollback not attempted (optional)
     } finally {
       setSavingKey(null);
-    }
-  };
-
-  const handleRenameCategory = async () => {
-    const from = String(renameFromCategory || "").trim();
-    const to = String(renameToCategory || "").trim();
-
-    if (!from) {
-      alert("Choose a category to rename.");
-      return;
-    }
-    if (!to) {
-      alert("Enter the new category name.");
-      return;
-    }
-    if (norm(from) === norm(to)) {
-      alert("New category name must be different.");
-      return;
-    }
-    if (categories.some((category) => norm(category) === norm(to))) {
-      alert("A category with that name already exists.");
-      return;
-    }
-
-    const matchingVehicles = vehicles.filter((vehicle) => norm(vehicle.category) === norm(from));
-    if (!matchingVehicles.length) {
-      alert("No vehicles found in that category.");
-      return;
-    }
-
-    setRenamingCategory(true);
-    try {
-      await Promise.all(
-        matchingVehicles.map((vehicle) => updateDoc(doc(db, "vehicles", vehicle.id), { category: to }))
-      );
-
-      setVehicles((prev) =>
-        prev.map((vehicle) =>
-          norm(vehicle.category) === norm(from) ? { ...vehicle, category: to } : vehicle
-        )
-      );
-      setExpandedCategories((prev) => {
-        const next = { ...prev };
-        const wasExpanded = !!prev[from];
-        delete next[from];
-        next[to] = wasExpanded || !(to in next);
-        return next;
-      });
-      setRenameFromCategory(to);
-      setRenameToCategory("");
-    } catch (err) {
-      console.error("Failed to rename category:", err);
-      alert("Could not rename category. Please try again.");
-    } finally {
-      setRenamingCategory(false);
     }
   };
 
@@ -334,9 +276,9 @@ export default function VehicleMaintenancePage() {
       "nextMOT",
       "nextRFL",
       "nextService",
-      "nextTachoInspection",
+      "nextTacho",
       "nextBrakeTest",
-      "nextPMIInspection",
+      "nextPMI",
       "nextTachoDownload",
     ];
 
@@ -441,44 +383,6 @@ export default function VehicleMaintenancePage() {
                 Reset
               </button>
             </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "198px 1fr auto", gap: 3, alignItems: "end", marginTop: 3 }}>
-            <div>
-              <div style={smallLabel}>Rename Category</div>
-              <select
-                value={renameFromCategory}
-                onChange={(e) => setRenameFromCategory(e.target.value)}
-                style={input}
-                disabled={renamingCategory}
-              >
-                <option value="">Select category</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div style={smallLabel}>New Name</div>
-              <input
-                type="text"
-                value={renameToCategory}
-                onChange={(e) => setRenameToCategory(e.target.value)}
-                placeholder="Enter new category name"
-                style={input}
-                disabled={renamingCategory}
-              />
-            </div>
-
-            <button
-              type="button"
-              style={btn("ghost")}
-              onClick={handleRenameCategory}
-              disabled={renamingCategory}
-            >
-              {renamingCategory ? "Renaming..." : "Rename"}
-            </button>
           </div>
 
           {/* CSV import */}
@@ -645,9 +549,9 @@ export default function VehicleMaintenancePage() {
                             {renderDateCell(v.nextMOT, rowTd)}
                             {renderDateCell(v.nextRFL, rowTd)}
                             {renderDateCell(v.nextService, rowTd)}
-                            {renderDateCell(v.nextPMIInspection, rowTd)}
+                            {renderDateCell(v.nextPMI, rowTd)}
                             {renderDateCell(v.nextBrakeTest, rowTd)}
-                            {renderDateCell(v.nextTachoInspection, rowTd)}
+                            {renderDateCell(v.nextTacho, rowTd)}
                             {renderDateCell(v.nextTachoDownload, rowTd)}
                             <td style={rowTd}>{v.serviceOdometer || "—"}</td>
                           </tr>

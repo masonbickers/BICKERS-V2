@@ -87,6 +87,15 @@ function parseDateFlexible(raw) {
   return null;
 }
 
+function toLocalYMD(raw) {
+  const d = parseDateFlexible(raw);
+  if (!d) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /* HH:mm → minutes */
 function toMinutes(val) {
   if (!val) return null;
@@ -114,6 +123,41 @@ function normaliseTimeValue(value) {
   const hours = Math.floor(mins / 60);
   const minutes = mins % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getPrecallInfo(entry) {
+  const raw = entry?.precallDuration;
+  const timeValue = normaliseTimeValue(raw);
+  if (timeValue) {
+    const callMinutes = toMinutes(entry?.callTime);
+    const preCallMinutes = toMinutes(timeValue);
+    const hours =
+      callMinutes != null && preCallMinutes != null ? Math.max(0, diffHours(timeValue, entry?.callTime)) : 0;
+    return {
+      kind: "time",
+      label: timeValue,
+      hours,
+    };
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return { kind: "none", label: "", hours: 0 };
+  }
+
+  const hrs = value / 60;
+  const label =
+    value < 60
+      ? `${value} min`
+      : value % 60 === 0
+      ? `${value / 60} hr${value / 60 > 1 ? "s" : ""}`
+      : `${Math.floor(value / 60)} hr${Math.floor(value / 60) > 1 ? "s" : ""} ${value % 60} min`;
+
+  return {
+    kind: "duration",
+    label,
+    hours: hrs,
+  };
 }
 
 function getEmployeeYardAutofill(employee) {
@@ -203,6 +247,10 @@ function computeYardHours(entry) {
   let total = 0;
   segs.forEach((s) => (total += diffHours(s.start, s.end)));
 
+  if (entry?.yardTravelEnabled) {
+    total += diffHours(entry?.yardTravelLeaveTime, entry?.yardTravelArriveTime);
+  }
+
   //  FIX: only deduct lunch when the data indicates lunch should be deducted
   if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
 
@@ -239,9 +287,7 @@ function computeHotelTravelExemptionHours(entry) {
 }
 
 function getPrecallHours(entry) {
-  const value = Number(entry?.precallDuration);
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  return value / 60;
+  return getPrecallInfo(entry).hours;
 }
 
 function computeOnSetBreakdown(entry) {
@@ -341,6 +387,7 @@ function detectMode(entry, isWeekend) {
   if (rawMode === "holiday") return "holiday";
   if (rawMode === "bankholiday") return "bankholiday";
   if (rawMode === "off") return "off";
+  if (rawMode === "unpaid") return "unpaid";
 
   //  Turnaround is a yard-day flag, not a mode
   if (rawMode === "yard" && isTurnaroundDay(entry)) return "turnaround";
@@ -361,13 +408,7 @@ function normaliseDays(daysObj) {
 
 /* Format Pre-Call minutes */
 function formatPrecallMinutes(min) {
-  const value = Number(min);
-  if (!Number.isFinite(value) || value <= 0) return "";
-  if (value < 60) return `${value} min`;
-  const hrs = Math.floor(value / 60);
-  const rem = value % 60;
-  if (rem === 0) return `${hrs} hr${hrs > 1 ? "s" : ""}`;
-  return `${hrs} hr${hrs > 1 ? "s" : ""} ${rem} min`;
+  return getPrecallInfo({ precallDuration: min }).label;
 }
 
 function formatShortDate(value) {
@@ -424,6 +465,54 @@ function resolveBookingDayNoteMeta(booking, ymd) {
   }
 
   return { type: rawType, text: rawType, travelMins: 0 };
+}
+
+function getVehicleLookupKeys(vehicle) {
+  if (vehicle == null) return [];
+  if (typeof vehicle === "string") {
+    const raw = vehicle.trim();
+    return raw ? [raw] : [];
+  }
+
+  if (typeof vehicle !== "object") return [];
+
+  const values = [
+    vehicle.id,
+    vehicle.vehicleId,
+    vehicle.name,
+    vehicle.registration,
+    vehicle.reg,
+    vehicle.numberPlate,
+    vehicle.plate,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(values));
+}
+
+function resolveVehicleLabel(vehicle, lookup = {}) {
+  if (vehicle == null) return { name: "Vehicle", registration: "No Reg" };
+  if (typeof vehicle === "object") {
+    const keys = getVehicleLookupKeys(vehicle);
+    for (const key of keys) {
+      if (lookup[key]) return lookup[key];
+    }
+
+    const name = String(vehicle.name || vehicle.label || vehicle.vehicleName || "").trim();
+    const registration = String(
+      vehicle.registration || vehicle.reg || vehicle.numberPlate || vehicle.plate || ""
+    ).trim();
+
+    return {
+      name: name || keys[0] || "Vehicle",
+      registration: registration || "No Reg",
+    };
+  }
+
+  const raw = String(vehicle).trim();
+  if (!raw) return { name: "Vehicle", registration: "No Reg" };
+  return lookup[raw] || { name: raw, registration: "No Reg" };
 }
 
 function getPayAdviceJobName(card, primaryJob) {
@@ -604,7 +693,7 @@ function eachDateYMD(startRaw, endRaw) {
   endDt.setHours(0, 0, 0, 0);
 
   while (cur <= endDt) {
-    out.push(cur.toISOString().slice(0, 10));
+    out.push(toLocalYMD(cur));
     cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
   }
   return out;
@@ -827,7 +916,7 @@ export default function TimesheetDetailPage() {
 
               if (Array.isArray(data.vehicles)) {
                 data.vehicles.forEach((v) => {
-                  if (v != null && String(v).trim()) usedVehicleKeys.add(String(v));
+                  getVehicleLookupKeys(v).forEach((key) => usedVehicleKeys.add(key));
                 });
               }
             }
@@ -845,8 +934,10 @@ export default function TimesheetDetailPage() {
             const reg = String(v.registration || "").trim() || "No Reg";
             const docId = d.id;
 
-            lookup[docId] = { name: name || docId, registration: reg };
-            if (name) lookup[name] = { name, registration: reg };
+            const resolved = { name: name || docId, registration: reg };
+            lookup[docId] = resolved;
+            if (name) lookup[name] = resolved;
+            if (reg && reg !== "No Reg") lookup[reg] = resolved;
           });
         }
 
@@ -860,7 +951,7 @@ export default function TimesheetDetailPage() {
             const dt = new Date(weekStart);
             dt.setDate(dt.getDate() + dayIndex);
             dt.setHours(0, 0, 0, 0);
-            return dt.toISOString().slice(0, 10);
+            return toLocalYMD(dt);
           })();
 
           mergedJobMap[day] = arr.map((j) => {
@@ -1096,11 +1187,7 @@ export default function TimesheetDetailPage() {
 
   /* ----------------------- Vehicle display resolver ----------------------- */
   const resolveVehicle = (key) => {
-    const raw = String(key ?? "").trim();
-    if (!raw) return { name: "Vehicle", registration: "No Reg" };
-    const found = vehicleLookup[raw];
-    if (found) return found;
-    return { name: raw, registration: "No Reg" };
+    return resolveVehicleLabel(key, vehicleLookup);
   };
 
   const weekStartDate = useMemo(() => parseDateFlexible(timesheet?.weekStart), [timesheet?.weekStart]);
@@ -1126,7 +1213,7 @@ export default function TimesheetDetailPage() {
         const dt = new Date(weekStartDate);
         dt.setDate(dt.getDate() + dayIndex);
         dt.setHours(0, 0, 0, 0);
-        ymdForDay = dt.toISOString().slice(0, 10);
+        ymdForDay = toLocalYMD(dt);
       }
 
       const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
@@ -1181,8 +1268,11 @@ export default function TimesheetDetailPage() {
         //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
         if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
-        if (mode === "holiday" || mode === "bankholiday" || mode === "off") {
+        if (mode === "holiday" || mode === "bankholiday" || mode === "off" || mode === "unpaid") {
           dayHours = paidHolidayHours;
+        }
+        if (mode === "unpaid") {
+          dayHours = 0;
         }
       } else if (mode === "holiday" || mode === "bankholiday") {
         dayHours = paidHolidayHours;
@@ -1822,6 +1912,7 @@ export default function TimesheetDetailPage() {
 
               const isHolidayCard = mode === "holiday" || mode === "bankholiday";
               const isOffCard = mode === "off";
+              const isUnpaidCard = mode === "unpaid";
               const isMissingCard = mode === "missing";
 
               const isTurnaroundCard = mode === "turnaround";
@@ -1999,6 +2090,7 @@ export default function TimesheetDetailPage() {
                     </div>
                   )}
                   {isOffCard && <div style={{ color: "#6b7280" }}>Day Off</div>}
+                  {isUnpaidCard && <div style={{ color: "#a16207", fontWeight: 700 }}>Unpaid day</div>}
 
                   {/* JOB INFO (still show jobs if they exist) */}
                   {jobsToday.length > 0 && (
@@ -2074,6 +2166,12 @@ export default function TimesheetDetailPage() {
                           {seg.start} → {seg.end}
                         </div>
                       ))}
+                      {entry?.yardTravelEnabled && entry?.yardTravelLeaveTime && entry?.yardTravelArriveTime ? (
+                        <div style={{ marginTop: 4, color: UI.muted }}>
+                          Yard travel: {entry.yardTravelLeaveTime} {"->"} {entry.yardTravelArriveTime}
+                        </div>
+                      ) : null}
+                      {entry?.overnight ? <div style={{ marginTop: 4 }}>• Overnight</div> : null}
                       {mode === "yard" && (
                         <div style={{ color: "#9ca3af", fontSize: 12 }}>
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
@@ -2110,8 +2208,9 @@ export default function TimesheetDetailPage() {
                       <div>
                         {entry.leaveTime ?? "—"} → {entry.arriveTime ?? "—"}
                       </div>
-                      {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>• Lunch (travel)</div> : null}
-                      {entry.travelPD ? <div>• PD</div> : null}
+                      {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>Travel meal</div> : null}
+                      {entry.travelPD ? <div>Travel meal</div> : null}
+                      {entry.overnight ? <div>Overnight</div> : null}
                     </div>
                   )}
 

@@ -1661,6 +1661,17 @@ export default function EditBookingPage() {
   /* ────────────────────────────────────────────────────────────
      Submit (UPDATE)
   ───────────────────────────────────────────────────────────── */
+  const selectedVehicleConflictLabels = (selectedIds, statuses) =>
+    (selectedIds || [])
+      .filter((vehicleId) => isVehicleBlockingStatus(statuses?.[vehicleId] || status))
+      .filter((vehicleId) => bookedVehicleIds.includes(vehicleId))
+      .map((vehicleId) => {
+        const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
+        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
+        const existingStatus = vehicleBlockingStatusById[vehicleId] || "booked";
+        return `${label} (${existingStatus})`;
+      });
+
   const handleUpdate = async () => {
     if (!bookingId) return;
 
@@ -1697,6 +1708,15 @@ export default function EditBookingPage() {
     ]);
 
     const bookingDates = status !== "Enquiry" ? selectedDates : [];
+
+    const vehicleConflicts = selectedVehicleConflictLabels(vehicles, vehicleStatus);
+    if (bookingDates.length && vehicleConflicts.length) {
+      return alert(
+        `One or more selected vehicles already have a blocking booking on the selected date(s):\n\n${vehicleConflicts.join(
+          "\n"
+        )}`
+      );
+    }
 
     const filteredNotesByDate = {};
     bookingDates.forEach((d) => {
@@ -2942,8 +2962,7 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled =
-                              (isBooked || isMaintBlocked || isComplianceBlocked || isDefectBlocked) && !isSelected;
+                            const disabled = (isBooked || isMaintBlocked || isDefectBlocked) && !isSelected;
 
                             return (
                               <div
@@ -2960,8 +2979,6 @@ export default function EditBookingPage() {
                                   disabled
                                     ? isMaintBlocked
                                       ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
-                                      : isComplianceBlocked
-                                      ? `Vehicle is blocked: ${complianceReason}`
                                       : isDefectBlocked
                                       ? `Vehicle is blocked: ${defectReason}`
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
@@ -2977,7 +2994,7 @@ export default function EditBookingPage() {
                                 <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                   {vehicle.name}
                                   {vehicle.registration ? ` – ${vehicle.registration}` : ""}
-                                  {isDefectBlocked && !isBooked && !isMaintBlocked && !isComplianceBlocked && ` (${defectReason})`}
+                                  {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
                                   {isComplianceBlocked && !isBooked && !isMaintBlocked && ` (${complianceReason})`}
                                   {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                   {isBooked && ` (${blockedStatus || "Blocked"})`}

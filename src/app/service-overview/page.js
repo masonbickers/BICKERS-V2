@@ -6,6 +6,7 @@ import { db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
 const UI = {
@@ -199,10 +200,10 @@ export default function ServiceOverviewPage() {
         const today = new Date();
 
         const data = snapshot.docs.map((d) => {
-          const v = d.data();
+          const v = normalizeVehicleRecord({ id: d.id, ...d.data() });
 
           // due logic
-          const next = parseDateAny(v.nextService);
+          const next = parseDateAny(v.nextService || v.nextServiceDate);
           const diffDays = next ? daysDiff(next, today) : null;
           const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
 
@@ -247,8 +248,8 @@ export default function ServiceOverviewPage() {
       const today = new Date();
 
       const data = snapshot.docs.map((d) => {
-        const v = d.data();
-        const next = parseDateAny(v.nextService);
+        const v = normalizeVehicleRecord({ id: d.id, ...d.data() });
+        const next = parseDateAny(v.nextService || v.nextServiceDate);
         const diffDays = next ? daysDiff(next, today) : null;
         const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
         const bookedStatus = normaliseBookedStatus(v);

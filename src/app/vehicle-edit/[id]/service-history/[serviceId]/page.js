@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../../../../firebaseConfig";
+import { normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 
 const UI = {
   radius: 14,
@@ -76,7 +77,7 @@ export default function VehicleServiceHistoryDetailPage() {
       try {
         const snap = await getDoc(doc(db, "serviceRecords", serviceId));
         if (snap.exists()) {
-          setRecord({ id: snap.id, ...(snap.data() || {}) });
+          setRecord(normalizeServiceRecord({ id: snap.id, ...(snap.data() || {}) }));
         } else {
           setRecord(null);
         }
@@ -118,6 +119,7 @@ export default function VehicleServiceHistoryDetailPage() {
 
   const pageLabel =
     record?.vehicleName || record?.registration || "Service Details";
+  const nextServiceLabel = record?.nextServiceDate || record?.nextService || "-";
 
   return (
     <HeaderSidebarLayout>
@@ -146,9 +148,11 @@ export default function VehicleServiceHistoryDetailPage() {
                 <InfoLine label="Manufacturer" value={record.manufacturer} />
                 <InfoLine label="Model" value={record.model} />
                 <InfoLine label="Service Date" value={record.serviceDate} />
+                <InfoLine label="Service Date Only" value={record.serviceDateOnly} />
+                <InfoLine label="Service Time" value={record.serviceTime} />
                 <InfoLine label="Service Type" value={record.serviceType} />
                 <InfoLine label="Odometer" value={record.odometer} />
-                <InfoLine label="Next Service Date" value={record.nextServiceDate} />
+                <InfoLine label="Next Service Date" value={nextServiceLabel} />
                 <InfoLine label="Signed By" value={record.signedBy} />
               </div>
             </div>

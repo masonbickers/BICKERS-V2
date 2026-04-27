@@ -408,6 +408,32 @@ const buildVehicleLabelFromObject = (v) => {
 /* ----------------- Defect utilities ----------------- */
 const isDefectItem = (it) => it?.status === "defect";
 const isPendingDefect = (it) => !it?.review?.status;
+const isOpenVehicleIssue = (issue) => normStatus(issue?.status) === "open" || !String(issue?.status || "").trim();
+
+const getTimestampMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const formatQueueDate = (value, fallback = "") => {
+  if (!value) return fallback || "—";
+  if (value instanceof Date) return value.toLocaleDateString("en-GB");
+  if (typeof value?.toDate === "function") return value.toDate().toLocaleDateString("en-GB");
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split("-");
+      return `${day}/${month}/${year}`;
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString("en-GB");
+    return trimmed;
+  }
+  return fallback || "—";
+};
 
 function extractPendingDefects(checkDocs) {
   const out = [];
@@ -416,11 +442,12 @@ function extractPendingDefects(checkDocs) {
     c.items.forEach((it, idx) => {
       if (isDefectItem(it) && isPendingDefect(it)) {
         out.push({
+          sourceType: "vehicleCheck",
           checkId: c.id,
           jobId: c.jobId || "",
           jobLabel: c.jobNumber ? `#${c.jobNumber}` : c.jobId || "",
           vehicle: c.vehicle || "",
-          dateISO: c.dateISO || c.date || c.createdAt || "",
+          dateLabel: formatQueueDate(c.dateISO || c.date || c.createdAt, c.dateISO || c.date || ""),
           driverName: c.driverName || "",
           odometer: c.odometer || "",
           photos: Array.isArray(c.photos) ? c.photos : [],
@@ -432,8 +459,32 @@ function extractPendingDefects(checkDocs) {
       }
     });
   }
-  out.sort((a, b) => (a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0));
   return out;
+}
+
+function extractPendingVehicleIssues(issueDocs) {
+  return issueDocs
+    .filter((issue) => isOpenVehicleIssue(issue))
+    .map((issue) => ({
+      sourceType: "vehicleIssue",
+      issueId: issue.id,
+      vehicle: issue.vehicleName || issue.vehicle || "",
+      dateLabel: formatQueueDate(issue.createdAt),
+      driverName: issue.reporterName || issue.reporterCode || "",
+      reporterCode: issue.reporterCode || "",
+      photos: [],
+      defectIndex: 0,
+      itemLabel: "App issue report",
+      defectNote: issue.description || "",
+      submittedAt: issue.createdAt || null,
+      categoryLabel: issue.category || "Other",
+    }));
+}
+
+function mergePendingQueue(checkDocs, issueDocs) {
+  return [...extractPendingDefects(checkDocs), ...extractPendingVehicleIssues(issueDocs)].sort(
+    (a, b) => getTimestampMillis(b.submittedAt) - getTimestampMillis(a.submittedAt)
+  );
 }
 
 /* ----------------- Calendar event helpers ----------------- */
@@ -583,6 +634,7 @@ export default function VehiclesHomePage() {
 
   // Defect queue state
   const [checkDocs, setCheckDocs] = useState([]);
+  const [vehicleIssueDocs, setVehicleIssueDocs] = useState([]);
   const [pendingDefects, setPendingDefects] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionModal, setActionModal] = useState(null); // {defect, decision, comment, category?}
@@ -832,17 +884,40 @@ export default function VehiclesHomePage() {
     ];
   }, [maintenanceBookingEventsShared, maintenanceJobEventsShared, motServiceEventsShared]);
 
-  // Load submitted checks (for defects queue)
+  // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
-    const loadChecks = async () => {
-      const snap = await getDocs(collection(db, "vehicleChecks"));
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const submitted = docs.filter((c) => c.status === "submitted");
-      setCheckDocs(submitted);
-      setPendingDefects(extractPendingDefects(submitted));
+    const unsubChecks = onSnapshot(
+      collection(db, "vehicleChecks"),
+      (snap) => {
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setCheckDocs(docs.filter((c) => c.status === "submitted"));
+      },
+      (e) => {
+        console.error("[vehicleChecks] snapshot error:", e);
+        setCheckDocs([]);
+      }
+    );
+
+    const unsubIssues = onSnapshot(
+      collection(db, "vehicleIssues"),
+      (snap) => {
+        setVehicleIssueDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
+      },
+      (e) => {
+        console.error("[vehicleIssues] snapshot error:", e);
+        setVehicleIssueDocs([]);
+      }
+    );
+
+    return () => {
+      unsubChecks();
+      unsubIssues();
     };
-    loadChecks();
   }, []);
+
+  useEffect(() => {
+    setPendingDefects(mergePendingQueue(checkDocs, vehicleIssueDocs));
+  }, [checkDocs, vehicleIssueDocs]);
 
   // Defect action handlers
   const openApprove = (defect) =>
@@ -868,25 +943,48 @@ export default function VehiclesHomePage() {
         return;
       }
 
-      const path = `items.${defect.defectIndex}.review`;
-      const reviewPayload = {
-        status: decision,
-        reviewedBy: reviewer,
-        reviewedAt: serverTimestamp(),
-        comment: (comment || "").trim(),
-      };
+      if (defect.sourceType === "vehicleIssue") {
+        const reviewPayload = {
+          status: decision,
+          reviewedBy: reviewer,
+          reviewedAt: serverTimestamp(),
+          comment: (comment || "").trim(),
+        };
 
-      if (decision === "approved") {
-        reviewPayload.category = String(category || "").trim().toLowerCase();
+        if (decision === "approved") {
+          reviewPayload.category = String(category || "").trim().toLowerCase();
+        }
+
+        await updateDoc(doc(db, "vehicleIssues", defect.issueId), {
+          status: decision,
+          review: reviewPayload,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        const path = `items.${defect.defectIndex}.review`;
+        const reviewPayload = {
+          status: decision,
+          reviewedBy: reviewer,
+          reviewedAt: serverTimestamp(),
+          comment: (comment || "").trim(),
+        };
+
+        if (decision === "approved") {
+          reviewPayload.category = String(category || "").trim().toLowerCase();
+        }
+
+        await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
+          [path]: reviewPayload,
+          updatedAt: serverTimestamp(),
+        });
       }
 
-      await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
-        [path]: reviewPayload,
-        updatedAt: serverTimestamp(),
-      });
-
       setPendingDefects((prev) =>
-        prev.filter((d) => !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex))
+        prev.filter((d) =>
+          defect.sourceType === "vehicleIssue"
+            ? d.issueId !== defect.issueId
+            : !(d.checkId === defect.checkId && d.defectIndex === defect.defectIndex)
+        )
       );
 
       setActionModal(null);
@@ -1211,7 +1309,7 @@ export default function VehiclesHomePage() {
             <div>
               <h2 style={titleMd}>Defect review</h2>
               <div style={hint}>
-                Review submitted vehicle defects, approve and route them to the correct operational bucket, or decline where no action is required.
+                Review submitted vehicle defects and app-reported issues, approve and route them to the correct operational bucket, or decline where no action is required.
               </div>
             </div>
 
@@ -1231,10 +1329,11 @@ export default function VehiclesHomePage() {
               <thead>
                 <tr style={{ background: "#f7f9fc" }}>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Date</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Source</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Vehicle</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Defect</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Note</th>
-                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Driver</th>
+                  <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Submitted By</th>
                   <th style={{ ...thtd, textAlign: "center", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Photos</th>
                   <th style={{ ...thtd, textAlign: "right", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Actions</th>
                 </tr>
@@ -1242,17 +1341,27 @@ export default function VehiclesHomePage() {
               <tbody>
                 {pendingDefects.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
+                    <td colSpan={8} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
                       No pending defects.
                     </td>
                   </tr>
                 ) : (
                   pendingDefects.map((d, i) => (
-                    <tr key={`${d.checkId}-${d.defectIndex}-${i}`}>
-                      <td style={thtd}>{d.dateISO || "—"}</td>
-                      <td style={thtd}>{d.vehicle || "—"}</td>
+                    <tr key={`${d.sourceType}-${d.issueId || d.checkId}-${d.defectIndex}-${i}`}>
+                      <td style={thtd}>{d.dateLabel || "-"}</td>
+                      <td style={thtd}>
+                        <span
+                          style={badge(
+                            d.sourceType === "vehicleIssue" ? "#f5ede6" : "#edf3f8",
+                            d.sourceType === "vehicleIssue" ? UI.accent : UI.brand
+                          )}
+                        >
+                          {d.sourceType === "vehicleIssue" ? "App report" : "Check"}
+                        </span>
+                      </td>
+                      <td style={thtd}>{d.vehicle || "-"}</td>
                       <td style={thtd} title={d.itemLabel}>
-                        <strong>#{d.defectIndex + 1}</strong> — {d.itemLabel}
+                        <strong>#{d.defectIndex + 1}</strong> - {d.itemLabel}
                       </td>
                       <td style={{ ...thtd, maxWidth: 360 }}>
                         <div
@@ -1266,24 +1375,31 @@ export default function VehiclesHomePage() {
                             color: d.defectNote ? UI.text : UI.muted,
                           }}
                         >
-                          {d.defectNote || "—"}
+                          {d.defectNote || "-"}
                         </div>
                       </td>
-                      <td style={thtd}>{d.driverName || "—"}</td>
+                      <td style={thtd}>
+                        <div>{d.driverName || "-"}</div>
+                        {d.reporterCode ? <div style={{ color: UI.muted, fontSize: 12 }}>{d.reporterCode}</div> : null}
+                      </td>
                       <td style={{ ...thtd, textAlign: "center" }}>{d.photos?.length ? d.photos.length : 0}</td>
                       <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
-                        <a
-                          href={CHECK_DETAIL_PATH(d.checkId)}
-                          style={{
-                            ...actionBtn("ghost"),
-                            textDecoration: "none",
-                            display: "inline-flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          {"View check ->"}
-                        </a>
-                        <span style={{ display: "inline-block", width: 8 }} />
+                        {d.sourceType === "vehicleCheck" ? (
+                          <>
+                            <a
+                              href={CHECK_DETAIL_PATH(d.checkId)}
+                              style={{
+                                ...actionBtn("ghost"),
+                                textDecoration: "none",
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {"View check ->"}
+                            </a>
+                            <span style={{ display: "inline-block", width: 8 }} />
+                          </>
+                        ) : null}
                         <button onClick={() => openApprove(d)} style={actionBtn("approve")}>
                           Approve
                         </button>
@@ -1580,14 +1696,21 @@ export default function VehiclesHomePage() {
 
             <div style={{ fontSize: 13, color: UI.muted, marginBottom: 10, lineHeight: 1.45 }}>
               <div>
-                <strong style={{ color: UI.text }}>Date:</strong> {actionModal.defect.dateISO}
+                <strong style={{ color: UI.text }}>Date:</strong> {actionModal.defect.dateLabel || "-"}
               </div>
-              <div>
-                <strong style={{ color: UI.text }}>Job:</strong> {actionModal.defect.jobLabel || actionModal.defect.jobId}
-              </div>
+              {actionModal.defect.sourceType === "vehicleCheck" ? (
+                <div>
+                  <strong style={{ color: UI.text }}>Job:</strong> {actionModal.defect.jobLabel || actionModal.defect.jobId}
+                </div>
+              ) : null}
               <div>
                 <strong style={{ color: UI.text }}>Vehicle:</strong> {actionModal.defect.vehicle}
               </div>
+              {actionModal.defect.sourceType === "vehicleIssue" ? (
+                <div>
+                  <strong style={{ color: UI.text }}>Category:</strong> {actionModal.defect.categoryLabel || "Other"}
+                </div>
+              ) : null}
               <div>
                 <strong style={{ color: UI.text }}>Item:</strong> #{actionModal.defect.defectIndex + 1} —{" "}
                 {actionModal.defect.itemLabel}

@@ -34,6 +34,8 @@ import {
   mergeInspectionHistory,
   mergeMaintenanceHistory,
 } from "@/app/utils/inspectionHistory";
+import { normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 
 /* ───────────────── UI tokens (match your newer pages) ───────────────── */
 const UI = {
@@ -184,6 +186,12 @@ const clampISODate = (d) => {
   return d.toISOString().split("T")[0];
 };
 const todayISO = () => clampISODate(new Date());
+
+const dateOnly = (value) => {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : raw;
+};
 
 const parseISOorBlank = (v) => {
   if (!v) return null;
@@ -347,7 +355,9 @@ export default function EditVehiclePage() {
       getDocs(query(collection(db, "serviceRecords"), where("vehicleId", "==", id))),
     ]);
     const rows = bookingSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
-    const serviceRows = serviceRecordSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+    const serviceRows = serviceRecordSnap.docs.map((d) =>
+      normalizeServiceRecord({ id: d.id, ...(d.data() || {}) })
+    );
     const sortedRows = [...rows].sort((a, b) => {
       const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
       const bd = toDate(b.appointmentDate || b.startDate || b.createdAt) || new Date(0);
@@ -384,7 +394,7 @@ export default function EditVehiclePage() {
     setLatestInspectionBooking(inspectionLatest);
 
     if (snap.exists()) {
-      const base = { id: snap.id, ...snap.data() };
+      const base = normalizeVehicleRecord({ id: snap.id, ...snap.data() });
       const hydrated = { ...base };
 
       // If vehicle summary fields are empty but bookings exist, hydrate from latest booking.
@@ -475,8 +485,8 @@ export default function EditVehiclePage() {
 
     // Service
     const nextService = calcNextFromWeeks(
-      vehicle.lastService,
-      resolveFreqWeeks(vehicle.serviceFreq, vehicle.lastService, vehicle.nextService)
+      dateOnly(vehicle.lastService),
+      resolveFreqWeeks(vehicle.serviceFreq, dateOnly(vehicle.lastService), vehicle.nextService)
     );
     if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
 
@@ -740,7 +750,7 @@ export default function EditVehiclePage() {
     Array.isArray(vehicle?.serviceHistory) && vehicle.serviceHistory.length
       ? vehicle.serviceHistory
       : serviceRecords.map((record) => ({
-          completedDate: record.serviceDateOnly || record.serviceDate || "",
+          completedDate: record.serviceDateOnly || "",
           bookingId: record.id,
           provider: record.signedBy || "",
           bookingRef: record.serviceType || "",
@@ -1061,7 +1071,7 @@ export default function EditVehiclePage() {
                 <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} />
                 <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} />
 
-                <DateField label="Last Service" name="lastService" value={vehicle.lastService} onChange={handleChange} />
+                <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} />
                 <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} />
                 <DateField label="Next Service" name="nextService" value={vehicle.nextService} onChange={handleChange} />
                 <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} />
