@@ -19,6 +19,7 @@ import {
   buildInitialLifecycle,
   buildInitialStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
@@ -998,6 +999,36 @@ export default function CreateBookingPage() {
     };
     writeDraftMap(nextMap);
   }, [activeDraftId, draftData, draftTitle, hasMeaningfulDraft]);
+
+  const saveDraftAndStaySafe = async () => {
+    if (typeof window === "undefined") return true;
+
+    if (!hasMeaningfulDraft) {
+      if (activeDraftId) removeDraftEntry(activeDraftId);
+      return true;
+    }
+
+    const draftId = activeDraftId || createDraftId();
+    if (!activeDraftId) setActiveDraftId(draftId);
+
+    const nextMap = readDraftMap();
+    nextMap[draftId] = {
+      id: draftId,
+      title: draftTitle,
+      updatedAt: new Date().toISOString(),
+      data: draftData,
+    };
+    writeDraftMap(nextMap);
+    return true;
+  };
+
+  useUnsavedChangesGuard({
+    enabled: true,
+    isDirty: hydratedDraftRef.current && hasMeaningfulDraft,
+    message: "You have unsaved booking changes. Save the draft before leaving?",
+    saveLabel: "Save Draft & Leave",
+    onSave: saveDraftAndStaySafe,
+  });
 
   useEffect(() => {
     if (!isBickersJob) return;

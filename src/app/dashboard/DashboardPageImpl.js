@@ -114,16 +114,18 @@ const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const headerActions = {
   display: "flex",
   gap: 8,
-  flexWrap: "wrap",
+  flexWrap: "nowrap",
   justifyContent: "flex-end",
   alignItems: "center",
+  minWidth: 0,
 };
 
 const headerSearchWrap = {
   position: "relative",
-  minWidth: 260,
+  flex: "0 1 300px",
+  minWidth: 220,
   maxWidth: 320,
-  width: "100%",
+  width: 300,
 };
 
 const headerSearchInput = {

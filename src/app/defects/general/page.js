@@ -212,6 +212,10 @@ const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 /* ───────────────── Utilities ──────────────── */
 const fmtDate = (s) => {
   if (!s) return "—";
+  if (typeof s?.seconds === "number") {
+    const tsDate = new Date(s.seconds * 1000);
+    return Number.isNaN(+tsDate) ? "—" : tsDate.toLocaleDateString();
+  }
   const d = s?.toDate ? s.toDate() : new Date(s);
   if (Number.isNaN(+d)) return "—";
   return d.toLocaleDateString();
@@ -229,6 +233,7 @@ function extractApprovedGeneral(checkDocs) {
 
       if (r.status === "approved" && cat === "general") {
         rows.push({
+          sourceType: "vehicleCheck",
           checkId: c.id,
           defectIndex: idx,
           dateISO: c.dateISO || c.date || c.createdAt || null,
@@ -255,6 +260,96 @@ function extractApprovedGeneral(checkDocs) {
   return rows;
 }
 
+function extractApprovedGeneralIssues(issueDocs) {
+  const rows = [];
+  for (const issue of issueDocs) {
+    const review = issue?.review || {};
+    const rawCat = review.category ?? review.route ?? review.bucket ?? issue.category ?? "";
+    const cat = String(rawCat).trim().toLowerCase();
+
+    if (review.status === "approved" && cat === "general") {
+      rows.push({
+        sourceType: "vehicleIssue",
+        issueId: issue.id,
+        defectIndex: 0,
+        dateISO: issue.createdAt || issue.updatedAt || null,
+        jobId: "",
+        jobLabel: issue.category || "App issue",
+        vehicle: issue.vehicleName || issue.vehicle || "",
+        driverName: issue.reporterName || issue.reporterCode || "",
+        itemLabel: "App issue report",
+        note: issue.description || "",
+        photos: [],
+        review,
+        maintenance: issue.maintenance || null,
+      });
+    }
+  }
+
+  rows.sort((a, b) => {
+    const ad = new Date(a.dateISO || 0).getTime();
+    const bd = new Date(b.dateISO || 0).getTime();
+    return bd - ad;
+  });
+
+  return rows;
+}
+
+function extractGeneralDefectReports(defectDocs) {
+  const rows = [];
+  for (const defect of defectDocs) {
+    const severity = String(defect.severity || "").trim().toLowerCase();
+    const priority = String(defect.priority || "").trim().toLowerCase();
+    if (defect.status === "resolved") continue;
+    if (severity === "immediate" || priority === "high" || defect.offRoad === true) continue;
+
+    rows.push({
+      sourceType: "defectReport",
+      defectReportId: defect.id,
+      defectIndex: 0,
+      dateISO: defect.createdAt || defect.updatedAt || null,
+      jobId: defect.sourceRecordId || "",
+      jobLabel: defect.sourceRecordId ? `Service ${defect.sourceRecordId}` : "Defect report",
+      vehicle: defect.vehicleName || defect.registration || "",
+      driverName: defect.reportedBy || "",
+      itemLabel: defect.location || defect.sourceDefectKey || "Defect report",
+      note: [defect.description, defect.notes].filter(Boolean).join("\n"),
+      photos: [
+        ...(Array.isArray(defect.photoURLs) ? defect.photoURLs : []),
+        ...(Array.isArray(defect.photoURIs) ? defect.photoURIs : []),
+      ],
+      review: { status: "approved", category: "general" },
+      maintenance: null,
+    });
+  }
+
+  rows.sort((a, b) => {
+    const ad = new Date(a.dateISO || 0).getTime();
+    const bd = new Date(b.dateISO || 0).getTime();
+    return bd - ad;
+  });
+
+  return rows;
+}
+
+function mergeRows(...groups) {
+  return groups
+    .flat()
+    .sort((a, b) => new Date(b.dateISO || 0).getTime() - new Date(a.dateISO || 0).getTime());
+}
+
+function rowKey(row) {
+  if (row.sourceType === "vehicleIssue") return `issue:${row.issueId}`;
+  if (row.sourceType === "defectReport") return `defect:${row.defectReportId}`;
+  return `${row.checkId}:${row.defectIndex}`;
+}
+
+function sameRow(a, b) {
+  if (b.sourceType === "vehicleIssue") return a.issueId === b.issueId;
+  if (b.sourceType === "defectReport") return a.defectReportId === b.defectReportId;
+  return a.checkId === b.checkId && a.defectIndex === b.defectIndex;
+}
+
 /* ───────────────── Page ──────────────── */
 export default function GeneralDefectsPage() {
   const router = useRouter();
@@ -269,9 +364,15 @@ export default function GeneralDefectsPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const snap = await getDocsFromServer(collection(db, "vehicleChecks"));
-        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setRows(extractApprovedGeneral(docs));
+        const [checksSnap, issuesSnap, defectsSnap] = await Promise.all([
+          getDocsFromServer(collection(db, "vehicleChecks")),
+          getDocsFromServer(collection(db, "vehicleIssues")),
+          getDocsFromServer(collection(db, "defectReports")),
+        ]);
+        const checkDocs = checksSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const issueDocs = issuesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const defectDocs = defectsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRows(mergeRows(extractApprovedGeneral(checkDocs), extractApprovedGeneralIssues(issueDocs), extractGeneralDefectReports(defectDocs)));
       } catch (e) {
         console.error(e);
       } finally {
@@ -307,26 +408,41 @@ export default function GeneralDefectsPage() {
     if (!notesModal?.row || !notesModal?.newStatus) return;
     const { row, newStatus, note } = notesModal;
 
-    const key = `${row.checkId}:${row.defectIndex}`;
+    const key = rowKey(row);
     setSavingId(key);
 
     try {
       const who = auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
-      const path = `items.${row.defectIndex}.maintenance`;
-
-      await updateDoc(doc(db, "vehicleChecks", row.checkId), {
-        [path]: {
-          status: newStatus, // scheduled | resolved
-          note: (note || "").trim(),
-          updatedAt: serverTimestamp(),
-          updatedBy: who,
-        },
+      const maintenancePayload = {
+        status: newStatus, // scheduled | resolved
+        note: (note || "").trim(),
         updatedAt: serverTimestamp(),
-      });
+        updatedBy: who,
+      };
+
+      if (row.sourceType === "vehicleIssue") {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+          maintenance: maintenancePayload,
+          updatedAt: serverTimestamp(),
+        });
+      } else if (row.sourceType === "defectReport") {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+          status: newStatus === "resolved" ? "resolved" : "open",
+          notes: (note || row.note || "").trim(),
+          updatedAt: serverTimestamp(),
+          ...(newStatus === "resolved" ? { completedAt: serverTimestamp() } : {}),
+        });
+      } else {
+        const path = `items.${row.defectIndex}.maintenance`;
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+          [path]: maintenancePayload,
+          updatedAt: serverTimestamp(),
+        });
+      }
 
       setRows((prev) =>
         prev.map((r) =>
-          r.checkId === row.checkId && r.defectIndex === row.defectIndex
+          sameRow(r, row)
             ? {
                 ...r,
                 maintenance: {
@@ -353,17 +469,35 @@ export default function GeneralDefectsPage() {
     const ok = confirm("Move this defect to Immediate Defects? This will change its category to 'immediate'.");
     if (!ok) return;
 
-    const key = `${row.checkId}:${row.defectIndex}`;
+    const key = rowKey(row);
     setSavingId(key);
 
     try {
-      const path = `items.${row.defectIndex}.review.category`;
-      await updateDoc(doc(db, "vehicleChecks", row.checkId), {
-        [path]: "immediate",
-        updatedAt: serverTimestamp(),
-      });
+      if (row.sourceType === "vehicleIssue") {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+          "review.category": "immediate",
+          updatedAt: serverTimestamp(),
+        });
+      } else if (row.sourceType === "defectReport") {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+          severity: "Immediate",
+          priority: "high",
+          offRoad: true,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        const path = `items.${row.defectIndex}.review.category`;
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+          [path]: "immediate",
+          updatedAt: serverTimestamp(),
+        });
+      }
 
-      setRows((prev) => prev.filter((r) => !(r.checkId === row.checkId && r.defectIndex === row.defectIndex)));
+      setRows((prev) =>
+        prev.filter((r) =>
+          !sameRow(r, row)
+        )
+      );
 
       router.push(IMMEDIATE_DEFECTS_PATH);
       router.refresh?.();
@@ -482,7 +616,7 @@ export default function GeneralDefectsPage() {
                   </tr>
                 ) : (
                   filtered.map((r, idx) => {
-                    const key = `${r.checkId}:${r.defectIndex}`;
+                    const key = rowKey(r);
                     const m = r.maintenance?.status;
 
                     return (
@@ -528,9 +662,11 @@ export default function GeneralDefectsPage() {
                         </td>
 
                         <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
-                          <a href={CHECK_DETAIL_PATH(r.checkId)} style={{ ...btn("pill"), marginRight: 6 }}>
-                            View →
-                          </a>
+                          {r.sourceType === "vehicleCheck" ? (
+                            <a href={CHECK_DETAIL_PATH(r.checkId)} style={{ ...btn("pill"), marginRight: 6 }}>
+                              View →
+                            </a>
+                          ) : null}
 
                           <button
                             style={{ ...btn("pill"), marginRight: 6 }}

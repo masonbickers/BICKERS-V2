@@ -120,20 +120,33 @@ const daysUntil = (d) => {
   return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
 };
 
-const formatDateWithStyle = (raw) => {
+const formatDateWithStyle = (raw, options = {}) => {
+  const { soonDays = 21 } = options;
   const d = safeDate(raw);
   if (!d) return { text: "—", style: { color: UI.muted } };
 
   const diff = daysUntil(d);
   let style = {};
   if (diff < 0) style = { color: UI.red, fontWeight: 950 };
-  else if (diff <= 21) style = { color: UI.amber, fontWeight: 950 };
+  else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
 
   const text = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
   return { text, style, diff };
 };
 
 const norm = (s) => String(s || "").trim().toLowerCase();
+const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
+const isRetentionPlate = (vehicle = {}) =>
+  norm(vehicle.category) === norm(RETENTION_PLATE_CATEGORY) || vehicle.recordType === "numberPlateRetention";
+const isTradePlate = (vehicle = {}) => norm(vehicle.plateType) === "trade";
+const categorySort = (a, b) => {
+  const aRetention = norm(a) === norm(RETENTION_PLATE_CATEGORY);
+  const bRetention = norm(b) === norm(RETENTION_PLATE_CATEGORY);
+  if (aRetention && !bRetention) return 1;
+  if (!aRetention && bRetention) return -1;
+  return String(a || "").localeCompare(String(b || ""));
+};
+
 const taxStatusRank = (value) => {
   if (!String(value || "").trim()) return 0;
   const v = norm(value);
@@ -143,8 +156,25 @@ const taxStatusRank = (value) => {
   return 3;
 };
 
+const getVehicleOdometerValue = (vehicle) => {
+  const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
+
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+
+  return null;
+};
+
+const formatOdometer = (vehicle) => {
+  const numeric = getVehicleOdometerValue(vehicle);
+  if (numeric == null) return "—";
+  return numeric.toLocaleString("en-GB");
+};
+
 /* columns count (IMPORTANT for colSpan) */
-const COLS = 15;
+const COLS = 14;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
@@ -166,7 +196,7 @@ export default function VehicleMaintenancePage() {
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     setVehicles(list);
 
-    const categories = Array.from(new Set(list.map((v) => v.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const categories = Array.from(new Set(list.map((v) => v.category).filter(Boolean))).sort(categorySort);
     const initialExpanded = {};
     categories.forEach((cat) => (initialExpanded[cat] = true));
     setExpandedCategories((prev) => (Object.keys(prev).length ? prev : initialExpanded));
@@ -196,7 +226,7 @@ export default function VehicleMaintenancePage() {
 
   // Category list for filter UI
   const categories = useMemo(() => {
-    return Array.from(new Set(vehicles.map((v) => v.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set([...vehicles.map((v) => v.category).filter(Boolean), RETENTION_PLATE_CATEGORY])).sort(categorySort);
   }, [vehicles]);
 
   // Filter + sort
@@ -214,6 +244,7 @@ export default function VehicleMaintenancePage() {
           v.manufacturer,
           v.model,
           v.category,
+          v.retentionExpiry,
         ]
           .filter(Boolean)
           .join(" ");
@@ -235,7 +266,7 @@ export default function VehicleMaintenancePage() {
         list.sort((a, b) => (safeDate(a.nextMOT)?.getTime() || 0) - (safeDate(b.nextMOT)?.getTime() || 0));
         break;
       case "mileage":
-        list.sort((a, b) => (Number(b.mileage || 0) - Number(a.mileage || 0)));
+        list.sort((a, b) => (getVehicleOdometerValue(b) || 0) - (getVehicleOdometerValue(a) || 0));
         break;
       case "az":
         list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
@@ -328,6 +359,9 @@ export default function VehicleMaintenancePage() {
             <button onClick={() => router.push("/add-vehicle")} style={btn()}>
               + Add Vehicle
             </button>
+            <button onClick={() => router.push("/add-vehicle?type=number-plate")} style={btn("ghost")}>
+              + Add Retention Plate
+            </button>
           </div>
         </div>
 
@@ -361,7 +395,7 @@ export default function VehicleMaintenancePage() {
                 <option value="none">None</option>
                 <option value="service">Next Service (soonest)</option>
                 <option value="mot">Next MOT (soonest)</option>
-                <option value="mileage">Mileage (highest)</option>
+                <option value="mileage">Odometer (highest)</option>
                 <option value="az">Vehicle (A–Z)</option>
               </select>
             </div>
@@ -420,7 +454,7 @@ export default function VehicleMaintenancePage() {
                       "Brake Test",
                       "Tacho Insp.",
                       "Tacho DL",
-                      "Service Odo",
+                      "Odometer",
                     ].map((h) => (
                       <th
                         key={h}
@@ -445,7 +479,7 @@ export default function VehicleMaintenancePage() {
                   </tr>
                 </thead>
 
-                {Object.entries(groupedByCategory).map(([category, list]) => (
+                {Object.entries(groupedByCategory).sort(([a], [b]) => categorySort(a, b)).map(([category, list]) => (
                   <tbody key={category}>
                     <tr
                       onClick={() => toggleCategory(category)}
@@ -477,6 +511,7 @@ export default function VehicleMaintenancePage() {
                     {expandedCategories[category] &&
                       list.map((v, i) => {
                         const zebra = i % 2 === 0 ? "#ffffff" : "#f3f4f6";
+                        const retentionPlate = isRetentionPlate(v);
                         const reg = v.registration || v.reg || "—";
 
                         const rowTd = {
@@ -509,6 +544,7 @@ export default function VehicleMaintenancePage() {
                           <tr
                             key={v.id}
                             className="vehicleDataRow"
+                            title={retentionPlate ? "Number plate on retention" : "Vehicle"}
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
                             style={{ background: zebra, cursor: "pointer" }}
                           >
@@ -548,12 +584,14 @@ export default function VehicleMaintenancePage() {
                             {/* Dates with colour-coded status */}
                             {renderDateCell(v.nextMOT, rowTd)}
                             {renderDateCell(v.nextRFL, rowTd)}
-                            {renderDateCell(v.nextService, rowTd)}
+                            {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
+                              soonDays: retentionPlate ? (isTradePlate(v) ? 31 : 365) : 21,
+                            })}
                             {renderDateCell(v.nextPMI, rowTd)}
                             {renderDateCell(v.nextBrakeTest, rowTd)}
                             {renderDateCell(v.nextTacho, rowTd)}
                             {renderDateCell(v.nextTachoDownload, rowTd)}
-                            <td style={rowTd}>{v.serviceOdometer || "—"}</td>
+                            <td style={rowTd}>{formatOdometer(v)}</td>
                           </tr>
                         );
                       })}
@@ -608,6 +646,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
               manufacturer: vehicle.manufacturer || "",
               model: vehicle.model || "",
               mileage: Number(vehicle.mileage || 0),
+              odometer: Number(vehicle.odometer || vehicle.mileage || 0),
               lastService: vehicle.lastService || "",
               nextService: vehicle.nextService || "",
               lastMOT: vehicle.lastMOT || "",
@@ -645,8 +684,8 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
 /* ───────────────────────────────────────────
    Small helpers
 ─────────────────────────────────────────── */
-function renderDateCell(raw, baseStyle) {
-  const { text, style } = formatDateWithStyle(raw);
+function renderDateCell(raw, baseStyle, options) {
+  const { text, style } = formatDateWithStyle(raw, options);
   return <td style={{ ...baseStyle, ...style }}>{text}</td>;
 }
 

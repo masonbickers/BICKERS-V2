@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
 const UI = {
@@ -169,9 +170,15 @@ export default function AddEquipmentPage() {
     return equipment.name.trim() && equipment.category.trim();
   }, [equipment.name, equipment.category]);
 
-  const handleSave = async (e) => {
+  const hasUnsavedChanges = useMemo(() => {
+    return Object.values(equipment || {}).some((value) => String(value || "").trim());
+  }, [equipment]);
+
+  const handleSave = async (e, options = {}) => {
     e?.preventDefault?.();
-    if (!canSave || saving) return;
+    if (!canSave || saving) return false;
+
+    const { navigateOnSuccess = true } = options;
 
     setSaving(true);
     try {
@@ -192,15 +199,25 @@ export default function AddEquipmentPage() {
 
       await addDoc(collection(db, "equipment"), payload);
       alert(" Equipment added.");
-      router.push("/equipment");
-      router.refresh?.();
+      if (navigateOnSuccess) {
+        router.push("/equipment");
+        router.refresh?.();
+      }
+      return true;
     } catch (err) {
       console.error("Error saving equipment:", err);
       alert(" Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  useUnsavedChangesGuard({
+    enabled: true,
+    isDirty: hasUnsavedChanges && !saving,
+    onSave: () => handleSave(null, { navigateOnSuccess: false }),
+  });
 
   return (
     <HeaderSidebarLayout>

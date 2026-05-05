@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 /* ───────────────── Mini design system (matches your newer pages) ───────────────── */
 const UI = {
@@ -65,6 +66,7 @@ const btn = (bg = "#fff", fg = UI.text, bd = "1px solid #e5e7eb") => ({
 });
 
 const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
+const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
 
 const parseLocalDateOnly = (s) => {
   if (!s) return null;
@@ -85,6 +87,7 @@ const addWeeksToISO = (isoDate, weeks) => {
 
 export default function AddVehiclePage() {
   const router = useRouter();
+  const [isNumberPlateMode, setIsNumberPlateMode] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [existingCategories, setExistingCategories] = useState([]);
@@ -101,6 +104,9 @@ export default function AddVehiclePage() {
 
     odometer: "",
     notes: "",
+    retentionExpiry: "",
+    plateType: "retention",
+    plateExpiryFreq: "",
 
     // maintenance core (keep consistent with edit page keys)
     lastService: "",
@@ -116,6 +122,20 @@ export default function AddVehiclePage() {
     insuranceStatus: "Insured",
   });
 
+  useEffect(() => {
+    setIsNumberPlateMode(new URLSearchParams(window.location.search).get("type") === "number-plate");
+  }, []);
+
+  useEffect(() => {
+    if (!isNumberPlateMode) return;
+    setFormData((prev) => ({
+      ...prev,
+      category: RETENTION_PLATE_CATEGORY,
+      taxStatus: "N/A",
+      insuranceStatus: "N/A",
+    }));
+  }, [isNumberPlateMode]);
+
   // Pull categories from existing vehicles so the dropdown stays consistent
   useEffect(() => {
     const loadCats = async () => {
@@ -124,7 +144,7 @@ export default function AddVehiclePage() {
         const cats = snap.docs
           .map((d) => d.data()?.category)
           .filter(Boolean);
-        const unique = Array.from(new Set(cats)).sort((a, b) => String(a).localeCompare(String(b)));
+        const unique = Array.from(new Set([...cats, RETENTION_PLATE_CATEGORY])).sort((a, b) => String(a).localeCompare(String(b)));
         setExistingCategories(unique);
       } catch (e) {
         console.error("Load categories failed:", e);
@@ -137,10 +157,14 @@ export default function AddVehiclePage() {
     const { name, value } = e.target;
 
     // numeric fields
-    const numeric = ["odometer", "serviceFreq", "motFreq"];
+    const numeric = ["odometer", "serviceFreq", "motFreq", "plateExpiryFreq"];
     const v = numeric.includes(name) ? (value === "" ? "" : String(value).replace(/[^\d]/g, "")) : value;
 
-    setFormData((prev) => ({ ...prev, [name]: v }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: v,
+      ...(name === "plateType" && value === "trade" ? { plateExpiryFreq: "52" } : {}),
+    }));
   };
 
   // Auto-calc next dates if user provides last + freq and next is blank or matches previous calc
@@ -165,41 +189,53 @@ export default function AddVehiclePage() {
   }, [formData.lastService, formData.serviceFreq]);
 
   const canSave = useMemo(() => {
+    if (isNumberPlateMode) return formData.registration.trim();
+
     return (
       formData.name.trim() &&
       formData.registration.trim() &&
       formData.category.trim()
     );
+  }, [formData, isNumberPlateMode]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    return Object.values(formData).some((value) => String(value || "").trim());
   }, [formData]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canSave || saving) return;
+  const handleSubmit = async (e, options = {}) => {
+    e?.preventDefault?.();
+    if (!canSave || saving) return false;
+
+    const { navigateOnSuccess = true } = options;
 
     setSaving(true);
     try {
       // Build clean payload (avoid empty strings where possible)
       const payload = {
-        name: formData.name.trim(),
+        name: isNumberPlateMode ? (formData.name.trim() || formData.registration.trim()) : formData.name.trim(),
         registration: formData.registration.trim(),
-        category: formData.category.trim(),
+        category: isNumberPlateMode ? RETENTION_PLATE_CATEGORY : formData.category.trim(),
+        recordType: isNumberPlateMode ? "numberPlateRetention" : "vehicle",
+        plateType: isNumberPlateMode ? formData.plateType || "retention" : "",
+        plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? "52" : formData.plateExpiryFreq || "",
 
-        manufacturer: formData.manufacturer.trim(),
-        model: formData.model.trim(),
+        manufacturer: isNumberPlateMode ? "" : formData.manufacturer.trim(),
+        model: isNumberPlateMode ? "" : formData.model.trim(),
 
-        odometer: formData.odometer === "" ? "" : Number(formData.odometer),
+        odometer: isNumberPlateMode ? "" : formData.odometer === "" ? "" : Number(formData.odometer),
         notes: formData.notes || "",
+        retentionExpiry: isNumberPlateMode ? formData.retentionExpiry || "" : "",
 
-        lastService: formData.lastService || "",
-        serviceFreq: formData.serviceFreq || "",
-        nextService: formData.nextService || "",
+        lastService: isNumberPlateMode ? "" : formData.lastService || "",
+        serviceFreq: isNumberPlateMode ? "" : formData.serviceFreq || "",
+        nextService: isNumberPlateMode ? "" : formData.nextService || "",
 
-        lastMOT: formData.lastMOT || "",
-        motFreq: formData.motFreq || "",
-        nextMOT: formData.nextMOT || "",
+        lastMOT: isNumberPlateMode ? "" : formData.lastMOT || "",
+        motFreq: isNumberPlateMode ? "" : formData.motFreq || "",
+        nextMOT: isNumberPlateMode ? "" : formData.nextMOT || "",
 
-        taxStatus: formData.taxStatus || "Taxed",
-        insuranceStatus: formData.insuranceStatus || "Insured",
+        taxStatus: isNumberPlateMode ? "N/A" : formData.taxStatus || "Taxed",
+        insuranceStatus: isNumberPlateMode ? "N/A" : formData.insuranceStatus || "Insured",
 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -207,12 +243,16 @@ export default function AddVehiclePage() {
 
       await addDoc(collection(db, "vehicles"), payload);
 
-      alert(" Vehicle added");
-      router.push("/vehicles");
-      router.refresh?.();
+      alert(isNumberPlateMode ? " Number plate added" : " Vehicle added");
+      if (navigateOnSuccess) {
+        router.push("/vehicles");
+        router.refresh?.();
+      }
+      return true;
     } catch (err) {
       console.error("Error adding vehicle:", err);
       alert(" Failed to add vehicle");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -220,14 +260,141 @@ export default function AddVehiclePage() {
 
   const handleCancel = () => router.push("/vehicles");
 
+  useUnsavedChangesGuard({
+    enabled: true,
+    isDirty: hasUnsavedChanges && !saving,
+    onSave: () => handleSubmit(null, { navigateOnSuccess: false }),
+  });
+
+  if (isNumberPlateMode) {
+    return (
+      <HeaderSidebarLayout>
+        <div style={shell}>
+          <main style={{ ...main, maxWidth: 860 }}>
+            <div style={headerRow}>
+              <div>
+                <h1 style={h1}>Add Retention Plate</h1>
+                <div style={sub}>Create a simple number plate record and track the retention expiry date.</div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button style={btn("#fff", UI.text)} onClick={handleCancel}>
+                  â† Cancel
+                </button>
+                <button
+                  style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                  onClick={handleSubmit}
+                  disabled={!canSave || saving}
+                  title={!canSave ? "Fill Number Plate" : ""}
+                >
+                  {saving ? "Saving..." : "Save Number Plate"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ height: 14 }} />
+
+            <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
+              <div style={{ ...card, padding: 14 }}>
+                <div style={sectionTitle}>Number Plate Details</div>
+
+                <div style={grid}>
+                  <div style={col(6)}>
+                    <label style={label}>Number Plate *</label>
+                    <input
+                      name="registration"
+                      value={formData.registration}
+                      onChange={handleChange}
+                      style={input}
+                      placeholder="e.g., AB12 CDE"
+                    />
+                  </div>
+
+                  <div style={col(6)}>
+                    <label style={label}>{formData.plateType === "trade" ? "Trade Plate Expiry" : "Retention Expiry"}</label>
+                    <input
+                      type="date"
+                      name="retentionExpiry"
+                      value={formData.retentionExpiry}
+                      onChange={handleChange}
+                      style={input}
+                    />
+                  </div>
+
+                  <div style={col(6)}>
+                    <label style={label}>Plate Type</label>
+                    <select name="plateType" value={formData.plateType} onChange={handleChange} style={input}>
+                      <option value="retention">Retention plate</option>
+                      <option value="trade">Trade plate</option>
+                    </select>
+                  </div>
+
+                  <div style={col(6)}>
+                    <label style={label}>Expiry Frequency (weeks)</label>
+                    <input
+                      name="plateExpiryFreq"
+                      value={formData.plateType === "trade" ? "52" : formData.plateExpiryFreq}
+                      onChange={handleChange}
+                      style={input}
+                      inputMode="numeric"
+                      readOnly={formData.plateType === "trade"}
+                    />
+                  </div>
+
+                  <div style={col(12)}>
+                    <label style={label}>Category</label>
+                    <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...input, background: "#f8fafc" }} />
+                  </div>
+
+                  <div style={col(12)}>
+                    <label style={label}>Notes</label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      style={textarea}
+                      placeholder="Retention certificate details, owner notes, or reminders..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+                <button type="button" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                  disabled={!canSave || saving}
+                >
+                  {saving ? "Saving..." : "Save Number Plate"}
+                </button>
+              </div>
+            </form>
+          </main>
+        </div>
+
+        <style jsx global>{`
+          input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
+          button:disabled { opacity: 0.7; cursor: not-allowed; }
+        `}</style>
+      </HeaderSidebarLayout>
+    );
+  }
+
   return (
     <HeaderSidebarLayout>
       <div style={shell}>
         <main style={main}>
           <div style={headerRow}>
             <div>
-              <h1 style={h1}>Add Vehicle</h1>
-              <div style={sub}>Create a new vehicle record. Next MOT/Service can auto-calc from last date + frequency.</div>
+              <h1 style={h1}>{isNumberPlateMode ? "Add Retention Plate" : "Add Vehicle"}</h1>
+              <div style={sub}>
+                {isNumberPlateMode
+                  ? "Create a simple number plate record and track the retention expiry date."
+                  : "Create a new vehicle record. Next MOT/Service can auto-calc from last date + frequency."}
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -238,7 +405,7 @@ export default function AddVehiclePage() {
                 style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
                 onClick={handleSubmit}
                 disabled={!canSave || saving}
-                title={!canSave ? "Fill Name, Registration, and Category" : ""}
+                title={!canSave ? (isNumberPlateMode ? "Fill Number Plate" : "Fill Name, Registration, and Category") : ""}
               >
                 {saving ? "Saving…" : "Save Vehicle"}
               </button>

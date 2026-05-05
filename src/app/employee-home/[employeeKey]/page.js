@@ -111,6 +111,12 @@ function formatYyyyMmDd(d) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
+function dayNameUTC(yyyyMmDd) {
+  const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const index = dayOfWeekUTC(yyyyMmDd);
+  return index == null ? "" : names[index] || "";
+}
+
 function isDateInRange(yyyyMmDd, from, to) {
   const safe = parseYyyyMmDd(yyyyMmDd) ?? new Date(yyyyMmDd);
   if (Number.isNaN(+safe)) return false;
@@ -125,8 +131,49 @@ function startOfTodayUTC() {
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
 }
 
+function dayOfWeekUTC(yyyyMmDd) {
+  const d = parseYyyyMmDd(yyyyMmDd) ?? new Date(yyyyMmDd);
+  if (Number.isNaN(+d)) return null;
+  return d.getUTCDay();
+}
+
+function isSunday(yyyyMmDd) {
+  return dayOfWeekUTC(yyyyMmDd) === 0;
+}
+
+function isSaturday(yyyyMmDd) {
+  return dayOfWeekUTC(yyyyMmDd) === 6;
+}
+
 function normaliseName(n) {
   return String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function employeesKey(employee) {
+  return `${employee?.role || ""}::${employee?.name || ""}`;
+}
+
+function isCreditBookingStatus(status) {
+  return ["confirmed", "complete", "completed", "stunt"].includes(String(status || "").trim().toLowerCase());
+}
+
+function dedupeEmployees(list) {
+  const seen = new Set();
+  const out = [];
+  (list || []).forEach((employee) => {
+    if (!employee?.name && !employee?.id) return;
+    const key = employee.id || employeesKey(employee);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(employee);
+  });
+  return out;
+}
+
+function employeeListForBookingDate(booking, dayKey, fallbackEmployees) {
+  const dated = booking?.employeesByDate?.[dayKey];
+  if (Array.isArray(dated) && dated.length) return dedupeEmployees(dated);
+  return fallbackEmployees;
 }
 
 function titleCase(n) {
@@ -159,6 +206,48 @@ function getNoteForDate(booking, dayKey) {
     if (idx >= 0) return booking.bookingNotes[idx];
   }
   return null;
+}
+
+function creditForNote(rawNote) {
+  if (!rawNote) return 1;
+
+  const norm = String(rawNote).trim().toLowerCase().replace(/\s+/g, " ");
+
+  if (norm.includes("night shoot")) return 1;
+  if (norm.includes("split day") || norm.includes("spilt day")) return 1;
+  if (norm.includes("turnaround")) return 1;
+  if (norm === "1/2 day travel" || norm === "1/2 day travel day") return 0.5;
+  if (norm === "travel time") return 0.25;
+  if (norm === "rest day") return 0;
+  if (norm === "other") return 0;
+
+  return 1;
+}
+
+function creditForBookingDay(note, dayKey) {
+  let credit = creditForNote(note);
+  const normNote = String(note || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (normNote === "on set" && (isSaturday(dayKey) || isSunday(dayKey))) {
+    credit = isSunday(dayKey) ? credit * 2 : credit + 0.5;
+  }
+  return Number(credit.toFixed(2));
+}
+
+function creditRuleForBookingDay(note, dayKey) {
+  const normNote = String(note || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (normNote === "on set" && isSunday(dayKey)) return "Sunday On Set x2";
+  if (normNote === "on set" && isSaturday(dayKey)) return "Saturday On Set +0.5";
+  if (normNote.includes("night shoot")) return "Night Shoot + turnaround";
+  if (normNote === "travel time") return "Travel Time";
+  if (normNote === "1/2 day travel" || normNote === "1/2 day travel day") return "Half Travel";
+  if (normNote === "rest day" || normNote === "other") return "No credit";
+  return "Standard";
+}
+
+function employeeMatches(emp, employeeKey, employeeName) {
+  const routeKey = String(employeeKey || "");
+  const routeName = normaliseName(employeeName);
+  return String(emp.id || "") === routeKey || normaliseName(emp.name) === normaliseName(routeKey) || normaliseName(emp.name) === routeName;
 }
 
 function classifyNote(rawNote) {
@@ -217,6 +306,7 @@ export default function EmployeeWorkBreakdownPage() {
   const [toDate, setToDate] = useState(searchParams.get("toDate") || "");
   const [loading, setLoading] = useState(true);
   const [dayRows, setDayRows] = useState([]);
+  const [jobCreditRows, setJobCreditRows] = useState([]);
 
   const effectiveRange = useMemo(() => {
     const today0 = startOfTodayUTC();
@@ -254,6 +344,7 @@ export default function EmployeeWorkBreakdownPage() {
         ]);
 
         const byDate = new Map();
+        const jobCredits = new Map();
         const putRow = (dateKey, next) => {
           const prev = byDate.get(dateKey);
           if (!prev || (next.priority || 0) > (prev.priority || 0)) {
@@ -264,7 +355,7 @@ export default function EmployeeWorkBreakdownPage() {
         bookingsSnap.forEach((docSnap) => {
           const booking = docSnap.data() || {};
           const status = String(booking.status || "").trim();
-          if (status !== "Confirmed" && status !== "Complete") return;
+          if (!isCreditBookingStatus(status)) return;
 
           const employeeListRaw = booking.employees || [];
           const employees = employeeListRaw
@@ -282,12 +373,6 @@ export default function EmployeeWorkBreakdownPage() {
               return role !== "freelancer" && role !== "freelance";
             });
 
-          const matchesEmployee = employees.some((emp) => {
-            const empKey = emp.id || normaliseName(emp.name);
-            return String(empKey) === employeeKey;
-          });
-          if (!matchesEmployee) return;
-
           const noteKeys = Object.keys(booking.notesByDate || {});
           const dateSet = new Set(noteKeys.filter((d) => isDateInRange(d, effectiveRange.since, effectiveRange.until)));
           if (Array.isArray(booking.bookingDates)) {
@@ -297,17 +382,52 @@ export default function EmployeeWorkBreakdownPage() {
           }
 
           for (const dayKey of dateSet) {
+            const dayEmployees = employeeListForBookingDate(booking, dayKey, employees)
+              .filter((e) => {
+                const role = String(e.role || "").trim().toLowerCase();
+                return role !== "freelancer" && role !== "freelance";
+              });
+            const matchesEmployee = dayEmployees.some((emp) => employeeMatches(emp, employeeKey, employeeName));
+            if (!matchesEmployee) continue;
+
             const note = getNoteForDate(booking, dayKey);
             const category = classifyNote(note);
+            const dayCredit = creditForBookingDay(note, dayKey);
+            const bookingKey = docSnap.id;
+            const bookingLabel = booking.jobNumber
+              ? `#${booking.jobNumber}${booking.client ? ` - ${booking.client}` : ""}`
+              : booking.client || "Booking";
+
+            if (!jobCredits.has(bookingKey)) {
+              jobCredits.set(bookingKey, {
+                key: bookingKey,
+                bookingLabel,
+                status,
+                dayCredits: [],
+                turnaroundCredit: 0,
+              });
+            }
+            const jobRow = jobCredits.get(bookingKey);
+            jobRow.dayCredits.push({
+              date: dayKey,
+              dayName: dayNameUTC(dayKey),
+              note: note || "On Set",
+              credit: dayCredit,
+              rule: creditRuleForBookingDay(note, dayKey),
+            });
+            if (String(note || "").trim().toLowerCase().replace(/\s+/g, " ").includes("night shoot")) {
+              jobRow.turnaroundCredit = 1;
+            }
+
             putRow(dayKey, {
               date: dayKey,
               typeKey: category.key,
               typeLabel: category.label,
               source: "booking",
-              bookingLabel: booking.jobNumber
-                ? `#${booking.jobNumber}${booking.client ? ` - ${booking.client}` : ""}`
-                : booking.client || "Booking",
+              bookingLabel,
               note: note || "On Set",
+              credit: dayCredit,
+              creditRule: creditRuleForBookingDay(note, dayKey),
               priority: category.priority,
             });
           }
@@ -374,10 +494,64 @@ export default function EmployeeWorkBreakdownPage() {
           cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
         }
 
-        if (live) setDayRows(finalRows);
+        const creditClaims = [];
+        Array.from(jobCredits.values()).forEach((row) => {
+          row.dayCredits.forEach((item) => {
+            creditClaims.push({
+              jobKey: row.key,
+              bookingLabel: row.bookingLabel,
+              date: item.date,
+              credit: Number(item.credit || 0),
+            });
+          });
+        });
+
+        const appliedClaimKeys = new Set();
+        const claimsByDate = new Map();
+        creditClaims.forEach((claim) => {
+          if (!claimsByDate.has(claim.date)) claimsByDate.set(claim.date, []);
+          claimsByDate.get(claim.date).push(claim);
+        });
+        claimsByDate.forEach((claims, date) => {
+          const [winner] = claims.sort(
+            (a, b) => b.credit - a.credit || a.bookingLabel.localeCompare(b.bookingLabel)
+          );
+          if (winner && winner.credit > 0) appliedClaimKeys.add(`${winner.jobKey}|${date}`);
+        });
+
+        const finalJobCredits = Array.from(jobCredits.values())
+          .map((row) => {
+            const sortedDays = [...row.dayCredits]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((item) => ({
+                ...item,
+                appliedCredit: appliedClaimKeys.has(`${row.key}|${item.date}`) ? Number(item.credit || 0) : 0,
+              }));
+            const dayTotal = sortedDays.reduce((sum, item) => sum + Number(item.appliedCredit || 0), 0);
+            const total = dayTotal + Number(row.turnaroundCredit || 0);
+            return {
+              ...row,
+              dayCredits: sortedDays,
+              dayTotal: Number(dayTotal.toFixed(2)),
+              total: Number(total.toFixed(2)),
+            };
+          })
+          .sort((a, b) => {
+            const ad = a.dayCredits[0]?.date || "";
+            const bd = b.dayCredits[0]?.date || "";
+            return ad.localeCompare(bd) || a.bookingLabel.localeCompare(b.bookingLabel);
+          });
+
+        if (live) {
+          setDayRows(finalRows);
+          setJobCreditRows(finalJobCredits);
+        }
       } catch (err) {
         console.error("Error loading employee work breakdown:", err);
-        if (live) setDayRows([]);
+        if (live) {
+          setDayRows([]);
+          setJobCreditRows([]);
+        }
       } finally {
         if (live) setLoading(false);
       }
@@ -395,6 +569,11 @@ export default function EmployeeWorkBreakdownPage() {
     });
     return totals;
   }, [dayRows]);
+
+  const totalJobCredits = useMemo(
+    () => Number(jobCreditRows.reduce((sum, row) => sum + Number(row.total || 0), 0).toFixed(2)),
+    [jobCreditRows]
+  );
 
   return (
     <HeaderSidebarLayout>
@@ -502,6 +681,81 @@ export default function EmployeeWorkBreakdownPage() {
         <section style={{ ...surface, padding: 10, marginTop: 10 }}>
           <div style={sectionHeader}>
             <div>
+              <h2 style={titleMd}>Credits By Job</h2>
+              <div style={hint}>Per-job credit breakdown for this employee in the selected range.</div>
+            </div>
+            <div
+              style={{
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: `1px solid ${UI.brandBorder}`,
+                background: UI.brandSoft,
+                color: UI.brand,
+                fontSize: 12,
+                fontWeight: 900,
+              }}
+            >
+              Total credits: {totalJobCredits}
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>Loading job credits...</div>
+          ) : jobCreditRows.length === 0 ? (
+            <div style={{ color: UI.muted, fontSize: 13 }}>No job credits found for this range.</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 900 }}>
+                <thead>
+                  <tr>
+                    <th style={tableHeadLeft}>Job</th>
+                    <th style={tableHead}>Status</th>
+                    <th style={tableHead}>Days</th>
+                    <th style={tableHead}>Weekend / Credit Rule</th>
+                    <th style={tableHead}>Day Credits</th>
+                    <th style={tableHead}>Applied Credits</th>
+                      <th style={tableHead}>Night Turnaround</th>
+                      <th style={tableHead}>Total Credits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobCreditRows.map((row) => (
+                    <tr key={row.key}>
+                      <td style={tableCellLeft}>{row.bookingLabel}</td>
+                      <td style={tableCell}>{row.status || "-"}</td>
+                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
+                        {row.dayCredits.map((item) => (
+                          <div key={`${row.key}-${item.date}`}>{item.date} {item.dayName ? `(${item.dayName})` : ""}: {item.note}</div>
+                        ))}
+                      </td>
+                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
+                        {row.dayCredits.map((item) => (
+                          <div key={`${row.key}-${item.date}-rule`}>{item.date}: {item.rule}</div>
+                        ))}
+                      </td>
+                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal" }}>
+                        {row.dayCredits.map((item) => (
+                          <div key={`${row.key}-${item.date}-credit`}>{item.date}: {item.credit}</div>
+                        ))}
+                      </td>
+                      <td style={{ ...tableCell, textAlign: "left", whiteSpace: "normal", fontWeight: 900 }}>
+                        {row.dayCredits.map((item) => (
+                          <div key={`${row.key}-${item.date}-applied`}>{item.date}: {item.appliedCredit}</div>
+                        ))}
+                      </td>
+                      <td style={tableCell}>{row.turnaroundCredit || 0}</td>
+                      <td style={{ ...tableCell, fontWeight: 900 }}>{row.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section style={{ ...surface, padding: 10, marginTop: 10 }}>
+          <div style={sectionHeader}>
+            <div>
               <h2 style={titleMd}>Day By Day</h2>
               <div style={hint}>
                 Weekdays without a booking or holiday are counted as yard/base days.
@@ -517,16 +771,20 @@ export default function EmployeeWorkBreakdownPage() {
                 <thead>
                   <tr>
                     <th style={tableHeadLeft}>Date</th>
+                    <th style={tableHead}>Day</th>
                     <th style={tableHead}>Type</th>
                     <th style={tableHead}>Source</th>
                     <th style={tableHead}>Job / Context</th>
                     <th style={tableHead}>Note</th>
+                    <th style={tableHead}>Credit Rule</th>
+                    <th style={tableHead}>Credit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dayRows.map((row) => (
                     <tr key={row.date}>
                       <td style={tableCellLeft}>{row.date}</td>
+                      <td style={tableCell}>{dayNameUTC(row.date) || "-"}</td>
                       <td style={tableCell}>{row.typeLabel}</td>
                       <td style={tableCell}>
                         <span
@@ -545,6 +803,8 @@ export default function EmployeeWorkBreakdownPage() {
                       </td>
                       <td style={{ ...tableCell, textAlign: "left" }}>{row.bookingLabel}</td>
                       <td style={{ ...tableCell, textAlign: "left" }}>{row.note}</td>
+                      <td style={tableCell}>{row.creditRule || "-"}</td>
+                      <td style={tableCell}>{typeof row.credit === "number" ? row.credit : "-"}</td>
                     </tr>
                   ))}
                 </tbody>

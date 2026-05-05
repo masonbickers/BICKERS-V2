@@ -48,6 +48,10 @@ const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 const DECLINED_DEFECTS_PATH = "/defects/declined";
 const MAINTENANCE_JOBS_PATH = "/maintenance-jobs";
+const ACTIVITY_HISTORY_PATH = "/vehicle-activity";
+const VEHICLE_EDIT_PATH = (id) => `/vehicle-edit/${encodeURIComponent(id)}`;
+const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
+  `/vehicle-edit/${encodeURIComponent(vehicleId)}/service-history/${encodeURIComponent(serviceId)}`;
 
 /* -------------------------------------------
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
@@ -435,6 +439,159 @@ const formatQueueDate = (value, fallback = "") => {
   return fallback || "—";
 };
 
+const parseActivityDateCandidate = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") {
+    const dated = value.toDate();
+    return Number.isNaN(dated?.getTime?.()) ? null : dated;
+  }
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "number") {
+    const dated = new Date(value);
+    return Number.isNaN(dated.getTime()) ? null : dated;
+  }
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  let match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if (match) {
+    const [, day, month, year, hour = "0", minute = "0"] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  }
+
+  match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{1,2}):(\d{2}))?/);
+  if (match) {
+    const [, year, month, day, hour = "0", minute = "0"] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  }
+
+  const dated = new Date(trimmed);
+  return Number.isNaN(dated.getTime()) ? null : dated;
+};
+
+const resolveActivityDate = (...values) => {
+  for (const value of values) {
+    const dated = parseActivityDateCandidate(value);
+    if (dated) return dated;
+  }
+  return null;
+};
+
+const classifyServiceRecord = (record) => {
+  const type = String(record?.serviceType || "").toLowerCase();
+
+  if (record?.recordType === "repair" || type.includes("repair")) return "repair";
+  if (type.includes("minor") || type.includes("interim")) return "minor_service";
+  return "service";
+};
+
+const toActivitySummary = (...values) => {
+  const text = values.map((value) => String(value || "").trim()).find(Boolean);
+  return text || "No summary provided.";
+};
+
+const getActivityRoute = (activity) => {
+  if (activity?.type === "service" || activity?.type === "minor_service" || activity?.type === "repair") {
+    if (activity.vehicleId && activity.sourceId) return VEHICLE_SERVICE_HISTORY_PATH(activity.vehicleId, activity.sourceId);
+    return activity.vehicleId ? VEHICLE_EDIT_PATH(activity.vehicleId) : null;
+  }
+
+  if (activity?.type === "vehicle_check" && activity.sourceId) return CHECK_DETAIL_PATH(activity.sourceId);
+  if (activity?.type === "vehicle_prep") return "/preplist-dashboard";
+  if (activity?.type === "mot_precheck") return "/mot-overview";
+  if (activity?.type === "defect") {
+    return String(activity.status || "").toLowerCase() === "open" ? IMMEDIATE_DEFECTS_PATH : GENERAL_DEFECTS_PATH;
+  }
+  if (activity?.type === "vehicle_issue") {
+    return activity.vehicleId ? VEHICLE_EDIT_PATH(activity.vehicleId) : GENERAL_DEFECTS_PATH;
+  }
+
+  return activity?.vehicleId ? VEHICLE_EDIT_PATH(activity.vehicleId) : null;
+};
+
+const buildActivityFromLegacyHistory = (vehicle) => {
+  const vehicleId = vehicle?.id || null;
+  const vehicleName = vehicle?.assetLabel || vehicle?.name || vehicle?.vehicleName || "Vehicle";
+  const registration = vehicle?.registration || vehicle?.reg || "";
+  const asArray = (value) => (Array.isArray(value) ? value : []);
+
+  const service = asArray(vehicle?.serviceHistory).map((entry, index) => ({
+    activityId: `legacy:service:${vehicleId || "vehicle"}:${entry?.serviceRecordId || index}`,
+    sourceCollection: "vehicles.serviceHistory",
+    sourceId: String(entry?.serviceRecordId || index),
+    type: "legacy_service",
+    title: entry?.bookingRef || entry?.serviceType || "Service history entry",
+    summary: toActivitySummary(entry?.notes, entry?.partsUsed),
+    vehicleId,
+    vehicleName,
+    registration,
+    person: entry?.completedBy || entry?.signedBy || "",
+    status: "history",
+    activityDate: resolveActivityDate(entry?.completedDate, entry?.date, entry?.createdAt),
+    createdAt: null,
+    updatedAt: null,
+    route: vehicleId ? VEHICLE_EDIT_PATH(vehicleId) : null,
+  }));
+
+  const repairs = asArray(vehicle?.repairHistory).map((entry, index) => ({
+    activityId: `legacy:repair:${vehicleId || "vehicle"}:${entry?.repairRecordId || index}`,
+    sourceCollection: "vehicles.repairHistory",
+    sourceId: String(entry?.repairRecordId || index),
+    type: "legacy_repair",
+    title: entry?.summary || "Repair history entry",
+    summary: toActivitySummary(entry?.reason, entry?.partsUsed),
+    vehicleId,
+    vehicleName,
+    registration,
+    person: entry?.completedBy || "",
+    status: "history",
+    activityDate: resolveActivityDate(entry?.completedDate, entry?.date, entry?.createdAt),
+    createdAt: null,
+    updatedAt: null,
+    route: vehicleId ? VEHICLE_EDIT_PATH(vehicleId) : null,
+  }));
+
+  const prep = asArray(vehicle?.prepHistory).map((entry, index) => ({
+    activityId: `legacy:prep:${vehicleId || "vehicle"}:${index}`,
+    sourceCollection: "vehicles.prepHistory",
+    sourceId: String(index),
+    type: "legacy_prep",
+    title: "Vehicle prep",
+    summary: toActivitySummary(entry?.notes),
+    vehicleId,
+    vehicleName,
+    registration,
+    person: entry?.completedBy || "",
+    status: entry?.completed ? "completed" : "logged",
+    activityDate: resolveActivityDate(entry?.recordedAt, entry?.prepDate, entry?.createdAt),
+    createdAt: null,
+    updatedAt: null,
+    route: vehicleId ? VEHICLE_EDIT_PATH(vehicleId) : null,
+  }));
+
+  const defect = asArray(vehicle?.defectHistory).map((entry, index) => ({
+    activityId: `legacy:defect:${vehicleId || "vehicle"}:${index}`,
+    sourceCollection: "vehicles.defectHistory",
+    sourceId: String(index),
+    type: "legacy_defect",
+    title: entry?.description || "Defect history entry",
+    summary: toActivitySummary(entry?.notes, entry?.location),
+    vehicleId,
+    vehicleName,
+    registration,
+    person: entry?.reportedBy || "",
+    status: entry?.status || "open",
+    activityDate: resolveActivityDate(entry?.updatedAt, entry?.createdAt),
+    createdAt: null,
+    updatedAt: null,
+    route: vehicleId ? VEHICLE_EDIT_PATH(vehicleId) : null,
+  }));
+
+  return [...service, ...repairs, ...prep, ...defect];
+};
+
 function extractPendingDefects(checkDocs) {
   const out = [];
   for (const c of checkDocs) {
@@ -635,6 +792,10 @@ export default function VehiclesHomePage() {
   // Defect queue state
   const [checkDocs, setCheckDocs] = useState([]);
   const [vehicleIssueDocs, setVehicleIssueDocs] = useState([]);
+  const [serviceRecords, setServiceRecords] = useState([]);
+  const [defectReports, setDefectReports] = useState([]);
+  const [motPreChecks, setMotPreChecks] = useState([]);
+  const [vehiclePrepRecords, setVehiclePrepRecords] = useState([]);
   const [pendingDefects, setPendingDefects] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionModal, setActionModal] = useState(null); // {defect, decision, comment, category?}
@@ -916,8 +1077,222 @@ export default function VehiclesHomePage() {
   }, []);
 
   useEffect(() => {
+    const unsubServiceRecords = onSnapshot(
+      collection(db, "serviceRecords"),
+      (snap) => setServiceRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
+      (e) => {
+        console.error("[serviceRecords] snapshot error:", e);
+        setServiceRecords([]);
+      }
+    );
+
+    const unsubDefectReports = onSnapshot(
+      collection(db, "defectReports"),
+      (snap) => setDefectReports(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
+      (e) => {
+        console.error("[defectReports] snapshot error:", e);
+        setDefectReports([]);
+      }
+    );
+
+    const unsubMotPreChecks = onSnapshot(
+      collection(db, "motPreChecks"),
+      (snap) => setMotPreChecks(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
+      (e) => {
+        console.error("[motPreChecks] snapshot error:", e);
+        setMotPreChecks([]);
+      }
+    );
+
+    const unsubVehiclePrepRecords = onSnapshot(
+      collection(db, "vehiclePrepRecords"),
+      (snap) => setVehiclePrepRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
+      (e) => {
+        console.error("[vehiclePrepRecords] snapshot error:", e);
+        setVehiclePrepRecords([]);
+      }
+    );
+
+    return () => {
+      unsubServiceRecords();
+      unsubDefectReports();
+      unsubMotPreChecks();
+      unsubVehiclePrepRecords();
+    };
+  }, []);
+
+  useEffect(() => {
     setPendingDefects(mergePendingQueue(checkDocs, vehicleIssueDocs));
   }, [checkDocs, vehicleIssueDocs]);
+
+  const recentActivity = useMemo(() => {
+    const collectionActivities = [
+      ...serviceRecords.map((record) => {
+        const type = classifyServiceRecord(record);
+        const activityDate = resolveActivityDate(
+          record.completedAt,
+          record.updatedAt,
+          record.createdAt,
+          record.serviceDateOnly,
+          record.serviceDate,
+          record.completedDate
+        );
+
+        const activity = {
+          activityId: `serviceRecords:${record.id}`,
+          sourceCollection: "serviceRecords",
+          sourceId: record.id,
+          type,
+          title:
+            type === "repair"
+              ? record.repairSummary || record.workSummary || "General repair"
+              : record.serviceType || "Service record",
+          summary: toActivitySummary(
+            record.workSummary,
+            record.repairSummary,
+            record.repairReason,
+            record.partsUsed,
+            record.extraNotes
+          ),
+          vehicleId: record.vehicleId || null,
+          vehicleName: record.vehicleName || "Unknown vehicle",
+          registration: record.registration || "",
+          person: record.signedBy || record.completedBy || "",
+          status: type === "repair" ? "completed" : "logged",
+          activityDate,
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+      ...defectReports.map((record) => {
+        const activity = {
+          activityId: `defectReports:${record.id}`,
+          sourceCollection: "defectReports",
+          sourceId: record.id,
+          type: "defect",
+          title: record.description || "Workshop defect report",
+          summary: toActivitySummary(record.notes, record.location, record.severity),
+          vehicleId: record.vehicleId || null,
+          vehicleName: record.vehicleName || "Unknown vehicle",
+          registration: record.registration || "",
+          person: record.reportedBy || "",
+          status: record.status || "open",
+          activityDate: resolveActivityDate(record.updatedAt, record.createdAt),
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+      ...motPreChecks.map((record) => {
+        const activity = {
+          activityId: `motPreChecks:${record.id}`,
+          sourceCollection: "motPreChecks",
+          sourceId: record.id,
+          type: "mot_precheck",
+          title: record.status || "MOT pre-check",
+          summary: toActivitySummary(record.summary, record.faultsFound, record.workRecommended),
+          vehicleId: record.vehicleId || null,
+          vehicleName: record.vehicleName || "Unknown vehicle",
+          registration: record.registration || "",
+          person: record.signedBy || "",
+          status: record.status || "completed",
+          activityDate: resolveActivityDate(
+            record.completedAt,
+            record.updatedAt,
+            record.createdAt,
+            record.precheckDateOnly,
+            record.precheckDateTime
+          ),
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+      ...vehiclePrepRecords.map((record) => {
+        const activity = {
+          activityId: `vehiclePrepRecords:${record.id}`,
+          sourceCollection: "vehiclePrepRecords",
+          sourceId: record.id,
+          type: "vehicle_prep",
+          title: record.completed ? "Vehicle prep completed" : "Vehicle prep logged",
+          summary: toActivitySummary(record.notes),
+          vehicleId: record.vehicleId || null,
+          vehicleName: record.vehicleName || "Unknown vehicle",
+          registration: record.registration || "",
+          person: record.completedBy || "",
+          status: record.completed ? "completed" : "draft",
+          activityDate: resolveActivityDate(record.completedAt, record.updatedAt, record.createdAt, record.prepDate),
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+      ...checkDocs.map((record) => {
+        const defectCount = Array.isArray(record.items)
+          ? record.items.filter((item) => item?.status === "defect").length
+          : 0;
+        const activity = {
+          activityId: `vehicleChecks:${record.id}`,
+          sourceCollection: "vehicleChecks",
+          sourceId: record.id,
+          type: "vehicle_check",
+          title: defectCount > 0 ? `${defectCount} defects found` : "Vehicle check submitted",
+          summary: toActivitySummary(record.notes, defectCount > 0 ? `${defectCount} defect items logged.` : ""),
+          vehicleId: record.vehicleId || null,
+          vehicleName: buildVehicleLabelFromObject(record.vehicle) || record.vehicleName || "Unknown vehicle",
+          registration:
+            typeof record.vehicle === "object"
+              ? record.vehicle?.registration || record.vehicle?.reg || ""
+              : record.registration || "",
+          person: record.driverName || record.driverCode || "",
+          status: record.status || "submitted",
+          activityDate: resolveActivityDate(record.updatedAt, record.createdAt, record.dateISO),
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+      ...vehicleIssueDocs.map((record) => {
+        const activity = {
+          activityId: `vehicleIssues:${record.id}`,
+          sourceCollection: "vehicleIssues",
+          sourceId: record.id,
+          type: "vehicle_issue",
+          title: record.category || "Vehicle issue",
+          summary: toActivitySummary(record.description),
+          vehicleId: record.vehicleId || null,
+          vehicleName: record.vehicleName || "Unknown vehicle",
+          registration: record.registration || "",
+          person: record.reporterName || record.reporterCode || "",
+          status: record.status || "open",
+          activityDate: resolveActivityDate(record.updatedAt, record.createdAt),
+          createdAt: record.createdAt || null,
+          updatedAt: record.updatedAt || null,
+        };
+
+        return { ...activity, route: getActivityRoute(activity) };
+      }),
+    ];
+
+    const dedupedCollections = new Map(collectionActivities.map((activity) => [activity.activityId, activity]));
+
+    if (dedupedCollections.size > 0) {
+      return Array.from(dedupedCollections.values())
+        .sort((a, b) => getTimestampMillis(b.activityDate) - getTimestampMillis(a.activityDate))
+        .slice(0, 12);
+    }
+
+    return vehiclesRaw
+      .flatMap((vehicle) => buildActivityFromLegacyHistory(vehicle))
+      .sort((a, b) => getTimestampMillis(b.activityDate) - getTimestampMillis(a.activityDate))
+      .slice(0, 12);
+  }, [serviceRecords, defectReports, motPreChecks, vehiclePrepRecords, checkDocs, vehicleIssueDocs, vehiclesRaw]);
 
   // Defect action handlers
   const openApprove = (defect) =>
@@ -1084,6 +1459,12 @@ export default function VehiclesHomePage() {
           serviceCounts.soon > 0 ? { label: `Due soon ${serviceCounts.soon}`, tone: "amber" } : null,
           serviceCounts.total > 0 ? { label: `Total ${serviceCounts.total}`, tone: "soft" } : null,
         ].filter(Boolean),
+      },
+      {
+        title: "Activity History",
+        description: "Browse the latest services, repairs, defects, checks and prep activity.",
+        link: ACTIVITY_HISTORY_PATH,
+        rightBadges: [recentActivity.length > 0 ? { label: `${recentActivity.length} recent`, tone: "soft" } : null].filter(Boolean),
       },
       {
         title: "Vehicle Usage Logs",

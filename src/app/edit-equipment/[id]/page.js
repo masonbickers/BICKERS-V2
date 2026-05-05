@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 const UI = {
   radius: 14,
@@ -162,6 +163,7 @@ export default function EditEquipmentPage() {
   const [existingCategories, setExistingCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [initialSnapshot, setInitialSnapshot] = useState("");
 
   useEffect(() => {
     const loadCats = async () => {
@@ -185,7 +187,9 @@ export default function EditEquipmentPage() {
         const refDoc = doc(db, "equipment", id);
         const snap = await getDoc(refDoc);
         if (snap.exists()) {
-          setEquipment({ id: snap.id, ...snap.data() });
+          const nextEquipment = { id: snap.id, ...snap.data() };
+          setEquipment(nextEquipment);
+          setInitialSnapshot(JSON.stringify(nextEquipment));
         } else {
           alert("Equipment not found.");
           router.push("/equipment");
@@ -239,9 +243,19 @@ export default function EditEquipmentPage() {
     return (equipment.name || "").trim() && (equipment.category || "").trim();
   }, [equipment]);
 
-  const handleSave = async () => {
-    if (!equipment || !id || saving) return;
-    if (!canSave) return alert("Please fill Name and Category.");
+  const hasUnsavedChanges = useMemo(() => {
+    if (!equipment || !initialSnapshot) return false;
+    return JSON.stringify(equipment) !== initialSnapshot;
+  }, [equipment, initialSnapshot]);
+
+  const handleSave = async (options = {}) => {
+    if (!equipment || !id || saving) return false;
+    if (!canSave) {
+      alert("Please fill Name and Category.");
+      return false;
+    }
+
+    const { navigateOnSuccess = true } = options;
 
     setSaving(true);
     try {
@@ -261,11 +275,16 @@ export default function EditEquipmentPage() {
 
       await updateDoc(refDoc, payload);
       alert("Equipment updated.");
-      router.push("/equipment");
-      router.refresh?.();
+      setInitialSnapshot(JSON.stringify({ ...equipment, ...payload }));
+      if (navigateOnSuccess) {
+        router.push("/equipment");
+        router.refresh?.();
+      }
+      return true;
     } catch (e) {
       console.error("Update equipment failed:", e);
       alert("Could not save changes.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -289,6 +308,12 @@ export default function EditEquipmentPage() {
       setDeleting(false);
     }
   };
+
+  useUnsavedChangesGuard({
+    enabled: !loading,
+    isDirty: hasUnsavedChanges && !saving && !deleting,
+    onSave: () => handleSave({ navigateOnSuccess: false }),
+  });
 
   if (loading) {
     return (

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../../../firebaseConfig";
-import { normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
+import { formatDateForDisplay, normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
 
 const UI = {
   radius: 14,
@@ -62,11 +62,11 @@ const toISODate = (v) => {
 
 function bookingCompletedLabel(b) {
   return (
-    b?.completedDate ||
-    toISODate(b?.completedAt) ||
-    toISODate(b?.endDate) ||
-    toISODate(b?.appointmentDate) ||
-    toISODate(b?.startDate) ||
+    formatDateForDisplay(b?.completedDate) ||
+    formatDateForDisplay(toISODate(b?.completedAt)) ||
+    formatDateForDisplay(toISODate(b?.endDate)) ||
+    formatDateForDisplay(toISODate(b?.appointmentDate)) ||
+    formatDateForDisplay(toISODate(b?.startDate)) ||
     "-"
   );
 }
@@ -116,7 +116,8 @@ export default function VehicleServiceHistoryPage() {
   const serviceHistoryItems = useMemo(() => {
     const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];
     const derived = serviceRecords.map((record) => ({
-      completedDate: record.serviceDateOnly || "",
+      completedDate: record.serviceDateDisplay || formatDateForDisplay(record.serviceDateOnly || record.serviceDate) || "",
+      sortDate: record.serviceDateOnly || record.serviceDate || "",
       bookingId: record.id,
       bookingRef: record.serviceType || "",
       notes: record.workSummary || record.extraNotes || "",
@@ -125,15 +126,27 @@ export default function VehicleServiceHistoryPage() {
       partsUsed: record.partsUsed || "",
     }));
 
+    // Prefer structured serviceRecords when present. Legacy vehicle.serviceHistory
+    // entries are only used as a fallback for vehicles that do not yet have
+    // migrated service record documents.
+    if (derived.length > 0) {
+      return derived.sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
+    }
+
     const seen = new Set();
-    return [...stored, ...derived]
+    return [...stored]
+      .map((item) => ({
+        ...item,
+        completedDate: formatDateForDisplay(item?.completedDate) || item?.completedDate || "",
+        sortDate: item?.sortDate || item?.completedDate || "",
+      }))
       .filter((item, index) => {
         const key = item?.bookingId || `${item?.completedDate || ""}-${item?.bookingRef || ""}-${index}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       })
-      .sort((a, b) => String(b.completedDate || "").localeCompare(String(a.completedDate || "")));
+      .sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
   }, [vehicle?.serviceHistory, serviceRecords]);
 
   const vehicleLabel =

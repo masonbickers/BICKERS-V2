@@ -184,11 +184,19 @@ function startOfTodayUTC() {
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
 }
 
+function dayOfWeekUTC(yyyyMmDd) {
+  const d = parseYyyyMmDd(yyyyMmDd) ?? new Date(yyyyMmDd);
+  if (Number.isNaN(+d)) return null;
+  return d.getUTCDay();
+}
+
 // check if a given YYYY-MM-DD is a Sunday (UTC)
 function isSunday(yyyyMmDd) {
-  const d = parseYyyyMmDd(yyyyMmDd) ?? new Date(yyyyMmDd);
-  if (Number.isNaN(+d)) return false;
-  return d.getUTCDay() === 0;
+  return dayOfWeekUTC(yyyyMmDd) === 0;
+}
+
+function isSaturday(yyyyMmDd) {
+  return dayOfWeekUTC(yyyyMmDd) === 6;
 }
 
 function formatYyyyMmDd(date) {
@@ -246,8 +254,18 @@ function dedupeEmployees(list) {
   return out;
 }
 
+function employeeListForBookingDate(booking, dayKey, fallbackEmployees) {
+  const dated = booking?.employeesByDate?.[dayKey];
+  if (Array.isArray(dated) && dated.length) return dedupeEmployees(dated);
+  return fallbackEmployees;
+}
+
 function isFourDigitJobNumber(value) {
   return /^\d{4}$/.test(String(value || "").trim());
+}
+
+function isCreditBookingStatus(status) {
+  return ["confirmed", "complete", "completed", "stunt"].includes(String(status || "").trim().toLowerCase());
 }
 
 function isFullTimeEmployeeRecord(employee = {}) {
@@ -492,7 +510,7 @@ export default function EmployeesHomePage() {
           const booking = docSnap.data() || {};
           const status = String(booking.status || "").trim();
 
-          if (status !== "Confirmed" && status !== "Complete") return;
+          if (!isCreditBookingStatus(status)) return;
           if (!isFourDigitJobNumber(booking.jobNumber)) return;
 
           // employees array (strings or objects)
@@ -523,18 +541,29 @@ export default function EmployeesHomePage() {
           const dayKeys = Array.from(dateSet);
           if (dayKeys.length === 0) return;
 
+          const nightShootEmployeeKeys = new Set();
+
           for (const dayKey of dayKeys) {
             const note = getNoteForDate(booking, dayKey);
             let credit = creditForNote(note);
+            const normNote = String(note || "").trim().toLowerCase().replace(/\s+/g, " ");
+            const isNightShootDay = normNote.includes("night shoot");
 
-            // Sunday "On Set" = double time
-            if (note && isSunday(dayKey)) {
-              const normNote = String(note).trim().toLowerCase().replace(/\s+/g, " ");
-              if (normNote === "on set") credit = credit * 2;
+            // Weekend "On Set" weighting: Saturday +0.5, Sunday double time.
+            if (note && (isSaturday(dayKey) || isSunday(dayKey))) {
+              if (normNote === "on set") credit = isSunday(dayKey) ? credit * 2 : credit + 0.5;
             }
 
-            for (const emp of uniqEmployees) {
+            const dayEmployees = employeeListForBookingDate(booking, dayKey, uniqEmployees)
+              .filter((e) => (e.id || e.name)?.trim())
+              .filter((e) => {
+                const role = String(e.role || "").trim().toLowerCase();
+                return role !== "freelancer" && role !== "freelance";
+              });
+
+            for (const emp of dayEmployees) {
               const empKey = registerEmployee(emp) || emp.id || normaliseName(emp.name);
+              if (isNightShootDay) nightShootEmployeeKeys.add(empKey);
               if (!credits.has(empKey)) credits.set(empKey, new Map());
               const byDate = credits.get(empKey);
 
@@ -552,6 +581,14 @@ export default function EmployeesHomePage() {
               }
             }
           }
+
+          // A night shoot run earns one additional turnaround credit per employee
+          // for the booking, regardless of whether it spans one or multiple nights.
+          nightShootEmployeeKeys.forEach((empKey) => {
+            if (!credits.has(empKey)) credits.set(empKey, new Map());
+            const byDate = credits.get(empKey);
+            byDate.set(`night-turnaround:${docSnap.id}`, 1);
+          });
         });
 
         holidaysSnap.forEach((docSnap) => {
@@ -815,7 +852,7 @@ export default function EmployeesHomePage() {
             <div>
               <h2 style={titleMd}>Employee Credits Overview</h2>
               <div style={hint}>
-                Maximum one credit per employee per date across confirmed bookings, with the highest value retained. Freelancers are excluded.
+                Maximum one credit per employee per date across confirmed, complete and stunt bookings, with the highest value retained. Freelancers are excluded.
               </div>
             </div>
 
@@ -905,7 +942,7 @@ export default function EmployeesHomePage() {
 
             <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
               <b>Credit rules:</b> Half Day Travel = 0.5 · Travel Time = 0.25 · Most day types = 1 · Rest Day / Other = 0 ·
-              <b> On Set Sundays = x2</b>
+              <b> Night Shoot = +1 turnaround per booking · On Set Saturdays = +0.5 · On Set Sundays = x2</b>
             </div>
           </div>
 
@@ -962,7 +999,7 @@ export default function EmployeesHomePage() {
               <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid #d1d5db" }} />
                 <div style={{ color: UI.muted, fontSize: 12 }}>
-                  Bars show total employee credits, including fractional travel credits and Sunday On Set double time. Hover to view full names.
+                  Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday On Set extra half credit and Sunday On Set double time. Hover to view full names.
                 </div>
               </div>
             </div>
@@ -1220,7 +1257,7 @@ function EmptyState() {
     <div style={{ ...surface, boxShadow: "none", padding: 13, marginTop: 10 }}>
       <div style={{ fontWeight: 800, marginBottom: 6, color: UI.text }}>No data in this reporting period</div>
       <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
-        Only <b>Confirmed</b> and <b>Complete</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
+        Only <b>Confirmed</b>, <b>Complete</b> and <b>Stunt</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
         Try a longer range, or confirm your bookings include <code>notesByDate[&quot;YYYY-MM-DD&quot;]</code> and/or <code>bookingDates</code>.
       </div>
     </div>

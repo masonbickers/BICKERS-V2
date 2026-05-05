@@ -142,6 +142,24 @@ const rowHover = `
   }
 `;
 
+function isEmployeeRecord(employee = {}) {
+  const role = String(employee.role || "").trim().toLowerCase();
+  const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
+    .trim()
+    .toLowerCase();
+  const jobTitleBlob = Array.isArray(employee.jobTitle)
+    ? employee.jobTitle.join(" ").toLowerCase()
+    : String(employee.jobTitle || "").toLowerCase();
+
+  if (employee.deleted === true || employee.isDeleted === true || employee.archived === true) return false;
+  if (employee.isService === true) return false;
+  if (role === "service" || role === "hybrid") return false;
+  if (role === "freelancer" || role === "freelance") return false;
+  if (employmentType.includes("freelance")) return false;
+  if (jobTitleBlob.includes("freelance")) return false;
+  return true;
+}
+
 export default function EmployeeListPage() {
   const router = useRouter();
   const [employees, setEmployees] = useState([]);
@@ -165,7 +183,9 @@ export default function EmployeeListPage() {
   useEffect(() => {
     const fetchEmployees = async () => {
       const snapshot = await getDocs(collection(db, "employees"));
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const data = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter(isEmployeeRecord);
       setEmployees(data);
     };
     fetchEmployees();

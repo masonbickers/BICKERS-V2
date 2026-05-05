@@ -34,14 +34,15 @@ import {
   mergeInspectionHistory,
   mergeMaintenanceHistory,
 } from "@/app/utils/inspectionHistory";
-import { normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
+import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 /* ───────────────── UI tokens (match your newer pages) ───────────────── */
 const UI = {
   radius: 14,
   radiusSm: 10,
-  gap: 6,
+  gap: 10,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
   border: "1px solid #e5e7eb",
@@ -53,22 +54,37 @@ const UI = {
   red: "#dc2626",
   amber: "#d97706",
   green: "#16a34a",
+  line: "#e2e8f0",
+  softBlue: "#eff6ff",
+  softSlate: "#f1f5f9",
 };
 
-const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = {
+  padding: "12px 16px 18px",
+  background:
+    "radial-gradient(circle at top right, rgba(191,219,254,0.35), transparent 22%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+  minHeight: "100vh",
+};
 const topBar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 5,
+  gap: 12,
   flexWrap: "wrap",
-  marginBottom: 6,
+  marginBottom: 10,
 };
-const title = { margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
-const subtitle = { marginTop: 2, fontSize: 12, color: UI.muted };
+const title = { margin: 0, fontSize: 26, fontWeight: 950, letterSpacing: "-0.03em", color: UI.text, lineHeight: 1.05 };
+const subtitle = { marginTop: 4, fontSize: 12, color: UI.muted, maxWidth: 760, lineHeight: 1.35 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 8 };
+const panel = { ...card, padding: 12 };
+const heroCard = {
+  ...card,
+  padding: 14,
+  background:
+    "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.92) 100%)",
+  border: "1px solid #dbeafe",
+};
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
@@ -76,8 +92,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
-      padding: "6px 9px",
+      gap: 6,
+      padding: "8px 12px",
       borderRadius: UI.radiusSm,
       border: "1px solid #d1d5db",
       background: "#fff",
@@ -93,8 +109,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
-      padding: "6px 9px",
+      gap: 6,
+      padding: "8px 12px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
@@ -109,8 +125,8 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
-      padding: "6px 9px",
+      gap: 6,
+      padding: "8px 12px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.green}`,
       background: UI.green,
@@ -124,8 +140,8 @@ const btn = (kind = "primary") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    padding: "6px 9px",
+    gap: 6,
+    padding: "8px 12px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
@@ -138,8 +154,8 @@ const btn = (kind = "primary") => {
 
 const labelStyle = {
   display: "block",
-  marginBottom: 2,
-  fontSize: 12,
+  marginBottom: 4,
+  fontSize: 11.5,
   fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
@@ -148,37 +164,51 @@ const labelStyle = {
 
 const inputField = {
   width: "100%",
-  padding: "6px 8px",
-  fontSize: 12.5,
-  border: "1px solid #e5e7eb",
+  padding: "8px 10px",
+  fontSize: 13,
+  border: "1px solid #dbe2ea",
   borderRadius: 12,
-  background: "#fff",
+  background: "#fcfdff",
   color: UI.text,
   outline: "none",
 };
 
 const textarea = {
   ...inputField,
-  minHeight: 92,
+  minHeight: 76,
   resize: "vertical",
   lineHeight: 1.35,
 };
 
 const sectionTitle = {
-  margin: "0 0 5px",
-  fontSize: 13.5,
+  margin: 0,
+  fontSize: 15,
   fontWeight: 950,
   color: UI.text,
   letterSpacing: ".01em",
 };
 
-const sectionMeta = { marginTop: -2, marginBottom: 5, fontSize: 11.5, color: UI.muted };
+const sectionMeta = { marginTop: 3, marginBottom: 0, fontSize: 11.5, color: UI.muted, lineHeight: 1.3 };
 
 const grid = (cols = 2) => ({
   display: "grid",
   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: 6,
+  gap: 8,
 });
+const metricGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 8,
+  marginTop: 10,
+};
+const metricCard = {
+  borderRadius: 14,
+  padding: "9px 11px",
+  background: "rgba(255,255,255,0.78)",
+  border: "1px solid rgba(148,163,184,0.18)",
+};
+const sectionStack = { display: "flex", flexDirection: "column", gap: UI.gap };
+const sidebarStack = { position: "sticky", top: 18, alignSelf: "start", display: "flex", flexDirection: "column", gap: UI.gap };
 
 /* ───────────────── helpers ───────────────── */
 const clampISODate = (d) => {
@@ -302,6 +332,13 @@ const isTransportLorryVehicle = (vehicle = {}) => {
   return haystack.includes("lorry") || haystack.includes("transport");
 };
 
+const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
+const normText = (value) => String(value || "").trim().toLowerCase();
+const isRetentionPlateRecord = (vehicle = {}) =>
+  normText(vehicle.category) === normText(RETENTION_PLATE_CATEGORY) ||
+  vehicle.recordType === "numberPlateRetention";
+const isTradePlateRecord = (vehicle = {}) => normText(vehicle.plateType) === "trade";
+
 /*  completion helpers (sync bookings -> core due dates) */
 const completionISOFromBooking = ({ isMultiDay, appointmentDate, endDate, startDate }) => {
   if (!isMultiDay) return appointmentDate || "";
@@ -335,6 +372,7 @@ export default function EditVehiclePage() {
   const [latestInspectionBooking, setLatestInspectionBooking] = useState(null);
   const [vehicleBookings, setVehicleBookings] = useState([]);
   const [serviceRecords, setServiceRecords] = useState([]);
+  const [initialSnapshot, setInitialSnapshot] = useState("");
 
   // categories list
   useEffect(() => {
@@ -388,6 +426,7 @@ export default function EditVehiclePage() {
       byNewest.find((b) => String(b.type || "").toUpperCase() === "SERVICE") || null;
     const inspectionLatest =
       byNewest.find((b) => String(b.type || "").toUpperCase() === "INSPECTION") || null;
+    const latestCompletedServiceRecord = sortedServiceRows[0] || null;
 
     setLatestMotBooking(motLatest);
     setLatestServiceBooking(serviceLatest);
@@ -435,6 +474,44 @@ export default function EditVehiclePage() {
         hydrated.serviceBookingNotes = hydrated.serviceBookingNotes || serviceLatest.notes || "";
       }
 
+      // If a completed service form exists, keep the vehicle core due-date
+      // fields aligned with the newest service record even when it did not
+      // come through the maintenance booking flow.
+      if (latestCompletedServiceRecord?.serviceDateOnly) {
+        const latestServiceIso = latestCompletedServiceRecord.serviceDateOnly;
+        const currentLastService = dateOnly(hydrated.lastService);
+        const latestServiceDate = toDate(latestServiceIso) || new Date(0);
+        const currentLastServiceDate = toDate(currentLastService) || new Date(0);
+
+        if (!currentLastService || latestServiceDate.getTime() > currentLastServiceDate.getTime()) {
+          hydrated.lastService = latestServiceIso;
+          const serviceFreqWeeks = resolveFreqWeeks(
+            hydrated.serviceFreq,
+            latestServiceIso,
+            hydrated.nextService
+          );
+          if (serviceFreqWeeks) {
+            hydrated.nextService = computeNextDueFromCompletion(latestServiceIso, serviceFreqWeeks);
+          }
+        }
+
+        const latestServiceOdometer = String(latestCompletedServiceRecord.odometer || "").trim();
+        if (latestServiceOdometer) {
+          const currentVehicleOdometer = String(hydrated.odometer || "").trim();
+          const latestOdometerNum = Number(latestServiceOdometer.replace(/[^\d.]/g, ""));
+          const currentOdometerNum = Number(currentVehicleOdometer.replace(/[^\d.]/g, ""));
+
+          if (
+            !currentVehicleOdometer ||
+            (Number.isFinite(latestOdometerNum) &&
+              Number.isFinite(currentOdometerNum) &&
+              latestOdometerNum >= currentOdometerNum)
+          ) {
+            hydrated.odometer = latestServiceOdometer;
+          }
+        }
+      }
+
       if (inspectionLatest) {
         hydrated.inspectionBookingId = hydrated.inspectionBookingId || inspectionLatest.id || "";
         hydrated.inspectionBookedStatus =
@@ -466,9 +543,18 @@ export default function EditVehiclePage() {
   // load vehicle
   useEffect(() => {
     if (!id) return;
+    setInitialSnapshot("");
     reloadVehicle().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!vehicle || initialSnapshot) return;
+    const frame = requestAnimationFrame(() => {
+      setInitialSnapshot(JSON.stringify(vehicle));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [vehicle, initialSnapshot]);
 
   // Single, consistent auto-calc engine
   useEffect(() => {
@@ -596,7 +682,13 @@ export default function EditVehiclePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setVehicle((prev) => ({ ...prev, [name]: value }));
+    setVehicle((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "plateType" && value === "trade") {
+        next.plateExpiryFreq = "52";
+      }
+      return next;
+    });
   };
 
   const handleMotChange = (e) => {
@@ -623,19 +715,40 @@ export default function EditVehiclePage() {
     });
   };
 
-  const handleSave = async () => {
-    if (!vehicle?.id) return;
+  const hasUnsavedChanges = useMemo(() => {
+    if (!vehicle || !initialSnapshot) return false;
+    return JSON.stringify(vehicle) !== initialSnapshot;
+  }, [vehicle, initialSnapshot]);
+
+  const handleSave = async (options = {}) => {
+    if (!vehicle?.id) return false;
+    const { navigateOnSuccess = true } = options;
     setSaving(true);
     try {
       const refDoc = fsDoc(db, "vehicles", vehicle.id);
       const payload = { ...vehicle };
+      if (isRetentionPlateRecord(payload)) {
+        payload.category = RETENTION_PLATE_CATEGORY;
+        payload.recordType = "numberPlateRetention";
+        payload.name = payload.name || payload.registration || payload.reg || "";
+        payload.taxStatus = "N/A";
+        payload.insuranceStatus = "N/A";
+        if (payload.plateType === "trade") {
+          payload.plateExpiryFreq = "52";
+        }
+      }
       delete payload.id;
       await updateDoc(refDoc, { ...payload, updatedAt: serverTimestamp() });
+      setInitialSnapshot(JSON.stringify(vehicle));
       alert("Vehicle updated.");
-      router.push("/vehicles");
+      if (navigateOnSuccess) {
+        router.push("/vehicles");
+      }
+      return true;
     } catch (e) {
       console.error(e);
       alert("Could not save vehicle.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -704,6 +817,12 @@ export default function EditVehiclePage() {
   const hasInspectionBooking = Boolean(activeInspectionBookingId);
   const showEightWeekInspection = isTransportLorryVehicle(vehicle || {});
 
+  useUnsavedChangesGuard({
+    enabled: Boolean(vehicle),
+    isDirty: hasUnsavedChanges && !saving,
+    onSave: () => handleSave({ navigateOnSuccess: false }),
+  });
+
   const activeVehicleBookings = useMemo(
     () => vehicleBookings.filter((b) => !isArchivedMotBooking(b)),
     [vehicleBookings]
@@ -746,18 +865,36 @@ export default function EditVehiclePage() {
     });
   }, [vehicle?.motHistory, completedMotHistory]);
 
-  const serviceHistoryItems =
-    Array.isArray(vehicle?.serviceHistory) && vehicle.serviceHistory.length
-      ? vehicle.serviceHistory
-      : serviceRecords.map((record) => ({
-          completedDate: record.serviceDateOnly || "",
-          bookingId: record.id,
-          provider: record.signedBy || "",
-          bookingRef: record.serviceType || "",
-          notes: record.workSummary || record.extraNotes || "",
-          location: record.registration || "",
-          cost: "",
-        }));
+  const serviceHistoryItems = useMemo(() => {
+    const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];
+    const derived = serviceRecords.map((record) => ({
+      completedDate:
+        record.serviceDateDisplay ||
+        formatDateForDisplay(record.serviceDateOnly || record.serviceDate) ||
+        "",
+      sortDate: record.serviceDateOnly || record.serviceDate || "",
+      bookingId: record.id,
+      provider: record.signedBy || "",
+      bookingRef: record.serviceType || "",
+      notes: record.workSummary || record.extraNotes || "",
+      location: record.registration || "",
+      odometer: record.odometer || "",
+      partsUsed: record.partsUsed || "",
+      cost: "",
+    }));
+
+    if (derived.length > 0) {
+      return derived.sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
+    }
+
+    return stored
+      .map((item) => ({
+        ...item,
+        completedDate: formatDateForDisplay(item?.completedDate) || item?.completedDate || "",
+        sortDate: item?.sortDate || item?.completedDate || "",
+      }))
+      .sort((a, b) => String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
+  }, [vehicle?.serviceHistory, serviceRecords]);
 
   const motAppointmentDisplay =
     vehicle?.motAppointmentDate ||
@@ -774,6 +911,96 @@ export default function EditVehiclePage() {
       <HeaderSidebarLayout>
         <div style={pageWrap}>
           <div style={{ ...panel, textAlign: "center", color: UI.muted }}>Loading vehicle…</div>
+        </div>
+      </HeaderSidebarLayout>
+    );
+  }
+
+  if (isRetentionPlateRecord(vehicle)) {
+    const isTradePlate = isTradePlateRecord(vehicle);
+
+    return (
+      <HeaderSidebarLayout>
+        <style jsx global>{`
+          input:focus,
+          textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
+            border-color: #bfdbfe !important;
+          }
+        `}</style>
+
+        <div style={pageWrap}>
+          <div style={heroCard}>
+            <div style={topBar}>
+              <div>
+                <h1 style={title}>{vehicle.registration || vehicle.reg || vehicle.name || "Number Plate"}</h1>
+                <div style={subtitle}>
+                  {isTradePlate
+                    ? "Trade plate. Edit the plate, yearly expiry date, and notes."
+                    : "Number plate on retention. Edit the plate, expiry date, and notes."}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button onClick={() => router.push("/vehicles")} style={btn("ghost")}>
+                  Back
+                </button>
+                <button onClick={handleDelete} style={btn("danger")}>
+                  Delete
+                </button>
+                <button onClick={handleSave} style={btn()} disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+
+            <div style={metricGrid}>
+              <MetricCard label="Category" value={RETENTION_PLATE_CATEGORY} />
+              <MetricCard label="Plate Type" value={isTradePlate ? "Trade plate" : "Retention plate"} />
+              <MetricCard label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} value={vehicle.retentionExpiry || "-"} />
+              {isTradePlate ? <MetricCard label="Frequency" value="52 weeks" /> : null}
+            </div>
+          </div>
+
+          <div style={{ ...panel, maxWidth: 860, marginTop: 12 }}>
+            <h2 style={sectionTitle}>Number Plate Details</h2>
+            <div style={{ ...grid(2), marginTop: 10 }}>
+              <Field label="Number Plate" name="registration" value={vehicle.registration || vehicle.reg} onChange={handleChange} />
+              <DateField label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} name="retentionExpiry" value={vehicle.retentionExpiry} onChange={handleChange} />
+
+              <div>
+                <label style={labelStyle}>Plate Type</label>
+                <select name="plateType" value={vehicle.plateType || "retention"} onChange={handleChange} style={inputField}>
+                  <option value="retention">Retention plate</option>
+                  <option value="trade">Trade plate</option>
+                </select>
+              </div>
+
+              <Field
+                label="Expiry Freq (weeks)"
+                name="plateExpiryFreq"
+                value={isTradePlate ? "52" : vehicle.plateExpiryFreq || ""}
+                onChange={handleChange}
+              />
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Category</label>
+                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "#f8fafc" }} />
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Notes</label>
+                <textarea
+                  name="notes"
+                  value={vehicle.notes || ""}
+                  onChange={handleChange}
+                  placeholder="Retention certificate details, owner notes, or reminders..."
+                  style={{ ...textarea, minHeight: 150 }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </HeaderSidebarLayout>
     );
@@ -872,10 +1099,11 @@ export default function EditVehiclePage() {
       `}</style>
 
       <div style={pageWrap}>
-        <div style={topBar}>
+        <div style={heroCard}>
+          <div style={topBar}>
           <div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <h1 style={title}>Edit Vehicle — {headerLabel}</h1>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <h1 style={title}>{headerLabel}</h1>
               {motStatusPill}
             </div>
             <div style={subtitle}>Edit details, due dates, paperwork, attachments, notes — and create/edit MOT / Service bookings.</div>
@@ -932,6 +1160,14 @@ export default function EditVehiclePage() {
             <button onClick={handleDelete} style={btn("danger")}>
               Delete
             </button>
+          </div>
+          </div>
+          <div style={metricGrid}>
+            <MetricCard label="Registration" value={vehicle.registration || vehicle.reg || "-"} />
+            <MetricCard label="Category" value={vehicle.category || "-"} />
+            <MetricCard label="Next MOT" value={vehicle.nextMOT || "-"} />
+            <MetricCard label="Next Service" value={vehicle.nextService || "-"} />
+            <MetricCard label="Open Bookings" value={String(activeVehicleBookings.length)} />
           </div>
         </div>
 
@@ -1004,9 +1240,9 @@ export default function EditVehiclePage() {
           />
         ) : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: UI.gap, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.75fr) minmax(300px, 0.95fr)", gap: UI.gap, alignItems: "start", marginTop: 18 }}>
           {/* LEFT: Main form */}
-          <div style={{ display: "flex", flexDirection: "column", gap: UI.gap }}>
+          <div style={sectionStack}>
             {/* Main Information */}
             <div style={panel}>
               <h2 style={sectionTitle}>Main Information</h2>
@@ -1105,56 +1341,6 @@ export default function EditVehiclePage() {
               </div>
             </div>
             
-
-            {/* MOT Booking (summary) */}
-            <div style={panel}>
-              <h2 style={sectionTitle}>MOT Booking (Summary)</h2>
-              <div style={sectionMeta}>These fields are updated automatically when you create/edit a booking via the modals above.</div>
-
-              <div style={grid(4)}>
-                <SelectField
-                  label="Booking Status"
-                  name="motBookedStatus"
-                  value={vehicle.motBookedStatus || ""}
-                  onChange={handleMotChange}
-                  options={["Requested", "Booked", "Completed", "Cancelled", "Booked (After Expiry)"]}
-                />
-                <DateField label="Booked On" name="motBookedOn" value={vehicle.motBookedOn || ""} onChange={handleMotChange} />
-                <DateField
-                  label="MOT Appointment Date"
-                  name="motAppointmentDate"
-                  value={vehicle.motAppointmentDate || ""}
-                  onChange={handleMotChange}
-                />
-                <Field label="Provider / Garage" name="motProvider" value={vehicle.motProvider || ""} onChange={handleMotChange} />
-
-                <Field label="Booking Ref" name="motBookingRef" value={vehicle.motBookingRef || ""} onChange={handleMotChange} />
-                <Field label="Booked By" name="motBookedBy" value={vehicle.motBookedBy || ""} onChange={handleMotChange} />
-                <Field label="Location" name="motLocation" value={vehicle.motLocation || ""} onChange={handleMotChange} />
-                <Field label="Cost (optional)" name="motCost" value={vehicle.motCost || ""} onChange={handleMotChange} />
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <TextAreaField
-                  label="MOT Booking Notes"
-                  name="motBookingNotes"
-                  value={vehicle.motBookingNotes || ""}
-                  onChange={handleMotChange}
-                  placeholder="Anything relevant: drop-off time, contacts, reminders, requirements..."
-                />
-              </div>
-
-              <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-                <FileUploadField
-                  label="MOT Booking Files (emails/quotes/etc.)"
-                  field="motBookingFiles"
-                  files={vehicle.motBookingFiles}
-                  onUpload={handleFileUpload}
-                  uploadingField={uploadingField}
-                />
-              </div>
-            </div>
-
 
             {/* Additional Maintenance (as per your snippet) */}
             <div style={panel}>
@@ -1295,26 +1481,86 @@ export default function EditVehiclePage() {
                 {serviceHistoryItems.length === 0 ? (
                   <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
                 ) : (
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {serviceHistoryItems.map((item, index) => (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {serviceHistoryItems.slice(0, 4).map((item, index) => (
                       <div
                         key={item.bookingId || `${item.completedDate}-${index}`}
+                        onClick={() =>
+                          item.bookingId
+                            ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.bookingId}`)
+                            : router.push(`/vehicle-edit/${vehicle.id}/service-history`)
+                        }
                         style={{
-                          border: "1px solid #e5e7eb",
+                          border: "1px solid #dbe2ea",
                           borderRadius: 12,
                           padding: 10,
-                          background: "#fff",
+                          background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+                          cursor: "pointer",
+                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
                         }}
+                        title={item.bookingId ? "Open full service details" : "Open service history"}
                       >
-                        <div style={{ fontWeight: 900, color: UI.text }}>{item.completedDate || "-"}</div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 950, color: UI.text, fontSize: 17, letterSpacing: "-0.02em" }}>
+                              {item.completedDate || "-"}
+                            </div>
+                            <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted, fontWeight: 800 }}>
+                              {item.bookingRef || "Service record"}
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 999,
+                              border: "1px solid #dbeafe",
+                              background: "#eff6ff",
+                              color: UI.brand,
+                              fontSize: 12,
+                              fontWeight: 900,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {item.bookingId ? "Open details" : "Open history"}
+                          </div>
                         </div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
+
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                          <MetaPill label="Provider" value={item.provider || "-"} />
+                          <MetaPill label="Reg" value={item.location || "-"} />
+                          <MetaPill label="Odometer" value={item.odometer || "-"} />
                         </div>
+
+                        {item.partsUsed ? (
+                          <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
+                            <strong style={{ color: UI.text }}>Parts:</strong> {item.partsUsed}
+                          </div>
+                        ) : null}
+
                         {item.notes ? (
-                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 12.5,
+                              color: UI.text,
+                              lineHeight: 1.35,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {item.notes}
+                          </div>
                         ) : null}
                       </div>
                     ))}
@@ -1419,7 +1665,7 @@ export default function EditVehiclePage() {
           </div>
 
           {/* RIGHT: Notes + quick info */}
-          <div style={{ position: "sticky", top: 18, alignSelf: "start", display: "flex", flexDirection: "column", gap: UI.gap }}>
+          <div style={sidebarStack}>
             <div style={panel}>
               <h2 style={sectionTitle}>Notes</h2>
               <textarea
@@ -2077,6 +2323,47 @@ function MiniLine({ label, value }) {
 }
 
 /* ───────────────── modal styles (HolidayForm vibe) ───────────────── */
+function MetricCard({ label, value }) {
+  return (
+    <div style={metricCard}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 900,
+          color: UI.muted,
+          textTransform: "uppercase",
+          letterSpacing: ".06em",
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 18, fontWeight: 950, color: UI.text, lineHeight: 1.15 }}>
+        {value || "-"}
+      </div>
+    </div>
+  );
+}
+
+function MetaPill({ label, value }) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "6px 10px",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        fontSize: 12,
+      }}
+    >
+      <span style={{ color: UI.muted, fontWeight: 900 }}>{label}</span>
+      <span style={{ color: UI.text, fontWeight: 900 }}>{value || "-"}</span>
+    </div>
+  );
+}
+
 const overlay = {
   position: "fixed",
   inset: 0,

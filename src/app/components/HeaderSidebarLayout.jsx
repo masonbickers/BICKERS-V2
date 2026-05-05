@@ -25,6 +25,12 @@ import {
   setStoredActiveWorkspace,
 } from "@/app/utils/accessControl";
 import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
+import {
+  UNSAVED_CHANGES_EVENT,
+  bypassUnsavedChangesOnce,
+  getUnsavedChangesState,
+  shouldBypassUnsavedChanges,
+} from "@/app/utils/unsavedChanges";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -117,6 +123,7 @@ export default function HeaderSidebarLayout({
   const [employeeAccess, setEmployeeAccess] = useState(null);
   const [activeWorkspace, setActiveWorkspace] = useState("user");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
@@ -124,6 +131,7 @@ export default function HeaderSidebarLayout({
   const unsubUserRef = useRef(null);
   const unsubHrRef = useRef(null);
   const contentRef = useRef(null);
+  const pendingNavigationRef = useRef(null);
 
   const emailLower = useMemo(
     () => String(user?.email || "").trim().toLowerCase(),
@@ -356,6 +364,36 @@ export default function HeaderSidebarLayout({
     router.push("/login");
   };
 
+  useEffect(() => {
+    const handleChange = () => {
+      if (pendingNavigationRef.current) {
+        setPendingNavigation((current) => (current ? { ...current } : current));
+      }
+    };
+    window.addEventListener(UNSAVED_CHANGES_EVENT, handleChange);
+    return () => window.removeEventListener(UNSAVED_CHANGES_EVENT, handleChange);
+  }, []);
+
+  const runNavigation = async (action) => {
+    bypassUnsavedChangesOnce();
+    await action();
+  };
+
+  const attemptNavigation = (action) => {
+    const guard = getUnsavedChangesState();
+    if (!guard?.isDirty || shouldBypassUnsavedChanges()) {
+      runNavigation(action);
+      return;
+    }
+
+    pendingNavigationRef.current = action;
+    setPendingNavigation({
+      message: guard.message || "You have unsaved changes on this page.",
+      saveLabel: guard.saveLabel || "Save & Leave",
+      canSave: typeof guard.onSave === "function",
+    });
+  };
+
   /* -------------------------------------------
      BACK BUTTON
   -------------------------------------------- */
@@ -408,16 +446,46 @@ export default function HeaderSidebarLayout({
 
   const handleBack = () => {
     if (backHref) {
-      router.push(backHref);
+      attemptNavigation(() => router.push(backHref));
       return;
     }
 
     if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
+      attemptNavigation(() => router.back());
       return;
     }
 
-    router.push(landingRoute);
+    attemptNavigation(() => router.push(landingRoute));
+  };
+
+  const handleStayOnPage = () => {
+    pendingNavigationRef.current = null;
+    setPendingNavigation(null);
+  };
+
+  const handleLeaveWithoutSaving = async () => {
+    const action = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setPendingNavigation(null);
+    if (action) await runNavigation(action);
+  };
+
+  const handleSaveAndLeave = async () => {
+    const guard = getUnsavedChangesState();
+    const action = pendingNavigationRef.current;
+    if (!action) {
+      setPendingNavigation(null);
+      return;
+    }
+
+    if (typeof guard?.onSave === "function") {
+      const result = await guard.onSave();
+      if (result === false) return;
+    }
+
+    pendingNavigationRef.current = null;
+    setPendingNavigation(null);
+    await runNavigation(action);
   };
 
   useEffect(() => {
@@ -592,7 +660,7 @@ export default function HeaderSidebarLayout({
                   return (
                     <button
                       key={label}
-                      onClick={() => router.push(path)}
+                      onClick={() => attemptNavigation(() => router.push(path))}
                       style={{
                         background: active ? UI.sidebarActiveBg : "transparent",
                         border: active
@@ -685,7 +753,7 @@ export default function HeaderSidebarLayout({
 
         <div style={{ marginTop: "auto" }}>
           <button
-            onClick={handleLogout}
+            onClick={() => attemptNavigation(handleLogout)}
             style={{
               background: "none",
               border: "none",
@@ -832,6 +900,10 @@ export default function HeaderSidebarLayout({
               <Link
                 key={label}
                 href={path}
+                onClick={(event) => {
+                  event.preventDefault();
+                  attemptNavigation(() => router.push(path));
+                }}
                 style={{
                   color: pathname === path ? UI.activeAccent : "#a8b3c2",
                   fontSize: "12.5px",
@@ -889,6 +961,89 @@ export default function HeaderSidebarLayout({
         >
           {children}
         </div>
+
+        {pendingNavigation ? (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.48)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+              zIndex: 90,
+            }}
+          >
+            <div
+              style={{
+                width: "min(460px, 100%)",
+                background: "#ffffff",
+                borderRadius: 18,
+                border: "1px solid #dbe3ee",
+                boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
+                padding: 20,
+                color: UI.text,
+              }}
+            >
+              <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>
+                Unsaved changes
+              </div>
+              <div style={{ fontSize: 13.5, color: UI.muted, lineHeight: 1.5 }}>
+                {pendingNavigation.message}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={handleStayOnPage}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid #d1d5db",
+                    background: "#fff",
+                    color: UI.text,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Stay on page
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLeaveWithoutSaving}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid #fecaca",
+                    background: "#fff1f2",
+                    color: "#9f1239",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Leave without saving
+                </button>
+                {pendingNavigation.canSave ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveAndLeave}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: `1px solid ${UI.brand}`,
+                      background: UI.brand,
+                      color: "#fff",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {pendingNavigation.saveLabel}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Footer */}
         <footer
