@@ -8,16 +8,16 @@ export const MAINTENANCE_JOB_STATUSES = [
 ];
 
 const DUE_FIELD_CANDIDATES = {
-  mot: ["nextMOT", "motDate", "motDue"],
-  service: ["nextService", "serviceDate", "serviceDue"],
+  mot: ["nextMOT", "nextMot", "nextMotDate", "motDate", "motDue", "motDueDate", "motExpiryDate"],
+  service: ["nextService", "nextServiceDate", "serviceDate", "serviceDue", "serviceDueDate", "nextSvc"],
   inspection: ["nextEightWeekInspection", "eightWeekInspectionStart", "inspectionDate"],
   rfl: ["nextRFL"],
-  tachoInspection: ["nextTachoInspection"],
+  tachoInspection: ["nextTacho", "nextTachoInspection"],
   brakeTest: ["nextBrakeTest"],
-  pmi: ["nextPMIInspection"],
+  pmi: ["nextPMI", "nextPMIInspection"],
   tachoDownload: ["nextTachoDownload"],
-  tailLift: ["nextTailLiftInspection"],
-  loler: ["nextLOLERInspection"],
+  tailLift: ["nextTailLift", "nextTailLiftInspection"],
+  loler: ["nextLoler", "nextLOLER", "nextLOLERInspection"],
 };
 
 export const toDateSafe = (value) => {

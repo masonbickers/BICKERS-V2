@@ -508,6 +508,8 @@ export default function EditVehiclePage() {
               latestOdometerNum >= currentOdometerNum)
           ) {
             hydrated.odometer = latestServiceOdometer;
+            hydrated.mileage = latestOdometerNum;
+            hydrated.serviceOdometer = latestOdometerNum;
           }
         }
       }
@@ -727,6 +729,44 @@ export default function EditVehiclePage() {
     try {
       const refDoc = fsDoc(db, "vehicles", vehicle.id);
       const payload = { ...vehicle };
+      const odometerRaw = String(payload.odometer ?? "").trim();
+      const odometerNumeric = Number(odometerRaw.replace(/[^\d.]/g, ""));
+      if (odometerRaw && Number.isFinite(odometerNumeric)) {
+        payload.odometer = odometerNumeric;
+        payload.mileage = odometerNumeric;
+        payload.serviceOdometer = odometerNumeric;
+      } else if (!odometerRaw) {
+        payload.odometer = "";
+      }
+      const registration = String(payload.registration || payload.reg || payload.registrationNumber || "").trim();
+      const manufacturer = String(payload.manufacturer || payload.make || "").trim();
+      const nextMot = String(payload.nextMOT || payload.nextMot || payload.nextMotDate || "").trim();
+      const lastMot = String(payload.lastMOT || payload.lastMot || "").trim();
+      const nextService = String(payload.nextService || payload.nextServiceDate || "").trim();
+      if (registration) {
+        payload.registration = registration;
+        payload.reg = registration;
+        payload.registrationNumber = registration;
+      }
+      if (manufacturer) {
+        payload.manufacturer = manufacturer;
+        payload.make = manufacturer;
+      }
+      if (lastMot) {
+        payload.lastMOT = lastMot;
+        payload.lastMot = lastMot;
+      }
+      if (nextMot) {
+        payload.nextMOT = nextMot;
+        payload.nextMot = nextMot;
+        payload.nextMotDate = nextMot;
+        payload.motDueDate = nextMot;
+      }
+      if (nextService) {
+        payload.nextService = nextService;
+        payload.nextServiceDate = nextService;
+        payload.serviceDueDate = nextService;
+      }
       if (isRetentionPlateRecord(payload)) {
         payload.category = RETENTION_PLATE_CATEGORY;
         payload.recordType = "numberPlateRetention";
@@ -739,7 +779,8 @@ export default function EditVehiclePage() {
       }
       delete payload.id;
       await updateDoc(refDoc, { ...payload, updatedAt: serverTimestamp() });
-      setInitialSnapshot(JSON.stringify(vehicle));
+      setVehicle((prev) => ({ ...prev, ...payload, id: vehicle.id }));
+      setInitialSnapshot(JSON.stringify({ ...payload, id: vehicle.id }));
       alert("Vehicle updated.");
       if (navigateOnSuccess) {
         router.push("/vehicles");

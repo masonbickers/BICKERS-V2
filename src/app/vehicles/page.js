@@ -160,7 +160,7 @@ const getVehicleOdometerValue = (vehicle) => {
   const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
 
   for (const candidate of candidates) {
-    const numeric = Number(candidate);
+    const numeric = Number(String(candidate ?? "").replace(/[^\d.]/g, ""));
     if (Number.isFinite(numeric) && numeric > 0) return numeric;
   }
 
@@ -204,7 +204,6 @@ export default function VehicleMaintenancePage() {
 
   useEffect(() => {
     fetchVehicles().catch((err) => console.error("Failed to fetch vehicles:", err));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist dropdown changes
@@ -638,19 +637,35 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
         try {
           for (const vehicle of results.data || []) {
             if (!vehicle.name || !vehicle.category) continue;
+            const registration = vehicle.registration || vehicle.reg || vehicle.registrationNumber || "";
+            const manufacturer = vehicle.manufacturer || vehicle.make || "";
+            const odometer = Number(vehicle.odometer || vehicle.serviceOdometer || vehicle.mileage || 0);
+            const nextService = vehicle.nextService || vehicle.nextServiceDate || vehicle.serviceDueDate || "";
+            const lastMot = vehicle.lastMOT || vehicle.lastMot || "";
+            const nextMot = vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || "";
 
             await addDoc(collection(db, "vehicles"), {
               name: vehicle.name,
               category: vehicle.category,
-              registration: vehicle.registration || "",
-              manufacturer: vehicle.manufacturer || "",
+              registration,
+              reg: registration,
+              registrationNumber: registration,
+              manufacturer,
+              make: manufacturer,
               model: vehicle.model || "",
-              mileage: Number(vehicle.mileage || 0),
-              odometer: Number(vehicle.odometer || vehicle.mileage || 0),
+              mileage: odometer,
+              odometer,
+              serviceOdometer: odometer,
               lastService: vehicle.lastService || "",
-              nextService: vehicle.nextService || "",
-              lastMOT: vehicle.lastMOT || "",
-              nextMOT: vehicle.nextMOT || "",
+              nextService,
+              nextServiceDate: nextService,
+              serviceDueDate: nextService,
+              lastMOT: lastMot,
+              lastMot,
+              nextMOT: nextMot,
+              nextMot,
+              nextMotDate: nextMot,
+              motDueDate: nextMot,
               notes: vehicle.notes || "",
             });
           }

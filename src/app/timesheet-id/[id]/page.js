@@ -161,23 +161,50 @@ function getPrecallInfo(entry) {
 }
 
 function getEmployeeYardAutofill(employee) {
+  const defaults = employee?.timesheetDefaults || {};
   const start =
     normaliseTimeValue(
-      employee?.timesheetDefaults?.yardStart ||
+      defaults.yardStart ||
+        defaults.startTime ||
+        defaults.start ||
+        defaults.defaultStart ||
+        defaults.workStart ||
+        defaults.holidayStart ||
+        defaults.paidHolidayStart ||
         employee?.yardStartTime ||
-        employee?.yardStart
+        employee?.yardStart ||
+        employee?.startTime
     ) || DEFAULT_YARD_START;
   const end =
     normaliseTimeValue(
-      employee?.timesheetDefaults?.yardEnd ||
+      defaults.yardEnd ||
+        defaults.endTime ||
+        defaults.end ||
+        defaults.defaultEnd ||
+        defaults.workEnd ||
+        defaults.holidayEnd ||
+        defaults.paidHolidayEnd ||
         employee?.yardEndTime ||
-        employee?.yardEnd
+        employee?.yardEnd ||
+        employee?.endTime
     ) || DEFAULT_YARD_END;
+  const deductLunch =
+    defaults.holidayLunchDeduct ??
+    defaults.paidHolidayLunchDeduct ??
+    defaults.yardLunchDeduct ??
+    defaults.lunchDeduct ??
+    defaults.deductLunch ??
+    employee?.holidayLunchDeduct ??
+    employee?.paidHolidayLunchDeduct ??
+    employee?.yardLunchDeduct ??
+    employee?.lunchDeduct ??
+    true;
 
   return {
     start,
     end,
     rawHours: diffHours(start, end),
+    deductLunch: deductLunch !== false,
   };
 }
 
@@ -261,6 +288,10 @@ function computeYardHours(entry) {
 function computeTravelHours(entry) {
   // In mobile: travel is leaveTime -> arriveTime
   return diffHours(entry.leaveTime, entry.arriveTime);
+}
+
+function computeOfficeHours(entry) {
+  return diffHours(entry.startTime, entry.endTime);
 }
 
 function computeWaitingAllowanceHours(entry) {
@@ -394,6 +425,7 @@ function detectMode(entry, isWeekend) {
 
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
+  if (rawMode === "office") return "office";
   if (rawMode === "yard") return "yard";
 
   return "yard";
@@ -402,8 +434,71 @@ function detectMode(entry, isWeekend) {
 /* Normalize days structure to Monday..Sunday */
 function normaliseDays(daysObj) {
   const out = {};
-  DAYS.forEach((d) => (out[d] = daysObj?.[d] ?? null));
+  DAYS.forEach((d) => {
+    const lower = d.toLowerCase();
+    out[d] = daysObj?.[lower] ?? daysObj?.[d] ?? null;
+  });
   return out;
+}
+
+function toSchemaDays(daysObj) {
+  const out = {};
+  DAYS.forEach((d) => {
+    out[d.toLowerCase()] = daysObj?.[d] ?? daysObj?.[d.toLowerCase()] ?? null;
+  });
+  return out;
+}
+
+function jobsFromEntry(entry, snapshot = {}) {
+  if (!entry) return [];
+  if (Array.isArray(entry.jobs)) return entry.jobs;
+
+  if (!entry.bookingId && !entry.jobNumber && !entry.hasJob) return [];
+
+  const bookingIds = Array.isArray(snapshot.bookingIds) ? snapshot.bookingIds : [];
+  const jobNumbers = Array.isArray(snapshot.jobNumbers) ? snapshot.jobNumbers : [];
+  const clients = Array.isArray(snapshot.clients) ? snapshot.clients : [];
+  const locations = Array.isArray(snapshot.locations) ? snapshot.locations : [];
+  const bookingIndex = entry.bookingId ? bookingIds.indexOf(entry.bookingId) : -1;
+  const jobIndex =
+    bookingIndex >= 0 ? bookingIndex : entry.jobNumber ? jobNumbers.indexOf(entry.jobNumber) : -1;
+
+  return [
+    {
+      bookingId: entry.bookingId || "",
+      jobNumber: entry.jobNumber || (jobIndex >= 0 ? jobNumbers[jobIndex] : ""),
+      client: jobIndex >= 0 ? clients[jobIndex] || "" : "",
+      location: jobIndex >= 0 ? locations[jobIndex] || "" : "",
+    },
+  ];
+}
+
+function getBlockNote(block) {
+  return String(block?.note || block?.notes || block?.description || "").trim();
+}
+
+async function loadTimesheetQueries(timesheet) {
+  if (!timesheet?.id) return [];
+
+  const bySchema = [];
+  if (timesheet.employeeCode && timesheet.weekStart) {
+    const q = fsQuery(
+      collection(db, "timesheetQueries"),
+      where("employeeCode", "==", timesheet.employeeCode),
+      where("weekStart", "==", timesheet.weekStart)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach((d) => bySchema.push({ id: d.id, ...d.data() }));
+  }
+
+  const byLegacyId = [];
+  const legacyQ = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
+  const legacySnap = await getDocs(legacyQ);
+  legacySnap.docs.forEach((d) => byLegacyId.push({ id: d.id, ...d.data() }));
+
+  const merged = new Map();
+  [...bySchema, ...byLegacyId].forEach((row) => merged.set(row.id, row));
+  return Array.from(merged.values());
 }
 
 /* Format Pre-Call minutes */
@@ -894,9 +989,10 @@ export default function TimesheetDetailPage() {
             });
           });
         } else if (timesheet.days) {
+          const normalisedDays = normaliseDays(timesheet.days);
           DAYS.forEach((day) => {
-            const entry = timesheet.days[day];
-            const arr = Array.isArray(entry?.jobs) ? entry.jobs : [];
+            const entry = normalisedDays[day];
+            const arr = jobsFromEntry(entry, snapshot);
             jobMap[day] = arr;
             arr.forEach((j) => {
               if (j.bookingId) allBookingIds.add(j.bookingId);
@@ -988,16 +1084,14 @@ export default function TimesheetDetailPage() {
 
     (async () => {
       try {
-        const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
-        const snap = await getDocs(q);
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const rows = await loadTimesheetQueries(timesheet);
         setQueries(rows);
       } catch (err) {
         console.error("Error loading timesheet queries:", err);
         setQueries([]);
       }
     })();
-  }, [timesheet?.id]);
+  }, [timesheet]);
 
   /* ------------------------------ PRINT ----------------------------------- */
   const handlePrint = () => {
@@ -1023,9 +1117,10 @@ export default function TimesheetDetailPage() {
         ...existingDays,
         [day]: nextEntry,
       };
+      const nextSchemaDays = toSchemaDays(nextDays);
 
       await updateDoc(doc(db, "timesheets", timesheet.id), {
-        days: nextDays,
+        days: nextSchemaDays,
         updatedAt: serverTimestamp(),
       });
 
@@ -1033,7 +1128,7 @@ export default function TimesheetDetailPage() {
         prev
           ? {
               ...prev,
-              days: nextDays,
+              days: nextSchemaDays,
             }
           : prev
       );
@@ -1109,20 +1204,19 @@ export default function TimesheetDetailPage() {
       );
 
       try {
-        const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
-        const snap = await getDocs(q);
+        const rows = await loadTimesheetQueries(timesheet);
 
         await Promise.all(
-          snap.docs.map((docSnap) =>
-            updateDoc(docSnap.ref, {
+          rows.map((row) =>
+            updateDoc(doc(db, "timesheetQueries", row.id), {
               status: "closed",
               closedAt: serverTimestamp(),
             })
           )
         );
 
-        const snap2 = await getDocs(q);
-        setQueries(snap2.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const rowsAfterClose = await loadTimesheetQueries(timesheet);
+        setQueries(rowsAfterClose);
       } catch (qErr) {
         console.error("Error closing timesheet queries on approve:", qErr);
       }
@@ -1165,15 +1259,15 @@ export default function TimesheetDetailPage() {
         weekStart: timesheet.weekStart || null,
         day: queryDay,
         field: queryField || "overall",
+        message: queryNote.trim(),
         note: queryNote.trim(),
         status: "open",
         createdAt: serverTimestamp(),
         createdByRole: "manager",
       });
 
-      const q = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
-      const snap = await getDocs(q);
-      setQueries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const rows = await loadTimesheetQueries(timesheet);
+      setQueries(rows);
 
       setQuerySuccess("Query sent to employee.");
       setQueryNote("");
@@ -1253,7 +1347,13 @@ export default function TimesheetDetailPage() {
       let dayHours = 0;
       const isPaidHolidayDay =
         hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid";
-      const paidHolidayLunchDeducted = isPaidHolidayDay ? shouldDeductYardLunch(entry) : false;
+      const paidHolidayLunchDeducted = isPaidHolidayDay
+        ? entry?.managerLunchDeduct === true
+          ? true
+          : entry?.managerLunchDeduct === false
+          ? false
+          : employeeYardAutofill.deductLunch
+        : false;
       const paidHolidayHours = isPaidHolidayDay
         ? Math.max(
             0,
@@ -1264,6 +1364,7 @@ export default function TimesheetDetailPage() {
         if (mode === "yard") dayHours = computeYardHours(entry);
         if (mode === "travel") dayHours = computeTravelHours(entry);
         if (mode === "onset") dayHours = computeOnSetHours(entry);
+        if (mode === "office") dayHours = computeOfficeHours(entry);
 
         //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
         if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
@@ -2161,11 +2262,29 @@ export default function TimesheetDetailPage() {
                       <div style={{ fontWeight: 700, marginBottom: 2 }}>
                         {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
                       </div>
-                      {yardSegs.map((seg, i) => (
-                        <div key={`${day}-seg-${i}`}>
-                          {seg.start} → {seg.end}
-                        </div>
-                      ))}
+                      {yardSegs.map((seg, i) => {
+                        const blockNote = getBlockNote(seg);
+                        return (
+                          <div key={`${day}-seg-${i}`} style={{ marginBottom: blockNote ? 5 : 0 }}>
+                            <div>
+                              {seg.start} {"->"} {seg.end}
+                            </div>
+                            {blockNote ? (
+                              <div
+                                style={{
+                                  marginTop: 2,
+                                  color: UI.muted,
+                                  fontSize: 12,
+                                  fontStyle: "italic",
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                {blockNote}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                       {entry?.yardTravelEnabled && entry?.yardTravelLeaveTime && entry?.yardTravelArriveTime ? (
                         <div style={{ marginTop: 4, color: UI.muted }}>
                           Yard travel: {entry.yardTravelLeaveTime} {"->"} {entry.yardTravelArriveTime}
@@ -2214,6 +2333,16 @@ export default function TimesheetDetailPage() {
                     </div>
                   )}
 
+                  {/* Office */}
+                  {entryExists && mode === "office" && (
+                    <div style={{ fontSize: 13 }}>
+                      <div style={{ fontWeight: 700 }}>Office:</div>
+                      <div>
+                        {entry.startTime ?? "—"} → {entry.endTime ?? "—"}
+                      </div>
+                    </div>
+                  )}
+
                   {/* On Set */}
                   {entryExists && mode === "onset" && (
                     <div style={{ marginTop: 3, fontSize: 13 }}>
@@ -2255,9 +2384,9 @@ export default function TimesheetDetailPage() {
                   )}
 
                   {/* NOTES */}
-                  {entryExists && entry?.dayNotes && (
+                  {entryExists && (entry?.note || entry?.dayNotes) && (
                     <div style={{ marginTop: 6, fontSize: 12, color: UI.muted, fontStyle: "italic" }}>
-                       {entry.dayNotes}
+                       {entry.note || entry.dayNotes}
                     </div>
                   )}
 
@@ -2865,7 +2994,7 @@ export default function TimesheetDetailPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.note}</div>
+                    <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.message || q.note}</div>
 
                     <QueryMessageThread query={q} />
                   </li>

@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 
+const getOdometerValue = (vehicle) => {
+  const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
+  for (const candidate of candidates) {
+    const numeric = Number(String(candidate ?? "").replace(/[^\d.]/g, ""));
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return 0;
+};
+
 export default function LorryDashboardPage() {
   const router = useRouter();
   const [lorries, setLorries] = useState([]);
@@ -30,7 +39,7 @@ export default function LorryDashboardPage() {
       case "service":
         return [...list].sort((a, b) => new Date(a.nextService) - new Date(b.nextService));
       case "mileage":
-        return [...list].sort((a, b) => b.mileage - a.mileage);
+        return [...list].sort((a, b) => getOdometerValue(b) - getOdometerValue(a));
       case "az":
         return [...list].sort((a, b) => a.name.localeCompare(b.name));
       default:
@@ -98,7 +107,7 @@ export default function LorryDashboardPage() {
                 <td style={tdStyle}>{lorry.name}</td>
                 <td style={tdStyle}>{lorry.type}</td>
                 <td style={tdStyle}>{lorry.registration}</td>
-                <td style={tdStyle}>{lorry.mileage?.toLocaleString()} mi</td>
+                <td style={tdStyle}>{getOdometerValue(lorry).toLocaleString()} mi</td>
                 <td style={tdStyle}>{lorry.lastService}</td>
                 <td style={tdStyle}>{lorry.nextService}</td>
                 <td style={tdStyle}>{lorry.motDue}</td>

@@ -698,7 +698,7 @@ export default function AdminPage() {
               Admin
             </div>
             <div style={{ color: UI.muted, marginTop: 4 }}>
-              Allowed: <b>email allow-list</b> OR <b>users.role = "admin"</b>
+              Allowed: <b>email allow-list</b> OR <b>users.role = &quot;admin&quot;</b>
             </div>
             <div style={{ color: UI.muted, marginTop: 6, fontSize: 12 }}>
               Users: {usersMeta.dedupedCount} (raw {usersMeta.rawCount}, duplicates{" "}
@@ -1954,6 +1954,8 @@ function EmployeesHolidayAllowancesTab() {
 
       await updateDoc(doc(db, "employees", r.id), {
         name,
+        fullName: name,
+        employeeName: name,
         workPattern: pattern,
         holidayAllowances: nextAllowances,
         carryOverByYear: nextCarry,
@@ -2017,6 +2019,8 @@ function EmployeesHolidayAllowancesTab() {
     try {
       const docRef = await addDoc(collection(db, "employees"), {
         name,
+        fullName: name,
+        employeeName: name,
         workPattern: pattern,
         holidayAllowance: allowance,
         carriedOverDays: carry,

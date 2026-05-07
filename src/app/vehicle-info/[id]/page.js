@@ -1,11 +1,22 @@
 "use client";
 
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
 
 import Papa from "papaparse";
-import { doc, getDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, deleteDoc, updateDoc } from "firebase/firestore";
+
+const getVehicleOdometerValue = (vehicle) => {
+  const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
+  for (const candidate of candidates) {
+    const numeric = Number(String(candidate ?? "").replace(/[^\d.]/g, ""));
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return 0;
+};
 
 
 export default function VehicleInfoPage() {
@@ -16,7 +27,34 @@ export default function VehicleInfoPage() {
   const handleSave = async () => {
     try {
       const docRef = doc(db, "vehicles", id);
-      await updateDoc(docRef, editableVehicle);
+      const odometer = getVehicleOdometerValue(editableVehicle);
+      const registration = String(
+        editableVehicle?.registration || editableVehicle?.reg || editableVehicle?.registrationNumber || ""
+      ).trim();
+      const manufacturer = String(editableVehicle?.manufacturer || editableVehicle?.make || "").trim();
+      const nextMot = String(editableVehicle?.nextMOT || editableVehicle?.nextMot || editableVehicle?.nextMotDate || "").trim();
+      const lastMot = String(editableVehicle?.lastMOT || editableVehicle?.lastMot || "").trim();
+      const nextService = String(editableVehicle?.nextService || editableVehicle?.nextServiceDate || "").trim();
+      await updateDoc(docRef, {
+        ...editableVehicle,
+        registration,
+        reg: registration,
+        registrationNumber: registration,
+        manufacturer,
+        make: manufacturer,
+        lastMOT: lastMot,
+        lastMot,
+        nextMOT: nextMot,
+        nextMot,
+        nextMotDate: nextMot,
+        motDueDate: nextMot,
+        nextService,
+        nextServiceDate: nextService,
+        serviceDueDate: nextService,
+        odometer,
+        mileage: odometer,
+        serviceOdometer: odometer,
+      });
       alert(" Vehicle updated");
       router.push("/vehicles");  // or reload if needed
     } catch (err) {
@@ -104,7 +142,7 @@ export default function VehicleInfoPage() {
           </div>
 
           <Field label="Registration Number" value={vehicle.registration} />
-          <Field label="Mileage" value={(vehicle.mileage || 0).toLocaleString()} suffix="mi" />
+          <Field label="Odometer" value={getVehicleOdometerValue(vehicle).toLocaleString()} suffix="mi" />
           <div>
   <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Last Service</label>
   <input
@@ -220,15 +258,32 @@ function VehicleCSVImport() {
 
         for (const vehicle of vehicles) {
           try {
+            const odometer = Number(vehicle.odometer || vehicle.serviceOdometer || vehicle.mileage || 0);
+            const registration = vehicle.registration || vehicle.reg || vehicle.registrationNumber || "";
+            const manufacturer = vehicle.manufacturer || vehicle.make || "";
+            const nextMot = vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || "";
+            const nextService = vehicle.nextService || vehicle.nextServiceDate || vehicle.serviceDueDate || "";
             await addDoc(collection(db, "vehicles"), {
-              make: vehicle.name,
-              model: vehicle.category,
-              registrationNumber: vehicle.registrationNumber,
-              mileage: Number(vehicle.mileage),
+              name: vehicle.name || vehicle.make || "",
+              category: vehicle.category || vehicle.model || "",
+              registration,
+              reg: registration,
+              registrationNumber: registration,
+              manufacturer,
+              make: manufacturer,
+              odometer,
+              mileage: odometer,
+              serviceOdometer: odometer,
               lastService: vehicle.lastService,
-              nextService: vehicle.nextService,
-              lastMOT: vehicle.lastMOT,
-              nextMOT: vehicle.nextMOT,
+              nextService,
+              nextServiceDate: nextService,
+              serviceDueDate: nextService,
+              lastMOT: vehicle.lastMOT || vehicle.lastMot || "",
+              lastMot: vehicle.lastMOT || vehicle.lastMot || "",
+              nextMOT: nextMot,
+              nextMot,
+              nextMotDate: nextMot,
+              motDueDate: nextMot,
               notes: vehicle.notes || ""
             });
           } catch (err) {

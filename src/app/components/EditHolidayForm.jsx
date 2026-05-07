@@ -319,9 +319,15 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
       const preserveApproval = isAdmin && approved;
       const finalStatus = preserveApproval ? String(existingStatus || "approved") : "requested";
+      const selectedEmployee = employees.find((emp) => String(emp.name || "").trim() === String(employee || "").trim());
+      const employeeCode = String(
+        selectedEmployee?.employeeCode || selectedEmployee?.userCode || selectedEmployee?.code || holidayRec?.employeeCode || ""
+      ).trim();
 
       const payload = {
         employee,
+        employeeName: employee,
+        employeeCode,
         startDate: startAsDate,
         endDate: endAsDate,
 

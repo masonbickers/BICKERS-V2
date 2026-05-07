@@ -760,9 +760,15 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       const startAsDate = ymdToDate(finalStart);
       const endAsDate = ymdToDate(finalEnd);
       const single = startAsDate && endAsDate ? sameYMD(startAsDate, endAsDate) : false;
+      const selectedEmployee = employees.find((emp) => String(emp.name || "").trim() === String(employee || "").trim());
+      const employeeCode = String(
+        selectedEmployee?.employeeCode || selectedEmployee?.userCode || selectedEmployee?.code || ""
+      ).trim();
 
       const payload = {
         employee,
+        employeeName: employee,
+        employeeCode,
         startDate: startAsDate,
         endDate: endAsDate,
 

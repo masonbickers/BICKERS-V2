@@ -129,11 +129,12 @@ function summarizeVehicles(vehicles) {
   return vehicles.slice(0, 50).map((vehicle) =>
     normalizeRecord({
       id: vehicle.id,
-      name: vehicle.name || "",
-      registration: vehicle.registration || "",
+      name: vehicle.name || vehicle.vehicleName || vehicle.make || "",
+      registration: vehicle.registration || vehicle.reg || vehicle.registrationNumber || "",
       category: vehicle.category || "",
-      motDueDate: vehicle.motDueDate || vehicle.mot || null,
-      serviceDueDate: vehicle.serviceDueDate || vehicle.service || null,
+      motDueDate: vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || vehicle.mot || null,
+      serviceDueDate:
+        vehicle.nextService || vehicle.nextServiceDate || vehicle.serviceDueDate || vehicle.service || null,
       status: vehicle.status || "",
     })
   );

@@ -75,13 +75,22 @@ export function normalizeVehicleRecord(raw = {}) {
   );
   const lastService = dateOnlyString(firstNonEmpty(raw.lastService, raw.lastServiceDate));
   const lastMot = dateOnlyString(firstNonEmpty(raw.lastMOT, raw.lastMot, raw.lastMotDate));
+  const odometer = firstNonEmpty(raw.odometer, raw.serviceOdometer, raw.mileage);
+  const name = String(firstNonEmpty(raw.name, raw.vehicleName, raw.make) || "").trim();
+  const manufacturer = String(firstNonEmpty(raw.manufacturer, raw.make) || "").trim();
+  const registration = String(
+    firstNonEmpty(raw.registration, raw.reg, raw.registrationNumber, raw.regNumber, raw.regNo) || ""
+  ).trim();
 
   return {
     ...raw,
-    name: String(firstNonEmpty(raw.name, raw.vehicleName) || "").trim(),
-    vehicleName: String(firstNonEmpty(raw.vehicleName, raw.name) || "").trim(),
-    registration: String(firstNonEmpty(raw.registration, raw.reg) || "").trim(),
-    reg: String(firstNonEmpty(raw.reg, raw.registration) || "").trim(),
+    name,
+    vehicleName: String(firstNonEmpty(raw.vehicleName, name) || "").trim(),
+    manufacturer,
+    make: String(firstNonEmpty(raw.make, manufacturer) || "").trim(),
+    registration,
+    reg: String(firstNonEmpty(raw.reg, registration) || "").trim(),
+    registrationNumber: String(firstNonEmpty(raw.registrationNumber, registration) || "").trim(),
     lastService,
     nextService: serviceDate,
     nextServiceDate: serviceDate,
@@ -100,7 +109,9 @@ export function normalizeVehicleRecord(raw = {}) {
     serviceHistory: normalizeServiceHistory(raw.serviceHistory),
     taxStatus: String(raw.taxStatus || "").trim(),
     insuranceStatus: String(raw.insuranceStatus || "").trim(),
-    mileage: raw.mileage ?? null,
+    odometer: odometer || null,
+    serviceOdometer: odometer || null,
+    mileage: odometer || null,
     __nextServiceDateObj: toDateLike(serviceDate),
     __nextMotDateObj: toDateLike(motDate),
   };

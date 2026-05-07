@@ -210,29 +210,42 @@ export default function AddVehiclePage() {
 
     setSaving(true);
     try {
+      const odometerValue = isNumberPlateMode || formData.odometer === "" ? "" : Number(formData.odometer);
+
       // Build clean payload (avoid empty strings where possible)
       const payload = {
         name: isNumberPlateMode ? (formData.name.trim() || formData.registration.trim()) : formData.name.trim(),
         registration: formData.registration.trim(),
+        reg: formData.registration.trim(),
+        registrationNumber: formData.registration.trim(),
         category: isNumberPlateMode ? RETENTION_PLATE_CATEGORY : formData.category.trim(),
         recordType: isNumberPlateMode ? "numberPlateRetention" : "vehicle",
         plateType: isNumberPlateMode ? formData.plateType || "retention" : "",
         plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? "52" : formData.plateExpiryFreq || "",
 
         manufacturer: isNumberPlateMode ? "" : formData.manufacturer.trim(),
+        make: isNumberPlateMode ? "" : formData.manufacturer.trim(),
         model: isNumberPlateMode ? "" : formData.model.trim(),
 
-        odometer: isNumberPlateMode ? "" : formData.odometer === "" ? "" : Number(formData.odometer),
+        odometer: odometerValue,
+        mileage: odometerValue,
+        serviceOdometer: odometerValue,
         notes: formData.notes || "",
         retentionExpiry: isNumberPlateMode ? formData.retentionExpiry || "" : "",
 
         lastService: isNumberPlateMode ? "" : formData.lastService || "",
         serviceFreq: isNumberPlateMode ? "" : formData.serviceFreq || "",
         nextService: isNumberPlateMode ? "" : formData.nextService || "",
+        nextServiceDate: isNumberPlateMode ? "" : formData.nextService || "",
+        serviceDueDate: isNumberPlateMode ? "" : formData.nextService || "",
 
         lastMOT: isNumberPlateMode ? "" : formData.lastMOT || "",
+        lastMot: isNumberPlateMode ? "" : formData.lastMOT || "",
         motFreq: isNumberPlateMode ? "" : formData.motFreq || "",
         nextMOT: isNumberPlateMode ? "" : formData.nextMOT || "",
+        nextMot: isNumberPlateMode ? "" : formData.nextMOT || "",
+        nextMotDate: isNumberPlateMode ? "" : formData.nextMOT || "",
+        motDueDate: isNumberPlateMode ? "" : formData.nextMOT || "",
 
         taxStatus: isNumberPlateMode ? "N/A" : formData.taxStatus || "Taxed",
         insuranceStatus: isNumberPlateMode ? "N/A" : formData.insuranceStatus || "Insured",

@@ -524,10 +524,16 @@ export default function EditEmployeePage() {
         auth?.currentUser?.email ||
         auth?.currentUser?.uid ||
         "";
+      const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
+      const employeeCode = String(formData.employeeCode || formData.userCode || formData.code || "").trim();
 
       await Promise.all([
         setDoc(docRef, {
         ...formData,
+        name: employeeName,
+        fullName: employeeName,
+        employeeName,
+        ...(employeeCode ? { employeeCode, userCode: employeeCode, code: employeeCode } : {}),
         // keep dob as YYYY-MM-DD string (matches your other pages)
         dob: formData.dob || "",
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
@@ -549,7 +555,8 @@ export default function EditEmployeePage() {
                   appAccess: normalizedAppAccess,
                   defaultWorkspace: normalizedDefaultWorkspace,
                   email: String(formData.email || "").trim().toLowerCase(),
-                  name: formData.name || "",
+                  name: employeeName,
+                  fullName: employeeName,
                   phone: formData.mobile || "",
                   updatedAt: serverTimestamp(),
                   updatedBy,

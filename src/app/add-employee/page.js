@@ -142,8 +142,12 @@ export default function AddEmployeePage() {
 
     try {
       setSaving(true);
+      const name = String(formData.name || "").trim();
       await addDoc(collection(db, "employees"), {
         ...formData,
+        name,
+        fullName: name,
+        employeeName: name,
         createdAt: serverTimestamp(),
       });
       alert(" Employee added");

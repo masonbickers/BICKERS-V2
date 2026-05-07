@@ -1730,6 +1730,11 @@ export default function CreateBookingPage() {
         },
       ],
     };
+    payload.employeeNames = cleanedEmployees.map((emp) => (typeof emp === "string" ? emp : emp?.name)).filter(Boolean);
+    payload.dayNotes = filteredNotesByDate;
+    payload.startDateISO = payload.startDate ? String(payload.startDate).slice(0, 10) : "";
+    payload.endDateISO = payload.endDate ? String(payload.endDate).slice(0, 10) : "";
+    payload.dateISO = payload.date ? String(payload.date).slice(0, 10) : "";
 
     try {
       await addDoc(collection(db, "bookings"), payload);
