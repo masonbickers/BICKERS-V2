@@ -105,13 +105,63 @@ export default function CreateBookingPage() {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
 
   const inputStyle = {
-    width: "90%",
-    height: "28px",
-    marginBottom: "12px",
-    padding: "4px 6px",
+    width: "100%",
+    height: "34px",
+    marginBottom: "10px",
+    padding: "6px 9px",
     fontSize: "14px",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
+    border: "1px solid #d2dce8",
+    borderRadius: "8px",
+    boxSizing: "border-box",
+    backgroundColor: "#fff",
+    color: "#0f172a",
+  };
+
+  const textAreaStyle = {
+    ...inputStyle,
+    height: "auto",
+    minHeight: "54px",
+    resize: "vertical",
+  };
+
+  const labelHeadingStyle = {
+    marginBottom: "5px",
+    color: "#516174",
+    fontSize: "12px",
+    fontWeight: 800,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+  };
+
+  const formColumnStyle = {
+    flex: "1 1 300px",
+    minWidth: "280px",
+    padding: "12px",
+    border: "1px solid #dde5ef",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+  };
+
+  const safetyHeaderStyle = {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(180px, 1fr))",
+    gap: "8px",
+    marginBottom: "12px",
+    padding: "10px 12px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #d7dee8",
+    borderRadius: "8px",
+    boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
+  };
+
+  const safetyCheckStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: 700,
+    color: "#0f172a",
   };
 
   //  This will now include Employees + U-Crane Freelancers,
@@ -456,20 +506,48 @@ export default function CreateBookingPage() {
         style={{
           display: "flex",
           minHeight: "100vh",
-          fontFamily: "Arial, sans-serif",
-          backgroundColor: "#f4f4f5",
+          fontFamily: "Inter, system-ui, Arial, sans-serif",
+          backgroundColor: "#f3f6f9",
         }}
       >
         <div
           style={{
             flex: 1,
-            padding: "20px 40px",
-            color: "#333",
+            padding: "16px",
+            color: "#0f172a",
           }}
         >
-          <h1 style={{ color: "#111", marginBottom: "20px" }}>
-             Create New Booking
+          <h1 style={{ color: "#0f172a", margin: "0 0 12px", fontSize: "22px", fontWeight: 800 }}>
+            Create New Booking
           </h1>
+
+          <div style={safetyHeaderStyle}>
+            <label style={safetyCheckStyle}>
+              <input
+                type="checkbox"
+                checked={hasHS}
+                onChange={(e) => setHasHS(e.target.checked)}
+              />
+              Health & Safety Completed
+            </label>
+
+            <label style={safetyCheckStyle}>
+              <input
+                type="checkbox"
+                checked={hasRiskAssessment}
+                onChange={(e) => setHasRiskAssessment(e.target.checked)}
+              />
+              Risk Assessment Completed
+            </label>
+
+            <label style={safetyCheckStyle}>
+              <input type="checkbox" /> Terms & Conditions Accepted
+            </label>
+
+            <label style={safetyCheckStyle}>
+              <input type="checkbox" /> Insurance Verified
+            </label>
+          </div>
 
           <form
             onSubmit={(e) => {
@@ -480,45 +558,34 @@ export default function CreateBookingPage() {
             <div
               style={{
                 display: "flex",
-                gap: "40px",
+                gap: "12px",
                 flexWrap: "wrap",
                 alignItems: "flex-start",
-                marginTop: "20px",
-                backgroundColor: "#f9f9f9",
-                padding: "30px",
-                borderRadius: "10px",
-                boxShadow: "0 3px 10px rgba(0, 0, 0, 0.08)",
+                marginTop: "12px",
+                backgroundColor: "#ffffff",
+                padding: "12px",
+                border: "1px solid #d7dee8",
+                borderRadius: "8px",
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
                 fontSize: "14px",
-                lineHeight: "1.6",
+                lineHeight: "1.45",
               }}
             >
               {/* Column 1: Job Info */}
-              <div style={{ flex: "1 1 300px", minWidth: "280px" }}>
-                <h3 style={{ marginBottom: "6px" }}>Job Number</h3>
+              <div style={formColumnStyle}>
+                <h3 style={labelHeadingStyle}>Job Number</h3>
                 <input
                   value={jobNumber}
                   onChange={(e) => setJobNumber(e.target.value)}
                   required
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Status</h3>
+                <h3 style={labelHeadingStyle}>Status</h3>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 >
                   <option value="Confirmed">Confirmed</option>
                   <option value="First Pencil">First Pencil</option>
@@ -526,86 +593,55 @@ export default function CreateBookingPage() {
                   <option value="Enquiry">Enquiry</option>
                 </select>
 
-                <h3 style={{ marginBottom: "6px" }}>Shoot Type</h3>
+                <h3 style={labelHeadingStyle}>Shoot Type</h3>
                 <select
                   value={shootType}
                   onChange={(e) => setShootType(e.target.value)}
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 >
                   <option value="Day">Day</option>
                   <option value="Night">Night</option>
                 </select>
 
-                <h3 style={{ marginBottom: "6px" }}>Production Company</h3>
+                <h3 style={labelHeadingStyle}>Production Company</h3>
                 <input
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   required
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Contact Email</h3>
+                <h3 style={labelHeadingStyle}>Contact Email</h3>
                 <input
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   required
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Contact Number</h3>
+                <h3 style={labelHeadingStyle}>Contact Number</h3>
                 <input
                   type="text"
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
                   required
-                  style={{
-                    width: "90%",
-                    height: "28px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                  }}
+                  style={inputStyle}
                 />
 
-                <h3 style={{ marginBottom: "6px" }}>Location</h3>
+                <h3 style={labelHeadingStyle}>Location</h3>
                 <textarea
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   rows={2}
                   required
-                  style={{
-                    width: "90%",
-                    minHeight: "40px",
-                    marginBottom: "12px",
-                    padding: "4px 6px",
-                    fontSize: "14px",
-                    resize: "vertical",
-                  }}
+                  style={textAreaStyle}
                 />
               </div>
 
               {/* Column 2: Dates + Crew */}
-              <div style={{ flex: "1 1 300px", minWidth: "280px" }}>
-                <h3>Dates</h3>
+              <div style={formColumnStyle}>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Dates</h3>
                 <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <input
                     type="checkbox"
@@ -633,7 +669,7 @@ export default function CreateBookingPage() {
                 )}
 
                 {/*  Crew Roles (NOW uses crew manager controls) */}
-                <h3 style={{ marginTop: "10px" }}>Crew</h3>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a", marginTop: "10px" }}>Crew</h3>
                 <div
                   style={{
                     display: "grid",
@@ -643,7 +679,7 @@ export default function CreateBookingPage() {
                 >
                   {UCRANE_ROLES.map(({ role, key }) => (
                     <div key={role} style={{ marginBottom: "1px" }}>
-                      <h4 style={{ marginBottom: "6px" }}>{role}</h4>
+                      <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>{role}</h4>
 
                       {(crewOptionsForRole[role] || []).map((person) => {
                         const personName = getDisplayName(person);
@@ -659,7 +695,7 @@ export default function CreateBookingPage() {
                               alignItems: "center",
                               gap: "6px",
                               marginBottom: "6px",
-                              fontSize: "16px",
+                              fontSize: "14px",
                             }}
                           >
                             <input
@@ -701,7 +737,9 @@ export default function CreateBookingPage() {
 
                 {/* Optional custom names */}
                 <div style={{ marginTop: 12 }}>
-                  <h4 style={{ marginBottom: 6 }}>Add custom crew (comma separated)</h4>
+                  <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>
+                    Add custom crew (comma separated)
+                  </h4>
                   <input
                     value={customEmployee}
                     onChange={(e) => setCustomEmployee(e.target.value)}
@@ -712,11 +750,13 @@ export default function CreateBookingPage() {
               </div>
 
               {/* Column 3: Vehicles */}
-              <div style={{ flex: "1 1 300px", minWidth: "280px" }}>
-                <h3>Vehicles</h3>
-                {["U-Crane", "Transport Lorry"].map((group) => (
+              <div style={formColumnStyle}>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Vehicles</h3>
+                {["U-Crane", "Transport Lorry"].map((group) => {
+                  const groupLabel = group === "Transport Lorry" ? "HGV" : group;
+                  return (
                   <div key={group} style={{ marginBottom: "15px" }}>
-                    <h4 style={{ marginBottom: "6px" }}>{group}</h4>
+                    <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>{groupLabel}</h4>
                     {vehicleGroups[group]?.length > 0 ? (
                       vehicleGroups[group].map((vehicle) => (
                         <label
@@ -726,6 +766,7 @@ export default function CreateBookingPage() {
                             alignItems: "center",
                             gap: "6px",
                             marginBottom: "6px",
+                            fontSize: "14px",
                           }}
                         >
                           <input
@@ -752,66 +793,55 @@ export default function CreateBookingPage() {
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             {/* Notes */}
-            <div style={{ marginTop: 20 }}>
-              <h3>Notes</h3>
+            <div
+              style={{
+                marginTop: 12,
+                backgroundColor: "#ffffff",
+                border: "1px solid #d7dee8",
+                borderRadius: "8px",
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
+                padding: "12px",
+              }}
+            >
+              <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Notes</h3>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
                 style={{
                   width: "100%",
-                  padding: "8px",
-                  fontSize: "16px",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                }}
+                  padding: "9px 10px",
+                  fontSize: "14px",
+                  border: "1px solid #d2dce8",
+                  borderRadius: "8px",
+                  boxSizing: "border-box",
+                  color: "#0f172a",
+                  }}
                 placeholder="Anything extra to include..."
               />
             </div>
 
-            {/* Safety + Legal */}
-            <div style={{ marginTop: 20 }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={hasHS}
-                  onChange={(e) => setHasHS(e.target.checked)}
-                />{" "}
-                Health & Safety Completed
-              </label>
-              <br />
-              <label>
-                <input
-                  type="checkbox"
-                  checked={hasRiskAssessment}
-                  onChange={(e) => setHasRiskAssessment(e.target.checked)}
-                />{" "}
-                Risk Assessment Completed
-              </label>
-              <br />
-              <label>
-                <input type="checkbox" /> Terms & Conditions Accepted
-              </label>
-              <br />
-              <label>
-                <input type="checkbox" /> Insurance Verified
-              </label>
-            </div>
-
             {/* Actions */}
-            <div style={{ marginTop: 30, display: "flex", gap: 10 }}>
+            <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="submit" style={buttonStyle}>
                 Save U-Crane Booking
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/dashboard")}
-                style={{ ...buttonStyle, backgroundColor: "#ccc", color: "#000" }}
+                style={{
+                  ...buttonStyle,
+                  backgroundColor: "#ffffff",
+                  color: "#0f172a",
+                  border: "1px solid #c8d6e3",
+                  boxShadow: "none",
+                }}
               >
                 Cancel
               </button>
@@ -820,13 +850,17 @@ export default function CreateBookingPage() {
 
           <div
             style={{
-              marginTop: 40,
-              padding: 20,
-              backgroundColor: "#e0f7fa",
+              marginTop: 12,
+              padding: 14,
+              backgroundColor: "#ffffff",
+              border: "1px solid #d7dee8",
               borderRadius: 8,
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
             }}
           >
-            <h2 style={{ marginBottom: 10 }}>Booking Summary</h2>
+            <h2 style={{ margin: "0 0 10px", color: "#0f172a", fontSize: "16px" }}>
+              Booking Summary
+            </h2>
 
             <p>
               <strong>Job Number:</strong> {jobNumber}
@@ -905,13 +939,15 @@ export default function CreateBookingPage() {
 
 const buttonStyle = {
   marginRight: "10px",
-  marginTop: "10px",
+  marginTop: "0",
   padding: "8px 12px",
-  backgroundColor: "#4caf50",
+  backgroundColor: "#1f4b7a",
   color: "#fff",
-  border: "none",
-  borderRadius: "4px",
+  border: "1px solid #1f4b7a",
+  borderRadius: "8px",
   cursor: "pointer",
+  fontWeight: 800,
+  boxShadow: "0 8px 18px rgba(31, 75, 122, 0.16)",
 };
 
 const navButton = {

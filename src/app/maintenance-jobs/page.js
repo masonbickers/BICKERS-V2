@@ -5,6 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { auth, db } from "../../../firebaseConfig";
 import {
+  ArrowLeft,
+  CalendarCheck2,
+  CheckCircle2,
+  ClipboardList,
+  FileCheck2,
+  PlayCircle,
+  Plus,
+  Save,
+  Search,
+  Wrench,
+} from "lucide-react";
+import {
   addDoc,
   collection,
   getDocs,
@@ -28,43 +40,93 @@ import {
 } from "../utils/maintenanceWorkflowSpec";
 
 const UI = {
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  border: "1px solid #e5e7eb",
-  brand: "#1d4ed8",
-  softBlue: "#eff6ff",
-  softBlueBorder: "#bfdbfe",
-  softBlueText: "#1d4ed8",
+  muted: "#5f6f82",
+  border: "1px solid #d7dee8",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  danger: "#dc2626",
+  amber: "#d97706",
+  green: "#16a34a",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const card = { background: UI.card, border: UI.border, borderRadius: 12, padding: 14 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const card = { ...surface, padding: 12 };
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+const h1 = { margin: 0, color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0 };
+const sub = { marginTop: 6, color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
+  flexWrap: "wrap",
+};
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 const input = {
   width: "100%",
+  minHeight: 38,
   padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   background: "#fff",
   color: UI.text,
   fontSize: 13,
+  outline: "none",
 };
-const btn = (kind = "ghost") => ({
-  padding: "9px 12px",
-  borderRadius: 10,
-  border: kind === "primary" ? "1px solid #1d4ed8" : "1px solid #d1d5db",
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
-  fontWeight: 800,
-  cursor: "pointer",
-});
+const btn = (kind = "ghost") => {
+  const primary = kind === "primary";
+  return {
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+    background: primary
+      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
+      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    color: primary ? "#fff" : UI.text,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    boxShadow: primary
+      ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)"
+      : "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+  };
+};
 
-const statCard = {
-  background: "#fff",
-  border: UI.border,
-  borderRadius: 12,
-  padding: "12px 14px",
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const theadTh = {
+  ...thtd,
+  fontWeight: 900,
+  color: UI.muted,
+  background: "#f6f8fb",
+  fontSize: 11.5,
+  textTransform: "uppercase",
+  letterSpacing: 0,
 };
 
 const fmtDateTime = (raw) => {
@@ -77,6 +139,15 @@ const fmtDateTime = (raw) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const fmtDate = (value) => {
+  const raw = String(value || "").trim();
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = value?.toDate ? value.toDate() : value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return raw || "-";
+  return d.toLocaleDateString("en-GB");
 };
 
 const buildJobDraft = (job = {}) => ({
@@ -421,72 +492,71 @@ export default function MaintenanceJobsPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{`
+        input:focus, button:focus, select:focus, textarea:focus {
+          outline: none;
+          box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
+          border-color: #9fb7cf !important;
+        }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        .maintenance-jobs-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        .maintenance-jobs-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .maintenance-jobs-form-grid {
+          display: grid;
+          gap: 8px;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        .maintenance-jobs-filter-grid {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) 220px;
+          gap: 10px;
+          align-items: center;
+        }
+        @media (max-width: 1180px) {
+          .maintenance-jobs-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .maintenance-jobs-filter-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 720px) {
+          .maintenance-jobs-kpi-grid, .maintenance-jobs-filter-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <div style={pageWrap}>
-        <div style={{ ...card, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={headerBar}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 26, color: UI.text }}>Maintenance Jobs</h1>
-              <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
+              <h1 style={h1}>Maintenance Jobs</h1>
+              <div style={sub}>
                 Plan, track, complete, and close workshop jobs from one place.
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" style={btn()} onClick={() => router.push("/vehicle-home")}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push("/vehicle-home")}>
+                <ArrowLeft size={15} />
                 Back to Vehicle Home
               </button>
             </div>
-          </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
-          <div style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Total jobs</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.total}</div>
-          </div>
-          <div style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Planned</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.planned}</div>
-          </div>
-          <div style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Active</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.active}</div>
-          </div>
-          <div style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Commercial</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.commercial}</div>
-          </div>
-          <div style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>Closed</div>
-            <div style={{ marginTop: 6, fontSize: 24, fontWeight: 900, color: UI.text }}>{jobStats.closed}</div>
-          </div>
+        <div className="maintenance-jobs-kpi-grid">
+          <SummaryCard label="Total Jobs" value={jobStats.total} sub="All maintenance job cards" icon={ClipboardList} tone="brand" />
+          <SummaryCard label="Planned" value={jobStats.planned} sub="Needs booking detail" icon={CalendarCheck2} tone="soft" />
+          <SummaryCard label="Active" value={jobStats.active} sub="Booked or in progress" icon={PlayCircle} tone="amber" />
+          <SummaryCard label="Commercial" value={jobStats.commercial} sub="Completed or invoice-ready" icon={FileCheck2} tone="ok" />
+          <SummaryCard label="Closed" value={jobStats.closed} sub="Finished workflow" icon={CheckCircle2} tone="default" />
         </div>
 
         <div style={{ ...card, marginBottom: 14 }}>
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Create Job Card</div>
-          <div
-            style={{
-              marginBottom: 10,
-              border: `1px solid ${UI.softBlueBorder}`,
-              background: UI.softBlue,
-              color: UI.softBlueText,
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 13,
-              lineHeight: 1.45,
-              fontWeight: 700,
-            }}
-          >
-            Keep job creation lean here. Add the workflow details in the table only when the job is actually booked,
-            assigned, completed, or ready to invoice.
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Create Job Card</h2>
+              <div style={hint}>Start a maintenance job, then complete workflow details in the queue below.</div>
+            </div>
           </div>
-          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+          <div className="maintenance-jobs-form-grid">
             <select value={form.assetId} onChange={(e) => setForm((p) => ({ ...p, assetId: e.target.value }))} style={input}>
               <option value="">Select asset...</option>
               {vehicleOptions.map((v) => (
@@ -515,10 +585,11 @@ export default function MaintenanceJobsPage() {
             placeholder="Notes"
             value={form.notes}
             onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-            style={{ ...input, marginTop: 8, minHeight: 80, resize: "vertical" }}
+            style={{ ...input, marginTop: 8, minHeight: 64, resize: "vertical" }}
           />
           <div style={{ marginTop: 8 }}>
             <button type="button" style={btn("primary")} onClick={createJob} disabled={saving}>
+              <Plus size={14} />
               {saving ? "Saving..." : "Create Job"}
             </button>
           </div>
@@ -548,10 +619,10 @@ export default function MaintenanceJobsPage() {
             <div
               style={{
                 marginBottom: 10,
-                border: `1px solid ${UI.softBlueBorder}`,
-                background: UI.softBlue,
-                color: UI.softBlueText,
-                borderRadius: 10,
+                border: `1px solid ${UI.brandBorder}`,
+                background: UI.brandSoft,
+                color: UI.brand,
+                borderRadius: UI.radius,
                 padding: "10px 12px",
                 fontSize: 13,
                 lineHeight: 1.45,
@@ -561,14 +632,42 @@ export default function MaintenanceJobsPage() {
               Opened from dashboard. The selected job row is highlighted below.
             </div>
           ) : null}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <input
-              type="text"
-              placeholder="Search jobs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ ...input, maxWidth: 260 }}
-            />
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Job Queue</h2>
+              <div style={hint}>Update booking, completion, cost, invoice and workflow stage from each row.</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <span
+                style={{
+                  padding: "5px 9px",
+                  borderRadius: 999,
+                  border: `1px solid ${UI.brandBorder}`,
+                  background: UI.brandSoft,
+                  color: UI.brand,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Showing {visibleJobs.length} / {jobs.length}
+              </span>
+            </div>
+          </div>
+          <div className="maintenance-jobs-filter-grid" style={{ ...surface, boxShadow: "none", padding: 12, marginBottom: 12 }}>
+            <label style={{ position: "relative", display: "block" }}>
+              <Search
+                size={16}
+                style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
+              />
+              <input
+                type="text"
+                placeholder="Search jobs..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ ...input, paddingLeft: 34 }}
+              />
+            </label>
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ ...input, maxWidth: 220 }}>
               <option value="all">All statuses</option>
               {MAINTENANCE_JOB_WORKFLOW_STAGES.map((s) => (
@@ -579,24 +678,19 @@ export default function MaintenanceJobsPage() {
             </select>
           </div>
 
-          <div style={{ marginBottom: 10, color: UI.muted, fontSize: 12.5, lineHeight: 1.5 }}>
-            Each row is designed as one complete job workspace: save the commercial and completion details in the
-            "Workflow Details" column, then move the stage when the row is ready.
-          </div>
-
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", minWidth: 1280, borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
+                <tr>
                   {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Workflow Details", "Status", "Updated"].map((h) => (
-                    <th key={h} style={{ textAlign: "left", padding: "9px 10px", borderBottom: "1px solid #e5e7eb" }}>{h}</th>
+                    <th key={h} style={{ ...theadTh, textAlign: "left" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {visibleJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: 12, color: UI.muted }}>
+                    <td colSpan={9} style={{ ...thtd, color: UI.muted }}>
                       No maintenance jobs.
                     </td>
                   </tr>
@@ -613,15 +707,15 @@ export default function MaintenanceJobsPage() {
                         if (node) rowRefs.current[j.id] = node;
                         else delete rowRefs.current[j.id];
                       }}
-                      style={isFocused ? { background: "#eff6ff" } : undefined}
+                      style={isFocused ? { background: UI.brandSoft } : { background: "#fff" }}
                     >
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", fontWeight: 800 }}>{j.title || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.assetLabel || j.assetId || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.type || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.priority || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.dueDate || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>{j.plannedDate || "-"}</td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", minWidth: 320 }}>
+                      <td style={{ ...thtd, fontWeight: 800, color: UI.text }}>{j.title || "-"}</td>
+                      <td style={thtd}>{j.assetLabel || j.assetId || "-"}</td>
+                      <td style={thtd}>{j.type || "-"}</td>
+                      <td style={thtd}>{j.priority || "-"}</td>
+                      <td style={thtd}>{fmtDate(j.dueDate)}</td>
+                      <td style={thtd}>{fmtDate(j.plannedDate)}</td>
+                      <td style={{ ...thtd, minWidth: 320 }}>
                         <div style={{ display: "grid", gap: 6 }}>
                           <input
                             type="text"
@@ -678,11 +772,12 @@ export default function MaintenanceJobsPage() {
                             onClick={() => saveJobDetails(j)}
                             disabled={isSavingRow}
                           >
+                            <Save size={14} />
                             {isSavingRow ? "Saving..." : "Save details"}
                           </button>
                         </div>
                       </td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={thtd}>
                         <select
                           value={stage}
                           onChange={(e) => setJobStatus(j, e.target.value)}
@@ -701,7 +796,7 @@ export default function MaintenanceJobsPage() {
                           </div>
                         ) : null}
                       </td>
-                      <td style={{ padding: "9px 10px", borderBottom: "1px solid #f1f5f9", color: UI.muted }}>
+                      <td style={{ ...thtd, color: UI.muted }}>
                         {fmtDateTime(j.updatedAt || j.updatedAtServer)}
                       </td>
                     </tr>
@@ -713,5 +808,57 @@ export default function MaintenanceJobsPage() {
         </div>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench }) {
+  const toneStyles =
+    tone === "danger"
+      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      : tone === "amber"
+      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      : tone === "ok"
+      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      : tone === "brand" || tone === "soft"
+      ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
+      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+
+  return (
+    <div
+      style={{
+        ...card,
+        minHeight: 96,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 26, lineHeight: 1.05, fontWeight: 900, color: toneStyles.fg, marginTop: 6 }}>{value}</div>
+        </div>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: UI.radiusSm,
+            border: `1px solid ${toneStyles.border}`,
+            background: toneStyles.bg,
+            color: toneStyles.fg,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 auto",
+          }}
+        >
+          <Icon size={17} />
+        </span>
+      </div>
+      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+    </div>
   );
 }

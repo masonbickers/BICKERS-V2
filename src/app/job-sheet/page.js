@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   collection,
@@ -11,77 +11,138 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Columns3,
+  Filter,
+  LayoutGrid,
+  List,
+  RefreshCcw,
+  Search,
+  Table2,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (visual only)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 16,
-  radiusSm: 10,
-  gap: 14,
-  shadowSm: "0 10px 26px rgba(15,23,42,0.06)",
-  shadowHover: "0 16px 34px rgba(15,23,42,0.1)",
-  border: "1px solid #dbe2ea",
-  bg: "#eef3f7",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
-  brand: "#183f67",
-  brandSoft: "#edf2f7",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
 };
 
-const pageWrap = { padding: "18px 16px 28px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" };
-const h1 = { color: "#0f172a", fontSize: 28, lineHeight: 1.08, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
-const surface = { background: "#ffffff", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const headerBar = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" };
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const toolbar = {
   ...surface,
   padding: 12,
   display: "grid",
-  gridTemplateColumns: "1fr auto auto auto auto auto auto auto auto auto",
-  gap: 8,
+  gridTemplateColumns: "minmax(260px, 1fr) auto auto repeat(5, minmax(130px, auto)) auto",
+  gap: UI.gap,
   alignItems: "center",
   position: "sticky",
   top: 12,
   zIndex: 2,
   backdropFilter: "saturate(180%) blur(6px)",
-  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  background: "rgba(255,255,255,0.96)",
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", padding: "9px 42px 9px 34px", borderRadius: UI.radiusSm, border: "1px solid #d6dee8", fontSize: 13.5, outline: "none", background: "#fff" };
-const searchIcon = { position: "absolute", left: 10, width: 18, height: 18, opacity: 0.6 };
+const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "#fff", color: UI.text };
+const searchIcon = { position: "absolute", left: 10, width: 17, height: 17, color: UI.muted };
 
 const pillBtn = (active = false) => ({
-  padding: "7px 11px",
-  borderRadius: 999,
-  border: active ? `1px solid ${UI.brand}` : "1px solid #d6dee8",
-  background: active ? UI.brandSoft : "#fff",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "6px 9px",
+  borderRadius: UI.radiusSm,
+  border: active ? `1px solid ${UI.brand}` : UI.border,
+  background: active ? UI.brandSoft : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
   color: active ? UI.brand : UI.text,
-  fontSize: 11.5,
+  fontSize: 12.5,
   fontWeight: 800,
   cursor: "pointer",
   boxShadow: active ? "0 8px 18px rgba(24,63,103,0.12)" : "none",
+  whiteSpace: "nowrap",
 });
 
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
-const select = { padding: "7px 10px", borderRadius: UI.radiusSm, border: "1px solid #d6dee8", background: "#fff", fontSize: 12.5, minWidth: 140 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #cad6e2", background: UI.brandSoft, color: UI.brand, fontSize: 11.5, fontWeight: 800 };
-const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginTop: 12 };
-const statCard = { ...surface, padding: 14, background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)" };
+const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "#fff", color: UI.text, fontSize: 12.5, minWidth: 140 };
+const chip = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
+  borderRadius: 999,
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
+  color: UI.brand,
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: UI.gap, marginTop: UI.gap };
+const statCard = { ...surface, padding: 12 };
 
-const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "18px 2px 10px", flexWrap: "wrap" };
-const weekTitle = { fontSize: 15, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.01em" };
+const sectionHeader = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, margin: "18px 2px 10px", flexWrap: "wrap" };
+const weekTitle = { fontSize: 16, fontWeight: 800, color: UI.text, letterSpacing: 0, margin: 0 };
 const tinyHint = { color: UI.muted, fontSize: 12 };
 const emptyWrap = { ...surface, padding: 20, display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 13.5 };
 const gridWrap = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
 const listWrap = { display: "grid", gap: 10 };
 
-/* ───────────────────────────────────────────
-   Week helpers
-─────────────────────────────────────────── */
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const focusCss = `
+  input:focus, select:focus, button:focus, a:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  @media (max-width: 1180px) {
+    .job-sheet-toolbar,
+    .job-sheet-stat-grid { grid-template-columns: 1fr !important; }
+  }
+`;
+
+/* Week helpers */
 function getMonday(d) {
   const date = new Date(d);
   const day = date.getDay();
@@ -93,12 +154,10 @@ function getMonday(d) {
 function formatWeekRange(monday) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
+  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} to ${sunday.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`;
 }
 
-/* ───────────────────────────────────────────
-   Date + job helpers
-─────────────────────────────────────────── */
+/* Date + job helpers */
 const fmtDate = (d) =>
   d ? d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : "TBC";
 
@@ -143,9 +202,7 @@ const getJobPrefix = (job) => (job.jobNumber ? job.jobNumber.toString().split("-
 // Only allow 4-digit job numbers
 const isFourDigitJob = (job) => /^\d{4}$/.test(String(job.jobNumber ?? "").trim());
 
-/* ───────────────────────────────────────────
-   Classification (your original rules)
-─────────────────────────────────────────── */
+/* Classification */
 const CONFIRMED_LIKE = new Set([
   "confirmed",
   "pending",
@@ -183,12 +240,10 @@ const classify = (job, todayMidnight) => {
   const confirmedFlag = job.confirmed === true || job.isConfirmed === true;
   if (confirmedFlag || CONFIRMED_LIKE.has(status)) return "Complete Jobs";
 
-  return "Passed — Not Confirmed";
+  return "Passed - Not Confirmed";
 };
 
-/* ───────────────────────────────────────────
-   Status badge helpers (show ACTUAL status in Complete Jobs)
-─────────────────────────────────────────── */
+/* Status badge helpers */
 const prettifyStatus = (raw) => {
   const s = (raw || "").toString().trim().toLowerCase();
 
@@ -202,7 +257,7 @@ const prettifyStatus = (raw) => {
   if (s === "first pencil") return "First Pencil";
   if (s === "second pencil") return "Second Pencil";
 
-  // Otherwise: title-case whatever it is (keep it “actual”)
+  // Otherwise: title-case whatever it is.
   return s
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
@@ -223,25 +278,25 @@ const displayStatusForSection = (job, section) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: UI.brandSoft, border: UI.brandBorder, text: UI.brand };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: UI.greenSoft, border: UI.greenBorder, text: UI.green };
     case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+      return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
     case "Complete":
-            return { bg: "#97f59bff", border: "#419e50ff", text: "#10301aff" };
+      return { bg: UI.greenSoft, border: UI.greenBorder, text: UI.green };
     case "Confirmed":
-      return { bg: "#fffd98ff", border: "#c7d134ff", text: "#504c1aff" };
+      return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
     case "First Pencil":
-      return { bg: "#78b8ecff", border: "#2c28ffff", text: "#001affff" };
+      return { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" };
     case "Second Pencil":
-      return { bg: "#fd9a9aff", border: "#f33131ff", text: "#8b1212ff" };
+      return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "#f8fafc", border: "#e2e8f0", text: UI.muted };
     default:
-      return { bg: "#acacacff", border: "#3f3f3fff", text: "#000000ff" };
+      return { bg: "#f8fafc", border: "#dbe5ef", text: UI.text };
   }
 };
 
@@ -300,17 +355,13 @@ const StatusBadge = ({ job, section }) => {
   );
 };
 
-/* ───────────────────────────────────────────
-   Table styles
-─────────────────────────────────────────── */
-const tableWrap = { overflow: "auto", border: "1px solid #dde5ee", borderRadius: 12, background: "#fff", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)" };
+/* Table styles */
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "#fff", boxShadow: UI.shadowSm };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
 const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #dde5ee", position: "sticky", top: 0, background: "#f7f9fc", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
 const td = { padding: "9px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
 
-/* ───────────────────────────────────────────
-   Page
-─────────────────────────────────────────── */
+/* Page */
 export default function JobSheetPage() {
   const [bookings, setBookings] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
@@ -382,7 +433,7 @@ export default function JobSheetPage() {
     return { byId, byReg, byName };
   }, [vehiclesData]);
 
-  const resolveVehicleNames = (job) => {
+  const resolveVehicleNames = useCallback((job) => {
     const list = Array.isArray(job?.vehicles) ? job.vehicles : [];
     const out = [];
 
@@ -418,7 +469,7 @@ export default function JobSheetPage() {
     }
 
     return Array.from(new Set(out));
-  };
+  }, [vehicleLookup]);
 
   const resolveEquipmentNames = (job) => {
     const eq = job?.equipment;
@@ -453,7 +504,7 @@ export default function JobSheetPage() {
     const grouped = {
       Upcoming: [],
       "Complete Jobs": [],
-      "Passed — Not Confirmed": [],
+      "Passed - Not Confirmed": [],
       "Ready to Invoice": [],
       Paid: [],
       "Needs Action": [],
@@ -478,7 +529,7 @@ export default function JobSheetPage() {
 
     applySort(grouped.Upcoming);
     applySort(grouped["Complete Jobs"]);
-    applySort(grouped["Passed — Not Confirmed"]);
+    applySort(grouped["Passed - Not Confirmed"]);
     applySort(grouped["Ready to Invoice"]);
     applySort(grouped.Paid);
     applySort(grouped["Needs Action"]);
@@ -488,7 +539,7 @@ export default function JobSheetPage() {
   }, [searched, todayMidnight, sortBy]);
 
   /* ---------- Build facets from the ACTIVE section ---------- */
-  const activeItemsBase = groups[activeSection] || [];
+  const activeItemsBase = useMemo(() => groups[activeSection] || [], [groups, activeSection]);
 
   const facets = useMemo(() => {
     const clients = new Set();
@@ -514,10 +565,10 @@ export default function JobSheetPage() {
       equipment: toList(equipment),
       employees: toList(employees),
     };
-  }, [activeItemsBase, activeSection, vehiclesData]);
+  }, [activeItemsBase, resolveVehicleNames]);
 
   /* ---------- Status filter helper ---------- */
-  const statusMatches = (job) => {
+  const statusMatches = useCallback((job) => {
     if (statusFilter === "all") return true;
 
     const raw = (job.status || "").toString().trim().toLowerCase();
@@ -540,7 +591,7 @@ export default function JobSheetPage() {
     if (statusFilter === "enquiries") return raw.includes("enquiry") || raw.includes("inquiry");
 
     return true;
-  };
+  }, [statusFilter, todayMidnight]);
 
   /* ---------- Apply filters to the ACTIVE section items ---------- */
   const activeItemsFiltered = useMemo(() => {
@@ -568,7 +619,7 @@ export default function JobSheetPage() {
 
       return true;
     });
-  }, [activeItemsBase, statusFilter, clientFilter, vehicleFilter, equipmentFilter, employeeFilter, todayMidnight, vehiclesData]);
+  }, [activeItemsBase, clientFilter, vehicleFilter, equipmentFilter, employeeFilter, resolveVehicleNames, statusMatches]);
 
   /* ---------- Group filtered items by week ---------- */
   const groupJobsByWeek = (jobs) => {
@@ -621,7 +672,7 @@ export default function JobSheetPage() {
   /* ---------- Counts per tab ---------- */
   const counts = {
     Upcoming: (groups.Upcoming || []).length,
-    "Passed — Not Confirmed": (groups["Passed — Not Confirmed"] || []).length,
+    "Passed - Not Confirmed": (groups["Passed - Not Confirmed"] || []).length,
     "Complete Jobs": (groups["Complete Jobs"] || []).length,
     "Ready to Invoice": (groups["Ready to Invoice"] || []).length,
     Paid: (groups.Paid || []).length,
@@ -653,7 +704,7 @@ export default function JobSheetPage() {
       await updateDoc(doc(db, "bookings", job.id), { status: "complete", completedAt: serverTimestamp() });
     } catch (e) {
       setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
-      alert("Couldn’t mark complete. Please try again.");
+      alert("Could not mark complete. Please try again.");
     }
   };
 
@@ -668,7 +719,7 @@ export default function JobSheetPage() {
       });
     } catch (e) {
       setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
-      alert("Couldn’t update job status. Please try again.");
+      alert("Could not update job status. Please try again.");
     }
   };
 
@@ -681,13 +732,24 @@ export default function JobSheetPage() {
     const team =
       Array.isArray(job.employees) && job.employees.length
         ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
-        : "—";
-    const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—";
-    const equipment = resolveEquipmentNames(job).length ? resolveEquipmentNames(job).join(", ") : "—";
+        : "-";
+    const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-";
+    const equipment = resolveEquipmentNames(job).length ? resolveEquipmentNames(job).join(", ") : "-";
 
     const prefix = getJobPrefix(job);
     const range = dateRangeLabel(job);
     const statusBadge = <StatusBadge job={job} section={section} />;
+    const actionButton = {
+      padding: "5px 8px",
+      borderRadius: UI.radiusSm,
+      border: UI.border,
+      background: "#ffffff",
+      color: UI.text,
+      fontSize: 11.5,
+      fontWeight: 800,
+      cursor: "pointer",
+      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+    };
 
     if (ultra) {
       return (
@@ -699,12 +761,12 @@ export default function JobSheetPage() {
             alignItems: "center",
             gap: 8,
             padding: "8px 10px",
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            background: "#fff",
+            border: UI.border,
+            borderRadius: UI.radius,
+            background: UI.card,
             textDecoration: "none",
-            color: "#0f172a",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+            color: UI.text,
+            boxShadow: UI.shadowSm,
             transition: "transform .12s ease, box-shadow .12s ease, border-color .12s ease",
           }}
         >
@@ -713,11 +775,11 @@ export default function JobSheetPage() {
               {prefix}
             </span>
             <span style={{ fontWeight: 900, fontSize: 13.5 }}>#{job.jobNumber || job.id}</span>
-            <span style={{ opacity: 0.45 }}>•</span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{job.client || "—"}</span>
-            <span style={{ opacity: 0.45 }}>•</span>
-            <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis" }}>{job.location || "—"}</span>
-            <span style={{ opacity: 0.45 }}>•</span>
+            <span style={{ opacity: 0.45 }}>-</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{job.client || "-"}</span>
+            <span style={{ opacity: 0.45 }}>-</span>
+            <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis" }}>{job.location || "-"}</span>
+            <span style={{ opacity: 0.45 }}>-</span>
             <span style={{ opacity: 0.7 }}>{range}</span>
           </div>
 
@@ -729,7 +791,7 @@ export default function JobSheetPage() {
                 e.preventDefault();
                 updateJobStatus(job, "complete");
               }}
-              style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+              style={actionButton}
               title="Mark complete"
             >
               Mark complete
@@ -751,15 +813,16 @@ export default function JobSheetPage() {
     const baseCard = {
       display: "flex",
       flexDirection: "column",
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 12,
+      background: UI.card,
+      border: UI.border,
+      borderRadius: UI.radius,
       padding: denseNow ? 10 : 12,
       gap: denseNow ? 6 : 8,
       textDecoration: "none",
-      color: "#0f172a",
-      boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+      color: UI.text,
+      boxShadow: UI.shadowSm,
       transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
+      transform: "none",
       outline: "none",
     };
 
@@ -767,7 +830,7 @@ export default function JobSheetPage() {
       <Link
         href={`/job-numbers/${job.id}`}
         style={baseCard}
-        onMouseEnter={(e) => Object.assign(e.currentTarget.style, { transform: "translateY(-1px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" })}
+        onMouseEnter={(e) => Object.assign(e.currentTarget.style, { transform: "translateY(-1px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder })}
         onMouseLeave={(e) => Object.assign(e.currentTarget.style, baseCard)}
       >
         {/* Header */}
@@ -792,7 +855,7 @@ export default function JobSheetPage() {
             >
               {getJobPrefix(job)}
             </span>
-            <span style={{ fontWeight: 900, fontSize: 15, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span style={{ fontWeight: 900, fontSize: 15, letterSpacing: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               Job #{job.jobNumber || job.id}
             </span>
           </div>
@@ -804,10 +867,10 @@ export default function JobSheetPage() {
         {/* Info grid */}
         <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: denseNow ? 4 : 6, columnGap: denseNow ? 8 : 10, fontSize: 13.5, lineHeight: 1.32 }}>
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
-          <span>{job.client || "—"}</span>
+          <span>{job.client || "-"}</span>
 
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
-          <span>{job.location || "—"}</span>
+          <span>{job.location || "-"}</span>
 
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
           <span>{range}</span>
@@ -816,19 +879,17 @@ export default function JobSheetPage() {
           <span>
             {Array.isArray(job.employees) && job.employees.length
               ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
-              : "—"}
+              : "-"}
           </span>
 
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
-          <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—"}</span>
+          <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-"}</span>
 
           <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
           <span>{equipment}</span>
         </div>
 
 
-          <span style={{ color: "#94a3b8", fontSize: 11, letterSpacing: ".02em" }}>View →</span>
-        
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
           <CheckBadge label="Notes" ok={checks.notes} />
           <CheckBadge label="PO" ok={checks.po} />
@@ -843,7 +904,7 @@ export default function JobSheetPage() {
                 e.preventDefault();
                 updateJobStatus(job, "Ready to Invoice");
               }}
-              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+              style={actionButton}
             >
               Ready
             </button>
@@ -853,7 +914,7 @@ export default function JobSheetPage() {
                 e.preventDefault();
                 updateJobStatus(job, "Action Required");
               }}
-              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+              style={actionButton}
             >
               Action
             </button>
@@ -863,12 +924,14 @@ export default function JobSheetPage() {
                 e.preventDefault();
                 updateJobStatus(job, "complete");
               }}
-              style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#ffffff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+              style={actionButton}
             >
               Complete
             </button>
           </div>
-          <span style={{ color: "#94a3b8", fontSize: 11, letterSpacing: ".02em" }}>Open job →</span>
+          <span style={{ color: UI.muted, fontSize: 11, letterSpacing: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            Open job <ChevronRight size={13} />
+          </span>
         </div>
       </Link>
     );
@@ -896,8 +959,8 @@ export default function JobSheetPage() {
             const team =
               Array.isArray(job.employees) && job.employees.length
                 ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
-                : "—";
-            const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "—";
+                : "-";
+            const vehicles = resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-";
 
             const checks = getCheckState(job);
 
@@ -908,8 +971,8 @@ export default function JobSheetPage() {
                     #{job.jobNumber || job.id}
                   </Link>
                 </td>
-                <td style={td}>{job.client || "—"}</td>
-                <td style={td}>{job.location || "—"}</td>
+                <td style={td}>{job.client || "-"}</td>
+                <td style={td}>{job.location || "-"}</td>
                 <td style={td}>{dateRangeLabel(job)}</td>
                 <td style={td}>{team}</td>
                 <td style={td}>{vehicles}</td>
@@ -976,27 +1039,29 @@ export default function JobSheetPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
       <div style={pageWrap}>
         {/* Header */}
         <div style={headerBar}>
           <div>
-            <h1 style={h1}>Jobs Overview (4-digit jobs)</h1>
-            <div style={sub}>Only showing bookings with a 4-digit job #. Week dividers + filters. “Complete Jobs” shows actual status.</div>
+            <h1 style={h1}>Jobs Overview</h1>
+            <div style={sub}>4-digit job view with week dividers, filters, density modes and live status checks.</div>
           </div>
-          <div style={{ ...chip, alignSelf: "center" }}>{loading ? "Loading…" : `${totalVisible} shown`}</div>
+          <div style={{ ...chip, alignSelf: "flex-start" }}>
+            <BriefcaseBusiness size={13} />
+            {loading ? "Loading..." : `${totalVisible} shown`}
+          </div>
         </div>
 
         {/* Toolbar */}
-        <div style={toolbar}>
+        <div className="job-sheet-toolbar" style={toolbar}>
           {/* Search */}
           <div style={searchWrap} title="Press / to focus">
-            <svg viewBox="0 0 24 24" fill="none" style={searchIcon} aria-hidden>
-              <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Search size={17} style={searchIcon} aria-hidden />
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search by job #, client, location, or notes…"
+              placeholder="Search by job #, client, location, or notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={searchInput}
@@ -1006,9 +1071,15 @@ export default function JobSheetPage() {
 
           {/* View toggle (3-way) */}
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setViewMode("grid")} style={pillBtn(viewMode === "grid")} aria-pressed={viewMode === "grid"}>Grid</button>
-            <button onClick={() => setViewMode("list")} style={pillBtn(viewMode === "list")} aria-pressed={viewMode === "list"}>List</button>
-            <button onClick={() => setViewMode("table")} style={pillBtn(viewMode === "table")} aria-pressed={viewMode === "table"}>Table</button>
+            <button onClick={() => setViewMode("grid")} style={pillBtn(viewMode === "grid")} aria-pressed={viewMode === "grid"}>
+              <LayoutGrid size={13} /> Grid
+            </button>
+            <button onClick={() => setViewMode("list")} style={pillBtn(viewMode === "list")} aria-pressed={viewMode === "list"}>
+              <List size={13} /> List
+            </button>
+            <button onClick={() => setViewMode("table")} style={pillBtn(viewMode === "table")} aria-pressed={viewMode === "table"}>
+              <Table2 size={13} /> Table
+            </button>
           </div>
 
           {/* Density + Sort */}
@@ -1019,9 +1090,9 @@ export default function JobSheetPage() {
               <option value="ultra">Ultra</option>
             </select>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={select} aria-label="Sort by">
-              <option value="dateAsc">Date ↑ (first)</option>
-              <option value="dateDesc">Date ↓ (recent)</option>
-              <option value="client">Client A–Z</option>
+              <option value="dateAsc">Date asc (first)</option>
+              <option value="dateDesc">Date desc (recent)</option>
+              <option value="client">Client A-Z</option>
               <option value="job">Job #</option>
             </select>
           </div>
@@ -1064,7 +1135,9 @@ export default function JobSheetPage() {
             ))}
           </select>
 
-          <button onClick={clearFilters} style={pillBtn(false)} aria-label="Clear filters">Clear</button>
+          <button onClick={clearFilters} style={pillBtn(false)} aria-label="Clear filters">
+            <RefreshCcw size={13} /> Clear
+          </button>
         </div>
 
         {/* Tabs */}
@@ -1073,7 +1146,7 @@ export default function JobSheetPage() {
             <div style={tabsWrap}>
               {[
                 "Upcoming",
-                "Passed — Not Confirmed",
+                "Passed - Not Confirmed",
                 "Complete Jobs",
                 "Ready to Invoice",
                 "Paid",
@@ -1088,37 +1161,57 @@ export default function JobSheetPage() {
                 );
               })}
             </div>
-            <span style={tinyHint}>Tip: ⌘/Ctrl+G cycles Grid → List → Table</span>
+            <span style={tinyHint}>Tip: Ctrl+G cycles Grid / List / Table</span>
           </div>
         </div>
 
-        <div style={statGrid}>
+        <div className="job-sheet-stat-grid" style={statGrid}>
           <div style={statCard}>
-            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Active Section
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Active Section
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{activeSection}</div>
+              </div>
+              <span style={iconBox()}><Columns3 size={17} /></span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{activeSection}</div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{totalVisible} jobs match the current view</div>
           </div>
           <div style={statCard}>
-            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Notes Filled
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Notes Filled
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
+              </div>
+              <span style={iconBox(UI.brand, "#f8fafc", "#dbe5ef")}><Filter size={17} /></span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with notes entered</div>
           </div>
           <div style={statCard}>
-            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              PO Filled
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  PO Filled
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.po}</div>
+              </div>
+              <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CheckCircle2 size={17} /></span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.po}</div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with PO added</div>
           </div>
           <div style={statCard}>
-            <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Quote Attached
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Quote Attached
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.quote}</div>
+              </div>
+              <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><CalendarDays size={17} /></span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.quote}</div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with an uploaded file</div>
           </div>
         </div>
@@ -1126,9 +1219,9 @@ export default function JobSheetPage() {
         {/* Content */}
         <div style={{ marginTop: 14 }}>
           {loading ? (
-            <div style={emptyWrap}>Loading jobs…</div>
+            <div style={emptyWrap}>Loading jobs...</div>
           ) : !weekKeys.length ? (
-            <div style={emptyWrap}>No jobs match your filters in “{activeSection}”.</div>
+            <div style={emptyWrap}>No jobs match your filters in {activeSection}.</div>
           ) : (
             weekKeys.map((mondayTS) => {
               const monday = new Date(Number(mondayTS));
@@ -1139,7 +1232,7 @@ export default function JobSheetPage() {
                     <h2 style={weekTitle}>{formatWeekRange(monday)} ({weekJobs.length})</h2>
                     <span style={tinyHint}>
                       {new Date(Number(mondayTS)).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                      {" – "}
+                      {" to "}
                       {new Date(Number(mondayTS) + 6 * 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                     </span>
                   </div>

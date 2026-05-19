@@ -25,10 +25,21 @@ import {
   CartesianGrid,
   LabelList,
 } from "recharts";
+import {
+  BarChart3,
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileText,
+  ShieldCheck,
+  Timer,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Admin allow-list
-─────────────────────────────────────────── */
+/* Admin allow-list */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
@@ -38,17 +49,15 @@ const ADMIN_EMAILS = [
 /*  Hide specific employees from the holiday usage chart */
 const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  gap: 14,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
@@ -57,10 +66,19 @@ const UI = {
   brandBorder: "#c8d6e3",
   accent: "#8b5e3c",
   accentSoft: "#f5ede6",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fee2e2",
+  redBorder: "#fecaca",
 };
 
 const pageWrap = {
-  padding: "22px 18px 34px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
@@ -72,14 +90,7 @@ const headerBar = {
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = {
-  color: UI.text,
-  fontSize: 30,
-  lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
-  margin: 0,
-};
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = {
   background: UI.card,
@@ -89,13 +100,17 @@ const surface = {
 };
 
 const chip = {
-  padding: "7px 11px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const grid = (cols = 4) => ({
@@ -106,7 +121,7 @@ const grid = (cols = 4) => ({
 
 const card = {
   ...surface,
-  padding: 14,
+  padding: 12,
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
@@ -126,57 +141,81 @@ const sectionHeader = {
   flexWrap: "wrap",
 };
 
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 
 const btn = (kind = "primary") => {
   if (kind === "approve") {
     return {
-      padding: "8px 10px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #86efac",
-      background: "#d1fae5",
-      color: "#065f46",
+      border: `1px solid ${UI.greenBorder}`,
+      background: UI.greenSoft,
+      color: UI.green,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "decline") {
     return {
-      padding: "8px 10px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#991b1b",
+      border: `1px solid ${UI.redBorder}`,
+      background: UI.redSoft,
+      color: UI.red,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "ghost") {
     return {
-      padding: "10px 14px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
-      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 14px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
     boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
@@ -184,14 +223,14 @@ const btn = (kind = "primary") => {
 const tableWrap = {
   overflow: "auto",
   border: "1px solid #dde5ee",
-  borderRadius: 14,
+  borderRadius: UI.radius,
   background: "#fff",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
+const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
 const th = {
   textAlign: "left",
-  padding: "10px 12px",
+  padding: "9px 10px",
   borderBottom: "1px solid #dde5ee",
   position: "sticky",
   top: 0,
@@ -204,14 +243,14 @@ const th = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
+const td = { padding: "9px 10px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
 
 /* breakdown cell styles */
 const breakdownWrap = {
   maxHeight: 160,
   overflowY: "auto",
   border: "1px solid #dde5ee",
-  borderRadius: 12,
+  borderRadius: UI.radius,
   padding: "8px 10px",
   background: "#f7f9fc",
 };
@@ -227,7 +266,69 @@ const breakdownRow = (muted) => ({
   color: muted ? "#6b7280" : UI.text,
 });
 
-/* ───────── helpers ───────── */
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const statCard = {
+  ...card,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  minHeight: 82,
+};
+
+const statLabel = {
+  color: UI.muted,
+  fontSize: 11.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+};
+
+const statValue = {
+  color: UI.text,
+  fontSize: 25,
+  lineHeight: 1.1,
+  fontWeight: 850,
+  marginTop: 8,
+};
+
+const selectStyle = {
+  minHeight: 34,
+  padding: "6px 9px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  background: UI.card,
+  fontWeight: 800,
+  color: UI.text,
+  fontSize: 12.5,
+};
+
+const focusCss = `
+  select:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 1180px) {
+    .hr-main-grid,
+    .hr-stat-grid,
+    .hr-shortcut-grid { grid-template-columns: 1fr !important; }
+  }
+`;
+
+/* Helpers */
 const norm = (v) => String(v ?? "").trim().toLowerCase();
 const truthy = (v) =>
   v === true ||
@@ -287,8 +388,25 @@ function sameYMD(a, b) {
     a.getDate() === b.getDate()
   );
 }
+
+function StatCard({ labelText, value, suffix, icon: Icon, color, bg, border, textValue = false }) {
+  return (
+    <section style={statCard}>
+      <div>
+        <div style={statLabel}>{labelText}</div>
+        <div style={{ ...statValue, fontSize: textValue ? 19 : statValue.fontSize }}>
+          {value}
+          {suffix ? <span style={{ marginLeft: 6, color: UI.muted, fontSize: 12.5, fontWeight: 800 }}>{suffix}</span> : null}
+        </div>
+      </div>
+      <span style={iconBox(color, bg, border)}>
+        <Icon size={17} />
+      </span>
+    </section>
+  );
+}
 function fmt(d) {
-  if (!d) return "—";
+  if (!d) return "-";
   return d.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "2-digit",
@@ -460,7 +578,7 @@ const isPaidHoliday = (h = {}) => {
   return false;
 };
 
-/* ───────── page ───────── */
+/* Page */
 export default function HRPage() {
   const router = useRouter();
 
@@ -565,7 +683,7 @@ export default function HRPage() {
       });
       setDeleteRequestedHolidays(delPending);
 
-      //  Approved usage for selected year (PAID ONLY) — excludes weekends + bank holidays
+      // Approved usage for selected year (paid only) - excludes weekends and bank holidays
       const approved = all.filter((h) => {
         const st = String(h.status || "").toLowerCase();
         const y = holidayYear(h);
@@ -712,24 +830,40 @@ export default function HRPage() {
       title: "Holiday Request Form",
       description: "Submit and track time off requests.",
       link: "/holiday-form",
+      icon: CalendarClock,
+      color: UI.brand,
+      bg: UI.brandSoft,
+      border: UI.brandBorder,
     },
     {
       key: "holidayUsage",
       title: "View Holiday Usage",
       description: "Check how much holiday each employee has used.",
       link: "/holiday-usage",
+      icon: BarChart3,
+      color: UI.green,
+      bg: UI.greenSoft,
+      border: UI.greenBorder,
     },
     {
       key: "timesheets",
       title: "Timesheets",
       description: "View, submit, and track weekly timesheets.",
       link: "/timesheets",
+      icon: Timer,
+      color: UI.amber,
+      bg: UI.amberSoft,
+      border: UI.amberBorder,
     },
     {
       key: "policy",
       title: "HR Policy Manual",
       description: "View company policies and employee handbook.",
       link: "/hr-policies",
+      icon: BookOpen,
+      color: "#7c3aed",
+      bg: "#f5f3ff",
+      border: "#ddd6fe",
     },
   ];
 
@@ -775,8 +909,14 @@ export default function HRPage() {
     return Math.max(5, Math.ceil(m + 1));
   }, [usageData]);
 
+  const totalUsedDays = useMemo(
+    () => usageData.reduce((sum, row) => sum + (Number(row.used) || 0), 0),
+    [usageData]
+  );
+
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
       <div style={pageWrap}>
         {/*  Render YOUR HolidayForm directly (no extra wrapper scroll / no extra close) */}
         {holidayModalOpen && (
@@ -804,7 +944,7 @@ export default function HRPage() {
                     color: UI.muted,
                   }}
                 >
-                  (View only — admin required to approve/decline)
+                  (View only - admin required to approve/decline)
                 </span>
               ) : null}
             </div>
@@ -822,31 +962,26 @@ export default function HRPage() {
             <select
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
-              style={{
-                padding: "10px 12px",
-                borderRadius: UI.radiusSm,
-                border: UI.border,
-                background: UI.card,
-                fontWeight: 800,
-                color: UI.text,
-              }}
+              style={selectStyle}
               title="Select year"
             >
               <option value={THIS_YEAR}>{THIS_YEAR}</option>
               <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
             </select>
 
-            <div style={chip}>{loading ? "Loading…" : `${requestedHolidays.length} requests`}</div>
+            <div style={chip}>
+              <Clock3 size={13} /> {loading ? "Loading..." : `${requestedHolidays.length} requests`}
+            </div>
 
             <div
               style={{
                 ...chip,
-                background: "#fff7ed",
-                borderColor: "#fed7aa",
-                color: "#9a3412",
+                background: UI.amberSoft,
+                borderColor: UI.amberBorder,
+                color: UI.amber,
               }}
             >
-              Delete requests: <b style={{ marginLeft: 6 }}>{deleteRequestedHolidays.length}</b>
+              <Trash2 size={13} /> Delete requests: <b>{deleteRequestedHolidays.length}</b>
             </div>
 
             <div
@@ -857,16 +992,54 @@ export default function HRPage() {
                 color: UI.brand,
               }}
             >
-              Paid usage entries: <b style={{ marginLeft: 6 }}>{usageData.length}</b>
+              <BarChart3 size={13} /> Paid usage entries: <b>{usageData.length}</b>
             </div>
           </div>
         </div>
 
+        <div className="hr-stat-grid" style={{ ...grid(4), marginBottom: UI.gap }}>
+          <StatCard
+            labelText="Pending approvals"
+            value={requestedHolidays.length}
+            icon={Clock3}
+            color={UI.brand}
+            bg={UI.brandSoft}
+            border={UI.brandBorder}
+          />
+          <StatCard
+            labelText="Delete requests"
+            value={deleteRequestedHolidays.length}
+            icon={Trash2}
+            color={UI.amber}
+            bg={UI.amberSoft}
+            border={UI.amberBorder}
+          />
+          <StatCard
+            labelText="Paid usage"
+            value={fmtNum(totalUsedDays)}
+            suffix="days"
+            icon={BarChart3}
+            color={UI.green}
+            bg={UI.greenSoft}
+            border={UI.greenBorder}
+          />
+          <StatCard
+            labelText="Access"
+            value={isAdmin ? "Admin" : "View only"}
+            icon={ShieldCheck}
+            color="#7c3aed"
+            bg="#f5f3ff"
+            border="#ddd6fe"
+            textValue
+          />
+        </div>
+
         {/* Top row: Chart + Requests */}
         <div
+          className="hr-main-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "1.15fr 0.85fr",
+            gridTemplateColumns: "minmax(0, 1.15fr) minmax(360px, 0.85fr)",
             gap: UI.gap,
             alignItems: "start",
           }}
@@ -874,18 +1047,25 @@ export default function HRPage() {
           {/*  Usage chart */}
           <section style={card}>
             <div style={sectionHeader}>
-              <div>
-                <h2 style={titleMd}>Holiday Usage Overview ({yearView})</h2>
-                <div style={hint}>
-                  Approved <b>paid</b> holiday taken per employee, excluding weekends and bank holidays. Half days are counted as 0.5 and allowance is shown alongside usage.
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
+                  <BarChart3 size={17} />
+                </span>
+                <div>
+                  <h2 style={titleMd}>Holiday Usage Overview ({yearView})</h2>
+                  <div style={hint}>
+                    Approved paid holiday by employee, excluding weekends and bank holidays.
+                  </div>
                 </div>
               </div>
-              <div style={chip}>Usage chart</div>
+              <div style={chip}>
+                <BarChart3 size={13} /> Usage chart
+              </div>
             </div>
 
             {usageData.length === 0 ? (
               <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
-                No approved paid holidays yet for {yearView}, so there’s nothing to chart.
+                No approved paid holidays yet for {yearView}, so there is nothing to chart.
               </div>
             ) : (
               <div style={{ width: "100%", height: 300 }}>
@@ -957,13 +1137,20 @@ export default function HRPage() {
             {/*  Requested holidays */}
             <section style={card}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={titleMd}>Holiday Approval Queue ({yearView})</h2>
-                  <div style={hint}>
-                    Pending requests for the selected year, including paid, unpaid and accrued leave.
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
+                    <Clock3 size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Holiday Approval Queue ({yearView})</h2>
+                    <div style={hint}>
+                      Pending requests for the selected year.
+                    </div>
                   </div>
                 </div>
-                <div style={chip}>{requestedHolidays.length}</div>
+                <div style={chip}>
+                  <Clock3 size={13} /> {requestedHolidays.length}
+                </div>
               </div>
 
               {!isAdmin ? (
@@ -1008,14 +1195,14 @@ export default function HRPage() {
                         style={{
                           ...surface,
                           padding: 10,
-                          borderRadius: 12,
+                          borderRadius: UI.radius,
                           boxShadow: "none",
                         }}
                       >
                         <div
                           style={{
                             display: "flex",
-                            alignItems: "baseline",
+                            alignItems: "flex-start",
                             justifyContent: "space-between",
                             gap: 10,
                           }}
@@ -1027,10 +1214,10 @@ export default function HRPage() {
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                          {fmt(fromD)} → {fmt(toD)}
+                          {fmt(fromD)} to {fmt(toD)}
                           {typeHint ? (
                             <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
-                              • {typeHint}
+                              - {typeHint}
                             </span>
                           ) : null}
                         </div>
@@ -1052,7 +1239,7 @@ export default function HRPage() {
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Approve"}
                           >
-                            Approve
+                            <CheckCircle2 size={14} /> Approve
                           </button>
                           <button
                             style={{
@@ -1065,14 +1252,14 @@ export default function HRPage() {
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Decline"}
                           >
-                            Decline
+                            <XCircle size={14} /> Decline
                           </button>
                           <button
                             style={btn("ghost")}
                             onClick={() => router.push("/holiday-usage")}
                             type="button"
                           >
-                            View usage →
+                            View usage <ChevronRight size={14} />
                           </button>
                         </div>
                       </div>
@@ -1091,14 +1278,19 @@ export default function HRPage() {
             {/*  Delete requested holidays */}
             <section style={card}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={titleMd}>Holiday Deletion Requests ({yearView})</h2>
-                  <div style={hint}>
-                    Employees have requested removal of an existing holiday entry. Admins can approve the permanent deletion or decline and restore the request.
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}>
+                    <Trash2 size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Holiday Deletion Requests ({yearView})</h2>
+                    <div style={hint}>
+                      Requests to remove an existing holiday entry.
+                    </div>
                   </div>
                 </div>
-                <div style={{ ...chip, background: "#fff7ed", borderColor: "#fed7aa", color: "#9a3412" }}>
-                  {deleteRequestedHolidays.length}
+                <div style={{ ...chip, background: UI.amberSoft, borderColor: UI.amberBorder, color: UI.amber }}>
+                  <Trash2 size={13} /> {deleteRequestedHolidays.length}
                 </div>
               </div>
 
@@ -1136,14 +1328,14 @@ export default function HRPage() {
                         style={{
                           ...surface,
                           padding: 10,
-                          borderRadius: 12,
+                          borderRadius: UI.radius,
                           boxShadow: "none",
                         }}
                       >
                         <div
                           style={{
                             display: "flex",
-                            alignItems: "baseline",
+                            alignItems: "flex-start",
                             justifyContent: "space-between",
                             gap: 10,
                           }}
@@ -1155,16 +1347,16 @@ export default function HRPage() {
                         </div>
 
                         <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
-                          {fmt(fromD)} → {fmt(toD)}
+                          {fmt(fromD)} to {fmt(toD)}
                           {typeHint ? (
                             <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
-                              • {typeHint}
+                              - {typeHint}
                             </span>
                           ) : null}
                         </div>
 
                         <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
-                          Requested by: <b style={{ color: UI.text }}>{h.deleteRequestedBy || "—"}</b>
+                          Requested by: <b style={{ color: UI.text }}>{h.deleteRequestedBy || "-"}</b>
                         </div>
 
                         <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1179,7 +1371,7 @@ export default function HRPage() {
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Approve delete"}
                           >
-                            Approve delete
+                            <CheckCircle2 size={14} /> Approve delete
                           </button>
 
                           <button
@@ -1193,7 +1385,7 @@ export default function HRPage() {
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Decline delete"}
                           >
-                            Decline
+                            <XCircle size={14} /> Decline
                           </button>
 
                           <button
@@ -1201,7 +1393,7 @@ export default function HRPage() {
                             onClick={() => router.push("/holiday-usage")}
                             type="button"
                           >
-                            View usage →
+                            View usage <ChevronRight size={14} />
                           </button>
                         </div>
                       </div>
@@ -1224,20 +1416,29 @@ export default function HRPage() {
           <div
             style={{
               display: "flex",
-              alignItems: "baseline",
+              alignItems: "flex-start",
               justifyContent: "space-between",
+              gap: 10,
               marginBottom: 6,
+              flexWrap: "wrap",
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>HR Shortcuts</div>
-            <div style={{ color: UI.muted, fontSize: 12.5 }}>Open related operational pages</div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>HR Shortcuts</div>
+              <div style={hint}>Open related operational pages.</div>
+            </div>
+            <div style={chip}>
+              <FileText size={13} /> {documents.length} links
+            </div>
           </div>
 
-          <div style={grid(4)}>
-            {documents.map((d, idx) => (
+          <div className="hr-shortcut-grid" style={grid(4)}>
+            {documents.map((d) => {
+              const Icon = d.icon || FileText;
+              return (
               <div
-                key={idx}
-                style={card}
+                key={d.key}
+                style={{ ...card, cursor: "pointer" }}
                 onClick={() => {
                   if (d.key === "holidayForm") return setHolidayModalOpen(true);
                   router.push(d.link);
@@ -1253,14 +1454,21 @@ export default function HRPage() {
                   }
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{d.title}</div>
-                  <span style={chip}>Open</span>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                    <span style={iconBox(d.color, d.bg, d.border)}>
+                      <Icon size={17} />
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: UI.text }}>{d.title}</div>
+                      <div style={{ marginTop: 5, color: UI.muted, fontSize: 12.5, lineHeight: 1.35 }}>{d.description}</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={17} color={UI.brand} />
                 </div>
-                <div style={{ marginTop: 5, color: UI.muted, fontSize: 13 }}>{d.description}</div>
-                <div style={{ marginTop: 8, fontWeight: 800, color: UI.brand }}>Open {"->"}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </div>

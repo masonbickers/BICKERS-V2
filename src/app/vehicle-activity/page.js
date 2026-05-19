@@ -3,6 +3,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
+import {
+  Activity,
+  AlertTriangle,
+  Car,
+  ClipboardCheck,
+  History,
+  RotateCcw,
+  Search,
+  Wrench,
+} from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { normalizeAssetRecord } from "../utils/maintenanceSchema";
@@ -15,12 +25,13 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
   `/vehicle-edit/${encodeURIComponent(vehicleId)}/service-history/${encodeURIComponent(serviceId)}`;
 
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  shadowHover: "0 18px 38px rgba(15,23,42,0.12)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
@@ -28,11 +39,14 @@ const UI = {
   brandSoft: "#edf3f8",
   brandBorder: "#c8d6e3",
   accent: "#8b5e3c",
+  danger: "#dc2626",
+  amber: "#d97706",
+  green: "#16a34a",
 };
 
-const pageWrap = { padding: "22px 18px 34px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const appShell = { maxWidth: 1380, margin: "0 auto", display: "grid", gap: 14 };
+const appShell = { display: "grid", gap: UI.gap };
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
@@ -67,13 +81,13 @@ const chip = {
   whiteSpace: "nowrap",
 };
 const chipSoft = { ...chip, color: UI.brand };
-const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
 const inputBase = {
   width: "100%",
-  minHeight: 40,
-  padding: "9px 11px",
+  minHeight: 38,
+  padding: "8px 10px",
   borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.brandBorder}`,
+  border: "1px solid #d7dee8",
   background: "#fff",
   color: UI.text,
   fontSize: 13,
@@ -92,19 +106,36 @@ const badge = (bg, fg) => ({
   lineHeight: "18px",
 });
 
-const btn = () => ({
-  padding: "6px 9px",
-  borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-  color: UI.text,
-  fontWeight: 800,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-  boxShadow: "0 4px 10px rgba(15,23,42,0.05)",
-  fontSize: 12.5,
-  lineHeight: 1.2,
-});
+const btn = (kind = "ghost") => {
+  const base = {
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    border: `1px solid ${UI.brandBorder}`,
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    color: UI.text,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  };
+
+  if (kind === "primary") {
+    return {
+      ...base,
+      borderColor: UI.brand,
+      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+      color: "#ffffff",
+      boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    };
+  }
+
+  return base;
+};
 
 const buildVehicleLabelFromObject = (v) => {
   if (!v) return "";
@@ -167,7 +198,7 @@ const resolveActivityDate = (...values) => {
 
 const formatActivityDate = (value) => {
   const dated = parseActivityDateCandidate(value);
-  if (!dated) return "—";
+  if (!dated) return "-";
   return dated.toLocaleString("en-GB", {
     day: "2-digit",
     month: "2-digit",
@@ -230,11 +261,9 @@ const isCheckLike = (item) => ["vehicle_check", "vehicle_prep", "mot_precheck", 
 
 const statCard = {
   ...surface,
-  padding: 14,
-  display: "grid",
-  gap: 4,
-  minHeight: 88,
-  boxShadow: "0 8px 22px rgba(15,23,42,0.055)",
+  padding: 12,
+  minHeight: 92,
+  boxShadow: UI.shadowSm,
 };
 
 const getActivityRoute = (activity) => {
@@ -537,14 +566,53 @@ export default function VehicleActivityPage() {
     setStatusFilter("all");
   };
 
+  const statItems = [
+    {
+      label: "All records",
+      value: stats.total,
+      note: "Everything logged across the fleet",
+      icon: History,
+      tone: "brand",
+    },
+    {
+      label: "Services",
+      value: stats.services,
+      note: "Full, minor and legacy services",
+      icon: Wrench,
+      tone: "ok",
+    },
+    {
+      label: "Repairs",
+      value: stats.repairs,
+      note: "Workshop repair records",
+      icon: Activity,
+      tone: "amber",
+    },
+    {
+      label: "Defects",
+      value: stats.defects,
+      note: `${stats.openDefects} currently open`,
+      icon: AlertTriangle,
+      tone: stats.openDefects ? "danger" : "ok",
+    },
+    {
+      label: "Checks & prep",
+      value: stats.checks,
+      note: "Driver checks, prep and MOT",
+      icon: ClipboardCheck,
+      tone: "brand",
+    },
+  ];
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <style>{`
+          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
           .vehicle-activity-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
           .vehicle-activity-filters { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 190px auto; gap: 10px; align-items: center; }
-          .vehicle-activity-list { display: grid; gap: 10px; }
-          .vehicle-activity-card:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover}; border-color: #bfd0df; }
+          .vehicle-activity-list { display: grid; gap: 8px; }
+          .vehicle-activity-card:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover}; border-color: ${UI.brandBorder}; }
           @media (max-width: 1180px) {
             .vehicle-activity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             .vehicle-activity-filters { grid-template-columns: 1fr 1fr; }
@@ -558,61 +626,66 @@ export default function VehicleActivityPage() {
           }
         `}</style>
         <div style={appShell}>
-        <section style={{ ...surface, padding: 18, overflow: "hidden" }}>
+        <section style={{ ...surface, padding: 12, overflow: "hidden" }}>
           <div style={sectionHeader}>
             <div>
               <div style={sectionTag}>Fleet timeline</div>
-              <h1 style={{ margin: "9px 0 0", fontSize: 30, fontWeight: 900, color: UI.text, letterSpacing: "-0.02em" }}>Vehicle activity history</h1>
+              <h1 style={{ margin: "9px 0 0", fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 }}>Vehicle activity history</h1>
               <div style={{ ...hint, marginTop: 8 }}>
                 Service work, repairs, defect reports, MOT pre-checks, prep, driver checks and reported issues in one searchable log.
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
               <span style={chipSoft}>Live data</span>
               <span style={chip}>{filteredActivity.length} / {activity.length} records</span>
-              <button type="button" style={btn()} onClick={() => router.push("/vehicle-home")}>
-                Back to vehicle home
+              <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-home")}>
+                <Car size={15} />
+                Vehicle home
               </button>
             </div>
           </div>
 
-          <div className="vehicle-activity-grid" style={{ marginTop: 14 }}>
-            {[
-              ["All records", stats.total, "Everything logged across the fleet"],
-              ["Services", stats.services, "Full, minor and legacy services"],
-              ["Repairs", stats.repairs, "Workshop repair records"],
-              ["Defects", stats.defects, `${stats.openDefects} currently open`],
-              ["Checks & prep", stats.checks, "Driver checks, prep and MOT"],
-            ].map(([label, value, note]) => (
-              <div key={label} style={statCard}>
-                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".06em" }}>{label}</div>
-                <div style={{ color: UI.text, fontSize: 26, fontWeight: 950, lineHeight: 1 }}>{value}</div>
-                <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.35 }}>{note}</div>
-              </div>
+          <div className="vehicle-activity-grid" style={{ marginTop: 12 }}>
+            {statItems.map((item) => (
+              <ActivityStatCard key={item.label} {...item} />
             ))}
           </div>
         </section>
 
-        <section style={{ ...surface, padding: 14 }}>
+        <section style={{ ...surface, padding: 12 }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>Activity Log</h2>
+              <h2 style={titleMd}>Activity log</h2>
               <div style={hint}>Filter by vehicle, registration, status, person, type or notes.</div>
             </div>
-            <button type="button" style={btn()} onClick={resetFilters}>
+            <button type="button" style={btn("ghost")} onClick={resetFilters}>
+              <RotateCcw size={14} />
               Reset filters
             </button>
           </div>
 
           <div className="vehicle-activity-filters">
-            <input
-              type="search"
-              value={queryText}
-              onChange={(event) => setQueryText(event.target.value)}
-              placeholder="Search vehicle, reg, note, person..."
-              style={inputBase}
-            />
+            <label style={{ position: "relative", display: "block" }}>
+              <Search
+                size={15}
+                style={{
+                  position: "absolute",
+                  left: 11,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: UI.muted,
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                type="search"
+                value={queryText}
+                onChange={(event) => setQueryText(event.target.value)}
+                placeholder="Search vehicle, reg, note, person..."
+                style={{ ...inputBase, paddingLeft: 34 }}
+              />
+            </label>
             <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} style={inputBase}>
               {filterTypeOptions.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
@@ -627,7 +700,7 @@ export default function VehicleActivityPage() {
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
-            <span style={{ ...chipSoft, justifyContent: "center", minHeight: 40, display: "inline-flex", alignItems: "center" }}>
+            <span style={{ ...chipSoft, justifyContent: "center", minHeight: 38, display: "inline-flex", alignItems: "center" }}>
               Showing {filteredActivity.length}
             </span>
           </div>
@@ -645,11 +718,11 @@ export default function VehicleActivityPage() {
                 const cardStyle = {
                   textAlign: "left",
                   width: "100%",
-                  padding: 14,
+                  padding: 12,
                   borderRadius: UI.radius,
-                  border: "1px solid #e2e8f0",
+                  border: UI.border,
                   background: "#fff",
-                  boxShadow: "0 8px 18px rgba(15,23,42,0.045)",
+                  boxShadow: UI.shadowSm,
                   cursor: item.route ? "pointer" : "default",
                   overflow: "hidden",
                   transition: "transform .15s ease, box-shadow .15s ease, border-color .15s ease",
@@ -663,13 +736,13 @@ export default function VehicleActivityPage() {
                       </div>
                     </div>
 
-                    <div style={{ marginTop: 10, fontSize: 15, fontWeight: 800, color: UI.text, lineHeight: 1.35 }}>
+                    <div style={{ marginTop: 9, fontSize: 14.5, fontWeight: 800, color: UI.text, lineHeight: 1.35 }}>
                       {item.title}
                     </div>
 
                     <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
                       {item.vehicleName}
-                      {item.registration ? ` • ${String(item.registration).toUpperCase()}` : ""}
+                      {item.registration ? ` - ${String(item.registration).toUpperCase()}` : ""}
                     </div>
 
                     <div
@@ -715,5 +788,44 @@ export default function VehicleActivityPage() {
         </div>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
+  const colors =
+    tone === "danger"
+      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      : tone === "amber"
+      ? { bg: "#fff7ed", border: "#fed7aa", fg: "#9a3412" }
+      : tone === "ok"
+      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
+
+  return (
+    <div style={statCard}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{label}</div>
+          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+        </div>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            border: `1px solid ${colors.border}`,
+            background: colors.bg,
+            color: colors.fg,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={18} strokeWidth={2.2} />
+        </span>
+      </div>
+      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{note}</div>
+    </div>
   );
 }

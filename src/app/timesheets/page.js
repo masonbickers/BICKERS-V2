@@ -5,6 +5,22 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  AlertTriangle,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileCheck2,
+  FileClock,
+  Filter,
+  PencilLine,
+  RefreshCcw,
+  Search,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 const DAYS = [
   "Monday",
@@ -286,18 +302,176 @@ function getTimesheetStatus(ts) {
 }
 
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  bg: "#edf3f8",
-  panelTint: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  bg: "#f3f6f9",
+  card: "#ffffff",
   ink: "#0f172a",
   muted: "#5f6f82",
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
   brandBorder: "#c8d6e3",
-  borderColor: "#dbe2ea",
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+  border: "1px solid #d7dee8",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
 };
+
+const pageWrap = {
+  flex: 1,
+  minHeight: "100vh",
+  background: UI.bg,
+  color: UI.ink,
+  padding: "16px 16px 32px",
+  boxSizing: "border-box",
+  width: "100%",
+};
+
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+
+const h1 = { fontSize: 22, fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, color: UI.ink };
+const sub = { marginTop: 6, marginBottom: 0, fontSize: 13.5, lineHeight: 1.45, color: UI.muted, maxWidth: 760 };
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const cardStyle = { ...surface, padding: 12 };
+
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 10,
+  flexWrap: "wrap",
+};
+
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.ink, margin: 0, letterSpacing: 0 };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+
+const labelStyle = {
+  display: "block",
+  fontSize: 11.5,
+  fontWeight: 900,
+  color: UI.muted,
+  textTransform: "uppercase",
+  marginBottom: 6,
+};
+
+const chip = (kind = "neutral") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 9px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+    border: `1px solid ${UI.brandBorder}`,
+    background: UI.brandSoft,
+    color: UI.ink,
+  };
+  if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
+  if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
+  return base;
+};
+
+const btn = (kind = "ghost") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+  };
+  if (kind === "primary") {
+    return {
+      ...base,
+      border: `1px solid ${UI.brand}`,
+      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+      color: "#fff",
+      boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+    };
+  }
+  return {
+    ...base,
+    border: `1px solid ${UI.brandBorder}`,
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    color: UI.ink,
+    boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+  };
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const statCard = {
+  ...cardStyle,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  minHeight: 82,
+};
+
+const statLabel = {
+  color: UI.muted,
+  fontSize: 11.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+};
+
+const statValue = {
+  color: UI.ink,
+  fontSize: 25,
+  lineHeight: 1.1,
+  fontWeight: 850,
+  marginTop: 8,
+};
+
+const focusCss = `
+  input:focus, select:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 1180px) {
+    .timesheet-filter-grid,
+    .timesheet-stat-grid { grid-template-columns: 1fr !important; }
+  }
+`;
 
 function countStatuses(timesheets, weeks) {
   const summary = { approved: 0, submitted: 0, draft: 0, missing: 0 };
@@ -468,6 +642,8 @@ export default function TimesheetListPage() {
     if (week !== weekFilter) setWeekFilter(week);
     if (sort !== sortBy) setSortBy(sort);
     if (wo !== weekWindowOffset) setWeekWindowOffset(wo);
+    // Intentionally sync from URL changes only; local setters update the URL separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const displayedWeeks = useMemo(
@@ -550,23 +726,22 @@ export default function TimesheetListPage() {
 
   const inputStyle = {
     width: "100%",
-    padding: "10px 12px",
+    minHeight: 36,
+    padding: "7px 9px",
     borderRadius: UI.radiusSm,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: UI.borderColor,
+    border: UI.border,
     fontSize: 13,
-    background: "#f8fbfd",
+    background: "#fff",
     outline: "none",
     color: UI.ink,
   };
 
   const metricCards = [
-    { label: "Employees in view", value: overview.employees },
-    { label: "Submitted for review", value: overview.submitted },
-    { label: "Approved", value: overview.approved },
-    { label: "Draft only", value: overview.draft },
-    { label: "Missing weeks", value: overview.missing },
+    { label: "Employees in view", value: overview.employees, icon: Users, color: UI.brand, bg: UI.brandSoft, border: UI.brandBorder },
+    { label: "Submitted", value: overview.submitted, icon: FileClock, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
+    { label: "Approved", value: overview.approved, icon: CheckCircle2, color: UI.green, bg: UI.greenSoft, border: UI.greenBorder },
+    { label: "Draft", value: overview.draft, icon: PencilLine, color: UI.amber, bg: UI.amberSoft, border: UI.amberBorder },
+    { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.red, bg: UI.redSoft, border: UI.redBorder },
   ];
 
   const canGoToNewerWindow = weekFilter === "all" ? weekWindowOffset > 0 : weekOptions.indexOf(weekFilter) > 0;
@@ -610,41 +785,13 @@ export default function TimesheetListPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div
-        style={{
-          flex: 1,
-          minHeight: "100vh",
-          background: UI.bg,
-          color: UI.ink,
-          padding: "22px 18px 34px",
-          boxSizing: "border-box",
-          width: "100%",
-        }}
-      >
+      <style>{focusCss}</style>
+      <div style={pageWrap}>
         <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: 12,
-              marginBottom: 14,
-              flexWrap: "wrap",
-            }}
-          >
+          <div style={headerBar}>
             <div>
-              <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>
-                Timesheet Submissions
-              </h1>
-              <p
-                style={{
-                  marginTop: 6,
-                  marginBottom: 0,
-                  fontSize: 13,
-                  color: UI.muted,
-                  maxWidth: 760,
-                }}
-              >
+              <h1 style={h1}>Timesheet Submissions</h1>
+              <p style={sub}>
                 Review weekly submissions by employee, prioritise missing and draft weeks,
                 and open any saved timesheet directly for approval follow-up.
               </p>
@@ -670,14 +817,14 @@ export default function TimesheetListPage() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 6,
-                    padding: "6px 10px",
+                    padding: "5px 9px",
                     borderRadius: 999,
                     background: item.bg,
                     borderWidth: 1,
                     borderStyle: "solid",
                     borderColor: "rgba(148,163,184,0.18)",
-                    fontSize: 11,
-                    fontWeight: 700,
+                    fontSize: 12,
+                    fontWeight: 800,
                     color: "#334155",
                   }}
                 >
@@ -695,185 +842,80 @@ export default function TimesheetListPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              background: "linear-gradient(135deg, #17324f 0%, #234a71 100%)",
-              borderRadius: UI.radius,
-              color: "#ffffff",
-              padding: 16,
-              boxShadow: UI.shadowSm,
-              marginBottom: 14,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.72)",
-                  }}
-                >
-                  Timesheet control
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>
-                  Weekly submission overview
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 11px",
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderColor: "rgba(255,255,255,0.16)",
-                  background: "rgba(255,255,255,0.08)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                Window:
-                <span>
-                  {weekFilter === "all"
-                    ? `${formatWeekRange(displayedWeeks[0])} to ${formatWeekRange(
-                        displayedWeeks[displayedWeeks.length - 1]
-                      )}`
-                    : formatWeekRange(weekFilter)}
+          <section style={{ ...cardStyle, marginBottom: UI.gap }}>
+            <div style={sectionHeader}>
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
+                  <CalendarDays size={17} />
                 </span>
+                <div>
+                  <h2 style={titleMd}>Timesheet Control</h2>
+                  <div style={hint}>Weekly submission overview and review window.</div>
+                </div>
               </div>
+              <span style={chip()}>
+                <CalendarDays size={13} />
+                {weekFilter === "all"
+                  ? `${formatWeekRange(displayedWeeks[0])} to ${formatWeekRange(
+                      displayedWeeks[displayedWeeks.length - 1]
+                    )}`
+                  : formatWeekRange(weekFilter)}
+              </span>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: UI.gap }}>
               <button
                 type="button"
                 onClick={handleWeekWindowForward}
                 disabled={!canGoToNewerWindow}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderColor: "rgba(255,255,255,0.16)",
-                  background: "rgba(255,255,255,0.08)",
-                  color: "#ffffff",
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: canGoToNewerWindow ? "pointer" : "not-allowed",
-                  opacity: canGoToNewerWindow ? 1 : 0.45,
-                }}
+                style={{ ...btn("ghost"), cursor: canGoToNewerWindow ? "pointer" : "not-allowed" }}
               >
-                {"<- Newer"}
+                <ChevronLeft size={14} /> Newer
               </button>
               <button
                 type="button"
                 onClick={handleWeekWindowBack}
                 disabled={!canGoToOlderWindow}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderStyle: "solid",
-                  borderColor: "rgba(255,255,255,0.16)",
-                  background: "rgba(255,255,255,0.08)",
-                  color: "#ffffff",
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: canGoToOlderWindow ? "pointer" : "not-allowed",
-                  opacity: canGoToOlderWindow ? 1 : 0.45,
-                }}
+                style={{ ...btn("ghost"), cursor: canGoToOlderWindow ? "pointer" : "not-allowed" }}
               >
-                {"Older ->"}
+                Older <ChevronRight size={14} />
               </button>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: 10,
-              }}
-            >
-              {metricCards.map((card) => (
-                <div
-                  key={card.label}
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    borderWidth: 1,
-                    borderStyle: "solid",
-                    borderColor: "rgba(255,255,255,0.12)",
-                    borderRadius: 14,
-                    padding: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 11,
-                      letterSpacing: "0.05em",
-                      textTransform: "uppercase",
-                      color: "rgba(255,255,255,0.7)",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {card.label}
-                  </div>
-                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 4 }}>
-                    {card.value}
-                  </div>
-                </div>
-              ))}
+            <div className="timesheet-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: UI.gap }}>
+              {metricCards.map((metric) => {
+                const Icon = metric.icon;
+                return (
+                  <section key={metric.label} style={statCard}>
+                    <div>
+                      <div style={statLabel}>{metric.label}</div>
+                      <div style={statValue}>{metric.value}</div>
+                    </div>
+                    <span style={iconBox(metric.color, metric.bg, metric.border)}>
+                      <Icon size={17} />
+                    </span>
+                  </section>
+                );
+              })}
             </div>
-          </div>
+          </section>
 
           <div
+            className="timesheet-filter-grid"
             style={{
-              background: UI.panelTint,
-              padding: 14,
-              borderRadius: UI.radius,
-              boxShadow: UI.shadowSm,
-              borderWidth: 1,
-              borderStyle: "solid",
-              borderColor: UI.borderColor,
-              marginBottom: 14,
+              ...cardStyle,
+              marginBottom: UI.gap,
               display: "grid",
               gridTemplateColumns: "minmax(240px, 1.2fr) repeat(3, minmax(180px, 0.75fr)) auto",
-              gap: 12,
+              gap: UI.gap,
               alignItems: "end",
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: UI.muted,
-                  marginBottom: 5,
-                }}
-              >
-                Search employee
+              <label style={labelStyle}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Search size={13} /> Search employee
+                </span>
               </label>
               <input
                 type="text"
@@ -889,16 +931,10 @@ export default function TimesheetListPage() {
             </div>
 
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: UI.muted,
-                  marginBottom: 5,
-                }}
-              >
-                Status focus
+              <label style={labelStyle}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Filter size={13} /> Status focus
+                </span>
               </label>
               <select
                 value={statusFilter}
@@ -919,16 +955,10 @@ export default function TimesheetListPage() {
             </div>
 
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: UI.muted,
-                  marginBottom: 5,
-                }}
-              >
-                Reporting week
+              <label style={labelStyle}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <CalendarDays size={13} /> Reporting week
+                </span>
               </label>
               <select
                 value={weekFilter}
@@ -949,16 +979,10 @@ export default function TimesheetListPage() {
             </div>
 
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: UI.muted,
-                  marginBottom: 5,
-                }}
-              >
-                Sort by
+              <label style={labelStyle}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <BarChart3 size={13} /> Sort by
+                </span>
               </label>
               <select
                 value={sortBy}
@@ -991,33 +1015,16 @@ export default function TimesheetListPage() {
                   sort: "attention",
                 }, { history: "push" });
               }}
-              style={{
-                padding: "10px 14px",
-                borderRadius: UI.radiusSm,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: UI.borderColor,
-                background: "#ffffff",
-                color: UI.brand,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                minHeight: 41,
-              }}
+              style={{ ...btn("ghost"), minHeight: 36 }}
             >
-              Reset filters
+              <RefreshCcw size={14} /> Reset
             </button>
           </div>
 
           {loading ? (
             <div
               style={{
-                background: UI.panelTint,
-                borderRadius: UI.radius,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: UI.borderColor,
-                boxShadow: UI.shadowSm,
+                ...cardStyle,
                 padding: 18,
                 color: UI.muted,
                 fontSize: 14,
@@ -1030,11 +1037,9 @@ export default function TimesheetListPage() {
               style={{
                 background: "#fff1f2",
                 borderRadius: UI.radius,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: "#fecdd3",
+                border: `1px solid ${UI.redBorder}`,
                 padding: 18,
-                color: "#9f1239",
+                color: UI.red,
                 fontSize: 14,
                 fontWeight: 600,
               }}
@@ -1044,12 +1049,7 @@ export default function TimesheetListPage() {
           ) : filteredEmployees.length === 0 ? (
             <div
               style={{
-                background: UI.panelTint,
-                borderRadius: UI.radius,
-                borderWidth: 1,
-                borderStyle: "solid",
-                borderColor: UI.borderColor,
-                boxShadow: UI.shadowSm,
+                ...cardStyle,
                 padding: 18,
                 color: UI.muted,
                 fontSize: 14,
@@ -1065,14 +1065,9 @@ export default function TimesheetListPage() {
                 <div
                   key={emp.code}
                   style={{
-                    background: UI.panelTint,
-                    borderRadius: UI.radius,
-                    borderWidth: 1,
-                    borderStyle: "solid",
-                    borderColor: UI.borderColor,
-                    boxShadow: UI.shadowSm,
+                    ...cardStyle,
                     padding: 14,
-                    marginBottom: 14,
+                    marginBottom: UI.gap,
                   }}
                 >
                   <div
@@ -1085,54 +1080,45 @@ export default function TimesheetListPage() {
                       marginBottom: 12,
                     }}
                   >
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <h2
+                    <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                      <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
+                        <UserRound size={17} />
+                      </span>
+                      <div>
+                        <div
                           style={{
-                            fontSize: 18,
-                            fontWeight: 800,
-                            margin: 0,
-                            color: UI.ink,
-                          }}
-                        >
-                          {emp.name || "Unknown employee"}
-                        </h2>
-                        <span
-                          style={{
-                            display: "inline-flex",
+                            display: "flex",
                             alignItems: "center",
-                            padding: "4px 8px",
-                            borderRadius: 999,
-                            background: UI.brandSoft,
-                            borderWidth: 1,
-                            borderStyle: "solid",
-                            borderColor: UI.brandBorder,
-                            color: UI.brand,
-                            fontSize: 11,
-                            fontWeight: 700,
+                            gap: 8,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {emp.code || "No code"}
-                        </span>
+                          <h2
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 800,
+                              margin: 0,
+                              color: UI.ink,
+                            }}
+                          >
+                            {emp.name || "Unknown employee"}
+                          </h2>
+                          <span style={{ ...chip(), color: UI.brand }}>
+                            {emp.code || "No code"}
+                          </span>
+                        </div>
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            color: UI.muted,
+                            fontSize: 12,
+                          }}
+                        >
+                          {displayedWeeks.length === 1
+                            ? "Single-week review window"
+                            : `Reviewing ${displayedWeeks.length} weekly slots for this employee`}
+                        </p>
                       </div>
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          color: UI.muted,
-                          fontSize: 12,
-                        }}
-                      >
-                        {displayedWeeks.length === 1
-                          ? "Single-week review window"
-                          : `Reviewing ${displayedWeeks.length} weekly slots for this employee`}
-                      </p>
                     </div>
 
                     <div
@@ -1214,23 +1200,23 @@ export default function TimesheetListPage() {
                           onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
                           style={{
                             background: "#ffffff",
-                            borderRadius: 14,
+                            borderRadius: UI.radius,
                             borderWidth: 1,
                             borderStyle: "solid",
                             borderColor: status.border,
-                            boxShadow: "0 8px 22px rgba(15,23,42,0.05)",
-                            padding: 13,
+                            boxShadow: UI.shadowSm,
+                            padding: 12,
                             cursor: status.clickable ? "pointer" : "default",
                             transition: "transform 0.12s ease, box-shadow 0.12s ease",
                           }}
                           onMouseEnter={(e) => {
                             if (!status.clickable) return;
                             e.currentTarget.style.transform = "translateY(-1px)";
-                            e.currentTarget.style.boxShadow = "0 14px 28px rgba(15,23,42,0.09)";
+                            e.currentTarget.style.boxShadow = UI.shadowHover;
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.transform = "none";
-                            e.currentTarget.style.boxShadow = "0 8px 22px rgba(15,23,42,0.05)";
+                            e.currentTarget.style.boxShadow = UI.shadowSm;
                           }}
                         >
                           <div
@@ -1241,25 +1227,30 @@ export default function TimesheetListPage() {
                               alignItems: "flex-start",
                             }}
                           >
-                            <div>
-                              <div
-                                style={{
-                                  fontSize: 14,
-                                  fontWeight: 800,
-                                  color: UI.ink,
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                {formatWeekRange(weekStart)}
-                              </div>
-                              <div
-                                style={{
-                                  marginTop: 3,
-                                  fontSize: 11,
-                                  color: UI.muted,
-                                }}
-                              >
-                                Week starting {new Date(weekStart).toLocaleDateString("en-GB")}
+                            <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+                              <span style={iconBox(status.text, status.bg, status.border)}>
+                                <FileCheck2 size={15} />
+                              </span>
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: 14,
+                                    fontWeight: 800,
+                                    color: UI.ink,
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {formatWeekRange(weekStart)}
+                                </div>
+                                <div
+                                  style={{
+                                    marginTop: 3,
+                                    fontSize: 11,
+                                    color: UI.muted,
+                                  }}
+                                >
+                                  Week starting {new Date(weekStart).toLocaleDateString("en-GB")}
+                                </div>
                               </div>
                             </div>
 
@@ -1311,11 +1302,9 @@ export default function TimesheetListPage() {
                                 display: "grid",
                                 gap: 4,
                                 padding: "10px 11px",
-                                borderRadius: 12,
+                                borderRadius: UI.radius,
                                 background: "#f8fbfd",
-                                borderWidth: 1,
-                                borderStyle: "solid",
-                                borderColor: UI.borderColor,
+                                border: UI.border,
                               }}
                             >
                               <div style={{ fontSize: 11, color: UI.muted }}>Timesheet ID</div>
@@ -1372,7 +1361,7 @@ export default function TimesheetListPage() {
                                 color: status.clickable ? UI.brand : "#94a3b8",
                               }}
                             >
-                              {status.clickable ? ">" : "-"}
+                              {status.clickable ? <ChevronRight size={16} /> : "-"}
                             </span>
                           </div>
                         </div>

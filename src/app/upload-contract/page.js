@@ -4,145 +4,186 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, storage } from "../../../firebaseConfig";
+import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
-  collection,
-  addDoc,
-  getDocs,
-  serverTimestamp,
-} from "firebase/firestore";
-import {
-  ref as storageRef,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  FileUp,
+  FolderOpen,
+  Info,
+  RefreshCcw,
+  Save,
+  UserRound,
+  Users,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
-  good: "#065f46",
-  goodBg: "#d1fae5",
-  goodBorder: "#86efac",
-  warn: "#92400e",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  good: "#15803d",
+  goodBg: "#ecfdf3",
+  goodBorder: "#bbf7d0",
+  warn: "#b45309",
   warnBg: "#fffbeb",
   warnBorder: "#fde68a",
-  danger: "#991b1b",
-  dangerBg: "#fee2e2",
-  dangerBorder: "#fecaca",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
-const card = { ...surface, padding: 16 };
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const card = { ...surface, padding: 12 };
+
 const sectionHeader = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: 10,
   marginBottom: 10,
+  flexWrap: "wrap",
 };
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 6, lineHeight: 1.4 };
+
+const formShell = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 320px",
+  gap: UI.gap,
+  alignItems: "start",
+};
 
 const grid2 = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 12,
+  gap: 10,
 };
 
-const label = { display: "block", fontSize: 12, fontWeight: 900, color: UI.text, marginBottom: 6 };
+const label = { display: "block", fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", marginBottom: 6 };
 const input = {
   width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  minHeight: 36,
+  padding: "7px 9px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
-  fontSize: 13.5,
+  fontSize: 13,
   background: "#fff",
+  color: UI.text,
 };
-const textarea = { ...input, minHeight: 96, resize: "vertical" };
-
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const textarea = { ...input, minHeight: 74, resize: "vertical" };
+const divider = { height: 1, background: "#dde5ee", margin: "4px 0" };
 
 const chip = (kind = "neutral") => {
-  if (kind === "good") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good, fontSize: 12, fontWeight: 900 };
-  if (kind === "warn") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: 12, fontWeight: 900 };
-  if (kind === "danger") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: 12, fontWeight: 900 };
-  return { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 900 };
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 9px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  };
+  if (kind === "good") return { ...base, border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good };
+  if (kind === "warn") return { ...base, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn };
+  return { ...base, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text };
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
-    };
-  }
-  if (kind === "danger") {
-    return {
-      padding: "10px 12px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.dangerBorder}`,
-      background: UI.dangerBg,
-      color: UI.danger,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 12px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = {
-  textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
-  position: "sticky",
-  top: 0,
-  background: "#f8fafc",
-  zIndex: 1,
-  whiteSpace: "nowrap",
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const progressTrack = {
+  height: 9,
+  borderRadius: 999,
+  border: UI.border,
+  background: "#eef3f8",
+  overflow: "hidden",
 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+
+const focusCss = `
+  input:focus, select:focus, textarea:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 1180px) {
+    .upload-contract-form-shell,
+    .upload-contract-grid { grid-template-columns: 1fr !important; }
+  }
+`;
 
 function safeStr(v) {
   return String(v ?? "").trim();
@@ -169,6 +210,11 @@ export default function UploadContractPage() {
     return employees.find((e) => e.id === employeeId) || null;
   }, [employeeId, employees]);
 
+  const uploadName = safeStr(employeeName) || safeStr(selectedEmployee?.name) || "Unknown";
+  const fileSize = file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : "-";
+  const statusKind = saving || file ? "good" : "warn";
+  const statusText = saving ? `Uploading ${Math.round(progress)}%` : file ? "File selected" : "No file";
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -192,7 +238,6 @@ export default function UploadContractPage() {
   }, []);
 
   useEffect(() => {
-    // Auto-fill employee name if selected
     if (selectedEmployee?.name) setEmployeeName(selectedEmployee.name);
   }, [selectedEmployee]);
 
@@ -218,7 +263,7 @@ export default function UploadContractPage() {
 
     const err = validate();
     if (err) {
-      alert(` ${err}`);
+      alert(err);
       return;
     }
 
@@ -232,7 +277,6 @@ export default function UploadContractPage() {
       const cleanType = safeStr(docType) || "Document";
       const timestamp = Date.now();
       const originalName = file.name || "upload";
-      const ext = originalName.includes(".") ? originalName.split(".").pop() : "";
       const safeOriginal = originalName.replace(/[^\w.\-() ]+/g, "_");
       const storagePath = `hr/contracts/${empId || empName}/${timestamp}_${safeOriginal}`;
 
@@ -253,11 +297,10 @@ export default function UploadContractPage() {
 
       const url = await getDownloadURL(task.snapshot.ref);
 
-      // Save metadata in Firestore (create a "hrDocuments" collection)
       await addDoc(collection(db, "hrDocuments"), {
         employeeId: empId,
         employeeName: empName,
-        docType: cleanType, // Contract | P45 | P60 | ID | Certificate | Other
+        docType: cleanType,
         effectiveDate: effectiveDate || null,
         notes: notes || "",
         fileName: originalName,
@@ -268,11 +311,11 @@ export default function UploadContractPage() {
         createdAt: serverTimestamp(),
       });
 
-      alert(" Uploaded successfully");
+      alert("Uploaded successfully");
       resetForm();
     } catch (error) {
       console.error("Upload failed:", error);
-      alert(` Upload failed.\n${error?.message || ""}`);
+      alert(`Upload failed.\n${error?.message || ""}`);
     } finally {
       setSaving(false);
     }
@@ -280,60 +323,61 @@ export default function UploadContractPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
+
       <div style={pageWrap}>
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Upload documents</h1>
-            <div style={sub}>Upload contracts and HR docs to Storage and save metadata to Firestore.</div>
+            <div style={sub}>Add contracts and HR documents to an employee record.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button style={btn("ghost")} type="button" onClick={() => router.push("/employees")}>
-              Back to employees
-            </button>
-          </div>
+          <button style={btn("ghost")} type="button" onClick={() => router.push("/employees")}>
+            <ArrowLeft size={14} /> Back to employees
+          </button>
         </div>
 
-        <section style={card}>
-          <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>New upload</h2>
-              <div style={hint}>Supported: PDF / DOCX / Images. (Whatever your Storage rules allow.)</div>
+        <form onSubmit={onUpload} className="upload-contract-form-shell" style={formShell}>
+          <section style={card}>
+            <div style={sectionHeader}>
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.brand, UI.brandSoft)}>
+                  <FileUp size={17} />
+                </span>
+                <div>
+                  <h2 style={titleMd}>New Upload</h2>
+                  <div style={hint}>PDF, Word and image documents are supported.</div>
+                </div>
+              </div>
+              <span style={chip(statusKind)}>
+                {file ? <CheckCircle2 size={13} /> : <Info size={13} />}
+                {statusText}
+              </span>
             </div>
-            <div style={chip(file ? "good" : "warn")}>{file ? "File selected" : "No file"}</div>
-          </div>
 
-          <form onSubmit={onUpload} style={{ display: "grid", gap: 14 }}>
-            <div style={grid2}>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>Employee</label>
-                <select
-                  style={input}
-                  value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
-                  disabled={loadingEmployees}
-                >
-                  <option value="">{loadingEmployees ? "Loading employees…" : "Select employee (optional)"}</option>
+            <div className="upload-contract-grid" style={grid2}>
+              <Field icon={Users} labelText="Employee" full>
+                <select style={input} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={loadingEmployees}>
+                  <option value="">{loadingEmployees ? "Loading employees..." : "Select employee (optional)"}</option>
                   {employees.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {safeStr(e.name) || "Unnamed"} {e.jobTitle ? `• ${Array.isArray(e.jobTitle) ? e.jobTitle.join(", ") : e.jobTitle}` : ""}
+                      {safeStr(e.name) || "Unnamed"}
+                      {e.jobTitle ? ` - ${Array.isArray(e.jobTitle) ? e.jobTitle.join(", ") : e.jobTitle}` : ""}
                     </option>
                   ))}
                 </select>
-                <div style={hint}>If you don’t select, type a name below (useful for freelancers).</div>
-              </div>
+                <div style={hint}>Select an employee, or type a manual name below.</div>
+              </Field>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>Employee name (manual override)</label>
+              <Field icon={UserRound} labelText="Employee name" full>
                 <input
                   style={input}
                   value={employeeName}
                   onChange={(e) => setEmployeeName(e.target.value)}
                   placeholder="e.g. John Smith"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Document type</label>
+              <Field icon={FileText} labelText="Document type">
                 <select style={input} value={docType} onChange={(e) => setDocType(e.target.value)}>
                   <option value="Contract">Contract</option>
                   <option value="P45">P45</option>
@@ -342,124 +386,128 @@ export default function UploadContractPage() {
                   <option value="Certificate">Certificate</option>
                   <option value="Other">Other</option>
                 </select>
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Effective date</label>
+              <Field icon={CalendarDays} labelText="Effective date">
                 <input style={input} type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
-                <div style={hint}>Optional (useful for contracts / renewals).</div>
-              </div>
+              </Field>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>File</label>
+              <Field icon={FolderOpen} labelText="File" full>
                 <input
-                  style={{ ...input, padding: "9px 12px" }}
+                  style={{ ...input, padding: "7px 9px" }}
                   type="file"
                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
-                <div style={hint}>
-                  {file ? (
-                    <>
-                      <b>{file.name}</b> • {(file.size / (1024 * 1024)).toFixed(2)} MB
-                    </>
-                  ) : (
-                    "Choose a file to upload."
-                  )}
-                </div>
-              </div>
+                <div style={hint}>{file ? `${file.name} - ${fileSize}` : "Choose a file to upload."}</div>
+              </Field>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>Notes</label>
+              <Field icon={Info} labelText="Notes" full>
                 <textarea
                   style={textarea}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional notes (e.g. signed copy, renewal, right-to-work, etc.)"
+                  placeholder="Optional notes, for example signed copy, renewal, or right-to-work."
                 />
-              </div>
+              </Field>
             </div>
+          </section>
 
-            <div style={divider} />
+          <aside style={{ display: "grid", gap: UI.gap }}>
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox("#15803d", "#ecfdf3", "#bbf7d0")}>
+                    <Save size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Upload Status</h2>
+                    <div style={hint}>Progress updates while the file is saving.</div>
+                  </div>
+                </div>
+              </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={chip(progress >= 100 ? "good" : "neutral")}>
-                  {saving ? `Uploading… ${Math.round(progress)}%` : "Ready"}
-                </span>
-                <div style={{ width: 240, height: 10, borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", overflow: "hidden" }}>
+              <div style={divider} />
+
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={progressTrack}>
                   <div
                     style={{
-                      height: "100%",
                       width: `${Math.max(0, Math.min(100, progress))}%`,
+                      height: "100%",
                       background: UI.brand,
                       transition: "width .2s ease",
                     }}
                   />
                 </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" style={btn("ghost")} onClick={resetForm} disabled={saving}>
-                  Reset
-                </button>
+                <span style={chip(progress >= 100 ? "good" : "neutral")}>
+                  {saving ? `Uploading ${Math.round(progress)}%` : "Ready"}
+                </span>
                 <button type="submit" style={btn()} disabled={saving}>
-                  {saving ? "Uploading…" : "Upload"}
+                  <FileUp size={14} /> {saving ? "Uploading..." : "Upload"}
+                </button>
+                <button type="button" style={btn("ghost")} onClick={resetForm} disabled={saving}>
+                  <RefreshCcw size={14} /> Reset
                 </button>
               </div>
-            </div>
-          </form>
-        </section>
+            </section>
 
-        <section style={{ ...card, marginTop: UI.gap }}>
-          <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Where this saves</h2>
-              <div style={hint}>
-                Storage: <b>hr/contracts/…</b> • Firestore: <b>hrDocuments</b>
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
+                    <Info size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Save Location</h2>
+                    <div style={hint}>Metadata is stored with the uploaded file link.</div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <span style={chip("neutral")}>Info</span>
-          </div>
-
-          <div style={tableWrap}>
-            <table style={tableEl}>
-              <thead>
-                <tr>
-                  <th style={th}>Field</th>
-                  <th style={th}>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={td}><b>employeeId</b></td>
-                  <td style={td}>{employeeId || "null (manual name used)"}</td>
-                </tr>
-                <tr>
-                  <td style={td}><b>employeeName</b></td>
-                  <td style={td}>{safeStr(employeeName) || safeStr(selectedEmployee?.name) || "Unknown"}</td>
-                </tr>
-                <tr>
-                  <td style={td}><b>docType</b></td>
-                  <td style={td}>{docType}</td>
-                </tr>
-                <tr>
-                  <td style={td}><b>effectiveDate</b></td>
-                  <td style={td}>{effectiveDate || "null"}</td>
-                </tr>
-                <tr>
-                  <td style={td}><b>url</b></td>
-    
-                </tr>
-                <tr>
-                  <td style={td}><b>storagePath</b></td>
-                  <td style={td}><span style={{ color: UI.muted }}>hr/contracts/…</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+              <div style={divider} />
+              <KeyValue labelText="Employee" value={uploadName} />
+              <KeyValue labelText="Document" value={docType} />
+              <KeyValue labelText="Date" value={effectiveDate || "-"} />
+              <KeyValue labelText="File size" value={fileSize} />
+              <KeyValue labelText="Storage" value="hr/contracts/..." />
+              <KeyValue labelText="Firestore" value="hrDocuments" />
+            </section>
+          </aside>
+        </form>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function Field({ icon: Icon, labelText, full = false, children }) {
+  return (
+    <div style={full ? { gridColumn: "1 / -1" } : undefined}>
+      <label style={label}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icon size={13} />
+          {labelText}
+        </span>
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function KeyValue({ labelText, value }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        padding: "7px 0",
+        borderBottom: "1px solid #edf2f7",
+        fontSize: 12.5,
+      }}
+    >
+      <span style={{ color: UI.muted, fontWeight: 800 }}>{labelText}</span>
+      <span style={{ color: UI.text, fontWeight: 800, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-// src/app/dashboard/page.js
+// src/app/u-crane/page.js
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -36,19 +36,17 @@ import { collection, onSnapshot } from "firebase/firestore";
 
 import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { Check } from "lucide-react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Styling tokens (MATCH main diary page)
-─────────────────────────────────────────── */
+/* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  gap: 14,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
@@ -57,10 +55,11 @@ const UI = {
   brandBorder: "#c8d6e3",
   accent: "#8b5e3c",
   accentSoft: "#f5ede6",
+  successSoft: "#edf7f2",
 };
 
 const pageWrap = {
-  padding: "22px 18px 34px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
@@ -76,14 +75,14 @@ const headerBar = {
 
 const h1 = {
   color: UI.text,
-  fontSize: 30,
+  fontSize: 22,
   lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
 
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 
 const surface = {
   background: UI.card,
@@ -94,7 +93,8 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 14,
+  padding: 12,
+  marginBottom: UI.gap,
 };
 
 const sectionHeader = {
@@ -102,47 +102,65 @@ const sectionHeader = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 10,
-  marginBottom: 10,
+  marginBottom: 8,
   flexWrap: "wrap",
 };
 
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 
+const sectionActions = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  alignItems: "center",
+};
+
 const chip = {
-  padding: "7px 11px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      padding: "9px 12px",
-      borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
-      color: UI.text,
-      fontWeight: 800,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
-    };
-  }
-  return {
-    padding: "9px 12px",
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: UI.brand,
-    color: "#fff",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+  };
+
+  if (kind === "ghost") {
+    return {
+      ...base,
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      color: UI.text,
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+    };
+  }
+  return {
+    ...base,
+    border: `1px solid ${UI.brand}`,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+    color: "#fff",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   };
 };
 
@@ -155,15 +173,63 @@ const btnDisabled = (base) => ({
 });
 
 const successBanner = {
-  background: "#edf7f2",
+  background: UI.successSoft,
   color: "#065f46",
   border: "1px solid #b7dec7",
   borderRadius: UI.radiusSm,
-  padding: "9px 12px",
+  padding: "7px 10px",
   fontSize: 13,
   fontWeight: 700,
-  marginBottom: 14,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
 };
+
+const calendarShell = {
+  border: UI.border,
+  borderRadius: UI.radius,
+  background: "#ffffff",
+  overflow: "hidden",
+};
+
+const pageCss = `
+  .ucrane-page .rbc-calendar {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: ${UI.text};
+  }
+  .ucrane-page .rbc-time-view,
+  .ucrane-page .rbc-month-view {
+    border-color: #d7dee8;
+  }
+  .ucrane-page .rbc-time-header {
+    border-bottom-color: #d7dee8;
+  }
+  .ucrane-page .rbc-header {
+    min-height: 28px;
+    padding: 6px 8px;
+    background: #f8fbfd;
+    border-color: #d7dee8;
+    color: ${UI.muted};
+    font-size: 12px;
+    font-weight: 850;
+  }
+  .ucrane-page .rbc-time-content,
+  .ucrane-page .rbc-day-bg + .rbc-day-bg,
+  .ucrane-page .rbc-month-row + .rbc-month-row {
+    border-color: #e5ebf2;
+  }
+  .ucrane-page .rbc-event {
+    overflow: visible;
+  }
+  .ucrane-upcoming-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 1180px) {
+    .ucrane-upcoming-grid { grid-template-columns: 1fr; }
+  }
+`;
 
 const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
 
@@ -227,7 +293,7 @@ const jobKey = (val) => {
   return { num, raw: s };
 };
 
-//  bookings → events (sorted by job number like main diary)
+//  bookings to events (sorted by job number like main diary)
 const eventsByJobNumberBookingsOnly = (bookings) => {
   const bookingEvents = (bookings || [])
     .map((b) => {
@@ -373,7 +439,7 @@ const formatShortRange = (start, endExclusive) => {
   const fmt = (d) =>
     d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 
-  return same ? fmt(s) : `${fmt(s)} → ${fmt(inc)}`;
+  return same ? fmt(s) : `${fmt(s)} - ${fmt(inc)}`;
 };
 
 const STATUS_SORT = { Confirmed: 1, "First Pencil": 2, "Second Pencil": 3 };
@@ -539,7 +605,7 @@ function CalendarEvent({ event }) {
               return (
                 <span key={i}>
                   {name}
-                  {plate ? ` – ${plate}` : ""}
+                  {plate ? ` - ${plate}` : ""}
                 </span>
               );
             }
@@ -569,10 +635,10 @@ function CalendarEvent({ event }) {
                     border: "1px solid #0b0b0b",
                     marginTop: 1,
                   }}
-                  title="Vehicle non-compliant (SORN / Not Insured) — future confirmed job"
+                  title="Vehicle non-compliant (SORN / Not Insured) - future confirmed job"
                 >
                   {name}
-                  {plate ? ` – ${plate}` : ""}
+                  {plate ? ` - ${plate}` : ""}
                 </span>
               );
             }
@@ -619,7 +685,7 @@ function CalendarEvent({ event }) {
                   title={`Vehicle status: ${itemStatus}`}
                 >
                   {name}
-                  {plate ? ` – ${plate}` : ""}
+                  {plate ? ` - ${plate}` : ""}
                 </span>
               );
             }
@@ -627,7 +693,7 @@ function CalendarEvent({ event }) {
             return (
               <span key={i}>
                 {name}
-                {plate ? ` – ${plate}` : ""}
+                {plate ? ` - ${plate}` : ""}
               </span>
             );
           })}
@@ -670,9 +736,9 @@ function CalendarEvent({ event }) {
 
                           const extra =
                             note === "Other" && other
-                              ? ` — ${other}`
+                              ? ` - ${other}`
                               : note === "Travel Time" && tmins
-                              ? ` — ${labelFromMins(tmins)}`
+                              ? ` - ${labelFromMins(tmins)}`
                               : "";
 
                           const callTimeForDay =
@@ -694,9 +760,9 @@ function CalendarEvent({ event }) {
                                 lineHeight: 1.2,
                               }}
                             >
-                              {formattedDate}: {note || "—"}
+                              {formattedDate}: {note || "-"}
                               {extra}
-                              {callTimeForDay ? ` — CT ${callTimeForDay}` : ""}
+                              {callTimeForDay ? ` - CT ${callTimeForDay}` : ""}
                             </div>
                           );
                         })}
@@ -890,6 +956,16 @@ export default function DashboardPage({ bookingSaved }) {
   const [calendarView, setCalendarView] = useState("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [selectedBookingSnapshot, setSelectedBookingSnapshot] = useState(null);
+  const closeSelectedBooking = useCallback(() => {
+    setSelectedBookingId(null);
+    setSelectedBookingSnapshot(null);
+  }, []);
+  const openSelectedBooking = useCallback((booking) => {
+    if (!booking?.id) return;
+    setSelectedBookingSnapshot(booking);
+    setSelectedBookingId(booking.id);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -901,7 +977,7 @@ export default function DashboardPage({ bookingSaved }) {
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
 
-  // Vehicles (needed to resolve booking vehicle IDs → names)
+  // Vehicles (needed to resolve booking vehicle IDs to names)
   useEffect(() => {
     if (!authReady) return;
 
@@ -967,6 +1043,15 @@ export default function DashboardPage({ bookingSaved }) {
       };
     });
   }, [uCraneBookings, normalizeVehicles]);
+
+  const selectedBooking = useMemo(
+    () =>
+      selectedBookingSnapshot ||
+      uCraneBookings.find((booking) => booking.id === selectedBookingId) ||
+      allBookingsRaw.find((booking) => booking.id === selectedBookingId) ||
+      null,
+    [allBookingsRaw, selectedBookingId, selectedBookingSnapshot, uCraneBookings]
+  );
 
   //  Upcoming (below calendar): Confirmed / First Pencil / Second Pencil (future only)
   const upcomingByStatus = useMemo(() => {
@@ -1055,7 +1140,7 @@ export default function DashboardPage({ bookingSaved }) {
                 return (
                   <button
                     key={e.id}
-                    onClick={() => e?.id && setSelectedBookingId(e.id)}
+                    onClick={() => openSelectedBooking(e)}
                     type="button"
                     style={{
                       textAlign: "left",
@@ -1071,7 +1156,7 @@ export default function DashboardPage({ bookingSaved }) {
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ fontWeight: 950, color: UI.text, fontSize: 13 }}>
-                        {String(e.jobNumber || "").toUpperCase()} — {String(e.client || "").toUpperCase()}
+                        {String(e.jobNumber || "").toUpperCase()} - {String(e.client || "").toUpperCase()}
                       </div>
                       <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>{range}</div>
                     </div>
@@ -1091,7 +1176,7 @@ export default function DashboardPage({ bookingSaved }) {
                             background: "#fff",
                             border: "1px solid #991b1b",
                             padding: "2px 6px",
-                            borderRadius: 999,
+                            borderRadius: UI.radiusSm,
                           }}
                         >
                           VEHICLE RISK
@@ -1112,19 +1197,24 @@ export default function DashboardPage({ bookingSaved }) {
         </div>
       );
     },
-    [upcomingByStatus]
+    [openSelectedBooking, upcomingByStatus]
   );
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
+      <style>{pageCss}</style>
+      <div className="ucrane-page" style={pageWrap}>
         <div style={headerBar}>
           <div>
             <h1 style={h1}>U-Crane</h1>
             <div style={sub}>Dedicated operations diary for U-Crane activity and related vehicle bookings.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {bookingSaved && <div style={successBanner}> Booking saved successfully!</div>}
+          <div style={sectionActions}>
+            {bookingSaved && (
+              <div style={successBanner}>
+                <Check size={14} strokeWidth={3} /> Booking saved successfully
+              </div>
+            )}
           </div>
         </div>
 
@@ -1135,7 +1225,7 @@ export default function DashboardPage({ bookingSaved }) {
               <div style={hint}>Live operational calendar for U-Crane bookings using the same diary logic as the main schedule.</div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={sectionActions}>
               <button
                 style={btn("ghost")}
                 onClick={() =>
@@ -1147,7 +1237,7 @@ export default function DashboardPage({ bookingSaved }) {
                 }
                 type="button"
               >
-                ← Previous Week
+                <ChevronLeft size={14} /> Previous Week
               </button>
 
               <button
@@ -1161,7 +1251,7 @@ export default function DashboardPage({ bookingSaved }) {
                 }
                 type="button"
               >
-                Next Week →
+                Next Week <ChevronRight size={14} />
               </button>
 
               <button
@@ -1171,107 +1261,111 @@ export default function DashboardPage({ bookingSaved }) {
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
+                <Plus size={14} />
                 Create U-Crane Booking
               </button>
 
               <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+                <CalendarDays size={14} />
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
             </div>
           </div>
 
-          <BigCalendar
-            localizer={localizer}
-            events={workDiaryEvents}
-            view={calendarView}
-            views={["week", "month"]}
-            onView={(v) => setCalendarView(v)}
-            date={currentDate}
-            onNavigate={(d) => setCurrentDate(d)}
-            selectable={false}
-            startAccessor="start"
-            endAccessor="end"
-            popup
-            allDayAccessor={() => true}
-            allDaySlot
-            dayLayoutAlgorithm="no-overlap"
-            toolbar={false}
-            nowIndicator={false}
-            getNow={() => new Date(2000, 0, 1)}
-            formats={{
-              dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
-            }}
-            dayPropGetter={(date) => {
-              const todayD = new Date();
-              const isToday =
-                date.getDate() === todayD.getDate() &&
-                date.getMonth() === todayD.getMonth() &&
-                date.getFullYear() === todayD.getFullYear();
+          <div style={calendarShell}>
+            <BigCalendar
+              localizer={localizer}
+              events={workDiaryEvents}
+              view={calendarView}
+              views={["week", "month"]}
+              onView={(v) => setCalendarView(v)}
+              date={currentDate}
+              onNavigate={(d) => setCurrentDate(d)}
+              selectable={false}
+              startAccessor="start"
+              endAccessor="end"
+              popup
+              allDayAccessor={() => true}
+              allDaySlot
+              dayLayoutAlgorithm="no-overlap"
+              toolbar={false}
+              nowIndicator={false}
+              getNow={() => new Date(2000, 0, 1)}
+              formats={{
+                dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
+              }}
+              dayPropGetter={(date) => {
+                const todayD = new Date();
+                const isToday =
+                  date.getDate() === todayD.getDate() &&
+                  date.getMonth() === todayD.getMonth() &&
+                  date.getFullYear() === todayD.getFullYear();
 
-              return {
-                style: {
-                  backgroundColor: isToday ? "rgba(29,78,216,0.10)" : undefined,
-                  border: isToday ? "1px solid rgba(29,78,216,0.55)" : undefined,
-                },
-              };
-            }}
-            style={{ borderRadius: UI.radius, background: "#fff" }}
-            onSelectEvent={(e) => {
-              if (e?.id) setSelectedBookingId(e.id);
-            }}
-            components={{ event: CalendarEvent }}
-            eventPropGetter={(event) => {
-              const status = event.status || "Confirmed";
-
-              // base style by status
-              let style = getStatusStyle(status);
-
-              // risky future confirmed jobs go red
-              const risky = !!event.isRisky;
-              if (risky && isFutureJobEvent(event)) {
                 return {
                   style: {
-                    backgroundColor: "#e53935",
-                    color: "#fff",
+                    backgroundColor: isToday ? "rgba(29,78,216,0.10)" : undefined,
+                    border: isToday ? "1px solid rgba(29,78,216,0.55)" : undefined,
+                  },
+                };
+              }}
+              style={{ height: calendarView === "month" ? 680 : 610, background: "#fff" }}
+              onSelectEvent={(e) => {
+                openSelectedBooking(e);
+              }}
+              components={{ event: CalendarEvent }}
+              eventPropGetter={(event) => {
+                const status = event.status || "Confirmed";
+
+                // base style by status
+                let style = getStatusStyle(status);
+
+                // risky future confirmed jobs go red
+                const risky = !!event.isRisky;
+                if (risky && isFutureJobEvent(event)) {
+                  return {
+                    style: {
+                      backgroundColor: "#e53935",
+                      color: "#fff",
+                      fontWeight: 700,
+                      padding: 0,
+                      borderRadius: 8,
+                      border: "2px solid #0b0b0b",
+                      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                      cursor: "pointer",
+                    },
+                  };
+                }
+
+                // night shoot styling (same rule set as main page)
+                const shoot = String(event.shootType || "").toLowerCase();
+                const bookingStatuses = new Set([
+                  "confirmed",
+                  "first pencil",
+                  "second pencil",
+                  "complete",
+                  "action required",
+                  "dnh",
+                ]);
+
+                if (shoot === "night" && bookingStatuses.has(String(status || "").toLowerCase())) {
+                  style = NIGHT_SHOOT_STYLE;
+                }
+
+                return {
+                  style: {
+                    backgroundColor: style.bg,
+                    color: style.text,
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                    border: "2px solid #0b0b0b",
+                    border: `2px solid ${style.border}`,
                     boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
                     cursor: "pointer",
                   },
                 };
-              }
-
-              // night shoot styling (same rule set as main page)
-              const shoot = String(event.shootType || "").toLowerCase();
-              const bookingStatuses = new Set([
-                "confirmed",
-                "first pencil",
-                "second pencil",
-                "complete",
-                "action required",
-                "dnh",
-              ]);
-
-              if (shoot === "night" && bookingStatuses.has(String(status || "").toLowerCase())) {
-                style = NIGHT_SHOOT_STYLE;
-              }
-
-              return {
-                style: {
-                  backgroundColor: style.bg,
-                  color: style.text,
-                  fontWeight: 700,
-                  padding: 0,
-                  borderRadius: 8,
-                  border: `2px solid ${style.border}`,
-                  boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
-                  cursor: "pointer",
-                },
-              };
-            }}
-          />
+              }}
+            />
+          </div>
 
           {/*  UPCOMING SECTION (below calendar) */}
           <div style={{ marginTop: 16 }}>
@@ -1281,7 +1375,7 @@ export default function DashboardPage({ bookingSaved }) {
                 <div style={hint}>Future U-Crane work grouped by booking status for quick operational review.</div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div style={sectionActions}>
                 {["Confirmed", "First Pencil", "Second Pencil"].map((s) => (
                   <div
                     key={s}
@@ -1297,7 +1391,7 @@ export default function DashboardPage({ bookingSaved }) {
                       style={{
                         width: 10,
                         height: 10,
-                        borderRadius: 999,
+                        borderRadius: UI.radiusSm,
                         background: getStatusStyle(s).bg,
                         border: `2px solid ${getStatusStyle(s).border}`,
                         display: "inline-block",
@@ -1309,13 +1403,7 @@ export default function DashboardPage({ bookingSaved }) {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 12,
-              }}
-            >
+            <div className="ucrane-upcoming-grid">
               <UpcomingColumn label="Confirmed" />
               <UpcomingColumn label="First Pencil" />
               <UpcomingColumn label="Second Pencil" />
@@ -1329,7 +1417,12 @@ export default function DashboardPage({ bookingSaved }) {
       </div>
 
       {selectedBookingId && (
-        <ViewUCraneBooking id={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
+        <ViewUCraneBooking
+          id={selectedBookingId}
+          onClose={closeSelectedBooking}
+          initialBooking={selectedBooking}
+          initialVehicles={vehiclesData}
+        />
       )}
     </HeaderSidebarLayout>
   );

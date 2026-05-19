@@ -6,90 +6,124 @@ import { auth, db, storage } from "../../../firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ImageUp, Mail, Save, UserRound } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  dangerSoft: "#fcefee",
+  dangerText: "#991b1b",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
-  padding: "6px 10px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const card = {
   ...surface,
-  padding: 16,
+  padding: 12,
 };
 
-const fieldLabel = { fontSize: 12, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.02em" };
+const fieldLabel = { fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: 0 };
 const input = {
   width: "100%",
-  padding: "10px 12px",
+  minHeight: 36,
+  padding: "7px 9px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
+  border: UI.border,
   background: "#fff",
-  fontSize: 14,
+  fontSize: 13.5,
   outline: "none",
   color: UI.text,
+  boxSizing: "border-box",
 };
-const helper = { color: UI.muted, fontSize: 12, marginTop: 6 };
+const helper = { color: UI.muted, fontSize: 12, lineHeight: 1.35, marginTop: 5 };
 
 const btnBase = {
   width: "100%",
-  padding: "10px 12px",
+  padding: "6px 9px",
   borderRadius: UI.radiusSm,
-  fontSize: 14,
-  fontWeight: 900,
+  fontSize: 12.5,
+  fontWeight: 800,
   cursor: "pointer",
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: `1px solid ${UI.brandBorder}`,
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
+  gap: 7,
+  boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
 };
-const btnPrimary = { ...btnBase, background: UI.brand, borderColor: UI.brand, color: "#fff" };
-const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand };
+const btnPrimary = {
+  ...btnBase,
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  borderColor: UI.brand,
+  color: "#fff",
+};
+const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "#fff" };
+const sectionTitle = { margin: 0, fontSize: 16, fontWeight: 800, color: UI.text, lineHeight: 1.2 };
+const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 5 };
 
 const avatarWrap = {
-  width: 56,
-  height: 56,
-  borderRadius: 999,
+  width: 52,
+  height: 52,
+  borderRadius: UI.radius,
   overflow: "hidden",
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: UI.border,
+  background: UI.brandSoft,
   display: "grid",
   placeItems: "center",
-  fontWeight: 900,
+  fontWeight: 800,
   color: UI.text,
 };
+
+const editProfileCss = `
+  @media (max-width: 1180px) {
+    .edit-profile-layout,
+    .edit-profile-fields,
+    .edit-profile-actions {
+      grid-template-columns: 1fr !important;
+    }
+  }
+`;
 
 function initials(name = "") {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
@@ -140,8 +174,7 @@ export default function EditProfilePage() {
         setName(displayName || "");
         setRole(firestoreRole || "");
         setPhotoURL(firestorePhoto || null);
-      } catch (e) {
-        // fallback to auth data
+      } catch {
         setName(user.displayName || "");
         setPhotoURL(user.photoURL || null);
       } finally {
@@ -154,7 +187,10 @@ export default function EditProfilePage() {
 
   const avatarNode = useMemo(() => {
     if (photoURL) {
-      return <img src={photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={photoURL} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      );
     }
     return <span>{initials(name)}</span>;
   }, [photoURL, name]);
@@ -169,7 +205,6 @@ export default function EditProfilePage() {
   const uploadPhotoIfNeeded = async () => {
     if (!file || !uid) return photoURL || null;
 
-    // basic validation
     if (!file.type?.startsWith("image/")) {
       setError("Please upload an image file (jpg/png/webp).");
       return null;
@@ -203,7 +238,7 @@ export default function EditProfilePage() {
 
     const trimmed = String(name || "").trim();
     if (!trimmed) {
-      setError("Name can’t be empty.");
+      setError("Name can't be empty.");
       return;
     }
 
@@ -211,7 +246,6 @@ export default function EditProfilePage() {
     try {
       const newPhotoURL = await uploadPhotoIfNeeded();
 
-      // update Auth profile (so header/avatar can use auth data too)
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: trimmed,
@@ -219,7 +253,6 @@ export default function EditProfilePage() {
         });
       }
 
-      // update Firestore user doc
       await setDoc(
         doc(db, "users", uid),
         {
@@ -244,38 +277,46 @@ export default function EditProfilePage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{editProfileCss}</style>
       <div style={pageWrap}>
-        {/* Header */}
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Edit profile</h1>
-            <div style={sub}>Update your account details. Style matches Jobs Home.</div>
+            <div style={sub}>Update your account details and profile photo.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>{loading ? "Loading…" : "Profile"}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={chip}>
+              <UserRound size={14} />
+              {loading ? "Loading..." : "Profile"}
+            </div>
             {saving ? (
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>Saving…</div>
+              <div style={{ ...chip, color: UI.brand }}>
+                <CheckCircle2 size={14} />
+                Saving...
+              </div>
             ) : null}
           </div>
         </div>
 
         {loading ? (
-          <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>Loading profile…</div>
+          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>Loading profile...</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: UI.gap }}>
-            {/* Main */}
+          <div
+            className="edit-profile-layout"
+            style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)", gap: UI.gap }}
+          >
             <div style={card}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={avatarWrap}>{avatarNode}</div>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16 }}>{name || "—"}</div>
-                  <div style={{ color: UI.muted, fontSize: 13 }}>{email || "—"}</div>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{name || "-"}</div>
+                  <div style={{ color: UI.muted, fontSize: 13 }}>{email || "-"}</div>
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "#eef2f7", margin: "14px 0" }} />
+              <div style={{ height: 1, background: "#e7edf4", margin: "12px 0" }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="edit-profile-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
                   <div style={fieldLabel}>Name</div>
                   <input value={name} onChange={(e) => setName(e.target.value)} style={input} placeholder="Your name" />
@@ -284,19 +325,19 @@ export default function EditProfilePage() {
 
                 <div>
                   <div style={fieldLabel}>Email</div>
-                  <input value={email} disabled style={{ ...input, background: "#f8fafc" }} />
+                  <input value={email} disabled style={{ ...input, background: "#f8fbfd" }} />
                   <div style={helper}>Email is managed by your login account.</div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>Role</div>
-                  <input value={role || "—"} disabled style={{ ...input, background: "#f8fafc" }} />
+                  <input value={role || "-"} disabled style={{ ...input, background: "#f8fbfd" }} />
                   <div style={helper}>Role is controlled by admins.</div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>Profile photo</div>
-                  <input type="file" accept="image/*" onChange={onPickFile} style={{ ...input, padding: 8 }} />
+                  <input type="file" accept="image/*" onChange={onPickFile} style={input} />
                   <div style={helper}>
                     Upload a square image for best results. {uploadPct > 0 ? <b>Upload: {uploadPct}%</b> : null}
                   </div>
@@ -306,50 +347,72 @@ export default function EditProfilePage() {
               {error ? (
                 <div
                   style={{
-                    marginTop: 14,
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #fecaca",
-                    background: "#fee2e2",
-                    color: "#991b1b",
+                    marginTop: 12,
+                    padding: "8px 10px",
+                    borderRadius: UI.radius,
+                    border: "1px solid #f1b8b8",
+                    background: UI.dangerSoft,
+                    color: UI.dangerText,
                     fontWeight: 800,
-                    fontSize: 13,
+                    fontSize: 12.5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
                   }}
                 >
+                  <AlertTriangle size={14} />
                   {error}
                 </div>
               ) : null}
 
-              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div
+                className="edit-profile-actions"
+                style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+              >
                 <button type="button" style={btnSoft} onClick={() => router.push("/settings")} disabled={saving}>
+                  <ArrowLeft size={14} />
                   Cancel
                 </button>
                 <button type="button" style={btnPrimary} onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving…" : "Save changes"}
+                  <Save size={14} />
+                  {saving ? "Saving..." : "Save changes"}
                 </button>
               </div>
             </div>
 
-            {/* Side panel (ignore content, just for layout parity) */}
             <div style={card}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Profile tips</div>
-              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+              <h2 style={sectionTitle}>Profile tips</h2>
+              <div style={sectionSub}>
                 Keep names consistent for job sheets and staff allocation. Use a clear headshot if you add a photo.
               </div>
 
-              <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff" }}>
+              <div style={{ ...detailCard, marginTop: 12 }}>
                 <div style={fieldLabel}>Preview</div>
-                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ ...avatarWrap, width: 44, height: 44 }}>{avatarNode}</div>
                   <div>
-                    <div style={{ fontWeight: 900 }}>{name || "—"}</div>
-                    <div style={{ color: UI.muted, fontSize: 13 }}>{email || "—"}</div>
+                    <div style={{ fontWeight: 800, color: UI.text }}>{name || "-"}</div>
+                    <div style={{ color: UI.muted, fontSize: 13 }}>{email || "-"}</div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ marginTop: 14, color: UI.muted, fontSize: 12 }}>
-                Note: this page writes to <b>users/{`{uid}`}</b> and also updates the Firebase Auth displayName/photoURL.
+              <div style={{ ...detailCard, marginTop: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: UI.text, fontWeight: 800, fontSize: 13 }}>
+                  <ImageUp size={15} color={UI.brand} />
+                  Photo and account data
+                </div>
+                <div style={{ ...sectionSub, marginTop: 6 }}>
+                  Profile photos are stored against your account. Display name and photo changes update the app header after save.
+                </div>
+              </div>
+
+              <div style={{ ...detailCard, marginTop: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: UI.text, fontWeight: 800, fontSize: 13 }}>
+                  <Mail size={15} color={UI.brand} />
+                  Login email
+                </div>
+                <div style={{ ...sectionSub, marginTop: 6 }}>Email and role are locked here so the login and permissions stay controlled.</div>
               </div>
             </div>
           </div>

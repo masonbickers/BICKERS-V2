@@ -28,6 +28,19 @@ import {
   buildNextLifecycle,
   buildNextStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  Package,
+  Save,
+  Search,
+  Truck,
+  Users,
+} from "lucide-react";
 
 const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
 
@@ -35,68 +48,85 @@ const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", 
    Visual tokens + shared styles (MATCH CREATE)
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
-  radius: 16,
-  radiusSm: 12,
-  radiusXs: 10,
-  shadow: "0 12px 32px rgba(15,23,42,0.07)",
-  border: "1px solid #dbe2ea",
+  radius: 8,
+  radiusSm: 8,
+  radiusXs: 8,
+  shadow: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
   bg: "#ffffff",
-  bgAlt: "#f5f8fb",
+  bgAlt: "#f8fafc",
+  page: "#f3f6f9",
   text: "#0f172a",
   muted: "#5f6f82",
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
-  brandBorder: "#c9d6e2",
+  brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
 };
 
 const pageWrap = {
-  display: "flex",
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, Arial, sans-serif",
-  background: "#eef3f8",
+  background: UI.page,
+  padding: "16px 16px 32px",
 };
 
 const mainWrap = {
-  flex: 1,
   color: UI.text,
-  maxWidth: 1600,
-  margin: "0 auto",
-  padding: "24px 28px 32px",
+  width: "100%",
 };
 
 const h1Style = {
   color: UI.text,
   marginBottom: 0,
-  fontSize: 30,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  fontSize: 22,
+  lineHeight: 1.08,
+  fontWeight: 750,
+  letterSpacing: 0,
 };
 
 const pageHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 18,
-  marginBottom: 18,
+  gap: 12,
+  marginBottom: 12,
   flexWrap: "wrap",
+};
+
+const headerChecks = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 10,
+  marginBottom: 12,
 };
 
 const headerChecksBox = {
   display: "flex",
-  alignItems: "center",
-  gap: 18,
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 10,
   flexWrap: "wrap",
-  padding: "12px 16px",
+  padding: "10px 12px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   background: UI.bg,
-  boxShadow: "0 4px 18px rgba(15,23,42,0.04)",
+  boxShadow: UI.shadow,
 };
 
 const sectionGrid = {
   display: "grid",
-  gridTemplateColumns: "minmax(280px, 0.72fr) minmax(440px, 1.14fr) minmax(440px, 1.14fr)",
-  gap: 18,
+  gridTemplateColumns: "minmax(280px, 0.78fr) minmax(420px, 1.1fr) minmax(420px, 1.12fr)",
+  gap: 12,
   marginTop: 10,
 };
 
@@ -105,31 +135,33 @@ const card = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
-  padding: 18,
+  padding: 12,
 };
 const cardTitle = {
-  margin: "0 0 14px",
-  fontSize: 16,
+  margin: 0,
+  fontSize: 15,
   fontWeight: 800,
   color: UI.text,
-  letterSpacing: "-0.01em",
+  letterSpacing: 0,
 };
 
 const field = {
   label: {
     display: "block",
-    fontWeight: 700,
-    marginBottom: 7,
-    color: UI.text,
-    fontSize: 13,
+    fontWeight: 800,
+    marginBottom: 5,
+    color: UI.muted,
+    fontSize: 11.5,
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
   },
   input: {
     width: "100%",
-    height: 40,
-    padding: "9px 12px",
-    fontSize: 14,
+    height: 36,
+    padding: "7px 9px",
+    fontSize: 13,
     borderRadius: UI.radiusXs,
-    border: "1px solid #ccd6e0",
+    border: UI.border,
     background: "#fff",
     color: UI.text,
     boxSizing: "border-box",
@@ -137,10 +169,10 @@ const field = {
   textarea: {
     width: "100%",
     minHeight: 80,
-    padding: "11px 12px",
-    fontSize: 14,
+    padding: "9px 10px",
+    fontSize: 13,
     borderRadius: UI.radiusXs,
-    border: "1px solid #ccd6e0",
+    border: UI.border,
     background: "#fff",
     color: UI.text,
     boxSizing: "border-box",
@@ -149,7 +181,8 @@ const field = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    fontWeight: 600,
+    fontWeight: 700,
+    fontSize: 13,
     marginBottom: 8,
   },
 };
@@ -159,12 +192,13 @@ const accordionBtn = {
   alignItems: "center",
   justifyContent: "space-between",
   width: "100%",
-  padding: "10px 12px",
+  padding: "8px 10px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d4dde7",
-  background: "#f8fafc",
+  border: UI.border,
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
   cursor: "pointer",
-  fontWeight: 700,
+  fontWeight: 800,
+  fontSize: 12.5,
   color: UI.text,
 };
 
@@ -172,7 +206,7 @@ const pill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "3px 9px",
+  padding: "3px 8px",
   fontSize: 12,
   borderRadius: 999,
   background: UI.brandSoft,
@@ -181,35 +215,49 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e2e8f0", margin: "16px 0" };
+const divider = { height: 1, background: "#e2e8f0", margin: "12px 0" };
 
 const checkboxGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "6px 18px",
+  gridTemplateColumns: "repeat(2, minmax(160px, 210px))",
+  gap: "7px 28px",
   alignItems: "start",
+};
+
+const personCheckboxLabel = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  marginBottom: 3,
+  fontSize: 13.5,
+  lineHeight: 1.25,
 };
 
 const actionsRow = {
   display: "flex",
-  gap: 10,
+  gap: 8,
   justifyContent: "flex-end",
   marginTop: 16,
 };
 
 const subCard = {
-  padding: 14,
+  padding: 10,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
   border: "1px solid #e2e8f0",
 };
 
 const btn = {
-  padding: "10px 14px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "8px 11px",
   borderRadius: UI.radiusXs,
   border: `1px solid ${UI.brand}`,
   cursor: "pointer",
-  fontWeight: 700,
+  fontWeight: 800,
+  fontSize: 13,
 };
 const btnPrimary = {
   ...btn,
@@ -231,23 +279,52 @@ const btnDanger = {
 };
 
 const summaryCard = {
-  ...card,
-  position: "sticky",
-  top: 12,
-  alignSelf: "start",
-  background: "#162434",
-  color: "#e8eef5",
-  border: "1px solid rgba(255,255,255,0.06)",
-  boxShadow: "0 18px 36px rgba(15,23,42,0.16)",
+  ...subCard,
+  background: UI.bg,
+  color: UI.text,
+  border: UI.border,
+  boxShadow: UI.shadow,
 };
 
 const summaryRow = {
   display: "grid",
-  gridTemplateColumns: "140px 1fr",
+  gridTemplateColumns: "150px 1fr",
   gap: 10,
-  padding: "8px 0",
-  borderBottom: "1px dashed rgba(255,255,255,0.12)",
+  padding: "7px 0",
+  borderBottom: "1px dashed #d6e0ea",
 };
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 32,
+  height: 32,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const pageSub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 };
+const focusCss = `
+  input:focus, select:focus, textarea:focus, button:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  @media (max-width: 1280px) {
+    .edit-booking-grid { grid-template-columns: 1fr !important; }
+  }
+  @media (max-width: 760px) {
+    .edit-booking-two,
+    .edit-booking-assets,
+    .edit-booking-crew-box,
+    .edit-booking-hotel { grid-template-columns: 1fr !important; }
+  }
+`;
 
 /* ────────────────────────────────────────────────────────────────────────────
    Status + blocking
@@ -267,12 +344,23 @@ const VEHICLE_STATUSES = [
   "Complete",
 ];
 
-const BLOCKING_STATUSES = ["Confirmed", "First Pencil", "Second Pencil"];
+const SECOND_PENCIL_STATUS = "Second Pencil";
+const BLOCKING_STATUSES = ["Confirmed", "First Pencil", SECOND_PENCIL_STATUS];
+const SECOND_PENCIL_BLOCKING_STATUSES = [SECOND_PENCIL_STATUS, "Maintenance"];
 const doesBlockBooking = (b) =>
   BLOCKING_STATUSES.includes((b.status || "").trim());
 const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
+};
+const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
+  const requested = (requestedStatus || "").trim();
+  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
+  if (!isVehicleBlockingStatus(requested)) return false;
+  if (requested === SECOND_PENCIL_STATUS) {
+    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
+  }
+  return existing.some((s) => isVehicleBlockingStatus(s));
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
@@ -737,7 +825,7 @@ export default function EditBookingPage() {
   const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
   const [offRoadTracking, setOffRoadTracking] = useState(false);
 
-  // Crew requirement (NO auto-crewed)
+  // Crew requirement is guidance only. "Crewed" is controlled manually.
   const [requiredCrewCount, setRequiredCrewCount] = useState(1);
 
   // Employees
@@ -918,7 +1006,7 @@ export default function EditBookingPage() {
   }, [selectedDates]);
 
   /* ────────────────────────────────────────────────────────────
-      allocated crew count (display only) — NO auto setIsCrewed
+      Allocated crew count is display-only; crewed is always manual.
   ───────────────────────────────────────────────────────────── */
   const allocatedCrewCount = useMemo(() => {
     const selectedCount = employees.filter(
@@ -1311,8 +1399,9 @@ export default function EditBookingPage() {
       .filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates, bookingId]);
 
-  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById } = useMemo(() => {
+  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
     const blockingById = {};
+    const blockingStatusesById = {};
     const booked = [];
     const held = [];
 
@@ -1325,6 +1414,10 @@ export default function EditBookingPage() {
         if (!itemStatus) return;
 
         if (isVehicleBlockingStatus(itemStatus)) {
+          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
+          if (!blockingStatusesById[vid].includes(itemStatus)) {
+            blockingStatusesById[vid].push(itemStatus);
+          }
           if (!blockingById[vid]) {
             blockingById[vid] = itemStatus;
             booked.push(vid);
@@ -1339,6 +1432,7 @@ export default function EditBookingPage() {
       bookedVehicleIds: booked,
       heldVehicleIds: held,
       vehicleBlockingStatusById: blockingById,
+      vehicleBlockingStatusesById: blockingStatusesById,
     };
   }, [overlapping, vehicleLookup]);
 
@@ -1532,7 +1626,7 @@ export default function EditBookingPage() {
   };
 
   /* ────────────────────────────────────────────────────────────
-     Options that include custom “Other” names so they stay selectable
+     Options that include custom Other names so they stay selectable
   ───────────────────────────────────────────────────────────── */
   const uniqStrings = (arr) =>
     Array.from(new Set((arr || []).map((s) => String(s || "").trim()).filter(Boolean)));
@@ -1663,12 +1757,16 @@ export default function EditBookingPage() {
   ───────────────────────────────────────────────────────────── */
   const selectedVehicleConflictLabels = (selectedIds, statuses) =>
     (selectedIds || [])
-      .filter((vehicleId) => isVehicleBlockingStatus(statuses?.[vehicleId] || status))
-      .filter((vehicleId) => bookedVehicleIds.includes(vehicleId))
+      .filter((vehicleId) =>
+        existingVehicleStatusConflictsWithRequested(
+          vehicleBlockingStatusesById[vehicleId] || [],
+          statuses?.[vehicleId] || status
+        )
+      )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
         const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
-        const existingStatus = vehicleBlockingStatusById[vehicleId] || "booked";
+        const existingStatus = (vehicleBlockingStatusesById[vehicleId] || [vehicleBlockingStatusById[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
 
@@ -1712,9 +1810,9 @@ export default function EditBookingPage() {
     const vehicleConflicts = selectedVehicleConflictLabels(vehicles, vehicleStatus);
     if (bookingDates.length && vehicleConflicts.length) {
       return alert(
-        `One or more selected vehicles already have a blocking booking on the selected date(s):\n\n${vehicleConflicts.join(
+        `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
           "\n"
-        )}`
+        )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
       );
     }
 
@@ -1840,8 +1938,7 @@ export default function EditBookingPage() {
     const req = Number(requiredCrewCount);
     const allocatedAtSave = cleanedEmployees.length;
 
-    //  manual only (no auto)
-    const isCrewedAtSave = Boolean(isCrewed);
+    const manualCrewed = Boolean(isCrewed);
 
     //  Hotel payload
     const hotelPaidByClean = hasHotel ? String(hotelPaidBy || "").trim() : "";
@@ -1897,7 +1994,7 @@ export default function EditBookingPage() {
       equipment,
 
       isSecondPencil,
-      isCrewed: isCrewedAtSave,
+      isCrewed: manualCrewed,
       hasHS,
       hasRiskAssessment,
       offRoadTracking,
@@ -2027,10 +2124,11 @@ export default function EditBookingPage() {
   if (loading) {
     return (
       <HeaderSidebarLayout>
+        <style>{focusCss}</style>
         <div style={pageWrap}>
           <div style={mainWrap}>
             <h1 style={h1Style}>Edit Booking</h1>
-            <div style={card}>Loading…</div>
+            <div style={card}>Loading...</div>
           </div>
         </div>
       </HeaderSidebarLayout>
@@ -2047,42 +2145,61 @@ export default function EditBookingPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={mainWrap}>
-          <h1 style={h1Style}>Edit Booking</h1>
-
           <div style={pageHeader}>
-            <div />
+            <div>
+              <h1 style={h1Style}>Edit Booking</h1>
+              <div style={pageSub}>Update the job, dates, crew, vehicles, equipment, files and notes in the same compact workflow.</div>
+            </div>
+            <div style={{ ...pill, alignSelf: "flex-start", padding: "6px 10px" }}>
+              <ClipboardList size={14} />
+              Job {jobNumber || "Draft"}
+            </div>
+          </div>
+
+          <div style={headerChecks}>
             {!isBickersJob && (
               <div style={headerChecksBox}>
-                <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                  <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
-                  Health & Safety Completed
-                </label>
+                <span style={iconBox(hasHS && hasRiskAssessment ? UI.green : UI.amber, hasHS && hasRiskAssessment ? UI.greenSoft : UI.amberSoft, hasHS && hasRiskAssessment ? UI.greenBorder : UI.amberBorder)}>
+                  <CheckCircle2 size={17} />
+                </span>
+                <div style={{ display: "grid", gap: 6, flex: 1 }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />
+                    Health & Safety Completed
+                  </label>
 
-                <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
-                  <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
-                  Risk Assessment Completed
-                </label>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={hasRiskAssessment} onChange={(e) => setHasRiskAssessment(e.target.checked)} />
+                    Risk Assessment Completed
+                  </label>
+                </div>
               </div>
             )}
             <div style={headerChecksBox}>
-              <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
-                <input
-                  type="checkbox"
-                  checked={offRoadTracking}
-                  disabled={!offRoadEligibility.eligible}
-                  onChange={(e) => setOffRoadTracking(e.target.checked)}
-                />
-                Off Road Tracking (skip tax/insurance compliance)
-              </label>
-              {!offRoadEligibility.eligible ? (
-                <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
-              ) : (
-                <div style={{ fontSize: 12, color: UI.muted }}>
-                  Valid for Bike, Electric Tracking Vehicles, and Small Tracking Vehicles.
-                </div>
-              )}
+              <span style={iconBox(offRoadTracking ? UI.green : UI.brand, offRoadTracking ? UI.greenSoft : UI.brandSoft, offRoadTracking ? UI.greenBorder : UI.brandBorder)}>
+                <Truck size={17} />
+              </span>
+              <div style={{ display: "grid", gap: 4, flex: 1 }}>
+                <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
+                  <input
+                    type="checkbox"
+                    checked={offRoadTracking}
+                    disabled={!offRoadEligibility.eligible}
+                    onChange={(e) => setOffRoadTracking(e.target.checked)}
+                  />
+                  Off Road Tracking
+                </label>
+                {!offRoadEligibility.eligible ? (
+                  <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
+                ) : (
+                  <div style={{ fontSize: 12, color: UI.muted }}>
+                    Skips tax/insurance compliance for allowed tracking vehicles.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -2092,10 +2209,13 @@ export default function EditBookingPage() {
               handleUpdate();
             }}
           >
-            <div style={sectionGrid}>
+            <div className="edit-booking-grid" style={sectionGrid}>
               {/* Column 1: Job Info */}
               <div style={card}>
-                <h3 style={cardTitle}>Job Info</h3>
+                <div style={sectionTitleRow}>
+                  <span style={iconBox()}><FileText size={17} /></span>
+                  <h3 style={cardTitle}>Job Info</h3>
+                </div>
 
                 <label style={field.label}>Job Number</label>
                 <input
@@ -2432,7 +2552,7 @@ export default function EditBookingPage() {
                         <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
                         {filteredSavedContacts.map((c) => {
                           const labelBase = c.name || c.email || "Unnamed";
-                          const deptLabel = c.department ? ` – ${c.department}` : "";
+                          const deptLabel = c.department ? ` - ${c.department}` : "";
                           return (
                             <option key={c.id} value={c.id}>
                               {labelBase}
@@ -2456,7 +2576,10 @@ export default function EditBookingPage() {
 
               {/* Column 2: Dates & People */}
               <div style={card}>
-                <h3 style={cardTitle}>Dates & People</h3>
+                <div style={sectionTitleRow}>
+                  <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CalendarDays size={17} /></span>
+                  <h3 style={cardTitle}>Dates & People</h3>
+                </div>
 
                 <label style={field.checkboxRow}>
                   <input
@@ -2502,6 +2625,7 @@ export default function EditBookingPage() {
                   </div>
                 ) : (
                   <div
+                    className="edit-booking-two"
                     style={{
                       display: "grid",
                       gridTemplateColumns: isRange ? "1fr 1fr" : "1fr",
@@ -2647,7 +2771,9 @@ export default function EditBookingPage() {
 
                 <div style={divider} />
 
-                <h4 style={{ margin: "8px 0" }}>Precision Driver</h4>
+                <h4 style={{ margin: "8px 0", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+                  <Users size={15} /> Precision Driver
+                </h4>
                 <div style={checkboxGrid}>
                 {driverOptions.map((name) => {
                   const isSelected = employees.some(
@@ -2659,7 +2785,7 @@ export default function EditBookingPage() {
                   const disabled = (isBooked || isHoliday) && !isSelected;
 
                   return (
-                    <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                    <label key={`pd-${name}`} style={personCheckboxLabel}>
                       <input
                         type="checkbox"
                         value={name}
@@ -2685,7 +2811,7 @@ export default function EditBookingPage() {
                             upsertEmployeeDates("Precision Driver", name, false);
                           }
                         }}
-                      />{" "}
+                      />
                       <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
                         {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"}{" "}
                         {isHoliday && "(On Holiday)"}
@@ -2695,7 +2821,7 @@ export default function EditBookingPage() {
                 })}
                 </div>
 
-                {/* Required crew selector + MANUAL crewed checkbox */}
+                {/* Required crew guidance + manual crewed checkbox */}
                 <div
                   style={{
                     marginTop: 10,
@@ -2706,66 +2832,63 @@ export default function EditBookingPage() {
                   }}
                 >
                   <div
+                    className="edit-booking-crew-box"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 10,
-                      alignItems: "end",
+                      gridTemplateColumns: "minmax(0, 1fr) 132px",
+                      gap: 12,
+                      alignItems: "center",
                     }}
                   >
                     <div>
-                      <label style={{ ...field.label, marginBottom: 6 }}>
-                        Crew required to mark as “Crewed”
+                      <label style={{ ...field.label, marginBottom: 6, lineHeight: 1.25 }}>Crew status</label>
+                      <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13.5 }}>
+                        <input
+                          type="checkbox"
+                          checked={isCrewed}
+                          onChange={(e) => setIsCrewed(e.target.checked)}
+                          style={{ margin: 0 }}
+                        />
+                        Booking Crewed
                       </label>
+                      <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                        Manual only - selecting crew will not tick this.
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 5, justifyItems: "end" }}>
+                      <label style={{ ...field.label, marginBottom: 0 }}>Required</label>
                       <input
                         type="number"
                         min={0}
                         step={1}
                         value={requiredCrewCount}
                         onChange={(e) => {
-                          const v = Math.max(
-                            0,
-                            parseInt(e.target.value || "0", 10)
-                          );
+                          const v = Math.max(0, parseInt(e.target.value || "0", 10));
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={{ ...field.input, width: 110, marginLeft: "auto", marginBottom: 8 }}
+                        style={{ ...field.input, width: 96, textAlign: "right" }}
                       />
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, color: UI.muted }}>
-                        Allocated crew
-                      </div>
-                      <div style={{ fontSize: 18, fontWeight: 800 }}>
-                        {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
+                      <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.25 }}>
+                        Allocated: <b style={{ color: UI.text }}>{allocatedCrewCount}</b> / {Math.max(0, Number(requiredCrewCount) || 0)}
                       </div>
                       <div
                         style={{
                           fontSize: 12,
                           color: isCrewed ? "#16a34a" : "#b45309",
-                          fontWeight: 700,
+                          fontWeight: 800,
+                          lineHeight: 1.25,
                         }}
                       >
                         {isCrewed ? "Crewed Yes (manual)" : "Not crewed (manual)"}
                       </div>
                     </div>
                   </div>
-
-                  <div style={{ marginTop: 10 }}>
-                    <label style={{ fontWeight: 700 }}>
-                      <input
-                        type="checkbox"
-                        checked={isCrewed}
-                        onChange={(e) => setIsCrewed(e.target.checked)}
-                      />{" "}
-                      Booking Crewed
-                      <span style={{ color: UI.muted, fontWeight: 600 }}> (manual)</span>
-                    </label>
-                  </div>
                 </div>
 
-                <h4 style={{ margin: "8px 0" }}>Freelancers</h4>
+                <h4 style={{ margin: "8px 0", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+                  <Users size={15} /> Freelancers
+                </h4>
                 <div style={checkboxGrid}>
                 {freelancerOptions.map((name) => {
                   const isSelected = employees.some(
@@ -2776,7 +2899,7 @@ export default function EditBookingPage() {
                   const disabled = (isBooked || isHoliday) && !isSelected;
 
                   return (
-                    <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
+                    <label key={`fl-${name}`} style={personCheckboxLabel}>
                       <input
                         type="checkbox"
                         value={name}
@@ -2801,7 +2924,7 @@ export default function EditBookingPage() {
                             upsertEmployeeDates("Freelancer", name, false);
                           }
                         }}
-                      />{" "}
+                      />
                       <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
                         {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
                       </span>
@@ -2924,16 +3047,22 @@ export default function EditBookingPage() {
 
               {/* Column 3: Vehicles + Equipment */}
               <div style={card}>
-                <h3 style={cardTitle}>Vehicles</h3>
-                <input
-                  type="text"
-                  placeholder="Search vehicles or equipment..."
-                  value={assetSearch}
-                  onChange={(e) => setAssetSearch(e.target.value)}
-                  style={{ ...field.input, marginBottom: 8 }}
-                />
+                <div style={sectionTitleRow}>
+                  <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
+                  <h3 style={cardTitle}>Vehicles</h3>
+                </div>
+                <div style={{ position: "relative", marginBottom: 12 }}>
+                  <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
+                  <input
+                    type="text"
+                    placeholder="Search vehicles or equipment..."
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                    style={{ ...field.input, paddingLeft: 34 }}
+                  />
+                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className="edit-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
                 {Object.entries(filteredVehicleGroups).map(([group, items]) => {
                   const isOpen = openGroups[group] || false;
 
@@ -2946,8 +3075,8 @@ export default function EditBookingPage() {
                         }
                         style={accordionBtn}
                       >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                         </span>
                         <span style={pill}>{items.length}</span>
                       </button>
@@ -2957,6 +3086,7 @@ export default function EditBookingPage() {
                           {items.map((vehicle) => {
                             const key = vehicle.id;
                             const isBooked = bookedVehicleIds.includes(key);
+                            const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
                             const blockedStatus = vehicleBlockingStatusById[key];
                             const isHeld = heldVehicleIds.includes(key);
                             const isSelected = vehicles.includes(key);
@@ -2967,7 +3097,7 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled = (isBooked || isMaintBlocked || isDefectBlocked) && !isSelected;
+                            const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
 
                             return (
                               <div
@@ -2986,7 +3116,9 @@ export default function EditBookingPage() {
                                       ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
                                       : isDefectBlocked
                                       ? `Vehicle is blocked: ${defectReason}`
-                                      : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s)`
+                                      : status === SECOND_PENCIL_STATUS
+                                      ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
+                                      : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
                                     : ""
                                 }
                               >
@@ -2998,7 +3130,7 @@ export default function EditBookingPage() {
                                 />
                                 <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
                                   {vehicle.name}
-                                  {vehicle.registration ? ` – ${vehicle.registration}` : ""}
+                                  {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                   {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
                                   {isComplianceBlocked && !isBooked && !isMaintBlocked && ` (${complianceReason})`}
                                   {isMaintBlocked && !isBooked && ` (${maintReason})`}
@@ -3041,9 +3173,12 @@ export default function EditBookingPage() {
 
                 <div style={divider} />
 
-                <h3 style={cardTitle}>Equipment</h3>
+                <div style={sectionTitleRow}>
+                  <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><Package size={17} /></span>
+                  <h3 style={cardTitle}>Equipment</h3>
+                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className="edit-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
                 {Object.entries(filteredEquipmentGroups).map(([group, items]) => {
                   const isOpen = openEquipGroups[group] || false;
 
@@ -3056,8 +3191,8 @@ export default function EditBookingPage() {
                         }
                         style={accordionBtn}
                       >
-                        <span>
-                          {isOpen ? "▼" : "►"} {group}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {group}
                         </span>
                         <span style={pill}>{items.length}</span>
                       </button>
@@ -3124,8 +3259,11 @@ export default function EditBookingPage() {
             </div>
 
             {/* Files & Notes */}
-            <div style={{ ...card, marginTop: 18 }}>
-              <h3 style={cardTitle}>Files & Notes</h3>
+            <div style={{ ...card, marginTop: 12 }}>
+              <div style={sectionTitleRow}>
+                <span style={iconBox()}><FileText size={17} /></span>
+                <h3 style={cardTitle}>Files & Notes</h3>
+              </div>
 
               {attachments?.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
@@ -3161,7 +3299,7 @@ export default function EditBookingPage() {
                           </div>
                           <div style={{ fontSize: 12, color: UI.muted }}>
                             {a?.contentType || "file"}{" "}
-                            {a?.size ? `• ${(a.size / 1024).toFixed(1)} KB` : ""}
+                            {a?.size ? `- ${(a.size / 1024).toFixed(1)} KB` : ""}
                           </div>
                         </div>
 
@@ -3210,13 +3348,13 @@ export default function EditBookingPage() {
               )}
               {newFiles?.length > 0 && (
                 <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
-                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected — they’ll upload on Update.
+                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Update.
                 </div>
               )}
 
               <div style={{ marginTop: 14 }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="edit-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={subCard}>
                   <label style={field.label}>Call Time</label>
 
@@ -3301,100 +3439,94 @@ export default function EditBookingPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 14 }} />
-              <div style={subCard}>
-                <label style={field.label}>Additional Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={6}
-                  style={{ ...field.textarea, background: "#fff" }}
-                  placeholder="Anything extra to include for this booking..."
-                />
-              </div>
-
-              <div style={divider} />
-
-
-              {/*  HOTEL feature restored */}
-              <label style={field.checkboxRow}>
-                <input
-                  type="checkbox"
-                  checked={hasHotel}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setHasHotel(on);
-                    if (!on) {
-                      setHotelPaidBy("");
-                      setHotelNights("");
-                      setHotelPricePerNight("");
-                    }
-                  }}
-                />
-                Hotel Booked
-              </label>
-
-              {hasHotel && (
-                <div
-                  style={{
-                    padding: 10,
-                    borderRadius: UI.radiusSm,
-                    background: "#fff",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: 10,
-                      alignItems: "end",
-                    }}
-                  >
-                    <div>
-                      <label style={field.label}>Paid by</label>
-                      <select
-                        value={hotelPaidBy}
-                        onChange={(e) => setHotelPaidBy(e.target.value)}
-                        style={field.input}
-                      >
-                        <option value="">Select</option>
-                        <option value="Production">Production</option>
-                        <option value="Bickers">Bickers</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={field.label}>Nights</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={hotelNights}
-                        onChange={(e) => setHotelNights(e.target.value)}
-                        style={field.input}
-                        placeholder="e.g. 2"
-                      />
-                    </div>
-
-                    <div>
-                      <label style={field.label}>Price per night</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={hotelPricePerNight}
-                        onChange={(e) => setHotelPricePerNight(e.target.value)}
-                        style={field.input}
-                        placeholder="e.g. 160"
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
-                    Total: <b>{hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}</b>
-                  </div>
+              <div className="edit-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, alignItems: "start" }}>
+                <div style={subCard}>
+                  <label style={field.label}>Additional Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={6}
+                    style={{ ...field.textarea, background: "#fff" }}
+                    placeholder="Anything extra to include for this booking..."
+                  />
                 </div>
-              )}
+
+                <div style={{ ...subCard, display: "grid", gap: 12 }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={hasHotel}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setHasHotel(on);
+                        if (!on) {
+                          setHotelPaidBy("");
+                          setHotelNights("");
+                          setHotelPricePerNight("");
+                        }
+                      }}
+                    />
+                    Hotel Booked
+                  </label>
+
+                  {hasHotel && (
+                    <div
+                      className="edit-booking-hotel"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: 10,
+                        alignItems: "end",
+                      }}
+                    >
+                      <div>
+                        <label style={field.label}>Paid by</label>
+                        <select
+                          value={hotelPaidBy}
+                          onChange={(e) => setHotelPaidBy(e.target.value)}
+                          style={field.input}
+                        >
+                          <option value="">Select</option>
+                          <option value="Production">Production</option>
+                          <option value="Bickers">Bickers</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={field.label}>Nights</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={hotelNights}
+                          onChange={(e) => setHotelNights(e.target.value)}
+                          style={field.input}
+                          placeholder="e.g. 2"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={field.label}>Price per night</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={hotelPricePerNight}
+                          onChange={(e) => setHotelPricePerNight(e.target.value)}
+                          style={field.input}
+                          placeholder="e.g. 160"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {hasHotel && (
+                    <div style={{ fontSize: 12, color: UI.muted }}>
+                      Total: <b>{hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}</b>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div style={actionsRow}>
                 <button
@@ -3407,7 +3539,8 @@ export default function EditBookingPage() {
                     cursor: coreFilled && !saving ? "pointer" : "not-allowed",
                   }}
                 >
-                  {saving ? "Updating…" : "Update Booking"}
+                  <Save size={14} />
+                  {saving ? "Updating..." : "Update Booking"}
                 </button>
 
                 <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
@@ -3419,25 +3552,26 @@ export default function EditBookingPage() {
             {/* Summary */}
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={summaryCard}>
-                <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>
-                   Summary
-                </h3>
+                <div style={sectionTitleRow}>
+                  <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><ClipboardList size={17} /></span>
+                  <h3 style={cardTitle}>Summary</h3>
+                </div>
 
                 <div style={summaryRow}>
                   <div>Job Number</div>
-                  <div>{jobNumber || "—"}</div>
+                  <div>{jobNumber || "-"}</div>
                 </div>
                 <div style={summaryRow}>
                   <div>Status</div>
-                  <div>{status || "—"}</div>
+                  <div>{status || "-"}</div>
                 </div>
                 <div style={summaryRow}>
                   <div>Shoot Type</div>
-                  <div>{shootType || "—"}</div>
+                  <div>{shootType || "-"}</div>
                 </div>
                 <div style={summaryRow}>
                   <div>Client</div>
-                  <div>{client || "—"}</div>
+                  <div>{client || "-"}</div>
                 </div>
 
                 <div style={summaryRow}>
@@ -3455,13 +3589,13 @@ export default function EditBookingPage() {
                               .join(" ");
                           })
                           .join(", ")
-                      : "—"}
+                      : "-"}
                   </div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Location</div>
-                  <div>{location || "—"}</div>
+                  <div>{location || "-"}</div>
                 </div>
 
                 <div style={summaryRow}>
@@ -3470,10 +3604,10 @@ export default function EditBookingPage() {
                     {useCustomDates
                       ? customDates.length
                         ? customDates.join(", ")
-                        : "—"
+                        : "-"
                       : isRange
-                      ? `${startDate || "—"} → ${endDate || "—"}`
-                      : startDate || "—"}
+                      ? `${startDate || "-"} to ${endDate || "-"}`
+                      : startDate || "-"}
                   </div>
                 </div>
 
@@ -3483,7 +3617,7 @@ export default function EditBookingPage() {
                     {employees
                       .filter((e) => e.role === "Precision Driver")
                       .map((e) => e.name)
-                      .join(", ") || "—"}
+                      .join(", ") || "-"}
                   </div>
                 </div>
 
@@ -3493,14 +3627,14 @@ export default function EditBookingPage() {
                     {employees
                       .filter((e) => e.role === "Freelancer")
                       .map((e) => e.name)
-                      .join(", ") || "—"}
+                      .join(", ") || "-"}
                   </div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Crewing</div>
                   <div>
-                    {`Manual • ${isCrewed ? "Crewed Yes" : "Not crewed"} • Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
+                    {`Manual - ${isCrewed ? "Crewed Yes" : "Not crewed"} - Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
                   </div>
                 </div>
 
@@ -3513,7 +3647,7 @@ export default function EditBookingPage() {
                       .map((v) => {
                         const vs = vehicleStatus[v.id] || status;
                         const label = v.registration
-                          ? `${v.name} – ${v.registration}`
+                          ? `${v.name} - ${v.registration}`
                           : v.name;
                         return (
                           <span
@@ -3522,47 +3656,48 @@ export default function EditBookingPage() {
                               display: "inline-flex",
                               alignItems: "center",
                               gap: 6,
-                              border: "1px solid rgba(255,255,255,0.12)",
+                              border: UI.border,
+                              background: UI.bgAlt,
                               borderRadius: 999,
                               padding: "2px 8px",
                               marginRight: 6,
                               marginBottom: 6,
                             }}
                           >
-                            {label} • {vs}
+                            {label} - {vs}
                           </span>
                         );
                       })}
-                    {vehicles.length === 0 && "—"}
+                    {vehicles.length === 0 && "-"}
                   </div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Equipment</div>
-                  <div>{equipment.join(", ") || "—"}</div>
+                  <div>{equipment.join(", ") || "-"}</div>
                 </div>
 
                 <div style={summaryRow}>
                   <div>Hotel / CT</div>
                   <div>
                     {hasHotel
-                      ? `Hotel Yes • Paid by: ${hotelPaidBy || "—"} • Nights: ${hotelNights || "—"} • £/night: ${
-                          hotelPricePerNight ? `£${Number(hotelPricePerNight).toFixed(2)}` : "—"
-                        } • Total: ${hotelTotal ? `£${hotelTotal.toFixed(2)}` : "—"}`
+                      ? `Hotel Yes - Paid by: ${hotelPaidBy || "-"} - Nights: ${hotelNights || "-"} - GBP/night: ${
+                          hotelPricePerNight ? `GBP ${Number(hotelPricePerNight).toFixed(2)}` : "-"
+                        } - Total: ${hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}`
                       : "Hotel No"}
-                    {" • "}
+                    {" - "}
                     {selectedDates.length > 1
                       ? selectedDates
-                          .map((d) => `${d}: ${callTimesByDate[d] || "—"}`)
+                          .map((d) => `${d}: ${callTimesByDate[d] || "-"}`)
                           .join(" | ")
-                      : callTime || "—"}
+                      : callTime || "-"}
                   </div>
                 </div>
 
                 {hasRiggingAddress && (
                   <div style={summaryRow}>
                     <div>Rigging Address</div>
-                    <div>{riggingAddress || "—"}</div>
+                    <div>{riggingAddress || "-"}</div>
                   </div>
                 )}
               </div>

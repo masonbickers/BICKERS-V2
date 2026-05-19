@@ -1,8 +1,6 @@
-// src/app/vehicles/page.js  (or wherever this lives)
-//  Full improved version of your VehicleMaintenancePage
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
@@ -14,30 +12,30 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import Papa from "papaparse";
+import { ArrowLeft, FilePlus2, Plus, RotateCcw, Search } from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your other pages)
-─────────────────────────────────────────── */
+/* UI tokens */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
+  radius: 8,
+  radiusSm: 8,
   gap: 6,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandBorder: "#c8d6e3",
   red: "#dc2626",
   amber: "#d97706",
   green: "#16a34a",
 };
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 3, flexWrap: "wrap", marginBottom: 3 };
-const h1 = { margin: 0, fontSize: 24, lineHeight: 1.1, fontWeight: 950, color: UI.text, letterSpacing: "-0.01em" };
+const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", marginBottom: 4 };
+const h1 = { margin: 0, fontSize: 24, lineHeight: 1.08, fontWeight: 850, color: UI.text, letterSpacing: 0 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const panel = { ...card, padding: 6 };
@@ -49,14 +47,17 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
-      padding: "7px 10px",
+      padding: "5px 8px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12,
+      lineHeight: 1.2,
     };
   }
   return {
@@ -64,49 +65,55 @@ const btn = (kind = "primary") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 5,
-    padding: "7px 10px",
+    padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12,
+    lineHeight: 1.2,
   };
 };
 
 const input = {
   width: "100%",
-  padding: "6px 9px",
-  borderRadius: 10,
-  border: "1px solid #e5e7eb",
+  minHeight: 30,
+  padding: "5px 8px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
   fontSize: 13,
   background: "#fff",
   color: UI.text,
 };
 
-const smallLabel = { fontSize: 11, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 1 };
+const smallLabel = { fontSize: 11, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0, marginBottom: 1 };
 
 const chip = (bg, fg) => ({
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: 5,
   padding: "3px 8px",
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 900,
   background: bg,
   color: fg,
-  border: "1px solid #e5e7eb",
+  border: UI.border,
   whiteSpace: "nowrap",
 });
 
-/* ───────────────────────────────────────────
-   Helpers
-─────────────────────────────────────────── */
+/* Helpers */
 const safeDate = (v) => {
   if (!v) return null;
+  if (typeof v === "string") {
+    const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
   if (typeof v?.toDate === "function") return v.toDate();
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d;
@@ -123,14 +130,14 @@ const daysUntil = (d) => {
 const formatDateWithStyle = (raw, options = {}) => {
   const { soonDays = 21 } = options;
   const d = safeDate(raw);
-  if (!d) return { text: "—", style: { color: UI.muted } };
+  if (!d) return { text: "-", style: { color: UI.muted } };
 
   const diff = daysUntil(d);
   let style = {};
   if (diff < 0) style = { color: UI.red, fontWeight: 950 };
   else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
 
-  const text = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  const text = d.toLocaleDateString("en-GB");
   return { text, style, diff };
 };
 
@@ -169,7 +176,7 @@ const getVehicleOdometerValue = (vehicle) => {
 
 const formatOdometer = (vehicle) => {
   const numeric = getVehicleOdometerValue(vehicle);
-  if (numeric == null) return "—";
+  if (numeric == null) return "-";
   return numeric.toLocaleString("en-GB");
 };
 
@@ -330,17 +337,31 @@ export default function VehicleMaintenancePage() {
       <style jsx global>{`
         input:focus, select:focus, button:focus {
           outline: none;
-          box-shadow: 0 0 0 4px rgba(29,78,216,0.14);
-          border-color: #bfdbfe !important;
+          box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
+          border-color: #9fb7cf !important;
+        }
+        .vehicles-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
+        .vehicles-filter-grid {
+          display: grid;
+          grid-template-columns: minmax(280px, 1.2fr) 210px 220px auto;
+          gap: 3px;
+          align-items: end;
         }
         .vh-sticky thead th { position: sticky; top: 0; z-index: 5; }
-        .vh-sticky .catRow { position: sticky; top: 29px; z-index: 4; } /* keeps category header under table head */
+        .vh-sticky .catRow { position: sticky; top: 29px; z-index: 4; }
         .vehicleDataRow td:nth-child(2) {
           width: 168px;
           max-width: 168px;
           font-weight: 400 !important;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .vehicleDataRow:hover td { background: rgba(31,75,122,0.04); }
+        @media (max-width: 1120px) {
+          .vehicles-filter-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 720px) {
+          .vehicles-filter-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -352,29 +373,33 @@ export default function VehicleMaintenancePage() {
           </div>
 
           <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
-              ← Back
+            <button type="button" className="vehicles-action" onClick={() => router.push("/vehicle-home")} style={btn("ghost")}>
+              <ArrowLeft size={15} />
+              Back
             </button>
-            <button onClick={() => router.push("/add-vehicle")} style={btn()}>
-              + Add Vehicle
+            <button type="button" className="vehicles-action" onClick={() => router.push("/add-vehicle")} style={btn()}>
+              <Plus size={15} />
+              Add Vehicle
             </button>
-            <button onClick={() => router.push("/add-vehicle?type=number-plate")} style={btn("ghost")}>
-              + Add Retention Plate
+            <button type="button" className="vehicles-action" onClick={() => router.push("/add-vehicle?type=number-plate")} style={btn("ghost")}>
+              <FilePlus2 size={15} />
+              Add Retention Plate
             </button>
           </div>
         </div>
 
         {/* Controls */}
-        <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 198px 198px auto", gap: 3, alignItems: "end" }}>
-            <div>
+        <div style={{ ...card, padding: 6, marginBottom: UI.gap }}>
+          <div className="vehicles-filter-grid">
+            <div style={{ position: "relative" }}>
               <div style={smallLabel}>Search</div>
+              <Search size={14} style={{ position: "absolute", left: 9, bottom: 8, color: UI.muted }} />
               <input
                 type="text"
-                placeholder="Search by name, reg, manufacturer, model…"
+                placeholder="Search by name, reg, manufacturer, model..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={input}
+                style={{ ...input, paddingLeft: 28 }}
               />
             </div>
 
@@ -395,7 +420,7 @@ export default function VehicleMaintenancePage() {
                 <option value="service">Next Service (soonest)</option>
                 <option value="mot">Next MOT (soonest)</option>
                 <option value="mileage">Odometer (highest)</option>
-                <option value="az">Vehicle (A–Z)</option>
+                <option value="az">Vehicle (A-Z)</option>
               </select>
             </div>
 
@@ -406,6 +431,7 @@ export default function VehicleMaintenancePage() {
 
               <button
                 type="button"
+                className="vehicles-action"
                 style={btn("ghost")}
                 onClick={() => {
                   setSearch("");
@@ -413,6 +439,7 @@ export default function VehicleMaintenancePage() {
                   setSort("none");
                 }}
               >
+                <RotateCcw size={14} />
                 Reset
               </button>
             </div>
@@ -428,7 +455,7 @@ export default function VehicleMaintenancePage() {
                 await fetchVehicles();
               }}
             />
-            {importing ? <span style={{ fontSize: 12, color: UI.muted }}>Importing…</span> : null}
+            {importing ? <span style={{ fontSize: 12, color: UI.muted }}>Importing...</span> : null}
           </div>
         </div>
 
@@ -436,7 +463,7 @@ export default function VehicleMaintenancePage() {
         <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
           <div style={{ overflowX: "auto" }}>
             <div className="vh-sticky">
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", minWidth: 1320, borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
                     {[
@@ -459,14 +486,14 @@ export default function VehicleMaintenancePage() {
                         key={h}
                         style={{
                           padding: "5px 10px",
-                          background: "#0f172a",
+                          background: UI.brand,
                           color: "#fff",
-                          borderBottom: "1px solid #0b1220",
+                          borderBottom: "1px solid #183d64",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
                           fontSize: 11.5,
-                          letterSpacing: ".02em",
+                          letterSpacing: 0,
                           ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
                           ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
                           ...(h === "Insurance" ? { width: 118 } : {}),
@@ -484,10 +511,10 @@ export default function VehicleMaintenancePage() {
                       onClick={() => toggleCategory(category)}
                       className="catRow"
                       style={{
-                        background: "#f3f4f6",
+                        background: "#edf3f8",
                         cursor: "pointer",
-                        borderTop: "1px solid #dbe1ea",
-                        borderBottom: "1px solid #dbe1ea",
+                        borderTop: UI.border,
+                        borderBottom: UI.border,
                       }}
                       title="Click to expand/collapse"
                     >
@@ -502,16 +529,16 @@ export default function VehicleMaintenancePage() {
                           verticalAlign: "middle",
                         }}
                       >
-                        {expandedCategories[category] ? "▼" : "▶"} {category}{" "}
+                        {expandedCategories[category] ? "v" : ">"} {category}{" "}
                         <span style={{ color: UI.muted, fontWeight: 800 }}>({list.length})</span>
                       </td>
                     </tr>
 
                     {expandedCategories[category] &&
                       list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "#ffffff" : "#f3f4f6";
+                        const zebra = i % 2 === 0 ? "#ffffff" : "#f8fafc";
                         const retentionPlate = isRetentionPlate(v);
-                        const reg = v.registration || v.reg || "—";
+                        const reg = v.registration || v.reg || "-";
 
                         const rowTd = {
                           padding: "4px 10px",
@@ -548,9 +575,9 @@ export default function VehicleMaintenancePage() {
                             style={{ background: zebra, cursor: "pointer" }}
                           >
                             <td style={regCell}>{reg}</td>
-                            <td style={{ ...rowTd, fontWeight: 900 }}>{v.name || "—"}</td>
-                            <td style={rowTd}>{v.manufacturer || "—"}</td>
-                            <td style={modelCell}>{v.model || "—"}</td>
+                            <td style={vehicleNameCell}>{v.name || "-"}</td>
+                            <td style={rowTd}>{v.manufacturer || "-"}</td>
+                            <td style={modelCell}>{v.model || "-"}</td>
 
                             {/* Tax Status */}
                             <td style={taxCell} onClick={(e) => e.stopPropagation()}>
@@ -620,9 +647,7 @@ export default function VehicleMaintenancePage() {
   );
 }
 
-/* ───────────────────────────────────────────
-   CSV import
-─────────────────────────────────────────── */
+/* CSV import */
 function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -696,9 +721,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
   );
 }
 
-/* ───────────────────────────────────────────
-   Small helpers
-─────────────────────────────────────────── */
+/* Small helpers */
 function renderDateCell(raw, baseStyle, options) {
   const { text, style } = formatDateWithStyle(raw, options);
   return <td style={{ ...baseStyle, ...style }}>{text}</td>;

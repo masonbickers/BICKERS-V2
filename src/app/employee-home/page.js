@@ -19,18 +19,26 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CalendarClock,
+  ClipboardList,
+  FileUp,
+  RotateCcw,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches Jobs Home)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  gap: 14,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
@@ -40,25 +48,30 @@ const UI = {
   accent: "#8b5e3c",
   accentSoft: "#f5ede6",
   danger: "#dc2626",
+  green: "#16a34a",
+  amber: "#d97706",
+  blue: "#2563eb",
+  purple: "#7c3aed",
+  teal: "#0f766e",
 };
 
-const pageWrap = { padding: "20px 16px 30px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 12,
+  gap: 12,
+  marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 30, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 };
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const cardBase = {
   ...surface,
-  padding: 13,
+  padding: 12,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
@@ -101,44 +114,64 @@ const chipSoft = {
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "9px 11px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
-      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "pill") {
     return {
-      padding: "7px 9px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      padding: "6px 9px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
       background: "#fff",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "9px 11px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
 const inputBase = {
   width: "100%",
-  padding: "8px 9px",
+  minHeight: 36,
+  padding: "7px 9px",
   borderRadius: 12,
   border: "1px solid #dbe2ea",
   outline: "none",
@@ -148,6 +181,55 @@ const inputBase = {
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 
 const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
+
+const summaryGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const dashboardGrid = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.35fr) minmax(330px, 0.65fr)",
+  gap: UI.gap,
+  alignItems: "stretch",
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${UI.brandBorder}`,
+  flex: "0 0 auto",
+});
+
+const miniStat = {
+  ...surface,
+  padding: 11,
+  boxShadow: "none",
+  minHeight: 92,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+};
+
+const progressTrack = {
+  width: "100%",
+  height: 7,
+  borderRadius: 999,
+  background: "#e8eef5",
+  overflow: "hidden",
+};
+
+const panelList = {
+  display: "grid",
+  gap: 8,
+};
 
 const skeleton = {
   height: 12,
@@ -160,9 +242,7 @@ const keyframes = `
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 `;
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Date helpers
-──────────────────────────────────────────────────────────────────────────── */
+/* Date helpers */
 function parseYyyyMmDd(s) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s || ""))) return null;
   const [Y, M, D] = String(s).split("-").map((n) => +n);
@@ -224,15 +304,13 @@ function eachDateYMD(startRaw, endRaw) {
   return out;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Normalisers
-──────────────────────────────────────────────────────────────────────────── */
+/* Normalisers */
 function normaliseName(n) {
   return String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 function initialsOf(n) {
   const parts = String(n || "").trim().split(/\s+/).filter(Boolean);
-  return parts.slice(0, 3).map((p) => (p[0] || "").toUpperCase()).join("") || "—";
+  return parts.slice(0, 3).map((p) => (p[0] || "").toUpperCase()).join("") || "-";
 }
 function titleCase(n) {
   return String(n || "")
@@ -309,9 +387,7 @@ async function fetchBankHolidayKeysInRange(since, until) {
   }
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Exact day-note → credit mapping
-──────────────────────────────────────────────────────────────────────────── */
+/* Exact day-note to credit mapping */
 function creditForNote(rawNote) {
   if (!rawNote) return 1;
 
@@ -413,9 +489,7 @@ function getNoteForDate(booking, dayKey) {
   return null;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Page
-──────────────────────────────────────────────────────────────────────────── */
+/* Page */
 export default function EmployeesHomePage() {
   const router = useRouter();
 
@@ -452,7 +526,7 @@ export default function EmployeesHomePage() {
     const pretty = (d) =>
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 
-    return { since, until, label: `${pretty(since)} → ${pretty(until)}` };
+    return { since, until, label: `${pretty(since)} to ${pretty(until)}` };
   }, [mode, rangeDays, fromDate, toDate]);
 
   useEffect(() => {
@@ -673,6 +747,7 @@ export default function EmployeesHomePage() {
             name: meta.displayName,
             totalDays: Number(total.toFixed(2)),
             isFullTime: meta.isFullTime === true,
+            holidayDays: holidayDays.size,
             ...dayTypeCounts,
           });
         }
@@ -702,10 +777,10 @@ export default function EmployeesHomePage() {
 
   const employeeSections = useMemo(
     () => [
-      { title: "Employee List", description: "View, add or manage all staff and freelancers.", link: "/employees" },
-      { title: "Add Employee", description: "Register a new employee or freelancer.", link: "/add-employee" },
-      { title: "Holiday Tracker", description: "Monitor and record employee holidays.", link: "/holiday-usage" },
-      { title: "Upload Documents", description: "Add employee contracts and certifications.", link: "/upload-contract" },
+      { title: "Employee List", description: "Manage staff and freelancer records.", link: "/employees", icon: Users },
+      { title: "Add Employee", description: "Register a new person.", link: "/add-employee", icon: UserPlus },
+      { title: "Holiday Tracker", description: "Review leave usage.", link: "/holiday-usage", icon: CalendarClock },
+      { title: "Upload Documents", description: "Contracts and certificates.", link: "/upload-contract", icon: FileUp },
     ],
     []
   );
@@ -794,6 +869,31 @@ export default function EmployeesHomePage() {
 
   const kpiTotal = useMemo(() => usageData.reduce((s, r) => s + (Number(r.days) || 0), 0), [usageData]);
   const kpiPeople = usageData.length;
+  const kpiEmployeeRecords = usageBreakdownData.length;
+  const kpiFullTime = useMemo(
+    () => usageBreakdownData.filter((row) => row.isFullTime).length,
+    [usageBreakdownData]
+  );
+  const kpiYardDays = useMemo(
+    () => usageBreakdownData.reduce((sum, row) => sum + (Number(row.yardBase) || 0), 0),
+    [usageBreakdownData]
+  );
+  const kpiWeekendDays = useMemo(
+    () => usageBreakdownData.reduce((sum, row) => sum + (Number(row.weekendWorked) || 0), 0),
+    [usageBreakdownData]
+  );
+  const kpiHolidayDays = useMemo(
+    () => usageBreakdownData.reduce((sum, row) => sum + (Number(row.holidayDays) || 0), 0),
+    [usageBreakdownData]
+  );
+  const topCreditRows = useMemo(() => usageData.slice(0, 6), [usageData]);
+  const topWorkloadRows = useMemo(() => fullTimeEmployeeWeightedData.slice(0, 6), [fullTimeEmployeeWeightedData]);
+  const topCreditMax = topCreditRows[0]?.days || 0;
+  const topWorkloadMax = topWorkloadRows[0]?.totalValue || 0;
+  const fmtMetric = (value) => {
+    const num = Number(value || 0);
+    return Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -810,18 +910,47 @@ export default function EmployeesHomePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Employees</h1>
-            <div style={sub}>
-              Workforce activity overview based on confirmed and completed bookings across the selected reporting period.
-            </div>
+            <div style={sub}>Crew availability, work credits, leave and document admin for the selected reporting period.</div>
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>{loading ? "Loading…" : `${kpiPeople} people`}</div>
+            <div style={chip}>{loading ? "Loading..." : `${kpiEmployeeRecords} records`}</div>
             <div style={chipSoft}>
-              Total credits: <b style={{ marginLeft: 6 }}>{Number(kpiTotal.toFixed(2))}</b>
+              Period: <b style={{ marginLeft: 6 }}>{effectiveRange.label}</b>
+            </div>
+            <div style={chipSoft}>
+              Leave days: <b style={{ marginLeft: 6 }}>{kpiHolidayDays}</b>
             </div>
           </div>
         </div>
+
+        <section style={{ ...cardBase, marginBottom: UI.gap }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Workforce Snapshot</h2>
+              <div style={hint}>Confirmed, completed and stunt bookings only. Freelancers are excluded from credit totals.</div>
+            </div>
+            <button
+              type="button"
+              style={btn("ghost")}
+              onClick={() => {
+                setMode("lastNDays");
+                setRangeDays(30);
+                setFromDate("");
+                setToDate("");
+              }}
+            >
+              <RotateCcw size={14} /> Reset
+            </button>
+          </div>
+          <div style={summaryGrid}>
+            <MetricCard label="Total Credits" value={fmtMetric(kpiTotal)} tone={UI.brand} icon={BarChart3} />
+            <MetricCard label="People Used" value={kpiPeople} tone={UI.green} icon={Users} />
+            <MetricCard label="Full Time" value={kpiFullTime} tone={UI.blue} icon={BriefcaseBusiness} />
+            <MetricCard label="Yard Based" value={kpiYardDays} tone={UI.teal} icon={ClipboardList} />
+            <MetricCard label="Weekend Days" value={kpiWeekendDays} tone={UI.amber} icon={CalendarClock} />
+          </div>
+        </section>
 
         {/* Quick links */}
         <div style={grid(4)}>
@@ -836,12 +965,23 @@ export default function EmployeesHomePage() {
               tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? router.push(section.link) : null)}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{section.title}</div>
-                <span style={chip}>Open</span>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "34px minmax(0, 1fr) auto",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <span style={iconBox(UI.brand, UI.brandSoft)}>{React.createElement(section.icon, { size: 17 })}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: UI.text, minWidth: 0 }}>{section.title}</div>
+                  <div style={{ marginTop: 5, color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {section.description}
+                  </div>
+                </div>
+                <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>&gt;</span>
               </div>
-              <div style={{ marginTop: 5, color: UI.muted, fontSize: 13 }}>{section.description}</div>
-              <div style={{ marginTop: 8, fontWeight: 800, color: UI.brand }}>Open →</div>
             </div>
           ))}
         </div>
@@ -941,8 +1081,8 @@ export default function EmployeesHomePage() {
             <div style={divider} />
 
             <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
-              <b>Credit rules:</b> Half Day Travel = 0.5 · Travel Time = 0.25 · Most day types = 1 · Rest Day / Other = 0 ·
-              <b> Night Shoot = +1 turnaround per booking · On Set Saturdays = +0.5 · On Set Sundays = x2</b>
+              <b>Credit rules:</b> Half Day Travel = 0.5 - Travel Time = 0.25 - Most day types = 1 - Rest Day / Other = 0 -
+              <b> Night Shoot = +1 turnaround per booking - On Set Saturdays = +0.5 - On Set Sundays = x2</b>
             </div>
           </div>
 
@@ -1005,6 +1145,82 @@ export default function EmployeesHomePage() {
             </div>
           )}
         </section>
+
+        <div style={{ ...dashboardGrid, marginTop: UI.gap }}>
+          <section style={cardBase}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={titleMd}>Top Credits</h2>
+                <div style={hint}>Highest-use people in this period. Select a row to open the employee drill-through.</div>
+              </div>
+              <span style={chipSoft}>{topCreditRows.length} shown</span>
+            </div>
+
+            {loading ? (
+              <div style={{ display: "grid", gap: 9 }}>
+                <div style={{ ...skeleton, width: "95%" }} />
+                <div style={{ ...skeleton, width: "82%" }} />
+                <div style={{ ...skeleton, width: "88%" }} />
+              </div>
+            ) : topCreditRows.length === 0 ? (
+              <div style={{ color: UI.muted, fontSize: 13 }}>No credits in range.</div>
+            ) : (
+              <div style={panelList}>
+                {topCreditRows.map((row, index) => (
+                  <ProgressRow
+                    key={row.key}
+                    label={row.fullName}
+                    value={`${fmtMetric(row.days)} credits`}
+                    percent={topCreditMax ? (row.days / topCreditMax) * 100 : 0}
+                    color={index === 0 ? UI.brand : UI.blue}
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        name: row.fullName,
+                        mode,
+                        rangeDays: String(rangeDays),
+                        fromDate,
+                        toDate,
+                      });
+                      router.push(`/employee-home/${encodeURIComponent(row.key)}?${params.toString()}`);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section style={cardBase}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={titleMd}>Workload Split</h2>
+                <div style={hint}>Full-time work notes compared with yard based days.</div>
+              </div>
+              <span style={chipSoft}>{fullTimeEmployeeWeightedData.length} full-time</span>
+            </div>
+
+            {loading ? (
+              <div style={{ display: "grid", gap: 9 }}>
+                <div style={{ ...skeleton, width: "90%" }} />
+                <div style={{ ...skeleton, width: "78%" }} />
+                <div style={{ ...skeleton, width: "84%" }} />
+              </div>
+            ) : topWorkloadRows.length === 0 ? (
+              <div style={{ color: UI.muted, fontSize: 13 }}>No full-time workload data in range.</div>
+            ) : (
+              <div style={panelList}>
+                {topWorkloadRows.map((row) => (
+                  <ProgressRow
+                    key={row.key}
+                    label={row.name}
+                    value={`${row.workPct}% work / ${row.yardPct}% yard`}
+                    percent={topWorkloadMax ? (row.totalValue / topWorkloadMax) * 100 : 0}
+                    color={row.color}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
 
         <section style={{ ...surface, padding: 14, marginTop: 14 }}>
           <div style={sectionHeader}>
@@ -1249,9 +1465,7 @@ export default function EmployeesHomePage() {
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Empty state
-──────────────────────────────────────────────────────────────────────────── */
+/* Empty state */
 function EmptyState() {
   return (
     <div style={{ ...surface, boxShadow: "none", padding: 13, marginTop: 10 }}>
@@ -1260,6 +1474,64 @@ function EmptyState() {
         Only <b>Confirmed</b>, <b>Complete</b> and <b>Stunt</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
         Try a longer range, or confirm your bookings include <code>notesByDate[&quot;YYYY-MM-DD&quot;]</code> and/or <code>bookingDates</code>.
       </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, tone, icon: Icon }) {
+  return (
+    <div style={miniStat}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
+        <span style={iconBox(tone, "#f8fbfd")}>
+          <Icon size={17} />
+        </span>
+      </div>
+      <div style={{ color: UI.text, fontSize: 24, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+    </div>
+  );
+}
+
+function ProgressRow({ label, value, percent, color, onClick }) {
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  const content = (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ minWidth: 0, color: UI.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {label}
+        </div>
+        <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{value}</div>
+      </div>
+      <div style={progressTrack}>
+        <div style={{ width: `${safePercent}%`, height: "100%", background: color, borderRadius: 999 }} />
+      </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          display: "grid",
+          gap: 7,
+          padding: 9,
+          borderRadius: UI.radiusSm,
+          border: UI.border,
+          background: "#fff",
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "#fff" }}>
+      {content}
     </div>
   );
 }

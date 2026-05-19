@@ -5,66 +5,77 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  ArrowLeft,
+  BriefcaseBusiness,
+  CalendarDays,
+  Contact,
+  IdCard,
+  Mail,
+  Phone,
+  Save,
+  UserPlus,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
-  danger: "#b91c1c",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 16 };
+const card = { ...surface, padding: 12 };
 
-const label = { display: "block", fontSize: 12, fontWeight: 900, color: UI.text, marginBottom: 6 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 6 };
+const label = { display: "block", fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", marginBottom: 6 };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 6, lineHeight: 1.4 };
 
 const input = {
   width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  minHeight: 36,
+  padding: "7px 9px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
-  fontSize: 13.5,
+  fontSize: 13,
   background: "#fff",
+  color: UI.text,
 };
 
 const grid2 = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: 12,
+  gap: 10,
 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "4px 0" };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -74,45 +85,83 @@ const chip = {
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
-    };
-  }
-  if (kind === "danger") {
-    return {
-      padding: "10px 12px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#991b1b",
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 12px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
+
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 10,
+  flexWrap: "wrap",
+};
+
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
+
+const formShell = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 300px",
+  gap: UI.gap,
+  alignItems: "start",
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
 
 const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
     border-color: #bfdbfe !important;
+  }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  @media (max-width: 1180px) {
+    .add-employee-form-shell,
+    .add-employee-grid { grid-template-columns: 1fr !important; }
   }
 `;
 
@@ -126,7 +175,7 @@ export default function AddEmployeePage() {
     email: "",
     dob: "",
     licenceNumber: "",
-    jobTitle: "", // keep as string here; your list page handles array OR string
+    jobTitle: "",
   });
 
   const handleChange = (e) => {
@@ -150,11 +199,11 @@ export default function AddEmployeePage() {
         employeeName: name,
         createdAt: serverTimestamp(),
       });
-      alert(" Employee added");
+      alert("Employee added");
       router.push("/employees");
     } catch (err) {
       console.error("Error adding employee:", err);
-      alert(" Failed to add employee");
+      alert("Failed to add employee");
     } finally {
       setSaving(false);
     }
@@ -170,21 +219,30 @@ export default function AddEmployeePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Add employee</h1>
-            <div style={sub}>Create a new employee record. Keep names consistent with bookings.</div>
+            <div style={sub}>Employee details, contact and licence information.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <span style={chip}>Employees</span>
-            <button style={btn("ghost")} type="button" onClick={handleCancel}>
-              Back
-            </button>
-          </div>
+          <button style={btn("ghost")} type="button" onClick={handleCancel}>
+            <ArrowLeft size={14} /> Back
+          </button>
         </div>
 
-        <section style={card}>
-          <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
-            <div style={grid2}>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>Full name</label>
+        <form onSubmit={handleSubmit} className="add-employee-form-shell" style={formShell}>
+          <section style={card}>
+            <div style={sectionHeader}>
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.brand, UI.brandSoft)}>
+                  <UserPlus size={17} />
+                </span>
+                <div>
+                  <h2 style={titleMd}>Employee Details</h2>
+                  <div style={hint}>Personal details, contact and licence information.</div>
+                </div>
+              </div>
+              <span style={chip}>New record</span>
+            </div>
+
+            <div className="add-employee-grid" style={grid2}>
+              <Field icon={Contact} labelText="Full name" full>
                 <input
                   type="text"
                   name="name"
@@ -194,24 +252,21 @@ export default function AddEmployeePage() {
                   placeholder="e.g. Mason Bickers"
                   style={input}
                 />
-                <div style={hint}>This is what you’ll see across HR pages and booking summaries.</div>
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Mobile number</label>
+              <Field icon={Phone} labelText="Mobile number">
                 <input
                   type="tel"
                   name="mobile"
                   value={formData.mobile}
                   onChange={handleChange}
                   required
-                  placeholder="e.g. 07…"
+                  placeholder="e.g. 07..."
                   style={input}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Email</label>
+              <Field icon={Mail} labelText="Email">
                 <input
                   type="email"
                   name="email"
@@ -221,10 +276,9 @@ export default function AddEmployeePage() {
                   placeholder="name@company.com"
                   style={input}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Date of birth</label>
+              <Field icon={CalendarDays} labelText="Date of birth">
                 <input
                   type="date"
                   name="dob"
@@ -233,10 +287,9 @@ export default function AddEmployeePage() {
                   required
                   style={input}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label style={label}>Driving licence number</label>
+              <Field icon={IdCard} labelText="Driving licence number">
                 <input
                   type="text"
                   name="licenceNumber"
@@ -246,10 +299,9 @@ export default function AddEmployeePage() {
                   placeholder="Licence number"
                   style={input}
                 />
-              </div>
+              </Field>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={label}>Job title</label>
+              <Field icon={BriefcaseBusiness} labelText="Job title" full>
                 <input
                   type="text"
                   name="jobTitle"
@@ -259,23 +311,71 @@ export default function AddEmployeePage() {
                   placeholder="e.g. Precision Driver"
                   style={input}
                 />
-                <div style={hint}>Tip: if you use multiple titles, separate with commas (your list page can show badges).</div>
+              </Field>
+            </div>
+          </section>
+
+          <aside style={{ display: "grid", gap: UI.gap }}>
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox("#15803d", "#ecfdf3", "#bbf7d0")}>
+                    <Save size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Actions</h2>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div style={divider} />
+              <div style={divider} />
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <button style={btn("danger")} type="button" onClick={handleCancel} disabled={saving}>
-                Cancel
-              </button>
-              <button style={btn()} type="submit" disabled={saving}>
-                {saving ? "Saving…" : "Save employee"}
-              </button>
-            </div>
-          </form>
-        </section>
+              <div style={{ display: "grid", gap: 8 }}>
+                <button style={btn()} type="submit" disabled={saving}>
+                  <Save size={14} /> {saving ? "Saving..." : "Save employee"}
+                </button>
+                <button style={btn("ghost")} type="button" onClick={handleCancel} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </section>
+
+            <section style={card}>
+              <div style={sectionHeader}>
+                <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
+                    <IdCard size={17} />
+                  </span>
+                  <div>
+                    <h2 style={titleMd}>Required Fields</h2>
+                    <div style={hint}>Name, contact, date of birth, licence and job title.</div>
+                  </div>
+                </div>
+              </div>
+              <div style={divider} />
+              <div style={{ display: "grid", gap: 8, color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
+                <div>Full name</div>
+                <div>Mobile number and email</div>
+                <div>Driving licence number</div>
+              </div>
+            </section>
+          </aside>
+        </form>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function Field({ icon: Icon, labelText, full = false, children }) {
+  return (
+    <div style={full ? { gridColumn: "1 / -1" } : undefined}>
+      <label style={label}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icon size={13} />
+          {labelText}
+        </span>
+      </label>
+      {children}
+    </div>
   );
 }

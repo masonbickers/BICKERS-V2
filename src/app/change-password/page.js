@@ -5,79 +5,122 @@ import { onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, up
 import { auth } from "../../../firebaseConfig";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  successSoft: "#ecfdf5",
+  successText: "#166534",
+  dangerSoft: "#fcefee",
+  dangerText: "#991b1b",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
-  padding: "6px 10px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
-const card = { ...surface, padding: 16 };
+const card = { ...surface, padding: 12 };
 
 const fieldLabel = {
-  fontSize: 12,
-  fontWeight: 800,
+  fontSize: 11.5,
+  fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
-  letterSpacing: "0.02em",
+  letterSpacing: 0,
 };
 const input = {
   width: "100%",
-  padding: "10px 12px",
+  minHeight: 36,
+  padding: "7px 9px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
+  border: UI.border,
   background: "#fff",
-  fontSize: 14,
+  fontSize: 13.5,
   outline: "none",
   color: UI.text,
+  boxSizing: "border-box",
 };
 
 const helper = { color: UI.muted, fontSize: 12, marginTop: 6 };
 
 const btnBase = {
   width: "100%",
-  padding: "10px 12px",
+  padding: "6px 9px",
   borderRadius: UI.radiusSm,
-  fontSize: 14,
-  fontWeight: 900,
+  fontSize: 12.5,
+  fontWeight: 800,
   cursor: "pointer",
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: `1px solid ${UI.brandBorder}`,
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
+  gap: 7,
+  boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
 };
-const btnPrimary = { ...btnBase, background: UI.brand, borderColor: UI.brand, color: "#fff" };
-const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand };
+const btnPrimary = {
+  ...btnBase,
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  borderColor: UI.brand,
+  color: "#fff",
+};
+const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
+const iconButton = { ...btnBase, width: 38, minWidth: 38, minHeight: 36, padding: 0 };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "#fff" };
+const sectionTitle = { fontWeight: 800, fontSize: 17, color: UI.text, marginBottom: 5 };
+const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 };
+const changePasswordCss = `
+  @media (max-width: 1180px) {
+    .change-password-layout,
+    .change-password-actions { grid-template-columns: 1fr !important; }
+  }
+`;
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -133,7 +176,7 @@ export default function ChangePasswordPage() {
     }
 
     if (!auth.currentUser || !auth.currentUser.email) {
-      setError("You’re not signed in.");
+      setError("You're not signed in.");
       return;
     }
 
@@ -165,6 +208,7 @@ export default function ChangePasswordPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{changePasswordCss}</style>
       <div style={pageWrap}>
         {/* Header */}
         <div style={headerBar}>
@@ -172,29 +216,40 @@ export default function ChangePasswordPage() {
             <h1 style={h1}>Change password</h1>
             <div style={sub}>Update your account password (requires your current password).</div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>{loading ? "Loading…" : "Security"}</div>
-            {email ? <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>{email}</div> : null}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+            <div style={chip}>
+              <ShieldCheck size={14} />
+              {loading ? "Loading..." : "Security"}
+            </div>
+            {email ? (
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand }}>
+                <Mail size={14} />
+                {email}
+              </div>
+            ) : null}
           </div>
         </div>
 
         {loading ? (
-          <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>Loading…</div>
+          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>Loading...</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: UI.gap }}>
+          <div
+            className="change-password-layout"
+            style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(320px, 0.95fr)", gap: UI.gap }}
+          >
             {/* Form */}
             <div style={card}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Password</div>
-              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+              <div style={sectionTitle}>Password</div>
+              <div style={sectionSub}>
                 For security, you must confirm your current password before setting a new one.
               </div>
 
-              <div style={{ height: 1, background: "#eef2f7", margin: "14px 0" }} />
+              <div style={{ height: 1, background: "#eef2f7", margin: "12px 0" }} />
 
-              <div style={{ display: "grid", gap: 14 }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 <div>
                   <div style={fieldLabel}>Current password</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
                     <input
                       type={showCurrent ? "text" : "password"}
                       value={currentPassword}
@@ -205,17 +260,19 @@ export default function ChangePasswordPage() {
                     />
                     <button
                       type="button"
-                      style={{ ...btnBase, width: 110 }}
+                      style={iconButton}
                       onClick={() => setShowCurrent((s) => !s)}
+                      title={showCurrent ? "Hide current password" : "Show current password"}
+                      aria-label={showCurrent ? "Hide current password" : "Show current password"}
                     >
-                      {showCurrent ? "Hide" : "Show"}
+                      {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>New password</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
                     <input
                       type={showNew ? "text" : "password"}
                       value={newPassword}
@@ -226,10 +283,12 @@ export default function ChangePasswordPage() {
                     />
                     <button
                       type="button"
-                      style={{ ...btnBase, width: 110 }}
+                      style={iconButton}
                       onClick={() => setShowNew((s) => !s)}
+                      title={showNew ? "Hide new password" : "Show new password"}
+                      aria-label={showNew ? "Hide new password" : "Show new password"}
                     >
-                      {showNew ? "Hide" : "Show"}
+                      {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                   <div style={helper}>Use at least 8 characters.</div>
@@ -237,7 +296,7 @@ export default function ChangePasswordPage() {
 
                 <div>
                   <div style={fieldLabel}>Confirm new password</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
                     <input
                       type={showConfirm ? "text" : "password"}
                       value={confirm}
@@ -248,10 +307,12 @@ export default function ChangePasswordPage() {
                     />
                     <button
                       type="button"
-                      style={{ ...btnBase, width: 110 }}
+                      style={iconButton}
                       onClick={() => setShowConfirm((s) => !s)}
+                      title={showConfirm ? "Hide confirmation" : "Show confirmation"}
+                      aria-label={showConfirm ? "Hide confirmation" : "Show confirmation"}
                     >
-                      {showConfirm ? "Hide" : "Show"}
+                      {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
                 </div>
@@ -260,16 +321,20 @@ export default function ChangePasswordPage() {
               {error ? (
                 <div
                   style={{
-                    marginTop: 14,
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    marginTop: 12,
+                    padding: "8px 10px",
+                    borderRadius: UI.radius,
                     border: "1px solid #fecaca",
-                    background: "#fee2e2",
-                    color: "#991b1b",
+                    background: UI.dangerSoft,
+                    color: UI.dangerText,
                     fontWeight: 800,
                     fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
+                  <AlertTriangle size={15} />
                   {error}
                 </div>
               ) : null}
@@ -277,40 +342,46 @@ export default function ChangePasswordPage() {
               {success ? (
                 <div
                   style={{
-                    marginTop: 14,
-                    padding: "10px 12px",
-                    borderRadius: 12,
+                    marginTop: 12,
+                    padding: "8px 10px",
+                    borderRadius: UI.radius,
                     border: "1px solid #86efac",
-                    background: "#d1fae5",
-                    color: "#065f46",
-                    fontWeight: 900,
+                    background: UI.successSoft,
+                    color: UI.successText,
+                    fontWeight: 800,
                     fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                   }}
                 >
+                  <CheckCircle2 size={15} />
                   {success}
                 </div>
               ) : null}
 
-              <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="change-password-actions" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <button type="button" style={btnSoft} onClick={() => router.push("/settings")} disabled={saving}>
+                  <ArrowLeft size={14} />
                   Cancel
                 </button>
                 <button type="button" style={btnPrimary} onClick={handleUpdate} disabled={saving}>
-                  {saving ? "Updating…" : "Update password"}
+                  <KeyRound size={14} />
+                  {saving ? "Updating..." : "Update password"}
                 </button>
               </div>
             </div>
 
             {/* Side panel (style only) */}
             <div style={card}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Security notes</div>
-              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+              <div style={sectionTitle}>Security notes</div>
+              <div style={sectionSub}>
                 If you signed in a while ago, Firebase may require a fresh login before updating your password.
               </div>
 
-              <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff" }}>
+              <div style={{ ...detailCard, marginTop: 10 }}>
                 <div style={fieldLabel}>Tips</div>
-                <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: UI.text, fontSize: 13, lineHeight: 1.55 }}>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: UI.text, fontSize: 13, lineHeight: 1.55 }}>
                   <li>Use a long password (12+ chars) if possible.</li>
                   <li>Avoid reusing passwords from other accounts.</li>
                   <li>If update fails, sign out and back in, then retry.</li>

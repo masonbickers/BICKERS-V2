@@ -1,140 +1,141 @@
-// src/app/vehicle-usage/page.js
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   collection,
   doc,
-  getDocs,
   getDoc,
-  query,
-  where,
-  setDoc,
+  getDocs,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  CalendarDays,
+  ClipboardList,
+  Edit3,
+  Gauge,
+  RotateCcw,
+  Save,
+  Search,
+  Truck,
+  X,
+} from "lucide-react";
+import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth } from "../../../firebaseConfig";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches Jobs Home)
-─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
-  danger: "#dc2626",
-  ok: "#16a34a",
-  amber: "#d97706",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  okBg: "#ecfdf5",
+  okFg: "#065f46",
+  okBorder: "#bbf7d0",
+  warnBg: "#fff7ed",
+  warnFg: "#9a3412",
+  warnBorder: "#fed7aa",
+  dangerBg: "#fef2f2",
+  dangerFg: "#991b1b",
+  dangerBorder: "#fecdd3",
+  bookedBg: "#eef2ff",
+  bookedFg: "#3730a3",
+  bookedBorder: "#c7d2fe",
+  noteBg: "#f0fdfa",
+  noteFg: "#115e59",
+  noteBorder: "#99f6e4",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
+const panel = { ...card, padding: 12 };
+const title = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
+const sub = { marginTop: 6, fontSize: 13.5, lineHeight: 1.45, color: UI.muted };
 
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-
-const cardBase = {
-  ...surface,
-  padding: 16,
-  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
-};
-
-const grid = (cols = 4) => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: UI.gap,
-});
-
-const chip = {
-  padding: "6px 10px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-const chipSoft = { ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand };
-
-const btn = (kind = "primary") => {
-  if (kind === "ghost") {
-    return {
-      padding: "10px 12px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
-      color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    };
-  }
-  if (kind === "pill") {
-    return {
-      padding: "8px 10px",
-      borderRadius: 999,
-      border: "1px solid #d1d5db",
-      background: "#fff",
-      color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-    };
-  }
+const btn = (kind = "ghost") => {
+  const primary = kind === "primary";
   return {
-    padding: "10px 12px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
-    border: `1px solid ${UI.brand}`,
-    background: UI.brand,
-    color: "#fff",
-    fontWeight: 900,
+    border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+    background: primary
+      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
+      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    color: primary ? "#fff" : UI.text,
+    fontWeight: 800,
     cursor: "pointer",
+    textDecoration: "none",
     whiteSpace: "nowrap",
+    boxShadow: primary
+      ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)"
+      : "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
-const inputBase = {
-  width: "100%",
-  padding: "9px 10px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
-  outline: "none",
-  fontSize: 13.5,
+const input = {
+  minHeight: 38,
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  padding: "8px 10px",
+  fontSize: 13,
   background: "#fff",
-};
-const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
-
-const tableWrap = { ...surface, boxShadow: "none", overflow: "hidden" };
-const th = { padding: "10px 12px", fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid #eef2f7", textAlign: "left", background: "#f8fafc" };
-const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
-
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
-
-const keyframes = `
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-`;
-const skeleton = {
-  height: 12,
-  borderRadius: 6,
-  background: "linear-gradient(90deg, rgba(0,0,0,0.05), rgba(0,0,0,0.08), rgba(0,0,0,0.05))",
-  backgroundSize: "200% 100%",
-  animation: "shimmer 1400ms infinite",
+  color: UI.text,
+  width: "100%",
+  outline: "none",
 };
 
-/* ───────────────────────────────────────────
-   Notes list (from your dropdown)
-─────────────────────────────────────────── */
+const pill = (bg, fg, border = "#d7dee8") => ({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
+  borderRadius: 999,
+  background: bg,
+  color: fg,
+  border: `1px solid ${border}`,
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+});
+
+const th = {
+  padding: "11px 12px",
+  fontSize: 11.5,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: 0,
+  borderBottom: "1px solid #eef2f7",
+  textAlign: "left",
+  background: "#f6f8fb",
+  fontWeight: 900,
+};
+
+const td = {
+  padding: "11px 12px",
+  fontSize: 13,
+  borderBottom: "1px solid #f1f5f9",
+  verticalAlign: "middle",
+};
+
 const NOTE_OPTIONS = [
   "1/2 Day Travel",
   "Night Shoot",
@@ -151,220 +152,440 @@ const NOTE_OPTIONS = [
   "Recce Day",
 ];
 
-/* ───────────────────────────────────────────
-   Date helpers
-─────────────────────────────────────────── */
+const USAGE_COLLECTION = "vehicleUsageNotes";
+const usageDocId = (vehicleId, dateISO) => `${vehicleId}__${dateISO}`;
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
+
 function toISODateLocal(d) {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
+
 function parseISODateLocal(s) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s || ""))) return null;
-  const [Y, M, D] = String(s).split("-").map((n) => +n);
-  return new Date(Y, M - 1, D);
+  const [year, month, day] = String(s).split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
-function daysBetweenInclusive(fromISO, toISO) {
-  const a = parseISODateLocal(fromISO);
-  const b = parseISODateLocal(toISO);
-  if (!a || !b) return [];
-  const out = [];
-  const start = new Date(a.getFullYear(), a.getMonth(), a.getDate());
-  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
-  for (let d = start; d <= end; d.setDate(d.getDate() + 1)) out.push(toISODateLocal(d));
-  return out;
+
+function parseDateAny(value) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const direct = parseISODateLocal(value.slice(0, 10));
+    if (direct) return direct;
+  }
+  const d = value?.toDate ? value.toDate() : new Date(value);
+  return Number.isNaN(d?.getTime?.()) ? null : d;
 }
+
+function dateAnyToISO(value) {
+  const d = parseDateAny(value);
+  return d ? toISODateLocal(d) : "";
+}
+
 function startOfTodayLocal() {
   const t = new Date();
   return new Date(t.getFullYear(), t.getMonth(), t.getDate());
 }
-function fmtPretty(iso) {
-  const d = parseISODateLocal(iso);
-  if (!d) return iso || "—";
-  return d.toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+
+function daysBetweenInclusive(fromISO, toISO) {
+  const a = parseISODateLocal(fromISO);
+  const b = parseISODateLocal(toISO);
+  if (!a || !b) return [];
+  const start = a <= b ? a : b;
+  const end = a <= b ? b : a;
+  const out = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    out.push(toISODateLocal(d));
+  }
+  return out;
 }
 
-/* ───────────────────────────────────────────
-   Vehicle label helper
-─────────────────────────────────────────── */
-function buildVehicleLabel(v) {
+function fmtDate(value) {
+  const d = typeof value === "string" ? parseISODateLocal(value) : parseDateAny(value);
+  return d ? d.toLocaleDateString("en-GB") : "-";
+}
+
+function fmtDay(value) {
+  const d = parseISODateLocal(value);
+  if (!d) return "-";
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "2-digit" });
+}
+
+function fmtUpdated(value) {
+  const d = parseDateAny(value);
+  if (!d) return "-";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function normKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function makeVehicleLabel(v) {
   const name = String(v?.name || v?.vehicleName || v?.displayName || v?.model || "").trim();
   const reg = String(v?.reg || v?.registration || v?.regNumber || v?.regNo || "").trim().toUpperCase();
   if (name && reg) return `${name} (${reg})`;
-  return name || reg || "—";
+  return name || reg || "-";
 }
 
-/* ───────────────────────────────────────────
-   Firestore: collection name & doc id shape
-─────────────────────────────────────────── */
-const USAGE_COLLECTION = "vehicleUsageNotes"; //  create this collection
-const usageDocId = (vehicleId, dateISO) => `${vehicleId}__${dateISO}`;
+function buildVehicleLookup(vehicles) {
+  const byId = new Map();
+  const byKey = new Map();
 
-/*
-Doc shape (recommended):
-vehicleUsageNotes/{vehicleId__YYYY-MM-DD}:
-{
-  vehicleId: string,
-  dateISO: "YYYY-MM-DD",
-  note: string,            // one of NOTE_OPTIONS
-  otherText?: string,      // if note === "Other"
-  jobId?: string,          // optional
-  jobLabel?: string,       // optional
-  updatedAt: timestamp,
-  updatedBy: string
+  vehicles.forEach((v) => {
+    byId.set(v.id, v);
+    [v.id, v.name, v.reg, v.registration, v.label].forEach((part) => {
+      const key = normKey(part);
+      if (key && !byKey.has(key)) byKey.set(key, v.id);
+    });
+  });
+
+  return { byId, byKey };
 }
-*/
 
-/* ───────────────────────────────────────────
-   Page
-─────────────────────────────────────────── */
-export default function VehicleUsagePage() {
-  // Range defaults: last 14 days
+function resolveVehicleId(value, lookup) {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return (
+      resolveVehicleId(value.id, lookup) ||
+      resolveVehicleId(value.vehicleId, lookup) ||
+      resolveVehicleId(value.reg, lookup) ||
+      resolveVehicleId(value.registration, lookup) ||
+      resolveVehicleId(value.name, lookup)
+    );
+  }
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (lookup.byId.has(raw)) return raw;
+  return lookup.byKey.get(normKey(raw)) || "";
+}
+
+function isActiveBookingStatus(status) {
+  const s = String(status || "").trim().toLowerCase();
+  return !["cancelled", "canceled", "declined", "deleted", "lost"].includes(s);
+}
+
+function bookingDateKeys(booking) {
+  const set = new Set();
+
+  if (Array.isArray(booking.bookingDates)) {
+    booking.bookingDates.forEach((value) => {
+      const iso = dateAnyToISO(value);
+      if (iso) set.add(iso);
+    });
+  }
+
+  if (Array.isArray(booking.customDates)) {
+    booking.customDates.forEach((value) => {
+      const iso = dateAnyToISO(value);
+      if (iso) set.add(iso);
+    });
+  }
+
+  [booking.dateISO, booking.date].forEach((value) => {
+    const iso = dateAnyToISO(value);
+    if (iso) set.add(iso);
+  });
+
+  const start = dateAnyToISO(booking.startDateISO || booking.startDate);
+  const end = dateAnyToISO(booking.endDateISO || booking.endDate);
+  if (start && end) daysBetweenInclusive(start, end).forEach((iso) => set.add(iso));
+  if (start && !end) set.add(start);
+
+  return Array.from(set).sort();
+}
+
+function bookingLabel(booking) {
+  return [booking.jobNumber, booking.client, booking.location].filter(Boolean).join(" - ") || booking.id || "Booking";
+}
+
+function displayNote(noteDoc) {
+  if (!noteDoc?.note) return "";
+  if (noteDoc.note === "Other" && noteDoc.otherText) return `Other - ${noteDoc.otherText}`;
+  return noteDoc.note;
+}
+
+function noteShort(noteDoc) {
+  const label = displayNote(noteDoc);
+  if (!label) return "";
+  if (label.length <= 18) return label;
+  return `${label.slice(0, 17)}...`;
+}
+
+function percent(part, total) {
+  if (!total) return 0;
+  return Math.round((part / total) * 100);
+}
+
+export default function UsageOverviewPage() {
+  const router = useRouter();
   const today = startOfTodayLocal();
   const defaultTo = toISODateLocal(today);
   const defaultFrom = toISODateLocal(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 13));
 
   const [loading, setLoading] = useState(true);
+  const [vehicles, setVehicles] = useState([]);
+  const [usageMap, setUsageMap] = useState(new Map());
+  const [bookings, setBookings] = useState([]);
 
-  // data
-  const [vehicles, setVehicles] = useState([]); // [{id,label,category}]
-  const [usageMap, setUsageMap] = useState(new Map()); // key: `${vehicleId}__${dateISO}` => doc
-
-  // filters
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(defaultTo);
-  const [vehicleFilter, setVehicleFilter] = useState("all");
-  const [noteFilter, setNoteFilter] = useState("all");
   const [q, setQ] = useState("");
+  const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [viewFilter, setViewFilter] = useState("all");
+  const [noteFilter, setNoteFilter] = useState("all");
+  const [sort, setSort] = useState("risk");
 
-  // ui
-  const [editModal, setEditModal] = useState(null); // {vehicleId,dateISO,current}
+  const [editModal, setEditModal] = useState(null);
   const [savingKey, setSavingKey] = useState(null);
 
-  // load vehicles + usage notes (initial)
-  useEffect(() => {
-    let alive = true;
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [vehicleSnap, usageSnap, bookingSnap] = await Promise.all([
+        getDocs(collection(db, "vehicles")),
+        getDocs(collection(db, USAGE_COLLECTION)),
+        getDocs(collection(db, "bookings")),
+      ]);
 
-    (async () => {
-      setLoading(true);
-      try {
-        const [vSnap, uSnap] = await Promise.all([
-          getDocs(collection(db, "vehicles")),
-          getDocs(collection(db, USAGE_COLLECTION)),
-        ]);
-
-        const vRows = vSnap.docs.map((d) => {
-          const data = d.data() || {};
+      const vehicleRows = vehicleSnap.docs
+        .map((snap) => {
+          const raw = normalizeVehicleRecord({ id: snap.id, ...snap.data() });
           return {
-            id: d.id,
-            category: data.category || "",
-            label: buildVehicleLabel(data) || d.id,
+            ...raw,
+            id: snap.id,
+            name: raw.name || raw.vehicleName || "-",
+            reg: raw.reg || raw.registration || "-",
+            category: raw.category || raw.group || "-",
+            label: makeVehicleLabel(raw),
           };
-        });
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
 
-        vRows.sort((a, b) => a.label.localeCompare(b.label));
+      const usage = new Map();
+      usageSnap.docs.forEach((snap) => {
+        const data = snap.data() || {};
+        if (!data.vehicleId || !data.dateISO) return;
+        usage.set(usageDocId(data.vehicleId, data.dateISO), { id: snap.id, ...data });
+      });
 
-        const m = new Map();
-        uSnap.docs.forEach((d) => {
-          const data = d.data() || {};
-          const k = usageDocId(data.vehicleId || "", data.dateISO || "");
-          if (data.vehicleId && data.dateISO) m.set(k, { id: d.id, ...data });
-        });
+      const bookingRows = bookingSnap.docs
+        .map((snap) => ({ id: snap.id, ...snap.data() }))
+        .filter((booking) => isActiveBookingStatus(booking.status));
 
-        if (!alive) return;
-        setVehicles(vRows);
-        setUsageMap(m);
-      } catch (e) {
-        console.error("vehicle usage load error:", e);
-        if (!alive) return;
-        setVehicles([]);
-        setUsageMap(new Map());
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
+      setVehicles(vehicleRows);
+      setUsageMap(usage);
+      setBookings(bookingRows);
+    } catch (error) {
+      console.error("usage overview load error:", error);
+      setVehicles([]);
+      setUsageMap(new Map());
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => {
-      alive = false;
-    };
+  useEffect(() => {
+    loadData();
   }, []);
 
   const dayKeys = useMemo(() => {
-    // clamp if user picks invalid
-    const a = parseISODateLocal(fromDate);
-    const b = parseISODateLocal(toDate);
-    if (!a || !b) return [];
-    const start = a <= b ? fromDate : toDate;
-    const end = a <= b ? toDate : fromDate;
-    return daysBetweenInclusive(start, end);
+    return daysBetweenInclusive(fromDate, toDate);
   }, [fromDate, toDate]);
 
-  const vehiclesFiltered = useMemo(() => {
+  const lookup = useMemo(() => buildVehicleLookup(vehicles), [vehicles]);
+
+  const bookingsByCell = useMemo(() => {
+    const inRange = new Set(dayKeys);
+    const map = new Map();
+
+    bookings.forEach((booking) => {
+      const vehicleIds = Array.isArray(booking.vehicles) && booking.vehicles.length
+        ? booking.vehicles.map((value) => resolveVehicleId(value, lookup)).filter(Boolean)
+        : [resolveVehicleId(booking.vehicleId || booking.vehicle || booking.registration || booking.reg, lookup)].filter(Boolean);
+
+      if (!vehicleIds.length) return;
+
+      bookingDateKeys(booking).forEach((dateISO) => {
+        if (!inRange.has(dateISO)) return;
+        vehicleIds.forEach((vehicleId) => {
+          const key = usageDocId(vehicleId, dateISO);
+          const list = map.get(key) || [];
+          list.push({
+            id: booking.id,
+            label: bookingLabel(booking),
+            status: booking.status || "",
+            vehicleStatus: booking.vehicleStatus?.[vehicleId] || "",
+          });
+          map.set(key, list);
+        });
+      });
+    });
+
+    return map;
+  }, [bookings, dayKeys, lookup]);
+
+  const categories = useMemo(() => {
+    return Array.from(new Set(vehicles.map((v) => v.category).filter(Boolean))).sort();
+  }, [vehicles]);
+
+  const baseVehicles = useMemo(() => {
     let list = vehicles;
+    const text = q.trim().toLowerCase();
 
     if (vehicleFilter !== "all") list = list.filter((v) => v.id === vehicleFilter);
-
-    const s = q.trim().toLowerCase();
-    if (s) {
-      list = list.filter((v) => `${v.label} ${v.category}`.toLowerCase().includes(s));
+    if (categoryFilter !== "all") list = list.filter((v) => v.category === categoryFilter);
+    if (text) {
+      list = list.filter((v) =>
+        [v.label, v.category, v.reg, v.name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(text)
+      );
     }
 
     return list;
-  }, [vehicles, vehicleFilter, q]);
+  }, [vehicles, q, vehicleFilter, categoryFilter]);
 
-  const rows = useMemo(() => {
-    // row per vehicle per day
-    const out = [];
-    for (const v of vehiclesFiltered) {
-      for (const d of dayKeys) {
-        const k = usageDocId(v.id, d);
-        const noteDoc = usageMap.get(k) || null;
-        const note = noteDoc?.note || "";
-        if (noteFilter !== "all") {
-          if (!noteDoc) continue; // filter requires set note
-          if (note !== noteFilter) continue;
+  const vehicleSummaries = useMemo(() => {
+    const rows = baseVehicles.map((vehicle) => {
+      let bookedDays = 0;
+      let notedDays = 0;
+      let coveredDays = 0;
+      let missingDays = 0;
+      const noteCounts = new Map();
+      const todayKey = usageDocId(vehicle.id, defaultTo);
+
+      dayKeys.forEach((dateISO) => {
+        const key = usageDocId(vehicle.id, dateISO);
+        const noteDoc = usageMap.get(key);
+        const bookingsForDay = bookingsByCell.get(key) || [];
+        const hasNote = Boolean(noteDoc?.note);
+        const hasBooking = bookingsForDay.length > 0;
+
+        if (hasBooking) bookedDays += 1;
+        if (hasNote) {
+          notedDays += 1;
+          noteCounts.set(noteDoc.note, (noteCounts.get(noteDoc.note) || 0) + 1);
         }
-        out.push({
-          vehicleId: v.id,
-          vehicleLabel: v.label,
-          category: v.category || "—",
-          dateISO: d,
-          noteDoc,
-        });
-      }
+        if (hasNote || hasBooking) coveredDays += 1;
+        if (!hasNote && !hasBooking) missingDays += 1;
+      });
+
+      const topNote = Array.from(noteCounts.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+      const todayNote = usageMap.get(todayKey);
+      const todayBookings = bookingsByCell.get(todayKey) || [];
+
+      return {
+        ...vehicle,
+        bookedDays,
+        notedDays,
+        coveredDays,
+        missingDays,
+        utilisation: percent(coveredDays, dayKeys.length),
+        topNote,
+        todayNote,
+        todayBookings,
+      };
+    });
+
+    let filtered = rows;
+    if (viewFilter === "booked") filtered = filtered.filter((row) => row.bookedDays > 0);
+    if (viewFilter === "manual") filtered = filtered.filter((row) => row.notedDays > 0);
+    if (viewFilter === "missing") filtered = filtered.filter((row) => row.missingDays > 0);
+    if (noteFilter !== "all") {
+      filtered = filtered.filter((row) => {
+        return dayKeys.some((dateISO) => usageMap.get(usageDocId(row.id, dateISO))?.note === noteFilter);
+      });
     }
 
-    // newest first
-    out.sort((a, b) => (a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : a.vehicleLabel.localeCompare(b.vehicleLabel)));
-    return out;
-  }, [vehiclesFiltered, dayKeys, usageMap, noteFilter]);
+    return [...filtered].sort((a, b) => {
+      if (sort === "name") return a.label.localeCompare(b.label);
+      if (sort === "utilHigh") return b.utilisation - a.utilisation || a.label.localeCompare(b.label);
+      if (sort === "utilLow") return a.utilisation - b.utilisation || a.label.localeCompare(b.label);
+      if (sort === "booked") return b.bookedDays - a.bookedDays || a.label.localeCompare(b.label);
+      return b.missingDays - a.missingDays || b.coveredDays - a.coveredDays || a.label.localeCompare(b.label);
+    });
+  }, [baseVehicles, bookingsByCell, dayKeys, defaultTo, noteFilter, sort, usageMap, viewFilter]);
 
   const kpis = useMemo(() => {
-    const totalSlots = vehiclesFiltered.length * dayKeys.length;
-    let filled = 0;
-    const counts = new Map();
-    for (const r of rows) {
-      if (r.noteDoc?.note) {
-        filled++;
-        const n = r.noteDoc.note;
-        counts.set(n, (counts.get(n) || 0) + 1);
-      }
-    }
-    const top = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const totalSlots = baseVehicles.length * dayKeys.length;
+    let bookedSlots = 0;
+    let notedSlots = 0;
+    let coveredSlots = 0;
+    const noteCounts = new Map();
+    const todayVehicleIds = new Set();
+
+    baseVehicles.forEach((vehicle) => {
+      dayKeys.forEach((dateISO) => {
+        const key = usageDocId(vehicle.id, dateISO);
+        const noteDoc = usageMap.get(key);
+        const bookingsForDay = bookingsByCell.get(key) || [];
+        const hasNote = Boolean(noteDoc?.note);
+        const hasBooking = bookingsForDay.length > 0;
+
+        if (hasBooking) bookedSlots += 1;
+        if (hasNote) {
+          notedSlots += 1;
+          noteCounts.set(noteDoc.note, (noteCounts.get(noteDoc.note) || 0) + 1);
+        }
+        if (hasNote || hasBooking) coveredSlots += 1;
+        if ((hasNote || hasBooking) && dateISO === defaultTo) todayVehicleIds.add(vehicle.id);
+      });
+    });
+
+    const busiest = [...vehicleSummaries].sort((a, b) => b.coveredDays - a.coveredDays)[0] || null;
+    const topNotes = Array.from(noteCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
     return {
       totalSlots,
-      filled,
-      missing: Math.max(0, totalSlots - filled),
-      top,
+      bookedSlots,
+      notedSlots,
+      coveredSlots,
+      missingSlots: Math.max(0, totalSlots - coveredSlots),
+      coverage: percent(coveredSlots, totalSlots),
+      todayInUse: todayVehicleIds.size,
+      busiest,
+      topNotes,
     };
-  }, [rows, vehiclesFiltered.length, dayKeys.length]);
+  }, [baseVehicles, bookingsByCell, dayKeys, defaultTo, usageMap, vehicleSummaries]);
+
+  const gapsToChase = useMemo(() => {
+    const out = [];
+    for (const vehicle of vehicleSummaries) {
+      for (const dateISO of dayKeys) {
+        const key = usageDocId(vehicle.id, dateISO);
+        const hasNote = usageMap.get(key)?.note;
+        const hasBooking = (bookingsByCell.get(key) || []).length > 0;
+        if (!hasNote && !hasBooking) {
+          out.push({ vehicle, dateISO });
+          if (out.length >= 8) return out;
+        }
+      }
+    }
+    return out;
+  }, [bookingsByCell, dayKeys, usageMap, vehicleSummaries]);
+
+  const matrixRows = useMemo(() => vehicleSummaries.slice(0, 80), [vehicleSummaries]);
 
   const openEdit = (vehicleId, dateISO) => {
-    const k = usageDocId(vehicleId, dateISO);
-    const existing = usageMap.get(k) || null;
-
+    const key = usageDocId(vehicleId, dateISO);
+    const existing = usageMap.get(key) || null;
     setEditModal({
       vehicleId,
       dateISO,
@@ -379,47 +600,35 @@ export default function VehicleUsagePage() {
     if (!editModal?.vehicleId || !editModal?.dateISO) return;
 
     const { vehicleId, dateISO } = editModal;
-    const k = usageDocId(vehicleId, dateISO);
-    setSavingKey(k);
+    const key = usageDocId(vehicleId, dateISO);
+    setSavingKey(key);
 
     try {
-      const who =
-        auth?.currentUser?.displayName ||
-        auth?.currentUser?.email ||
-        "Supervisor";
-
-      const ref = doc(db, USAGE_COLLECTION, k);
-
+      const who = auth?.currentUser?.displayName || auth?.currentUser?.email || "Supervisor";
       const payload = {
         vehicleId,
         dateISO,
         note: String(editModal.note || "").trim(),
-        otherText: String(editModal.otherText || "").trim(),
+        otherText: String(editModal.note || "").trim() === "Other" ? String(editModal.otherText || "").trim() : "",
         jobId: String(editModal.jobId || "").trim(),
         jobLabel: String(editModal.jobLabel || "").trim(),
         updatedAt: serverTimestamp(),
         updatedBy: who,
       };
 
-      // Normalise: only keep otherText when note === "Other"
-      if (payload.note !== "Other") payload.otherText = "";
-      // Normalise: if empty note, treat as clearing the entry
-      // (We still write doc; keeps history. If you want true delete, say so.)
+      const ref = doc(db, USAGE_COLLECTION, key);
       await setDoc(ref, payload, { merge: true });
-
-      // refresh local map
       const fresh = await getDoc(ref);
       const data = fresh.exists() ? fresh.data() : payload;
 
       setUsageMap((prev) => {
         const next = new Map(prev);
-        next.set(k, { id: k, ...data });
+        next.set(key, { id: key, ...data });
         return next;
       });
-
       setEditModal(null);
-    } catch (e) {
-      console.error("save usage note error:", e);
+    } catch (error) {
+      console.error("save usage note error:", error);
       alert("Could not save. Please try again.");
     } finally {
       setSavingKey(null);
@@ -428,249 +637,406 @@ export default function VehicleUsagePage() {
 
   return (
     <HeaderSidebarLayout>
-      <style>{keyframes}</style>
-      <style>{`
-        input:focus, button:focus, select:focus, textarea:focus {
-          outline: none;
-          box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-          border-color: #bfdbfe !important;
-        }
+      <style jsx global>{`
+        .usage-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
+        input:focus, select:focus, button:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        .usage-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .usage-filter-grid {
+          display: grid;
+          grid-template-columns: minmax(240px, 1.3fr) repeat(6, minmax(145px, 1fr)) auto;
+          gap: 10px;
+          align-items: end;
+        }
+        .usage-two-col {
+          display: grid;
+          grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .usage-matrix-table th {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
+        .usage-matrix-table th:first-child,
+        .usage-matrix-table td:first-child {
+          position: sticky;
+          left: 0;
+          z-index: 3;
+          box-shadow: 1px 0 0 #eef2f7;
+        }
+        .usage-matrix-table th:first-child { z-index: 4; }
+        @media (max-width: 1320px) {
+          .usage-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .usage-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 900px) {
+          .usage-kpi-grid, .usage-filter-grid, .usage-two-col { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       <div style={pageWrap}>
-        {/* Header */}
-        <div style={headerBar}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           <div>
-            <h1 style={h1}>Vehicle Usage</h1>
+            <h1 style={title}>Usage Overview</h1>
             <div style={sub}>
-              Set a <b>day note</b> for what each vehicle is doing per day (e.g., Shoot Day, Travel Day, Rig Day).
+              See booked work, manual day notes, missing coverage, and vehicle utilisation in one place.
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={chip}>{loading ? "Loading…" : `${vehiclesFiltered.length} vehicles`}</div>
-            <div style={chipSoft}>
-              Filled: <b style={{ marginLeft: 6 }}>{kpis.filled}</b> / {kpis.totalSlots}
-            </div>
-            <div style={chip}>Missing: <b style={{ marginLeft: 6 }}>{kpis.missing}</b></div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button type="button" className="usage-overview-action" style={btn("primary")} onClick={() => router.push("/vehicle-home")}>
+              <Truck size={15} />
+              Vehicle Home
+            </button>
+            <button type="button" className="usage-overview-action" style={btn()} onClick={() => router.back()}>
+              <ArrowLeft size={15} />
+              Back
+            </button>
           </div>
         </div>
 
-        {/* Controls */}
-        <section style={cardBase}>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div style={{ minWidth: 220 }}>
-              <div style={smallLabel}>Search vehicles</div>
+        <div className="usage-kpi-grid">
+          <SummaryCard label="Coverage" value={`${kpis.coverage}%`} sub={`${kpis.coveredSlots} of ${kpis.totalSlots} slots`} icon={Gauge} tone="brand" />
+          <SummaryCard label="In Use Today" value={kpis.todayInUse} sub={`${baseVehicles.length} vehicles visible`} icon={Activity} tone="ok" />
+          <SummaryCard label="Booked Days" value={kpis.bookedSlots} sub="From job bookings" icon={CalendarDays} tone="booked" />
+          <SummaryCard label="Manual Notes" value={kpis.notedSlots} sub="Supervisor day notes" icon={ClipboardList} tone="note" />
+          <SummaryCard label="Gaps" value={kpis.missingSlots} sub="No booking or note" icon={AlertTriangle} tone={kpis.missingSlots ? "danger" : "ok"} />
+        </div>
+
+        <section style={{ ...card, padding: 12, marginBottom: 12 }}>
+          <div className="usage-filter-grid">
+            <label style={{ position: "relative", display: "block" }}>
+              <span style={fieldLabel}>Search</span>
+              <Search size={16} style={{ position: "absolute", left: 11, bottom: 11, color: UI.muted }} />
               <input
-                style={inputBase}
+                style={{ ...input, paddingLeft: 34 }}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Type vehicle name / reg / category…"
+                placeholder="Vehicle, reg, category..."
+                type="search"
               />
-            </div>
+            </label>
 
-            <div style={{ minWidth: 170 }}>
-              <div style={smallLabel}>From</div>
-              <input
-                type="date"
-                style={inputBase}
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
+            <Field label="From">
+              <input type="date" style={input} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </Field>
 
-            <div style={{ minWidth: 170 }}>
-              <div style={smallLabel}>To</div>
-              <input
-                type="date"
-                style={inputBase}
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
+            <Field label="To">
+              <input type="date" style={input} value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </Field>
 
-            <div style={{ minWidth: 240 }}>
-              <div style={smallLabel}>Vehicle</div>
-              <select style={inputBase} value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}>
+            <Field label="Vehicle">
+              <select style={input} value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)}>
                 <option value="all">All vehicles</option>
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label}
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.label}
                   </option>
                 ))}
               </select>
-            </div>
+            </Field>
 
-            <div style={{ minWidth: 240 }}>
-              <div style={smallLabel}>Note type</div>
-              <select style={inputBase} value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}>
-                <option value="all">All (incl. blank)</option>
-                {NOTE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
+            <Field label="Category">
+              <select style={input} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value="all">All categories</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
                   </option>
                 ))}
               </select>
-            </div>
+            </Field>
 
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Field label="View">
+              <select style={input} value={viewFilter} onChange={(e) => setViewFilter(e.target.value)}>
+                <option value="all">All usage</option>
+                <option value="booked">Booked only</option>
+                <option value="manual">Manual notes</option>
+                <option value="missing">Needs coverage</option>
+              </select>
+            </Field>
+
+            <Field label="Note">
+              <select style={input} value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}>
+                <option value="all">Any note</option>
+                {NOTE_OPTIONS.map((note) => (
+                  <option key={note} value={note}>
+                    {note}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+              <Field label="Sort">
+                <select style={input} value={sort} onChange={(e) => setSort(e.target.value)}>
+                  <option value="risk">Gaps first</option>
+                  <option value="utilHigh">Usage high to low</option>
+                  <option value="utilLow">Usage low to high</option>
+                  <option value="booked">Booked days</option>
+                  <option value="name">Name A to Z</option>
+                </select>
+              </Field>
               <button
                 type="button"
-                style={btn("ghost")}
+                className="usage-overview-action"
+                style={btn()}
                 onClick={() => {
                   setQ("");
                   setVehicleFilter("all");
+                  setCategoryFilter("all");
+                  setViewFilter("all");
                   setNoteFilter("all");
+                  setSort("risk");
                   setFromDate(defaultFrom);
                   setToDate(defaultTo);
                 }}
               >
+                <RotateCcw size={14} />
                 Reset
               </button>
             </div>
           </div>
 
-          <div style={divider} />
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={chipSoft}>{dayKeys.length} days in range</span>
-            {kpis.top.length ? (
-              <>
-                <span style={chip}>Top notes:</span>
-                {kpis.top.map(([n, c]) => (
-                  <span key={n} style={chip}>
-                    {n}: <b style={{ marginLeft: 6 }}>{c}</b>
-                  </span>
-                ))}
-              </>
-            ) : (
-              <span style={chip}>No notes set yet for this range.</span>
-            )}
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
+            <span style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>Manual note</span>
+            <span style={pill(UI.warnBg, UI.warnFg, UI.warnBorder)}>Booking + note</span>
+            <span style={pill("#f1f5f9", UI.text)}>Blank</span>
+            <span style={pill("#f1f5f9", UI.text)}>{dayKeys.length} days</span>
+            <span style={pill("#f1f5f9", UI.text)}>{vehicleSummaries.length} vehicles shown</span>
           </div>
         </section>
 
-        {/* Table */}
-        <section style={{ ...cardBase, marginTop: UI.gap, padding: 0 }}>
-          <div style={{ padding: 16, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Per-day notes</div>
-              <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                Click <b>Edit</b> to set what a vehicle is doing on that date.
+        <section className="usage-two-col">
+          <div style={panel}>
+            <SectionHeader title="Needs Attention" meta={gapsToChase.length ? "First missing cells in this view" : "All visible slots have coverage"} />
+            {loading ? (
+              <EmptyLine>Loading usage data...</EmptyLine>
+            ) : gapsToChase.length ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {gapsToChase.map((item) => (
+                  <button
+                    key={`${item.vehicle.id}-${item.dateISO}`}
+                    type="button"
+                    className="usage-overview-action"
+                    style={{
+                      ...btn(),
+                      justifyContent: "space-between",
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderColor: UI.warnBorder,
+                      color: UI.text,
+                    }}
+                    onClick={() => openEdit(item.vehicle.id, item.dateISO)}
+                  >
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.vehicle.label}</span>
+                    <span style={{ color: UI.warnFg }}>{fmtDate(item.dateISO)}</span>
+                  </button>
+                ))}
               </div>
-            </div>
-            <div style={chip}>{loading ? "Loading…" : `${rows.length} rows`}</div>
+            ) : (
+              <EmptyLine>No missing usage coverage in the current filters.</EmptyLine>
+            )}
           </div>
 
-          <div style={tableWrap}>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
+          <div style={panel}>
+            <SectionHeader
+              title="Range Breakdown"
+              meta={kpis.busiest ? `Busiest: ${kpis.busiest.label} (${kpis.busiest.coveredDays} days)` : "No vehicles in range"}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {kpis.topNotes.length ? (
+                kpis.topNotes.map(([note, count]) => (
+                  <span key={note} style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>
+                    {note}: {count}
+                  </span>
+                ))
+              ) : (
+                <span style={pill("#f1f5f9", UI.text)}>No manual notes in this range</span>
+              )}
+              <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked days: {kpis.bookedSlots}</span>
+              <span style={pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder)}>Gaps: {kpis.missingSlots}</span>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ ...card, overflow: "hidden", marginBottom: 12 }}>
+          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <SectionHeader title="Vehicle Summary" meta="Sorted by the current priority" />
+            <span style={pill("#f1f5f9", UI.text)}>{loading ? "Loading..." : `${vehicleSummaries.length} rows`}</span>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", minWidth: 960, borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>Vehicle</th>
+                  <th style={th}>Category</th>
+                  <th style={th}>Today</th>
+                  <th style={th}>Coverage</th>
+                  <th style={th}>Booked</th>
+                  <th style={th}>Notes</th>
+                  <th style={th}>Gaps</th>
+                  <th style={th}>Top Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
                   <tr>
-                    <th style={th}>Date</th>
-                    <th style={th}>Vehicle</th>
-                    <th style={th}>Category</th>
-                    <th style={th}>Day Note</th>
-                    <th style={th}>Job</th>
-                    <th style={th}>Updated</th>
-                    <th style={{ ...th, textAlign: "right" }}>Actions</th>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>Loading usage...</td>
                   </tr>
-                </thead>
+                ) : vehicleSummaries.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ ...td, textAlign: "center", color: UI.muted }}>
+                      No vehicles match the current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  vehicleSummaries.map((row) => {
+                    const todayStatus = row.todayNote?.note
+                      ? displayNote(row.todayNote)
+                      : row.todayBookings.length
+                        ? `${row.todayBookings.length} booking${row.todayBookings.length === 1 ? "" : "s"}`
+                        : "No coverage";
 
-                <tbody>
-                  {loading ? (
-                    <>
-                      {[...Array(8)].map((_, i) => (
-                        <tr key={i}>
-                          <td style={td}><div style={{ ...skeleton, width: 120 }} /></td>
-                          <td style={td}><div style={{ ...skeleton, width: 220 }} /></td>
-                          <td style={td}><div style={{ ...skeleton, width: 120 }} /></td>
-                          <td style={td}><div style={{ ...skeleton, width: 180 }} /></td>
-                          <td style={td}><div style={{ ...skeleton, width: 140 }} /></td>
-                          <td style={td}><div style={{ ...skeleton, width: 160 }} /></td>
-                          <td style={{ ...td, textAlign: "right" }}><div style={{ ...skeleton, width: 90, marginLeft: "auto" }} /></td>
-                        </tr>
-                      ))}
-                    </>
-                  ) : rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ ...td, textAlign: "center", color: UI.muted }}>
-                        No rows to show. Try widening the date range or clearing filters.
+                    return (
+                      <tr key={row.id}>
+                        <td style={td}>
+                          <div style={{ fontWeight: 950, color: UI.text }}>{row.label}</div>
+                          <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{row.id}</div>
+                        </td>
+                        <td style={td}>{row.category || "-"}</td>
+                        <td style={td}>
+                          <span style={row.todayNote?.note ? pill(UI.noteBg, UI.noteFg, UI.noteBorder) : row.todayBookings.length ? pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder) : pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder)}>
+                            {todayStatus}
+                          </span>
+                        </td>
+                        <td style={td}>
+                          <Progress value={row.utilisation} />
+                        </td>
+                        <td style={td}>{row.bookedDays}</td>
+                        <td style={td}>{row.notedDays}</td>
+                        <td style={td}>
+                          <span style={row.missingDays ? pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder) : pill(UI.okBg, UI.okFg, UI.okBorder)}>
+                            {row.missingDays}
+                          </span>
+                        </td>
+                        <td style={td}>{row.topNote ? `${row.topNote[0]} (${row.topNote[1]})` : "-"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section style={{ ...card, overflow: "hidden" }}>
+          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <SectionHeader title="Daily Matrix" meta="Click any cell to add or edit a day note" />
+            <span style={pill("#f1f5f9", UI.text)}>
+              {matrixRows.length} of {vehicleSummaries.length} vehicles
+            </span>
+          </div>
+
+          <div style={{ overflow: "auto", maxHeight: 620 }}>
+            <table className="usage-matrix-table" style={{ width: "100%", minWidth: Math.max(920, 260 + dayKeys.length * 118), borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, minWidth: 260 }}>Vehicle</th>
+                  {dayKeys.map((dateISO) => (
+                    <th key={dateISO} style={{ ...th, minWidth: 118, textAlign: "center" }}>
+                      {fmtDay(dateISO)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={dayKeys.length + 1} style={{ ...td, textAlign: "center", color: UI.muted }}>Loading usage matrix...</td>
+                  </tr>
+                ) : matrixRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={dayKeys.length + 1} style={{ ...td, textAlign: "center", color: UI.muted }}>No matrix rows to show.</td>
+                  </tr>
+                ) : (
+                  matrixRows.map((vehicle) => (
+                    <tr key={vehicle.id}>
+                      <td style={{ ...td, minWidth: 260, background: "#fff" }}>
+                        <div style={{ fontWeight: 950, color: UI.text }}>{vehicle.label}</div>
+                        <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{vehicle.category || "-"}</div>
                       </td>
-                    </tr>
-                  ) : (
-                    rows.map((r) => {
-                      const n = r.noteDoc?.note || "";
-                      const other = r.noteDoc?.otherText || "";
-                      const updatedAt = r.noteDoc?.updatedAt?.toDate?.() || (r.noteDoc?.updatedAt ? new Date(r.noteDoc.updatedAt) : null);
-                      const updatedBy = r.noteDoc?.updatedBy || "";
-                      const jobLabel = r.noteDoc?.jobLabel || r.noteDoc?.jobId || "";
+                      {dayKeys.map((dateISO) => {
+                        const key = usageDocId(vehicle.id, dateISO);
+                        const noteDoc = usageMap.get(key);
+                        const bookingsForDay = bookingsByCell.get(key) || [];
+                        const hasNote = Boolean(noteDoc?.note);
+                        const hasBooking = bookingsForDay.length > 0;
+                        const tone = hasNote && hasBooking
+                          ? { bg: UI.warnBg, fg: UI.warnFg, border: UI.warnBorder }
+                          : hasNote
+                            ? { bg: UI.noteBg, fg: UI.noteFg, border: UI.noteBorder }
+                            : hasBooking
+                              ? { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder }
+                              : { bg: "#ffffff", fg: UI.muted, border: "#e5eaf1" };
+                        const label = hasNote ? noteShort(noteDoc) : hasBooking ? `${bookingsForDay.length} booking${bookingsForDay.length === 1 ? "" : "s"}` : "-";
+                        const titleText = hasNote
+                          ? displayNote(noteDoc)
+                          : hasBooking
+                            ? bookingsForDay.map((booking) => booking.label).join("\n")
+                            : "No booking or note";
 
-                      const noteDisplay = n
-                        ? n === "Other" && other
-                          ? `Other — ${other}`
-                          : n
-                        : "—";
-
-                      return (
-                        <tr key={`${r.vehicleId}__${r.dateISO}`}>
-                          <td style={td}>{fmtPretty(r.dateISO)}</td>
-                          <td style={td}>
-                            <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicleLabel}</div>
-                            <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.vehicleId}</div>
-                          </td>
-                          <td style={td}>{r.category}</td>
-                          <td style={td}>
-                            <span
-                              style={{
-                                ...chip,
-                                background: n ? UI.brandSoft : "#f1f5f9",
-                                borderColor: n ? "#dbeafe" : "#e5e7eb",
-                                color: n ? UI.brand : UI.text,
-                              }}
-                              title={noteDisplay}
-                            >
-                              {noteDisplay.length > 42 ? `${noteDisplay.slice(0, 42)}…` : noteDisplay}
-                            </span>
-                          </td>
-                          <td style={td}>{jobLabel || "—"}</td>
-                          <td style={td}>
-                            {updatedAt ? (
-                              <>
-                                <div style={{ fontWeight: 800, color: UI.text, fontSize: 12 }}>{updatedAt.toLocaleString()}</div>
-                                <div style={{ color: UI.muted, fontSize: 12 }}>{updatedBy}</div>
-                              </>
-                            ) : (
-                              <span style={{ color: UI.muted }}>—</span>
-                            )}
-                          </td>
-                          <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                        return (
+                          <td key={dateISO} style={{ ...td, textAlign: "center", padding: 7 }}>
                             <button
                               type="button"
-                              style={btn("ghost")}
-                              onClick={() => openEdit(r.vehicleId, r.dateISO)}
+                              title={titleText}
+                              onClick={() => openEdit(vehicle.id, dateISO)}
+                              style={{
+                                width: "100%",
+                                minHeight: 34,
+                                borderRadius: 8,
+                                border: `1px solid ${tone.border}`,
+                                background: tone.bg,
+                                color: tone.fg,
+                                fontSize: 11.5,
+                                fontWeight: 900,
+                                cursor: "pointer",
+                                padding: "5px 6px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
                             >
-                              Edit
+                              {label}
                             </button>
                           </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
 
-      {/* Edit modal */}
-      {editModal && (
+      {editModal ? (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(15, 23, 42, 0.32)",
+            background: "rgba(15, 23, 42, 0.36)",
             zIndex: 1000,
             display: "grid",
             placeItems: "center",
@@ -681,100 +1047,174 @@ export default function VehicleUsagePage() {
         >
           <div
             style={{
-              width: "min(92vw, 620px)",
+              width: "min(94vw, 640px)",
               background: "#fff",
               border: UI.border,
               borderRadius: UI.radius,
-              boxShadow: UI.shadowHover,
-              padding: 18,
+              boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
+              padding: 16,
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 950, color: UI.text }}>Set day note</div>
-                <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                  {fmtPretty(editModal.dateISO)} •{" "}
-                  <b>
-                    {(vehicles.find((v) => v.id === editModal.vehicleId)?.label) || editModal.vehicleId}
-                  </b>
+                <div style={{ fontSize: 18, fontWeight: 950, color: UI.text }}>Set Day Note</div>
+                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                  {fmtDate(editModal.dateISO)} - {vehicles.find((vehicle) => vehicle.id === editModal.vehicleId)?.label || editModal.vehicleId}
                 </div>
               </div>
-              <button type="button" style={btn("ghost")} onClick={() => setEditModal(null)}>
+              <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)}>
+                <X size={14} />
                 Close
               </button>
             </div>
 
-            <div style={divider} />
+            <div style={{ height: 1, background: "#e5eaf1", margin: "14px 0" }} />
 
-            <div style={grid(2)}>
-              <div>
-                <div style={smallLabel}>Note</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+              <Field label="Note">
                 <select
-                  style={inputBase}
+                  style={input}
                   value={editModal.note}
-                  onChange={(e) => setEditModal((m) => ({ ...m, note: e.target.value }))}
+                  onChange={(e) => setEditModal((modal) => ({ ...modal, note: e.target.value }))}
                 >
-                  <option value="">Select note</option>
-                  {NOTE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
+                  <option value="">No note</option>
+                  {NOTE_OPTIONS.map((note) => (
+                    <option key={note} value={note}>
+                      {note}
                     </option>
                   ))}
                 </select>
+              </Field>
 
-                {editModal.note === "Other" && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={smallLabel}>Other note</div>
-                    <input
-                      style={inputBase}
-                      value={editModal.otherText}
-                      onChange={(e) => setEditModal((m) => ({ ...m, otherText: e.target.value }))}
-                      placeholder="e.g., Bodyshop / Prep / Off road…"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div style={smallLabel}>Job (optional)</div>
+              <Field label="Job label">
                 <input
-                  style={inputBase}
+                  style={input}
                   value={editModal.jobLabel}
-                  onChange={(e) => setEditModal((m) => ({ ...m, jobLabel: e.target.value }))}
-                  placeholder='e.g., "#1042" or "Netflix unit"'
+                  onChange={(e) => setEditModal((modal) => ({ ...modal, jobLabel: e.target.value }))}
+                  placeholder="Optional booking or job label"
                 />
-                <div style={{ marginTop: 10 }}>
-                  <div style={smallLabel}>Job ID (optional)</div>
+              </Field>
+
+              {editModal.note === "Other" ? (
+                <Field label="Other note">
                   <input
-                    style={inputBase}
-                    value={editModal.jobId}
-                    onChange={(e) => setEditModal((m) => ({ ...m, jobId: e.target.value }))}
-                    placeholder="Firestore booking id (optional)"
+                    style={input}
+                    value={editModal.otherText}
+                    onChange={(e) => setEditModal((modal) => ({ ...modal, otherText: e.target.value }))}
+                    placeholder="Prep, repair, bodyshop..."
                   />
-                </div>
-              </div>
+                </Field>
+              ) : null}
+
+              <Field label="Job ID">
+                <input
+                  style={input}
+                  value={editModal.jobId}
+                  onChange={(e) => setEditModal((modal) => ({ ...modal, jobId: e.target.value }))}
+                  placeholder="Optional Firestore id"
+                />
+              </Field>
             </div>
 
-            <div style={{ marginTop: 14, color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
-              Tip: leave <b>Note</b> blank to effectively clear the cell (it will show as “—”).
+            <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: UI.muted }}>
+              Leave note as <b>No note</b> to clear the visible cell. Existing job text is kept unless you clear it.
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
-              <button type="button" style={btn("ghost")} onClick={() => setEditModal(null)} disabled={!!savingKey}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+              <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)} disabled={!!savingKey}>
                 Cancel
               </button>
-              <button
-                type="button"
-                style={btn("primary")}
-                onClick={saveEdit}
-                disabled={!!savingKey}
-              >
-                {savingKey ? "Saving…" : "Save"}
+              <button type="button" className="usage-overview-action" style={btn("primary")} onClick={saveEdit} disabled={!!savingKey}>
+                <Save size={14} />
+                {savingKey ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </HeaderSidebarLayout>
+  );
+}
+
+const fieldLabel = {
+  display: "block",
+  marginBottom: 4,
+  color: UI.muted,
+  fontSize: 11.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: 0,
+};
+
+function Field({ label, children }) {
+  return (
+    <label style={{ display: "block", minWidth: 0 }}>
+      <span style={fieldLabel}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function SectionHeader({ title: sectionTitle, meta }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ color: UI.text, fontSize: 15, fontWeight: 950 }}>{sectionTitle}</div>
+      {meta ? <div style={{ marginTop: 3, color: UI.muted, fontSize: 12.5 }}>{meta}</div> : null}
+    </div>
+  );
+}
+
+function EmptyLine({ children }) {
+  return <div style={{ color: UI.muted, fontSize: 13, padding: "10px 0" }}>{children}</div>;
+}
+
+function Progress({ value }) {
+  const tone = value >= 80 ? { bg: UI.okBg, fg: UI.okFg, fill: "#16a34a" } : value >= 45 ? { bg: UI.warnBg, fg: UI.warnFg, fill: "#f59e0b" } : { bg: UI.dangerBg, fg: UI.dangerFg, fill: "#ef4444" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 150 }}>
+      <div style={{ height: 8, flex: 1, borderRadius: 999, background: tone.bg, overflow: "hidden", border: "1px solid #e5eaf1" }}>
+        <div style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: "100%", background: tone.fill }} />
+      </div>
+      <span style={{ minWidth: 38, textAlign: "right", color: tone.fg, fontSize: 12, fontWeight: 950 }}>{value}%</span>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, sub: summary, icon: Icon, tone = "brand" }) {
+  const tones = {
+    brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
+    ok: { bg: UI.okBg, fg: UI.okFg, border: UI.okBorder },
+    danger: { bg: UI.dangerBg, fg: UI.dangerFg, border: UI.dangerBorder },
+    booked: { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder },
+    note: { bg: UI.noteBg, fg: UI.noteFg, border: UI.noteBorder },
+  };
+  const toneStyles = tones[tone] || tones.brand;
+
+  return (
+    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div>
+        <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
+          {label}
+        </div>
+        <div style={{ marginTop: 4, color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
+        <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, fontWeight: 700 }}>{summary}</div>
+      </div>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          border: `1px solid ${toneStyles.border}`,
+          background: toneStyles.bg,
+          color: toneStyles.fg,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flex: "0 0 auto",
+        }}
+      >
+        <Icon size={20} />
+      </div>
+    </div>
   );
 }

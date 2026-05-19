@@ -14,59 +14,72 @@ import startOfWeek from "date-fns/startOfWeek";
 import getDay from "date-fns/getDay";
 import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import {
+  CalendarDays,
+  CalendarPlus,
+  FileClock,
+  RotateCcw,
+  Search,
+  UserRound,
+  Users,
+  WalletCards,
+} from "lucide-react";
 
 //  overlay forms
 import HolidayForm from "@/app/components/holidayform";
 import EditHolidayForm from "@/app/components/EditHolidayForm";
 
-/* ───────────────────────────────────────────
-   Admin allow-list (edit/delete only)
-─────────────────────────────────────────── */
+/* Admin allow-list */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  green: "#16a34a",
+  amber: "#d97706",
+  red: "#dc2626",
+  blue: "#2563eb",
+  teal: "#0f766e",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 22,
+  lineHeight: 1.08,
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = {
   background: UI.card,
@@ -76,58 +89,130 @@ const surface = {
 };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const chipSoft = {
+  ...chip,
+  color: UI.brand,
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "danger") {
     return {
-      padding: "10px 12px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: "1px solid #fecaca",
       background: "#fee2e2",
       color: "#7f1d1d",
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 12px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
-const mono = {
-  fontFamily:
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+const cardBase = {
+  ...surface,
+  padding: 12,
+  background: "#ffffff",
+  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
-/* ── Localiser ─────────────────────────────────────────────────────────── */
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 10,
+  marginBottom: 10,
+  flexWrap: "wrap",
+};
+
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+
+const inputBase = {
+  width: "100%",
+  minHeight: 36,
+  padding: "7px 9px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  fontSize: 13,
+  outline: "none",
+  background: "#fff",
+  color: UI.text,
+};
+
+const mainGrid = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1.55fr) minmax(340px, 0.85fr)",
+  gap: UI.gap,
+  alignItems: "start",
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+/* Localiser */
 const locales = { "en-GB": enGB };
 const localizer = dateFnsLocalizer({
   format,
@@ -137,7 +222,7 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-/* ── Utils ─────────────────────────────────────────────────────────────── */
+/* Utils */
 const norm = (v) => String(v ?? "").trim().toLowerCase();
 const truthy = (v) =>
   v === true || v === 1 || ["true", "1", "yes", "y"].includes(norm(v));
@@ -313,11 +398,11 @@ function getStatus(rec) {
 
 function Pill({ children, tone = "default" }) {
   const tones = {
-    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
+    default: { bg: "#f8fbfd", fg: UI.text, br: "#d7dee8" },
     good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
     warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
     info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    gray: { bg: "#f1f5f9", fg: "#374151", br: "#d1d5db" },
     pending: { bg: "#fef3c7", fg: "#92400e", br: "#fde68a" },
   };
   const t = tones[tone] || tones.default;
@@ -340,11 +425,13 @@ function Pill({ children, tone = "default" }) {
   );
 }
 
-function StatTile({ label, value, tone = "default" }) {
+function StatTile({ label, value, tone = "default", icon: Icon }) {
   const tones = {
-    default: { bg: "#ffffff", br: "#e5e7eb" },
-    soft: { bg: UI.brandSoft, br: "#dbeafe" },
-    warn: { bg: "#fff7ed", br: "#fed7aa" },
+    default: { bg: "#ffffff", br: "#d7dee8", fg: UI.brand },
+    soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
+    warn: { bg: "#fff7ed", br: "#fed7aa", fg: "#9a3412" },
+    good: { bg: "#ecfdf5", br: "#bbf7d0", fg: "#065f46" },
+    danger: { bg: "#fef2f2", br: "#fecaca", fg: "#991b1b" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -352,26 +439,38 @@ function StatTile({ label, value, tone = "default" }) {
       style={{
         background: t.bg,
         border: `1px solid ${t.br}`,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: UI.radiusSm,
+        padding: 11,
+        minHeight: 92,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
       }}
     >
       <div
         style={{
-          fontSize: 12,
-          color: UI.muted,
-          fontWeight: 800,
-          textTransform: "uppercase",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
         }}
       >
-        {label}
+        <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
+          {label}
+        </div>
+        {Icon ? (
+          <span style={iconBox(t.fg, "#fff", t.br)}>
+            <Icon size={17} />
+          </span>
+        ) : null}
       </div>
       <div
         style={{
-          marginTop: 6,
-          fontSize: 20,
-          fontWeight: 950,
+          marginTop: 10,
+          fontSize: 24,
+          fontWeight: 900,
           color: UI.text,
+          lineHeight: 1,
         }}
       >
         {value}
@@ -389,7 +488,7 @@ function LegendSwatch({ color, label }) {
           height: 14,
           background: color,
           borderRadius: 4,
-          border: "1px solid #e5e7eb",
+          border: UI.border,
         }}
       />
       <span style={{ fontSize: 13, color: UI.text }}>{label}</span>
@@ -397,7 +496,48 @@ function LegendSwatch({ color, label }) {
   );
 }
 
-/* ── Drawer ────────────────────────────────────────────────────────────── */
+/* Drawer */
+function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
+  return (
+    <div style={{ display: "grid", gap: 7 }}>
+      <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>
+        {title}
+      </div>
+      {rows.length ? (
+        rows.map((row, index) => (
+          <button
+            key={`${title}-${index}`}
+            type="button"
+            onClick={() => onRowClick?.(row)}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 9px",
+              borderRadius: UI.radiusSm,
+              border: UI.border,
+              background: "#fff",
+              color: UI.text,
+              textAlign: "left",
+              cursor: onRowClick ? "pointer" : "default",
+              fontWeight: 850,
+              fontSize: 12.5,
+            }}
+          >
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {renderRow(row)}
+            </span>
+            <span style={{ color: UI.brand, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>&gt;</span>
+          </button>
+        ))
+      ) : (
+        <div style={{ color: UI.muted, fontSize: 12.5, padding: "4px 0 2px" }}>{empty}</div>
+      )}
+    </div>
+  );
+}
+
 function Drawer({ open, title, subtitle, onClose, children }) {
   useEffect(() => {
     if (!open) return;
@@ -417,7 +557,7 @@ function Drawer({ open, title, subtitle, onClose, children }) {
           <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontWeight: 950,
+                fontWeight: 850,
                 fontSize: 16,
                 color: UI.text,
                 whiteSpace: "nowrap",
@@ -456,24 +596,24 @@ const drawerPanel = {
   width: "min(720px, 94vw)",
   height: "100%",
   background: "#fff",
-  borderLeft: "1px solid #e5e7eb",
+  borderLeft: UI.border,
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
   display: "flex",
   flexDirection: "column",
 };
 
 const drawerHeader = {
-  padding: 14,
-  borderBottom: "1px solid #e5e7eb",
+  padding: 12,
+  borderBottom: UI.border,
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 10,
 };
 
-const drawerBody = { padding: 14, overflow: "auto" };
+const drawerBody = { padding: 12, overflow: "auto" };
 
-/* ── Page ──────────────────────────────────────────────────────────────── */
+/* Page */
 export default function HolidayUsagePage() {
   const router = useRouter();
 
@@ -653,7 +793,7 @@ export default function HolidayUsagePage() {
         });
       } catch {}
 
-      // Holidays for the selected year (Paid/Unpaid only — Accrued/TOIL ignored)
+      // Holidays for the selected year (Paid/Unpaid only; Accrued/TOIL ignored)
       const paid = {};
       const unpaid = {};
       const preAprilPaid = {};
@@ -747,7 +887,7 @@ export default function HolidayUsagePage() {
             `${employee} Holiday` +
             (isUnpaidLeave ? " (Unpaid)" : "") +
             (pending ? " (Pending)" : "") +
-            (single && half ? ` (½ ${when || ""})` : ""),
+            (single && half ? ` (Half ${when || ""})` : ""),
           start,
           // react-big-calendar allDay end is effectively exclusive
           end: new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1),
@@ -789,9 +929,9 @@ export default function HolidayUsagePage() {
     if (event?.bankHoliday) {
       return {
         style: {
-          backgroundColor: "#e5e7eb",
+          backgroundColor: "#eef2f7",
           borderRadius: "8px",
-          border: "1px solid rgba(15,23,42,0.14)",
+          border: UI.border,
           color: "#111827",
           padding: "4px 6px",
           fontWeight: 900,
@@ -913,9 +1053,6 @@ export default function HolidayUsagePage() {
   const selected = selectedName ? metrics(selectedName) : null;
   const selectedRows = selectedName ? byEmployee[selectedName] || [] : [];
 
-  const balTone = (allowBal) =>
-    allowBal <= 1 ? "warn" : allowBal <= 3 ? "info" : "good";
-
   const kpis = useMemo(() => {
     let totalPaid = 0;
     let totalUnpaid = 0;
@@ -934,6 +1071,20 @@ export default function HolidayUsagePage() {
     };
   }, [namesToShow, byEmployee, metrics]);
 
+  const upcomingLeaveRows = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return calendarEvents
+      .filter((event) => !event.bankHoliday && event.start >= today)
+      .sort((a, b) => a.start - b.start)
+      .slice(0, 6);
+  }, [calendarEvents]);
+
+  const fmtDays = (value) => {
+    const num = Number(value || 0);
+    return Math.abs(num - Math.round(num)) < 1e-6 ? num.toFixed(0) : num.toFixed(2);
+  };
+
   //  calendar uses both leave + bank holidays
   const calendarEventsWithBankHolidays = useMemo(
     () => [...bankHolidayEvents, ...calendarEvents],
@@ -942,29 +1093,69 @@ export default function HolidayUsagePage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{`
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        @media (max-width: 1180px) {
+          .holiday-main-grid { grid-template-columns: 1fr !important; }
+        }
+        .holiday-calendar .rbc-toolbar {
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .holiday-calendar .rbc-toolbar button {
+          border: 1px solid ${UI.brandBorder};
+          border-radius: 8px;
+          color: ${UI.text};
+          font-size: 12.5px;
+          font-weight: 800;
+          padding: 6px 9px;
+          background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
+          box-shadow: 0 4px 10px rgba(15,23,42,0.04);
+        }
+        .holiday-calendar .rbc-toolbar button.rbc-active {
+          background: ${UI.brandSoft};
+          color: ${UI.brand};
+          box-shadow: none;
+        }
+        .holiday-calendar .rbc-toolbar-label {
+          color: ${UI.text};
+          font-size: 15px;
+          font-weight: 850;
+        }
+        .holiday-calendar .rbc-month-view,
+        .holiday-calendar .rbc-time-view {
+          border: ${UI.border};
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .holiday-calendar .rbc-header {
+          background: #f6f8fb;
+          color: ${UI.muted};
+          font-size: 11.5px;
+          font-weight: 900;
+          padding: 8px 6px;
+          text-transform: uppercase;
+        }
+        .holiday-calendar .rbc-date-cell {
+          font-size: 12px;
+          font-weight: 800;
+          color: ${UI.muted};
+          padding: 5px 6px;
+        }
+        .holiday-calendar .rbc-event {
+          font-size: 11.5px;
+          line-height: 1.2;
+        }
+      `}</style>
       <div style={pageWrap}>
         {/* Header */}
         <div style={headerBar}>
           <div>
-            <h1 style={h1}>Holiday Overview</h1>
+            <h1 style={h1}>Holiday Usage</h1>
             <div style={sub}>
-              Year: <b style={mono}>{yearView}</b> • Allowance + carry are read
-              from{" "}
-              <span style={mono}>
-                employees.holidayAllowances["{yearView}"]
-              </span>{" "}
-              and <span style={mono}>carryOverByYear["{yearView}"]</span>.
-              {userEmail ? (
-                <>
-                  {" "}
-                  • Signed in: <b style={mono}>{userEmail}</b>{" "}
-                  {isAdmin ? (
-                    <Pill tone="good">Admin</Pill>
-                  ) : (
-                    <Pill tone="gray">Staff</Pill>
-                  )}
-                </>
-              ) : null}
+              Leave calendar, allowance balances, carry-over risk and unpaid holiday tracking for {yearView}.
             </div>
           </div>
 
@@ -978,17 +1169,15 @@ export default function HolidayUsagePage() {
             }}
           >
             <div style={chip}>{calendarEvents.length} leave entries</div>
+            {userEmail ? <div style={chipSoft}>{isAdmin ? "Admin" : "Staff"}</div> : null}
 
             <select
               value={yearView}
               onChange={(e) => setYearView(Number(e.target.value))}
               style={{
-                padding: "10px 12px",
-                borderRadius: UI.radiusSm,
-                border: "1px solid #d1d5db",
-                background: "#fff",
+                ...inputBase,
+                width: 170,
                 fontWeight: 900,
-                color: UI.text,
               }}
             >
               <option value={new Date().getFullYear()}>
@@ -1008,36 +1197,31 @@ export default function HolidayUsagePage() {
               onClick={() => setHolidayModalOpen(true)}
               style={btn()}
             >
-              + Add Holiday
+              <CalendarPlus size={14} /> Add Holiday
             </button>
           </div>
         </div>
 
         {/* Main split layout */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 0.9fr)",
-            gap: UI.gap,
-            alignItems: "start",
-          }}
+          className="holiday-main-grid"
+          style={mainGrid}
         >
           {/* LEFT: Calendar */}
-          <div style={{ ...surface, padding: 14 }}>
+          <div style={cardBase}>
             <div
               style={{
                 display: "flex",
-                alignItems: "baseline",
+                alignItems: "flex-start",
                 justifyContent: "space-between",
                 gap: 12,
                 marginBottom: 10,
+                flexWrap: "wrap",
               }}
             >
               <div>
-                <div style={{ fontWeight: 950, fontSize: 16, color: UI.text }}>
-                  Leave calendar
-                </div>
-                <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                <h2 style={titleMd}>Leave Calendar</h2>
+                <div style={hint}>
                   Paid leave is per-employee colour. Unpaid leave is red. Pending
                   is amber. Bank holidays are grey.
                 </div>
@@ -1050,7 +1234,7 @@ export default function HolidayUsagePage() {
                   justifyContent: "flex-end",
                 }}
               >
-                <LegendSwatch color="#e5e7eb" label="Bank holiday" />
+                <LegendSwatch color="#eef2f7" label="Bank holiday" />
                 <LegendSwatch color="#fef3c7" label="Pending" />
                 <LegendSwatch color="#fee2e2" label="Unpaid" />
                 <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
@@ -1060,11 +1244,12 @@ export default function HolidayUsagePage() {
             <div
               style={{
                 height: "72vh",
-                border: "1px solid #e5e7eb",
-                borderRadius: 12,
+                border: UI.border,
+                borderRadius: UI.radius,
                 overflow: "hidden",
                 background: "#fff",
               }}
+              className="holiday-calendar"
             >
               <Calendar
                 localizer={localizer}
@@ -1090,17 +1275,17 @@ export default function HolidayUsagePage() {
 
             <div
               style={{
-                marginTop: 14,
-                border: "1px solid #e5e7eb",
-                borderRadius: 12,
+                marginTop: UI.gap,
+                border: UI.border,
+                borderRadius: UI.radius,
                 background: "#fff",
-                padding: 14,
+                padding: 12,
               }}
             >
               <div
                 style={{
                   display: "flex",
-                  alignItems: "baseline",
+                  alignItems: "flex-start",
                   justifyContent: "space-between",
                   gap: 10,
                   marginBottom: 10,
@@ -1108,14 +1293,14 @@ export default function HolidayUsagePage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 950, fontSize: 15, color: UI.text }}>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>
                     Carry over to use by {format(carryDeadline, "d MMM")}
-                  </div>
-                  <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                  </h2>
+                  <div style={hint}>
                     Based on approved paid leave booked before 1 April {yearView}.
                   </div>
                 </div>
-                <div style={chip}>{carryOverRows.length} employees</div>
+                <div style={chipSoft}>{carryOverRows.length} employees</div>
               </div>
 
               <div style={tableWrap}>
@@ -1147,7 +1332,7 @@ export default function HolidayUsagePage() {
                         <tr
                           key={row.name}
                           style={{
-                            backgroundColor: i % 2 === 0 ? "#fff" : "#f8fafc",
+                            backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
                             cursor: "pointer",
                           }}
                           onClick={() => setSelectedName(row.name)}
@@ -1188,42 +1373,26 @@ export default function HolidayUsagePage() {
             }}
           >
             {/* Controls */}
-            <div style={{ ...surface, padding: 14 }}>
+            <div style={cardBase}>
               <div style={{ display: "grid", gap: 10 }}>
                 <div style={{ position: "relative" }}>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
+                  <Search
+                    size={18}
                     style={{
                       position: "absolute",
                       left: 10,
-                      top: 10,
-                      width: 18,
-                      height: 18,
+                      top: 9,
                       opacity: 0.6,
                     }}
-                    aria-hidden
-                  >
-                    <path
-                      d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                    aria-hidden="true"
+                  />
                   <input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Search employee…"
+                    placeholder="Search employee..."
                     style={{
-                      width: "100%",
+                      ...inputBase,
                       padding: "10px 12px 10px 36px",
-                      borderRadius: UI.radiusSm,
-                      border: "1px solid #d1d5db",
-                      fontSize: 14,
-                      outline: "none",
-                      background: "#fff",
                     }}
                   />
                 </div>
@@ -1263,7 +1432,7 @@ export default function HolidayUsagePage() {
                       style={btn("ghost")}
                       type="button"
                     >
-                      Reset
+                      <RotateCcw size={14} /> Reset
                     </button>
                   </div>
                 </div>
@@ -1272,18 +1441,11 @@ export default function HolidayUsagePage() {
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
                   style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: UI.radiusSm,
-                    border: "1px solid #d1d5db",
-                    fontSize: 14,
-                    outline: "none",
-                    background: "#fff",
+                    ...inputBase,
                     fontWeight: 800,
-                    color: UI.text,
                   }}
                 >
-                  <option value="name">Sort: Name (A–Z)</option>
+                  <option value="name">Sort: Name (A-Z)</option>
                   <option value="paid">Sort: Paid used (desc)</option>
                   <option value="unpaid">Sort: Unpaid (desc)</option>
                   <option value="allowBalAsc">Sort: Balance (asc)</option>
@@ -1297,16 +1459,12 @@ export default function HolidayUsagePage() {
             </div>
 
             {/* KPI tiles */}
-            <div style={{ ...surface, padding: 14 }}>
-              <div
-                style={{
-                  fontWeight: 950,
-                  fontSize: 15,
-                  marginBottom: 10,
-                  color: UI.text,
-                }}
-              >
-                This view
+            <div style={cardBase}>
+              <div style={sectionHeader}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>This View</h2>
+                  <div style={hint}>Totals after search and filter.</div>
+                </div>
               </div>
               <div
                 style={{
@@ -1315,16 +1473,18 @@ export default function HolidayUsagePage() {
                   gap: 10,
                 }}
               >
-                <StatTile label="People" value={kpis.people} tone="soft" />
-                <StatTile label="Entries" value={kpis.totalBooked} />
+                <StatTile label="People" value={kpis.people} tone="soft" icon={Users} />
+                <StatTile label="Entries" value={kpis.totalBooked} icon={FileClock} />
                 <StatTile
                   label="Paid days"
-                  value={Number(kpis.totalPaid.toFixed(2))}
+                  value={fmtDays(kpis.totalPaid)}
+                  icon={CalendarDays}
                 />
                 <StatTile
                   label="Unpaid days"
-                  value={Number(kpis.totalUnpaid.toFixed(2))}
+                  value={fmtDays(kpis.totalUnpaid)}
                   tone="warn"
+                  icon={WalletCards}
                 />
               </div>
               <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
@@ -1334,23 +1494,45 @@ export default function HolidayUsagePage() {
               </div>
             </div>
 
+            <div style={cardBase}>
+              <div style={sectionHeader}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Upcoming Leave</h2>
+                  <div style={hint}>Next booked leave entries in the selected year.</div>
+                </div>
+                <span style={chipSoft}>{upcomingLeaveRows.length} shown</span>
+              </div>
+              <MiniQueue
+                title="Next dates"
+                rows={upcomingLeaveRows}
+                empty="No upcoming leave."
+                renderRow={(row) =>
+                  `${format(row.start, "d MMM")} - ${row.employee}${row.pending ? " (pending)" : ""}`
+                }
+                onRowClick={(row) => setSelectedName(row.employee)}
+              />
+            </div>
+
             {/* Employee list */}
-            <div style={{ ...surface, padding: 14 }}>
+            <div style={cardBase}>
               <div
                 style={{
                   display: "flex",
-                  alignItems: "baseline",
+                  alignItems: "flex-start",
                   justifyContent: "space-between",
                   gap: 10,
                   marginBottom: 10,
                 }}
               >
-                <div
-                  style={{ fontWeight: 950, fontSize: 15, color: UI.text }}
-                >
-                  Employees
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={iconBox(UI.brand, UI.brandSoft)}>
+                    <UserRound size={17} />
+                  </span>
+                  <div style={{ fontWeight: 850, fontSize: 15, color: UI.text }}>
+                    Employees
+                  </div>
                 </div>
-                <div style={chip}>Click to open</div>
+                <div style={chipSoft}>{namesToShow.length} listed</div>
               </div>
 
               <div
@@ -1374,19 +1556,19 @@ export default function HolidayUsagePage() {
                       style={{
                         textAlign: "left",
                         width: "100%",
-                        borderRadius: 12,
-                        border: "1px solid #e5e7eb",
+                        borderRadius: UI.radiusSm,
+                        border: UI.border,
                         background: "#fff",
-                        padding: 10,
+                        padding: 9,
                         cursor: "pointer",
                         display: "grid",
                         gap: 6,
                       }}
                       onMouseEnter={(e) =>
-                        (e.currentTarget.style.borderColor = "#dbeafe")
+                        (e.currentTarget.style.borderColor = UI.brandBorder)
                       }
                       onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor = "#e5e7eb")
+                        (e.currentTarget.style.borderColor = "#d7dee8")
                       }
                     >
                       <div
@@ -1399,7 +1581,7 @@ export default function HolidayUsagePage() {
                       >
                         <div
                           style={{
-                            fontWeight: 950,
+                            fontWeight: 850,
                             color: UI.text,
                             minWidth: 0,
                             whiteSpace: "nowrap",
@@ -1440,9 +1622,9 @@ export default function HolidayUsagePage() {
           title={selectedName || ""}
           subtitle={
             selectedName && selected
-              ? `Year ${yearView} • Paid ${Number(selected.paid.toFixed(2))}/${selected.totalAllowance} • Unpaid ${Number(
+              ? `Year ${yearView} - Paid ${Number(selected.paid.toFixed(2))}/${selected.totalAllowance} - Unpaid ${Number(
                   selected.unpaid.toFixed(2)
-                )} • Balance ${Number(selected.allowBal.toFixed(2))}`
+                )} - Balance ${Number(selected.allowBal.toFixed(2))}`
               : ""
           }
           onClose={() => setSelectedName(null)}
@@ -1512,14 +1694,14 @@ export default function HolidayUsagePage() {
                           <tr
                             key={row.id}
                             style={{
-                              backgroundColor: i % 2 === 0 ? "#fff" : "#f8fafc",
+                              backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
                             }}
                           >
                             <td style={td}>{format(row.start, "EEE d MMM")}</td>
                             <td style={td}>{format(row.end, "EEE d MMM")}</td>
                             <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
                               {row.days}
-                              {row.halfDay ? " (½)" : ""}
+                              {row.halfDay ? " (half)" : ""}
                             </td>
                             <td style={td}>
                               <div
@@ -1558,11 +1740,11 @@ export default function HolidayUsagePage() {
                                   type="button"
                                   onClick={() => setEditHolidayId(row.id)}
                                 >
-                                  Edit →
+                                  Edit
                                 </button>
                               ) : (
                                 <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                                  —
+                                  -
                                 </span>
                               )}
                             </td>
@@ -1572,9 +1754,9 @@ export default function HolidayUsagePage() {
                     )}
 
                     <tr>
-                      <td style={{ ...td, fontWeight: 950 }}>Balance</td>
+                      <td style={{ ...td, fontWeight: 900 }}>Balance</td>
                       <td style={td}></td>
-                      <td style={{ ...td, textAlign: "center", fontWeight: 950 }}>
+                      <td style={{ ...td, textAlign: "center", fontWeight: 900 }}>
                         {Number(selected.allowBal.toFixed(2))}
                       </td>
                       <td style={td}></td>
@@ -1623,7 +1805,7 @@ export default function HolidayUsagePage() {
               width: "95vw",
               maxHeight: "90vh",
               overflowY: "auto",
-              borderRadius: 16,
+              borderRadius: UI.radius,
             }}
           >
             <HolidayForm
@@ -1656,8 +1838,8 @@ export default function HolidayUsagePage() {
 /* Table styles */
 const tableWrap = {
   overflow: "auto",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
+  border: UI.border,
+  borderRadius: UI.radius,
   background: "#fff",
 };
 const tableEl = {
@@ -1668,16 +1850,21 @@ const tableEl = {
 };
 const th = {
   textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
+  padding: "9px 11px",
+  borderBottom: "1px solid #eef2f7",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "#f6f8fb",
   zIndex: 1,
   whiteSpace: "nowrap",
+  color: UI.muted,
+  fontSize: 11.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
 };
 const td = {
-  padding: "10px 12px",
+  padding: "9px 11px",
   borderBottom: "1px solid #f1f5f9",
   verticalAlign: "middle",
+  fontSize: 13,
 };

@@ -16,6 +16,14 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  MessageSquare,
+  Printer,
+  Save,
+  Send,
+} from "lucide-react";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -41,18 +49,107 @@ const LUNCH_DEDUCT_HRS = 0.5;
 const DEFAULT_YARD_START = "08:00";
 const DEFAULT_YARD_END = "16:30";
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  bg: "#f3f6f9",
   panel: "#ffffff",
-  panelTint: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  panelTint: "#ffffff",
   ink: "#0f172a",
   muted: "#5f6f82",
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
   brandBorder: "#c8d6e3",
-  border: "1px solid #dbe2ea",
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
+  border: "1px solid #d7dee8",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
+};
+
+const pageWrap = {
+  flex: 1,
+  minHeight: "100vh",
+  background: UI.bg,
+  color: UI.ink,
+  padding: "16px 16px 32px",
+  boxSizing: "border-box",
+  width: "100%",
+};
+
+const toolbarStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 12,
+  gap: 10,
+  flexWrap: "wrap",
+};
+
+const actionRowStyle = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
+
+const surfaceStyle = {
+  background: UI.panelTint,
+  borderRadius: UI.radius,
+  border: UI.border,
+  boxShadow: UI.shadowSm,
+};
+
+const controlButton = (kind = "ghost", disabled = false) => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+  };
+
+  if (kind === "primary") {
+    return {
+      ...base,
+      border: `1px solid ${UI.brand}`,
+      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+      color: "#fff",
+      boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+    };
+  }
+
+  if (kind === "success") {
+    return {
+      ...base,
+      border: `1px solid ${UI.greenBorder}`,
+      background: UI.greenSoft,
+      color: UI.green,
+    };
+  }
+
+  return {
+    ...base,
+    border: `1px solid ${UI.brandBorder}`,
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    color: UI.ink,
+    boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+  };
+};
+
+const formControlStyle = {
+  width: "100%",
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  fontSize: 13,
+  boxSizing: "border-box",
 };
 
 const payAdviceCell = {
@@ -96,7 +193,7 @@ function toLocalYMD(raw) {
   return `${year}-${month}-${day}`;
 }
 
-/* HH:mm → minutes */
+/* HH:mm to minutes */
 function toMinutes(val) {
   if (!val) return null;
   if (typeof val === "string") {
@@ -246,7 +343,7 @@ function shouldDeductYardLunch(entry) {
 
   // Common patterns across apps:
   // - yardLunchSup / lunchSup often means "lunch supplement claimed" / "no lunch provided"
-  //   → do NOT deduct lunch from hours.
+  //   do NOT deduct lunch from hours.
   if (entry?.yardLunchSup === true) return false;
   if (entry?.lunchSup === true) return false;
 
@@ -1414,7 +1511,7 @@ export default function TimesheetDetailPage() {
         isPaidHolidayDay,
         paidHolidayHours,
         paidHolidayLunchDeducted,
-        paidHolidayTimeLabel: `${employeeYardAutofill.start} → ${employeeYardAutofill.end}`,
+        paidHolidayTimeLabel: `${employeeYardAutofill.start} -> ${employeeYardAutofill.end}`,
         dayTotalLabel,
         precallLabel,
         travelToHrs,
@@ -1722,7 +1819,7 @@ export default function TimesheetDetailPage() {
   if (loading) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 28, color: UI.muted }}>Loading...</div>
+        <div style={{ ...pageWrap, color: UI.muted }}>Loading...</div>
       </HeaderSidebarLayout>
     );
   }
@@ -1730,8 +1827,8 @@ export default function TimesheetDetailPage() {
   if (!timesheet) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 28 }}>
-          <h1>No timesheet found</h1>
+        <div style={pageWrap}>
+          <h1 style={{ fontSize: 22, fontWeight: 750, margin: 0 }}>No timesheet found</h1>
         </div>
       </HeaderSidebarLayout>
     );
@@ -1757,94 +1854,40 @@ export default function TimesheetDetailPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div
-        style={{
-          padding: "22px 18px 34px",
-          minHeight: "100vh",
-          backgroundColor: UI.bg,
-          display: "flex",
-          flexDirection: "column",
-          boxSizing: "border-box",
-        }}
-      >
+      <div style={{ ...pageWrap, display: "flex", flexDirection: "column" }}>
         {/* Controls (not printed) */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 12,
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={toolbarStyle}>
           <button
             onClick={() => router.back()}
-            style={{
-              background: "#ffffff",
-              border: UI.border,
-              borderRadius: 999,
-              color: UI.brand,
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: 700,
-              padding: "8px 12px",
-            }}
+            style={controlButton("ghost")}
           >
-            ← Back
+            <ArrowLeft size={14} /> Back
           </button>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={actionRowStyle}>
             <button
               onClick={handlePrint}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                border: `1px solid ${UI.brand}`,
-                backgroundColor: UI.brand,
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
+              style={controlButton("primary")}
             >
-               Print Timesheet
+              <Printer size={14} /> Print Timesheet
             </button>
 
             {isAdmin ? (
               <button
                 onClick={handlePrintPayAdvice}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  border: `1px solid ${UI.brandBorder}`,
-                  backgroundColor: "#ffffff",
-                  color: UI.brand,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
+                style={controlButton("ghost")}
               >
-                Print Pay Advice
+                <Printer size={14} /> Print Pay Advice
               </button>
             ) : null}
 
             <button
               onClick={handleApprove}
               disabled={approving || isApproved}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                border: "1px solid #16a34a",
-                backgroundColor: isApproved ? "#bbf7d0" : "#16a34a",
-                color: isApproved ? "#166534" : "#ecfdf5",
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: approving || isApproved ? "default" : "pointer",
-                opacity: approving ? 0.7 : 1,
-              }}
+              style={controlButton("success", approving || isApproved)}
             >
-              {isApproved ? "Approved" : approving ? "Approving…" : "Yes Approve"}
+              <CheckCircle2 size={14} />
+              {isApproved ? "Approved" : approving ? "Approving..." : "Approve"}
             </button>
           </div>
         </div>
@@ -1854,10 +1897,10 @@ export default function TimesheetDetailPage() {
             style={{
               marginBottom: 10,
               padding: "8px 10px",
-              borderRadius: 10,
-              backgroundColor: "#fff1f2",
-              border: "1px solid #fecdd3",
-              color: "#991b1b",
+              borderRadius: UI.radiusSm,
+              backgroundColor: UI.redSoft,
+              border: `1px solid ${UI.redBorder}`,
+              color: UI.red,
               fontSize: 12,
               fontWeight: 600,
             }}
@@ -1870,12 +1913,9 @@ export default function TimesheetDetailPage() {
         <div
           id="timesheet-print-root"
           style={{
+            ...surfaceStyle,
             flex: 1,
-            background: UI.panelTint,
-            borderRadius: UI.radius,
-            border: UI.border,
-            boxShadow: UI.shadowSm,
-            padding: 16,
+            padding: 12,
             display: "flex",
             flexDirection: "column",
             boxSizing: "border-box",
@@ -1893,8 +1933,8 @@ export default function TimesheetDetailPage() {
             }}
           >
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, marginBottom: 4, color: UI.ink }}>
-                Timesheet — {timesheet.employeeName || timesheet.employeeCode}
+              <h1 style={{ fontSize: 22, fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, marginBottom: 4, color: UI.ink }}>
+                Timesheet - {timesheet.employeeName || timesheet.employeeCode}
               </h1>
               <p style={{ color: UI.muted, margin: 0, fontSize: 13 }}>
                 Week starting{" "}
@@ -1907,17 +1947,7 @@ export default function TimesheetDetailPage() {
                   type="button"
                   onClick={() => weekNav.previous && router.push(`/timesheet-id/${weekNav.previous.id}`)}
                   disabled={!weekNav.previous}
-                  style={{
-                    background: "#ffffff",
-                    border: UI.border,
-                    borderRadius: 999,
-                    color: UI.brand,
-                    cursor: weekNav.previous ? "pointer" : "not-allowed",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: "7px 11px",
-                    opacity: weekNav.previous ? 1 : 0.5,
-                  }}
+                  style={controlButton("ghost", !weekNav.previous)}
                 >
                   Previous week{weekNav.previous ? ` (${formatShortDate(weekNav.previous.weekStart)})` : ""}
                 </button>
@@ -1925,17 +1955,7 @@ export default function TimesheetDetailPage() {
                   type="button"
                   onClick={() => weekNav.next && router.push(`/timesheet-id/${weekNav.next.id}`)}
                   disabled={!weekNav.next}
-                  style={{
-                    background: "#ffffff",
-                    border: UI.border,
-                    borderRadius: 999,
-                    color: UI.brand,
-                    cursor: weekNav.next ? "pointer" : "not-allowed",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: "7px 11px",
-                    opacity: weekNav.next ? 1 : 0.5,
-                  }}
+                  style={controlButton("ghost", !weekNav.next)}
                 >
                   Next week{weekNav.next ? ` (${formatShortDate(weekNav.next.weekStart)})` : ""}
                 </button>
@@ -1947,7 +1967,7 @@ export default function TimesheetDetailPage() {
                 style={{
                   display: "inline-block",
                   padding: "4px 10px",
-                  borderRadius: 999,
+                  borderRadius: UI.radiusSm,
                   border: "1px solid",
                   fontSize: 11,
                   fontWeight: 800,
@@ -1976,8 +1996,8 @@ export default function TimesheetDetailPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(7, minmax(220px, 1fr))",
-              gap: 10,
+              gridTemplateColumns: "repeat(7, minmax(200px, 1fr))",
+              gap: 8,
               alignItems: "stretch",
               fontSize: 13,
               overflowX: "auto",
@@ -2023,16 +2043,16 @@ export default function TimesheetDetailPage() {
                 <div
                   key={day}
                   style={{
-                    background: "#f8fbfd",
-                    padding: 12,
-                    borderRadius: 14,
+                    background: "#ffffff",
+                    padding: 10,
+                    borderRadius: UI.radius,
                     border: UI.border,
                     display: "flex",
                     flexDirection: "column",
                     height: "100%",
                     boxSizing: "border-box",
-                    fontSize: 14,
-                    minWidth: 220,
+                    fontSize: 13,
+                    minWidth: 200,
                   }}
                 >
                   {/* Day header */}
@@ -2055,13 +2075,16 @@ export default function TimesheetDetailPage() {
                       disabled={isApproved}
                       title={
                         isApproved
-                          ? "Timesheet approved – queries are read-only."
+                          ? "Timesheet approved - queries are read-only."
                           : "Raise a query for this day"
                       }
                       style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
                         fontSize: 10.5,
-                        padding: "3px 8px",
-                        borderRadius: 999,
+                        padding: "3px 7px",
+                        borderRadius: UI.radiusSm,
                         border: `1px dashed ${UI.brandBorder}`,
                         background: "#ffffff",
                         color: UI.brand,
@@ -2070,7 +2093,7 @@ export default function TimesheetDetailPage() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Query Query
+                      <MessageSquare size={11} /> Query
                     </button>
                   </div>
 
@@ -2088,7 +2111,7 @@ export default function TimesheetDetailPage() {
                         border: "1px solid #c4b5fd",
                         color: "#6d28d9",
                         padding: "7px 9px",
-                        borderRadius: 10,
+                        borderRadius: UI.radiusSm,
                         fontWeight: 900,
                         marginBottom: 8,
                       }}
@@ -2105,7 +2128,7 @@ export default function TimesheetDetailPage() {
                         {hasTurnaroundJob
                           ? `Turnaround for job: ${
                               turnaroundJob.jobNumber || turnaroundJob.bookingId
-                            } — ${turnaroundJob.client || "Client"}`
+                            } - ${turnaroundJob.client || "Client"}`
                           : "Turnaround for job: (not selected)"}
                       </div>
                       {hasTurnaroundJob && turnaroundJob.location ? (
@@ -2203,7 +2226,7 @@ export default function TimesheetDetailPage() {
                             background: "#fefce8",
                             border: "1px solid #facc15",
                             padding: "7px 9px",
-                            borderRadius: 10,
+                            borderRadius: UI.radiusSm,
                           }}
                         >
                           <div style={{ marginBottom: 3 }}>
@@ -2213,13 +2236,13 @@ export default function TimesheetDetailPage() {
 
                             {job.client && (
                               <span style={{ marginLeft: 6, color: "#374151", fontWeight: 500 }}>
-                                • {job.client}
+                                - {job.client}
                               </span>
                             )}
 
                             {job.location && (
                               <span style={{ marginLeft: 6, color: "#6b7280" }}>
-                                • {job.location}
+                                - {job.location}
                               </span>
                             )}
                           </div>
@@ -2232,7 +2255,7 @@ export default function TimesheetDetailPage() {
                                   key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
                                   style={{ color: "#047857", fontWeight: 700, fontSize: 13 }}
                                 >
-                                  {v.name} —{" "}
+                                  {v.name} -{" "}
                                   <span style={{ fontWeight: 700 }}>{v.registration || "No Reg"}</span>
                                 </div>
                               );
@@ -2290,7 +2313,7 @@ export default function TimesheetDetailPage() {
                           Yard travel: {entry.yardTravelLeaveTime} {"->"} {entry.yardTravelArriveTime}
                         </div>
                       ) : null}
-                      {entry?.overnight ? <div style={{ marginTop: 4 }}>• Overnight</div> : null}
+                      {entry?.overnight ? <div style={{ marginTop: 4 }}>- Overnight</div> : null}
                       {mode === "yard" && (
                         <div style={{ color: "#9ca3af", fontSize: 12 }}>
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
@@ -2325,7 +2348,7 @@ export default function TimesheetDetailPage() {
                     <div style={{ fontSize: 13 }}>
                       <div style={{ fontWeight: 700 }}>Travel:</div>
                       <div>
-                        {entry.leaveTime ?? "—"} → {entry.arriveTime ?? "—"}
+                        {entry.leaveTime ?? "-"} {"->"} {entry.arriveTime ?? "-"}
                       </div>
                       {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>Travel meal</div> : null}
                       {entry.travelPD ? <div>Travel meal</div> : null}
@@ -2338,7 +2361,7 @@ export default function TimesheetDetailPage() {
                     <div style={{ fontSize: 13 }}>
                       <div style={{ fontWeight: 700 }}>Office:</div>
                       <div>
-                        {entry.startTime ?? "—"} → {entry.endTime ?? "—"}
+                        {entry.startTime ?? "-"} {"->"} {entry.endTime ?? "-"}
                       </div>
                     </div>
                   )}
@@ -2413,30 +2436,30 @@ export default function TimesheetDetailPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) 260px",
-              gap: 10,
+              gap: 8,
               marginTop: 12,
               alignItems: "stretch",
             }}
           >
             <div
               style={{
-                background: "#f8fbfd",
-                borderRadius: 14,
+                background: "#ffffff",
+                borderRadius: UI.radius,
                 border: UI.border,
-                padding: 12,
+                padding: 10,
                 fontSize: 13,
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4, color: UI.ink }}>General Notes</div>
-              <div style={{ color: "#4b5563", minHeight: 24 }}>{timesheet.notes || "—"}</div>
+              <div style={{ color: "#4b5563", minHeight: 24 }}>{timesheet.notes || "-"}</div>
             </div>
 
             <div
               style={{
                 background: "linear-gradient(135deg, #17324f 0%, #234a71 100%)",
                 color: "#f9fafb",
-                borderRadius: 14,
-                padding: 12,
+                borderRadius: UI.radius,
+                padding: 10,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
@@ -2457,18 +2480,15 @@ export default function TimesheetDetailPage() {
         <div
           id="pay-advice-print-root"
           style={{
-            marginTop: 14,
-            background: "#ffffff",
-            borderRadius: UI.radius,
-            border: UI.border,
-            boxShadow: UI.shadowSm,
+            ...surfaceStyle,
+            marginTop: 12,
             overflow: "hidden",
           }}
         >
           <div
             style={{
-              padding: "14px 16px 10px",
-              background: "linear-gradient(180deg, #eef2f7 0%, #e3e8ef 100%)",
+              padding: "12px 12px 10px",
+              background: "#f8fbfd",
               borderBottom: UI.border,
             }}
           >
@@ -2486,18 +2506,9 @@ export default function TimesheetDetailPage() {
                 type="button"
                 onClick={handleSavePayAdvice}
                 disabled={payAdviceSaving || isApproved}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  border: `1px solid ${UI.brand}`,
-                  background: UI.brand,
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: payAdviceSaving || isApproved ? "not-allowed" : "pointer",
-                  opacity: payAdviceSaving || isApproved ? 0.6 : 1,
-                }}
+                style={controlButton("primary", payAdviceSaving || isApproved)}
               >
+                <Save size={14} />
                 {payAdviceSaving ? "Saving..." : "Save Pay Advice"}
               </button>
               {payAdviceMessage ? (
@@ -2734,10 +2745,10 @@ export default function TimesheetDetailPage() {
                     display: "grid",
                     gap: 3,
                     padding: "10px 12px",
-                    borderRadius: 10,
+                    borderRadius: UI.radius,
                     border: "1px solid #93c5fd",
-                    background: "linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%)",
-                    boxShadow: "0 8px 20px rgba(30,64,175,0.10)",
+                    background: "#eff6ff",
+                    boxShadow: UI.shadowSm,
                     textAlign: "right",
                   }}
                 >
@@ -2772,12 +2783,9 @@ export default function TimesheetDetailPage() {
         {/* MANAGER QUERIES */}
         <div
           style={{
+            ...surfaceStyle,
             marginTop: 12,
-            background: UI.panelTint,
-            borderRadius: UI.radius,
-            padding: 14,
-            border: UI.border,
-            boxShadow: UI.shadowSm,
+            padding: 12,
             fontSize: 13,
           }}
         >
@@ -2790,14 +2798,14 @@ export default function TimesheetDetailPage() {
               style={{
                 marginBottom: 10,
                 padding: "7px 10px",
-                borderRadius: 10,
+                borderRadius: UI.radiusSm,
                 backgroundColor: "#eff6ff",
                 border: "1px solid #bfdbfe",
                 color: "#1e3a8a",
                 fontSize: 12,
               }}
             >
-              This timesheet is approved. Queries are now read-only – you can review existing queries
+              This timesheet is approved. Queries are now read-only - you can review existing queries
               but cannot send new ones.
             </div>
           )}
@@ -2822,16 +2830,12 @@ export default function TimesheetDetailPage() {
                 onChange={(e) => setQueryDay(e.target.value)}
                 disabled={isApproved}
                 style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: UI.border,
-                  fontSize: 13,
+                  ...formControlStyle,
                   backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
                   cursor: isApproved ? "not-allowed" : "pointer",
                 }}
               >
-                <option value="">Select day…</option>
+                <option value="">Select day...</option>
                 {DAYS.map((d) => (
                   <option key={d} value={d}>
                     {d}
@@ -2849,11 +2853,7 @@ export default function TimesheetDetailPage() {
                 onChange={(e) => setQueryField(e.target.value)}
                 disabled={isApproved}
                 style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: UI.border,
-                  fontSize: 13,
+                  ...formControlStyle,
                   backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
                   cursor: isApproved ? "not-allowed" : "pointer",
                 }}
@@ -2879,15 +2879,11 @@ export default function TimesheetDetailPage() {
                 placeholder={
                   isApproved
                     ? "Queries are closed on approved timesheets."
-                    : "e.g. Hours seem high on Thursday – can you double-check call and wrap times?"
+                    : "e.g. Hours seem high on Thursday - can you double-check call and wrap times?"
                 }
                 disabled={isApproved}
                 style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: UI.border,
-                  fontSize: 13,
+                  ...formControlStyle,
                   resize: "vertical",
                   backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
                   cursor: isApproved ? "not-allowed" : "text",
@@ -2899,20 +2895,10 @@ export default function TimesheetDetailPage() {
               <button
                 type="submit"
                 disabled={querySubmitting || isApproved}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  border: `1px solid ${UI.brand}`,
-                  backgroundColor: isApproved ? "#9ca3af" : UI.brand,
-                  color: "#fff",
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: querySubmitting || isApproved ? "not-allowed" : "pointer",
-                  opacity: querySubmitting ? 0.7 : 1,
-                  whiteSpace: "nowrap",
-                }}
+                style={controlButton("primary", querySubmitting || isApproved)}
               >
-                {isApproved ? "Queries closed" : querySubmitting ? "Sending…" : "Send query to employee"}
+                <Send size={14} />
+                {isApproved ? "Queries closed" : querySubmitting ? "Sending..." : "Send query"}
               </button>
             </div>
           </form>
@@ -2922,10 +2908,10 @@ export default function TimesheetDetailPage() {
               style={{
                 marginBottom: 8,
                 padding: "7px 10px",
-                borderRadius: 10,
-                backgroundColor: "#fff1f2",
-                border: "1px solid #fecdd3",
-                color: "#991b1b",
+                borderRadius: UI.radiusSm,
+                backgroundColor: UI.redSoft,
+                border: `1px solid ${UI.redBorder}`,
+                color: UI.red,
                 fontSize: 12,
               }}
             >
@@ -2937,10 +2923,10 @@ export default function TimesheetDetailPage() {
               style={{
                 marginBottom: 8,
                 padding: "7px 10px",
-                borderRadius: 10,
-                backgroundColor: "#ecfdf5",
-                border: "1px solid #bbf7d0",
-                color: "#166534",
+                borderRadius: UI.radiusSm,
+                backgroundColor: UI.greenSoft,
+                border: `1px solid ${UI.greenBorder}`,
+                color: UI.green,
                 fontSize: 12,
               }}
             >
@@ -2968,8 +2954,8 @@ export default function TimesheetDetailPage() {
                     key={q.id}
                     style={{
                       padding: "8px 10px",
-                      borderRadius: 10,
-                      backgroundColor: "#f8fbfd",
+                      borderRadius: UI.radius,
+                      backgroundColor: "#ffffff",
                       border: UI.border,
                       fontSize: 13,
                     }}
@@ -2983,7 +2969,7 @@ export default function TimesheetDetailPage() {
                             marginLeft: 6,
                             fontSize: 11,
                             padding: "1px 6px",
-                            borderRadius: 999,
+                            borderRadius: UI.radiusSm,
                             backgroundColor:
                               String(q.status).toLowerCase() === "closed" ? "#dcfce7" : "#eef2ff",
                             color:
@@ -3056,9 +3042,9 @@ function QueryMessageThread({ query }) {
       style={{
         marginTop: 8,
         padding: 10,
-        borderRadius: 10,
+        borderRadius: UI.radius,
         border: UI.border,
-        background: "#f8fbfd",
+        background: "#ffffff",
       }}
     >
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: UI.muted }}>
@@ -3070,7 +3056,7 @@ function QueryMessageThread({ query }) {
           maxHeight: 200,
           overflowY: "auto",
           background: "#ffffff",
-          borderRadius: 10,
+          borderRadius: UI.radius,
           border: UI.border,
           padding: 8,
           marginBottom: 8,
@@ -3089,7 +3075,7 @@ function QueryMessageThread({ query }) {
                 style={{
                   display: "inline-block",
                   padding: "5px 9px",
-                  borderRadius: 999,
+                  borderRadius: UI.radiusSm,
                   backgroundColor: isManager ? UI.brand : "#e5e7eb",
                   color: isManager ? "#f9fafb" : "#111827",
                 }}
@@ -3111,12 +3097,12 @@ function QueryMessageThread({ query }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={isClosed ? "Query closed – replies disabled." : "Reply to this query…"}
+          placeholder={isClosed ? "Query closed - replies disabled." : "Reply to this query..."}
           disabled={isClosed}
           style={{
             flex: 1,
             padding: "8px 10px",
-            borderRadius: 999,
+            borderRadius: UI.radiusSm,
             border: UI.border,
             fontSize: 12,
             backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
@@ -3127,20 +3113,10 @@ function QueryMessageThread({ query }) {
           type="button"
           onClick={handleSend}
           disabled={sending || !input.trim() || isClosed}
-          style={{
-            padding: "8px 10px",
-            borderRadius: 999,
-            border: `1px solid ${UI.brand}`,
-            backgroundColor: isClosed ? "#9ca3af" : UI.brand,
-            color: "#ffffff",
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: sending || !input.trim() || isClosed ? "not-allowed" : "pointer",
-            opacity: sending || !input.trim() || isClosed ? 0.6 : 1,
-            whiteSpace: "nowrap",
-          }}
+          style={controlButton("primary", sending || !input.trim() || isClosed)}
         >
-          {sending ? "Sending…" : "Send"}
+          <Send size={14} />
+          {sending ? "Sending..." : "Send"}
         </button>
       </div>
     </div>

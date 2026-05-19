@@ -1,9 +1,20 @@
 // src/app/defects/declined/page.js
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Ban,
+  Camera,
+  ClipboardList,
+  RefreshCcw,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
 import {
   collection,
   getDocs,
@@ -17,64 +28,75 @@ import { db, auth } from "../../../../firebaseConfig";
 /* Route */
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 
-/* ───────────────── UI tokens (match Jobs Home) ───────────────── */
+/* UI tokens */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
   danger: "#dc2626",
+  amber: "#d97706",
+  green: "#16a34a",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 16 };
+const card = { ...surface, padding: 12 };
+
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+  marginBottom: UI.gap,
+};
 
 const controls = {
   ...surface,
   boxShadow: "none",
   padding: 12,
-  borderRadius: 12,
+  borderRadius: UI.radius,
   display: "grid",
-  gridTemplateColumns: "1fr 240px auto",
+  gridTemplateColumns: "minmax(260px, 1fr) auto auto",
   gap: 10,
   alignItems: "center",
 };
 
 const inputBase = {
   width: "100%",
-  padding: "9px 10px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  minHeight: 38,
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
-  fontSize: 13.5,
+  fontSize: 13,
   background: "#fff",
 };
 
 const pill = (bg, fg, borderColor = "#e5e7eb") => ({
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
-  padding: "6px 10px",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
   background: bg,
   color: fg,
@@ -87,12 +109,12 @@ const pill = (bg, fg, borderColor = "#e5e7eb") => ({
 const btn = (kind = "ghost") => {
   if (kind === "primary") {
     return {
-      padding: "10px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brand}`,
-      background: UI.brand,
+      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
       color: "#fff",
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
@@ -100,15 +122,18 @@ const btn = (kind = "ghost") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 12px",
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
-    border: "1px solid #d1d5db",
-    background: "#fff",
+    border: `1px solid ${UI.brandBorder}`,
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
     color: UI.text,
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
     textDecoration: "none",
@@ -116,19 +141,22 @@ const btn = (kind = "ghost") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
 /* table */
-const tableWrap = { ...surface, overflow: "hidden", marginTop: 12 };
-const thtd = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "top" };
+const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden", marginTop: 12 };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
-  color: UI.text,
-  background: "#f8fafc",
-  fontSize: 12,
-  letterSpacing: ".04em",
+  color: UI.muted,
+  background: "#f6f8fb",
+  fontSize: 11.5,
+  letterSpacing: 0,
   textTransform: "uppercase",
 };
 const rowNoteClamp = {
@@ -144,7 +172,7 @@ const rowNoteClamp = {
 const modalOverlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(15,23,42,0.35)",
+  background: "rgba(15,23,42,0.42)",
   zIndex: 999,
   display: "flex",
   alignItems: "flex-start",
@@ -157,12 +185,27 @@ const modalCard = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
-  padding: 16,
+  padding: 12,
 };
 
-/* ───────────────── Helpers ───────────────── */
+/* Helpers */
 const toJsDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null);
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
+const fmtDate = (value) => {
+  if (!value) return "-";
+  if (typeof value?.seconds === "number") {
+    const tsDate = new Date(value.seconds * 1000);
+    if (Number.isNaN(+tsDate)) return "-";
+    return tsDate.toLocaleDateString("en-GB");
+  }
+  if (typeof value === "string") {
+    const raw = value.trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  const d = value?.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(+d)) return "-";
+  return d.toLocaleDateString("en-GB");
+};
 const safeLower = (s) => (s ? String(s).toLowerCase() : "");
 
 /** Flatten declined defects out of each check document */
@@ -176,11 +219,11 @@ function mapDeclined(checkDocs) {
         out.push({
           checkId: c.id,
           defectIndex: idx,
-          vehicle: c.vehicle || "—",
-          driverName: c.driverName || "—",
+          vehicle: c.vehicle || "-",
+          driverName: c.driverName || "-",
           dateISO: c.dateISO || "",
           reviewedAt: toJsDate(it.review?.reviewedAt) || toJsDate(c.updatedAt) || null,
-          reviewedBy: it.review?.reviewedBy || "—",
+          reviewedBy: it.review?.reviewedBy || "-",
           itemLabel: it.label || `Item ${idx + 1}`,
           defectNote: it.note || "",
           comment: it.review?.comment || "",
@@ -200,7 +243,7 @@ function mapDeclined(checkDocs) {
   return out;
 }
 
-/* ───────────────── Page ───────────────── */
+/* Page */
 export default function DeclinedDefectsPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -237,6 +280,8 @@ export default function DeclinedDefectsPage() {
   }, [rows, query]);
 
   const total = rows.length;
+  const withReviewNotes = useMemo(() => rows.filter((r) => String(r.comment || "").trim()).length, [rows]);
+  const withPhotos = useMemo(() => rows.filter((r) => Number(r.photosCount || 0) > 0).length, [rows]);
 
   const reopenDefect = async (row) => {
     const { checkId, defectIndex } = row;
@@ -270,11 +315,30 @@ export default function DeclinedDefectsPage() {
       <style>{`
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
-          box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-          border-color: #bfdbfe !important;
+          box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
+          border-color: #9fb7cf !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        a:hover { background: #f8fafc !important; }
+        .declined-defects-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        .declined-defects-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .declined-defects-controls {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) auto auto;
+          gap: 10px;
+          align-items: center;
+        }
+        @media (max-width: 1180px) {
+          .declined-defects-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .declined-defects-controls { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 720px) {
+          .declined-defects-kpi-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -287,31 +351,42 @@ export default function DeclinedDefectsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <span style={pill("#fef2f2", "#991b1b", "#fecaca")}>
-              Declined: <b style={{ marginLeft: 6 }}>{declinedCount}</b>
-            </span>
-            <Link href="/vehicles" style={btn("ghost")}>
-              ← Back to Vehicles
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Link href="/vehicles" className="declined-defects-action" style={btn("ghost")}>
+              <ArrowLeft size={15} />
+              Back to Vehicles
             </Link>
           </div>
+        </div>
+
+        <div className="declined-defects-kpi-grid" style={kpiGrid}>
+          <SummaryCard label="Declined" value={declinedCount} sub="Closed at review" icon={Ban} tone="danger" />
+          <SummaryCard label="Showing" value={filtered.length} sub={`${total} total records`} icon={ClipboardList} tone="brand" />
+          <SummaryCard label="Review Notes" value={withReviewNotes} sub="Reviewer comments logged" icon={RefreshCcw} tone="amber" />
+          <SummaryCard label="With Photos" value={withPhotos} sub="Checks with attachments" icon={Camera} tone="soft" />
         </div>
 
         {/* Panel */}
         <section style={card}>
           {/* Controls */}
-          <div style={controls}>
-            <input
-              type="search"
-              placeholder="Search vehicle, driver, note, job…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={inputBase}
-            />
+          <div className="declined-defects-controls" style={controls}>
+            <label style={{ position: "relative", display: "block" }}>
+              <Search
+                size={16}
+                style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
+              />
+              <input
+                type="search"
+                placeholder="Search vehicle, driver, note, job..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{ ...inputBase, paddingLeft: 34 }}
+              />
+            </label>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <span style={pill("#fef2f2", "#991b1b", "#fecaca")}>Declined</span>
-              <span style={pill(UI.brandSoft, UI.brand, "#dbeafe")}>
+              <span style={pill(UI.brandSoft, UI.brand, UI.brandBorder)}>
                 Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {total}
               </span>
             </div>
@@ -323,13 +398,14 @@ export default function DeclinedDefectsPage() {
               disabled={!query}
               title="Clear search"
             >
+              <RotateCcw size={14} />
               Reset
             </button>
           </div>
 
           {/* Table */}
           <div style={tableWrap}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", minWidth: 1180, borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <th style={theadTh}>Reviewed</th>
@@ -349,7 +425,7 @@ export default function DeclinedDefectsPage() {
                 {loading ? (
                   <tr>
                     <td colSpan={10} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
-                      Loading declined defects…
+                      Loading declined defects...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
@@ -365,23 +441,23 @@ export default function DeclinedDefectsPage() {
                     return (
                       <tr key={key} style={{ background: i % 2 ? "#fff" : "#fcfdff" }}>
                         <td style={thtd}>{fmtDate(r.reviewedAt)}</td>
-                        <td style={thtd}>{r.dateISO || "—"}</td>
+                        <td style={thtd}>{fmtDate(r.dateISO)}</td>
 
                         <td style={thtd}>
                           <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle}</div>
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel || "—"}</div>
+                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel || "-"}</div>
                         </td>
 
                         <td style={thtd}>{r.driverName}</td>
-                        <td style={thtd}>{r.jobLabel || "—"}</td>
+                        <td style={thtd}>{r.jobLabel || "-"}</td>
 
                         <td style={thtd} title={r.itemLabel}>
-                          <strong>#{r.defectIndex + 1}</strong> — {r.itemLabel}
+                          <strong>#{r.defectIndex + 1}</strong> - {r.itemLabel}
                         </td>
 
                         <td style={{ ...thtd, maxWidth: 420 }}>
                           <div style={rowNoteClamp}>
-                            {r.defectNote || "—"}
+                            {r.defectNote || "-"}
                             {r.comment ? (
                               <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
                                 <strong>Review note:</strong> {r.comment}
@@ -392,16 +468,21 @@ export default function DeclinedDefectsPage() {
 
                         <td style={thtd}>{r.reviewedBy}</td>
                         <td style={{ ...thtd, textAlign: "center" }}>
-                          <span style={pill("#f1f5f9", UI.text)}>{r.photosCount}</span>
+                          <span style={pill("#f1f5f9", UI.text)}>
+                            <Camera size={13} />
+                            {r.photosCount}
+                          </span>
                         </td>
 
                         <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
                           <Link
                             href={CHECK_DETAIL_PATH(r.checkId)}
+                            className="declined-defects-action"
                             style={{ ...btn("ghost"), marginRight: 8 }}
                             title="View full vehicle check"
                           >
-                            View check →
+                            <ArrowUpRight size={13} />
+                            View check
                           </Link>
 
                           <button
@@ -411,7 +492,8 @@ export default function DeclinedDefectsPage() {
                             disabled={isBusy}
                             title="Remove 'declined' review and send back to review queue"
                           >
-                            {isBusy ? "Reopening…" : "Reopen to Review"}
+                            <RefreshCcw size={13} />
+                            {isBusy ? "Reopening..." : "Reopen to Review"}
                           </button>
                         </td>
                       </tr>
@@ -427,31 +509,32 @@ export default function DeclinedDefectsPage() {
         {confirmModal?.row && (
           <div style={modalOverlay} onMouseDown={() => setConfirmModal(null)}>
             <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>Reopen to Review</div>
-                  <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>Reopen to Review</div>
+                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
                     This removes the declined review block so it returns to the review queue.
                   </div>
                 </div>
                 <button type="button" style={btn("ghost")} onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>
+                  <X size={14} />
                   Close
                 </button>
               </div>
 
-              <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12 }}>
+              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12 }}>
                 <div style={{ fontSize: 13, color: UI.text, fontWeight: 900 }}>
-                  {confirmModal.row.vehicle} — #{confirmModal.row.defectIndex + 1} {confirmModal.row.itemLabel}
+                  {confirmModal.row.vehicle} - #{confirmModal.row.defectIndex + 1} {confirmModal.row.itemLabel}
                 </div>
                 <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
-                  Driver: {confirmModal.row.driverName} · Job: {confirmModal.row.jobLabel || "—"} · Reviewed: {fmtDate(confirmModal.row.reviewedAt)}
+                  Driver: {confirmModal.row.driverName} - Job: {confirmModal.row.jobLabel || "-"} - Reviewed: {fmtDate(confirmModal.row.reviewedAt)}
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: 12, color: UI.muted }}>
                   Current note:
                 </div>
-                <div style={{ marginTop: 6, padding: 10, borderRadius: 12, border: "1px solid #e5e7eb", background: "#fff", fontSize: 13 }}>
-                  {confirmModal.row.defectNote || "—"}
+                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#fff", fontSize: 13 }}>
+                  {confirmModal.row.defectNote || "-"}
                   {confirmModal.row.comment ? (
                     <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
                       <strong>Review note:</strong> {confirmModal.row.comment}
@@ -469,7 +552,8 @@ export default function DeclinedDefectsPage() {
                     onClick={() => reopenDefect(confirmModal.row)}
                     disabled={!!reopeningId}
                   >
-                    {reopeningId ? "Reopening…" : "Reopen"}
+                    <RefreshCcw size={14} />
+                    {reopeningId ? "Reopening..." : "Reopen"}
                   </button>
                 </div>
               </div>
@@ -478,5 +562,57 @@ export default function DeclinedDefectsPage() {
         )}
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ClipboardList }) {
+  const toneStyles =
+    tone === "danger"
+      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      : tone === "amber"
+      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      : tone === "ok"
+      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      : tone === "brand" || tone === "soft"
+      ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
+      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+
+  return (
+    <div
+      style={{
+        ...card,
+        minHeight: 96,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 26, lineHeight: 1.05, fontWeight: 900, color: toneStyles.fg, marginTop: 6 }}>{value}</div>
+        </div>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: UI.radiusSm,
+            border: `1px solid ${toneStyles.border}`,
+            background: toneStyles.bg,
+            color: toneStyles.fg,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 auto",
+          }}
+        >
+          <Icon size={17} />
+        </span>
+      </div>
+      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+    </div>
   );
 }

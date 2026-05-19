@@ -8,6 +8,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import {
+  ArrowLeft,
+  CalendarPlus,
+  ClipboardList,
+  Save,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   addDoc,
@@ -38,31 +46,32 @@ import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/servic
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
-/* ───────────────── UI tokens (match your newer pages) ───────────────── */
+/* UI tokens */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 10,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
   red: "#dc2626",
   amber: "#d97706",
   green: "#16a34a",
-  line: "#e2e8f0",
-  softBlue: "#eff6ff",
+  line: "#d7dee8",
+  softBlue: "#edf3f8",
   softSlate: "#f1f5f9",
 };
 
 const pageWrap = {
-  padding: "12px 16px 18px",
-  background:
-    "radial-gradient(circle at top right, rgba(191,219,254,0.35), transparent 22%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)",
+  padding: "16px 16px 32px",
+  background: UI.bg,
   minHeight: "100vh",
 };
 const topBar = {
@@ -73,17 +82,16 @@ const topBar = {
   flexWrap: "wrap",
   marginBottom: 10,
 };
-const title = { margin: 0, fontSize: 26, fontWeight: 950, letterSpacing: "-0.03em", color: UI.text, lineHeight: 1.05 };
-const subtitle = { marginTop: 4, fontSize: 12, color: UI.muted, maxWidth: 760, lineHeight: 1.35 };
+const title = { margin: 0, fontSize: 22, fontWeight: 750, letterSpacing: 0, color: UI.text, lineHeight: 1.08 };
+const subtitle = { marginTop: 6, fontSize: 13.5, color: UI.muted, maxWidth: 760, lineHeight: 1.45 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const panel = { ...card, padding: 12 };
 const heroCard = {
   ...card,
-  padding: 14,
-  background:
-    "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.92) 100%)",
-  border: "1px solid #dbeafe",
+  padding: 12,
+  background: "#ffffff",
+  border: UI.border,
 };
 
 const btn = (kind = "primary") => {
@@ -93,15 +101,18 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      padding: "8px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "danger") {
@@ -110,14 +121,16 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      padding: "8px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
       color: "#fff",
-      fontWeight: 950,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "success") {
@@ -126,14 +139,16 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      padding: "8px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: `1px solid ${UI.green}`,
-      background: UI.green,
-      color: "#fff",
-      fontWeight: 950,
+      border: "1px solid #bbf7d0",
+      background: "#ecfdf5",
+      color: "#065f46",
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
@@ -141,22 +156,25 @@ const btn = (kind = "primary") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    padding: "8px 12px",
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 950,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
 const labelStyle = {
   display: "block",
-  marginBottom: 4,
+  marginBottom: 5,
   fontSize: 11.5,
-  fontWeight: 900,
+  fontWeight: 800,
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: ".04em",
@@ -166,9 +184,9 @@ const inputField = {
   width: "100%",
   padding: "8px 10px",
   fontSize: 13,
-  border: "1px solid #dbe2ea",
-  borderRadius: 12,
-  background: "#fcfdff",
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: "#ffffff",
   color: UI.text,
   outline: "none",
 };
@@ -183,18 +201,24 @@ const textarea = {
 const sectionTitle = {
   margin: 0,
   fontSize: 15,
-  fontWeight: 950,
+  fontWeight: 800,
   color: UI.text,
-  letterSpacing: ".01em",
+  letterSpacing: 0,
 };
 
 const sectionMeta = { marginTop: 3, marginBottom: 0, fontSize: 11.5, color: UI.muted, lineHeight: 1.3 };
 
 const grid = (cols = 2) => ({
   display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+  gridTemplateColumns: `repeat(auto-fit, minmax(${cols >= 4 ? 170 : 240}px, 1fr))`,
   gap: 8,
 });
+const coreDueGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 8,
+  marginTop: 10,
+};
 const metricGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
@@ -202,15 +226,15 @@ const metricGrid = {
   marginTop: 10,
 };
 const metricCard = {
-  borderRadius: 14,
-  padding: "9px 11px",
-  background: "rgba(255,255,255,0.78)",
-  border: "1px solid rgba(148,163,184,0.18)",
+  ...card,
+  borderRadius: UI.radius,
+  padding: 12,
+  minHeight: 88,
 };
 const sectionStack = { display: "flex", flexDirection: "column", gap: UI.gap };
 const sidebarStack = { position: "sticky", top: 18, alignSelf: "start", display: "flex", flexDirection: "column", gap: UI.gap };
 
-/* ───────────────── helpers ───────────────── */
+/* helpers */
 const clampISODate = (d) => {
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
   return d.toISOString().split("T")[0];
@@ -221,6 +245,13 @@ const dateOnly = (value) => {
   const raw = String(value || "").trim();
   const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : raw;
+};
+
+const formatDisplayDate = (value) => {
+  const raw = dateOnly(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  return raw || "-";
 };
 
 const parseISOorBlank = (v) => {
@@ -349,7 +380,7 @@ const computeNextDueFromCompletion = (completedISO, freqWeeks) => {
   return calcNextFromWeeks(completedISO, freqWeeks);
 };
 
-/* ───────────────── page ───────────────── */
+/* page */
 export default function EditVehiclePage() {
   const router = useRouter();
   const { id } = useParams();
@@ -951,7 +982,7 @@ export default function EditVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <div style={{ ...panel, textAlign: "center", color: UI.muted }}>Loading vehicle…</div>
+          <div style={{ ...panel, textAlign: "center", color: UI.muted }}>Loading vehicle...</div>
         </div>
       </HeaderSidebarLayout>
     );
@@ -985,12 +1016,15 @@ export default function EditVehiclePage() {
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 <button onClick={() => router.push("/vehicles")} style={btn("ghost")}>
+                  <ArrowLeft size={15} />
                   Back
                 </button>
                 <button onClick={handleDelete} style={btn("danger")}>
+                  <Trash2 size={15} />
                   Delete
                 </button>
                 <button onClick={handleSave} style={btn()} disabled={saving}>
+                  <Save size={15} />
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
@@ -999,7 +1033,7 @@ export default function EditVehiclePage() {
             <div style={metricGrid}>
               <MetricCard label="Category" value={RETENTION_PLATE_CATEGORY} />
               <MetricCard label="Plate Type" value={isTradePlate ? "Trade plate" : "Retention plate"} />
-              <MetricCard label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} value={vehicle.retentionExpiry || "-"} />
+            <MetricCard label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} value={formatDisplayDate(vehicle.retentionExpiry)} />
               {isTradePlate ? <MetricCard label="Frequency" value="52 weeks" /> : null}
             </div>
           </div>
@@ -1091,9 +1125,9 @@ export default function EditVehiclePage() {
     const start = toDate(b?.appointmentDate || b?.startDate);
     const end = toDate(b?.endDate) || start;
     if (!start && !end) return "No date";
-    const s = start ? start.toLocaleDateString("en-GB") : "—";
+    const s = start ? start.toLocaleDateString("en-GB") : "-";
     const e = end ? end.toLocaleDateString("en-GB") : s;
-    return s === e ? s : `${s} → ${e}`;
+    return s === e ? s : `${s} -> ${e}`;
   };
 
   function bookingCompletedLabel(b) {
@@ -1128,6 +1162,7 @@ export default function EditVehiclePage() {
       <style jsx global>{`
         input:focus,
         select:focus,
+        button:focus,
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
@@ -1136,6 +1171,17 @@ export default function EditVehiclePage() {
         select option {
           background: #fff;
           color: #0f172a;
+        }
+        @media (max-width: 1180px) {
+          .vehicle-edit-layout { grid-template-columns: 1fr !important; }
+          .vehicle-edit-sidebar { position: static !important; }
+          .vehicle-edit-core-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .vehicle-edit-maintenance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 760px) {
+          .vehicle-edit-field-grid { grid-template-columns: 1fr !important; }
+          .vehicle-edit-core-grid { grid-template-columns: 1fr !important; }
+          .vehicle-edit-maintenance-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
@@ -1147,38 +1193,43 @@ export default function EditVehiclePage() {
               <h1 style={title}>{headerLabel}</h1>
               {motStatusPill}
             </div>
-            <div style={subtitle}>Edit details, due dates, paperwork, attachments, notes — and create/edit MOT / Service bookings.</div>
+            <div style={subtitle}>Edit details, due dates, paperwork, attachments, notes and create/edit MOT / Service bookings.</div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button onClick={() => setShowMotBooking(true)} style={btn("success")}>
+              <CalendarPlus size={15} />
               Book MOT
             </button>
             {hasMotBooking ? (
               <button
                 onClick={() => setEditBookingId(activeMotBookingId)}
                 style={btn("ghost")}
-                title="Edit the MOT booking record"
+              title="Edit the MOT booking record"
               >
+                <ClipboardList size={15} />
                 Edit MOT Booking
               </button>
             ) : null}
 
             <button onClick={() => setShowServiceBooking(true)} style={btn("success")}>
+              <CalendarPlus size={15} />
               Book Service
             </button>
             {hasServiceBooking ? (
               <button
                 onClick={() => setEditBookingId(activeServiceBookingId)}
                 style={btn("ghost")}
-                title="Edit the Service booking record"
+              title="Edit the Service booking record"
               >
+                <ClipboardList size={15} />
                 Edit Service Booking
               </button>
             ) : null}
 
             {showEightWeekInspection ? (
               <button onClick={() => setShowInspectionBooking(true)} style={btn("success")}>
+                <CalendarPlus size={15} />
                 Book 8 Week Inspection
               </button>
             ) : null}
@@ -1186,19 +1237,23 @@ export default function EditVehiclePage() {
               <button
                 onClick={() => setEditBookingId(activeInspectionBookingId)}
                 style={btn("ghost")}
-                title="Edit the inspection booking record"
+              title="Edit the inspection booking record"
               >
+                <ClipboardList size={15} />
                 Edit Inspection Booking
               </button>
             ) : null}
 
             <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
+              <Wrench size={15} />
               Book Work
             </button>
             <button onClick={handleSave} style={btn()} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              <Save size={15} />
+              {saving ? "Saving..." : "Save"}
             </button>
             <button onClick={handleDelete} style={btn("danger")}>
+              <Trash2 size={15} />
               Delete
             </button>
           </div>
@@ -1206,8 +1261,8 @@ export default function EditVehiclePage() {
           <div style={metricGrid}>
             <MetricCard label="Registration" value={vehicle.registration || vehicle.reg || "-"} />
             <MetricCard label="Category" value={vehicle.category || "-"} />
-            <MetricCard label="Next MOT" value={vehicle.nextMOT || "-"} />
-            <MetricCard label="Next Service" value={vehicle.nextService || "-"} />
+            <MetricCard label="Next MOT" value={formatDisplayDate(vehicle.nextMOT)} />
+            <MetricCard label="Next Service" value={formatDisplayDate(vehicle.nextService)} />
             <MetricCard label="Open Bookings" value={String(activeVehicleBookings.length)} />
           </div>
         </div>
@@ -1281,7 +1336,16 @@ export default function EditVehiclePage() {
           />
         ) : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.75fr) minmax(300px, 0.95fr)", gap: UI.gap, alignItems: "start", marginTop: 18 }}>
+        <div
+          className="vehicle-edit-layout"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.75fr) minmax(300px, 0.95fr)",
+            gap: UI.gap,
+            alignItems: "start",
+            marginTop: UI.gap,
+          }}
+        >
           {/* LEFT: Main form */}
           <div style={sectionStack}>
             {/* Main Information */}
@@ -1296,7 +1360,7 @@ export default function EditVehiclePage() {
                 <div>
                   <label style={labelStyle}>Category</label>
                   <select name="category" value={vehicle.category || ""} onChange={handleChange} style={inputField}>
-                    <option value="">Select category…</option>
+                    <option value="">Select category...</option>
                     {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
@@ -1340,9 +1404,9 @@ export default function EditVehiclePage() {
             {/* Due Dates & Intervals */}
             <div style={panel}>
               <h2 style={sectionTitle}>Core Due Dates</h2>
-              <div style={sectionMeta}>Edit the last date + frequency; “next” will auto-calculate.</div>
+              <div style={sectionMeta}>Edit the last date and frequency; next will auto-calculate.</div>
 
-              <div style={grid(4)}>
+              <div className="vehicle-edit-core-grid" style={coreDueGrid}>
                 <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} />
                 <Field label="MOT Freq (weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} />
                 <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} />
@@ -1381,235 +1445,7 @@ export default function EditVehiclePage() {
                 ) : null}
               </div>
             </div>
-            
-
-            {/* Additional Maintenance (as per your snippet) */}
-            <div style={panel}>
-              <h2 style={sectionTitle}>Booked Work / Maintenance</h2>
-              <div style={sectionMeta}>
-                All bookings linked to this vehicle (MOT, Service, and Maintenance/Work).
-              </div>
-
-              {activeVehicleBookings.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>No maintenance bookings found for this vehicle.</div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {activeVehicleBookings.map((b) => (
-                    <div
-                      key={b.id}
-                      style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 12,
-                        padding: 10,
-                        background: "#fff",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: 10,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <div style={{ fontWeight: 900, color: UI.text }}>
-                          {bookingTypeLabel(b)} • {bookingDateLabel(b)}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 900,
-                            color: UI.text,
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 999,
-                            padding: "4px 8px",
-                            background: "#f8fafc",
-                          }}
-                        >
-                          {b.status || "Booked"}
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
-                        {b.provider ? `Provider: ${b.provider}` : "Provider: —"}
-                        {" • "}
-                        {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: —"}
-                        {" • "}
-                        {b.location ? `Location: ${b.location}` : "Location: —"}
-                      </div>
-
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                          type="button"
-                          style={btn("ghost")}
-                          onClick={() => setEditBookingId(b.id)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          style={btn("danger")}
-                          onClick={() => deleteMaintenanceBooking(b.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: UI.gap }}>
-              <div style={panel}>
-                <h2 style={sectionTitle}>MOT History</h2>
-                <div style={sectionMeta}>Completed or past MOT bookings for this vehicle.</div>
-
-                {motHistoryItems.length === 0 ? (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No MOT history yet.</div>
-                ) : (
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {motHistoryItems.map((item, index) => (
-                      <div
-                        key={item.bookingId || `${item.completedDate}-${index}`}
-                        onClick={() => item.bookingId && setEditBookingId(item.bookingId)}
-                        style={{
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 12,
-                          padding: 10,
-                          background: "#fff",
-                          cursor: item.bookingId ? "pointer" : "default",
-                        }}
-                        title={item.bookingId ? "Open booking" : "No linked booking record"}
-                      >
-                        <div style={{ fontWeight: 900, color: UI.text }}>{item.completedDate || "-"}</div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
-                        </div>
-                        <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
-                          {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
-                        </div>
-                        {item.notes ? (
-                          <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
-                        ) : null}
-                        {item.bookingId ? (
-                          <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 900, color: UI.brand }}>
-                            Click to open booking
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={panel}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <div>
-                    <h2 style={sectionTitle}>Service History</h2>
-                    <div style={sectionMeta}>Completed service bookings for this vehicle.</div>
-                  </div>
-                  <button
-                    type="button"
-                    style={btn("ghost")}
-                    onClick={() => router.push(`/vehicle-edit/${vehicle.id}/service-history`)}
-                  >
-                    Open Full History
-                  </button>
-                </div>
-
-                {serviceHistoryItems.length === 0 ? (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
-                ) : (
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {serviceHistoryItems.slice(0, 4).map((item, index) => (
-                      <div
-                        key={item.bookingId || `${item.completedDate}-${index}`}
-                        onClick={() =>
-                          item.bookingId
-                            ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.bookingId}`)
-                            : router.push(`/vehicle-edit/${vehicle.id}/service-history`)
-                        }
-                        style={{
-                          border: "1px solid #dbe2ea",
-                          borderRadius: 12,
-                          padding: 10,
-                          background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
-                          cursor: "pointer",
-                          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.04)",
-                        }}
-                        title={item.bookingId ? "Open full service details" : "Open service history"}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: 8,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 950, color: UI.text, fontSize: 17, letterSpacing: "-0.02em" }}>
-                              {item.completedDate || "-"}
-                            </div>
-                            <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted, fontWeight: 800 }}>
-                              {item.bookingRef || "Service record"}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: 999,
-                              border: "1px solid #dbeafe",
-                              background: "#eff6ff",
-                              color: UI.brand,
-                              fontSize: 12,
-                              fontWeight: 900,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {item.bookingId ? "Open details" : "Open history"}
-                          </div>
-                        </div>
-
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                          <MetaPill label="Provider" value={item.provider || "-"} />
-                          <MetaPill label="Reg" value={item.location || "-"} />
-                          <MetaPill label="Odometer" value={item.odometer || "-"} />
-                        </div>
-
-                        {item.partsUsed ? (
-                          <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
-                            <strong style={{ color: UI.text }}>Parts:</strong> {item.partsUsed}
-                          </div>
-                        ) : null}
-
-                        {item.notes ? (
-                          <div
-                            style={{
-                              marginTop: 8,
-                              fontSize: 12.5,
-                              color: UI.text,
-                              lineHeight: 1.35,
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {item.notes}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {showEightWeekInspection ? (
+            {showEightWeekInspection ? (
                 <div style={panel}>
                   <h2 style={sectionTitle}>8 Week Inspection History</h2>
                   <div style={sectionMeta}>Completed 8 week inspections stored on this vehicle.</div>
@@ -1659,12 +1495,11 @@ export default function EditVehiclePage() {
                     </div>
                   )}
                 </div>
-              ) : null}
-            </div>
+            ) : null}
 
             <div style={panel}>
               <h2 style={sectionTitle}>Additional Maintenance</h2>
-              <div style={grid(4)}>
+              <div className="vehicle-edit-maintenance-grid" style={coreDueGrid}>
                 <DateField label="Last Tacho Inspection" name="lastTacho" value={vehicle.lastTacho} onChange={handleChange} />
                 <Field label="Tacho Freq (weeks)" name="tachoFreq" value={vehicle.tachoFreq} onChange={handleChange} />
                 <DateField label="Next Tacho Inspection" name="nextTacho" value={vehicle.nextTacho} onChange={handleChange} />
@@ -1706,17 +1541,222 @@ export default function EditVehiclePage() {
           </div>
 
           {/* RIGHT: Notes + quick info */}
-          <div style={sidebarStack}>
+          <div className="vehicle-edit-sidebar" style={sidebarStack}>
             <div style={panel}>
               <h2 style={sectionTitle}>Notes</h2>
               <textarea
                 name="notes"
                 value={vehicle.notes || ""}
                 onChange={handleChange}
-                rows={14}
-                style={textarea}
-                placeholder="General notes for this vehicle…"
+                rows={5}
+                style={{ ...textarea, minHeight: 118 }}
+                placeholder="General notes for this vehicle..."
               />
+            </div>
+
+            <div style={panel}>
+              <h2 style={sectionTitle}>Booked Work / Maintenance</h2>
+              <div style={sectionMeta}>
+                All bookings linked to this vehicle.
+              </div>
+
+              {activeVehicleBookings.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
+                  No maintenance bookings found for this vehicle.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                  {activeVehicleBookings.map((b) => (
+                    <div
+                      key={b.id}
+                      style={{
+                        border: UI.border,
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        background: "#fff",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
+                          {bookingTypeLabel(b)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color: UI.text,
+                            border: UI.border,
+                            borderRadius: 999,
+                            padding: "4px 8px",
+                            background: "#f8fafc",
+                          }}
+                        >
+                          {b.status || "Booked"}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text, fontWeight: 800 }}>
+                        {bookingDateLabel(b)}
+                      </div>
+                      <div style={{ marginTop: 5, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
+                        {b.provider ? `Provider: ${b.provider}` : "Provider: -"}
+                        <br />
+                        {b.bookingRef ? `Ref: ${b.bookingRef}` : "Ref: -"}
+                        <br />
+                        {b.location ? `Location: ${b.location}` : "Location: -"}
+                      </div>
+
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          style={btn("ghost")}
+                          onClick={() => setEditBookingId(b.id)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          style={btn("danger")}
+                          onClick={() => deleteMaintenanceBooking(b.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={panel}>
+              <h2 style={sectionTitle}>MOT History</h2>
+              <div style={sectionMeta}>Completed or past MOT bookings.</div>
+
+              {motHistoryItems.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No MOT history yet.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                  {motHistoryItems.map((item, index) => (
+                    <div
+                      key={item.bookingId || `${item.completedDate}-${index}`}
+                      onClick={() => item.bookingId && setEditBookingId(item.bookingId)}
+                      style={{
+                        border: UI.border,
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        background: "#fff",
+                        cursor: item.bookingId ? "pointer" : "default",
+                      }}
+                      title={item.bookingId ? "Open booking" : "No linked booking record"}
+                    >
+                      <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
+                        {formatDisplayDate(item.completedDate)}
+                      </div>
+                      <div style={{ marginTop: 5, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
+                        {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
+                        <br />
+                        {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
+                      </div>
+                      {item.notes ? (
+                        <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text, lineHeight: 1.35 }}>
+                          {item.notes}
+                        </div>
+                      ) : null}
+                      {item.bookingId ? (
+                        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 800, color: UI.brand }}>
+                          Open booking
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={panel}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitle}>Service History</h2>
+                  <div style={sectionMeta}>Completed service bookings.</div>
+                </div>
+                <button
+                  type="button"
+                  style={btn("ghost")}
+                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/service-history`)}
+                >
+                  Full History
+                </button>
+              </div>
+
+              {serviceHistoryItems.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No completed service history yet.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                  {serviceHistoryItems.slice(0, 4).map((item, index) => (
+                    <div
+                      key={item.bookingId || `${item.completedDate}-${index}`}
+                      onClick={() =>
+                        item.bookingId
+                          ? router.push(`/vehicle-edit/${vehicle.id}/service-history/${item.bookingId}`)
+                          : router.push(`/vehicle-edit/${vehicle.id}/service-history`)
+                      }
+                      style={{
+                        border: UI.border,
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        background: "#fff",
+                        cursor: "pointer",
+                      }}
+                      title={item.bookingId ? "Open full service details" : "Open service history"}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
+                            {formatDisplayDate(item.completedDate)}
+                          </div>
+                          <div style={{ marginTop: 3, fontSize: 12.5, color: UI.muted }}>
+                            {item.bookingRef || "Service record"}
+                          </div>
+                        </div>
+                        <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+                          Open
+                        </span>
+                      </div>
+
+                      <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted, lineHeight: 1.4 }}>
+                        {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
+                        <br />
+                        {item.odometer ? `Odometer: ${item.odometer}` : "Odometer: -"}
+                      </div>
+
+                      {item.notes ? (
+                        <div
+                          style={{
+                            marginTop: 7,
+                            fontSize: 12.5,
+                            color: UI.text,
+                            lineHeight: 1.35,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {item.notes}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={panel}>
@@ -1742,17 +1782,17 @@ export default function EditVehiclePage() {
             <div style={panel}>
               <h2 style={sectionTitle}>Next Dates</h2>
               <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
-                <MiniLine label="Next MOT (Expiry)" value={vehicle.nextMOT} />
-                <MiniLine label="MOT Appointment" value={motAppointmentDisplay} />
-                <MiniLine label="MOT Booked On" value={motBookedOnDisplay} />
-                <MiniLine label="Next Service" value={vehicle.nextService} />
+                <MiniLine label="Next MOT (Expiry)" value={formatDisplayDate(vehicle.nextMOT)} />
+                <MiniLine label="MOT Appointment" value={formatDisplayDate(motAppointmentDisplay)} />
+                <MiniLine label="MOT Booked On" value={formatDisplayDate(motBookedOnDisplay)} />
+                <MiniLine label="Next Service" value={formatDisplayDate(vehicle.nextService)} />
                 {showEightWeekInspection ? (
-                  <MiniLine label="Next 8 Week Inspection" value={vehicle.nextEightWeekInspection} />
+                  <MiniLine label="Next 8 Week Inspection" value={formatDisplayDate(vehicle.nextEightWeekInspection)} />
                 ) : null}
-                <MiniLine label="Next RFL" value={vehicle.nextRFL} />
-                <MiniLine label="Next Tacho" value={vehicle.nextTacho} />
-                <MiniLine label="Next Brake Test" value={vehicle.nextBrakeTest} />
-                <MiniLine label="Next PMI" value={vehicle.nextPMI} />
+                <MiniLine label="Next RFL" value={formatDisplayDate(vehicle.nextRFL)} />
+                <MiniLine label="Next Tacho" value={formatDisplayDate(vehicle.nextTacho)} />
+                <MiniLine label="Next Brake Test" value={formatDisplayDate(vehicle.nextBrakeTest)} />
+                <MiniLine label="Next PMI" value={formatDisplayDate(vehicle.nextPMI)} />
               </div>
             </div>
           </div>
@@ -1764,7 +1804,7 @@ export default function EditVehiclePage() {
             Book Work
           </button>
           <button onClick={handleSave} style={btn()} disabled={saving}>
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
@@ -1772,7 +1812,7 @@ export default function EditVehiclePage() {
   );
 }
 
-/* ───────────────── Booking Modal Component (inline) ─────────────────
+/* Booking Modal Component (inline)
    - Creates doc in maintenanceBookings
    - Updates vehicle summary fields for MOT or SERVICE
    -  If status === Completed: sync core due dates (last + next)
@@ -1884,9 +1924,9 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
     const be = toDate(activeConflict.endDate) || toDate(activeConflict.date) || toDate(activeConflict.appointmentDate);
 
     setConflictMsg(
-      `Warning This vehicle already has an overlapping maintenance booking (${activeConflict.type || "Maintenance"} — ${
+      `Warning: this vehicle already has an overlapping maintenance booking (${activeConflict.type || "Maintenance"} - ${
         activeConflict.status || "Booked"
-      }) from ${bs ? bs.toLocaleDateString("en-GB") : "?"} → ${be ? be.toLocaleDateString("en-GB") : "?"}.`
+      }) from ${bs ? bs.toLocaleDateString("en-GB") : "?"} -> ${be ? be.toLocaleDateString("en-GB") : "?"}.`
     );
   }, [activeConflict]);
 
@@ -2135,8 +2175,8 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
         <div style={headerRow}>
           <div>
             <h2 style={modalTitle}>{title}</h2>
-            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-              Vehicle: <b style={{ color: "rgba(255,255,255,0.92)" }}>{vehicleLabel || "—"}</b>
+            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+              Vehicle: <b style={{ color: UI.text }}>{vehicleLabel || "-"}</b>
             </div>
           </div>
 
@@ -2185,10 +2225,10 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
           {conflictMsg ? (
             <div
               style={{
-                border: "1px solid rgba(239,68,68,0.45)",
-                background: "rgba(239,68,68,0.12)",
-                color: "rgba(255,255,255,0.92)",
-                borderRadius: 12,
+                border: "1px solid #fecaca",
+                background: "#fef2f2",
+                color: "#991b1b",
+                borderRadius: UI.radius,
                 padding: 10,
                 fontSize: 13,
                 lineHeight: 1.35,
@@ -2260,7 +2300,7 @@ function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", veh
   );
 }
 
-/* ───────────────── small components ───────────────── */
+/* small components */
 function Field({ label, name, value, onChange }) {
   return (
     <div>
@@ -2284,7 +2324,7 @@ function SelectField({ label, name, value, onChange, options }) {
     <div>
       <label style={labelStyle}>{label}</label>
       <select name={name} value={value || ""} onChange={onChange} style={inputField}>
-        <option value="">Select…</option>
+        <option value="">Select...</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>
             {opt}
@@ -2320,7 +2360,7 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
       <label style={labelStyle}>{label}</label>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <input type="file" multiple onChange={(e) => onUpload(e, field)} />
-        {isUploading ? <span style={{ fontSize: 12, color: UI.muted }}>Uploading…</span> : null}
+        {isUploading ? <span style={{ fontSize: 12, color: UI.muted }}>Uploading...</span> : null}
       </div>
 
       {list.length ? (
@@ -2343,7 +2383,7 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
               }}
               title={f.url}
             >
-              {f.name || `File ${idx + 1}`} →
+              {f.name || `File ${idx + 1}`} - Open
             </a>
           ))}
         </div>
@@ -2358,12 +2398,12 @@ function MiniLine({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
       <span style={{ color: UI.muted, fontWeight: 900 }}>{label}</span>
-      <span style={{ color: UI.text, fontWeight: 950 }}>{value || "—"}</span>
+      <span style={{ color: UI.text, fontWeight: 950 }}>{value || "-"}</span>
     </div>
   );
 }
 
-/* ───────────────── modal styles (HolidayForm vibe) ───────────────── */
+/* modal styles */
 function MetricCard({ label, value }) {
   return (
     <div style={metricCard}>
@@ -2408,7 +2448,7 @@ function MetaPill({ label, value }) {
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(15,23,42,0.42)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -2418,13 +2458,12 @@ const overlay = {
 
 const modal = {
   width: "min(520px, 95vw)",
-  borderRadius: 16,
-  padding: 18,
-  color: "#fff",
-  background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
-  backdropFilter: "blur(10px)",
+  borderRadius: UI.radius,
+  padding: 16,
+  color: UI.text,
+  background: UI.card,
+  border: UI.border,
+  boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
 };
 
 const headerRow = {
@@ -2439,13 +2478,14 @@ const modalTitle = {
   margin: 0,
   fontSize: 18,
   fontWeight: 800,
-  letterSpacing: 0.2,
+  color: UI.text,
 };
 
 const closeBtn = {
-  border: "none",
-  background: "transparent",
-  color: "#cbd5e1",
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: "#ffffff",
+  color: UI.muted,
   fontSize: 20,
   cursor: "pointer",
   padding: 6,
@@ -2455,30 +2495,29 @@ const closeBtn = {
 const modalLabel = {
   display: "block",
   fontSize: 12,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.85)",
+  fontWeight: 800,
+  color: UI.muted,
   marginBottom: 6,
 };
 
 const modalInput = {
   width: "100%",
-  padding: "12px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.10)",
-  backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff",
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  backgroundColor: "#ffffff",
+  color: UI.text,
   outline: "none",
   fontSize: 14,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
 };
 
 const primaryBtn = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  padding: "8px 12px",
+  borderRadius: UI.radiusSm,
+  border: `1px solid ${UI.brand}`,
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
   color: "#fff",
   fontWeight: 800,
   fontSize: 14,
@@ -2486,11 +2525,11 @@ const primaryBtn = {
 
 const dangerBtn = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)",
-  color: "#fee2e2",
+  padding: "8px 12px",
+  borderRadius: UI.radiusSm,
+  border: `1px solid ${UI.red}`,
+  background: UI.red,
+  color: "#ffffff",
   fontWeight: 800,
   fontSize: 14,
   cursor: "pointer",

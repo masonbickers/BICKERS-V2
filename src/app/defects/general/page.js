@@ -4,6 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
+  AlertTriangle,
+  ArrowUpRight,
+  CalendarCheck2,
+  Camera,
+  CheckCircle2,
+  Clock3,
+  RotateCcw,
+  Save,
+  Search,
+  Wrench,
+  X,
+} from "lucide-react";
+import {
   collection,
   getDocsFromServer,
   updateDoc,
@@ -12,65 +25,84 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
 
-/* ───────────────────────────────────────────
-   Mini design system (MATCHES YOUR JOBS HOME)
-─────────────────────────────────────────── */
+/* UI tokens */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
   danger: "#dc2626",
   amber: "#d97706",
-  ok: "#16a34a",
+  green: "#16a34a",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const cardBase = {
   ...surface,
-  padding: 16,
+  padding: 12,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
 
-const sectionHeader = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 };
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+  marginBottom: UI.gap,
+};
+
+const sectionHeader = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 10,
+  flexWrap: "wrap",
+};
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
+  border: `1px solid ${UI.brandBorder}`,
   background: "#f1f5f9",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
-const chipSoft = { ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand };
+const chipSoft = { ...chip, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
@@ -78,16 +110,19 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "pill") {
     return {
-      padding: "8px 10px",
+      padding: "5px 8px",
       borderRadius: 999,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
@@ -95,16 +130,19 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
+      fontSize: 12,
+      lineHeight: 1.2,
     };
   }
   if (kind === "danger") {
     return {
-      padding: "10px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: "1px solid #fecaca",
-      background: "#fef2f2",
+      background: "linear-gradient(180deg, #fff7f7 0%, #fef2f2 100%)",
       color: "#991b1b",
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
@@ -112,16 +150,19 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      boxShadow: "0 4px 10px rgba(153,27,27,0.08)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   if (kind === "success") {
     return {
-      padding: "10px 12px",
+      padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: "1px solid #bbf7d0",
-      background: "#ecfdf5",
+      background: "linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%)",
       color: "#065f46",
-      fontWeight: 900,
+      fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       textDecoration: "none",
@@ -129,15 +170,18 @@ const btn = (kind = "primary") => {
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      boxShadow: "0 4px 10px rgba(6,95,70,0.08)",
+      fontSize: 12.5,
+      lineHeight: 1.2,
     };
   }
   return {
-    padding: "10px 12px",
+    padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
     textDecoration: "none",
@@ -145,31 +189,43 @@ const btn = (kind = "primary") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+    fontSize: 12.5,
+    lineHeight: 1.2,
   };
 };
 
 const inputBase = {
   width: "100%",
-  padding: "9px 10px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  minHeight: 38,
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   outline: "none",
-  fontSize: 13.5,
+  fontSize: 13,
   background: "#fff",
 };
 
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
 
 /* table */
-const tableWrap = { ...surface, overflow: "hidden" };
-const thtd = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "top" };
-const theadTh = { ...thtd, fontWeight: 900, color: UI.text, background: "#f8fafc", fontSize: 12, letterSpacing: ".04em", textTransform: "uppercase" };
+const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const theadTh = {
+  ...thtd,
+  fontWeight: 900,
+  color: UI.muted,
+  background: "#f6f8fb",
+  fontSize: 11.5,
+  letterSpacing: 0,
+  textTransform: "uppercase",
+};
 
 /* modal */
 const modalOverlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(15,23,42,0.35)",
+  background: "rgba(15,23,42,0.42)",
   zIndex: 999,
   display: "flex",
   alignItems: "flex-start",
@@ -182,7 +238,7 @@ const modalCard = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
-  padding: 16,
+  padding: 12,
 };
 
 /* status badges */
@@ -209,16 +265,22 @@ const maintenanceBadge = (m) => {
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
 
-/* ───────────────── Utilities ──────────────── */
+/* Utilities */
 const fmtDate = (s) => {
-  if (!s) return "—";
+  if (!s) return "-";
   if (typeof s?.seconds === "number") {
     const tsDate = new Date(s.seconds * 1000);
-    return Number.isNaN(+tsDate) ? "—" : tsDate.toLocaleDateString();
+    if (Number.isNaN(+tsDate)) return "-";
+    return tsDate.toLocaleDateString("en-GB");
+  }
+  if (typeof s === "string") {
+    const raw = s.trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   }
   const d = s?.toDate ? s.toDate() : new Date(s);
-  if (Number.isNaN(+d)) return "—";
-  return d.toLocaleDateString();
+  if (Number.isNaN(+d)) return "-";
+  return d.toLocaleDateString("en-GB");
 };
 
 function extractApprovedGeneral(checkDocs) {
@@ -350,7 +412,7 @@ function sameRow(a, b) {
   return a.checkId === b.checkId && a.defectIndex === b.defectIndex;
 }
 
-/* ───────────────── Page ──────────────── */
+/* Page */
 export default function GeneralDefectsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -516,8 +578,25 @@ export default function GeneralDefectsPage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
+        .defects-general-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+        .defects-general-filter-grid {
+          display: grid;
+          grid-template-columns: minmax(260px, 1fr) 220px;
+          gap: 10px;
+        }
+        @media (max-width: 1180px) {
+          .defects-general-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 720px) {
+          .defects-general-kpi-grid, .defects-general-filter-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -530,11 +609,19 @@ export default function GeneralDefectsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <span style={chip}>Pending: <b style={{ marginLeft: 6 }}>{pendingCount}</b></span>
-            <span style={chipSoft}>Scheduled: <b style={{ marginLeft: 6 }}>{scheduledCount}</b></span>
-            <span style={chip}>Resolved: <b style={{ marginLeft: 6 }}>{resolvedCount}</b></span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button type="button" className="defects-general-action" style={btn("ghost")} onClick={() => router.push(IMMEDIATE_DEFECTS_PATH)}>
+              <AlertTriangle size={15} />
+              Immediate Defects
+            </button>
           </div>
+        </div>
+
+        <div className="defects-general-kpi-grid" style={kpiGrid}>
+          <SummaryCard label="Total General" value={rows.length} sub="Approved for planning" icon={Wrench} tone="brand" />
+          <SummaryCard label="Pending" value={pendingCount} sub="Needs scheduling decision" icon={Clock3} tone="amber" />
+          <SummaryCard label="Scheduled" value={scheduledCount} sub="Workshop or parts planned" icon={CalendarCheck2} tone="soft" />
+          <SummaryCard label="Resolved" value={resolvedCount} sub="Completed maintenance" icon={CheckCircle2} tone="ok" />
         </div>
 
         {/* Filters */}
@@ -550,22 +637,32 @@ export default function GeneralDefectsPage() {
               <button
                 type="button"
                 style={btn("ghost")}
-                onClick={() => { setQ(""); setStatusFilter("all"); }}
+                onClick={() => {
+                  setQ("");
+                  setStatusFilter("all");
+                }}
               >
+                <RotateCcw size={14} />
                 Reset
               </button>
             </div>
           </div>
 
-          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12, background: "#fff" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 10 }}>
-              <input
-                type="search"
-                placeholder="Search vehicle, defect, note, driver, job…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                style={inputBase}
-              />
+          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "#fff" }}>
+            <div className="defects-general-filter-grid">
+              <label style={{ position: "relative", display: "block" }}>
+                <Search
+                  size={16}
+                  style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: UI.muted }}
+                />
+                <input
+                  type="search"
+                  placeholder="Search vehicle, defect, note, driver, job..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  style={{ ...inputBase, paddingLeft: 34 }}
+                />
+              </label>
 
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={inputBase}>
                 <option value="all">All statuses</option>
@@ -577,17 +674,27 @@ export default function GeneralDefectsPage() {
 
             <div style={divider} />
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12, color: UI.muted }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                fontSize: 12,
+                color: UI.muted,
+                marginTop: 12,
+              }}
+            >
               <span style={maintenanceBadge(null)}>Pending</span>
               <span style={maintenanceBadge("scheduled")}>Scheduled</span>
               <span style={maintenanceBadge("resolved")}>Resolved</span>
-              <span style={{ marginLeft: 6 }}>Use “Move to Immediate” for safety-critical issues.</span>
+              <span style={{ marginLeft: 6 }}>Use Move to Immediate for safety-critical issues.</span>
             </div>
           </div>
 
           {/* Table */}
           <div style={{ ...tableWrap, marginTop: 12 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", minWidth: 1120, borderCollapse: "collapse" }}>
               <thead>
                 <tr>
                   <th style={{ ...theadTh, textAlign: "left" }}>Date</th>
@@ -605,7 +712,7 @@ export default function GeneralDefectsPage() {
                 {loading ? (
                   <tr>
                     <td colSpan={8} style={{ ...thtd, textAlign: "center", color: UI.muted }}>
-                      Loading…
+                      Loading...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
@@ -623,12 +730,12 @@ export default function GeneralDefectsPage() {
                       <tr key={key} style={{ background: idx % 2 ? "#ffffff" : "#fcfdff" }}>
                         <td style={thtd}>{fmtDate(r.dateISO)}</td>
                         <td style={thtd}>
-                          <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle || "—"}</div>
+                          <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle || "-"}</div>
                           <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel}</div>
                         </td>
 
                         <td style={thtd} title={r.itemLabel}>
-                          <strong>#{r.defectIndex + 1}</strong> — {r.itemLabel}
+                          <strong>#{r.defectIndex + 1}</strong> - {r.itemLabel}
                         </td>
 
                         <td style={{ ...thtd, maxWidth: 420 }}>
@@ -642,14 +749,17 @@ export default function GeneralDefectsPage() {
                               WebkitBoxOrient: "vertical",
                             }}
                           >
-                            {r.note || "—"}
+                            {r.note || "-"}
                           </div>
                         </td>
 
-                        <td style={thtd}>{r.driverName || "—"}</td>
+                        <td style={thtd}>{r.driverName || "-"}</td>
 
                         <td style={{ ...thtd, textAlign: "center" }}>
-                          <span style={chip}>{r.photos?.length ? r.photos.length : 0}</span>
+                          <span style={{ ...chip, gap: 6, display: "inline-flex", alignItems: "center" }}>
+                            <Camera size={13} />
+                            {r.photos?.length ? r.photos.length : 0}
+                          </span>
                         </td>
 
                         <td style={thtd}>
@@ -663,35 +773,42 @@ export default function GeneralDefectsPage() {
 
                         <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
                           {r.sourceType === "vehicleCheck" ? (
-                            <a href={CHECK_DETAIL_PATH(r.checkId)} style={{ ...btn("pill"), marginRight: 6 }}>
-                              View →
+                            <a href={CHECK_DETAIL_PATH(r.checkId)} className="defects-general-action" style={{ ...btn("pill"), marginRight: 6 }}>
+                              <ArrowUpRight size={13} />
+                              View
                             </a>
                           ) : null}
 
                           <button
+                            type="button"
                             style={{ ...btn("pill"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "scheduled")}
                             disabled={savingId === key}
                             title="Mark as Scheduled"
                           >
+                            <CalendarCheck2 size={13} />
                             Schedule
                           </button>
 
                           <button
-                            style={{ ...btn("success"), marginRight: 6, padding: "8px 10px", borderRadius: 999 }}
+                            type="button"
+                            style={{ ...btn("success"), marginRight: 6, padding: "5px 8px", borderRadius: 999 }}
                             onClick={() => openStatusModal(r, "resolved")}
                             disabled={savingId === key}
                             title="Mark as Resolved"
                           >
+                            <CheckCircle2 size={13} />
                             Resolve
                           </button>
 
                           <button
-                            style={{ ...btn("danger"), padding: "8px 10px", borderRadius: 999 }}
+                            type="button"
+                            style={{ ...btn("danger"), padding: "5px 8px", borderRadius: 999 }}
                             onClick={() => rerouteToImmediate(r)}
                             disabled={savingId === key}
                             title="Move to Immediate Defects"
                           >
+                            <AlertTriangle size={13} />
                             Move to Immediate
                           </button>
                         </td>
@@ -708,22 +825,23 @@ export default function GeneralDefectsPage() {
         {notesModal && (
           <div style={modalOverlay} onMouseDown={() => setNotesModal(null)}>
             <div style={modalCard} onMouseDown={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: UI.text }}>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>
                     Mark as {notesModal.newStatus === "scheduled" ? "Scheduled" : "Resolved"}
                   </div>
-                  <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
-                    {notesModal.row.vehicle || "—"} · {notesModal.row.jobLabel} · #{notesModal.row.defectIndex + 1}
+                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
+                    {notesModal.row.vehicle || "-"} - {notesModal.row.jobLabel} - #{notesModal.row.defectIndex + 1}
                   </div>
                 </div>
                 <button type="button" style={btn("ghost")} onClick={() => setNotesModal(null)}>
+                  <X size={14} />
                   Close
                 </button>
               </div>
 
-              <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 12, background: "#fff" }}>
-                <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em" }}>
+              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "#fff" }}>
+                <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
                   Note (optional)
                 </div>
                 <textarea
@@ -744,7 +862,8 @@ export default function GeneralDefectsPage() {
                     onClick={saveMaintenanceStatus}
                     disabled={!!savingId}
                   >
-                    {savingId ? "Saving…" : "Save"}
+                    <Save size={14} />
+                    {savingId ? "Saving..." : "Save"}
                   </button>
                 </div>
               </div>
@@ -755,8 +874,60 @@ export default function GeneralDefectsPage() {
 
       <style jsx global>{`
         table thead th { border-bottom: 1px solid #e5e7eb !important; }
-        a:hover { background: #f8fafc !important; }
+        .defects-general-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
       `}</style>
     </HeaderSidebarLayout>
+  );
+}
+
+function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench }) {
+  const toneStyles =
+    tone === "danger"
+      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      : tone === "amber"
+      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      : tone === "ok"
+      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      : tone === "brand" || tone === "soft"
+      ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
+      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+
+  return (
+    <div
+      style={{
+        ...cardBase,
+        minHeight: 96,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        ...(tone === "soft" ? { background: UI.brandSoft, borderColor: UI.brandBorder } : null),
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 26, lineHeight: 1.05, fontWeight: 900, color: toneStyles.fg, marginTop: 6 }}>{value}</div>
+        </div>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: UI.radiusSm,
+            border: `1px solid ${toneStyles.border}`,
+            background: toneStyles.bg,
+            color: toneStyles.fg,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 auto",
+          }}
+        >
+          <Icon size={17} />
+        </span>
+      </div>
+      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+    </div>
   );
 }

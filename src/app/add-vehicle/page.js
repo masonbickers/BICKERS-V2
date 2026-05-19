@@ -7,66 +7,99 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { ArrowLeft, Save } from "lucide-react";
 
-/* ───────────────── Mini design system (matches your newer pages) ───────────────── */
+/* UI tokens */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 16,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowMd: "0 10px 26px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowMd: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandBorder: "#c8d6e3",
+  brandSoft: "#edf3f8",
   danger: "#dc2626",
 };
 
 const shell = { minHeight: "100vh", background: UI.bg, color: UI.text };
-const main = { flex: 1, padding: "24px 18px 40px", maxWidth: 1200, margin: "0 auto" };
+const main = { flex: 1, padding: "16px 16px 32px", maxWidth: 1280, margin: "0 auto" };
 const headerRow = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" };
-const h1 = { margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: "-0.01em" };
-const sub = { marginTop: 6, fontSize: 12.5, color: UI.muted };
+const h1 = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0 };
+const sub = { marginTop: 6, fontSize: 13.5, lineHeight: 1.45, color: UI.muted };
 
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const sectionTitle = { margin: "0 0 10px", fontSize: 14, fontWeight: 950, color: UI.text };
+const sectionTitle = { margin: "0 0 10px", fontSize: 15, fontWeight: 950, color: UI.text };
 
-const grid = { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 };
-const col = (span) => ({ gridColumn: `span ${span}` });
+const grid = { display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 10 };
+const col = (span) => ({ gridColumn: `span ${span}`, minWidth: 0 });
 
-const label = { display: "block", marginBottom: 6, fontSize: 12, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: ".04em" };
+const label = { display: "block", marginBottom: 4, fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: 0 };
 const input = {
   width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  minHeight: 38,
+  padding: "8px 10px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   fontSize: 13,
   background: "#fff",
   color: UI.text,
   outline: "none",
 };
-const textarea = { ...input, minHeight: 120, resize: "vertical" };
+const textarea = { ...input, minHeight: 92, resize: "vertical" };
 
 const btn = (bg = "#fff", fg = UI.text, bd = "1px solid #e5e7eb") => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
-  padding: "10px 12px",
+  padding: "6px 9px",
   borderRadius: UI.radiusSm,
-  border: bd,
-  background: bg,
-  color: fg,
-  fontWeight: 950,
+  border: bg === UI.brand ? `1px solid ${UI.brand}` : bd === "1px solid #e5e7eb" ? `1px solid ${UI.brandBorder}` : bd,
+  background:
+    bg === UI.brand
+      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
+      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  color: bg === UI.brand ? "#fff" : fg,
+  fontWeight: 800,
   cursor: "pointer",
   textDecoration: "none",
   whiteSpace: "nowrap",
+  boxShadow:
+    bg === UI.brand
+      ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)"
+      : "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+  fontSize: 12.5,
+  lineHeight: 1.2,
 });
 
 const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
 const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
+const INITIAL_FORM_DATA = {
+  name: "",
+  registration: "",
+  category: "",
+  manufacturer: "",
+  model: "",
+  odometer: "",
+  notes: "",
+  retentionExpiry: "",
+  plateType: "retention",
+  plateExpiryFreq: "",
+  lastService: "",
+  serviceFreq: "",
+  nextService: "",
+  lastMOT: "",
+  motFreq: "",
+  nextMOT: "",
+  taxStatus: "Taxed",
+  insuranceStatus: "Insured",
+};
 
 const parseLocalDateOnly = (s) => {
   if (!s) return null;
@@ -92,35 +125,7 @@ export default function AddVehiclePage() {
   const [saving, setSaving] = useState(false);
   const [existingCategories, setExistingCategories] = useState([]);
 
-  const [formData, setFormData] = useState({
-    // match your newer vehicle schema naming
-    name: "",
-    registration: "",
-
-    category: "",
-
-    manufacturer: "",
-    model: "",
-
-    odometer: "",
-    notes: "",
-    retentionExpiry: "",
-    plateType: "retention",
-    plateExpiryFreq: "",
-
-    // maintenance core (keep consistent with edit page keys)
-    lastService: "",
-    serviceFreq: "", // weeks
-    nextService: "",
-
-    lastMOT: "",
-    motFreq: "", // weeks
-    nextMOT: "",
-
-    // statuses used across your app
-    taxStatus: "Taxed",
-    insuranceStatus: "Insured",
-  });
+  const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
 
   useEffect(() => {
     setIsNumberPlateMode(new URLSearchParams(window.location.search).get("type") === "number-plate");
@@ -199,8 +204,19 @@ export default function AddVehiclePage() {
   }, [formData, isNumberPlateMode]);
 
   const hasUnsavedChanges = useMemo(() => {
-    return Object.values(formData).some((value) => String(value || "").trim());
-  }, [formData]);
+    const baseline = isNumberPlateMode
+      ? {
+          ...INITIAL_FORM_DATA,
+          category: RETENTION_PLATE_CATEGORY,
+          taxStatus: "N/A",
+          insuranceStatus: "N/A",
+        }
+      : INITIAL_FORM_DATA;
+
+    return Object.entries(formData).some(([key, value]) => {
+      return String(value || "").trim() !== String(baseline[key] || "").trim();
+    });
+  }, [formData, isNumberPlateMode]);
 
   const handleSubmit = async (e, options = {}) => {
     e?.preventDefault?.();
@@ -256,7 +272,7 @@ export default function AddVehiclePage() {
 
       await addDoc(collection(db, "vehicles"), payload);
 
-      alert(isNumberPlateMode ? " Number plate added" : " Vehicle added");
+      alert(isNumberPlateMode ? "Number plate added" : "Vehicle added");
       if (navigateOnSuccess) {
         router.push("/vehicles");
         router.refresh?.();
@@ -264,7 +280,7 @@ export default function AddVehiclePage() {
       return true;
     } catch (err) {
       console.error("Error adding vehicle:", err);
-      alert(" Failed to add vehicle");
+      alert("Failed to add vehicle");
       return false;
     } finally {
       setSaving(false);
@@ -290,16 +306,20 @@ export default function AddVehiclePage() {
                 <div style={sub}>Create a simple number plate record and track the retention expiry date.</div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button style={btn("#fff", UI.text)} onClick={handleCancel}>
-                  â† Cancel
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="add-vehicle-action" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                  <ArrowLeft size={15} />
+                  Cancel
                 </button>
                 <button
+                  type="button"
+                  className="add-vehicle-action"
                   style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
                   onClick={handleSubmit}
                   disabled={!canSave || saving}
                   title={!canSave ? "Fill Number Plate" : ""}
                 >
+                  <Save size={15} />
                   {saving ? "Saving..." : "Save Number Plate"}
                 </button>
               </div>
@@ -308,10 +328,10 @@ export default function AddVehiclePage() {
             <div style={{ height: 14 }} />
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
-              <div style={{ ...card, padding: 14 }}>
+              <div style={{ ...card, padding: 12 }}>
                 <div style={sectionTitle}>Number Plate Details</div>
 
-                <div style={grid}>
+                <div className="add-vehicle-form-grid" style={grid}>
                   <div style={col(6)}>
                     <label style={label}>Number Plate *</label>
                     <input
@@ -373,14 +393,17 @@ export default function AddVehiclePage() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-                <button type="button" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                <button type="button" className="add-vehicle-action" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                  <ArrowLeft size={15} />
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="add-vehicle-action"
                   style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
                   disabled={!canSave || saving}
                 >
+                  <Save size={15} />
                   {saving ? "Saving..." : "Save Number Plate"}
                 </button>
               </div>
@@ -391,6 +414,11 @@ export default function AddVehiclePage() {
         <style jsx global>{`
           input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
           button:disabled { opacity: 0.7; cursor: not-allowed; }
+          input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+          .add-vehicle-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowMd} !important; }
+          @media (max-width: 820px) {
+            .add-vehicle-form-grid > div { grid-column: span 12 !important; }
+          }
         `}</style>
       </HeaderSidebarLayout>
     );
@@ -410,17 +438,21 @@ export default function AddVehiclePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button style={btn("#fff", UI.text)} onClick={handleCancel}>
-                ← Cancel
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="add-vehicle-action" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                <ArrowLeft size={15} />
+                Cancel
               </button>
               <button
+                type="button"
+                className="add-vehicle-action"
                 style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
                 onClick={handleSubmit}
                 disabled={!canSave || saving}
                 title={!canSave ? (isNumberPlateMode ? "Fill Number Plate" : "Fill Name, Registration, and Category") : ""}
               >
-                {saving ? "Saving…" : "Save Vehicle"}
+                <Save size={15} />
+                {saving ? "Saving..." : "Save Vehicle"}
               </button>
             </div>
           </div>
@@ -429,10 +461,10 @@ export default function AddVehiclePage() {
 
           <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
             {/* Main details */}
-            <div style={{ ...card, padding: 14 }}>
+            <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Main Information</div>
 
-              <div style={grid}>
+              <div className="add-vehicle-form-grid" style={grid}>
                 <div style={col(4)}>
                   <label style={label}>Name *</label>
                   <input name="name" value={formData.name} onChange={handleChange} style={input} placeholder="e.g., Silverado" />
@@ -446,7 +478,7 @@ export default function AddVehiclePage() {
                 <div style={col(4)}>
                   <label style={label}>Category *</label>
                   <select name="category" value={formData.category} onChange={handleChange} style={input} required>
-                    <option value="">Select category…</option>
+                    <option value="">Select category...</option>
                     {existingCategories.length ? (
                       existingCategories.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -501,16 +533,16 @@ export default function AddVehiclePage() {
 
                 <div style={col(9)}>
                   <label style={label}>Notes</label>
-                  <textarea name="notes" value={formData.notes} onChange={handleChange} style={textarea} placeholder="Anything useful: quirks, kit, keys, restrictions…" />
+                  <textarea name="notes" value={formData.notes} onChange={handleChange} style={textarea} placeholder="Anything useful: quirks, kit, keys, restrictions..." />
                 </div>
               </div>
             </div>
 
             {/* Maintenance */}
-            <div style={{ ...card, padding: 14 }}>
+            <div style={{ ...card, padding: 12 }}>
               <div style={sectionTitle}>Maintenance</div>
 
-              <div style={grid}>
+              <div className="add-vehicle-form-grid" style={grid}>
                 {/* MOT */}
                 <div style={col(12)}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: UI.text, marginBottom: 8 }}>MOT</div>
@@ -557,15 +589,18 @@ export default function AddVehiclePage() {
 
             {/* Footer actions (redundant + nice UX) */}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" style={btn("#fff", UI.text)} onClick={handleCancel}>
+              <button type="button" className="add-vehicle-action" style={btn("#fff", UI.text)} onClick={handleCancel}>
+                <ArrowLeft size={15} />
                 Cancel
               </button>
               <button
                 type="submit"
+                className="add-vehicle-action"
                 style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
                 disabled={!canSave || saving}
               >
-                {saving ? "Saving…" : "Save Vehicle"}
+                <Save size={15} />
+                {saving ? "Saving..." : "Save Vehicle"}
               </button>
             </div>
           </form>
@@ -575,6 +610,11 @@ export default function AddVehiclePage() {
       <style jsx global>{`
         input:disabled, select:disabled, textarea:disabled { opacity: 0.7; cursor: not-allowed; }
         button:disabled { opacity: 0.7; cursor: not-allowed; }
+        input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        .add-vehicle-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowMd} !important; }
+        @media (max-width: 820px) {
+          .add-vehicle-form-grid > div { grid-column: span 12 !important; }
+        }
       `}</style>
     </HeaderSidebarLayout>
   );

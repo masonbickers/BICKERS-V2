@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { onAuthStateChanged } from "firebase/auth";
@@ -20,35 +20,51 @@ import {
   where,
   limit,
 } from "firebase/firestore";
+import {
+  Activity,
+  CalendarDays,
+  HeartPulse,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+  Users,
+} from "lucide-react";
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* -------------------------------------------
    Admin gate
     allow if email is in ADMIN_EMAILS OR users.role === "admin"
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+------------------------------------------- */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* -------------------------------------------
    Mini design system (matches your style)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+------------------------------------------- */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 16,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "rgba(29, 78, 216, 0.10)",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
   danger: "#b91c1c",
+  dangerSoft: "#fff1f2",
   ok: "#15803d",
+  okSoft: "#edf7f2",
   warn: "#b45309",
+  warnSoft: "#fffbeb",
 };
 
 const Tabs = {
@@ -59,14 +75,22 @@ const Tabs = {
   APRIL_FOOLS: "April Fools",
 };
 
+const TAB_ICONS = {
+  [Tabs.ACCESS]: UserCog,
+  [Tabs.HOLIDAY]: CalendarDays,
+  [Tabs.SICK]: HeartPulse,
+  [Tabs.ACTIVITY]: Activity,
+  [Tabs.APRIL_FOOLS]: ShieldCheck,
+};
+
 const isAprilFoolsDay = () => {
   const now = new Date();
   return now.getMonth() === 3 && now.getDate() === 1;
 };
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* -------------------------------------------
    Timestamp-safe helpers
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+------------------------------------------- */
 const toDateSafe = (v) => {
   try {
     if (!v) return null;
@@ -89,10 +113,10 @@ const toDateSafe = (v) => {
 };
 
 const fmtYMD = (v) => {
-  if (!v) return "â€”";
+  if (!v) return "-";
   if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   const d = toDateSafe(v);
-  if (!d) return "â€”";
+  if (!d) return "-";
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -179,11 +203,11 @@ export default function AdminPage() {
     setTimeout(() => setToast(null), 2200);
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Auth + Admin gate
       allow if email in ADMIN_EMAILS OR Firestore role === "admin"
       robust lookup: users/{uid} then query by email
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setChecking(true);
@@ -255,9 +279,9 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Fetch
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   const bootstrap = async () => {
     await Promise.all([
       fetchUsers(),
@@ -404,7 +428,7 @@ export default function AdminPage() {
           user: data.updatedBy || data.createdByEmail || data.createdByName || data.employee,
           action: data.updatedAt ? "Updated holiday" : "Created holiday",
           area: "Holiday",
-          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} â†’ ${fmtYMD(
+          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} -> ${fmtYMD(
             data.endDate || data.startDate
           )}`,
         });
@@ -420,7 +444,7 @@ export default function AdminPage() {
           area: "Sick Leave",
           details: `${data.employeeName || data.employeeId || "Unknown"} ${fmtYMD(
             data.startDate
-          )} â†’ ${fmtYMD(data.endDate || data.startDate)}`,
+          )} -> ${fmtYMD(data.endDate || data.startDate)}`,
         });
       });
 
@@ -446,9 +470,9 @@ export default function AdminPage() {
     }
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Access management
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   const updateUserRole = async (userId, role) => {
     await updateDoc(doc(db, "users", userId), {
       role,
@@ -467,9 +491,9 @@ export default function AdminPage() {
     await fetchUsers();
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Holiday allowance management (legacy table)
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   const upsertAllowance = async (employeeId, patch) => {
     const ref = doc(db, "holidayAllowances", employeeId);
     const existing = await getDoc(ref);
@@ -498,9 +522,9 @@ export default function AdminPage() {
     await fetchAllowances();
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Sick leave (add)
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   const addSickLeave = async () => {
     if (!newSick.employeeId) return showToast("warn", "Select an employee");
     if (!newSick.startDate || !newSick.endDate)
@@ -534,15 +558,15 @@ export default function AdminPage() {
     await fetchSickLeaves();
   };
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Sick leave (edit)
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   const startEditSick = (s) => {
     setEditingSick({
       id: s.id,
       employeeId: s.employeeId || "",
-      startDate: fmtYMD(s.startDate) === "â€”" ? "" : fmtYMD(s.startDate),
-      endDate: fmtYMD(s.endDate) === "â€”" ? "" : fmtYMD(s.endDate),
+      startDate: fmtYMD(s.startDate) === "-" ? "" : fmtYMD(s.startDate),
+      endDate: fmtYMD(s.endDate) === "-" ? "" : fmtYMD(s.endDate),
       reason: s.reason || "",
       notes: s.notes || "",
     });
@@ -664,69 +688,57 @@ export default function AdminPage() {
     []
   );
 
-  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  /* -------------------------------------------
      Render
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  -------------------------------------------- */
   if (checking) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 22, color: UI.muted }}>Checking admin accessâ€¦</div>
+        <div style={pageWrap}>
+          <div style={cardStyle}>Checking admin access...</div>
+        </div>
       </HeaderSidebarLayout>
     );
   }
 
   return (
     <HeaderSidebarLayout>
-      <div
-        style={{
-          padding: 22,
-          background: UI.bg,
-          minHeight: "calc(100vh - 60px)",
-        }}
-      >
+      <div style={pageWrap}>
         {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: UI.gap,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={pageHeader}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: UI.text }}>
-              Admin
-            </div>
-            <div style={{ color: UI.muted, marginTop: 4 }}>
+            <h1 style={h1Style}>Admin</h1>
+            <div style={pageSub}>
               Allowed: <b>email allow-list</b> OR <b>users.role = &quot;admin&quot;</b>
-            </div>
-            <div style={{ color: UI.muted, marginTop: 6, fontSize: 12 }}>
-              Users: {usersMeta.dedupedCount} (raw {usersMeta.rawCount}, duplicates{" "}
-              {usersMeta.duplicates})
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              value={qText}
-              onChange={(e) => setQText(e.target.value)}
-              placeholder={
-                activeTab === Tabs.ACTIVITY
-                  ? "Search activity (user, action, area)â€¦"
-                  : "Search employees (name or email)â€¦"
-              }
-              style={topSearchStyle}
-            />
+          <div style={headerActions}>
+            <div style={searchWrap}>
+              <Search size={15} color={UI.muted} />
+              <input
+                value={qText}
+                onChange={(e) => setQText(e.target.value)}
+                placeholder={
+                  activeTab === Tabs.ACTIVITY
+                    ? "Search activity (user, action, area)..."
+                    : "Search employees (name or email)..."
+                }
+                style={headerSearchInputStyle}
+              />
+            </div>
 
             <button
               onClick={() => router.push("/deleted-bookings")}
               style={btnStyle}
               title="View deleted bookings"
             >
+              <Trash2 size={14} />
               Deleted bookings
             </button>
 
             <button onClick={bootstrap} style={btnStyle} title="Refresh">
+              <RefreshCw size={14} />
               Refresh
             </button>
 
@@ -751,23 +763,38 @@ export default function AdminPage() {
           </div>
         </div>
 
+        <div style={statGrid}>
+          <AdminStat
+            icon={<Users size={17} />}
+            label="Users"
+            value={usersMeta.dedupedCount}
+            detail={`raw ${usersMeta.rawCount}, duplicates ${usersMeta.duplicates}`}
+          />
+          <AdminStat icon={<Users size={17} />} label="Employees" value={employees.length} detail="loaded from employees" />
+          <AdminStat icon={<CalendarDays size={17} />} label="Allowances" value={allowances.length} detail="holiday records" />
+          <AdminStat icon={<HeartPulse size={17} />} label="Sick Leave" value={sickLeaves.length} detail="active records" />
+        </div>
+
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+        <div style={tabBar}>
           {Object.values(Tabs)
             .filter((t) => showAprilFools || t !== Tabs.APRIL_FOOLS)
             .map((t) => {
             const active = t === activeTab;
+            const Icon = TAB_ICONS[t] || ShieldCheck;
             return (
               <button
                 key={t}
                 onClick={() => setActiveTab(t)}
                 style={{
                   ...btnStyle,
-                  border: active ? `1px solid ${UI.brand}` : UI.border,
-                  background: active ? UI.brandSoft : UI.card,
+                  border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+                  background: active ? UI.brand : UI.card,
+                  color: active ? "#fff" : UI.text,
                   fontWeight: 900,
                 }}
               >
+                <Icon size={14} />
                 {t}
               </button>
             );
@@ -834,7 +861,7 @@ export default function AdminPage() {
                           <tr key={u.id} style={rowStyle}>
                             <Td>
                               <div style={{ fontWeight: 900, color: UI.text, whiteSpace: "nowrap" }}>
-                                {u.email || "â€”"}
+                                {u.email || "-"}
                                 {locked && <span style={pillStyle}>Admin gate</span>}
                               </div>
                               <div style={{ fontSize: 12, color: UI.muted }}>
@@ -910,7 +937,7 @@ export default function AdminPage() {
                       onChange={(e) => setNewSick((s) => ({ ...s, employeeId: e.target.value }))}
                       style={inputStyle}
                     >
-                      <option value="">Select employeeâ€¦</option>
+                      <option value="">Select employee...</option>
                       {employees.map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name || "Unnamed"}
@@ -956,7 +983,7 @@ export default function AdminPage() {
                     <input
                       value={newSick.notes}
                       onChange={(e) => setNewSick((s) => ({ ...s, notes: e.target.value }))}
-                      placeholder="Optional notesâ€¦"
+                      placeholder="Optional notes..."
                       style={inputStyle}
                     />
                   </div>
@@ -1016,7 +1043,7 @@ export default function AdminPage() {
                         onChange={(e) => setEditingSick((p) => ({ ...p, employeeId: e.target.value }))}
                         style={inputStyle}
                       >
-                        <option value="">Select employeeâ€¦</option>
+                        <option value="">Select employee...</option>
                         {employees.map((e) => (
                           <option key={e.id} value={e.id}>
                             {e.name || "Unnamed"}
@@ -1081,7 +1108,7 @@ export default function AdminPage() {
                         fontWeight: 1000,
                       }}
                     >
-                      {savingSick ? "Savingâ€¦" : "Save changes"}
+                      {savingSick ? "Saving..." : "Save changes"}
                     </button>
                   </div>
                 </div>
@@ -1127,11 +1154,11 @@ export default function AdminPage() {
                             <Td style={{ whiteSpace: "nowrap" }}>{fmtYMD(s.endDate)}</Td>
 
                             <Td>
-                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "â€”"}</span>
+                              <span style={{ fontWeight: 1000, color: UI.text }}>{s.days ?? "-"}</span>
                             </Td>
 
-                            <Td>{s.reason || "â€”"}</Td>
-                            <Td style={{ color: UI.muted }}>{s.notes || "â€”"}</Td>
+                            <Td>{s.reason || "-"}</Td>
+                            <Td style={{ color: UI.muted }}>{s.notes || "-"}</Td>
 
                             <Td>
                               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1193,7 +1220,7 @@ export default function AdminPage() {
                     <span>Day</span>
                     <input
                       type="date"
-                      value={activityDay === "â€”" ? "" : activityDay}
+                      value={activityDay === "-" ? "" : activityDay}
                       onChange={(e) => setActivityDay(e.target.value)}
                       style={inputStyle}
                     />
@@ -1310,7 +1337,7 @@ export default function AdminPage() {
                     {activityLoading ? (
                       <tr>
                         <td colSpan={5} style={emptyTd}>
-                          Loading activityâ€¦
+                          Loading activity...
                         </td>
                       </tr>
                     ) : filteredActivityRows.length === 0 ? (
@@ -1538,25 +1565,32 @@ export default function AdminPage() {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* -------------------------------------------
    UI bits
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+------------------------------------------- */
 function Card({ title, subtitle, children }) {
   return (
     <div
-      style={{
-        background: UI.card,
-        border: UI.border,
-        borderRadius: UI.radius,
-        boxShadow: UI.shadowSm,
-        padding: 14,
-      }}
+      style={cardStyle}
     >
       <div>
-        <div style={{ fontSize: 16, fontWeight: 1000, color: UI.text }}>{title}</div>
+        <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>{title}</div>
         {subtitle && <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>{subtitle}</div>}
       </div>
       <div style={{ marginTop: 12 }}>{children}</div>
+    </div>
+  );
+}
+
+function AdminStat({ icon, label, value, detail }) {
+  return (
+    <div style={statCard}>
+      <span style={iconBox}>{icon}</span>
+      <div>
+        <div style={statLabel}>{label}</div>
+        <div style={statValue}>{value}</div>
+        <div style={statDetail}>{detail}</div>
+      </div>
     </div>
   );
 }
@@ -1611,9 +1645,9 @@ function Td({ children, style }) {
   return <td style={{ ...tdStyle, ...(style || {}) }}>{children}</td>;
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ----------------------------------------------------------------
    Holiday Allowances Tab (Employees collection + Holidays usage)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+---------------------------------------------------------------- */
 const HA_thisYear = new Date().getFullYear();
 const HA_nextYear = HA_thisYear + 1;
 
@@ -1840,11 +1874,17 @@ function EmployeesHolidayAllowancesTab() {
     return rows.filter((r) => (r.name || "").toLowerCase().includes(term));
   }, [rows, q]);
 
-  const usedForYearByName = (yr, name) => usedByYearName?.[yr]?.[name] || 0;
+  const usedForYearByName = useCallback(
+    (yr, name) => usedByYearName?.[yr]?.[name] || 0,
+    [usedByYearName]
+  );
 
-  const getPattern = (r) => edits?.[r.id]?.workPattern ?? r.workPattern ?? HA_DEFAULT_PATTERN;
+  const getPattern = useCallback(
+    (r) => edits?.[r.id]?.workPattern ?? r.workPattern ?? HA_DEFAULT_PATTERN,
+    [edits]
+  );
 
-  const getAllowanceForYear = (r, yr) => {
+  const getAllowanceForYear = useCallback((r, yr) => {
     const pattern = getPattern(r);
     const fallback = HA_entitlementFor(pattern);
 
@@ -1855,9 +1895,9 @@ function EmployeesHolidayAllowancesTab() {
     if (mapVal !== undefined) return HA_asNum(mapVal, fallback);
 
     return HA_asNum(r.holidayAllowance, fallback);
-  };
+  }, [edits, getPattern]);
 
-  const getCarryForYear = (r, yr) => {
+  const getCarryForYear = useCallback((r, yr) => {
     const slot = edits?.[r.id]?.byYear?.[yr] || {};
     if (slot.carriedOverDays !== undefined) return HA_asNum(slot.carriedOverDays, 0);
 
@@ -1865,7 +1905,7 @@ function EmployeesHolidayAllowancesTab() {
     if (mapVal !== undefined) return HA_asNum(mapVal, 0);
 
     return HA_asNum(r.carriedOverDays, 0);
-  };
+  }, [edits]);
 
   const balanceForYear = (r, yr) => {
     const allowance = getAllowanceForYear(r, yr);
@@ -1940,7 +1980,7 @@ function EmployeesHolidayAllowancesTab() {
     const allowance = getAllowanceForYear(r, yearView);
     const carry = getCarryForYear(r, yearView);
 
-    if (allowance < 0 || carry < 0) return alert("Numbers must be â‰¥ 0.");
+    if (allowance < 0 || carry < 0) return alert("Numbers must be >= 0.");
     if (yearView === HA_nextYear && carry > HA_MAX_CARRY) return alert(`Carry over cannot exceed ${HA_MAX_CARRY} days.`);
 
     const yrKey = String(yearView);
@@ -2085,11 +2125,11 @@ function EmployeesHolidayAllowancesTab() {
       totalUsed: Number(totalUsed.toFixed(0)),
       totalBalance: Number(totalBalance.toFixed(0)),
     };
-  }, [filteredRows, yearView, edits, usedByYearName]);
+  }, [filteredRows, yearView, getAllowanceForYear, getCarryForYear, usedForYearByName]);
 
   return (
     <Card
-      title="Employees â€” Holiday Allowances"
+      title="Employees - Holiday Allowances"
       subtitle={`Work pattern sets base allowance (FT = ${HA_BASE_FULL_TIME}). Carry into next year capped at ${HA_MAX_CARRY}.`}
     >
       {/* Controls */}
@@ -2103,7 +2143,7 @@ function EmployeesHolidayAllowancesTab() {
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employeesâ€¦" style={topSearchStyle} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees..." style={topSearchStyle} />
           <span style={{ color: UI.muted, fontSize: 12 }}>
             Showing <b>{filteredRows.length}</b>
           </span>
@@ -2137,7 +2177,7 @@ function EmployeesHolidayAllowancesTab() {
             disabled={adding}
             style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
           >
-            {adding ? "Addingâ€¦" : "Add"}
+            {adding ? "Adding..." : "Add"}
           </button>
         </div>
       </div>
@@ -2177,7 +2217,7 @@ function EmployeesHolidayAllowancesTab() {
             {loading ? (
               <tr>
                 <td colSpan={8} style={emptyTd}>
-                  Loadingâ€¦
+                  Loading...
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
@@ -2247,7 +2287,7 @@ function EmployeesHolidayAllowancesTab() {
                         />
                         {yearView === HA_nextYear ? (
                           <div style={{ fontSize: 12, color: UI.muted }}>
-                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> â€¢ {HA_thisYear} bal: <b>{balThis}</b>
+                            Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> - {HA_thisYear} bal: <b>{balThis}</b>
                           </div>
                         ) : (
                           <div style={{ fontSize: 12, color: UI.muted }}>Current-year carry</div>
@@ -2272,7 +2312,7 @@ function EmployeesHolidayAllowancesTab() {
                           disabled={!!saving[r.id]}
                           style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
                         >
-                          {saving[r.id] ? "Savingâ€¦" : `Save (${yearView})`}
+                          {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                         </button>
 
                         <button
@@ -2293,75 +2333,220 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       <div style={{ marginTop: 12, color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
-        Tip: â€œUsedâ€ is calculated from the <code>holidays</code> collection (Monâ€“Fri only). Ensure{" "}
+        Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
         <code>holidays.employee</code> matches the employee <code>name</code> exactly.
       </div>
     </Card>
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* -------------------------------------------
    Styles
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-const tableStyle = { width: "100%", borderCollapse: "collapse" };
+------------------------------------------- */
+const pageWrap = {
+  padding: "16px 16px 32px",
+  background: UI.bg,
+  minHeight: "100vh",
+};
+
+const pageHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: UI.gap,
+  flexWrap: "wrap",
+};
+
+const h1Style = {
+  margin: 0,
+  fontSize: 22,
+  lineHeight: 1.08,
+  fontWeight: 800,
+  color: UI.text,
+  letterSpacing: 0,
+};
+
+const pageSub = {
+  color: UI.muted,
+  marginTop: 6,
+  fontSize: 13.5,
+  lineHeight: 1.45,
+};
+
+const headerActions = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  justifyContent: "flex-end",
+  flexWrap: "wrap",
+};
+
+const searchWrap = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: 360,
+  maxWidth: "80vw",
+  padding: "0 10px",
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: UI.card,
+  boxShadow: UI.shadowSm,
+};
+
+const headerSearchInputStyle = {
+  width: "100%",
+  minWidth: 0,
+  height: 34,
+  padding: "7px 0",
+  border: 0,
+  outline: "none",
+  background: "transparent",
+  fontWeight: 700,
+  fontSize: 13,
+  color: UI.text,
+};
+
+const statGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: UI.gap,
+  marginTop: 12,
+};
+
+const cardStyle = {
+  background: UI.card,
+  border: UI.border,
+  borderRadius: UI.radius,
+  boxShadow: UI.shadowSm,
+  padding: 12,
+};
+
+const statCard = {
+  ...cardStyle,
+  display: "flex",
+  gap: 10,
+  alignItems: "flex-start",
+};
+
+const iconBox = {
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: UI.brandSoft,
+  color: UI.brand,
+  border: `1px solid ${UI.brandBorder}`,
+  flex: "0 0 auto",
+};
+
+const statLabel = {
+  fontSize: 11,
+  fontWeight: 900,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const statValue = {
+  marginTop: 4,
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: UI.text,
+};
+
+const statDetail = {
+  marginTop: 5,
+  color: UI.muted,
+  fontSize: 12,
+};
+
+const tabBar = {
+  display: "flex",
+  gap: 8,
+  marginTop: 12,
+  flexWrap: "wrap",
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "separate",
+  borderSpacing: 0,
+};
 
 const thStyle = {
   textAlign: "left",
-  padding: "10px",
+  padding: "9px 10px",
   borderBottom: UI.border,
   fontSize: 12,
   color: UI.muted,
   textTransform: "uppercase",
-  letterSpacing: 0.4,
+  letterSpacing: "0.04em",
   whiteSpace: "nowrap",
+  background: "#f8fafc",
 };
 
 const tdStyle = {
-  padding: "10px",
+  padding: "9px 10px",
   borderBottom: UI.border,
   verticalAlign: "middle",
   color: UI.text,
+  fontSize: 13.5,
 };
 
 const emptyTd = { padding: 12, color: UI.muted };
 
 const btnStyle = {
-  padding: "10px 12px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "8px 11px",
   borderRadius: UI.radiusSm,
-  border: UI.border,
+  border: `1px solid ${UI.brandBorder}`,
   background: UI.card,
   cursor: "pointer",
   fontWeight: 800,
+  fontSize: 13,
+  color: UI.text,
+  boxShadow: UI.shadowSm,
 };
 
 const topSearchStyle = {
   width: 320,
   maxWidth: "80vw",
-  padding: "10px 12px",
+  padding: "8px 10px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   outline: "none",
   background: UI.card,
   fontWeight: 700,
+  fontSize: 13,
+  color: UI.text,
+  boxShadow: UI.shadowSm,
 };
 
 const pillStyle = {
   marginLeft: 8,
   fontSize: 12,
-  padding: "2px 8px",
+  padding: "3px 8px",
   borderRadius: 999,
-  border: `1px solid ${UI.brand}`,
+  border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
   fontWeight: 900,
 };
 
 const selectStyle = {
-  padding: "8px 10px",
+  padding: "7px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
   background: UI.card,
   fontWeight: 800,
+  color: UI.text,
 };
 
 const labelStyle = {
@@ -2369,25 +2554,26 @@ const labelStyle = {
   fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
-  letterSpacing: 0.4,
+  letterSpacing: "0.04em",
   marginBottom: 6,
 };
 
 const inputStyle = {
   width: "100%",
-  padding: "10px 12px",
+  padding: "8px 10px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   outline: "none",
   background: UI.card,
   fontWeight: 800,
+  fontSize: 13,
   color: UI.text,
 };
 
 const cellInputStyle = {
   width: 110,
   maxWidth: "100%",
-  padding: "8px 10px",
+  padding: "7px 9px",
   border: UI.border,
   borderRadius: UI.radiusSm,
   outline: "none",
@@ -2402,6 +2588,7 @@ const panelStyle = {
   background: "#f8fafc",
   padding: 12,
   marginBottom: 12,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",
 };
 
 const rowStyle = { background: UI.card };

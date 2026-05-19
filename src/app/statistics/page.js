@@ -5,51 +5,72 @@ import Link from "next/link";
 import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { buildBookingAnalytics, normaliseBookingForAnalytics } from "@/app/utils/bookingAnalytics";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CalendarDays,
+  Download,
+  Filter,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
+/* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  successSoft: "#ecfdf5",
+  successText: "#166534",
+  warningSoft: "#fff7ed",
+  warningBorder: "#fed7aa",
+  dangerSoft: "#fcefee",
+  dangerText: "#991b1b",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 22,
+  lineHeight: 1.08,
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
-  padding: "6px 10px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 const grid = (cols = 4) => ({
   display: "grid",
@@ -58,19 +79,99 @@ const grid = (cols = 4) => ({
 });
 const card = {
   ...surface,
-  padding: 16,
+  padding: 12,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#dbeafe" };
+const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
+const filterSelectStyle = {
+  width: "100%",
+  minHeight: 36,
+  padding: "7px 9px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  fontSize: 13.5,
+  outline: "none",
+  background: "#fff",
+  color: UI.text,
+  boxSizing: "border-box",
+};
+const panel = { ...surface, padding: 12 };
+const sectionTitle = { fontWeight: 800, fontSize: 16, color: UI.text, lineHeight: 1.2 };
+const sectionMeta = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4 };
+const statLabel = { color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 };
+const statValue = { fontSize: 22, fontWeight: 800, color: UI.text, lineHeight: 1.1 };
+
+const statisticsCss = `
+  @media (max-width: 1180px) {
+    .statistics-two-col {
+      grid-template-columns: 1fr !important;
+    }
+    .statistics-header-actions {
+      justify-content: flex-start !important;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .statistics-bar-row,
+    .statistics-job-row {
+      grid-template-columns: 1fr !important;
+    }
+    .statistics-shortcuts {
+      grid-template-columns: 1fr !important;
+    }
+    .statistics-table-heading,
+    .statistics-table-row {
+      min-width: 760px !important;
+    }
+  }
+`;
 
 const mono = {
   fontFamily:
     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
 };
 
-/* ───────────────────────────────────────────
-   Helpers
-─────────────────────────────────────────── */
+const displayToken = (value) => {
+  if (typeof value === "string") return value.trim();
+  if (!value || typeof value !== "object") return "";
+  return (
+    value.name ||
+    value.label ||
+    value.fullName ||
+    [value.firstName, value.lastName].filter(Boolean).join(" ").trim() ||
+    value.registration ||
+    value.id ||
+    ""
+  );
+};
+
+function downloadCSV(filename, rows) {
+  if (typeof window === "undefined" || !rows.length) return;
+  const csv = rows
+    .map((row) =>
+      row
+        .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+        .join(",")
+    )
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+const severityStyles = {
+  high: { border: "#f1b8b8", bg: UI.dangerSoft, text: UI.dangerText },
+  medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "#92400e" },
+  neutral: { border: "#d7dee8", bg: "#fff", text: UI.text },
+};
+
+/* Section */
 const norm = (s = "") => String(s || "").toLowerCase().trim();
 
 const parseDate = (raw) => {
@@ -78,7 +179,7 @@ const parseDate = (raw) => {
   try {
     if (typeof raw?.toDate === "function") return raw.toDate(); // Firestore Timestamp
 
-    //  safer parse for YYYY-MM-DD (avoid BST off-by-one)
+    // Safer parse for YYYY-MM-DD, avoiding BST off-by-one shifts.
     if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return new Date(`${raw}T00:00:00.000Z`);
     }
@@ -91,7 +192,7 @@ const parseDate = (raw) => {
 };
 
 const fmtDDMMYY = (d) => {
-  if (!d) return "—";
+  if (!d) return "-";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(-2);
@@ -100,9 +201,7 @@ const fmtDDMMYY = (d) => {
 
 const isoDay = (d) => {
   if (!d) return "";
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date(d).toISOString().slice(0, 10); // YYYY-MM-DD
 };
 
 const normaliseJobDates = (job) => {
@@ -150,6 +249,25 @@ const normaliseJobDates = (job) => {
     .sort((a, b) => a - b);
 };
 
+const getJobDateEntries = (job) => {
+  if (Array.isArray(job?.bookingDates) && job.bookingDates.length) {
+    const seen = new Set();
+    return job.bookingDates
+      .map((raw) => String(raw || "").slice(0, 10))
+      .filter((iso) => /^\d{4}-\d{2}-\d{2}$/.test(iso))
+      .filter((iso) => {
+        if (seen.has(iso)) return false;
+        seen.add(iso);
+        return true;
+      })
+      .map((iso) => ({ iso, date: parseDate(iso) }))
+      .filter((entry) => entry.date)
+      .sort((a, b) => a.iso.localeCompare(b.iso));
+  }
+
+  return normaliseJobDates(job).map((date) => ({ iso: isoDay(date), date }));
+};
+
 const isFourDigitJob = (job) => /^\d{4}$/.test(String(job?.jobNumber ?? "").trim());
 
 const prettifyStatus = (raw) => {
@@ -180,22 +298,34 @@ const prettifyStatus = (raw) => {
 
 const statusColors = (label) => {
   switch (label) {
+    case "Confirmed":
+      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+    case "First Pencil":
+      return { bg: "#89caf5", text: "#111", border: "#0b0b0b" };
+    case "Second Pencil":
+      return { bg: "#f73939", text: "#fff", border: "#0b0b0b" };
+    case "Complete":
+      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
+    case "Action Required":
+      return { bg: "#FF973B", text: "#111", border: "#0b0b0b" };
+    case "Maintenance":
+      return { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" };
+    case "Bickers":
+      return { bg: "#ffffff", text: "#111", border: "#0b0b0b" };
+    case "Stunt":
+      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+    case "Holiday":
+      return { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" };
+    case "DNH":
+    case "Postponed":
+    case "Deleted":
+      return { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" };
     case "Ready to Invoice":
       return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
     case "Invoiced":
       return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
-    case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
-    case "Complete":
-      return { bg: "#dbeafe", border: "#bfdbfe", text: "#1e3a8a" };
-    case "Confirmed":
-      return { bg: "#fffd98", border: "#c7d134", text: "#504c1a" };
-    case "First Pencil":
-      return { bg: "#e0f2fe", border: "#bae6fd", text: "#075985" };
-    case "Second Pencil":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#7f1d1d" };
+      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
     case "Cancelled":
       return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
     case "Enquiry":
@@ -207,18 +337,47 @@ const statusColors = (label) => {
   }
 };
 
+const STACKED_STATUS_ORDER = [
+  "Complete",
+  "Confirmed",
+  "First Pencil",
+  "Second Pencil",
+  "Ready to Invoice",
+  "Invoiced",
+  "Paid",
+  "Action Required",
+  "Maintenance",
+  "Bickers",
+  "Stunt",
+  "Holiday",
+  "Enquiry",
+  "DNH",
+  "Postponed",
+  "Cancelled",
+  "Deleted",
+  "TBC",
+];
+
+const statusOrderIndex = (label) => {
+  const index = STACKED_STATUS_ORDER.indexOf(label);
+  return index === -1 ? STACKED_STATUS_ORDER.length : index;
+};
+
 const StatusBadge = ({ value }) => {
   const c = statusColors(value);
   return (
     <span
       style={{
-        padding: "6px 10px",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "4px 8px",
         fontSize: 11,
         borderRadius: 999,
         border: `1px solid ${c.border}`,
         background: c.bg,
         color: c.text,
-        fontWeight: 900,
+        fontWeight: 800,
         whiteSpace: "nowrap",
       }}
     >
@@ -241,6 +400,20 @@ const monthLabel = (ym) => {
   const [y, m] = ym.split("-");
   const d = new Date(Number(y), Number(m) - 1, 1);
   return d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+};
+
+const monthInputValue = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+const monthBounds = (ym) => {
+  const [rawYear, rawMonth] = String(ym || "").split("-").map(Number);
+  const now = new Date();
+  const year = rawYear || now.getFullYear();
+  const monthIndex = rawMonth ? rawMonth - 1 : now.getMonth();
+  const start = new Date(year, monthIndex, 1);
+  const end = new Date(year, monthIndex + 1, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
 };
 
 const toCrewNames = (employees) => {
@@ -266,7 +439,7 @@ const toVehicleTokens = (vehicles) => {
       if (typeof v === "object") {
         const name = v.name || [v.manufacturer, v.model].filter(Boolean).join(" ").trim();
         const reg = v.registration ? String(v.registration).toUpperCase() : "";
-        return reg ? `${name} – ${reg}` : name || "";
+        return reg ? `${name} - ${reg}` : name || "";
       }
       return "";
     })
@@ -337,14 +510,12 @@ const classifyLengthBucket = (days) => {
 
 const pct = (part, total) => (total ? Math.round((part / total) * 1000) / 10 : 0);
 
-/* ───────────────────────────────────────────
-   Hotel helpers ( updated: paidBy support)
-─────────────────────────────────────────── */
+/* Section */
 const num = (v) => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   const s = String(v ?? "").trim();
   if (!s) return 0;
-  const cleaned = s.replace(/[£$,]/g, "").replace(/\s+/g, "").replace(/,/g, ".");
+  const cleaned = s.replace(/gbp/gi, "").replace(/[£?$,]/g, "").replace(/\s+/g, "").replace(/,/g, ".");
   const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : 0;
 };
@@ -398,9 +569,7 @@ const getHotelForJob = (job = {}) => {
   };
 };
 
-/* ───────────────────────────────────────────
-   Shoot-day detection (robust to different schemas)
-─────────────────────────────────────────── */
+/* Section */
 const getNoteForISODate = (job, iso) => {
   if (!job || !iso) return "";
 
@@ -410,7 +579,18 @@ const getNoteForISODate = (job, iso) => {
     (job.noteByDate && job.noteByDate[iso]) ||
     "";
 
-  if (direct) return String(direct);
+  if (direct) {
+    const directText = String(direct);
+    if (norm(directText) === "other") {
+      return String(
+        (job.notesByDate && job.notesByDate[`${iso}-other`]) ||
+          (job.dayNotes && job.dayNotes[`${iso}-other`]) ||
+          (job.noteByDate && job.noteByDate[`${iso}-other`]) ||
+          directText
+      );
+    }
+    return directText;
+  }
 
   const scanArrays = (arr) => {
     if (!Array.isArray(arr)) return "";
@@ -437,47 +617,99 @@ const isShootNote = (note) => {
   return false;
 };
 
+const getCreditForNote = (note) => {
+  const s = norm(note).replace(/[-_]+/g, " ").replace(/\s+/g, " ");
+  if (!s) return 0;
+
+  if (
+    s.includes("1/2 travel day") ||
+    s.includes("1/2 day travel") ||
+    s.includes("half travel day") ||
+    s.includes("half day travel")
+  ) return 0.5;
+  if (s.includes("travel time")) return 0.25;
+  if (s.includes("onset") || s.includes("on set")) return 1;
+  if (s.includes("nightshoot") || s.includes("night shoot")) return 1;
+  if (s.includes("travel day")) return 1;
+  if (s.includes("split day") || s.includes("spilt day")) return 1;
+  if (s.includes("standby day") || s.includes("stand by day")) return 1;
+  if (s.includes("rehearsal day")) return 1;
+
+  return 0;
+};
+
+const getCreditSkipReason = (note, prettyStatus) => {
+  if (!shouldCountShootFromStatus(prettyStatus)) return `Status excluded: ${prettyStatus || "TBC"}`;
+  if (!String(note || "").trim()) return "No note saved for this date";
+  return "Note is not a credit type";
+};
+
+const formatCredits = (value) => {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+};
+
 const shouldCountShootFromStatus = (prettyStatus) => {
   const s = norm(prettyStatus);
   if (s.includes("cancel")) return false;
   if (s.includes("lost")) return false;
   if (s.includes("postpon")) return false;
+  if (s.includes("maintenance")) return false;
   if (s === "dnh") return false;
   return true;
 };
 
-/* ───────────────────────────────────────────
-   Minimal BarChart (no external libs)
-─────────────────────────────────────────── */
+const shouldCountBookingDayForStatus = (prettyStatus, date, today = new Date()) => {
+  const s = norm(prettyStatus);
+  const day = new Date(date);
+  day.setHours(0, 0, 0, 0);
+  const t = new Date(today);
+  t.setHours(0, 0, 0, 0);
+
+  if (day.getTime() < t.getTime()) {
+    return s === "complete" || s === "confirmed";
+  }
+
+  return s === "confirmed" || s === "first pencil" || s === "second pencil";
+};
+
+const isInactiveStatus = (prettyStatus) => {
+  const s = norm(prettyStatus);
+  return s === "dnh" || s.includes("postpon") || s.includes("cancel") || s.includes("lost") || s.includes("maintenance");
+};
+
+/* Section */
 function BarChart({ title, subtitle, data = [], rightLabel = "Count", valueFormatter }) {
   const max = Math.max(1, ...data.map((d) => d.value || 0));
   return (
-    <div style={{ ...surface, padding: 14 }}>
+    <div style={panel}>
       <div
         style={{
           display: "flex",
-          alignItems: "baseline",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 12,
           marginBottom: 10,
+          flexWrap: "wrap",
         }}
       >
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-          {subtitle ? <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>{subtitle}</div> : null}
+          <div style={sectionTitle}>{title}</div>
+          {subtitle ? <div style={{ ...sectionMeta, marginTop: 3 }}>{subtitle}</div> : null}
         </div>
-        <div style={{ ...chip }}>{rightLabel}</div>
+        <div style={chip}>{rightLabel}</div>
       </div>
 
-      <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gap: 8 }}>
         {data.length ? (
           data.map((row) => (
             <div
               key={row.label}
+              className="statistics-bar-row"
               style={{
                 display: "grid",
-                gridTemplateColumns: "140px 1fr 90px",
-                gap: 10,
+                gridTemplateColumns: "120px 1fr 80px",
+                gap: 8,
                 alignItems: "center",
               }}
             >
@@ -495,9 +727,9 @@ function BarChart({ title, subtitle, data = [], rightLabel = "Count", valueForma
               </div>
               <div
                 style={{
-                  background: "#eef2ff",
-                  border: "1px solid #e5e7eb",
-                  height: 12,
+                  background: "#edf3f8",
+                  border: UI.border,
+                  height: 10,
                   borderRadius: 999,
                   overflow: "hidden",
                 }}
@@ -523,10 +755,318 @@ function BarChart({ title, subtitle, data = [], rightLabel = "Count", valueForma
   );
 }
 
-/* ───────────────────────────────────────────
-   Page: Statistics
-   Route suggestion: /statistics
-─────────────────────────────────────────── */
+function StackedBarChart({ title, subtitle, data = [], rightLabel = "Count", valueFormatter }) {
+  const max = Math.max(1, ...data.map((row) => row.total || 0));
+  const segmentLabels = [];
+  const seen = new Set();
+
+  data.forEach((row) => {
+    (row.segments || []).forEach((segment) => {
+      if (!seen.has(segment.label)) {
+        seen.add(segment.label);
+        segmentLabels.push(segment.label);
+      }
+    });
+  });
+  segmentLabels.sort((a, b) => statusOrderIndex(a) - statusOrderIndex(b) || a.localeCompare(b));
+
+  return (
+    <div style={panel}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <div style={sectionTitle}>{title}</div>
+          {subtitle ? <div style={{ ...sectionMeta, marginTop: 3 }}>{subtitle}</div> : null}
+        </div>
+        <div style={chip}>{rightLabel}</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        {segmentLabels.map((label) => {
+          const colors = statusColors(label);
+          return (
+            <span key={label} style={{ ...chip, padding: "4px 8px", background: colors.bg, borderColor: colors.border, color: colors.text }}>
+              {label}
+            </span>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {data.length ? (
+          data.map((row) => (
+            <div
+              key={row.label}
+              className="statistics-bar-row"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "120px 1fr 80px",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: UI.text,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {row.label}
+              </div>
+              <div
+                title={(row.segments || []).map((s) => `${s.label}: ${s.value}`).join(", ")}
+                style={{
+                  background: "#edf3f8",
+                  border: UI.border,
+                  height: 12,
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  display: "flex",
+                  width: `${Math.max(2, (row.total / max) * 100)}%`,
+                  minWidth: 2,
+                }}
+              >
+                {(row.segments || []).map((segment) => {
+                  const colors = statusColors(segment.label);
+                  return (
+                    <div
+                      key={segment.label}
+                      style={{
+                        width: `${Math.max(0, (segment.value / row.total) * 100)}%`,
+                        height: "100%",
+                        background: colors.bg,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: "right", fontWeight: 900, fontSize: 13 }}>
+                {valueFormatter ? valueFormatter(row.total) : row.total}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div style={{ color: UI.muted, fontSize: 13 }}>No data.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Section */
+function AnalyticsSummarySection({ title, items = [] }) {
+  return (
+    <div style={panel}>
+      <div style={{ ...sectionTitle, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+        {items.map((item) => (
+          (() => {
+            const severity = severityStyles[item.severity] || severityStyles.neutral;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.onClick}
+                style={{
+                  border: `1px solid ${severity.border}`,
+                  borderRadius: UI.radius,
+                  padding: "9px 10px",
+                  background: severity.bg,
+                  textAlign: "left",
+                  cursor: item.onClick ? "pointer" : "default",
+                }}
+              >
+                <div style={{ ...statLabel, color: item.severity ? severity.text : UI.muted }}>{item.label}</div>
+                <div style={{ ...statValue, marginTop: 4, color: severity.text }}>{item.value}</div>
+              </button>
+            );
+          })()
+        ))}
+      </div>
+    </div>
+  );
+}
+function UsageTable({ title, rows = [], onRowClick }) {
+  return (
+    <div style={panel}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+        <div style={sectionTitle}>{title}</div>
+        <div style={sectionMeta}>{rows.length} item(s)</div>
+      </div>
+      <div style={{ display: "grid", gap: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 60px 86px 70px", gap: 8, ...statLabel }}>
+          <span>Name</span>
+          <span style={{ textAlign: "right" }}>Jobs</span>
+          <span style={{ textAlign: "right" }}>Days</span>
+          <span style={{ textAlign: "right" }}>Credits</span>
+        </div>
+        {rows.slice(0, 8).map((row) => (
+          <button
+            key={row.name}
+            type="button"
+            onClick={() => onRowClick?.(row)}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0,1fr) 60px 86px 70px",
+              gap: 8,
+              alignItems: "center",
+              border: "none",
+              borderTop: "1px solid #e7edf4",
+              padding: "6px 0 0",
+              background: "transparent",
+              color: UI.text,
+              fontSize: 13,
+              textAlign: "left",
+              cursor: onRowClick ? "pointer" : "default",
+            }}
+          >
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 800 }}>{row.name}</span>
+            <span style={{ textAlign: "right" }}>{row.count}</span>
+            <span style={{ textAlign: "right" }}>{row.bookingDays}</span>
+            <span style={{ textAlign: "right" }}>{formatCredits(row.credits)}</span>
+          </button>
+        ))}
+        {!rows.length && <div style={{ color: UI.muted, fontSize: 13 }}>No data for this filter.</div>}
+      </div>
+    </div>
+  );
+}
+
+function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
+  return (
+    <div style={panel}>
+      <div style={{ ...sectionTitle, marginBottom: 10 }}>Monthly performance</div>
+      <div style={{ display: "grid", gap: 6, overflowX: "auto" }}>
+        <div className="statistics-table-heading" style={{ display: "grid", gridTemplateColumns: "110px repeat(6, 1fr)", gap: 8, minWidth: 680, ...statLabel }}>
+          <span>Month</span>
+          <span>Bookings</span>
+          <span>Days</span>
+          <span>Credits</span>
+          <span>Shoot</span>
+          <span>Travel</span>
+          <span>Night</span>
+        </div>
+        {rows.slice(-12).map((row) => (
+          <button
+            key={row.month}
+            type="button"
+            onClick={() => onMonthClick?.(row)}
+            className="statistics-table-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "110px repeat(6, 1fr)",
+              gap: 8,
+              minWidth: 680,
+              border: "none",
+              borderTop: "1px solid #e7edf4",
+              padding: "6px 0 0",
+              background: "transparent",
+              color: UI.text,
+              fontSize: 13,
+              textAlign: "left",
+              cursor: onMonthClick ? "pointer" : "default",
+            }}
+          >
+            <b>{monthLabel(row.month)}</b>
+            <span>{row.bookings}</span>
+            <span>{row.bookingDays}</span>
+            <span>{formatCredits(row.credits)}</span>
+            <span>{row.shootDays}</span>
+            <span>{formatCredits(row.travelDays)}</span>
+            <span>{row.nightShoots}</span>
+          </button>
+        ))}
+        {!rows.length && <div style={{ color: UI.muted, fontSize: 13 }}>No monthly data in current filters.</div>}
+      </div>
+    </div>
+  );
+}
+
+function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
+  if (!drilldown) return null;
+
+  return (
+    <div style={{ ...panel, marginBottom: UI.gap, borderColor: UI.brandBorder }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        <div>
+          <div style={sectionTitle}>{drilldown.title}</div>
+          <div style={sectionMeta}>
+            {drilldown.bookings.length} booking{drilldown.bookings.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button type="button" onClick={onExport} disabled={!drilldown.bookings.length} style={{ ...chip, cursor: drilldown.bookings.length ? "pointer" : "not-allowed", opacity: drilldown.bookings.length ? 1 : 0.55 }}>
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button type="button" onClick={onClose} style={{ ...chip, cursor: "pointer" }}>
+            <X size={14} />
+            Clear
+          </button>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 6, overflowX: "auto" }}>
+        <div className="statistics-table-heading" style={{ display: "grid", gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px", gap: 8, minWidth: 1180, ...statLabel }}>
+          <span>Job #</span>
+          <span>Client</span>
+          <span>Status</span>
+          <span>First</span>
+          <span>Last</span>
+          <span>Days</span>
+          <span>Credits</span>
+          <span>Vehicles</span>
+          <span>Crew</span>
+        </div>
+        {drilldown.bookings.map((booking) => (
+          <Link
+            key={booking.id || booking.jobNumber}
+            href={`/view-booking/${booking.id}`}
+            className="statistics-table-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px",
+              gap: 8,
+              minWidth: 1180,
+              borderTop: "1px solid #e7edf4",
+              paddingTop: 6,
+              color: UI.text,
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+          >
+            <b>{booking.jobNumber || "-"}</b>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{booking.client || "-"}</span>
+            <span>{booking.status || "-"}</span>
+            <span>{booking.firstDate || "-"}</span>
+            <span>{booking.lastDate || "-"}</span>
+            <span>{booking.bookingDayCount}</span>
+            <span>{formatCredits(booking.creditTotal)}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {booking.vehicles?.map((vehicle) => formatVehicle(displayToken(vehicle))).filter(Boolean).join(", ") || "-"}
+            </span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {booking.employees?.map(displayToken).filter(Boolean).join(", ") || "-"}
+            </span>
+          </Link>
+        ))}
+        {!drilldown.bookings.length && <div style={{ color: UI.muted, fontSize: 13 }}>No matching bookings.</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function StatisticsPage() {
   const [bookings, setBookings] = useState([]);
   const [deletedBookings, setDeletedBookings] = useState([]);
@@ -537,8 +1077,20 @@ export default function StatisticsPage() {
   const [search, setSearch] = useState("");
   const searchRef = useRef(null);
 
-  const [rangeMode, setRangeMode] = useState("12m"); // 30d | 90d | 12m | all
+  const [rangeMode, setRangeMode] = useState("12m"); // 30d | 90d | 12m | month | all
+  const [selectedMonth, setSelectedMonth] = useState(() => monthInputValue(new Date()));
+  const [compareMonth, setCompareMonth] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return monthInputValue(d);
+  });
   const [statusFilter, setStatusFilter] = useState("All");
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
+  const [statusCategoryFilter, setStatusCategoryFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [vehicleFilter, setVehicleFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [drilldown, setDrilldown] = useState(null);
 
   // Live bookings
   useEffect(() => {
@@ -583,16 +1135,43 @@ export default function StatisticsPage() {
   }, []);
 
   const rangeStart = useMemo(() => {
+    if (rangeMode === "month") return monthBounds(selectedMonth).start;
     if (rangeMode === "all") return null;
     const d = new Date(todayMidnight);
     if (rangeMode === "30d") d.setDate(d.getDate() - 30);
     if (rangeMode === "90d") d.setDate(d.getDate() - 90);
     if (rangeMode === "12m") d.setFullYear(d.getFullYear() - 1);
     return d;
-  }, [rangeMode, todayMidnight]);
+  }, [rangeMode, selectedMonth, todayMidnight]);
+
+  const rangeEnd = useMemo(() => {
+    if (rangeMode === "month") return monthBounds(selectedMonth).end;
+    return null;
+  }, [rangeMode, selectedMonth]);
+
+  const filterRange = useMemo(() => {
+    const now = new Date(todayMidnight);
+    if (dateRangeFilter === "all" || dateRangeFilter === "custom") return { start: null, end: null };
+    if (dateRangeFilter === "thisMonth") {
+      return monthBounds(monthInputValue(now));
+    }
+    if (dateRangeFilter === "lastMonth") {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      return monthBounds(monthInputValue(d));
+    }
+    if (dateRangeFilter === "thisYear") {
+      const start = new Date(now.getFullYear(), 0, 1);
+      const end = new Date(now.getFullYear(), 11, 31);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    return { start: null, end: null };
+  }, [dateRangeFilter, todayMidnight]);
 
   // Only 4-digit jobs (same as your jobs home)
   const jobsAll = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
+  const allBookingAnalytics = useMemo(() => buildBookingAnalytics(jobsAll), [jobsAll]);
 
   // Resolve vehicle strings to name+reg (handles id, registration, or name)
   const resolveVehicleLabel = useCallback((token) => {
@@ -602,19 +1181,19 @@ export default function StatisticsPage() {
     if (byId) {
       const name = byId.name || [byId.manufacturer, byId.model].filter(Boolean).join(" ").trim() || "Vehicle";
       const reg = byId.registration ? String(byId.registration).toUpperCase() : "";
-      return reg ? `${name} – ${reg}` : name;
+      return reg ? `${name} - ${reg}` : name;
     }
     const byReg = vehicles.find((v) => String(v.registration || "").trim().toUpperCase() === needle.toUpperCase());
     if (byReg) {
       const name = byReg.name || [byReg.manufacturer, byReg.model].filter(Boolean).join(" ").trim() || "Vehicle";
       const reg = byReg.registration ? String(byReg.registration).toUpperCase() : "";
-      return reg ? `${name} – ${reg}` : name;
+      return reg ? `${name} - ${reg}` : name;
     }
     const byName = vehicles.find((v) => String(v.name || "").trim().toLowerCase() === needle.toLowerCase());
     if (byName) {
       const name = byName.name || [byName.manufacturer, byName.model].filter(Boolean).join(" ").trim() || "Vehicle";
       const reg = byName.registration ? String(byName.registration).toUpperCase() : "";
-      return reg ? `${name} – ${reg}` : name;
+      return reg ? `${name} - ${reg}` : name;
     }
     return needle;
   }, [vehicles]);
@@ -622,14 +1201,30 @@ export default function StatisticsPage() {
   const jobsFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return jobsAll.filter((j) => {
+      const normalised = normaliseBookingForAnalytics(j);
       const prettyStatus = prettifyStatus(j.status || "");
       if (statusFilter !== "All" && prettyStatus !== statusFilter) return false;
+      if (statusCategoryFilter !== "all" && normalised.statusCategory !== statusCategoryFilter) return false;
+      if (clientFilter !== "all" && normalised.client !== clientFilter) return false;
+      if (vehicleFilter !== "all" && !normalised.vehicles.some((vehicle) => resolveVehicleLabel(displayToken(vehicle)) === vehicleFilter)) return false;
+      if (employeeFilter !== "all" && !normalised.employees.some((employee) => displayToken(employee) === employeeFilter)) return false;
 
       const days = normaliseJobDates(j);
-      if (rangeStart) {
-        const anyInRange = days.some((d) => d.getTime() >= rangeStart.getTime());
+      if (filterRange.start) {
+        const startMs = filterRange.start.getTime();
+        const endMs = filterRange.end ? filterRange.end.getTime() : Infinity;
+        const analyticsDates = normalised.dates.map((date) => parseDate(date)).filter(Boolean);
+        const anyInRange = analyticsDates.some((d) => d.getTime() >= startMs && d.getTime() <= endMs);
         const created = parseDate(j.createdAt);
-        const createdInRange = created ? created.getTime() >= rangeStart.getTime() : false;
+        const createdInRange = created ? created.getTime() >= startMs && created.getTime() <= endMs : false;
+        if (!anyInRange && !createdInRange) return false;
+      }
+      if (rangeStart) {
+        const startMs = rangeStart.getTime();
+        const endMs = rangeEnd ? rangeEnd.getTime() : Infinity;
+        const anyInRange = days.some((d) => d.getTime() >= startMs && d.getTime() <= endMs);
+        const created = parseDate(j.createdAt);
+        const createdInRange = created ? created.getTime() >= startMs && created.getTime() <= endMs : false;
         if (!anyInRange && !createdInRange) return false;
       }
 
@@ -652,7 +1247,19 @@ export default function StatisticsPage() {
 
       return hay.includes(q);
     });
-  }, [jobsAll, search, statusFilter, rangeStart]);
+  }, [
+    clientFilter,
+    employeeFilter,
+    filterRange,
+    jobsAll,
+    rangeEnd,
+    rangeStart,
+    search,
+    resolveVehicleLabel,
+    statusCategoryFilter,
+    statusFilter,
+    vehicleFilter,
+  ]);
 
   const allPrettyStatuses = useMemo(() => {
     const set = new Set();
@@ -681,9 +1288,11 @@ export default function StatisticsPage() {
 
       const days = normaliseJobDates(j);
       if (rangeStart) {
-        const anyInRange = days.some((d) => d.getTime() >= rangeStart.getTime());
+        const startMs = rangeStart.getTime();
+        const endMs = rangeEnd ? rangeEnd.getTime() : Infinity;
+        const anyInRange = days.some((d) => d.getTime() >= startMs && d.getTime() <= endMs);
         const created = parseDate(j.createdAt || j.deletedAt);
-        const createdInRange = created ? created.getTime() >= rangeStart.getTime() : false;
+        const createdInRange = created ? created.getTime() >= startMs && created.getTime() <= endMs : false;
         if (!anyInRange && !createdInRange) return false;
       }
 
@@ -707,15 +1316,262 @@ export default function StatisticsPage() {
 
       return hay.includes(q);
     });
-  }, [deletedJobsNormalized, rangeStart, search, statusFilter]);
+  }, [deletedJobsNormalized, rangeStart, rangeEnd, search, statusFilter]);
+
+  const filteredBookings = jobsFiltered;
 
   const analyticsOutcomeJobs = useMemo(() => {
-    return [...jobsFiltered, ...deletedJobsFiltered];
-  }, [jobsFiltered, deletedJobsFiltered]);
+    return [...filteredBookings, ...deletedJobsFiltered];
+  }, [filteredBookings, deletedJobsFiltered]);
 
-  /* ───────────────────────────────────────────
-     Core analytics
-  ──────────────────────────────────────────── */
+  const analytics = useMemo(() => buildBookingAnalytics(filteredBookings), [filteredBookings]);
+
+  const resolveVehicleUsageRows = useCallback(
+    (rows = []) => {
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const name = resolveVehicleLabel(row.name);
+        const current = grouped.get(name) || {
+          name,
+          count: 0,
+          bookingDays: 0,
+          credits: 0,
+          bookingIds: [],
+        };
+        current.count += row.count || 0;
+        current.bookingDays += row.bookingDays || 0;
+        current.credits += row.credits || 0;
+        current.bookingIds = Array.from(new Set([...current.bookingIds, ...(row.bookingIds || [])]));
+        grouped.set(name, current);
+      });
+      return Array.from(grouped.values()).sort(
+        (a, b) => b.count - a.count || b.bookingDays - a.bookingDays || a.name.localeCompare(b.name)
+      );
+    },
+    [resolveVehicleLabel]
+  );
+
+  const resolvedTopVehicles = useMemo(
+    () => resolveVehicleUsageRows(analytics.topVehicles),
+    [analytics.topVehicles, resolveVehicleUsageRows]
+  );
+
+  const resolvedAllTopVehicles = useMemo(
+    () => resolveVehicleUsageRows(allBookingAnalytics.topVehicles),
+    [allBookingAnalytics.topVehicles, resolveVehicleUsageRows]
+  );
+
+  const clientOptions = useMemo(
+    () => ["all", ...allBookingAnalytics.topClients.map((row) => row.name).sort((a, b) => a.localeCompare(b))],
+    [allBookingAnalytics.topClients]
+  );
+  const vehicleOptions = useMemo(
+    () => ["all", ...resolvedAllTopVehicles.map((row) => row.name).sort((a, b) => a.localeCompare(b))],
+    [resolvedAllTopVehicles]
+  );
+  const employeeOptions = useMemo(
+    () => ["all", ...allBookingAnalytics.topEmployees.map((row) => row.name).sort((a, b) => a.localeCompare(b))],
+    [allBookingAnalytics.topEmployees]
+  );
+
+  const drilldownBookingsByIds = useCallback(
+    (title, ids = []) => {
+      const wanted = new Set(ids);
+      setDrilldown({
+        title,
+        bookings: analytics.bookings.filter((booking) => wanted.has(booking.id)),
+      });
+    },
+    [analytics.bookings]
+  );
+
+  const drilldownByPredicate = useCallback(
+    (title, predicate) => {
+      setDrilldown({
+        title,
+        bookings: analytics.bookings.filter(predicate),
+      });
+    },
+    [analytics.bookings]
+  );
+
+  const clearFilters = () => {
+    setSearch("");
+    setDateRangeFilter("all");
+    setStatusCategoryFilter("all");
+    setClientFilter("all");
+    setVehicleFilter("all");
+    setEmployeeFilter("all");
+    setStatusFilter("All");
+    setDrilldown(null);
+    searchRef.current?.focus();
+  };
+
+  const activeFilterLabels = useMemo(() => {
+    const labels = [];
+    if (search.trim()) labels.push(`Search: "${search.trim()}"`);
+    if (dateRangeFilter !== "all") {
+      const names = { thisMonth: "This month", lastMonth: "Last month", thisYear: "This year", custom: "Custom later" };
+      labels.push(`Date: ${names[dateRangeFilter] || dateRangeFilter}`);
+    }
+    if (statusCategoryFilter !== "all") labels.push(`Category: ${statusCategoryFilter}`);
+    if (clientFilter !== "all") labels.push(`Client: ${clientFilter}`);
+    if (vehicleFilter !== "all") labels.push(`Vehicle: ${vehicleFilter}`);
+    if (employeeFilter !== "all") labels.push(`Crew: ${employeeFilter}`);
+    if (statusFilter !== "All") labels.push(`Status: ${statusFilter}`);
+    return labels;
+  }, [clientFilter, dateRangeFilter, employeeFilter, search, statusCategoryFilter, statusFilter, vehicleFilter]);
+
+  const hasActiveFilters = activeFilterLabels.length > 0;
+
+  const getActiveFilterSummary = () => {
+    if (!hasActiveFilters) return "Showing all bookings";
+    const bits = [];
+    if (statusCategoryFilter !== "all") bits.push(`${statusCategoryFilter} bookings`);
+    else bits.push(`${analytics.totals.bookingCount} filtered bookings`);
+    if (dateRangeFilter !== "all") {
+      const names = { thisMonth: "this month", lastMonth: "last month", thisYear: "this year", custom: "custom range" };
+      bits.push(`for ${names[dateRangeFilter] || dateRangeFilter}`);
+    }
+    if (clientFilter !== "all") bits.push(`for ${clientFilter}`);
+    if (vehicleFilter !== "all") bits.push(`using ${vehicleFilter}`);
+    if (employeeFilter !== "all") bits.push(`with ${employeeFilter}`);
+    if (search.trim()) bits.push(`matching "${search.trim()}"`);
+    return `Showing ${bits.join(" ")}`;
+  };
+
+  const dataQualityCards = [
+    { key: "missingDates", label: "Missing dates", severity: "high", title: "Missing dates", match: (booking) => !booking.dates.length },
+    { key: "missingStatus", label: "Missing status", severity: "high", title: "Missing status", match: (booking) => !String(booking.status || "").trim() || booking.status === "Unknown" },
+    { key: "invalidJobNumber", label: "Invalid job number", severity: "high", title: "Invalid job number", match: (booking) => String(booking.jobNumber || "").trim() && !/^\d{4}$/.test(String(booking.jobNumber || "").trim()) },
+    { key: "missingQuote", label: "Missing quote", severity: "medium", title: "Missing quote", match: (booking) => !booking.hasQuote },
+    { key: "missingAttachments", label: "Missing attachments", severity: "medium", title: "Missing attachments", match: (booking) => !booking.hasAttachments },
+    { key: "missingNotes", label: "Missing notes", severity: "medium", title: "Missing notes", match: (booking) => !booking.hasGeneralNotes },
+    { key: "oldSchemaBookings", label: "Old schema bookings", severity: "neutral", title: "Old schema bookings", match: (booking) => booking.hasOldSchemaOnly },
+  ];
+
+  const exportAnalyticsSummary = () => {
+    const totals = analytics.totals;
+    const finance = analytics.financeReadiness;
+    const hotels = analytics.hotelStats;
+    downloadCSV("statistics-summary.csv", [
+      ["Metric", "Value"],
+      ["Jobs", totals.bookingCount],
+      ["Booking days", totals.bookingDays],
+      ["Credits", formatCredits(totals.credits)],
+      ["Travel days", formatCredits(totals.travelDays)],
+      ["Night shoots", totals.nightShoots],
+      ["Confirmed", totals.confirmed],
+      ["Tentative", totals.tentative],
+      ["Won", totals.won],
+      ["Lost", totals.lost],
+      ["Conversion rate", `${totals.conversionRate}%`],
+      ["Ready to invoice", finance.readyToInvoice],
+      ["Paid", finance.paid],
+      ["Hotel jobs", hotels.hotelJobs],
+      ["Hotel nights", hotels.totalHotelNights],
+      ["Total hotel cost", hotels.totalHotelCost],
+      ["Bickers payable hotel cost", hotels.bickersPayableHotelCost],
+    ]);
+  };
+
+  const exportDrilldown = () => {
+    const rows = drilldown?.bookings?.length ? drilldown.bookings : analytics.bookings;
+    downloadCSV(
+      "statistics-drilldown.csv",
+      [
+        ["Job number", "Client", "Status", "First date", "Last date", "Booking days", "Credits", "Vehicles", "Crew"],
+        ...rows.map((booking) => [
+          booking.jobNumber,
+          booking.client,
+          booking.status,
+          booking.firstDate,
+          booking.lastDate,
+          booking.bookingDayCount,
+          formatCredits(booking.creditTotal),
+          booking.vehicles?.map((vehicle) => resolveVehicleLabel(displayToken(vehicle))).filter(Boolean).join("; "),
+          booking.employees?.map(displayToken).filter(Boolean).join("; "),
+        ]),
+      ]
+    );
+  };
+
+  const monthComparison = useMemo(() => {
+    if (rangeMode !== "month") return null;
+
+    const current = monthBounds(selectedMonth);
+    const previous = monthBounds(compareMonth);
+    const q = search.trim().toLowerCase();
+
+    const inWindow = (job, bounds) => {
+      const days = normaliseJobDates(job);
+      const startMs = bounds.start.getTime();
+      const endMs = bounds.end.getTime();
+      const anyDate = days.some((d) => d.getTime() >= startMs && d.getTime() <= endMs);
+      const created = parseDate(job.createdAt);
+      const createdInWindow = created ? created.getTime() >= startMs && created.getTime() <= endMs : false;
+      return anyDate || createdInWindow;
+    };
+
+    const matchesCommonFilters = (job) => {
+      const prettyStatus = prettifyStatus(job.status || "");
+      if (statusFilter !== "All" && prettyStatus !== statusFilter) return false;
+      if (!q) return true;
+
+      const hay = [
+        job.id,
+        job.jobNumber,
+        job.client,
+        job.location,
+        job.notes,
+        prettyStatus,
+        ...(toCrewNames(job.employees) || []),
+        ...(toVehicleTokens(job.vehicles) || []),
+        ...(toEquipmentTokens(job.equipment) || []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return hay.includes(q);
+    };
+
+    const summarise = (bounds) => {
+      const rows = jobsAll.filter((job) => matchesCommonFilters(job) && inWindow(job, bounds));
+      let bookingDays = 0;
+      let shootDays = 0;
+
+      for (const job of rows) {
+        const pretty = prettifyStatus(job.status || "");
+        const days = normaliseJobDates(job).filter(
+          (d) => d.getTime() >= bounds.start.getTime() && d.getTime() <= bounds.end.getTime()
+        );
+        bookingDays += days.length;
+        if (!shouldCountShootFromStatus(pretty)) continue;
+        for (const d of days) {
+          if (isShootNote(getNoteForISODate(job, isoDay(d)))) shootDays += 1;
+        }
+      }
+
+      return { jobs: rows.length, bookingDays, shootDays };
+    };
+
+    const currentStats = summarise(current);
+    const previousStats = summarise(previous);
+    const delta = (key) => currentStats[key] - previousStats[key];
+
+    return {
+      currentLabel: monthLabel(selectedMonth),
+      previousLabel: monthLabel(compareMonth),
+      current: currentStats,
+      previous: previousStats,
+      deltaJobs: delta("jobs"),
+      deltaBookingDays: delta("bookingDays"),
+      deltaShootDays: delta("shootDays"),
+    };
+  }, [compareMonth, jobsAll, rangeMode, search, selectedMonth, statusFilter]);
+
+  /* Section */
   const kpis = useMemo(() => {
     const totalJobs = jobsFiltered.length;
 
@@ -771,11 +1627,45 @@ export default function StatisticsPage() {
   const jobsByMonth = useMemo(() => {
     const m = new Map();
     for (const j of jobsFiltered) {
-      const ds = normaliseJobDates(j);
-      for (const d of ds) inc(m, yyyymm(d), 1);
+      const pretty = prettifyStatus(j.status || "");
+      for (const { date } of getJobDateEntries(j)) {
+        if (!shouldCountBookingDayForStatus(pretty, date, todayMidnight)) continue;
+        const monthKey = yyyymm(date);
+        if (!m.has(monthKey)) m.set(monthKey, new Map());
+        inc(m.get(monthKey), pretty, 1);
+      }
     }
     const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    return entries.slice(-12).map(([label, value]) => ({ label: monthLabel(label), value }));
+    return entries.slice(-12).map(([label, statusMap]) => {
+      const segments = [...statusMap.entries()]
+        .sort((a, b) => statusOrderIndex(a[0]) - statusOrderIndex(b[0]) || a[0].localeCompare(b[0]))
+        .map(([status, value]) => ({ label: status, value }));
+      const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+      return { label: monthLabel(label), total, segments };
+    });
+  }, [jobsFiltered, todayMidnight]);
+
+  const bookingsByMonth = useMemo(() => {
+    const m = new Map();
+    for (const j of jobsFiltered) {
+      const pretty = prettifyStatus(j.status || "");
+      if (isInactiveStatus(pretty)) continue;
+      const entries = getJobDateEntries(j);
+      const anchor = entries[0]?.date || parseDate(j.createdAt);
+      if (!anchor) continue;
+      const monthKey = yyyymm(anchor);
+      if (!m.has(monthKey)) m.set(monthKey, new Map());
+      inc(m.get(monthKey), pretty, 1);
+    }
+
+    const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.slice(-12).map(([label, statusMap]) => {
+      const segments = [...statusMap.entries()]
+        .sort((a, b) => statusOrderIndex(a[0]) - statusOrderIndex(b[0]) || a[0].localeCompare(b[0]))
+        .map(([status, value]) => ({ label: status, value }));
+      const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+      return { label: monthLabel(label), total, segments };
+    });
   }, [jobsFiltered]);
 
   // Shoot days per month
@@ -785,16 +1675,86 @@ export default function StatisticsPage() {
       const pretty = prettifyStatus(j.status || "");
       if (!shouldCountShootFromStatus(pretty)) continue;
 
-      const ds = normaliseJobDates(j);
-      for (const d of ds) {
-        const iso = isoDay(d);
+      for (const { date, iso } of getJobDateEntries(j)) {
         const note = getNoteForISODate(j, iso);
-        if (isShootNote(note)) inc(m, yyyymm(d), 1);
+        if (!isShootNote(note)) continue;
+        const monthKey = yyyymm(date);
+        if (!m.has(monthKey)) m.set(monthKey, new Map());
+        inc(m.get(monthKey), pretty, 1);
       }
     }
     const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    return entries.slice(-12).map(([label, value]) => ({ label: monthLabel(label), value }));
+    return entries.slice(-12).map(([label, statusMap]) => {
+      const segments = [...statusMap.entries()]
+        .sort((a, b) => statusOrderIndex(a[0]) - statusOrderIndex(b[0]) || a[0].localeCompare(b[0]))
+        .map(([status, value]) => ({ label: status, value }));
+      const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+      return { label: monthLabel(label), total, segments };
+    });
   }, [jobsFiltered]);
+
+  const creditsByMonth = useMemo(() => {
+    const m = new Map();
+    for (const j of jobsFiltered) {
+      const pretty = prettifyStatus(j.status || "");
+      if (!shouldCountShootFromStatus(pretty)) continue;
+
+      const entries = getJobDateEntries(j);
+      for (const { date, iso } of entries) {
+        const note = getNoteForISODate(j, iso);
+        const credit = getCreditForNote(note);
+        if (credit <= 0) continue;
+        const monthKey = yyyymm(date);
+        if (!m.has(monthKey)) m.set(monthKey, new Map());
+        inc(m.get(monthKey), pretty, credit);
+      }
+    }
+
+    const entries = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.slice(-12).map(([label, statusMap]) => {
+      const segments = [...statusMap.entries()]
+        .sort((a, b) => statusOrderIndex(a[0]) - statusOrderIndex(b[0]) || a[0].localeCompare(b[0]))
+        .map(([status, value]) => ({ label: status, value: Math.round(value * 100) / 100 }));
+      const total = Math.round(segments.reduce((sum, segment) => sum + segment.value, 0) * 100) / 100;
+      return { label: monthLabel(label), total, segments };
+    });
+  }, [jobsFiltered]);
+
+  const creditBreakdownByMonth = useMemo(() => {
+    const rows = [];
+    for (const j of jobsFiltered) {
+      const pretty = prettifyStatus(j.status || "");
+      const statusCounts = shouldCountShootFromStatus(pretty);
+
+      for (const { date, iso } of getJobDateEntries(j)) {
+        const note = getNoteForISODate(j, iso);
+        const credit = statusCounts ? getCreditForNote(note) : 0;
+        rows.push({
+          month: yyyymm(date),
+          date: iso,
+          jobNumber: j.jobNumber || j.id || "",
+          client: j.client || "",
+          note,
+          credit,
+          counted: credit > 0,
+          reason: credit > 0 ? "Counted" : getCreditSkipReason(note, pretty),
+        });
+      }
+    }
+    return rows;
+  }, [jobsFiltered]);
+
+  const selectedMonthCreditRows = useMemo(() => {
+    const key = rangeMode === "month" ? selectedMonth : yyyymm(todayMidnight);
+    return creditBreakdownByMonth
+      .filter((row) => row.month === key)
+      .sort((a, b) => a.date.localeCompare(b.date) || String(a.jobNumber).localeCompare(String(b.jobNumber)));
+  }, [creditBreakdownByMonth, rangeMode, selectedMonth, todayMidnight]);
+
+  const totalCredits = useMemo(
+    () => Math.round(creditsByMonth.reduce((sum, row) => sum + Number(row.total || 0), 0) * 100) / 100,
+    [creditsByMonth]
+  );
 
   const shootKpis = useMemo(() => {
     const monthKeyNow = yyyymm(todayMidnight);
@@ -824,7 +1784,7 @@ export default function StatisticsPage() {
     return { totalShootDays, thisMonth, avgPerMonth, monthsWithDataCount: monthsWithData.length };
   }, [jobsFiltered, todayMidnight]);
 
-  /*  UPDATED: Hotel KPIs + hotel cost per month (paidBy aware) */
+  /* Hotel KPIs + hotel cost per month, paidBy aware. */
   const hotelStats = useMemo(() => {
     let hotelJobs = 0;
     let hotelNights = 0;
@@ -836,7 +1796,7 @@ export default function StatisticsPage() {
     let productionPaidHotelJobs = 0;
     let productionPaidHotelNights = 0;
 
-    const monthCost = new Map(); // yyyy-mm -> £ (non-production-paid only)
+    const monthCost = new Map(); // yyyy-mm -> non-production-paid cost only.
     const monthNights = new Map(); // nights for non-production-paid only
 
     for (const j of jobsFiltered) {
@@ -1086,13 +2046,13 @@ export default function StatisticsPage() {
 
   const topClients = useMemo(() => {
     const m = new Map();
-    for (const j of jobsFiltered) inc(m, (j.client || "—").trim(), 1);
+    for (const j of jobsFiltered) inc(m, (j.client || "-").trim(), 1);
     return clampTopN(m.entries(), 8).map(([label, value]) => ({ label, value }));
   }, [jobsFiltered]);
 
   const topLocations = useMemo(() => {
     const m = new Map();
-    for (const j of jobsFiltered) inc(m, (j.location || "—").trim(), 1);
+    for (const j of jobsFiltered) inc(m, (j.location || "-").trim(), 1);
     return clampTopN(m.entries(), 8).map(([label, value]) => ({ label, value }));
   }, [jobsFiltered]);
 
@@ -1145,7 +2105,7 @@ export default function StatisticsPage() {
     const last = ds[ds.length - 1] || null;
 
     const datesLabel =
-      first && last ? `${fmtDDMMYY(first)} – ${fmtDDMMYY(last)}` : first ? fmtDDMMYY(first) : "TBC";
+      first && last ? `${fmtDDMMYY(first)} - ${fmtDDMMYY(last)}` : first ? fmtDDMMYY(first) : "TBC";
 
     const pretty = prettifyStatus(j.status || "");
 
@@ -1153,21 +2113,22 @@ export default function StatisticsPage() {
       <Link
         key={j.id}
         href={`/job-numbers/${j.id}`}
+        className="statistics-job-row"
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(180px,1fr) 160px 120px auto",
-          gap: 10,
-          padding: "10px 12px",
-          borderTop: "1px solid #f1f5f9",
+          gap: 8,
+          padding: "8px 10px",
+          borderTop: "1px solid #e7edf4",
           textDecoration: "none",
           color: UI.text,
         }}
       >
-        <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          #{j.jobNumber || j.id} • {j.client || "—"}
+        <div style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          #{j.jobNumber || j.id} - {j.client || "-"}
         </div>
         <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {j.location || "—"}
+          {j.location || "-"}
         </div>
         <div style={{ fontSize: 13, whiteSpace: "nowrap" }}>{datesLabel}</div>
         <div style={{ justifySelf: "end" }}>
@@ -1180,16 +2141,32 @@ export default function StatisticsPage() {
   const navCard = (href, title, subtitle, pillTxt) => (
     <Link
       href={href}
-      style={card}
+      style={{
+        ...surface,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        padding: "10px 12px",
+        minHeight: 54,
+        textDecoration: "none",
+        color: UI.text,
+        transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
+      }}
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-      onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
+      onMouseLeave={(e) =>
+        Object.assign(e.currentTarget.style, {
+          transform: "none",
+          boxShadow: UI.shadowSm,
+          borderColor: "#d7dee8",
+        })
+      }
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-        <span style={{ ...chip }}>{pillTxt}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ ...sectionMeta, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{subtitle}</div>
       </div>
-      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
-      <div style={{ marginTop: 10, fontWeight: 800, color: UI.brand }}>Open →</div>
+      <span style={{ ...chip, padding: "5px 8px", fontSize: 11, flexShrink: 0 }}>{pillTxt}</span>
     </Link>
   );
 
@@ -1201,58 +2178,86 @@ export default function StatisticsPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{statisticsCss}</style>
       <div style={pageWrap}>
-        {/* Header */}
         <div style={headerBar}>
           <div>
-            <h1 style={h1}>Statistics</h1>
+            <h1 style={{ ...h1, display: "flex", alignItems: "center", gap: 8 }}>
+              <BarChart3 size={22} color={UI.brand} />
+              Statistics
+            </h1>
             <div style={sub}>
-              Operational analytics (jobs, days, status, vehicles, crew). Dates shown as <b>dd/mm/yy</b>.
+              Live booking insights across pipeline, operations, finance and utilisation.
+            </div>
+            <div style={{ ...sectionMeta, marginTop: 6 }}>
+              {getActiveFilterSummary()}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={{ ...chip }}>{loading ? "Loading…" : `${jobsAll.length} jobs`}</div>
-            <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
+          <div className="statistics-header-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={chip}>
+              <BriefcaseBusiness size={14} />
+              {loading ? "Loading..." : `${jobsAll.length} jobs`}
+            </div>
+            <div style={{ ...chip, background: UI.successSoft, borderColor: "#bbf7d0", color: UI.successText }}>
+              <Filter size={14} />
               Filtered: <b style={{ marginLeft: 6 }}>{jobsFiltered.length}</b>
             </div>
-            <div style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>
+            <div style={{ ...chip, background: UI.warningSoft, borderColor: UI.warningBorder }}>
+              <CalendarDays size={14} />
               Deleted in scope: <b style={{ marginLeft: 6 }}>{deletedJobsFiltered.length}</b>
             </div>
+            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+              <Download size={14} />
+              Export summary CSV
+            </button>
+            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+              <Download size={14} />
+              Export drill-down CSV
+            </button>
           </div>
         </div>
 
-        {/* Controls */}
-        <div style={{ ...surface, padding: 14, marginBottom: UI.gap }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+        <div style={{ ...panel, marginBottom: UI.gap }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 8 }}>
+                <SlidersHorizontal size={16} color={UI.brand} />
+                Filters
+              </div>
+              <div style={sectionMeta}>Refine the dashboard before analytics are calculated.</div>
+            </div>
+            {hasActiveFilters && (
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+                <X size={14} />
+                Clear filters
+              </button>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <div style={{ position: "relative" }}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ position: "absolute", left: 10, top: 10, width: 18, height: 18, opacity: 0.6 }}
+              <Search
+                size={16}
+                color={UI.muted}
+                style={{ position: "absolute", left: 10, top: 10, pointerEvents: "none" }}
                 aria-hidden
-              >
-                <path
-                  d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              />
               <input
                 ref={searchRef}
                 type="text"
-                placeholder="Search job #, client, location, notes, crew, vehicle…"
+                placeholder="Search job #, client, location, notes, crew, vehicle..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "10px 12px 10px 36px",
+                  minHeight: 36,
+                  padding: "7px 9px 7px 34px",
                   borderRadius: UI.radiusSm,
-                  border: "1px solid #d1d5db",
-                  fontSize: 14,
+                  border: UI.border,
+                  fontSize: 13.5,
                   outline: "none",
                   background: "#fff",
+                  color: UI.text,
+                  boxSizing: "border-box",
                 }}
               />
             </div>
@@ -1260,38 +2265,49 @@ export default function StatisticsPage() {
             <select
               value={rangeMode}
               onChange={(e) => setRangeMode(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: UI.radiusSm,
-                border: "1px solid #d1d5db",
-                fontSize: 14,
-                outline: "none",
-                background: "#fff",
-                fontWeight: 800,
-                color: UI.text,
-              }}
+              style={{ ...filterSelectStyle, fontWeight: 800 }}
             >
               <option value="30d">Range: last 30 days</option>
               <option value="90d">Range: last 90 days</option>
               <option value="12m">Range: last 12 months</option>
+              <option value="month">Compare: two months</option>
               <option value="all">Range: all time</option>
             </select>
+
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value || monthInputValue(new Date()))}
+              disabled={rangeMode !== "month"}
+              title="Month A"
+              style={{
+                ...filterSelectStyle,
+                background: rangeMode === "month" ? "#fff" : "#f8fbfd",
+                fontWeight: 800,
+                color: rangeMode === "month" ? UI.text : UI.muted,
+                cursor: rangeMode === "month" ? "pointer" : "not-allowed",
+              }}
+            />
+
+            <input
+              type="month"
+              value={compareMonth}
+              onChange={(e) => setCompareMonth(e.target.value || selectedMonth)}
+              disabled={rangeMode !== "month"}
+              title="Month B"
+              style={{
+                ...filterSelectStyle,
+                background: rangeMode === "month" ? "#fff" : "#f8fbfd",
+                fontWeight: 800,
+                color: rangeMode === "month" ? UI.text : UI.muted,
+                cursor: rangeMode === "month" ? "pointer" : "not-allowed",
+              }}
+            />
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: UI.radiusSm,
-                border: "1px solid #d1d5db",
-                fontSize: 14,
-                outline: "none",
-                background: "#fff",
-                fontWeight: 800,
-                color: UI.text,
-              }}
+              style={{ ...filterSelectStyle, fontWeight: 800 }}
             >
               {allPrettyStatuses.map((s) => (
                 <option key={s} value={s}>
@@ -1301,33 +2317,117 @@ export default function StatisticsPage() {
             </select>
           </div>
 
-          <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
-            Tip: click any preview job row to open its job page. Vehicle counts resolve to <b>Name – REG</b> where possible.
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 12 }}>
+            <select value={dateRangeFilter} onChange={(e) => setDateRangeFilter(e.target.value)} style={filterSelectStyle}>
+              <option value="all">Date: All time</option>
+              <option value="thisMonth">Date: This month</option>
+              <option value="lastMonth">Date: Last month</option>
+              <option value="thisYear">Date: This year</option>
+              <option value="custom">Date: Custom later</option>
+            </select>
+
+            <select value={statusCategoryFilter} onChange={(e) => setStatusCategoryFilter(e.target.value)} style={filterSelectStyle}>
+              <option value="all">Category: All</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="tentative">Tentative</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
+              <option value="open">Open</option>
+            </select>
+
+            <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={filterSelectStyle}>
+              {clientOptions.map((client) => (
+                <option key={client} value={client}>
+                  {client === "all" ? "All clients" : client}
+                </option>
+              ))}
+            </select>
+
+            <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} style={filterSelectStyle}>
+              {vehicleOptions.map((vehicle) => (
+                <option key={vehicle} value={vehicle}>
+                  {vehicle === "all" ? "All vehicles" : vehicle}
+                </option>
+              ))}
+            </select>
+
+            <select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} style={filterSelectStyle}>
+              {employeeOptions.map((employee) => (
+                <option key={employee} value={employee}>
+                  {employee === "all" ? "All crew" : employee}
+                </option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
+              <button type="button" onClick={clearFilters} style={{ ...filterSelectStyle, cursor: "pointer", fontWeight: 900 }}>
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: 10, ...sectionMeta }}>
+            {rangeMode === "month" && monthComparison ? (
+              <>
+                Comparing <b>{monthComparison.currentLabel}</b> with <b>{monthComparison.previousLabel}</b>.
+                {" "}Jobs: <b>{monthComparison.current.jobs}</b> ({monthComparison.deltaJobs >= 0 ? "+" : ""}
+                {monthComparison.deltaJobs}) - Booking days: <b>{monthComparison.current.bookingDays}</b> (
+                {monthComparison.deltaBookingDays >= 0 ? "+" : ""}
+                {monthComparison.deltaBookingDays}) - Shoot days: <b>{monthComparison.current.shootDays}</b> (
+                {monthComparison.deltaShootDays >= 0 ? "+" : ""}
+                {monthComparison.deltaShootDays})
+              </>
+            ) : (
+              <>
+                Tip: click any preview job row to open its job page. Vehicle counts resolve to <b>Name - REG</b> where possible.
+              </>
+            )}
           </div>
         </div>
 
-        {/* Shortcut tiles */}
-        <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>Shortcuts</div>
-            <div style={{ color: UI.muted, fontSize: 12 }}>Jump into related pages</div>
+        <DrilldownPanel
+          drilldown={drilldown}
+          onClose={() => setDrilldown(null)}
+          onExport={exportDrilldown}
+          formatVehicle={resolveVehicleLabel}
+        />
+
+        {!loading && jobsFiltered.length === 0 && (
+          <div style={{ ...panel, marginBottom: UI.gap, textAlign: "center", borderColor: UI.brandBorder }}>
+            <div style={{ ...sectionTitle, fontSize: 18 }}>No bookings match these filters</div>
+            <div style={{ ...sectionMeta, marginTop: 6 }}>
+              Broaden the date range, clear a client/vehicle/crew filter, or reset everything to return to the full dashboard.
+            </div>
+            {hasActiveFilters && (
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "#fff", marginTop: 12 }}>
+                <X size={14} />
+                Clear filters
+              </button>
+            )}
           </div>
-          <div style={grid(4)}>
+        )}
+
+        <div style={{ marginBottom: UI.gap }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+            <div style={sectionTitle}>Shortcuts</div>
+            <div style={sectionMeta}>Jump into related pages</div>
+          </div>
+          <div className="statistics-shortcuts" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
             {navCard("/job-sheet", "Job Sheet", "All jobs table", `${jobsAll.length}`)}
             {navCard("/client-info", "Client Info", "Client list and history", "Directory")}
             {navCard("/client-emails", "Client Emails", "Collated email list from jobs", "Contacts")}
             {navCard("/saved-contacts", "Manage Saved Contacts", "Edit or remove saved booking contacts", "Contacts")}
-            {navCard("/review-queue", "Review Queue", "Ops review stage", "Open →")}
-            {navCard("/finance-queue", "Ready to Invoice", "Finance queue", "Open →")}
+            {navCard("/review-queue", "Review Queue", "Ops review stage", "Open")}
+            {navCard("/finance-queue", "Ready to Invoice", "Finance queue", "Open")}
             {navCard("/deleted-bookings", "Deleted Bookings", "Restore / purge", `${deletedBookings.length}`)}
           </div>
         </div>
 
         {/* KPI cards */}
         <div style={{ marginBottom: UI.gap }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>At a glance</div>
-            <div style={{ color: UI.muted, fontSize: 12 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
+            <div style={sectionTitle}>At a glance</div>
+            <div style={sectionMeta}>
               Range start: <span style={mono}>{rangeStart ? fmtDDMMYY(rangeStart) : "All time"}</span>
             </div>
           </div>
@@ -1335,28 +2435,46 @@ export default function StatisticsPage() {
           <div style={kpiGrid}>
             <div style={{ ...card, padding: 12 }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Jobs</div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.totalJobs}</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{analytics.totals.bookingCount}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Filtered</div>
             </div>
 
             <div style={{ ...card, padding: 12 }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Booking days</div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.totalDays}</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{analytics.totals.bookingDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Sum of dates</div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#dbeafe" }}>
+            <div style={{ ...card, padding: 12, borderColor: UI.brandBorder }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Credits</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{formatCredits(analytics.totals.credits)}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>From day notes</div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: UI.brandBorder }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Travel days</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{formatCredits(analytics.totals.travelDays)}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Travel + half travel + travel time</div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: UI.brandBorder }}>
+              <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Night shoots</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{analytics.totals.nightShoots}</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Night shoot day notes</div>
+            </div>
+
+            <div style={{ ...card, padding: 12, borderColor: UI.brandBorder }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Shoot days / month</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{shootKpis.avgPerMonth}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
-                Avg across <b>{shootKpis.monthsWithDataCount}</b> month(s) • This month: <b>{shootKpis.thisMonth}</b>
+                Avg across <b>{shootKpis.monthsWithDataCount}</b> month(s) - This month: <b>{shootKpis.thisMonth}</b>
               </div>
             </div>
 
             <div style={{ ...card, padding: 12 }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Upcoming</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{kpis.upcomingJobs}</div>
-              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date ≥ today</div>
+              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date &gt;= today</div>
             </div>
 
             <div style={{ ...card, padding: 12, borderColor: "#d1fae5" }}>
@@ -1431,16 +2549,14 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            {/*  UPDATED: Hotel cost excludes Production-paid */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
-                {hotelStats.payableHotelJobs} job(s) • {hotelStats.payableHotelNights} night(s)
+                {hotelStats.payableHotelJobs} job(s) - {hotelStats.payableHotelNights} night(s)
               </div>
             </div>
 
-            {/*  UPDATED: Avg hotel / night payable */}
             <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
@@ -1497,13 +2613,15 @@ export default function StatisticsPage() {
               <span style={{ ...chip, background: "#fffbeb", borderColor: "#fde68a" }}>
                 Added to first shoot: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToShootDays}</b> day(s)
               </span>
-              <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>
+              <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder }}>
                 Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
+              </span>
+              <span style={{ ...chip, background: "#ecfeff", borderColor: "#a5f3fc" }}>
+                Credits: <b style={{ marginLeft: 6 }}>{formatCredits(totalCredits)}</b>
               </span>
               <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
                 Avg hotel / job (payable): <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
               </span>
-              {/*  NEW tiny split line (keeps rest the same, just more clarity) */}
               <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
                 Production-paid: <b style={{ marginLeft: 6 }}>{hotelStats.productionPaidHotelNights}</b> nights
               </span>
@@ -1511,23 +2629,153 @@ export default function StatisticsPage() {
           </div>
         </div>
 
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <AnalyticsSummarySection
+            title="Pipeline"
+            items={[
+              { label: "Confirmed", value: analytics.totals.confirmed },
+              { label: "Tentative", value: analytics.totals.tentative },
+              { label: "Won", value: analytics.totals.won },
+              { label: "Lost", value: analytics.totals.lost },
+              { label: "Open", value: analytics.totals.open },
+              { label: "Conversion", value: `${analytics.totals.conversionRate}%` },
+              { label: "Lost rate", value: `${analytics.totals.lostRate}%` },
+            ]}
+          />
+          <AnalyticsSummarySection
+            title="Finance readiness"
+            items={[
+              { label: "Ready to invoice", value: analytics.financeReadiness.readyToInvoice },
+              { label: "Complete not paid", value: analytics.financeReadiness.completeNotPaid },
+              { label: "Paid", value: analytics.financeReadiness.paid },
+              { label: "Missing quote", value: analytics.financeReadiness.missingQuote },
+              { label: "Missing files", value: analytics.financeReadiness.missingAttachments },
+              { label: "Missing notes", value: analytics.financeReadiness.missingNotes },
+            ]}
+          />
+        </div>
+
+        <div style={{ marginBottom: UI.gap }}>
+          <MonthlyPerformanceTable
+            rows={analytics.byMonth}
+            onMonthClick={(row) =>
+              drilldownByPredicate(`Bookings in ${monthLabel(row.month)}`, (booking) => booking.bookingMonth === row.month)
+            }
+          />
+        </div>
+
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <AnalyticsSummarySection
+            title="Data quality"
+            items={dataQualityCards.map((card) => ({
+              label: card.label,
+              value: analytics.dataQuality[card.key],
+              severity: card.severity,
+              onClick: () => drilldownByPredicate(card.title, card.match),
+            }))}
+          />
+          <AnalyticsSummarySection
+            title="Hotel costs"
+            items={[
+              { label: "Hotel jobs", value: analytics.hotelStats.hotelJobs },
+              { label: "Nights", value: analytics.hotelStats.totalHotelNights },
+              { label: "Total cost", value: gbp(analytics.hotelStats.totalHotelCost) },
+              { label: "Bickers payable", value: gbp(analytics.hotelStats.bickersPayableHotelCost) },
+              { label: "Avg cost/night", value: gbp(analytics.hotelStats.averageCostPerNight) },
+              { label: "Production paid", value: analytics.hotelStats.productionPaidHotelJobs },
+            ]}
+          />
+        </div>
+
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <UsageTable title="Top clients" rows={analytics.topClients} onRowClick={(row) => drilldownBookingsByIds(`Client: ${row.name}`, row.bookingIds)} />
+          <UsageTable title="Top vehicles" rows={resolvedTopVehicles} onRowClick={(row) => drilldownBookingsByIds(`Vehicle: ${row.name}`, row.bookingIds)} />
+          <UsageTable title="Top crew" rows={analytics.topEmployees} onRowClick={(row) => drilldownBookingsByIds(`Crew: ${row.name}`, row.bookingIds)} />
+          <UsageTable title="Top equipment" rows={analytics.topEquipment} onRowClick={(row) => drilldownBookingsByIds(`Equipment: ${row.name}`, row.bookingIds)} />
+        </div>
+
         {/* Charts */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <StackedBarChart
+            title="Bookings per month"
+            subtitle="Counts each booking once, by first booking date"
+            data={bookingsByMonth}
+            rightLabel="Bookings"
+          />
+          <StackedBarChart
             title="Booking days per month"
-            subtitle="Counts each date in bookingDates as a day"
+            subtitle="Past: Complete/Confirmed. Upcoming: First Pencil/Second Pencil/Confirmed."
             data={jobsByMonth}
             rightLabel="Days"
           />
-          <BarChart
+        </div>
+
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <StackedBarChart
             title="Shoot days per month"
             subtitle="Counts days where the per-day note is On Set / Night Shoot"
             data={shootDaysByMonth}
             rightLabel="Shoot"
           />
+          <StackedBarChart
+            title="Credits per month"
+            subtitle="On Set/Night Shoot/Travel/Split/Standby/Rehearsal = 1, half travel = 0.5, travel time = 0.25"
+            data={creditsByMonth}
+            rightLabel="Credits"
+            valueFormatter={(v) => formatCredits(v)}
+          />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <div style={{ ...panel, minHeight: 220 }}>
+            <div style={{ ...sectionTitle, marginBottom: 8 }}>
+              Credit breakdown {rangeMode === "month" ? monthLabel(selectedMonth) : monthLabel(yyyymm(todayMidnight))}
+            </div>
+            <div style={sectionMeta}>
+              Counts per-day diary notes from <span style={mono}>notesByDate</span>, <span style={mono}>dayNotes</span>,
+              and related daily note fields. <b>On Set</b>, <b>Night Shoot</b>, <b>Travel Day</b>, <b>Split Day</b>,
+              <b>Standby Day</b>, and <b>Rehearsal Day</b> count as 1 credit. <b>1/2 Travel Day</b> counts as 0.5.
+              <b> Travel Time</b> counts as 0.25.
+            </div>
+            <div style={{ marginTop: 10, display: "grid", gap: 6, maxHeight: 220, overflow: "auto" }}>
+              {selectedMonthCreditRows.length ? (
+                selectedMonthCreditRows.slice(0, 30).map((row, idx) => (
+                  <div
+                    key={`${row.date}-${row.jobNumber}-${idx}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "76px 72px minmax(0,1fr) 110px 52px",
+                      gap: 8,
+                      alignItems: "center",
+                      fontSize: 12,
+                      borderTop: idx ? "1px solid #e7edf4" : "none",
+                      paddingTop: idx ? 6 : 0,
+                    }}
+                  >
+                    <span style={mono}>{row.date.slice(5)}</span>
+                    <b>{row.jobNumber}</b>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: row.counted ? UI.text : UI.muted,
+                      }}
+                    >
+                      {row.note || "No note"}{row.client ? ` - ${row.client}` : ""}
+                    </span>
+                    <span style={{ color: row.counted ? "#065f46" : UI.muted, fontSize: 11 }}>{row.reason}</span>
+                    <b style={{ textAlign: "right", color: row.counted ? UI.text : UI.muted }}>{formatCredits(row.credit)}</b>
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: UI.muted, fontSize: 13 }}>No credited days in this month.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart
             title="First pencil outcomes"
             subtitle="Based on current status plus deleted bookings, and history logs where available"
@@ -1542,13 +2790,12 @@ export default function StatisticsPage() {
           />
         </div>
 
-        {/*  UPDATED: Hotel cost chart shows payable only */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart
             title="Hotel cost per month (payable)"
-            subtitle="Excludes Production-paid; uses hotelTotal, else costPerNight × nights"
+            subtitle="Excludes Production-paid; uses hotelTotal, else costPerNight x nights"
             data={hotelStats.costSeries}
-            rightLabel="£"
+            rightLabel="GBP"
             valueFormatter={(v) => gbp(v)}
           />
           <BarChart
@@ -1559,50 +2806,49 @@ export default function StatisticsPage() {
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          <BarChart title="Top vehicles" subtitle="Resolved to Name – REG where possible" data={topVehicles} rightLabel="Jobs" />
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+          <BarChart title="Top vehicles" subtitle="Resolved to Name - REG where possible" data={topVehicles} rightLabel="Jobs" />
           <BarChart title="Top crew" subtitle="From booking.employees" data={topCrew} rightLabel="Bookings" />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top clients" subtitle="Production / client" data={topClients} rightLabel="Jobs" />
           <BarChart title="Top locations" subtitle="Location field" data={topLocations} rightLabel="Jobs" />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <BarChart title="Top equipment" subtitle="From booking.equipment" data={topEquipment} rightLabel="Mentions" />
-          <div style={{ ...surface, padding: 14, minHeight: 220 }}>
-            <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Hotel stat rules</div>
-            <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
+          <div style={{ ...panel, minHeight: 220 }}>
+            <div style={{ ...sectionTitle, marginBottom: 8 }}>Hotel stat rules</div>
+            <div style={sectionMeta}>
               We treat a booking as having a hotel if <span style={mono}>hasHotel</span> is true, or if we can find any
               of: <span style={mono}>hotelTotal</span>, <span style={mono}>hotelCostPerNight</span>,{" "}
               <span style={mono}>hotelNights</span> (plus common aliases).
               <br />
               <br />
               If <span style={mono}>hotelPaidBy</span> is <b>Production</b>, we still count hotel jobs/nights, but we{" "}
-              <b>exclude the £ cost</b> from payable totals and charts.
+              <b>exclude the GBP cost</b> from payable totals and charts.
               <br />
               <br />
-              Monthly hotel cost is assigned to the month of the job’s <b>first date</b> (simple & consistent).
+              Monthly hotel cost is assigned to the month of the job&apos;s <b>first date</b> (simple & consistent).
             </div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
-          {/* Upcoming preview */}
-          <div style={{ ...surface, padding: 14, minHeight: 220 }}>
+        <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
+          <div style={{ ...panel, minHeight: 220 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Next up</div>
+              <div style={sectionTitle}>Next up</div>
               <Link
                 href="/job-sheet?section=Upcoming"
                 style={{ fontSize: 13, fontWeight: 800, color: UI.brand, textDecoration: "none" }}
               >
-                View all →
+                View all -&gt;
               </Link>
             </div>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ border: UI.border, borderRadius: UI.radius, overflow: "hidden" }}>
               {loading ? (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
+                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading...</div>
               ) : upcomingNext.length ? (
                 upcomingNext.map(jobRow)
               ) : (
@@ -1611,10 +2857,9 @@ export default function StatisticsPage() {
             </div>
           </div>
 
-          {/* Quick explainer */}
-          <div style={{ ...surface, padding: 14, minHeight: 220 }}>
-            <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>How “shoot days” are counted</div>
-            <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
+          <div style={{ ...panel, minHeight: 220 }}>
+            <div style={{ ...sectionTitle, marginBottom: 8 }}>How &quot;shoot days&quot; are counted</div>
+            <div style={sectionMeta}>
               We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or{" "}
               <b>Night Shoot</b> (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
               <br />

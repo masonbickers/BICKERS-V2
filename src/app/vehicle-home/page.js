@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   BarChart,
   Bar,
@@ -12,6 +13,19 @@ import {
   CartesianGrid,
   LabelList,
 } from "recharts";
+import {
+  Activity,
+  AlertTriangle,
+  CalendarCheck,
+  Car,
+  CheckCircle2,
+  ClipboardCheck,
+  History,
+  ListChecks,
+  Plus,
+  ShieldAlert,
+  Wrench,
+} from "lucide-react";
 import { Calendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
@@ -33,12 +47,19 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   collection,
   getDocs,
+  getDoc,
   doc,
   onSnapshot,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
+
+const ADMIN_EMAILS = [
+  "mason@bickers.co.uk",
+  "paul@bickers.co.uk",
+  "adam@bickers.co.uk",
+];
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -57,13 +78,13 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
 ------------------------------------------- */
 const UI = {
-  radius: 18,
-  radiusSm: 12,
-  gap: 14,
-  shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  shadowHover: "0 18px 40px rgba(15,23,42,0.12)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
@@ -78,7 +99,7 @@ const UI = {
 };
 
 const pageWrap = {
-  padding: "22px 18px 34px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
@@ -92,10 +113,10 @@ const headerBar = {
 };
 const h1 = {
   color: UI.text,
-  fontSize: 30,
+  fontSize: 22,
   lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
@@ -106,16 +127,10 @@ const surface = {
   border: UI.border,
   boxShadow: UI.shadowSm,
 };
-const executivePanel = {
-  ...surface,
-  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
-  color: "#edf3fa",
-  padding: 16,
-};
 const cardBase = {
   ...surface,
-  padding: 14,
-  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  padding: 12,
+  background: "#ffffff",
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
@@ -130,6 +145,33 @@ const grid = (cols = 4) => ({
   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
   gap: UI.gap,
 });
+
+const commandGrid = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) 360px",
+  gap: UI.gap,
+  alignItems: "stretch",
+  marginBottom: UI.gap,
+};
+
+const summaryGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const opsGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const quickLinkGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 10,
+  alignItems: "stretch",
+};
 
 const sectionHeader = {
   display: "flex",
@@ -184,16 +226,14 @@ const badge = (bg, fg) => ({
   lineHeight: "18px",
 });
 const metricCard = {
-  borderRadius: UI.radiusSm,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.05)",
-  padding: 12,
+  ...surface,
+  padding: "12px",
   minWidth: 0,
 };
 const premiumSection = {
   ...cardBase,
   border: "1px solid #d7e1ea",
-  boxShadow: "0 14px 34px rgba(15,23,42,0.06)",
+  boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
 };
 
 const btn = (kind = "primary") => {
@@ -255,7 +295,7 @@ const inputBase = {
   background: "#fff",
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
+const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
 
 const modal = {
   position: "fixed",
@@ -273,10 +313,10 @@ const modal = {
 
 const table = { width: "100%", borderCollapse: "collapse" };
 const thtd = {
-  padding: "10px 12px",
+  padding: "11px 12px",
   fontSize: 13,
   borderBottom: "1px solid #eef2f7",
-  verticalAlign: "top",
+  verticalAlign: "middle",
 };
 
 const actionBtn = (kind = "ghost") => {
@@ -343,11 +383,14 @@ const daysUntil = (d) => {
 
 /* Notes helpers for Usage chart */
 const COUNTABLE_NOTES = ["on set", "on-set", "onset", "shoot day", "shoot"];
+const USAGE_ACTIVE_STATUSES = new Set(["confirmed", "first pencil", "second pencil", "maintenance"]);
 const isCountableNote = (note) => {
   if (!note) return false;
   const n = String(note).toLowerCase();
   return COUNTABLE_NOTES.some((k) => n.includes(k));
 };
+
+const isActiveUsageStatus = (status) => USAGE_ACTIVE_STATUSES.has(String(status || "").trim().toLowerCase());
 
 const getDayNote = (booking, dayKey) => {
   let v =
@@ -423,7 +466,7 @@ const getTimestampMillis = (value) => {
 };
 
 const formatQueueDate = (value, fallback = "") => {
-  if (!value) return fallback || "—";
+  if (!value) return fallback || "-";
   if (value instanceof Date) return value.toLocaleDateString("en-GB");
   if (typeof value?.toDate === "function") return value.toDate().toLocaleDateString("en-GB");
   if (typeof value === "string") {
@@ -436,7 +479,7 @@ const formatQueueDate = (value, fallback = "") => {
     if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleDateString("en-GB");
     return trimmed;
   }
-  return fallback || "—";
+  return fallback || "-";
 };
 
 const parseActivityDateCandidate = (value) => {
@@ -707,11 +750,11 @@ function VehicleHomeMaintenanceEvent({ event }) {
   const label =
     kind === "MOT"
       ? event?.booked
-        ? "MOT due • Booked"
+        ? "MOT due - Booked"
         : "MOT due"
       : kind === "SERVICE"
       ? event?.booked
-        ? "Service due • Booked"
+        ? "Service due - Booked"
         : "Service due"
       : kind === "MOT_BOOKING"
       ? "MOT booking"
@@ -799,8 +842,53 @@ export default function VehiclesHomePage() {
   const [pendingDefects, setPendingDefects] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionModal, setActionModal] = useState(null); // {defect, decision, comment, category?}
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setCheckingAdmin(true);
+
+      if (!user) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      const email = String(user.email || "").trim().toLowerCase();
+      if (ADMIN_EMAILS.includes(email)) {
+        setIsAdmin(true);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const role = String(userSnap.data()?.role || "").trim().toLowerCase();
+        setIsAdmin(role === "admin");
+      } catch (e) {
+        console.error("vehicle-home admin check error:", e);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const requireAdmin = (message = "Admin access is required for this action.") => {
+    if (isAdmin) return true;
+    alert(message);
+    return false;
+  };
+
+  const pushAdminRoute = (path) => {
+    if (!requireAdmin("Only admins can open this vehicle management area.")) return;
+    router.push(path);
+  };
 
   /* --------- Load all vehicles ONCE for name + due date lookups --------- */
   useEffect(() => {
@@ -861,15 +949,18 @@ export default function VehiclesHomePage() {
       const snapshot = await getDocs(collection(db, "bookings"));
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const bookingStatus = String(data.status || "").trim();
+        if (!isActiveUsageStatus(bookingStatus)) return;
 
         const mapVehicleFromBooking = (entry) => {
-          if (!entry) return "";
+          if (!entry) return null;
           if (typeof entry === "string") {
-            if (vehicleNameMap[entry]) return vehicleNameMap[entry];
-            return entry;
+            const id = entry.trim();
+            return id ? { id, label: vehicleNameMap[id] || id } : null;
           }
-          if (entry.id && vehicleNameMap[entry.id]) return vehicleNameMap[entry.id];
-          return buildVehicleLabelFromObject(entry) || "";
+          const id = String(entry.id || entry.vehicleId || "").trim();
+          const label = (id && vehicleNameMap[id]) || buildVehicleLabelFromObject(entry) || id;
+          return label ? { id, label } : null;
         };
 
         const vehicles = Array.isArray(data.vehicles)
@@ -911,15 +1002,29 @@ export default function VehiclesHomePage() {
         const filteredByNote = dayKeys.filter((k) => isCountableNote(getDayNote(data, k)));
         if (filteredByNote.length === 0) return;
 
-        vehicles.forEach((name) => {
-          if (!usedByDay.has(name)) usedByDay.set(name, new Set());
-          const s = usedByDay.get(name);
+        vehicles.forEach((vehicle) => {
+          const vehicleStatus =
+            (vehicle.id && data.vehicleStatus && typeof data.vehicleStatus === "object"
+              ? data.vehicleStatus[vehicle.id]
+              : "") || bookingStatus;
+          if (!isActiveUsageStatus(vehicleStatus)) return;
+
+          if (!usedByDay.has(vehicle.label)) {
+            usedByDay.set(vehicle.label, { days: new Set(), bookings: new Set() });
+          }
+          const usage = usedByDay.get(vehicle.label);
+          const s = usage.days;
           filteredByNote.forEach((k) => s.add(k));
+          usage.bookings.add(docSnap.id);
         });
       });
 
       const usageArray = Array.from(usedByDay.entries())
-        .map(([name, set]) => ({ name, usage: set.size }))
+        .map(([name, usage]) => ({
+          name,
+          usage: usage.days.size,
+          bookingCount: usage.bookings.size,
+        }))
         .sort((a, b) => b.usage - a.usage);
 
       setUsageData(usageArray);
@@ -1009,7 +1114,7 @@ export default function VehiclesHomePage() {
             ? vehicleNameMap[vehicleId] || booking.vehicleLabel || vehicleId
             : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
         },
-        titleSeparator: " • ",
+        titleSeparator: " - ",
       }),
     [maintenanceBookingsRaw, vehicleNameMap]
   );
@@ -1295,18 +1400,24 @@ export default function VehiclesHomePage() {
   }, [serviceRecords, defectReports, motPreChecks, vehiclePrepRecords, checkDocs, vehicleIssueDocs, vehiclesRaw]);
 
   // Defect action handlers
-  const openApprove = (defect) =>
+  const openApprove = (defect) => {
+    if (!requireAdmin("Only admins can approve vehicle defects.")) return;
     setActionModal({
       defect,
       decision: "approved",
       comment: "",
       category: "general",
     });
+  };
 
-  const openDecline = (defect) => setActionModal({ defect, decision: "declined", comment: "" });
+  const openDecline = (defect) => {
+    if (!requireAdmin("Only admins can decline vehicle defects.")) return;
+    setActionModal({ defect, decision: "declined", comment: "" });
+  };
 
   const performDecision = async () => {
     if (!actionModal?.defect || !actionModal?.decision) return;
+    if (!requireAdmin("Only admins can review vehicle defects.")) return;
     setActionLoading(true);
     try {
       const { defect, decision, comment, category } = actionModal;
@@ -1397,6 +1508,14 @@ export default function VehiclesHomePage() {
 
   const usageMonthLabel = `${usageMonth.getFullYear()}-${String(usageMonth.getMonth() + 1).padStart(2, "0")}`;
   const kpiPending = pendingDefects.length;
+  const totalUsageDays = useMemo(
+    () => usageData.reduce((sum, row) => sum + Number(row.usage || 0), 0),
+    [usageData]
+  );
+  const totalUsageBookings = useMemo(
+    () => usageData.reduce((sum, row) => sum + Number(row.bookingCount || 0), 0),
+    [usageData]
+  );
 
   const renderUsageLabel = (props) => {
     const { x = 0, y = 0, width = 0, value = 0 } = props || {};
@@ -1420,30 +1539,37 @@ export default function VehiclesHomePage() {
         title: "General Maintenance",
         description: "Approved, non-urgent defects to plan and schedule.",
         link: GENERAL_DEFECTS_PATH,
+        icon: Wrench,
         rightBadges: [],
       },
       {
         title: "Immediate Defects",
         description: "Approved urgent issues that need action now.",
         link: IMMEDIATE_DEFECTS_PATH,
+        icon: ShieldAlert,
         rightBadges: [],
       },
       {
         title: "Declined Defects",
         description: "Defects that were reviewed and declined.",
         link: DECLINED_DEFECTS_PATH,
+        icon: CheckCircle2,
         rightBadges: [],
       },
       {
         title: "Maintenance Jobs",
         description: "Create and track workshop job cards from planned to closed.",
         link: MAINTENANCE_JOBS_PATH,
+        adminOnly: true,
+        icon: ListChecks,
         rightBadges: [],
       },
       {
         title: "MOT Schedule",
         description: "View and manage MOT due dates for all vehicles.",
         link: "/mot-overview",
+        adminOnly: true,
+        icon: CalendarCheck,
         rightBadges: [
           motCounts.overdue > 0 ? { label: `Overdue ${motCounts.overdue}`, tone: "danger" } : null,
           motCounts.soon > 0 ? { label: `Due soon ${motCounts.soon}`, tone: "amber" } : null,
@@ -1454,6 +1580,8 @@ export default function VehiclesHomePage() {
         title: "Service Overview",
         description: "Track past and upcoming vehicle servicing.",
         link: "/service-overview",
+        adminOnly: true,
+        icon: Wrench,
         rightBadges: [
           serviceCounts.overdue > 0 ? { label: `Overdue ${serviceCounts.overdue}`, tone: "danger" } : null,
           serviceCounts.soon > 0 ? { label: `Due soon ${serviceCounts.soon}`, tone: "amber" } : null,
@@ -1464,34 +1592,42 @@ export default function VehiclesHomePage() {
         title: "Activity History",
         description: "Browse the latest services, repairs, defects, checks and prep activity.",
         link: ACTIVITY_HISTORY_PATH,
+        icon: History,
         rightBadges: [recentActivity.length > 0 ? { label: `${recentActivity.length} recent`, tone: "soft" } : null].filter(Boolean),
       },
       {
         title: "Vehicle Usage Logs",
         description: "Monitor vehicle usage across bookings and trips.",
         link: "/usage-overview",
+        icon: Activity,
         rightBadges: [],
       },
       {
         title: "Vehicle List",
         description: "View, edit or delete vehicles currently in the system.",
         link: "/vehicles",
+        adminOnly: true,
+        icon: Car,
         rightBadges: [],
       },
       {
         title: "Equipment List",
         description: "View, edit or delete equipment currently in the system.",
         link: "/equipment",
+        adminOnly: true,
+        icon: ClipboardCheck,
         rightBadges: [],
       },
       {
         title: "Add Vehicle / Equipment",
         description: "Add new vehicles and equipment in the system.",
         link: "/add-vehicle",
+        adminOnly: true,
+        icon: Plus,
         rightBadges: [],
       },
     ],
-    [motCounts, serviceCounts]
+    [motCounts, serviceCounts, recentActivity.length]
   );
 
   const eventPropGetter = (event) => {
@@ -1560,7 +1696,7 @@ export default function VehiclesHomePage() {
       kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
     const tone = dd && !isBookingBlock ? dueTone(dd) : "soft";
 
-    // If due is booked, don’t escalate to overdue/soon colours
+    // If due is booked, do not escalate to overdue/soon colours
     const suppressEscalation = (kind === "MOT" || kind === "SERVICE") && event?.booked;
 
     if (!suppressEscalation) {
@@ -1599,6 +1735,14 @@ export default function VehiclesHomePage() {
         .vehicle-home-calendar--month .rbc-month-row { min-height: 195px; overflow: visible; flex: 1 0 auto; }
         .vehicle-home-calendar--month .rbc-row-content { max-height: none; min-height: 100%; }
         .vehicle-home-calendar--month .rbc-event-content { white-space: normal; }
+        @media (max-width: 1180px) {
+          .vehicle-home-command-grid { grid-template-columns: 1fr !important; }
+          .vehicle-home-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .vehicle-home-ops-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .vehicle-home-summary-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       <div style={pageWrap}>
@@ -1610,82 +1754,107 @@ export default function VehiclesHomePage() {
           </div>
         </div>
 
-        <section style={{ ...executivePanel, marginBottom: UI.gap }}>
-          <div style={{ ...sectionHeader, marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(226,234,243,0.72)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                Fleet command
+        <section className="vehicle-home-command-grid" style={commandGrid}>
+          <div style={{ ...surface, padding: 12 }}>
+            <div style={sectionHeader}>
+              <div>
+                <h2 style={titleMd}>Home</h2>
+                <div style={hint}>Operational shortcuts, live compliance counters and defect review status.</div>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#f8fbff", marginTop: 6, letterSpacing: "-0.02em" }}>
-                Operational fleet summary
-              </div>
-              <div style={{ color: "rgba(232,239,247,0.82)", fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
-                Monitor active defects, compliance risk and maintenance readiness from a single fleet control surface.
-              </div>
+              <span style={sectionTag}>All locations</span>
             </div>
-            <span
-              style={{
-                ...sectionTag,
-                background: "rgba(255,255,255,0.08)",
-                borderColor: "rgba(255,255,255,0.14)",
-                color: "#f8fbff",
-              }}
-            >
-              Fleet operations
-            </span>
+
+            <div className="vehicle-home-summary-grid" style={summaryGrid}>
+              <SummaryCard title="Pending Defects" value={kpiPending} icon={AlertTriangle} tone={kpiPending ? "danger" : "ok"} footer={`${pendingDefects.length} waiting review`} />
+              <SummaryCard title="MOT Overdue" value={motCounts.overdue} icon={CalendarCheck} tone={motCounts.overdue ? "danger" : "ok"} footer={`${motCounts.soon} due soon`} />
+              <SummaryCard title="Service Overdue" value={serviceCounts.overdue} icon={Wrench} tone={serviceCounts.overdue ? "danger" : "ok"} footer={`${serviceCounts.soon} due soon`} />
+              <SummaryCard title="Usage Days" value={totalUsageDays} icon={Activity} tone="brand" footer={`${totalUsageBookings} bookings`} />
+            </div>
+
+            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: 8 }}>
+              <div>
+                <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
+                <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
+              </div>
+              <button type="button" style={btn("ghost")} onClick={() => router.push(VEHICLE_CHECK_PATH)}>
+                Open vehicle check
+              </button>
+            </div>
+
+            <div className="vehicle-home-ops-grid" style={opsGrid}>
+              <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+              {vehicleSections.map((section, idx) => (
+                <Tile
+                  key={idx}
+                  icon={section.icon}
+                  title={section.title}
+                  description={section.description}
+                  rightBadges={section.rightBadges}
+                  disabled={section.adminOnly && !isAdmin}
+                  onClick={() =>
+                    section.adminOnly ? pushAdminRoute(section.link) : router.push(section.link)
+                  }
+                />
+              ))}
+            </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              gap: 12,
-            }}
-          >
-            <div style={metricCard}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{kpiPending}</div>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
-                Pending Defects
+          <aside style={{ display: "grid", gap: UI.gap }}>
+            <RiskRing
+              title="MOT Compliance"
+              total={motCounts.total}
+              ok={motCounts.ok}
+              soon={motCounts.soon}
+              overdue={motCounts.overdue}
+            />
+            <RiskRing
+              title="Service Readiness"
+              total={serviceCounts.total}
+              ok={serviceCounts.ok}
+              soon={serviceCounts.soon}
+              overdue={serviceCounts.overdue}
+            />
+            <div style={{ ...surface, padding: 12 }}>
+              <div style={{ ...sectionHeader, marginBottom: 8 }}>
+                <div>
+                  <h2 style={{ ...titleMd, fontSize: 15 }}>Recent activity</h2>
+                  <div style={hint}>Latest service, prep, checks and defect movement.</div>
+                </div>
+                <button type="button" style={btn("pill")} onClick={() => router.push(ACTIVITY_HISTORY_PATH)}>
+                  View all
+                </button>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {recentActivity.slice(0, 4).map((activity) => (
+                  <button
+                    key={activity.activityId}
+                    type="button"
+                    onClick={() => activity.route && router.push(activity.route)}
+                    style={{
+                      border: "1px solid #e5eaf0",
+                      background: "#fbfdff",
+                      borderRadius: 8,
+                      padding: "8px 9px",
+                      textAlign: "left",
+                      cursor: activity.route ? "pointer" : "default",
+                    }}
+                  >
+                    <div style={{ fontSize: 12.5, fontWeight: 850, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {activity.vehicleName}
+                    </div>
+                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {activity.title}
+                    </div>
+                  </button>
+                ))}
+                {recentActivity.length === 0 ? <div style={{ color: UI.muted, fontSize: 13 }}>No recent activity yet.</div> : null}
               </div>
             </div>
-            <div style={metricCard}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{motCounts.overdue}</div>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
-                MOT Overdue
-              </div>
-            </div>
-            <div style={metricCard}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{serviceCounts.overdue}</div>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
-                Service Overdue
-              </div>
-            </div>
-            <div style={metricCard}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#f8fbff", lineHeight: 1 }}>{usageData.length}</div>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(232,239,247,0.78)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 8 }}>
-                Active Usage Entries
-              </div>
-            </div>
-          </div>
+          </aside>
         </section>
 
-        {/* Quick links */}
-        <div style={grid(5)}>
-          <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
-
-          {vehicleSections.map((section, idx) => (
-            <Tile
-              key={idx}
-              title={section.title}
-              description={section.description}
-              rightBadges={section.rightBadges}
-              onClick={() => router.push(section.link)}
-            />
-          ))}
-        </div>
-
         {/* Defect Review */}
-        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "hidden" }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "hidden", padding: 14 }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Defect review</h2>
@@ -1694,7 +1863,7 @@ export default function VehiclesHomePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               <span style={sectionTag}>Defect queue</span>
               <span style={chipSoft}>{pendingDefects.length} pending</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
@@ -1705,10 +1874,10 @@ export default function VehiclesHomePage() {
 
           <div style={divider} />
 
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", marginTop: 0 }}>
             <table style={table}>
               <thead>
-                <tr style={{ background: "#f7f9fc" }}>
+                <tr style={{ background: "#f6f8fb" }}>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Date</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Source</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Vehicle</th>
@@ -1781,11 +1950,21 @@ export default function VehiclesHomePage() {
                             <span style={{ display: "inline-block", width: 8 }} />
                           </>
                         ) : null}
-                        <button onClick={() => openApprove(d)} style={actionBtn("approve")}>
+                        <button
+                          onClick={() => openApprove(d)}
+                          style={actionBtn("approve")}
+                          disabled={checkingAdmin || !isAdmin}
+                          title={!isAdmin ? "Admin only" : "Approve"}
+                        >
                           Approve
                         </button>
                         <span style={{ display: "inline-block", width: 8 }} />
-                        <button onClick={() => openDecline(d)} style={actionBtn("decline")}>
+                        <button
+                          onClick={() => openDecline(d)}
+                          style={actionBtn("decline")}
+                          disabled={checkingAdmin || !isAdmin}
+                          title={!isAdmin ? "Admin only" : "Decline"}
+                        >
                           Decline
                         </button>
                       </td>
@@ -1803,7 +1982,7 @@ export default function VehiclesHomePage() {
             <div>
               <h2 style={titleMd}>Vehicle usage</h2>
               <div style={hint}>
-                Counts vehicle days where the booking note contains <b>“On Set”</b> or <b>“Shoot day”</b>.
+                Counts active booking days where the booking note contains <b>On Set</b> or <b>Shoot day</b>.
               </div>
             </div>
 
@@ -1836,6 +2015,8 @@ export default function VehiclesHomePage() {
               </button>
 
               <span style={chipSoft}>{usageData.length} vehicles</span>
+              <span style={chipSoft}>{totalUsageDays} days</span>
+              <span style={chipSoft}>{totalUsageBookings} bookings</span>
             </div>
           </div>
 
@@ -1854,7 +2035,10 @@ export default function VehiclesHomePage() {
                     fontSize: 12,
                     color: UI.text,
                   }}
-                  formatter={(value) => [`${Number(value || 0)} days`, "Usage"]}
+                  formatter={(value, name, item) => {
+                    const bookings = Number(item?.payload?.bookingCount || 0);
+                    return [`${Number(value || 0)} days from ${bookings} bookings`, "Usage"];
+                  }}
                 />
                 <Bar dataKey="usage" fill={UI.brand} radius={[8, 8, 0, 0]}>
                   <LabelList dataKey="usage" position="top" content={renderUsageLabel} />
@@ -1930,11 +2114,11 @@ export default function VehiclesHomePage() {
                     const label =
                       kind === "MOT"
                         ? event?.booked
-                          ? "MOT due • Booked"
+                          ? "MOT due - Booked"
                           : "MOT due"
                         : kind === "SERVICE"
                         ? event?.booked
-                          ? "Service due • Booked"
+                          ? "Service due - Booked"
                           : "Service due"
                         : kind === "MOT_BOOKING"
                         ? "MOT booking"
@@ -2047,16 +2231,25 @@ export default function VehiclesHomePage() {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
               {selectedEvent?.vehicleId ? (
                 <button
-                  onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
+                  onClick={() => {
+                    if (!requireAdmin("Only admins can open the maintenance jobs workspace.")) return;
+                    openMaintenanceJobFromEvent(selectedEvent);
+                  }}
                   style={btn("ghost")}
+                  disabled={checkingAdmin || !isAdmin}
+                  title={!isAdmin ? "Admin only" : "Open jobs workspace"}
                 >
                   {"Open jobs workspace ->"}
                 </button>
               ) : null}
               {selectedEvent?.vehicleId ? (
                 <button
-                  onClick={() => router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)}
+                  onClick={() =>
+                    pushAdminRoute(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)
+                  }
                   style={btn("primary")}
+                  disabled={checkingAdmin || !isAdmin}
+                  title={!isAdmin ? "Admin only" : "Open vehicle"}
                 >
                   {"Open vehicle ->"}
                 </button>
@@ -2093,7 +2286,7 @@ export default function VehiclesHomePage() {
                 </div>
               ) : null}
               <div>
-                <strong style={{ color: UI.text }}>Item:</strong> #{actionModal.defect.defectIndex + 1} —{" "}
+                <strong style={{ color: UI.text }}>Item:</strong> #{actionModal.defect.defectIndex + 1} -{" "}
                 {actionModal.defect.itemLabel}
               </div>
 
@@ -2183,9 +2376,15 @@ export default function VehiclesHomePage() {
                     ? { ...btn("primary") }
                     : { ...btn("primary"), background: UI.danger, borderColor: UI.danger }
                 }
-                disabled={actionLoading || (actionModal.decision === "approved" && !actionModal.category)}
+                disabled={
+                  checkingAdmin ||
+                  !isAdmin ||
+                  actionLoading ||
+                  (actionModal.decision === "approved" && !actionModal.category)
+                }
+                title={!isAdmin ? "Admin only" : undefined}
               >
-                {actionLoading ? "Saving…" : actionModal.decision === "approved" ? "Approve" : "Decline"}
+                {actionLoading ? "Saving..." : actionModal.decision === "approved" ? "Approve" : "Decline"}
               </button>
             </div>
           </div>
@@ -2226,6 +2425,107 @@ export default function VehiclesHomePage() {
 }
 
 /* --------- toolbar + tiles --------- */
+function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
+  const colors =
+    tone === "danger"
+      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      : tone === "ok"
+      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
+
+  return (
+    <div style={{ ...metricCard, minHeight: 92 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
+          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+        </div>
+        <span
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            border: `1px solid ${colors.border}`,
+            background: colors.bg,
+            color: colors.fg,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={18} strokeWidth={2.2} />
+        </span>
+      </div>
+      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{footer}</div>
+    </div>
+  );
+}
+
+function RiskRing({ title, total, ok, soon, overdue }) {
+  const safeTotal = Math.max(Number(total || 0), 0);
+  const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
+  const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
+  const overduePct = safeTotal ? Math.max(0, 100 - okPct - soonPct) : 0;
+  const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
+
+  return (
+    <div style={{ ...surface, padding: 12 }}>
+      <div style={{ ...sectionHeader, marginBottom: 10 }}>
+        <div>
+          <h2 style={{ ...titleMd, fontSize: 15 }}>{title}</h2>
+          <div style={hint}>{safeTotal} vehicles tracked</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div
+          style={{
+            width: 126,
+            height: 126,
+            borderRadius: "50%",
+            background,
+            display: "grid",
+            placeItems: "center",
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: 82,
+              height: 82,
+              borderRadius: "50%",
+              background: "#ffffff",
+              border: "1px solid #e5eaf0",
+              display: "grid",
+              placeItems: "center",
+              color: UI.text,
+              fontSize: 24,
+              fontWeight: 850,
+            }}
+          >
+            {safeTotal}
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+          <RingLegend color="#16a34a" label="OK" value={ok} />
+          <RingLegend color="#f59e0b" label="Due soon" value={soon} />
+          <RingLegend color="#dc2626" label="Overdue" value={overdue} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RingLegend({ color, label, value }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
+      <span style={{ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0 }} />
+      <span style={{ minWidth: 72 }}>{label}</span>
+      <span style={{ color: UI.muted }}>{value}</span>
+    </div>
+  );
+}
+
 function ToolbarBtn({ children, onClick, active }) {
   return (
     <button
@@ -2249,31 +2549,94 @@ function ToolbarBtn({ children, onClick, active }) {
   );
 }
 
-function Tile({ title, description, onClick, rightBadges = [] }) {
+function Tile({ title, description, onClick, rightBadges = [], disabled = false, icon: Icon = Wrench }) {
   return (
     <div
       style={{
         ...cardBase,
         background: "#ffffff",
-        minHeight: 62,
-        padding: "10px 14px",
+        height: "100%",
+        minHeight: 82,
+        padding: "11px 12px",
         display: "flex",
         alignItems: "center",
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
       }}
       role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
-      onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
-      onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      title={disabled ? "Admin only" : description}
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? !disabled && onClick() : null)}
+      onMouseEnter={(e) => {
+        if (!disabled) Object.assign(e.currentTarget.style, cardHover);
+      }}
+      onMouseLeave={(e) =>
+        Object.assign(e.currentTarget.style, {
+          ...cardBase,
+          background: "#ffffff",
+          height: "100%",
+          minHeight: 82,
+          padding: "11px 12px",
+          display: "flex",
+          alignItems: "center",
+          opacity: disabled ? 0.55 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        })
+      }
     >
-      <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ flex: 1, display: "grid", gap: rightBadges.length ? 8 : 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.18, color: UI.text }}>
+      <div
+        style={{
+          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "34px minmax(0, 1fr) auto",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            border: `1px solid ${UI.brandBorder}`,
+            background: UI.brandSoft,
+            color: UI.brand,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon size={17} strokeWidth={2.2} />
+        </span>
+        <div
+          style={{
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: 5,
+          }}
+        >
+          <div style={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.18, color: UI.text }}>
             {title}
           </div>
+          <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {description}
+          </div>
           {rightBadges.length ? (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
               {rightBadges.map((b, idx) => {
                 const tone = b.tone || "soft";
                 const s =
@@ -2291,7 +2654,7 @@ function Tile({ title, description, onClick, rightBadges = [] }) {
             </div>
           ) : null}
         </div>
-        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>›</span>
+        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>&gt;</span>
       </div>
 
     </div>
@@ -2308,19 +2671,20 @@ function VehicleCheckTile({ onClick }) {
       style={{
         ...cardBase,
         background: "#ffffff",
-        minHeight: 62,
-        padding: "10px 14px",
+        height: "100%",
+        minHeight: 82,
+        padding: "11px 12px",
       }}
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span
             aria-hidden="true"
             style={{
-              width: 26,
-              height: 26,
+              width: 34,
+              height: 34,
               borderRadius: 8,
               border: `1px solid ${UI.brandBorder}`,
               background: "#eef4f9",
@@ -2328,23 +2692,22 @@ function VehicleCheckTile({ onClick }) {
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 10.5,
-              fontWeight: 800,
-              lineHeight: 1,
-              userSelect: "none",
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
             }}
           >
-            Yes
+            <ClipboardCheck size={17} strokeWidth={2.2} />
           </span>
 
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.18, color: UI.text }}>
+            <div style={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.18, color: UI.text }}>
               Vehicle Check
+            </div>
+            <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.25, marginTop: 5 }}>
+              Submit daily checks and defects
             </div>
           </div>
         </div>
-        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>›</span>
+        <span style={{ color: UI.brand, fontSize: 18, fontWeight: 700, lineHeight: 1, flexShrink: 0 }}>&gt;</span>
       </div>
     </div>
   );

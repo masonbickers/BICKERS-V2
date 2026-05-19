@@ -5,84 +5,186 @@ import Link from "next/link";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  AlertTriangle,
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  Clock3,
+  FileText,
+  Receipt,
+  Search,
+} from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system
-─────────────────────────────────────────── */
+/* Mini design system */
 const UI = {
-  radius: 16,
-  radiusSm: 10,
-  gap: 14,
-  shadowSm: "0 10px 28px rgba(15,23,42,0.06)",
-  shadowHover: "0 14px 32px rgba(15,23,42,0.1)",
-  border: "1px solid #dbe3ec",
-  bg: "#eef3f7",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
-  brand: "#183f67",
-  brandSoft: "#edf2f7",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
+  purple: "#7c3aed",
+  purpleSoft: "#f5f3ff",
+  purpleBorder: "#ddd6fe",
 };
 
-const pageWrap = { padding: "18px 16px 28px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" };
-const h1 = { color: UI.text, fontSize: 28, lineHeight: 1.08, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const headerBar = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: 12,
+  marginBottom: 14,
+  flexWrap: "wrap",
+};
+const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const chip = { padding: "6px 10px", borderRadius: 999, border: UI.border, background: UI.brandSoft, color: UI.brand, fontSize: 11.5, fontWeight: 800 };
+
+const card = {
+  ...surface,
+  padding: 12,
+  textDecoration: "none",
+  color: UI.text,
+  transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
+};
+const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
 const grid = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
-const card = { ...surface, padding: 13, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)", transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease" };
-const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: "#c8d6e3" };
-const cardTitle = { fontWeight: 800, fontSize: 16, margin: 0, color: UI.text, letterSpacing: "-0.01em" };
-const cardHint = { color: UI.muted, fontSize: 12, marginTop: 4, lineHeight: 1.4 };
+
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 8,
+  gap: 10,
+  marginBottom: 10,
   flexWrap: "wrap",
 };
-const sectionTag = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "4px 9px",
-  borderRadius: 999,
-  border: "1px solid #cad6e2",
-  background: UI.brandSoft,
-  color: UI.brand,
-  fontSize: 10.5,
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-};
-const executivePanel = {
-  ...surface,
-  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
-  color: "#edf3fa",
-  padding: 14,
-};
-const executiveGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
-  gap: UI.gap,
-  marginBottom: UI.gap,
-};
-const executiveStat = {
-  borderRadius: UI.radiusSm,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)",
-  padding: 10,
-  minWidth: 0,
+const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
+const cardTitle = { fontWeight: 800, fontSize: 15, margin: 0, color: UI.text, letterSpacing: 0 };
+const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.4 };
+
+const chip = (kind = "neutral") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 9px",
+    borderRadius: 999,
+    border: `1px solid ${UI.brandBorder}`,
+    background: UI.brandSoft,
+    color: UI.text,
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  };
+  if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
+  if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
+  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.purple };
+  return base;
 };
 
-/* ───────────────────────────────────────────
-   Helpers
-─────────────────────────────────────────── */
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
+const statCard = {
+  ...card,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  minHeight: 82,
+};
+
+const statLabel = {
+  color: UI.muted,
+  fontSize: 11.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+};
+
+const statValue = {
+  color: UI.text,
+  fontSize: 25,
+  lineHeight: 1.1,
+  fontWeight: 850,
+  marginTop: 8,
+};
+
+const inputStyle = {
+  width: "100%",
+  minHeight: 36,
+  padding: "7px 40px 7px 34px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  fontSize: 13,
+  outline: "none",
+  background: "#fff",
+  color: UI.text,
+};
+
+const rowShell = {
+  display: "grid",
+  gridTemplateColumns: "minmax(120px, 1fr) 140px 140px auto",
+  gap: 8,
+  padding: "9px 10px",
+  borderTop: "1px solid #edf2f7",
+  textDecoration: "none",
+  color: UI.text,
+};
+
+const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "#fff" };
+
+const focusCss = `
+  input:focus, button:focus, a:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  @media (max-width: 1180px) {
+    .job-home-main-grid,
+    .job-home-stat-grid,
+    .job-home-shortcut-grid,
+    .job-home-pipeline-grid { grid-template-columns: 1fr !important; }
+    .job-home-row { grid-template-columns: 1fr !important; }
+    .job-home-row-status { justify-self: start !important; }
+  }
+`;
+
+/* Helpers */
 const parseDate = (raw) => {
   if (!raw) return null;
   try {
-    if (typeof raw?.toDate === "function") return raw.toDate(); // Firestore Timestamp
+    if (typeof raw?.toDate === "function") return raw.toDate();
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
   } catch {
@@ -104,7 +206,7 @@ const normaliseDates = (job) => {
   return arr;
 };
 
-const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—");
+const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "-");
 const getJobPrefix = (job) => (job.jobNumber ? String(job.jobNumber).split("-")[0] : "No Job #");
 const isFourDigitJob = (job) => /^\d{4}$/.test(String(job.jobNumber ?? "").trim());
 
@@ -123,16 +225,26 @@ const prettifyStatus = (raw) => {
 
 const statusColors = (label) => {
   switch (label) {
-    case "Ready to Invoice": return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
-    case "Invoiced": return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
-    case "Paid": return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
-    case "Action Required": return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
-    case "Complete": return { bg: "#dbeafe", border: "#bfdbfe", text: "#1e3a8a" };
-    case "Confirmed": return { bg: "#fffd98", border: "#c7d134", text: "#504c1a" };
-    case "First Pencil": return { bg: "#e0f2fe", border: "#bae6fd", text: "#075985" };
-    case "Second Pencil": return { bg: "#fee2e2", border: "#fecaca", text: "#7f1d1d" };
-    case "TBC": return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
-    default: return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+    case "Ready to Invoice":
+      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+    case "Invoiced":
+      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+    case "Paid":
+      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+    case "Action Required":
+      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+    case "Complete":
+      return { bg: "#dbeafe", border: "#bfdbfe", text: "#1e3a8a" };
+    case "Confirmed":
+      return { bg: "#fffd98", border: "#c7d134", text: "#504c1a" };
+    case "First Pencil":
+      return { bg: "#e0f2fe", border: "#bae6fd", text: "#075985" };
+    case "Second Pencil":
+      return { bg: "#fee2e2", border: "#fecaca", text: "#7f1d1d" };
+    case "TBC":
+      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+    default:
+      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
   }
 };
 
@@ -141,8 +253,8 @@ const StatusBadge = ({ value }) => {
   return (
     <span
       style={{
-        padding: "6px 10px",
-        fontSize: 11,
+        padding: "5px 9px",
+        fontSize: 11.5,
         borderRadius: 999,
         border: `1px solid ${c.border}`,
         background: c.bg,
@@ -156,27 +268,20 @@ const StatusBadge = ({ value }) => {
   );
 };
 
-function ExecutiveStat({ label, value }) {
+function MetricCard({ label, value, icon: Icon, color, bg, border }) {
   return (
-    <div style={executiveStat}>
-      <div style={{ fontSize: 26, fontWeight: 800, color: "#ffffff", lineHeight: 1 }}>{value}</div>
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 11,
-          fontWeight: 800,
-          color: "rgba(232,239,247,0.78)",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}
-      >
-        {label}
+    <section style={statCard}>
+      <div>
+        <div style={statLabel}>{label}</div>
+        <div style={statValue}>{value}</div>
       </div>
-    </div>
+      <span style={iconBox(color, bg, border)}>
+        <Icon size={17} />
+      </span>
+    </section>
   );
 }
 
-/* Canonical predicates so pills == destination pages */
 const norm = (s = "") => String(s).toLowerCase().trim();
 
 const readyToInvoiceFlag = (j) => /ready\s*to\s*invoice/.test(norm(j.status)) || !!j.readyToInvoice;
@@ -199,11 +304,20 @@ const hasWorkBeforeToday = (j, todayMidnight) => {
   return last.getTime() < todayMidnight.getTime();
 };
 
-/* Classification for "Upcoming" & others on the page */
 const CONFIRMED_LIKE = new Set([
-  "confirmed", "pending", "complete", "completed", "action required",
-  "action_required", "invoiced", "ready to invoice", "ready_to_invoice",
-  "ready-to-invoice", "readyinvoice", "paid", "settled",
+  "confirmed",
+  "pending",
+  "complete",
+  "completed",
+  "action required",
+  "action_required",
+  "invoiced",
+  "ready to invoice",
+  "ready_to_invoice",
+  "ready-to-invoice",
+  "readyinvoice",
+  "paid",
+  "settled",
 ]);
 
 const classify = (job, todayMidnight) => {
@@ -225,19 +339,16 @@ const classify = (job, todayMidnight) => {
 
   const confirmedFlag = job.confirmed === true || job.isConfirmed === true;
   if (confirmedFlag || CONFIRMED_LIKE.has(status)) return "Complete Jobs";
-  return "Passed — Not Confirmed";
+  return "Passed - Not Confirmed";
 };
 
-/* ───────────────────────────────────────────
-   Page
-─────────────────────────────────────────── */
+/* Page */
 export default function JobHomePage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const searchRef = useRef(null);
 
-  // Live bookings
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
@@ -247,7 +358,6 @@ export default function JobHomePage() {
     return () => unsub();
   }, []);
 
-  // 4-digit jobs only
   const jobs = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
 
   const todayMidnight = useMemo(() => {
@@ -258,7 +368,7 @@ export default function JobHomePage() {
 
   const weekWindow = useMemo(() => {
     const now = new Date(todayMidnight);
-    const day = now.getDay(); // 0 Sun … 6 Sat
+    const day = now.getDay();
     const monday = new Date(now);
     const diff = (day === 0 ? -6 : 1) - day;
     monday.setDate(now.getDate() + diff);
@@ -267,12 +377,11 @@ export default function JobHomePage() {
     return { monday, sunday };
   }, [todayMidnight]);
 
-  /* ---------- Grouped counts for dashboard ---------- */
   const grouped = useMemo(() => {
     const g = {
       Upcoming: 0,
       "Complete Jobs": 0,
-      "Passed — Not Confirmed": 0,
+      "Passed - Not Confirmed": 0,
       "Ready to Invoice": 0,
       Paid: 0,
       "Needs Action": 0,
@@ -287,8 +396,6 @@ export default function JobHomePage() {
 
   const total = jobs.length;
 
-  /* ---------- Canonical counts (pills) ---------- */
-  // Review Queue: (complete/confirmed & past) OR ready-to-invoice, not paid
   const reviewQueueCount = useMemo(() => {
     return jobs.filter((j) => {
       const s = norm(j.status);
@@ -298,28 +405,23 @@ export default function JobHomePage() {
     }).length;
   }, [jobs, todayMidnight]);
 
-  // Ready to Quote (finance-queue): ONLY explicit ready-to-invoice, not paid
   const financeReadyCount = useMemo(() => {
     return jobs.filter((j) => readyToInvoiceFlag(j) && !isPaidFlag(j)).length;
   }, [jobs]);
 
-  // Invoiced (awaiting payment)
   const invoicedCount = useMemo(() => {
     return jobs.filter((j) => isInvoicedFlag(j) && !isPaidFlag(j)).length;
   }, [jobs]);
 
-  // Paid
   const paidCount = useMemo(() => jobs.filter(isPaidFlag).length, [jobs]);
 
-  // Cancelled
   const cancelledCount = useMemo(
     () => jobs.filter((j) => /cancel(l)?ed/i.test(String(j.status || ""))).length,
     [jobs]
   );
 
-  // Overdue (>30 days since invoice, not paid)
   const overdueCount = useMemo(() => {
-    const THRESHOLD_DAYS = 30;
+    const thresholdDays = 30;
     const now = Date.now();
     const getMillis = (v) => {
       if (!v) return null;
@@ -337,11 +439,10 @@ export default function JobHomePage() {
         null;
       if (!ts) return false;
       const ageDays = (now - ts) / 86400000;
-      return ageDays > THRESHOLD_DAYS;
+      return ageDays > thresholdDays;
     }).length;
   }, [jobs]);
 
-  /* ---------- Preview arrays (for panels) ---------- */
   const upcomingThisWeek = useMemo(() => {
     const inWeek = (d) => d >= weekWindow.monday && d <= weekWindow.sunday;
     return jobs
@@ -382,8 +483,7 @@ export default function JobHomePage() {
     return withLast;
   }, [jobs]);
 
-  /* ---------- UI helpers ---------- */
-  const navCard = (href, title, subtitle, pill) => (
+  const navCard = (href, title, subtitle, pill, Icon = BriefcaseBusiness, color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => (
     <Link
       href={href}
       style={card}
@@ -391,13 +491,20 @@ export default function JobHomePage() {
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
     >
       <div style={sectionHeader}>
-        <div>
-          <div style={cardTitle}>{title}</div>
-          <div style={cardHint}>{subtitle}</div>
+        <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+          <span style={iconBox(color, bg, border)}>
+            <Icon size={17} />
+          </span>
+          <div>
+            <div style={cardTitle}>{title}</div>
+            <div style={cardHint}>{subtitle}</div>
+          </div>
         </div>
-        <span style={sectionTag}>{pill}</span>
+        <span style={chip()}>{pill}</span>
       </div>
-      <div style={{ marginTop: 10, fontWeight: 800, color: UI.brand }}>Open →</div>
+      <div style={{ display: "flex", justifyContent: "flex-end", color: UI.brand, marginTop: 8 }}>
+        <ChevronRight size={17} />
+      </div>
     </Link>
   );
 
@@ -406,22 +513,10 @@ export default function JobHomePage() {
     const first = ds[0] ?? null;
     const last = ds[ds.length - 1] ?? null;
     const prefix = getJobPrefix(j);
-    const label = first && last ? `${fmtShort(first)} – ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
+    const label = first && last ? `${fmtShort(first)} to ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
     const pretty = prettifyStatus(j.status || "");
     return (
-      <Link
-        key={j.id}
-        href={`/job-numbers/${j.id}`}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(120px,1fr) 140px 140px auto",
-          gap: 8,
-          padding: "9px 11px",
-          borderTop: "1px solid #edf2f7",
-          textDecoration: "none",
-          color: UI.text,
-        }}
-      >
+      <Link key={j.id} href={`/job-numbers/${j.id}`} className="job-home-row" style={rowShell}>
         <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center" }}>
           <span
             style={{
@@ -433,7 +528,7 @@ export default function JobHomePage() {
               padding: "0 6px",
               borderRadius: 8,
               background: UI.brandSoft,
-              border: "1px solid #cad6e2",
+              border: `1px solid ${UI.brandBorder}`,
               fontWeight: 900,
               fontSize: 11,
               color: UI.brand,
@@ -442,14 +537,14 @@ export default function JobHomePage() {
             {prefix}
           </span>
           <span style={{ fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            #{j.jobNumber || j.id} • {j.client || "—"}
+            #{j.jobNumber || j.id} - {j.client || "-"}
           </span>
         </div>
         <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {j.location || "—"}
+          {j.location || "-"}
         </div>
         <div style={{ fontSize: 13 }}>{label}</div>
-        <div style={{ justifySelf: "end" }}>
+        <div className="job-home-row-status" style={{ justifySelf: "end" }}>
           <StatusBadge value={pretty} />
         </div>
       </Link>
@@ -458,82 +553,83 @@ export default function JobHomePage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
       <div style={pageWrap}>
-        {/* Header */}
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Jobs Home</h1>
-            <div style={sub}>Executive workflow view for job progress, review queues, and invoice readiness.</div>
+            <div style={sub}>Job progress, review queues and invoice readiness.</div>
           </div>
-          <div style={{ ...chip }}>{loading ? "Loading…" : `${total} jobs`}</div>
-        </div>
-
-        <div style={{ ...executivePanel, marginBottom: UI.gap }}>
-          <div style={{ ...sectionHeader, marginBottom: 10 }}>
-            <span style={{ color: "#f8fbff", fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Jobs Overview
-            </span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ ...chip, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#edf3fa" }}>
-                Workflow
-              </span>
-              <span style={{ ...chip, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#edf3fa" }}>
-                Total: <b style={{ marginLeft: 6 }}>{loading ? "..." : total}</b>
-              </span>
-            </div>
-          </div>
-          <div style={executiveGrid}>
-            <div style={{ gridColumn: "span 3" }}>
-              <ExecutiveStat label="Upcoming" value={grouped["Upcoming"] ?? 0} />
-            </div>
-            <div style={{ gridColumn: "span 3" }}>
-              <ExecutiveStat label="Review Queue" value={reviewQueueCount} />
-            </div>
-            <div style={{ gridColumn: "span 3" }}>
-              <ExecutiveStat label="Ready to Invoice" value={financeReadyCount} />
-            </div>
-            <div style={{ gridColumn: "span 3" }}>
-              <ExecutiveStat label="Needs Action" value={grouped["Needs Action"] ?? 0} />
-            </div>
+          <div style={chip()}>
+            <BriefcaseBusiness size={13} /> {loading ? "Loading..." : `${total} jobs`}
           </div>
         </div>
 
-        {/* Search + Quick Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
-          {/* Search */}
-          <div style={{ ...surface, padding: 12, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+        <div className="job-home-stat-grid" style={{ ...grid(4), marginBottom: UI.gap }}>
+          <MetricCard
+            label="Upcoming"
+            value={grouped.Upcoming ?? 0}
+            icon={CalendarDays}
+            color={UI.brand}
+            bg={UI.brandSoft}
+            border={UI.brandBorder}
+          />
+          <MetricCard
+            label="Review Queue"
+            value={reviewQueueCount}
+            icon={ClipboardList}
+            color={UI.purple}
+            bg={UI.purpleSoft}
+            border={UI.purpleBorder}
+          />
+          <MetricCard
+            label="Ready to Invoice"
+            value={financeReadyCount}
+            icon={Receipt}
+            color={UI.green}
+            bg={UI.greenSoft}
+            border={UI.greenBorder}
+          />
+          <MetricCard
+            label="Needs Action"
+            value={grouped["Needs Action"] ?? 0}
+            icon={AlertTriangle}
+            color={UI.red}
+            bg={UI.redSoft}
+            border={UI.redBorder}
+          />
+        </div>
+
+        <div className="job-home-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(300px, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
+          <section style={card}>
             <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>Quick Search</h2>
-                <div style={cardHint}>Search by job number, client, location, or notes.</div>
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
+                  <Search size={17} />
+                </span>
+                <div>
+                  <h2 style={titleMd}>Quick Search</h2>
+                  <div style={cardHint}>Search by job number, client, location or notes.</div>
+                </div>
               </div>
-              <span style={sectionTag}>Search</span>
+              <span style={chip()}>Search</span>
             </div>
+
             <div style={{ position: "relative" }}>
-              <svg viewBox="0 0 24 24" fill="none" style={{ position: "absolute", left: 10, top: 10, width: 18, height: 18, opacity: 0.6 }} aria-hidden>
-                <path d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <Search size={17} style={{ position: "absolute", left: 10, top: 9, color: UI.muted }} aria-hidden />
               <input
                 ref={searchRef}
                 type="text"
-                placeholder="Search by job #, client, location, or notes…"
+                placeholder="Search by job #, client, location or notes..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "9px 40px 9px 34px",
-                  borderRadius: UI.radiusSm,
-                  border: "1px solid #d6dee8",
-                  fontSize: 13.5,
-                  outline: "none",
-                  background: "#fff",
-                }}
+                style={inputStyle}
                 aria-label="Search jobs"
               />
             </div>
 
             {!!search && (
-              <div style={{ marginTop: 8, border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ ...listShell, marginTop: 8 }}>
                 {jobs
                   .filter((job) => {
                     const s = search.toLowerCase().trim();
@@ -548,156 +644,159 @@ export default function JobHomePage() {
                   .map(jobRow)}
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Quick stats */}
-          <div style={{ ...surface, padding: 12, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+          <section style={card}>
             <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>At a Glance</h2>
-                <div style={cardHint}>Current overview of upcoming work and finance-ready jobs.</div>
+              <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+                <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
+                  <CheckCircle2 size={17} />
+                </span>
+                <div>
+                  <h2 style={titleMd}>At a Glance</h2>
+                  <div style={cardHint}>Current work and finance state.</div>
+                </div>
               </div>
-              <span style={sectionTag}>Summary</span>
+              <span style={chip("green")}>Summary</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
-              <div style={{ ...card, padding: 10 }}>
-                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Upcoming</div>
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{grouped["Upcoming"] ?? 0}</div>
-              </div>
-              <div style={{ ...card, padding: 10 }}>
-                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Review Queue</div>
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{reviewQueueCount}</div>
-              </div>
-              <div style={{ ...card, padding: 10 }}>
-                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Ready to Invoice</div>
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{financeReadyCount}</div>
-              </div>
-              <div style={{ ...card, padding: 10 }}>
-                <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>Needs Action</div>
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{grouped["Needs Action"] ?? 0}</div>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+              <MiniStat label="Upcoming" value={grouped.Upcoming ?? 0} />
+              <MiniStat label="Review Queue" value={reviewQueueCount} />
+              <MiniStat label="Ready to Invoice" value={financeReadyCount} />
+              <MiniStat label="Needs Action" value={grouped["Needs Action"] ?? 0} />
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* Shortcuts (two rows) */}
-        <div style={{ marginBottom: UI.gap }}>
+        <section style={{ marginBottom: UI.gap }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={cardTitle}>Shortcuts</h2>
+              <h2 style={titleMd}>Shortcuts</h2>
               <div style={cardHint}>Jump straight into the stage you need.</div>
             </div>
-            <span style={sectionTag}>Workflow</span>
+            <span style={chip("purple")}>Workflow</span>
           </div>
 
-          {/* Row 1: Review Queue, Ready to Quote, Invoiced, Paid */}
-          <div style={grid(4)}>
-            {navCard("/review-queue", "Review Queue", "Fill Notes • PO • Invoice details", `${reviewQueueCount}`)}
-            {navCard("/finance-queue", "Ready to Invoice", "Price it & send quote/invoice", `${financeReadyCount}`)}
-            {navCard("/invoiced", "Invoiced", "Invoiced, awaiting payment", `${invoicedCount}`)}
-            {navCard("/paid", "Paid", "Jobs marked as paid", `${paidCount}`)}
+          <div className="job-home-shortcut-grid" style={grid(4)}>
+            {navCard("/review-queue", "Review Queue", "Fill notes / PO / invoice details", `${reviewQueueCount}`, ClipboardList, UI.purple, UI.purpleSoft, UI.purpleBorder)}
+            {navCard("/finance-queue", "Ready to Invoice", "Price it and send quote/invoice", `${financeReadyCount}`, Receipt, UI.green, UI.greenSoft, UI.greenBorder)}
+            {navCard("/invoiced", "Invoiced", "Invoiced, awaiting payment", `${invoicedCount}`, FileText, UI.brand, UI.brandSoft, UI.brandBorder)}
+            {navCard("/paid", "Paid", "Jobs marked as paid", `${paidCount}`, CheckCircle2, UI.green, UI.greenSoft, UI.greenBorder)}
           </div>
 
-          {/* Row 2: Upcoming, Cancelled, Needs Action, Overdue */}
-          <div style={{ ...grid(4), marginTop: UI.gap }}>
-            {navCard("/job-sheet?section=Upcoming", "Upcoming", "Pending / future dates", `${grouped["Upcoming"] ?? 0}`)}
-            {navCard("/job-sheet?section=Cancelled", "Cancelled", "Cancelled bookings", `${cancelledCount}`)}
-            {navCard("/job-sheet?section=Needs%20Action", "Needs Action", "Jobs requiring attention", `${grouped["Needs Action"] ?? 0}`)}
-            {navCard("/job-sheet?section=Overdue", "Overdue Payments", ">30 days since invoice, not paid", `${overdueCount}`)}
+          <div className="job-home-shortcut-grid" style={{ ...grid(4), marginTop: UI.gap }}>
+            {navCard("/job-sheet?section=Upcoming", "Upcoming", "Pending / future dates", `${grouped.Upcoming ?? 0}`, CalendarDays)}
+            {navCard("/job-sheet?section=Cancelled", "Cancelled", "Cancelled bookings", `${cancelledCount}`, AlertTriangle, UI.red, UI.redSoft, UI.redBorder)}
+            {navCard("/job-sheet?section=Needs%20Action", "Needs Action", "Jobs requiring attention", `${grouped["Needs Action"] ?? 0}`, AlertTriangle, UI.red, UI.redSoft, UI.redBorder)}
+            {navCard("/job-sheet?section=Overdue", "Overdue Payments", ">30 days since invoice, not paid", `${overdueCount}`, Clock3, UI.amber, UI.amberSoft, UI.amberBorder)}
           </div>
-        </div>
+        </section>
 
-        {/* Pipelines */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
-          {/* Upcoming this week */}
-          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
-            <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>Upcoming This Week</h2>
-                <div style={cardHint}>Jobs scheduled within the current week window.</div>
-              </div>
-              <Link href="/job-sheet?section=Upcoming" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
-                View all →
-              </Link>
-            </div>
-            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
-              {loading ? (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
-              ) : upcomingThisWeek.length ? (
-                upcomingThisWeek.map(jobRow)
-              ) : (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Nothing scheduled this week.</div>
-              )}
-            </div>
-          </div>
-
-          {/* Review queue preview */}
-          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
-            <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>Review Queue</h2>
-                <div style={cardHint}>Jobs ready for review actions and completion checks.</div>
-              </div>
-              <Link href="/review-queue" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
-                Open queue →
-              </Link>
-            </div>
-            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
-              {loading ? (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
-              ) : reviewQueuePreview.length ? (
-                reviewQueuePreview.map(jobRow)
-              ) : (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>No jobs to review.</div>
-              )}
-            </div>
-          </div>
-
-          {/* Finance queue preview */}
-          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
-            <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>Ready to Invoice</h2>
-                <div style={cardHint}>Jobs prepared for pricing and invoice issue.</div>
-              </div>
-              <Link href="/finance-queue" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
-                Open queue →
-              </Link>
-            </div>
-            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
-              {loading ? (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
-              ) : financeQueuePreview.length ? (
-                financeQueuePreview.map(jobRow)
-              ) : (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Nothing awaiting pricing.</div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent */}
-          <div style={{ ...surface, padding: 12, minHeight: 200, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
-            <div style={sectionHeader}>
-              <div>
-                <h2 style={cardTitle}>Recent Jobs</h2>
-                <div style={cardHint}>Latest booked and completed work in the system.</div>
-              </div>
-              <Link href="/job-sheet" style={{ fontSize: 12.5, fontWeight: 800, color: UI.brand, textDecoration: "none" }}>
-                Job sheet →
-              </Link>
-            </div>
-            <div style={{ border: "1px solid #dde5ee", borderRadius: 10, overflow: "hidden" }}>
-              {loading ? (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading…</div>
-              ) : recent.length ? (
-                recent.map(jobRow)
-              ) : (
-                <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>No recent jobs.</div>
-              )}
-            </div>
-          </div>
+        <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
+          <PipelinePanel
+            title="Upcoming This Week"
+            hintText="Jobs scheduled within the current week window."
+            href="/job-sheet?section=Upcoming"
+            linkText="View all"
+            loading={loading}
+            emptyText="Nothing scheduled this week."
+            rows={upcomingThisWeek}
+            renderRow={jobRow}
+            icon={CalendarDays}
+          />
+          <PipelinePanel
+            title="Review Queue"
+            hintText="Jobs ready for review actions and completion checks."
+            href="/review-queue"
+            linkText="Open queue"
+            loading={loading}
+            emptyText="No jobs to review."
+            rows={reviewQueuePreview}
+            renderRow={jobRow}
+            icon={ClipboardList}
+            color={UI.purple}
+            bg={UI.purpleSoft}
+            border={UI.purpleBorder}
+          />
+          <PipelinePanel
+            title="Ready to Invoice"
+            hintText="Jobs prepared for pricing and invoice issue."
+            href="/finance-queue"
+            linkText="Open queue"
+            loading={loading}
+            emptyText="Nothing awaiting pricing."
+            rows={financeQueuePreview}
+            renderRow={jobRow}
+            icon={Receipt}
+            color={UI.green}
+            bg={UI.greenSoft}
+            border={UI.greenBorder}
+          />
+          <PipelinePanel
+            title="Recent Jobs"
+            hintText="Latest booked and completed work in the system."
+            href="/job-sheet"
+            linkText="Job sheet"
+            loading={loading}
+            emptyText="No recent jobs."
+            rows={recent}
+            renderRow={jobRow}
+            icon={BriefcaseBusiness}
+          />
         </div>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div style={{ ...surface, padding: 10, boxShadow: "none" }}>
+      <div style={statLabel}>{label}</div>
+      <div style={{ ...statValue, fontSize: 22 }}>{value}</div>
+    </div>
+  );
+}
+
+function PipelinePanel({
+  title,
+  hintText,
+  href,
+  linkText,
+  loading,
+  emptyText,
+  rows,
+  renderRow,
+  icon: Icon,
+  color = UI.brand,
+  bg = UI.brandSoft,
+  border = UI.brandBorder,
+}) {
+  return (
+    <section style={{ ...card, minHeight: 200 }}>
+      <div style={sectionHeader}>
+        <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+          <span style={iconBox(color, bg, border)}>
+            <Icon size={17} />
+          </span>
+          <div>
+            <h2 style={titleMd}>{title}</h2>
+            <div style={cardHint}>{hintText}</div>
+          </div>
+        </div>
+        <Link href={href} style={{ ...chip(), color: UI.brand, textDecoration: "none" }}>
+          {linkText} <ChevronRight size={13} />
+        </Link>
+      </div>
+      <div style={listShell}>
+        {loading ? (
+          <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading...</div>
+        ) : rows.length ? (
+          rows.map(renderRow)
+        ) : (
+          <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>{emptyText}</div>
+        )}
+      </div>
+    </section>
   );
 }

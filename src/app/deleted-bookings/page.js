@@ -15,7 +15,16 @@ import {
 import { db, auth } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ViewBookingModal from "../components/ViewBookingModal";
-import { RotateCcw, Trash2, ChevronDown, ChevronUp, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronUp,
+  LayoutDashboard,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 /* ───────────────────────────────────────────
    Admin gate (ONLY these emails)
@@ -24,75 +33,93 @@ const ADMIN_EMAILS = ["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = {
-  text: "#111827",
-  muted: "#6b7280",
-  bg: "#ffffff",
-  border: "1px solid #e5e7eb",
-  radiusLg: 12,
+  text: "#0f172a",
+  muted: "#5f6f82",
+  bg: "#f3f6f9",
+  card: "#ffffff",
+  border: "1px solid #d7dee8",
   radius: 8,
-  radiusSm: 6,
-  shadow: "0 6px 16px rgba(0,0,0,0.06)",
+  radiusSm: 8,
+  gap: 12,
+  shadow: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  danger: "#b91c1c",
+  dangerSoft: "#fff1f2",
+  ok: "#15803d",
+  okSoft: "#edf7f2",
 };
 
 const pageWrap = {
-  display: "flex",
   minHeight: "100vh",
-  background: "#f3f4f6",
+  background: UI.bg,
   fontFamily: "Inter, system-ui, Arial, sans-serif",
   color: UI.text,
+  padding: "16px 16px 32px",
 };
 
 const mainWrap = {
-  flex: 1,
-  maxWidth: 1800,
-  margin: "0 auto",
-  padding: "14px 14px 30px",
+  width: "100%",
 };
 
 const card = {
-  background: UI.bg,
+  background: UI.card,
   border: UI.border,
-  borderRadius: UI.radiusLg,
+  borderRadius: UI.radius,
   boxShadow: UI.shadow,
-  padding: 16,
-  marginBottom: 16,
+  padding: 12,
+  marginBottom: UI.gap,
 };
 
-const title = { margin: 0, fontSize: 18, fontWeight: 700, color: UI.text };
+const pageHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: UI.gap,
+  flexWrap: "wrap",
+};
+
+const title = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 800, color: UI.text };
+const subText = { color: UI.muted, fontWeight: 600, marginTop: 6, fontSize: 13.5, lineHeight: 1.45 };
 
 const btnBase = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  justifyContent: "center",
+  gap: 6,
   padding: "8px 12px",
-  borderRadius: UI.radius,
+  borderRadius: UI.radiusSm,
   cursor: "pointer",
   fontSize: 13,
-  fontWeight: 600,
-  border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  fontWeight: 800,
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.card,
   color: UI.text,
+  boxShadow: UI.shadow,
 };
 
 const btnDark = {
   ...btnBase,
-  background: "#111827",
+  background: UI.brand,
   color: "#fff",
-  border: "1px solid #111827",
+  border: `1px solid ${UI.brand}`,
 };
 
 const btnDanger = {
   ...btnBase,
-  background: "#7f1d1d",
-  color: "#fee2e2",
-  border: "1px solid #b91c1c",
+  background: UI.dangerSoft,
+  color: UI.danger,
+  border: "1px solid #fecdd3",
 };
 
 const tableWrap = {
   width: "100%",
   overflow: "auto",
-  borderRadius: UI.radius,
+  borderRadius: UI.radiusSm,
   border: UI.border,
+  background: UI.card,
 };
 
 const table = {
@@ -106,20 +133,23 @@ const th = {
   textAlign: "left",
   fontWeight: 700,
   fontSize: 12,
-  color: UI.text,
-  background: "#f3f4f6",
-  padding: "10px",
+  color: UI.muted,
+  background: "#f8fafc",
+  padding: "9px 10px",
   borderBottom: UI.border,
   position: "sticky",
   top: 0,
   zIndex: 1,
   whiteSpace: "nowrap",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
 };
 
 const td = {
-  padding: "10px",
+  padding: "9px 10px",
   verticalAlign: "top",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: UI.border,
+  fontSize: 13.5,
 };
 
 const mono = {
@@ -130,14 +160,64 @@ const mono = {
 const pill = (bg, color = "#111") => ({
   display: "inline-flex",
   alignItems: "center",
-  padding: "2px 8px",
+  padding: "3px 8px",
   borderRadius: 999,
   background: bg,
   color,
   fontWeight: 800,
   fontSize: 12,
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${UI.brandBorder}`,
 });
+
+const statGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: UI.gap,
+  marginBottom: UI.gap,
+};
+
+const statCard = {
+  ...card,
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 10,
+  marginBottom: 0,
+};
+
+const iconBox = {
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: UI.brandSoft,
+  color: UI.brand,
+  border: `1px solid ${UI.brandBorder}`,
+  flex: "0 0 auto",
+};
+
+const statLabel = {
+  fontSize: 11,
+  fontWeight: 900,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const statValue = {
+  marginTop: 4,
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: UI.text,
+};
+
+const searchWrap = {
+  position: "relative",
+  flex: 1,
+  minWidth: 260,
+};
 
 /* ------------------------------- helpers ------------------------------- */
 const toDateSafe = (v) => {
@@ -149,7 +229,7 @@ const toDateSafe = (v) => {
 
 const fmtGB = (v) => {
   const d = toDateSafe(v);
-  if (!d) return "—";
+  if (!d) return "-";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(-2);
@@ -157,18 +237,18 @@ const fmtGB = (v) => {
 };
 
 const fmtDateRange = (b) => {
-  if (!b) return "—";
+  if (!b) return "-";
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
     return b.bookingDates.map((x) => fmtGB(x)).join(", ");
   }
-  if (b.startDate && b.endDate) return `${fmtGB(b.startDate)} → ${fmtGB(b.endDate)}`;
+  if (b.startDate && b.endDate) return `${fmtGB(b.startDate)} -> ${fmtGB(b.endDate)}`;
   if (b.date) return fmtGB(b.date);
   if (b.startDate) return fmtGB(b.startDate);
-  return "—";
+  return "-";
 };
 
 const formatCrew = (employees) => {
-  if (!Array.isArray(employees) || employees.length === 0) return "—";
+  if (!Array.isArray(employees) || employees.length === 0) return "-";
   return employees
     .map((emp) => {
       if (typeof emp === "string") return emp;
@@ -188,7 +268,7 @@ const formatCrew = (employees) => {
 };
 
 const vehiclesPretty = (vehicles, vehiclesIndex) => {
-  if (!Array.isArray(vehicles) || vehicles.length === 0) return "—";
+  if (!Array.isArray(vehicles) || vehicles.length === 0) return "-";
 
   const byId = vehiclesIndex?.byId || {};
   const byReg = vehiclesIndex?.byReg || {};
@@ -202,7 +282,7 @@ const vehiclesPretty = (vehicles, vehiclesIndex) => {
         const name =
           v?.name || [v?.manufacturer, v?.model].filter(Boolean).join(" ") || "Vehicle";
         const plate = v?.registration ? String(v.registration).toUpperCase() : "";
-        return plate ? `${name} – ${plate}` : name;
+        return plate ? `${name} - ${plate}` : name;
       }
 
       const needle = String(v).trim();
@@ -213,7 +293,7 @@ const vehiclesPretty = (vehicles, vehiclesIndex) => {
         const name =
           match?.name || [match?.manufacturer, match?.model].filter(Boolean).join(" ") || "Vehicle";
         const plate = match?.registration ? String(match.registration).toUpperCase() : "";
-        return plate ? `${name} – ${plate}` : name;
+        return plate ? `${name} - ${plate}` : name;
       }
 
       return needle;
@@ -223,10 +303,10 @@ const vehiclesPretty = (vehicles, vehiclesIndex) => {
 };
 
 const equipmentPretty = (equipment) => {
-  if (!equipment) return "—";
-  if (Array.isArray(equipment)) return equipment.filter(Boolean).join(", ") || "—";
-  if (typeof equipment === "string") return equipment || "—";
-  return "—";
+  if (!equipment) return "-";
+  if (Array.isArray(equipment)) return equipment.filter(Boolean).join(", ") || "-";
+  if (typeof equipment === "string") return equipment || "-";
+  return "-";
 };
 
 /* ---------- ATTACHMENTS HELPERS ---------- */
@@ -306,7 +386,7 @@ const getStatusStyle = (s = "") =>
   STATUS_COLORS[s] || { bg: "#e5e7eb", text: "#111", border: "#e5e7eb" };
 
 const formatReasons = (reasons = [], other = "") => {
-  if (!Array.isArray(reasons) || !reasons.length) return "—";
+  if (!Array.isArray(reasons) || !reasons.length) return "-";
   return reasons
     .map((r) => (r === "Other" && other ? `Other: ${other}` : r))
     .join(", ");
@@ -336,10 +416,10 @@ const normaliseDeleted = (id, raw) => {
     deleteReasonOther,
     deleteReasonText: formatReasons(deleteReasons, deleteReasonOther),
 
-    jobNumber: payload.jobNumber || "—",
-    client: payload.client || "—",
-    location: payload.location || "—",
-    status: payload.status || "—",
+    jobNumber: payload.jobNumber || "-",
+    client: payload.client || "-",
+    location: payload.location || "-",
+    status: payload.status || "-",
     dateRange: fmtDateRange(payload),
     employees: payload.employees || [],
     vehicles: payload.vehicles || [],
@@ -347,6 +427,19 @@ const normaliseDeleted = (id, raw) => {
     attachments: toAttachmentList(payload),
   };
 };
+
+function DeletedStat({ icon, label, value, detail }) {
+  return (
+    <div style={statCard}>
+      <span style={iconBox}>{icon}</span>
+      <div>
+        <div style={statLabel}>{label}</div>
+        <div style={statValue}>{value}</div>
+        <div style={{ marginTop: 5, color: UI.muted, fontSize: 12 }}>{detail}</div>
+      </div>
+    </div>
+  );
+}
 
 export default function DeletedBookingsPage() {
   const router = useRouter();
@@ -540,7 +633,9 @@ export default function DeletedBookingsPage() {
   if (checkingAccess) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 22, color: UI.muted }}>Checking admin access…</div>
+        <div style={pageWrap}>
+          <div style={card}>Checking admin access...</div>
+        </div>
       </HeaderSidebarLayout>
     );
   }
@@ -548,36 +643,46 @@ export default function DeletedBookingsPage() {
   // Non-admins get redirected; render nothing to avoid flash
   if (!isAdmin) return null;
 
+  const attachmentTotal = rows.reduce((sum, row) => sum + (row.attachments?.length || 0), 0);
+
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <div style={mainWrap}>
           {/* Header */}
           <section style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={pageHeader}>
               <div>
-                <h2 style={title}>Deleted Bookings</h2>
-                <div style={{ color: UI.muted, fontWeight: 600, marginTop: 4 }}>
+                <h1 style={title}>Deleted Bookings</h1>
+                <div style={subText}>
                   Admin only. Click a row to view full details. Restore from the modal or table.
                 </div>
               </div>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button style={btnBase} type="button" onClick={() => router.push("/admin")}>
-                  ← Back to Admin
+                  <ArrowLeft size={14} />
+                  Back to Admin
                 </button>
 
                 <button style={btnBase} type="button" onClick={() => router.push("/dashboard")}>
+                  <LayoutDashboard size={14} />
                   Dashboard
                 </button>
               </div>
             </div>
           </section>
 
+          <section style={statGrid}>
+            <DeletedStat icon={<Trash2 size={17} />} label="Deleted" value={rows.length} detail="records in archive" />
+            <DeletedStat icon={<Search size={17} />} label="Showing" value={filtered.length} detail="current filter" />
+            <DeletedStat icon={<ArchiveRestore size={17} />} label="Attachments" value={attachmentTotal} detail="files linked here" />
+          </section>
+
           {/* Controls */}
           <section style={card}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
+              <div style={searchWrap}>
                 <Search
                   size={16}
                   style={{
@@ -591,14 +696,17 @@ export default function DeletedBookingsPage() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search job number, production, location, status…"
+                  placeholder="Search job number, production, location, status..."
                   style={{
                     width: "100%",
                     border: UI.border,
-                    borderRadius: UI.radius,
-                    padding: "10px 12px 10px 34px",
-                    fontSize: 14,
-                    background: "#fff",
+                    borderRadius: UI.radiusSm,
+                    padding: "8px 12px 8px 34px",
+                    fontSize: 13,
+                    background: UI.card,
+                    color: UI.text,
+                    fontWeight: 700,
+                    boxShadow: UI.shadow,
                   }}
                 />
               </div>
@@ -608,21 +716,22 @@ export default function DeletedBookingsPage() {
                 onChange={(e) => setSortMode(e.target.value)}
                 style={{
                   border: UI.border,
-                  borderRadius: UI.radius,
-                  padding: "10px 12px",
-                  fontSize: 14,
-                  background: "#fff",
+                  borderRadius: UI.radiusSm,
+                  padding: "8px 10px",
+                  fontSize: 13,
+                  background: UI.card,
                   fontWeight: 700,
                   color: UI.text,
+                  boxShadow: UI.shadow,
                 }}
               >
-                <option value="deletedDesc">Sort: Deleted (new → old)</option>
-                <option value="deletedAsc">Sort: Deleted (old → new)</option>
-                <option value="jobDesc">Sort: Job No (high → low)</option>
-                <option value="jobAsc">Sort: Job No (low → high)</option>
+                <option value="deletedDesc">Sort: Deleted (new to old)</option>
+                <option value="deletedAsc">Sort: Deleted (old to new)</option>
+                <option value="jobDesc">Sort: Job No (high to low)</option>
+                <option value="jobAsc">Sort: Job No (low to high)</option>
               </select>
 
-              <div style={pill("#eef2ff")}>Total: {filtered.length}</div>
+              <div style={pill(UI.brandSoft, UI.brand)}>Total: {filtered.length}</div>
             </div>
           </section>
 
@@ -673,13 +782,13 @@ export default function DeletedBookingsPage() {
                           key={r.id}
                           onClick={() => openDeletedBooking(r)}
                           style={{
-                            background: i % 2 === 0 ? "#fff" : "#fafafa",
+                            background: i % 2 === 0 ? UI.card : "#f8fafc",
                             transition: "background-color .15s ease",
                             cursor: "pointer",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = UI.brandSoft)}
                           onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
+                            (e.currentTarget.style.backgroundColor = i % 2 === 0 ? UI.card : "#f8fafc")
                           }
                         >
                           <td style={td}>
@@ -693,7 +802,7 @@ export default function DeletedBookingsPage() {
 
                           <td style={td}>{r.dateRange}</td>
 
-                          <td style={{ ...td, fontWeight: 900 }}>{r.jobNumber || "—"}</td>
+                          <td style={{ ...td, fontWeight: 900 }}>{r.jobNumber || "-"}</td>
 
                           <td style={td}>
                             <span
@@ -709,7 +818,7 @@ export default function DeletedBookingsPage() {
                                 fontSize: 12,
                               }}
                             >
-                              {r.status || "—"}
+                              {r.status || "-"}
                             </span>
 
                             {r.attachments?.length ? (
@@ -721,12 +830,12 @@ export default function DeletedBookingsPage() {
 
                           <td style={td}>
                             <div style={{ whiteSpace: "normal", fontWeight: 700 }}>
-                              {r.deleteReasonText || "—"}
+                              {r.deleteReasonText || "-"}
                             </div>
                           </td>
 
                           <td style={td}>
-                            <div style={{ fontWeight: 800 }}>{r.client || "—"}</div>
+                            <div style={{ fontWeight: 800 }}>{r.client || "-"}</div>
                             <div style={{ marginTop: 6, fontSize: 12, color: UI.muted, fontWeight: 700 }}>
                               <div style={{ whiteSpace: "normal" }}>
                                 <b>Vehicles:</b> {vehiclesPretty(r.vehicles, vehiclesIndex)}
@@ -737,10 +846,10 @@ export default function DeletedBookingsPage() {
                             </div>
                           </td>
 
-                          <td style={td}>{r.location || "—"}</td>
+                          <td style={td}>{r.location || "-"}</td>
 
                           <td style={td}>
-                            {Array.isArray(r.employees) && r.employees.length ? formatCrew(r.employees) : "—"}
+                            {Array.isArray(r.employees) && r.employees.length ? formatCrew(r.employees) : "-"}
                           </td>
 
                           <td style={td}>
@@ -786,9 +895,10 @@ export default function DeletedBookingsPage() {
                                 style={{
                                   marginTop: 10,
                                   border: UI.border,
-                                  borderRadius: UI.radius,
-                                  background: "#fff",
+                                  borderRadius: UI.radiusSm,
+                                  background: "#f8fafc",
                                   padding: 10,
+                                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",
                                 }}
                               >
                                 {r.attachments?.length ? (
@@ -805,7 +915,7 @@ export default function DeletedBookingsPage() {
                                           style={{ ...btnBase, textDecoration: "none", fontWeight: 800 }}
                                           title={f.label}
                                         >
-                                           {f.label}
+                                          {f.label}
                                         </a>
                                       ))}
                                     </div>

@@ -1,7 +1,7 @@
 // src/app/dashboard/page.js
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -17,46 +17,53 @@ import { auth, db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
+import {
+  Bot,
+  CalendarDays,
+  ClipboardList,
+  Plus,
+  Wrench,
+} from "lucide-react";
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 16,
-  radiusSm: 10,
+  radius: 8,
+  radiusSm: 8,
   gap: 12,
-  shadowSm: "0 10px 26px rgba(15,23,42,0.06)",
-  shadowHover: "0 16px 34px rgba(15,23,42,0.1)",
-  border: "1px solid #dbe2ea",
-  bg: "#eef3f7",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
-  brand: "#183f67",
-  brandSoft: "#edf2f7",
-  brandBorder: "#cad6e2",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
   accent: "#8b5e3c",
   accentSoft: "#f5ede6",
 };
 
-const pageWrap = { padding: "18px 16px 26px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 10,
+  gap: UI.gap,
   marginBottom: 12,
   flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 28,
-  lineHeight: 1.04,
+  fontSize: 22,
+  lineHeight: 1.08,
   fontWeight: 800,
-  letterSpacing: "-0.02em",
+  letterSpacing: 0,
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13, lineHeight: 1.4, marginTop: 4 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
@@ -72,11 +79,11 @@ const chip = {
 const card = {
   ...surface,
   padding: 12,
-  background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+  background: UI.card,
 };
 
-const cardTitle = { fontWeight: 800, fontSize: 16, margin: 0, color: UI.text, letterSpacing: "-0.01em" };
-const cardHint = { color: UI.muted, fontSize: 12, marginTop: 4, lineHeight: 1.4 };
+const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: UI.text, letterSpacing: 0 };
+const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
 
 const grid = (cols = 12) => ({
   display: "grid",
@@ -105,6 +112,25 @@ const sectionHeader = {
   flexWrap: "wrap",
 };
 
+const titleRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+
 const sectionTag = {
   display: "inline-flex",
   alignItems: "center",
@@ -121,9 +147,9 @@ const sectionTag = {
 
 const executivePanel = {
   ...surface,
-  background: "radial-gradient(circle at top right, rgba(107,179,127,0.18), transparent 28%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
-  color: "#edf3fa",
-  padding: 14,
+  background: UI.card,
+  color: UI.text,
+  padding: 12,
 };
 
 const executiveGrid = {
@@ -143,16 +169,16 @@ const executiveStat = {
 
 const tableWrap = {
   overflow: "auto",
-  border: "1px solid #dde5ee",
-  borderRadius: 14,
+  border: UI.border,
+  borderRadius: UI.radiusSm,
   background: "#fff",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
 const th = {
   textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid #dde5ee",
+  padding: "9px 10px",
+  borderBottom: UI.border,
   position: "sticky",
   top: 0,
   background: "#f7f9fc",
@@ -164,18 +190,18 @@ const th = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const td = { padding: "10px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
+const td = { padding: "9px 10px", borderBottom: UI.border, verticalAlign: "top" };
 
 const listReset = { listStyle: "none", padding: 0, margin: 0 };
 const liItem = {
-  border: "1px solid #dde5ee",
-  borderRadius: 14,
+  border: UI.border,
+  borderRadius: UI.radiusSm,
   padding: "9px 11px",
   marginBottom: 7,
   background: "#fff",
   display: "grid",
   gap: 3,
-  boxShadow: "0 6px 14px rgba(15,23,42,0.04)",
+  boxShadow: UI.shadowSm,
 };
 const tag = (kind) => {
   const map = {
@@ -199,6 +225,10 @@ const tag = (kind) => {
 };
 
 const btnPrimary = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
@@ -209,6 +239,10 @@ const btnPrimary = {
   boxShadow: "0 8px 18px rgba(24,63,103,0.14)",
 };
 const btnGhost = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brandBorder}`,
@@ -217,6 +251,24 @@ const btnGhost = {
   fontWeight: 800,
   cursor: "pointer",
 };
+
+const homeResponsiveCss = `
+  @media (max-width: 1280px) {
+    .home-command-grid,
+    .home-main-layout {
+      grid-template-columns: 1fr !important;
+    }
+    .home-stat-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+  }
+  @media (max-width: 760px) {
+    .home-stat-grid,
+    .home-fleet-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+`;
 
 /* ────────────────────────────────────────────────────────────────────────────
    Date + normalisers
@@ -238,8 +290,8 @@ const asEvent = (b) => {
   return {
     id: b.id,
     status: String(b.status || "").toLowerCase(),
-    jobNumber: b.jobNumber || "—",
-    client: b.client || "—",
+    jobNumber: b.jobNumber || "-",
+    client: b.client || "-",
     start,
     end,
     allDay: true,
@@ -265,12 +317,11 @@ const getColorByStatus = (status = "") => {
       return "#c2c2c2";
     case "maintenance":
       return "#f97316";
-
     case "holiday":
       return "#d3d3d3";
     case "workshop":
       return "#da8e58ff";
-          case "complete":
+    case "complete":
       return "#92d18cff";
     default:
       return "#c2c2c2";
@@ -347,13 +398,13 @@ function StatBlock({ label, value }) {
       style={{
         ...surface,
         display: "grid",
-        gap: 8,
+        gap: 6,
         minWidth: 0,
-        padding: 16,
+        padding: 12,
       }}
     >
-      <div style={{ fontSize: 28, fontWeight: 800, color: UI.text, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+      <div style={{ fontSize: 24, fontWeight: 900, color: UI.text, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {label}
       </div>
     </div>
@@ -362,9 +413,9 @@ function StatBlock({ label, value }) {
 
 function Bucket({ title, items }) {
   return (
-    <div style={{ ...surface, padding: 14 }}>
+    <div style={{ ...surface, padding: 12 }}>
       <div style={sectionHeader}>
-        <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{title}</div>
+        <div style={{ fontWeight: 900, fontSize: 15, color: UI.text }}>{title}</div>
         <span style={chip}>Top 8</span>
       </div>
       {items && items.length ? (
@@ -373,13 +424,13 @@ function Bucket({ title, items }) {
             <li key={v.id} style={liItem}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                 <strong style={{ color: UI.text }}>
-                  {v.name || v.registration || "—"}
+                  {v.name || v.registration || "-"}
                 </strong>
-                <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "—"}</span>
+                <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "-"}</span>
               </div>
               <div style={{ fontSize: 13, color: "#374151" }}>
-                MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "—"} • Service:{" "}
-                {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "—"}
+                MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
+                {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
               </div>
             </li>
           ))}
@@ -423,11 +474,11 @@ export default function HomePage() {
     return map;
   }, [vehicles]);
 
-  const vehicleLabel = (v) => {
+  const vehicleLabel = useCallback((v) => {
     if (v && typeof v === "object") return v.name || v.registration || v.reg || "Vehicle";
     const key = String(v || "").trim();
     return vehicleNameById.get(key) || key || "Vehicle";
-  };
+  }, [vehicleNameById]);
 
   // Fetch data
   useEffect(() => {
@@ -564,7 +615,7 @@ export default function HomePage() {
         out.push({
           id: `mot_due__${vehicleId}`,
           __collection: "vehicleDueDates",
-          title: `${label} • MOT due${motBooked ? " (Booked)" : ""}`,
+          title: `${label} - MOT due${motBooked ? " (Booked)" : ""}`,
           start: startOfLocalDay(motDue),
           end: startOfLocalDay(addDays(motDue, 1)),
           allDay: true,
@@ -583,7 +634,7 @@ export default function HomePage() {
         out.push({
           id: `service_due__${vehicleId}`,
           __collection: "vehicleDueDates",
-          title: `${label} • Service due${serviceBooked ? " (Booked)" : ""}`,
+          title: `${label} - Service due${serviceBooked ? " (Booked)" : ""}`,
           start: startOfLocalDay(serviceDue),
           end: startOfLocalDay(addDays(serviceDue, 1)),
           allDay: true,
@@ -598,7 +649,7 @@ export default function HomePage() {
       }
     });
     return out;
-  }, [vehicles, maintenanceBookedMetaByVehicle, vehicleNameById]);
+  }, [vehicles, maintenanceBookedMetaByVehicle, vehicleLabel]);
 
   const maintenanceCalendarEvents = useMemo(
     () => [...maintenanceBookingEvents, ...maintenanceJobEvents, ...motServiceDueEvents],
@@ -624,10 +675,10 @@ export default function HomePage() {
           jobNumber: e.jobNumber,
           vehicles: (e.vehicles || []).map((v) => vehicleLabel(v)),
           equipment: e.equipment.join(", "),
-          notes: bookings.find((b) => b.id === e.id)?.notes || "—",
+          notes: bookings.find((b) => b.id === e.id)?.notes || "-",
           start: e.start,
         })),
-    [events, bookings, now, in2Days, vehicleNameById]
+    [events, bookings, now, in2Days, vehicleLabel]
   );
 
   // Window-scoped JOB COUNTS
@@ -761,6 +812,7 @@ export default function HomePage() {
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
+        <style>{homeResponsiveCss}</style>
         <div style={pageWrap}>
           {/* Header */}
           <div style={headerBar}>
@@ -776,40 +828,53 @@ export default function HomePage() {
             </div>
           </div>
 
+          <div
+            className="home-command-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(300px, 0.62fr) minmax(0, 1.38fr)",
+              gap: UI.gap,
+              marginBottom: UI.gap,
+              alignItems: "stretch",
+            }}
+          >
           {/* Window filter */}
-          <div style={{ ...executivePanel, marginBottom: UI.gap }}>
+          <div style={{ ...executivePanel, marginBottom: 0 }}>
             <div style={{ ...sectionHeader, marginBottom: 0 }}>
-              <span style={{ color: "#f8fbff", fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>Reporting window</span>
+              <span style={{ ...titleRow, color: UI.text, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <CalendarDays size={16} />
+                Reporting window
+              </span>
               {[7, 14, 30, 90].map((d) => (
                 <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
                   {d} days
                 </button>
               ))}
-              <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(232,239,247,0.78)", fontWeight: 800 }}>
-                {moment(now).format("D MMM")} → {moment(windowEnd).format("D MMM YYYY")}
+              <span style={{ marginLeft: 8, fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
               </span>
             </div>
           </div>
 
           {/* Stats */}
-          <div style={{ ...grid(12), marginBottom: UI.gap }}>
-            <div style={{ gridColumn: "span 2" }}>
+          <div className="home-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: UI.gap, marginBottom: 0 }}>
+            <div>
               <StatBlock label="Total Jobs" value={jobCounts.total} />
             </div>
-            <div style={{ gridColumn: "span 2" }}>
+            <div>
               <StatBlock label="Enquiry" value={jobCounts.enquiry} />
             </div>
-            <div style={{ gridColumn: "span 2" }}>
+            <div>
               <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
             </div>
-            <div style={{ gridColumn: "span 2" }}>
+            <div>
               <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
             </div>
-            <div style={{ gridColumn: "span 2" }}>
+            <div>
               <StatBlock label="Confirmed" value={jobCounts.confirmed} />
             </div>
-            <div style={{ gridColumn: "span 2" }}>
-              <div style={{ ...surface, padding: 14, display: "grid", gap: 8, minWidth: 160, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+            <div>
+              <div style={{ ...surface, padding: 12, display: "grid", gap: 8, minWidth: 160, background: UI.card }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Primary action
                 </div>
@@ -817,20 +882,35 @@ export default function HomePage() {
                   Create a booking directly from the operations overview.
                 </div>
                 <button type="button" style={btnPrimary} onClick={() => router.push("/create-booking")}>
+                  <Plus size={14} />
                   Create booking
                 </button>
               </div>
             </div>
           </div>
+          </div>
 
           {/* Main grid */}
-          <div style={grid(12)}>
+          <div
+            className="home-main-layout"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.55fr) minmax(360px, 0.95fr)",
+              gap: UI.gap,
+              alignItems: "start",
+            }}
+          >
             {/* Calendar */}
-            <section style={{ gridColumn: "span 8", ...card }}>
+            <section style={{ gridColumn: "auto", ...card }}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={cardTitle}>Operations Calendar</h2>
-                  <div style={cardHint}>Review the current booking programme and open any entry for full detail.</div>
+                <div style={titleRow}>
+                  <span style={iconBox()}>
+                    <CalendarDays size={17} />
+                  </span>
+                  <div>
+                    <h2 style={cardTitle}>Operations Calendar</h2>
+                    <div style={cardHint}>Review the current booking programme and open any entry for full detail.</div>
+                  </div>
                 </div>
                 <span style={sectionTag}>Month view</span>
               </div>
@@ -902,7 +982,7 @@ export default function HomePage() {
             </section>
 
             {/* Right column */}
-            <section style={{ gridColumn: "span 4", display: "grid", gap: UI.gap }}>
+            <section style={{ gridColumn: "auto", display: "grid", gap: UI.gap }}>
               <div style={card}>
                 <div style={sectionHeader}>
                   <div>
@@ -950,12 +1030,12 @@ export default function HomePage() {
                         </strong>
 
                         <div style={{ fontSize: 13, color: "#374151" }}>
-                          2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")}–{moment(c.second.end).format("MMM D")})
+                          2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
                           <span style={tag("second pencil")}>Second</span>
                         </div>
 
                         <div style={{ fontSize: 13, color: "#374151" }}>
-                          Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")}–{moment(c.firm.end).format("MMM D")})
+                          Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
                           <span style={tag(c.firm.status)}>{c.firm.status}</span>
                         </div>
                       </li>
@@ -968,11 +1048,16 @@ export default function HomePage() {
             </section>
 
             {/* Prep list */}
-            <section style={{ gridColumn: "span 12", ...card }}>
+            <section style={{ gridColumn: "auto", ...card }}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={cardTitle}>Preparation Queue</h2>
-                  <div style={cardHint}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
+                <div style={titleRow}>
+                  <span style={iconBox("#0f766e", "#f0fdfa", "#99f6e4")}>
+                    <ClipboardList size={17} />
+                  </span>
+                  <div>
+                    <h2 style={cardTitle}>Preparation Queue</h2>
+                    <div style={cardHint}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
+                  </div>
                 </div>
                 <span style={sectionTag}>{prepList.length} upcoming</span>
               </div>
@@ -997,10 +1082,10 @@ export default function HomePage() {
                           style={{ cursor: "pointer" }}
                         >
                           <td style={{ ...td, fontWeight: 900, whiteSpace: "nowrap" }}>{it.jobNumber}</td>
-                          <td style={td}>{it.vehicles?.join(", ") || "—"}</td>
-                          <td style={td}>{it.equipment || "—"}</td>
-                          <td style={td}>{it.notes || "—"}</td>
-                          <td style={{ ...td, whiteSpace: "nowrap" }}>{it.start ? moment(it.start).format("MMM D, YYYY") : "—"}</td>
+                          <td style={td}>{it.vehicles?.join(", ") || "-"}</td>
+                          <td style={td}>{it.equipment || "-"}</td>
+                          <td style={td}>{it.notes || "-"}</td>
+                          <td style={{ ...td, whiteSpace: "nowrap" }}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1012,29 +1097,39 @@ export default function HomePage() {
             </section>
 
             {/* Maintenance buckets */}
-            <section style={{ gridColumn: "span 12", ...card }}>
+            <section style={{ gridColumn: "auto", ...card }}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={cardTitle}>Fleet Compliance</h2>
-                  <div style={cardHint}>Overdue items and due dates within the next 3 weeks.</div>
+                <div style={titleRow}>
+                  <span style={iconBox(UI.accent, UI.accentSoft, "#dcc8b8")}>
+                    <Wrench size={17} />
+                  </span>
+                  <div>
+                    <h2 style={cardTitle}>Fleet Compliance</h2>
+                    <div style={cardHint}>Overdue items and due dates within the next 3 weeks.</div>
+                  </div>
                 </div>
                 <span style={sectionTag}>Vehicle review</span>
               </div>
 
-              <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              <div className="home-fleet-grid" style={{ display: "grid", gap: UI.gap, gridTemplateColumns: "1fr" }}>
                 <Bucket title={`MOT Overdue (${overdueMOT.length})`} items={overdueMOT} />
                 <Bucket title={`Service Overdue (${overdueService.length})`} items={overdueService} />
-                <Bucket title={`MOT ≤ 3 Weeks (${motDueSoon.length})`} items={motDueSoon} />
-                <Bucket title={`Service ≤ 3 Weeks (${serviceDueSoon.length})`} items={serviceDueSoon} />
+                <Bucket title={`MOT due in 3 weeks (${motDueSoon.length})`} items={motDueSoon} />
+                <Bucket title={`Service due in 3 weeks (${serviceDueSoon.length})`} items={serviceDueSoon} />
               </div>
             </section>
 
             {/* Assistant */}
-            <section style={{ gridColumn: "span 12", ...card }}>
+            <section style={{ gridColumn: "1 / -1", ...card }}>
               <div style={sectionHeader}>
-                <div>
-                  <h2 style={cardTitle}>Operations Assistant</h2>
-                  <div style={cardHint}>Ask about bookings, holidays and fleet maintenance without leaving the page.</div>
+                <div style={titleRow}>
+                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
+                    <Bot size={17} />
+                  </span>
+                  <div>
+                    <h2 style={cardTitle}>Operations Assistant</h2>
+                    <div style={cardHint}>Ask about bookings, holidays and fleet maintenance without leaving the page.</div>
+                  </div>
                 </div>
                 <span style={sectionTag}>AI support</span>
               </div>
@@ -1049,8 +1144,8 @@ export default function HomePage() {
                   padding: "12px 14px",
                   fontSize: 14,
                   borderRadius: UI.radiusSm,
-                  border: "1px solid #d7e0e9",
-                  background: "#fbfdff",
+                  border: UI.border,
+                  background: "#fff",
                   color: UI.text,
                   outline: "none",
                 }}
@@ -1072,8 +1167,8 @@ export default function HomePage() {
                     whiteSpace: "pre-wrap",
                     background: "#f7fafc",
                     padding: 14,
-                    borderRadius: 14,
-                    border: "1px solid #dbe4ec",
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
                     color: UI.text,
                   }}
                 >

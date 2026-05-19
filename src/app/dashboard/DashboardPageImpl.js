@@ -52,7 +52,25 @@ import {
 
 import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { Check } from "lucide-react";
+import {
+  CalendarDays,
+  BedDouble,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Clock3,
+  Eye,
+  EyeOff,
+  FileText,
+  MapPinned,
+  Plus,
+  Search,
+  ShieldCheck,
+  StickyNote,
+  Wrench,
+  X,
+} from "lucide-react";
 import EditHolidayForm from "../components/EditHolidayForm";
 import HolidayForm from "../components/holidayform";
 import CreateNote from "../components/create-note";
@@ -61,23 +79,23 @@ import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
 
-/* ───────────────────────────────────────────
+/*
    New styling tokens (match your HR page)
-─────────────────────────────────────────── */
+*/
 const UI = {
-  radius: 16,
-  radiusSm: 12,
-  gap: 14,
-  shadowSm: "0 10px 30px rgba(15,23,42,0.06)",
-  shadowHover: "0 16px 36px rgba(15,23,42,0.10)",
-  border: "1px solid #dbe2ea",
-  bg: "#eef3f8",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
   muted: "#5f6f82",
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
-  brandBorder: "#c7d6e3",
+  brandBorder: "#c8d6e3",
   accent: "#8b5e3c",
   accentSoft: "#f5ede6",
   successSoft: "#edf7f2",
@@ -86,7 +104,7 @@ const UI = {
 };
 
 const pageWrap = {
-  padding: "22px 18px 34px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
@@ -102,14 +120,12 @@ const headerBar = {
 
 const h1 = {
   color: UI.text,
-  fontSize: 30,
+  fontSize: 22,
   lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: "-0.02em",
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
-
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const headerActions = {
   display: "flex",
@@ -130,9 +146,10 @@ const headerSearchWrap = {
 
 const headerSearchInput = {
   width: "100%",
-  padding: "9px 12px",
-  borderRadius: 10,
-  border: "1px solid #d6dee8",
+  minHeight: 36,
+  padding: "7px 9px 7px 34px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
   background: "#fff",
   color: UI.text,
   fontSize: 13.5,
@@ -148,7 +165,8 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 14,
+  padding: 12,
+  marginBottom: UI.gap,
 };
 
 const sectionHeader = {
@@ -156,12 +174,19 @@ const sectionHeader = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 10,
-  marginBottom: 10,
+  marginBottom: 8,
   flexWrap: "wrap",
 };
 
-const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
+const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+
+const sectionTitleWrap = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
 
 const sectionActions = {
   display: "flex",
@@ -172,51 +197,56 @@ const sectionActions = {
 };
 
 const chip = {
-  padding: "7px 11px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
 };
 
 const btn = (kind = "primary") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+  };
   if (kind === "ghost") {
     return {
-      padding: "9px 12px",
-      borderRadius: UI.radiusSm,
+      ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 700,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
-      boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
   }
   if (kind === "danger") {
     return {
-      padding: "9px 12px",
-      borderRadius: UI.radiusSm,
+      ...base,
       border: "1px solid #e9c6c4",
       background: UI.dangerSoft,
       color: "#991b1b",
-      fontWeight: 700,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
     };
   }
   return {
-    padding: "9px 12px",
-    borderRadius: UI.radiusSm,
+    ...base,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 700,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   };
 };
 
@@ -233,9 +263,12 @@ const successBanner = {
   color: "#065f46",
   border: "1px solid #b7dec7",
   borderRadius: UI.radiusSm,
-  padding: "9px 12px",
+  padding: "7px 10px",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 800,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
 };
 
 const tableWrap = {
@@ -254,31 +287,125 @@ const table = {
 };
 const th = {
   textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid #dde5ee",
+  padding: "9px 10px",
+  borderBottom: "1px solid #eef2f7",
   position: "sticky",
   top: 0,
-  background: "#f7f9fc",
+  background: "#f6f8fb",
   zIndex: 1,
   whiteSpace: "nowrap",
-  fontWeight: 800,
-  fontSize: 12,
+  fontWeight: 900,
+  fontSize: 11.5,
   color: UI.muted,
   textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  letterSpacing: 0,
 };
 const td = {
-  padding: "10px 12px",
-  borderBottom: "1px solid #edf2f7",
+  padding: "9px 10px",
+  borderBottom: "1px solid #f1f5f9",
   verticalAlign: "middle",
+  fontSize: 13,
 };
 
 const calendarFrame = {
   borderRadius: UI.radiusSm,
   background: "#fff",
   border: UI.border,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
+  minHeight: 620,
+  overflow: "hidden",
 };
+
+const compactCalendarFrame = {
+  ...calendarFrame,
+  minHeight: 0,
+  height: "auto",
+};
+
+const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${UI.brandBorder}`,
+  flex: "0 0 auto",
+});
+
+const dashboardCalendarCss = `
+.dashboard-page .rbc-calendar {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  color: ${UI.text};
+  font-size: 12px;
+}
+.dashboard-page .rbc-time-view,
+.dashboard-page .rbc-month-view {
+  border: 0;
+  background: #fff;
+}
+.dashboard-page .rbc-header {
+  padding: 7px 8px;
+  background: #f6f8fb;
+  color: ${UI.muted};
+  font-size: 11.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  border-color: #e3eaf2;
+}
+.dashboard-page .rbc-date-cell {
+  padding: 5px 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dashboard-page .rbc-month-row,
+.dashboard-page .rbc-day-bg,
+.dashboard-page .rbc-time-content,
+.dashboard-page .rbc-timeslot-group {
+  border-color: #e6edf5;
+}
+.dashboard-page .rbc-off-range-bg {
+  background: #f8fafc;
+}
+.dashboard-page .rbc-today {
+  background: rgba(31,75,122,0.08);
+}
+.dashboard-page .rbc-event {
+  min-height: 22px;
+}
+.dashboard-page .rbc-row-segment {
+  padding: 1px 2px;
+}
+.dashboard-page .rbc-event-label {
+  display: none;
+}
+.dashboard-page .rbc-show-more {
+  color: ${UI.brand};
+  font-weight: 900;
+  font-size: 12px;
+  background: transparent;
+}
+.dashboard-page .dashboard-compact-calendar {
+  height: auto !important;
+  min-height: 0 !important;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-time-content {
+  display: none;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-time-view {
+  min-height: 0;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-time-header {
+  border-bottom: 0;
+}
+.dashboard-page .dashboard-compact-calendar .rbc-allday-cell {
+  min-height: 96px;
+}
+`;
 
 const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
 
@@ -493,13 +620,13 @@ const formatHolidayDetail = (holiday = {}) => {
   const endWhen = String(holiday.endAMPM || "").trim().toUpperCase();
 
   if (sameDay && startHalf) {
-    return `${paidLabel} • Half Day ${startWhen || "AM"}`;
+    return `${paidLabel} - Half Day ${startWhen || "AM"}`;
   }
 
   const parts = [paidLabel];
   if (startHalf) parts.push(`Start ${startWhen || "AM"} Half`);
   if (endHalf) parts.push(`End ${endWhen || "PM"} Half`);
-  return parts.join(" • ");
+  return parts.join(" - ");
 };
 
 // job sort helpers (unchanged)
@@ -658,7 +785,7 @@ const getBookingCalendarRange = (booking) => {
 
 //  Single source of truth for both BOOKINGS + MAINTENANCE
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
-  // normal bookings → full events
+  // normal bookings  full events
   const bookingEvents = (bookings || [])
     .map((b) => {
       const range = getBookingCalendarRange(b);
@@ -689,7 +816,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
     getVehicleLabel: (booking) =>
       booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
-    titleSeparator: " • ",
+    titleSeparator: " - ",
   }).map((event) => ({
     ...event,
     jobNumber: event.jobNumber ?? "",
@@ -716,7 +843,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
 };
 
 const formatCrew = (employees) => {
-  if (!Array.isArray(employees) || employees.length === 0) return "—";
+  if (!Array.isArray(employees) || employees.length === 0) return "-";
   return employees
     .map((emp) => {
       if (typeof emp === "string") return emp;
@@ -776,6 +903,35 @@ const getCrewNeeded = (bookingOrEvent) => {
   return null;
 };
 
+function EventMetaBadge({ Icon, good, title, children }) {
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        minHeight: 20,
+        minWidth: children ? 34 : 24,
+        padding: children ? "2px 6px" : "2px 5px",
+        borderRadius: 6,
+        backgroundColor: good ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
+        fontSize: "0.72rem",
+        fontWeight: 800,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <Icon size={12} strokeWidth={3} />
+      {children ? children : good ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
+    </span>
+  );
+}
+
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
 function CalendarEvent({ event }) {
   const router = useRouter();
@@ -819,6 +975,17 @@ function CalendarEvent({ event }) {
   const locationText = String(event?.location || "").trim();
 
   const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
+  const hasAnyCallTime =
+    !!callTimeForThisEvent ||
+    !!event.callTime ||
+    (hasPerDayCallTimes && Object.values(event.callTimesByDate || {}).some(Boolean));
+  const callTimeTitle = hasAnyCallTime
+    ? callTimeForThisEvent
+      ? `Call time set: ${callTimeForThisEvent}`
+      : event.callTime
+      ? `Call time set: ${event.callTime}`
+      : "Call time set per day"
+    : "No call time set";
 
   //  NEW: crew needed for this job
   const crewNeeded = useMemo(() => getCrewNeeded(event), [event]);
@@ -845,7 +1012,7 @@ function CalendarEvent({ event }) {
         whiteSpace: "normal",
         wordBreak: "break-word",
         textTransform: "uppercase",
-        letterSpacing: "0.02em",
+        letterSpacing: 0,
       }}
     >
       {event.status === "Bank Holiday" ? (
@@ -959,9 +1126,18 @@ function CalendarEvent({ event }) {
           )}
 
           {/*  Call Time line (shows correctly for single day + recce day + multi-day) */}
-          {!isMaintenance && (
-            <span style={{ fontSize: "0.78rem", fontWeight: 900 }}>
-              {callTimeForThisEvent ? `CT ${callTimeForThisEvent}` : ""}
+          {!isMaintenance && callTimeForThisEvent && (
+            <span
+              title={callTimeTitle}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: "0.78rem",
+                fontWeight: 900,
+              }}
+            >
+              <Clock3 size={12} strokeWidth={3} /> {callTimeForThisEvent}
             </span>
           )}
 
@@ -999,7 +1175,7 @@ function CalendarEvent({ event }) {
                 return (
                   <span key={i}>
                     {name}
-                    {plate ? ` – ${plate}` : ""}
+                    {plate ? ` - ${plate}` : ""}
                   </span>
                 );
               }
@@ -1034,10 +1210,10 @@ function CalendarEvent({ event }) {
                       border: "1px solid #0b0b0b",
                       marginTop: 1,
                     }}
-                    title="Vehicle non-compliant (SORN / Not Insured) — current or future confirmed job"
+                    title="Vehicle non-compliant (SORN / Not Insured) - current or future confirmed job"
                   >
                     {name}
-                    {plate ? ` – ${plate}` : ""}
+                    {plate ? ` - ${plate}` : ""}
                   </span>
                 );
               }
@@ -1089,7 +1265,7 @@ function CalendarEvent({ event }) {
                     title={`Vehicle status: ${itemStatus}`}
                   >
                     {name}
-                    {plate ? ` – ${plate}` : ""}
+                    {plate ? ` - ${plate}` : ""}
                   </span>
                 );
               }
@@ -1097,7 +1273,7 @@ function CalendarEvent({ event }) {
               return (
                 <span key={i}>
                   {name}
-                  {plate ? ` – ${plate}` : ""}
+                  {plate ? ` - ${plate}` : ""}
                 </span>
               );
             })}
@@ -1142,9 +1318,9 @@ function CalendarEvent({ event }) {
 
                             const extra =
                               note === "Other" && other
-                                ? ` — ${other}`
+                                ? ` - ${other}`
                                 : note === "Travel Time" && tmins
-                                ? ` — ${labelFromMins(tmins)}`
+                                ? ` - ${labelFromMins(tmins)}`
                                 : "";
 
                             const callTimeForDay =
@@ -1166,9 +1342,9 @@ function CalendarEvent({ event }) {
                                   lineHeight: 1.2,
                                 }}
                               >
-                                {formattedDate}: {note || "—"}
+                                {formattedDate}: {note || "-"}
                                 {extra}
-                                {callTimeForDay ? ` — CT ${callTimeForDay}` : ""}
+                                {callTimeForDay ? ` - CT ${callTimeForDay}` : ""}
                               </div>
                             );
                           })}
@@ -1233,19 +1409,11 @@ function CalendarEvent({ event }) {
                 }}
               >
                 {!isBickersJob && (
-                  <span
-                    style={{
-                      fontSize: "0.72rem",
-                      fontWeight: 400,
-                      padding: "2px 6px",
-                      borderRadius: 6,
-                      backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-                      color: "#fff",
-                      border: "1px solid rgba(0,0,0,0.8)",
-                    }}
-                  >
-                    HS {event.hasHS ? "✓" : "✗"}
-                  </span>
+                  <EventMetaBadge
+                    Icon={ShieldCheck}
+                    good={!!event.hasHS}
+                    title={event.hasHS ? "Health and safety present" : "No health and safety"}
+                  />
                 )}
 
                 {!isBickersJob && (
@@ -1260,73 +1428,31 @@ function CalendarEvent({ event }) {
                       border: "1px solid rgba(0,0,0,0.8)",
                     }}
                   >
-                    RA {event.hasRiskAssessment ? "✓" : "✗"}
+                    RA {event.hasRiskAssessment ? "OK" : "No"}
                   </span>
                 )}
 
-                <span
-                  style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 400,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    backgroundColor: event.hasHotel ? "#4caf50" : "#f44336",
-                    color: "#fff",
-                    border: "1px solid rgba(0,0,0,0.8)",
-                  }}
-                >
-                  H {event.hasHotel ? "✓" : "✗"}
-                </span>
+                <EventMetaBadge
+                  Icon={BedDouble}
+                  good={!!event.hasHotel}
+                  title={event.hasHotel ? "Hotel required" : "No hotel"}
+                />
 
                 {!isBickersJob && (
-                  <span
-                    title={event.hasRiggingAddress ? event.riggingAddress || "" : ""}
-                    style={{
-                      fontSize: "0.72rem",
-                      fontWeight: 400,
-                      padding: "2px 6px",
-                      borderRadius: 6,
-                      backgroundColor: event.hasRiggingAddress ? "#4caf50" : "#f44336",
-                      color: "#fff",
-                      border: "1px solid rgba(0,0,0,0.8)",
-                    }}
-                  >
-                    UB {event.hasRiggingAddress ? "✓" : "✗"}
-                  </span>
+                  <EventMetaBadge
+                    Icon={MapPinned}
+                    good={!!event.hasRiggingAddress}
+                    title={
+                      event.hasRiggingAddress
+                        ? event.riggingAddress || "Unit base set"
+                        : "No unit base"
+                    }
+                  />
                 )}
 
-                {(() => {
-                  //  CT check: exact day match OR callTime OR any per-day
-                  const hasAnyCallTime =
-                    !!callTimeForEventDay(event) ||
-                    !!event.callTime ||
-                    (hasPerDayCallTimes && Object.values(event.callTimesByDate || {}).some(Boolean));
-
-                  return (
-                    <span
-                      style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 400,
-                        padding: "2px 6px",
-                        borderRadius: 6,
-                        backgroundColor: hasAnyCallTime ? "#4caf50" : "#f44336",
-                        color: "#fff",
-                        border: "1px solid rgba(0,0,0,0.8)",
-                      }}
-                      title={
-                        hasAnyCallTime
-                          ? callTimeForThisEvent
-                            ? `Call Time set: ${callTimeForThisEvent}`
-                            : event.callTime
-                            ? `Call Time set: ${event.callTime}`
-                            : "Call Time set (per day)"
-                          : "No call time set"
-                      }
-                    >
-                      CT {hasAnyCallTime ? "✓" : "✗"}
-                    </span>
-                  );
-                })()}
+                <EventMetaBadge Icon={Clock3} good={hasAnyCallTime} title={callTimeTitle}>
+                  {hasAnyCallTime && callTimeForThisEvent ? callTimeForThisEvent : null}
+                </EventMetaBadge>
               </div>
             );
           })()}
@@ -1354,7 +1480,7 @@ function CalendarEvent({ event }) {
                   color: "#fff",
                 }}
               >
-                View recce form ↗
+                View recce form
                 {event.recceStatus && (
                   <span
                     style={{
@@ -1386,7 +1512,7 @@ function CalendarEvent({ event }) {
                   padding: "4px 6px",
                   fontSize: "0.74rem",
                   fontWeight: 900,
-                  letterSpacing: 0.2,
+                  letterSpacing: 0,
                 }}
               >
                 VEHICLE COMPLIANCE ISSUE
@@ -1485,7 +1611,7 @@ function maintenanceEventPropGetter(event) {
       background: bg,
       color: text,
       padding: 0,
-      boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
+      boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
       overflow: "hidden",
       cursor: "pointer",
     },
@@ -1527,11 +1653,11 @@ function MaintenanceCalendarEvent({ event }) {
   const label =
     kind === "MOT"
       ? event?.booked
-        ? "MOT due • Booked"
+        ? "MOT due - Booked"
         : "MOT due"
       : kind === "SERVICE"
       ? event?.booked
-        ? "Service due • Booked"
+        ? "Service due - Booked"
         : "Service due"
       : kind === "MOT_BOOKING"
       ? "MOT booking"
@@ -1570,7 +1696,7 @@ function MaintenanceCalendarEvent({ event }) {
         lineHeight: 1.3,
         fontWeight: 900,
         padding: 8,
-        letterSpacing: "0.01em",
+        letterSpacing: 0,
         whiteSpace: "normal",
         overflowWrap: "anywhere",
         wordBreak: "break-word",
@@ -1639,6 +1765,11 @@ export default function DashboardPage({ bookingSaved }) {
     setSelectedBookingId(null);
     setSelectedDeletedId(null);
   }, []);
+
+  const selectedBooking = useMemo(
+    () => bookings.find((booking) => booking.id === selectedBookingId) || null,
+    [bookings, selectedBookingId]
+  );
 
   const [maintenanceView, setMaintenanceView] = useState("week");
   const [maintenanceDate, setMaintenanceDate] = useState(new Date());
@@ -1784,7 +1915,7 @@ export default function DashboardPage({ bookingSaved }) {
 
             return {
               id: `bankholiday__${REGION}__${bh.date}`,
-              title: `Bank Holiday — ${bh.title}`,
+              title: `Bank Holiday - ${bh.title}`,
               bankHolidayName: bh.title,
               bankHolidayNotes: bh.notes || "",
               start: day,
@@ -2208,7 +2339,7 @@ export default function DashboardPage({ bookingSaved }) {
         out.push({
           id: `mot_due__${vehicleId}`,
           __collection: "vehicleDueDates",
-          title: `${label} • MOT due${motBooked ? " (Booked)" : ""}`,
+          title: `${label} - MOT due${motBooked ? " (Booked)" : ""}`,
           start: startOfLocalDay(motDue),
           end: startOfLocalDay(addDays(motDue, 1)),
           allDay: true,
@@ -2231,7 +2362,7 @@ export default function DashboardPage({ bookingSaved }) {
         out.push({
           id: `service_due__${vehicleId}`,
           __collection: "vehicleDueDates",
-          title: `${label} • Service due${serviceBooked ? " (Booked)" : ""}`,
+          title: `${label} - Service due${serviceBooked ? " (Booked)" : ""}`,
           start: startOfLocalDay(serviceDue),
           end: startOfLocalDay(addDays(serviceDue, 1)),
           allDay: true,
@@ -2269,7 +2400,7 @@ export default function DashboardPage({ bookingSaved }) {
           out.push({
             id: `inspection_due__${vehicleId}__${dueKey}`,
             __collection: "vehicleDueDates",
-            title: `${label} • 8 week inspection due${
+            title: `${label} - 8 week inspection due${
               inspectionBooked
                 ? bookedOutsideWeek
                   ? " (Booked - Outside ISO Week)"
@@ -2499,7 +2630,8 @@ export default function DashboardPage({ bookingSaved }) {
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageWrap}>
+      <style>{dashboardCalendarCss}</style>
+      <div style={pageWrap} className="dashboard-page">
         {/* Header */}
         <div style={headerBar}>
           <div>
@@ -2507,6 +2639,17 @@ export default function DashboardPage({ bookingSaved }) {
           </div>
           <div style={headerActions}>
             <div style={headerSearchWrap}>
+              <Search
+                size={15}
+                style={{
+                  position: "absolute",
+                  left: 11,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: UI.muted,
+                  pointerEvents: "none",
+                }}
+              />
               <input
                 type="text"
                 value={dashboardSearch}
@@ -2522,9 +2665,9 @@ export default function DashboardPage({ bookingSaved }) {
                     left: 0,
                     right: 0,
                     background: "#fff",
-                    border: "1px solid #d6dee8",
-                    borderRadius: 12,
-                    boxShadow: "0 12px 28px rgba(15,23,42,0.12)",
+                    border: UI.border,
+                    borderRadius: UI.radiusSm,
+                    boxShadow: UI.shadowHover,
                     overflow: "hidden",
                     zIndex: 30,
                   }}
@@ -2558,7 +2701,7 @@ export default function DashboardPage({ bookingSaved }) {
                           {booking.jobNumber || "No Job #"} - {booking.client || "No client"}
                         </div>
                         <div style={{ fontSize: 12.5, color: UI.muted }}>
-                          {formatSearchBookingDates(booking)} • {formatSearchBookingVehicles(booking)} • {booking.location || "No location"}
+                          {formatSearchBookingDates(booking)} - {formatSearchBookingVehicles(booking)} - {booking.location || "No location"}
                         </div>
                       </button>
                     ))
@@ -2575,6 +2718,7 @@ export default function DashboardPage({ bookingSaved }) {
               type="button"
               onClick={() => router.push("/booking-drafts")}
             >
+              <FileText size={14} />
               Drafts
             </button>
             <button
@@ -2582,6 +2726,7 @@ export default function DashboardPage({ bookingSaved }) {
               type="button"
               onClick={() => router.push("/preplist-dashboard")}
             >
+              <ClipboardList size={14} />
               Prep Dashboard
             </button>
             <button
@@ -2589,6 +2734,7 @@ export default function DashboardPage({ bookingSaved }) {
               type="button"
               onClick={() => router.push("/stunt-prep")}
             >
+              <Wrench size={14} />
               Stunt Prep
             </button>
             {canSeeDeletedOnCalendar && (
@@ -2597,6 +2743,7 @@ export default function DashboardPage({ bookingSaved }) {
                 onClick={() => setShowDeletedInView((v) => !v)}
                 type="button"
               >
+                {showDeletedInView ? <EyeOff size={14} /> : <Eye size={14} />}
                 {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
               </button>
             )}
@@ -2605,22 +2752,35 @@ export default function DashboardPage({ bookingSaved }) {
               onClick={() => setShowInactiveInView((v) => !v)}
               type="button"
             >
+              {showInactiveInView ? <EyeOff size={14} /> : <Eye size={14} />}
               {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
             </button>
-            {bookingSaved && <div style={successBanner}>Booking saved successfully.</div>}
+            {bookingSaved && (
+              <div style={successBanner}>
+                <Check size={14} strokeWidth={3} />
+                Booking saved successfully.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Work Diary */}
         <section style={card}>
           <div style={sectionHeader}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h2 style={titleMd}>Work Diary</h2>
+            <div style={sectionTitleWrap}>
+              <div style={iconBox(UI.brand, UI.brandSoft)}>
+                <CalendarDays size={17} />
+              </div>
+              <div>
+                <h2 style={titleMd}>Work Diary</h2>
+                <div style={hint}>Bookings, bank holidays and operational visibility.</div>
+              </div>
               <button
                 style={btn("ghost")}
                 onClick={() => setCurrentDate(new Date())}
                 type="button"
               >
+                <CalendarDays size={14} />
                 Today
               </button>
             </div>
@@ -2633,7 +2793,8 @@ export default function DashboardPage({ bookingSaved }) {
                 }}
                 type="button"
               >
-                ← Previous Week
+                <ChevronLeft size={14} />
+                Previous Week
               </button>
 
               <button
@@ -2644,7 +2805,8 @@ export default function DashboardPage({ bookingSaved }) {
                 }}
                 type="button"
               >
-                Next Week →
+                Next Week
+                <ChevronRight size={14} />
               </button>
 
               <button
@@ -2654,7 +2816,8 @@ export default function DashboardPage({ bookingSaved }) {
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
-                + Add Booking
+                <Plus size={14} />
+                Add Booking
               </button>
 
               <button
@@ -2664,7 +2827,8 @@ export default function DashboardPage({ bookingSaved }) {
                 title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
                 type="button"
               >
-                + Add Maintenance
+                <Plus size={14} />
+                Add Maintenance
               </button>
 
               <div style={{ ...chip, color: UI.brand }}>
@@ -2714,12 +2878,12 @@ export default function DashboardPage({ bookingSaved }) {
               return {
                 style: {
                   backgroundColor: isToday
-                    ? "rgba(31,75,122,0.3)"
+                    ? "rgba(31,75,122,0.12)"
                     : isBankHoliday
                     ? "rgba(103,128,157,0.08)"
                     : undefined,
                   border: isToday
-                    ? "1px solid rgba(31,75,122,0.56)"
+                    ? "1px solid rgba(31,75,122,0.34)"
                     : isBankHoliday
                     ? "1px dashed rgba(103,128,157,0.38)"
                     : undefined,
@@ -2766,7 +2930,7 @@ export default function DashboardPage({ bookingSaved }) {
                     padding: 0,
                     borderRadius: 8,
                     border: "1px dashed #9eb0c6",
-                    boxShadow: "0 4px 10px rgba(15,23,42,0.05)",
+                    boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
                     pointerEvents: "none", //  doesn't steal clicks from jobs
                   },
                 };
@@ -2809,7 +2973,7 @@ export default function DashboardPage({ bookingSaved }) {
                     padding: 0,
                     borderRadius: 8,
                     border: `1px solid ${border}`,
-                    boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                    boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                   },
                 };
               }
@@ -2822,7 +2986,7 @@ export default function DashboardPage({ bookingSaved }) {
                   padding: 0,
                   borderRadius: 8,
                   border: `1px solid ${border}`,
-                  boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                 },
               };
             }}
@@ -2832,9 +2996,14 @@ export default function DashboardPage({ bookingSaved }) {
         {/* Maintenance Calendar */}
         <section style={card}>
           <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Maintenance Calendar</h2>
-              <div style={hint}>MOT, service, maintenance bookings and active workshop activity.</div>
+            <div style={sectionTitleWrap}>
+              <div style={iconBox("#8b5e3c", UI.accentSoft)}>
+                <Wrench size={17} />
+              </div>
+              <div>
+                <h2 style={titleMd}>Maintenance Calendar</h2>
+                <div style={hint}>MOT, service, maintenance bookings and active workshop activity.</div>
+              </div>
             </div>
 
             <div style={sectionActions}>
@@ -2888,6 +3057,7 @@ export default function DashboardPage({ bookingSaved }) {
               setSelectedMaintenanceEvent(e);
             }}
             eventPropGetter={maintenanceEventPropGetter}
+            className={maintenanceView === "week" ? "dashboard-compact-calendar" : ""}
             dayPropGetter={(date) => {
               const todayD = new Date();
               const isToday =
@@ -2897,12 +3067,12 @@ export default function DashboardPage({ bookingSaved }) {
 
               return {
                 style: {
-                  backgroundColor: isToday ? "rgba(139,94,60,0.3)" : undefined,
-                  border: isToday ? "1px solid rgba(139,94,60,0.56)" : undefined,
+                  backgroundColor: isToday ? "rgba(139,94,60,0.12)" : undefined,
+                  border: isToday ? "1px solid rgba(139,94,60,0.34)" : undefined,
                 },
               };
             }}
-            style={calendarFrame}
+            style={maintenanceView === "week" ? compactCalendarFrame : calendarFrame}
           />
 
           {selectedMaintenanceEvent && (
@@ -2916,16 +3086,23 @@ export default function DashboardPage({ bookingSaved }) {
         {/* Holiday + Notes Calendar */}
         <section style={card}>
           <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Holiday + Notes Calendar</h2>
-              <div style={hint}>Shared leave and note visibility in one place.</div>
+            <div style={sectionTitleWrap}>
+              <div style={iconBox("#7c3aed", "#f5f3ff")}>
+                <StickyNote size={17} />
+              </div>
+              <div>
+                <h2 style={titleMd}>Holiday + Notes Calendar</h2>
+                <div style={hint}>Shared leave and note visibility in one place.</div>
+              </div>
             </div>
             <div style={sectionActions}>
               <button style={btn()} type="button" onClick={() => setHolidayModalOpen(true)}>
-                + Add Holiday
+                <Plus size={14} />
+                Add Holiday
               </button>
               <button style={btn()} type="button" onClick={() => setCreateNoteOpen(true)}>
-                + Add Note
+                <Plus size={14} />
+                Add Note
               </button>
             </div>
           </div>
@@ -2972,7 +3149,8 @@ export default function DashboardPage({ bookingSaved }) {
                 setNoteModalOpen(true);
               }
             }}
-            style={calendarFrame}
+            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
+            style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
             components={{
               event: ({ event }) => (
                 <div
@@ -3018,7 +3196,7 @@ export default function DashboardPage({ bookingSaved }) {
                 padding: 0,
                 borderRadius: 8,
                 border: event.status === "Holiday" ? "1px solid #9fb2c4" : "1px solid #97adc0",
-                boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
+                boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
               },
             })}
             dayPropGetter={() => ({
@@ -3030,12 +3208,17 @@ export default function DashboardPage({ bookingSaved }) {
           />
         </section>
 
-        {/* Today’s Jobs */}
+        {/* Today's Jobs */}
         <section style={card}>
           <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Today’s Jobs</h2>
-              <div style={hint}>Today’s confirmed operational schedule.</div>
+            <div style={sectionTitleWrap}>
+              <div style={iconBox("#0f766e", "#f0fdfa")}>
+                <ClipboardList size={17} />
+              </div>
+              <div>
+                <h2 style={titleMd}>Jobs Today</h2>
+                <div style={hint}>Confirmed operational schedule for today.</div>
+              </div>
             </div>
             <div style={chip}>{todaysJobs.length}</div>
           </div>
@@ -3082,12 +3265,14 @@ export default function DashboardPage({ bookingSaved }) {
                           (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
                         }
                       >
-                        <td style={td}>{new Date(b.date || b.startDate).toDateString()}</td>
-                        <td style={td}>{b.jobNumber}</td>
-                        <td style={td}>{b.client || "—"}</td>
-                        <td style={td}>{b.location || "—"}</td>
                         <td style={td}>
-                          {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "—"}
+                          {new Date(b.date || b.startDate).toLocaleDateString("en-GB")}
+                        </td>
+                        <td style={td}>{b.jobNumber}</td>
+                        <td style={td}>{b.client || "-"}</td>
+                        <td style={td}>{b.location || "-"}</td>
+                        <td style={td}>
+                          {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "-"}
                         </td>
 
                         {/*  UPDATED: if crewed, show "Crewed" and hide counts */}
@@ -3095,7 +3280,7 @@ export default function DashboardPage({ bookingSaved }) {
                           {isCrewed ? (
                             <span style={{ fontWeight: 900 }}>Crewed</span>
                           ) : crewNeeded === null ? (
-                            "—"
+                            "-"
                           ) : (
                             crewNeeded
                           )}
@@ -3104,6 +3289,7 @@ export default function DashboardPage({ bookingSaved }) {
                         <td style={td}>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <button onClick={() => setSelectedBookingId(b.id)} style={btn("ghost")} type="button">
+                              <FileText size={14} />
                               View
                             </button>
                             <button
@@ -3113,6 +3299,7 @@ export default function DashboardPage({ bookingSaved }) {
                               title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
                               type="button"
                             >
+                              <ClipboardList size={14} />
                               Edit
                             </button>
                           </div>
@@ -3149,7 +3336,7 @@ export default function DashboardPage({ bookingSaved }) {
               }}
             >
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: UI.text }}>
-                Add Booking for {selectedDate?.toDateString()}
+                Add Booking for {selectedDate?.toLocaleDateString("en-GB")}
               </h3>
               <form
                 onSubmit={(e) => {
@@ -3170,9 +3357,10 @@ export default function DashboardPage({ bookingSaved }) {
                   required
                   style={{
                     width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
+                    minHeight: 36,
+                    padding: "7px 9px",
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
                     outline: "none",
                     fontSize: 13.5,
                     background: "#fff",
@@ -3184,9 +3372,10 @@ export default function DashboardPage({ bookingSaved }) {
                   required
                   style={{
                     width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #e5e7eb",
+                    minHeight: 36,
+                    padding: "7px 9px",
+                    borderRadius: UI.radiusSm,
+                    border: UI.border,
                     outline: "none",
                     fontSize: 13.5,
                     background: "#fff",
@@ -3392,6 +3581,8 @@ export default function DashboardPage({ bookingSaved }) {
           id={selectedBookingId}
           fromDeleted={!!selectedDeletedId}
           deletedId={selectedDeletedId}
+          initialBooking={selectedBooking}
+          initialVehicles={vehiclesData}
           onClose={handleCloseBookingModal}
         />
       )}

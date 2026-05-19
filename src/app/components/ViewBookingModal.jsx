@@ -29,7 +29,7 @@ const toDateSafe = (v) => {
 };
 
 const fmtGB = (d) => {
-  if (!d) return "—";
+  if (!d) return "-";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yy = String(d.getFullYear()).slice(-2);
@@ -38,7 +38,7 @@ const fmtGB = (d) => {
 
 const fmtDate = (iso) => {
   const d = toDateSafe(iso);
-  return d ? fmtGB(d) : "—";
+  return d ? fmtGB(d) : "-";
 };
 
 const fmtDateTimeShort = (raw) => {
@@ -53,7 +53,7 @@ const fmtDateTimeShort = (raw) => {
 };
 
 const fmtDateRange = (b) => {
-  if (!b) return "—";
+  if (!b) return "-";
   if (Array.isArray(b.bookingDates) && b.bookingDates.length) {
     return b.bookingDates
       .map((x) => {
@@ -62,10 +62,10 @@ const fmtDateRange = (b) => {
       })
       .join(", ");
   }
-  if (b.startDate && b.endDate) return `${fmtDate(b.startDate)} → ${fmtDate(b.endDate)}`;
+  if (b.startDate && b.endDate) return `${fmtDate(b.startDate)} to ${fmtDate(b.endDate)}`;
   if (b.date) return fmtDate(b.date);
   if (b.startDate) return fmtDate(b.startDate);
-  return "—";
+  return "-";
 };
 
 const listBookingDaysYMD = (b) => {
@@ -166,7 +166,7 @@ const toAttachmentList = (b = {}) => {
 const prettyEmployees = (list) =>
   (Array.isArray(list) ? list : [])
     .map((e) =>
-      typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" – ")
+      typeof e === "string" ? e : [e?.role, e?.name].filter(Boolean).join(" - ")
     )
     .filter(Boolean)
     .join(", ") || "None";
@@ -198,7 +198,7 @@ const int = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 const gbp = (v) =>
-  `£${(Number.isFinite(v) ? v : 0).toLocaleString("en-GB", {
+  `GBP ${(Number.isFinite(v) ? v : 0).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -238,9 +238,11 @@ export default function ViewBookingModal({
   onClose,
   fromDeleted = false,
   deletedId = null,
+  initialBooking = null,
+  initialVehicles = [],
 }) {
-  const [booking, setBooking] = useState(null);
-  const [allVehicles, setAllVehicles] = useState([]);
+  const [booking, setBooking] = useState(initialBooking);
+  const [allVehicles, setAllVehicles] = useState(initialVehicles);
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
@@ -257,6 +259,11 @@ export default function ViewBookingModal({
 
     (async () => {
       try {
+        if (!fromDeleted && initialBooking?.id === id) {
+          setBooking(initialBooking);
+          return;
+        }
+
         if (fromDeleted) {
           const delRef = doc(db, "deletedBookings", String(deletedId || id));
           const delSnap = await getDoc(delRef);
@@ -301,9 +308,14 @@ export default function ViewBookingModal({
     })();
 
     return () => (mounted = false);
-  }, [id, fromDeleted, deletedId]);
+  }, [id, fromDeleted, deletedId, initialBooking, onClose]);
 
   useEffect(() => {
+    if (initialVehicles.length) {
+      setAllVehicles(initialVehicles);
+      return undefined;
+    }
+
     let mounted = true;
     (async () => {
       const snapshot = await getDocs(collection(db, "vehicles"));
@@ -311,7 +323,7 @@ export default function ViewBookingModal({
       setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     })();
     return () => (mounted = false);
-  }, []);
+  }, [initialVehicles]);
 
   const normalizedVehicles = useMemo(() => {
     const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
@@ -328,7 +340,10 @@ export default function ViewBookingModal({
     });
   }, [booking?.vehicles, allVehicles]);
 
-  const vehicleStatusById = booking?.vehicleStatus || {};
+  const vehicleStatusById = useMemo(
+    () => booking?.vehicleStatus || {},
+    [booking?.vehicleStatus]
+  );
 
   const vehiclesPrettyWithStatus = useMemo(() => {
     if (!normalizedVehicles.length) return [];
@@ -344,7 +359,10 @@ export default function ViewBookingModal({
 
   const dayKeys = useMemo(() => listBookingDaysYMD(booking), [booking]);
 
-  const employeesByDate = booking?.employeesByDate || {};
+  const employeesByDate = useMemo(
+    () => booking?.employeesByDate || {},
+    [booking?.employeesByDate]
+  );
   const hasEmployeesByDate = useMemo(() => {
     return (
       !!employeesByDate &&
@@ -352,7 +370,10 @@ export default function ViewBookingModal({
     );
   }, [employeesByDate]);
 
-  const callTimesByDate = booking?.callTimesByDate || {};
+  const callTimesByDate = useMemo(
+    () => booking?.callTimesByDate || {},
+    [booking?.callTimesByDate]
+  );
   const hasCallTimesByDate = useMemo(() => {
     return (
       !!callTimesByDate &&
@@ -453,7 +474,7 @@ export default function ViewBookingModal({
             r === "Other" && booking.statusReasonOther ? `Other: ${booking.statusReasonOther}` : r
           )
           .join(", ")
-      : "—";
+      : "-";
 
   const additionalContacts = Array.isArray(booking.additionalContacts)
     ? booking.additionalContacts
@@ -489,7 +510,7 @@ export default function ViewBookingModal({
         {/* Header */}
         <div style={header}>
           <div>
-            <div style={eyebrow}>Job #{booking.jobNumber || "—"}</div>
+            <div style={eyebrow}>Job #{booking.jobNumber || "-"}</div>
             <h2 style={title}>{booking.client || "Booking Details"}</h2>
             {fromDeleted && (
               <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
@@ -505,7 +526,7 @@ export default function ViewBookingModal({
               color: onStatusColor(booking.status),
             }}
           >
-            {booking.status || "—"}
+            {booking.status || "-"}
           </span>
         </div>
 
@@ -529,8 +550,8 @@ export default function ViewBookingModal({
           <div style={topCol}>
             <h3 style={sectionTitle}>Overview</h3>
             <div style={sectionCard}>
-              <Field label="Production" value={booking.client || "—"} />
-              <Field label="Location" value={booking.location || "—"} />
+              <Field label="Production" value={booking.client || "-"} />
+              <Field label="Location" value={booking.location || "-"} />
               <Field label="Date(s)" value={fmtDateRange(booking)} />
 
               <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
@@ -542,13 +563,13 @@ export default function ViewBookingModal({
                   <div style={miniCard}>
                     <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#111" }}>
                       <div>
-                        <b>Cost per night:</b> {hotel.cost ? gbp(hotel.cost) : "—"}
+                        <b>Cost per night:</b> {hotel.cost ? gbp(hotel.cost) : "-"}
                       </div>
                       <div>
-                        <b>Nights:</b> {hotel.nights || "—"}
+                        <b>Nights:</b> {hotel.nights || "-"}
                       </div>
                       <div>
-                        <b>Total:</b> {hotel.total ? gbp(hotel.total) : "—"}
+                        <b>Total:</b> {hotel.total ? gbp(hotel.total) : "-"}
                       </div>
                     </div>
                   </div>
@@ -687,7 +708,7 @@ export default function ViewBookingModal({
                   return (
                     <div key={d} style={noteCard}>
                       <div style={noteDate}>{pretty}</div>
-                      <div style={noteText}>{callTimesByDate?.[d] || "—"}</div>
+                      <div style={noteText}>{callTimesByDate?.[d] || "-"}</div>
                     </div>
                   );
                 })}
@@ -704,15 +725,15 @@ export default function ViewBookingModal({
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
                     .map((date) => {
-                      const note = booking.notesByDate[date] || "—";
+                      const note = booking.notesByDate[date] || "-";
                       const other = booking.notesByDate[`${date}-other`];
                       const mins = booking.notesByDate[`${date}-travelMins`];
 
                       const final =
                         note === "Other" && other
-                          ? `${note} — ${other}`
+                          ? `${note} - ${other}`
                           : note === "Travel Time" && mins
-                          ? `Travel Time — ${mins} mins`
+                          ? `Travel Time - ${mins} mins`
                           : note;
 
                       const d = toDateSafe(date);
@@ -771,7 +792,7 @@ export default function ViewBookingModal({
             <div>
               Created by <b>{booking.createdBy}</b>
               {booking?.createdAt && (
-                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "—"}</>
+                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "-"}</>
               )}
             </div>
           )}
@@ -779,7 +800,7 @@ export default function ViewBookingModal({
             <div>
               Last edited by <b>{booking.lastEditedBy}</b>
               {booking?.updatedAt && (
-                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "—"}</>
+                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "-"}</>
               )}
             </div>
           )}
@@ -799,7 +820,7 @@ export default function ViewBookingModal({
                     <span style={historyAction}>{entry.action}</span>
                     <span style={historyMeta}>
                       {entry.user}
-                      {" • "}
+                      {" | "}
                       {fmtDateTimeShort(entry.at)}
                     </span>
                   </div>
@@ -881,7 +902,7 @@ export default function ViewBookingModal({
             <div>
               Created by <b>{booking.createdBy}</b>
               {booking?.createdAt && (
-                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "â€”"}</>
+                <> on {toDateSafe(booking.createdAt)?.toLocaleString("en-GB") || "-"}</>
               )}
             </div>
           )}
@@ -889,7 +910,7 @@ export default function ViewBookingModal({
             <div>
               Last edited by <b>{booking.lastEditedBy}</b>
               {booking?.updatedAt && (
-                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "â€”"}</>
+                <> on {toDateSafe(booking.updatedAt)?.toLocaleString("en-GB") || "-"}</>
               )}
             </div>
           )}
@@ -941,7 +962,7 @@ function Field({ label, value }) {
   return (
     <div style={fieldRow}>
       <div style={fieldLabel}>{label}</div>
-      <div style={fieldValue}>{value || "—"}</div>
+      <div style={fieldValue}>{value || "-"}</div>
     </div>
   );
 }

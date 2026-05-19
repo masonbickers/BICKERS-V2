@@ -178,9 +178,13 @@ export default function ViewUCraneBookingModal({
   onClose,
   fromDeleted = false,
   deletedId = null,
+  initialBooking = null,
+  initialVehicles = [],
 }) {
-  const [booking, setBooking] = useState(null);
-  const [allVehicles, setAllVehicles] = useState([]);
+  const [booking, setBooking] = useState(() => initialBooking);
+  const [allVehicles, setAllVehicles] = useState(() =>
+    Array.isArray(initialVehicles) ? initialVehicles : []
+  );
   const router = useRouter();
 
   // close on ESC
@@ -196,6 +200,11 @@ export default function ViewUCraneBookingModal({
 
     (async () => {
       try {
+        if (!fromDeleted && initialBooking) {
+          setBooking(initialBooking);
+          return;
+        }
+
         setBooking(null);
 
         if (fromDeleted) {
@@ -242,10 +251,15 @@ export default function ViewUCraneBookingModal({
     })();
 
     return () => (mounted = false);
-  }, [id, fromDeleted, deletedId, onClose]);
+  }, [id, fromDeleted, deletedId, onClose, initialBooking]);
 
   // load vehicles (for nicer name/plate display)
   useEffect(() => {
+    if (Array.isArray(initialVehicles) && initialVehicles.length) {
+      setAllVehicles(initialVehicles);
+      return undefined;
+    }
+
     let mounted = true;
     (async () => {
       const snapshot = await getDocs(collection(db, "vehicles"));
@@ -253,7 +267,7 @@ export default function ViewUCraneBookingModal({
       setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     })();
     return () => (mounted = false);
-  }, []);
+  }, [initialVehicles]);
 
   // normalize vehicles stored as strings/ids/objects
   const normalizedVehicles = useMemo(() => {
