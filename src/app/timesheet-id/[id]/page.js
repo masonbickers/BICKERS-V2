@@ -905,6 +905,7 @@ export default function TimesheetDetailPage() {
   const [jobsByDay, setJobsByDay] = useState({});
   const [vehicleLookup, setVehicleLookup] = useState({});
   const [holidaysByDate, setHolidaysByDate] = useState({});
+  const [bankHolidaysByDate, setBankHolidaysByDate] = useState({});
 
   // manager actions
   const [approving, setApproving] = useState(false);
@@ -929,6 +930,7 @@ export default function TimesheetDetailPage() {
     start: DEFAULT_YARD_START,
     end: DEFAULT_YARD_END,
     rawHours: diffHours(DEFAULT_YARD_START, DEFAULT_YARD_END),
+    deductLunch: true,
   });
   const [weekNav, setWeekNav] = useState({ previous: null, next: null });
   const payAdviceLoadedRef = useRef(false);
@@ -1028,6 +1030,34 @@ export default function TimesheetDetailPage() {
   /* ----------------------- Derived flag: approved? ----------------------- */
   const isApproved =
     String(timesheet?.status || "").toLowerCase() === "approved" || timesheet?.approved === true;
+
+  /* ----------------------- Load UK bank holidays ----------------------- */
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await fetch("https://www.gov.uk/bank-holidays.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`Bank holiday fetch failed: ${res.status}`);
+
+        const data = await res.json();
+        const items = data?.["england-and-wales"]?.events || [];
+        const map = {};
+        items.forEach((event) => {
+          const ymd = String(event?.date || "").slice(0, 10);
+          if (!ymd) return;
+          map[ymd] = {
+            title: event?.title || "Bank Holiday",
+            notes: event?.notes || "",
+          };
+        });
+        setBankHolidaysByDate(map);
+      } catch (err) {
+        console.warn("[timesheet-id] bank holidays unavailable:", err);
+        setBankHolidaysByDate({});
+      }
+    };
+
+    run();
+  }, []);
 
   /* ----------------------- Load holidays for this timesheet ----------------------- */
   useEffect(() => {
@@ -1409,6 +1439,8 @@ export default function TimesheetDetailPage() {
 
       const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
       const hasLiveHoliday = holidayDocsForDay.length > 0;
+      const bankHolidayInfo = ymdForDay ? bankHolidaysByDate?.[ymdForDay] || null : null;
+      const hasBankHoliday = Boolean(bankHolidayInfo);
 
       const paidStatuses = Array.from(
         new Set(
@@ -1426,6 +1458,13 @@ export default function TimesheetDetailPage() {
 
       let mode = detectMode(entry, isWeekend);
 
+      if (
+        hasBankHoliday &&
+        (!entryExists || mode === "missing" || mode === "off" || mode === "holiday")
+      ) {
+        mode = "bankholiday";
+      }
+
       if (isWeekend && hasLiveHoliday && (paidLabel || mode === "holiday")) {
         paidLabel = "Unpaid";
       }
@@ -1442,8 +1481,11 @@ export default function TimesheetDetailPage() {
       }
 
       let dayHours = 0;
+      const isBankHolidayDay = mode === "bankholiday";
+      const displayPaidLabel = isBankHolidayDay ? "Paid" : paidLabel || "";
       const isPaidHolidayDay =
-        hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid";
+        isBankHolidayDay ||
+        (hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid");
       const paidHolidayLunchDeducted = isPaidHolidayDay
         ? entry?.managerLunchDeduct === true
           ? true
@@ -1507,7 +1549,10 @@ export default function TimesheetDetailPage() {
         hasJobs,
         mode,
         hasLiveHoliday,
+        hasBankHoliday,
+        bankHolidayName: bankHolidayInfo?.title || "",
         paidLabel,
+        displayPaidLabel,
         isPaidHolidayDay,
         paidHolidayHours,
         paidHolidayLunchDeducted,
@@ -1528,7 +1573,7 @@ export default function TimesheetDetailPage() {
     });
 
     return { dayCards: cards, weeklyTotal: total };
-  }, [dayMap, jobsByDay, holidaysByDate, weekStartDate, employeeYardAutofill]);
+  }, [dayMap, jobsByDay, holidaysByDate, bankHolidaysByDate, weekStartDate, employeeYardAutofill]);
 
   const payAdvice = useMemo(() => {
     const baseRates = {
@@ -2012,7 +2057,9 @@ export default function TimesheetDetailPage() {
                 jobsToday,
                 mode,
                 hasLiveHoliday,
+                bankHolidayName,
                 paidLabel,
+                displayPaidLabel,
                 isPaidHolidayDay,
                 paidHolidayHours,
                 paidHolidayLunchDeducted,
@@ -2153,18 +2200,30 @@ export default function TimesheetDetailPage() {
                         <span style={{ color: "#007da3ff" }}>
                           {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                         </span>
-                        {hasLiveHoliday && paidLabel && (
+                        {displayPaidLabel && (
                           <span
                             style={{
                               marginLeft: 6,
                               color:
-                                paidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
+                                displayPaidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
                             }}
                           >
-                            ({paidLabel})
+                            ({displayPaidLabel})
                           </span>
                         )}
                       </div>
+                      {mode === "bankholiday" && bankHolidayName ? (
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontSize: 11.5,
+                            color: UI.muted,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {bankHolidayName}
+                        </div>
+                      ) : null}
                       {isPaidHolidayDay && (
                         <>
                           <div

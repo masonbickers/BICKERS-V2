@@ -8,6 +8,7 @@ import { db } from "../../../firebaseConfig";
 import {
   findEmployeeForUser,
   getStoredActiveWorkspace,
+  hasMirroredAccessRecord,
   isAdminPath,
   isPathAllowedForAccess,
   resolveEmployeeAccess,
@@ -46,14 +47,13 @@ export default function ProtectedLayout({ children }) {
       }
 
       try {
-        const [userSnap, employeeDoc] = await Promise.all([
-          getDoc(doc(db, "users", currentUser.uid)),
-          findEmployeeForUser(db, currentUser),
-        ]);
-
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
         const userData = userSnap.data() || {};
         const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-        const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+        const accessSource = hasMirroredAccessRecord(userData)
+          ? userData
+          : (await findEmployeeForUser(db, currentUser)) || {};
+        const access = resolveEmployeeAccess(accessSource, { isAdmin });
         const phoneReady = isPhoneVerified(userData);
         const mfaReady = hasAuthenticatorMfa(userData);
         const mfaPassed = isMfaVerifiedOnDevice(

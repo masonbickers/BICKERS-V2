@@ -816,6 +816,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
     getVehicleLabel: (booking) =>
       booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+    groupConsecutiveDates: true,
     titleSeparator: " - ",
   }).map((event) => ({
     ...event,

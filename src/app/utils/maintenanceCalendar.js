@@ -81,9 +81,36 @@ export const getMaintenanceDisplayType = (booking = {}) => {
   return "MAINTENANCE";
 };
 
+const groupConsecutiveYmdDates = (dates) => {
+  const sortedDates = [...new Set(dates)].sort();
+  const ranges = [];
+
+  for (const ymd of sortedDates) {
+    const start = startOfLocalDay(ymd);
+    if (!start) continue;
+
+    const lastRange = ranges[ranges.length - 1];
+    if (!lastRange) {
+      ranges.push({ startYmd: ymd, endYmd: ymd, dates: [ymd] });
+      continue;
+    }
+
+    const expectedNext = toYmdDate(addDaysToDate(lastRange.endYmd, 1));
+    if (ymd === expectedNext) {
+      lastRange.endYmd = ymd;
+      lastRange.dates.push(ymd);
+    } else {
+      ranges.push({ startYmd: ymd, endYmd: ymd, dates: [ymd] });
+    }
+  }
+
+  return ranges;
+};
+
 export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {}) => {
   const {
     getVehicleLabel,
+    groupConsecutiveDates = false,
     titleSeparator = " - ",
     includeStatus = true,
     statusLabel = "Maintenance",
@@ -105,16 +132,24 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
     const baseTitle = `${label}${titleSeparator}${typeLabel}` + (provider ? `${titleSeparator}${provider}` : "");
 
     if (dates.length) {
-      return dates
-        .map((ymd) => {
-          const start = startOfLocalDay(ymd);
+      const dateRanges = groupConsecutiveDates
+        ? groupConsecutiveYmdDates(dates)
+        : dates.map((ymd) => ({ startYmd: ymd, endYmd: ymd, dates: [ymd] }));
+
+      return dateRanges
+        .map(({ startYmd, endYmd, dates: rangeDates }) => {
+          const start = startOfLocalDay(startYmd);
+          const end = startOfLocalDay(endYmd);
           if (!start) return null;
+
+          const isRange = startYmd !== endYmd;
           return {
             ...booking,
             __collection: "maintenanceBookings",
             __parentId: booking.id,
-            __occurrence: ymd,
-            id: `${booking.id}__${ymd}`,
+            __occurrence: startYmd,
+            __occurrences: rangeDates,
+            id: isRange ? `${booking.id}__${startYmd}_${endYmd}` : `${booking.id}__${startYmd}`,
             title: baseTitle,
             kind,
             vehicleId,
@@ -123,7 +158,7 @@ export const buildMaintenanceBookingEvents = (maintenanceBookings, options = {})
             maintenanceTypeOther: booking.maintenanceTypeOther || "",
             maintenanceTypeLabel: typeLabel,
             start,
-            end: addDaysToDate(start, 1),
+            end: addDaysToDate(end || start, 1),
             allDay: true,
             ...(includeStatus ? { status: statusLabel } : {}),
           };

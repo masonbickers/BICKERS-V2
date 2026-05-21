@@ -9,6 +9,11 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
 import { collection, onSnapshot } from "firebase/firestore";
 import { Check } from "lucide-react";
+import {
+  buildMaintenanceBookingEvents,
+  buildMaintenanceJobEvents,
+  getMaintenanceDisplayType,
+} from "../utils/maintenanceCalendar";
 
 const BigCalendar = dynamic(
   () => import("react-big-calendar").then((m) => m.Calendar),
@@ -76,35 +81,6 @@ const jobKey = (val) => {
 };
 
 const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "canceled", "lost", "deleted"]);
-const ACTIVE_MAINTENANCE_JOB_STATUSES = new Set(["planned", "awaiting_parts", "in_progress", "qa"]);
-const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
-
-const isInactiveMaintenanceBooking = (status = "") => {
-  const s = String(status || "").trim().toLowerCase();
-  return INACTIVE_MAINTENANCE_STATUSES.some((x) => s.includes(x));
-};
-
-const getMaintenanceBookingKind = (booking = {}) => {
-  const t = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (t === "MOT") return "MOT_BOOKING";
-  if (t === "SERVICE") return "SERVICE_BOOKING";
-  return "MAINTENANCE_BOOKING";
-};
-
-const getMaintenanceDisplayType = (booking = {}) => {
-  const explicit = String(booking.maintenanceTypeLabel || "").trim();
-  if (explicit) return explicit.toUpperCase();
-
-  const other = String(booking.maintenanceTypeOther || "").trim();
-  if (other) return other.toUpperCase();
-
-  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (rawType === "MOT") return "MOT";
-  if (rawType === "SERVICE") return "SERVICE";
-  if (rawType === "WORK") return "WORK";
-  if (rawType) return rawType;
-  return "MAINTENANCE";
-};
 
 const formatEventVehicleText = (vehicles = []) => {
   if (!Array.isArray(vehicles)) return "";
@@ -155,93 +131,21 @@ const eventsByJobNumber = (bookings, maintenanceBookings, maintenanceJobs) => {
     };
   }).filter(Boolean);
 
-  const maintenanceEvents = (maintenanceBookings || [])
-    .flatMap((m) => {
-      if (isInactiveMaintenanceBooking(m.status)) return [];
-      const dates = Array.isArray(m.bookingDates) ? m.bookingDates.slice().sort() : [];
-      const kind = getMaintenanceBookingKind(m);
-      const typeLabel = getMaintenanceDisplayType(m);
-      const label = m.vehicleLabel || m.vehicleName || m.title || m.jobNumber || "Vehicle";
-      const provider = String(m.provider || "").trim();
-      const baseTitle = `${label} • ${typeLabel}` + (provider ? ` • ${provider}` : "");
+  const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
+    getVehicleLabel: (booking) =>
+      booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+    groupConsecutiveDates: true,
+    titleSeparator: " - ",
+    statusLabel: "Maintenance",
+  }).map((event) => ({
+    ...event,
+    jobNumber: event.jobNumber ?? "",
+  }));
 
-      if (dates.length) {
-        return dates
-          .map((ymd) => {
-            const startBase = parseLocalDate(ymd);
-            if (!startBase) return null;
-            return {
-              ...m,
-              __collection: "maintenanceBookings",
-              __parentId: m.id,
-              __occurrence: ymd,
-              id: `${m.id}__${ymd}`,
-              jobNumber: m.jobNumber ?? "",
-              title: baseTitle,
-              kind,
-              bookingStatus: m.status || "Booked",
-              maintenanceType: m.maintenanceType || "",
-              maintenanceTypeOther: m.maintenanceTypeOther || "",
-              maintenanceTypeLabel: typeLabel,
-              start: startOfLocalDay(startBase),
-              end: startOfLocalDay(addDays(startBase, 1)),
-              allDay: true,
-              status: "Maintenance",
-            };
-          })
-          .filter(Boolean);
-      }
-
-      const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay);
-      if (!startBase) return [];
-
-      const endRaw = m.endDate || m.end || m.date || m.startDate || m.start || m.startDay;
-      const endBase = parseLocalDate(endRaw);
-      const safeEnd = endBase && endBase >= startBase ? endBase : startBase;
-
-      return [{
-        ...m,
-        __collection: "maintenanceBookings",
-        __parentId: m.id,
-        jobNumber: m.jobNumber ?? "",
-        title: baseTitle,
-        kind,
-        maintenanceType: m.maintenanceType || "",
-        maintenanceTypeOther: m.maintenanceTypeOther || "",
-        maintenanceTypeLabel: typeLabel,
-        start: startOfLocalDay(startBase),
-        end: startOfLocalDay(addDays(safeEnd, 1)),
-        allDay: true,
-        status: "Maintenance",
-      }];
-    })
-    .filter(Boolean);
-
-  const maintenanceJobEvents = (maintenanceJobs || [])
-    .filter((j) => ACTIVE_MAINTENANCE_JOB_STATUSES.has(String(j.status || "").trim().toLowerCase()))
-    .map((j) => {
-      const when = parseLocalDate(j.plannedDate || j.dueDate);
-      if (!when) return null;
-      const statusLabel = String(j.status || "planned")
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (m) => m.toUpperCase());
-      return {
-        ...j,
-        id: `maintenanceJob__${j.id}`,
-        __parentId: j.id,
-        __collection: "maintenanceJobs",
-        title: j.assetLabel || j.title || "Maintenance Job",
-        kind: "MAINTENANCE",
-        start: startOfLocalDay(when),
-        end: startOfLocalDay(addDays(when, 1)),
-        allDay: true,
-        status: "Maintenance",
-        maintenanceType: j.type || "maintenance",
-        maintenanceTypeLabel: `Job Card (${statusLabel})`,
-      };
-    })
-    .filter(Boolean);
-
+  const maintenanceJobEvents = buildMaintenanceJobEvents(maintenanceJobs, {
+    includeStatus: true,
+    statusLabel: "Maintenance",
+  });
   const all = [...bookingEvents, ...maintenanceEvents, ...maintenanceJobEvents];
 
   all.sort((a, b) => {

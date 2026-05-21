@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth, storage as storageInstance } from "../../../../firebaseConfig";
 import {
@@ -13,7 +14,6 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import DatePicker from "react-multi-date-picker";
 import {
   contactIdFromEmail,
   employeesKey,
@@ -41,6 +41,11 @@ import {
   Truck,
   Users,
 } from "lucide-react";
+
+const DatePicker = dynamic(() => import("react-multi-date-picker"), {
+  ssr: false,
+  loading: () => <div style={{ ...field.input, color: UI.muted }}>Loading dates...</div>,
+});
 
 const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", "availabilityStatus", "fleetStatus"];
 
@@ -528,6 +533,21 @@ const toJsDate = (raw) => {
   return isNaN(d.getTime()) ? null : d;
 };
 
+const fallbackVehicleKeys = (list) =>
+  Array.from(
+    new Set(
+      (Array.isArray(list) ? list : [])
+        .map((raw) => {
+          if (raw && typeof raw === "object") {
+            return raw.id || raw.vehicleId || raw.registration || raw.name || "";
+          }
+          return raw;
+        })
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+
 /* ────────────────────────────────────────────────────────────────────────────
    Money helpers
 ──────────────────────────────────────────────────────────────────────────── */
@@ -776,6 +796,7 @@ export default function EditBookingPage() {
   const bookingId = params?.id;
 
   const [loading, setLoading] = useState(true);
+  const [supportingDataLoading, setSupportingDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Core fields
@@ -956,7 +977,9 @@ export default function EditBookingPage() {
     ? Boolean((client || "").trim())
     : Boolean((client || "").trim() && (location || "").trim());
 
-  const saveTooltip = isMaintenance
+  const saveTooltip = supportingDataLoading
+    ? "Still loading availability checks"
+    : isMaintenance
     ? !coreFilled
       ? "Fill Location to save"
       : ""
@@ -1031,28 +1054,9 @@ export default function EditBookingPage() {
       if (!bookingId) return;
 
       setLoading(true);
+      setSupportingDataLoading(false);
 
-      const [
-        bookingSnap,
-        holidaySnap,
-        empSnap,
-        vehicleSnap,
-        equipSnap,
-        workSnap,
-        contactsSnap,
-        bookingDocSnap,
-        checksSnap,
-      ] = await Promise.all([
-        getDocs(collection(db, "bookings")),
-        getDocs(collection(db, "holidays")),
-        getDocs(collection(db, "employees")),
-        getDocs(collection(db, "vehicles")),
-        getDocs(collection(db, "equipment")),
-        getDocs(collection(db, "maintenanceBookings")),
-        getDocs(collection(db, "contacts")),
-        getDoc(doc(db, "bookings", bookingId)),
-        getDocs(collection(db, "vehicleChecks")),
-      ]);
+      const bookingDocSnap = await getDoc(doc(db, "bookings", bookingId));
 
       if (!bookingDocSnap.exists()) {
         alert("Booking not found.");
@@ -1062,99 +1066,6 @@ export default function EditBookingPage() {
 
       const bookingData = { id: bookingDocSnap.id, ...bookingDocSnap.data() };
       setOriginalBookingData(bookingDocSnap.data() || {});
-
-      // all bookings for conflict checks (exclude current later)
-      setAllBookings(bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
-
-      // employees lists + codes
-      const allEmployees = empSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-
-      setEmployeeList(
-        allEmployees
-          .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle)
-              ? emp.jobTitle
-              : [emp.jobTitle];
-            return titles.some((t) => (t || "").toLowerCase() === "driver");
-          })
-          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
-      );
-
-      setFreelancerList(
-        allEmployees
-          .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle)
-              ? emp.jobTitle
-              : [emp.jobTitle];
-            return titles.some((t) => {
-              const val = (t || "").toLowerCase();
-              return val === "freelance" || val === "freelancer";
-            });
-          })
-          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
-      );
-
-      const map = {};
-      for (const emp of allEmployees) {
-        const nm = String(emp.name || emp.fullName || "").trim().toLowerCase();
-        const code = String(emp.userCode || "").trim();
-        if (nm && code) map[nm] = code;
-      }
-      setNameToCode(map);
-
-      // vehicles grouped + lookup
-      const grouped = {};
-
-      const byId = {};
-      const byReg = {};
-      const byName = {};
-
-      vehicleSnap.docs.forEach((docu) => {
-        const v = docu.data();
-        const id = docu.id;
-        const name = (v.name || "").trim();
-        const registration = (v.registration || "").trim();
-        if (!name && !registration) return;
-
-        const group = getVehicleCategoryGroup(v);
-
-        const info = { id, name, registration, group, ...(v || {}) };
-        if (id) byId[id] = info;
-        if (registration) byReg[registration.toUpperCase()] = info;
-        if (name) byName[name.toLowerCase()] = info;
-
-        if (shouldShowVehicleCategory(group)) {
-          if (!grouped[group]) grouped[group] = [];
-          grouped[group].push(info);
-        }
-      });
-
-      setVehicleGroups(sortVehicleGroupEntries(grouped));
-      setVehicleLookup({ byId, byReg, byName });
-
-      // equipment groups
-      const groupedEquip = {};
-      equipSnap.docs.forEach((d) => {
-        const e = d.data();
-        const cat = (e.category || "Other").trim();
-        const nm = (e.name || e.label || "").trim();
-        if (!nm) return;
-        if (!groupedEquip[cat]) groupedEquip[cat] = [];
-        groupedEquip[cat].push(nm);
-      });
-      setEquipmentGroups(groupedEquip);
-
-      const openEquip = {};
-      Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
-      setOpenEquipGroups(openEquip);
-
-      setMaintenanceBookings(workSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setVehicleChecks(checksSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
       // ---- Prefill booking fields ----
       setJobNumber(bookingData.jobNumber || "");
@@ -1257,11 +1168,7 @@ export default function EditBookingPage() {
       const rawVehicles = Array.isArray(bookingData.vehicles)
         ? bookingData.vehicles
         : [];
-      const vehicleIds = normalizeVehicleKeysListForLookup(rawVehicles, {
-        byId,
-        byReg,
-        byName,
-      });
+      const vehicleIds = fallbackVehicleKeys(rawVehicles);
       setVehicles(vehicleIds);
 
       const vs =
@@ -1368,6 +1275,134 @@ export default function EditBookingPage() {
       }
 
       setLoading(false);
+
+      // Give the browser a chance to paint the booking form before the large
+      // supporting reads compete for network and main-thread work.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setSupportingDataLoading(true);
+      try {
+        const [
+          bookingSnap,
+          holidaySnap,
+          empSnap,
+          vehicleSnap,
+          equipSnap,
+          workSnap,
+          contactsSnap,
+          checksSnap,
+        ] = await Promise.all([
+          getDocs(collection(db, "bookings")),
+          getDocs(collection(db, "holidays")),
+          getDocs(collection(db, "employees")),
+          getDocs(collection(db, "vehicles")),
+          getDocs(collection(db, "equipment")),
+          getDocs(collection(db, "maintenanceBookings")),
+          getDocs(collection(db, "contacts")),
+          getDocs(collection(db, "vehicleChecks")),
+        ]);
+
+      setAllBookings(bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
+
+      const allEmployees = empSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+
+      setEmployeeList(
+        allEmployees
+          .filter((emp) => {
+            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+            return titles.some((t) => (t || "").toLowerCase() === "driver");
+          })
+          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
+      );
+
+      setFreelancerList(
+        allEmployees
+          .filter((emp) => {
+            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
+            return titles.some((t) => {
+              const val = (t || "").toLowerCase();
+              return val === "freelance" || val === "freelancer";
+            });
+          })
+          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
+      );
+
+      const map = {};
+      for (const emp of allEmployees) {
+        const nm = String(emp.name || emp.fullName || "").trim().toLowerCase();
+        const code = String(emp.userCode || "").trim();
+        if (nm && code) map[nm] = code;
+      }
+      setNameToCode(map);
+
+      const grouped = {};
+      const byId = {};
+      const byReg = {};
+      const byName = {};
+
+      vehicleSnap.docs.forEach((docu) => {
+        const v = docu.data();
+        const id = docu.id;
+        const name = (v.name || "").trim();
+        const registration = (v.registration || "").trim();
+        if (!name && !registration) return;
+
+        const group = getVehicleCategoryGroup(v);
+        const info = { id, name, registration, group, ...(v || {}) };
+        if (id) byId[id] = info;
+        if (registration) byReg[registration.toUpperCase()] = info;
+        if (name) byName[name.toLowerCase()] = info;
+
+        if (shouldShowVehicleCategory(group)) {
+          if (!grouped[group]) grouped[group] = [];
+          grouped[group].push(info);
+        }
+      });
+
+      const nextVehicleLookup = { byId, byReg, byName };
+      setVehicleGroups(sortVehicleGroupEntries(grouped));
+      setVehicleLookup(nextVehicleLookup);
+
+      const normalizedVehicleIds = normalizeVehicleKeysListForLookup(rawVehicles, nextVehicleLookup);
+      const resolvedVehicleIds = normalizedVehicleIds.length > 0 ? normalizedVehicleIds : vehicleIds;
+      setVehicles(resolvedVehicleIds);
+      setVehicleStatus((prev) => {
+        const next = { ...prev };
+        resolvedVehicleIds.forEach((vid) => {
+          if (!next[vid]) next[vid] = bookingData.status || "Confirmed";
+        });
+        Object.keys(next).forEach((vid) => {
+          if (!resolvedVehicleIds.includes(vid)) delete next[vid];
+        });
+        return next;
+      });
+
+      const groupedEquip = {};
+      equipSnap.docs.forEach((d) => {
+        const e = d.data();
+        const cat = (e.category || "Other").trim();
+        const nm = (e.name || e.label || "").trim();
+        if (!nm) return;
+        if (!groupedEquip[cat]) groupedEquip[cat] = [];
+        groupedEquip[cat].push(nm);
+      });
+      setEquipmentGroups(groupedEquip);
+
+      const openEquip = {};
+      Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
+      setOpenEquipGroups(openEquip);
+
+      setMaintenanceBookings(workSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setVehicleChecks(checksSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error("Failed loading edit page supporting data:", err);
+      } finally {
+        setSupportingDataLoading(false);
+      }
     };
 
     loadAll().catch((err) => {
@@ -3531,16 +3566,16 @@ export default function EditBookingPage() {
               <div style={actionsRow}>
                 <button
                   type="submit"
-                  disabled={!coreFilled || saving}
+                  disabled={!coreFilled || saving || supportingDataLoading}
                   title={saveTooltip}
                   style={{
                     ...btnPrimary,
-                    opacity: coreFilled && !saving ? 1 : 0.5,
-                    cursor: coreFilled && !saving ? "pointer" : "not-allowed",
+                    opacity: coreFilled && !saving && !supportingDataLoading ? 1 : 0.5,
+                    cursor: coreFilled && !saving && !supportingDataLoading ? "pointer" : "not-allowed",
                   }}
                 >
                   <Save size={14} />
-                  {saving ? "Updating..." : "Update Booking"}
+                  {saving ? "Updating..." : supportingDataLoading ? "Loading checks..." : "Update Booking"}
                 </button>
 
                 <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>

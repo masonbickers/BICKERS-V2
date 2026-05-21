@@ -20,6 +20,7 @@ import {
   findEmployeeForUser,
   getStoredActiveWorkspace,
   getWorkspaceForPath,
+  hasMirroredAccessRecord,
   resolveEmployeeAccess,
   selectLandingRoute,
   setStoredActiveWorkspace,
@@ -212,8 +213,10 @@ export default function HeaderSidebarLayout({
       const nextUserDoc = snap?.exists?.() ? snap.data() : null;
       setUserDoc(nextUserDoc);
 
-      const employeeDoc = await findEmployeeForUser(db, currentUser);
-      const nextAccess = resolveEmployeeAccess(employeeDoc || {}, {
+      const accessSource = hasMirroredAccessRecord(nextUserDoc || {})
+        ? nextUserDoc || {}
+        : (await findEmployeeForUser(db, currentUser)) || {};
+      const nextAccess = resolveEmployeeAccess(accessSource, {
         isAdmin:
           ADMIN_EMAILS.includes(String(currentUser.email || "").trim().toLowerCase()) ||
           nextUserDoc?.role === "admin",
@@ -236,7 +239,7 @@ export default function HeaderSidebarLayout({
         const data = docSnap.data();
         setUserDoc(data);
         setEmployeeAccess(
-          resolveEmployeeAccess(employeeDoc || {}, {
+          resolveEmployeeAccess(hasMirroredAccessRecord(data || {}) ? data || {} : accessSource, {
             isAdmin:
               ADMIN_EMAILS.includes(String(currentUser.email || "").trim().toLowerCase()) ||
               data?.role === "admin",
@@ -291,13 +294,6 @@ export default function HeaderSidebarLayout({
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 
-  const serviceHeaderLinks = [
-    { label: "Workshop", path: "/workshop" },
-    { label: "Assistant", path: "/assistant", icon: "AI" },
-    { label: "Service Overview", path: "/service-overview" },
-    ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
-  ];
-
   const userSidebarGroups = [
     {
       heading: "Operations",
@@ -319,6 +315,7 @@ export default function HeaderSidebarLayout({
     {
       heading: "Business",
       items: [
+        { label: "H&S", path: "/h-and-s" },
         { label: "Invoicing", path: "/finance-dashboard" },
         { label: "Statistics", path: "/statistics" },
         { label: "Settings", path: "/settings" },
@@ -326,35 +323,9 @@ export default function HeaderSidebarLayout({
     },
   ];
 
-  const serviceSidebarGroups = [
-    {
-      heading: "Service",
-      items: [
-        { label: "Service Home", path: "/service/home" },
-        { label: "Service Overview", path: "/service-overview" },
-        { label: "Workshop", path: "/workshop" },
-        { label: "Maintenance Jobs", path: "/maintenance-jobs" },
-      ],
-    },
-    {
-      heading: "Fleet",
-      items: [
-        { label: "Vehicles & Equip", path: "/vehicle-home" },
-        { label: "MOT Overview", path: "/mot-overview" },
-        { label: "Vehicle Checks", path: "/vehicle-checks" },
-        { label: "Usage Overview", path: "/usage-overview" },
-      ],
-    },
-    {
-      heading: "System",
-      items: [{ label: "Settings", path: "/settings" }],
-    },
-  ];
-
-  const workspaceNavGroups =
-    activeWorkspace === "service" ? serviceSidebarGroups : userSidebarGroups;
+  const workspaceNavGroups = userSidebarGroups;
   const workspaceNav = workspaceNavGroups.flatMap((group) => group.items);
-  const headerLinks = activeWorkspace === "service" ? serviceHeaderLinks : userHeaderLinks;
+  const headerLinks = userHeaderLinks;
 
   /* -------------------------------------------
      LOGOUT
@@ -424,7 +395,8 @@ export default function HeaderSidebarLayout({
       workspaceNav.find(({ path }) =>
         pathname === path ||
         (path === "/screens/homescreen" && pathname === "/home") ||
-        (path === "/service/home" && pathname === "/service-home")
+        (path === "/service/home" && pathname === "/service-home") ||
+        (path === "/h-and-s" && (pathname === "/h-and-s" || String(pathname || "").startsWith("/defects")))
       ) || null
     );
   }, [pathname, workspaceNav]);
@@ -603,10 +575,10 @@ export default function HeaderSidebarLayout({
               style={{ width: 136, marginBottom: 14, display: "block" }}
             />
             <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em" }}>
-              {activeWorkspace === "service" ? "Service Platform" : "Booking System"}
+              Booking System
             </div>
             <div style={{ fontSize: 12.5, color: UI.sidebarMuted, marginTop: 4, lineHeight: 1.4 }}>
-              {activeWorkspace === "service" ? "Workshop and fleet operations" : "Operations platform"}
+              Operations platform
             </div>
           </div>
         ) : (
@@ -653,7 +625,8 @@ export default function HeaderSidebarLayout({
                   const active =
                     pathname === path ||
                     (path === "/screens/homescreen" && pathname === "/home") ||
-                    (path === "/service/home" && pathname === "/service-home");
+                    (path === "/service/home" && pathname === "/service-home") ||
+                    (path === "/h-and-s" && (pathname === "/h-and-s" || String(pathname || "").startsWith("/defects")));
 
                   const isHrItem = path === "/hr";
                   const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
@@ -829,7 +802,7 @@ export default function HeaderSidebarLayout({
                   textTransform: "uppercase",
                 }}
               >
-                {activeWorkspace === "service" ? "Service workspace" : "User workspace"}
+                User workspace
               </div>
               <div
                 style={{
@@ -1059,7 +1032,7 @@ export default function HeaderSidebarLayout({
             justifyContent: "center",
           }}
         >
-          Copyright {new Date().getFullYear()} Bickers Booking System v3.0.4
+          Copyright {new Date().getFullYear()} Bickers Booking System v3.0.5
         </footer>
       </div>
     </div>

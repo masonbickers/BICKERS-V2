@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
+import {
+  completeMaintenanceBooking,
+  deleteMaintenanceBooking,
+} from "../utils/maintenanceBookingService";
 import {
   MAINTENANCE_JOB_WORKFLOW_STAGES,
   MAINTENANCE_STAGE_LABELS,
@@ -33,6 +37,9 @@ const fmtText = (value) => {
   if (value === null || value === undefined || value === "") return EMPTY_VALUE;
   return String(value);
 };
+
+const hasDisplayValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "" && value !== EMPTY_VALUE;
 
 const formatNamedList = (items = []) => {
   if (!Array.isArray(items) || items.length === 0) return EMPTY_VALUE;
@@ -73,28 +80,6 @@ const prettyField = (field) =>
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
-
-const calcNextFromWeeks = (lastISO, freqWeeks) => {
-  const last = lastISO ? new Date(lastISO) : null;
-  const weeks = Number(freqWeeks || 0);
-  if (!last || Number.isNaN(last.getTime()) || !weeks) return "";
-  const next = new Date(last);
-  next.setDate(next.getDate() + weeks * 7);
-  return next.toISOString().slice(0, 10);
-};
-
-const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
-  const explicit = Number(explicitFreq || 0);
-  if (explicit > 0) return explicit;
-
-  const last = lastISO ? new Date(lastISO) : null;
-  const next = nextISO ? new Date(nextISO) : null;
-  if (!last || !next || Number.isNaN(last.getTime()) || Number.isNaN(next.getTime())) return 0;
-
-  const diffDays = Math.round((next.getTime() - last.getTime()) / 86400000);
-  if (diffDays <= 0) return 0;
-  return Math.max(1, Math.round(diffDays / 7));
-};
 
 export default function DashboardMaintenanceModal({ event, onClose }) {
   const router = useRouter();
@@ -240,7 +225,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
       appointmentDate: isSingleDay && hasAppointment ? fmtDate(appointment) : EMPTY_VALUE,
       startDate: isMultiDay && start ? fmtDate(start) : EMPTY_VALUE,
       endDate: isMultiDay && end ? fmtDate(end) : EMPTY_VALUE,
-      provider: fmtText(source.provider),
+      provider: fmtText(source.provider || source.location),
       bookingRef: fmtText(source.bookingRef),
       location: fmtText(source.location),
       cost: fmtText(source.cost),
@@ -293,91 +278,12 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      let vDoc = null;
-      if (vehicleId) {
-        const vSnap = await getDoc(doc(db, "vehicles", vehicleId));
-        if (vSnap.exists()) vDoc = { id: vSnap.id, ...vSnap.data() };
-      }
-
-      const batch = writeBatch(db);
-      batch.delete(doc(db, "maintenanceBookings", bookingId));
-
-      if (vehicleId && vDoc) {
-        const vRef = doc(db, "vehicles", vehicleId);
-        const shouldClearMot = String(vDoc.motBookingId || "") === String(bookingId);
-        const shouldClearService = String(vDoc.serviceBookingId || "") === String(bookingId);
-        const shouldClearInspection =
-          String(vDoc.inspectionBookingId || "") === String(bookingId);
-        const shouldClearWork = String(vDoc.workBookingId || "") === String(bookingId);
-
-        const clears = {};
-        if (shouldClearMot) {
-          Object.assign(clears, {
-            motBookingId: "",
-            motBookedStatus: "",
-            motBookedOn: "",
-            motAppointmentDate: "",
-            motBookingStartDate: "",
-            motBookingEndDate: "",
-            motProvider: "",
-            motBookingRef: "",
-            motLocation: "",
-            motCost: "",
-            motBookingNotes: "",
-            motBookingFiles: [],
-          });
-        }
-        if (shouldClearService) {
-          Object.assign(clears, {
-            serviceBookingId: "",
-            serviceBookedStatus: "",
-            serviceBookedOn: "",
-            serviceAppointmentDate: "",
-            serviceBookingStartDate: "",
-            serviceBookingEndDate: "",
-            serviceProvider: "",
-            serviceBookingRef: "",
-            serviceLocation: "",
-            serviceCost: "",
-            serviceBookingNotes: "",
-          });
-        }
-        if (shouldClearInspection) {
-          Object.assign(clears, {
-            inspectionBookingId: "",
-            inspectionBookedStatus: "",
-            inspectionBookedOn: "",
-            inspectionAppointmentDate: "",
-            inspectionBookingStartDate: "",
-            inspectionBookingEndDate: "",
-            inspectionProvider: "",
-            inspectionBookingRef: "",
-            inspectionLocation: "",
-            inspectionCost: "",
-            inspectionBookingNotes: "",
-          });
-        }
-        if (shouldClearWork) {
-          Object.assign(clears, {
-            workBookingId: "",
-            workBookedStatus: "",
-            workBookingDate: "",
-            workBookingStartDate: "",
-            workBookingEndDate: "",
-            workProvider: "",
-            workBookingRef: "",
-            workLocation: "",
-            workCost: "",
-            workBookingNotes: "",
-          });
-        }
-
-        if (Object.keys(clears).length) {
-          batch.update(vRef, { ...clears, updatedAt: serverTimestamp() });
-        }
-      }
-
-      await batch.commit();
+      await deleteMaintenanceBooking({
+        bookingId,
+        booking,
+        vehicleId,
+        vehicle,
+      });
       onClose?.();
     } catch (error) {
       console.error("[DashboardMaintenanceModal] delete failed:", error);
@@ -413,89 +319,22 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
-      const source = booking || event || {};
-      let committedVehiclePatch = null;
-      const completedISO = String(
-        source.endDateISO ||
-          source.appointmentDateISO ||
-          source.startDateISO ||
-          ""
-      ).slice(0, 10);
-
-      if (!completedISO) {
-        setBookingActionError("This booking needs a valid booking date before it can be completed.");
-        setCompletingBooking(false);
-        return;
-      }
-
-      const batch = writeBatch(db);
-      batch.update(doc(db, "maintenanceBookings", bookingId), {
-        status: "Completed",
-        completedAtISO: completedISO,
-        updatedAt: serverTimestamp(),
+      const completedBooking = await completeMaintenanceBooking({
+        bookingId,
+        booking: booking || event,
+        vehicleId,
+        vehicle,
       });
-
-      if (vehicleId && vehicle) {
-        const vehicleRef = doc(db, "vehicles", vehicleId);
-        let vehiclePatch = null;
-
-        if (eventType === "MOT") {
-          const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
-          vehiclePatch = {
-            motBookedStatus: "Completed",
-            motBookedOn: completedISO,
-            motAppointmentDate: "",
-            motBookingStartDate: "",
-            motBookingEndDate: "",
-            motProvider: "",
-            motBookingRef: "",
-            motLocation: "",
-            motCost: "",
-            motBookingNotes: "",
-            lastMOT: completedISO,
-            nextMOT: calcNextFromWeeks(completedISO, motFreqWeeks),
-            updatedAt: serverTimestamp(),
-          };
-          batch.update(vehicleRef, vehiclePatch);
-        }
-
-        if (eventType === "SERVICE") {
-          const serviceFreqWeeks = resolveFreqWeeks(
-            vehicle?.serviceFreq,
-            vehicle?.lastService,
-            vehicle?.nextService
-          );
-          vehiclePatch = {
-            serviceBookedStatus: "Completed",
-            serviceBookedOn: completedISO,
-            serviceAppointmentDate: "",
-            serviceBookingStartDate: "",
-            serviceBookingEndDate: "",
-            serviceProvider: "",
-            serviceBookingRef: "",
-            serviceLocation: "",
-            serviceCost: "",
-            serviceBookingNotes: "",
-            lastService: completedISO,
-            nextService: calcNextFromWeeks(completedISO, serviceFreqWeeks),
-            updatedAt: serverTimestamp(),
-          };
-          batch.update(vehicleRef, vehiclePatch);
-        }
-
-        committedVehiclePatch = vehiclePatch;
-      }
-
-      await batch.commit();
-      if (committedVehiclePatch) {
-        setVehicle((prev) => (prev ? { ...prev, ...committedVehiclePatch } : prev));
+      if (completedBooking.vehiclePatch) {
+        setVehicle((prev) => (prev ? { ...prev, ...completedBooking.vehiclePatch } : prev));
       }
       setBooking((prev) =>
         prev
           ? {
               ...prev,
               status: "Completed",
-              completedAtISO: completedISO,
+              completedAtISO: completedBooking.completedAtISO,
+              history: completedBooking.history,
             }
           : prev
       );
@@ -612,72 +451,73 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     }
   };
 
+  const displayType = eventType === "MAINTENANCE" ? "Maintenance" : eventType;
+  const modalTitle = isDueEvent ? `${displayType} Due` : isMaintenanceJob ? "Maintenance Job" : `${displayType} Booking`;
+  const statusText = isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status;
+  const dateLabel = isDueEvent ? "Due Date" : "Date(s)";
+  const dateValue = isDueEvent ? fmtDate(event?.dueDate || event?.start) : rangeText;
+  const nextDueLabel =
+    eventType === "MOT" ? "Next MOT Due" : eventType === "SERVICE" ? "Next Service Due" : "";
+  const summaryCards = [
+    { label: "Vehicle", value: vehicleLabel },
+    { label: "Status", value: statusText },
+    { label: dateLabel, value: dateValue },
+    {
+      label: nextDueLabel,
+      value: bookingDetails.nextDue,
+      show: canEditBooking && hasDisplayValue(nextDueLabel) && hasDisplayValue(bookingDetails.nextDue),
+    },
+  ].filter((item) => item.show !== false && hasDisplayValue(item.value));
+
+  const detailRows = [
+    { label: "Type", value: displayType },
+    { label: "Workflow Stage", value: workflowStatusLabel, show: canManageJob },
+    { label: "Booking Type", value: bookingDetails.bookingType, show: canEditBooking },
+    { label: "Start Date", value: bookingDetails.startDate, show: canEditBooking && bookingDetails.isMultiDay },
+    { label: "End Date", value: bookingDetails.endDate, show: canEditBooking && bookingDetails.isMultiDay },
+    { label: "ISO Week", value: event?.isoWeek, show: isDueEvent && hasDisplayValue(event?.isoWeek) },
+    { label: "Provider / Garage", value: bookingDetails.provider, show: hasDisplayValue(bookingDetails.provider) },
+    { label: "Completed", value: bookingDetails.completedDate, show: canEditBooking },
+    { label: "Vehicles", value: bookingDetails.vehicles, show: canEditBooking && hasDisplayValue(bookingDetails.vehicles) },
+    { label: "Equipment", value: bookingDetails.equipment, show: canEditBooking && hasDisplayValue(bookingDetails.equipment) },
+  ].filter((item) => item.show !== false && hasDisplayValue(item.value));
+
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
       <div style={modal}>
         <div style={header}>
           <div>
             <div style={eyebrow}>Dashboard Maintenance</div>
-            <h2 style={title}>{eventType === "MAINTENANCE" ? "Maintenance" : eventType}</h2>
+            <h2 style={title}>{modalTitle}</h2>
           </div>
           <button onClick={onClose} style={closeBtn} type="button" aria-label="Close">
-            x
+            X
           </button>
         </div>
 
         <div style={card}>
-          {bookingActionError ? <div style={{ ...feedbackError, marginBottom: 12 }}>{bookingActionError}</div> : null}
-          {bookingActionMessage ? <div style={{ ...feedbackSuccess, marginBottom: 12 }}>{bookingActionMessage}</div> : null}
-          {canManageJob && (
-            <div style={summaryStrip}>
-              <div style={summaryTile}>
-                <div style={summaryLabel}>Workflow Stage</div>
-                <div style={summaryValue}>{workflowStatusLabel}</div>
+          {bookingActionError ? <div style={{ ...feedbackError, margin: 10 }}>{bookingActionError}</div> : null}
+          {bookingActionMessage ? <div style={{ ...feedbackSuccess, margin: 10 }}>{bookingActionMessage}</div> : null}
+          <div style={summaryStrip}>
+            {summaryCards.map((item) => (
+              <div key={item.label} style={summaryTile}>
+                <div style={summaryLabel}>{item.label}</div>
+                <div style={summaryValue}>{item.value}</div>
               </div>
-              <div style={summaryTile}>
-                <div style={summaryLabel}>Asset</div>
-                <div style={summaryValue}>{vehicleLabel}</div>
+            ))}
+          </div>
+
+          <div style={detailsPanel}>
+            {detailRows.map((item) => (
+              <Row key={item.label} label={item.label} value={item.value} />
+            ))}
+            {hasDisplayValue(bookingDetails.notes) ? (
+              <div style={notesBlock}>
+                <div style={labelStyle}>Notes</div>
+                <div style={notesText}>{bookingDetails.notes}</div>
               </div>
-              <div style={summaryTile}>
-                <div style={summaryLabel}>Reference</div>
-                <div style={summaryValue}>{bookingId || EMPTY_VALUE}</div>
-              </div>
-            </div>
-          )}
-          <Row label="Vehicle" value={vehicleLabel} />
-          <Row label="Type" value={eventType} />
-          <Row label="Status" value={isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status} />
-          <Row
-            label={isDueEvent ? "Due Date" : "Date(s)"}
-            value={isDueEvent ? fmtDate(event?.dueDate || event?.start) : rangeText}
-          />
-          {isDueEvent && event?.isoWeek ? <Row label="ISO Week" value={event.isoWeek} /> : null}
-          {canEditBooking && <Row label="Booking Type" value={bookingDetails.bookingType} />}
-          {canEditBooking && bookingDetails.isSingleDay && (
-            <Row label="Appointment" value={bookingDetails.appointmentDate} />
-          )}
-          {canEditBooking && bookingDetails.isMultiDay && (
-            <Row label="Start Date" value={bookingDetails.startDate} />
-          )}
-          {canEditBooking && bookingDetails.isMultiDay && (
-            <Row label="End Date" value={bookingDetails.endDate} />
-          )}
-          <Row label="Provider" value={bookingDetails.provider} />
-          {canEditBooking && <Row label="Reference" value={bookingDetails.bookingRef} />}
-          {canEditBooking && <Row label="Location" value={bookingDetails.location} />}
-          {canEditBooking && <Row label="Cost" value={bookingDetails.cost} />}
-          {canEditBooking && bookingDetails.completedDate !== EMPTY_VALUE && (
-            <Row label="Completed" value={bookingDetails.completedDate} />
-          )}
-          {canEditBooking && eventType === "MOT" && bookingDetails.nextDue !== EMPTY_VALUE && (
-            <Row label="Next MOT Due" value={bookingDetails.nextDue} />
-          )}
-          {canEditBooking && eventType === "SERVICE" && bookingDetails.nextDue !== EMPTY_VALUE && (
-            <Row label="Next Service Due" value={bookingDetails.nextDue} />
-          )}
-          {canEditBooking && <Row label="Vehicles" value={bookingDetails.vehicles} />}
-          {canEditBooking && <Row label="Equipment" value={bookingDetails.equipment} />}
-          <Row label="Notes" value={bookingDetails.notes} />
+            ) : null}
+          </div>
         </div>
 
         <div style={actions}>
@@ -766,7 +606,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         </div>
 
         {showBookType && vehicleId && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ margin: "0 12px 12px" }}>
             <MaintenanceBookingForm
               vehicleId={vehicleId}
               type={showBookType}
@@ -792,15 +632,17 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         )}
 
         {showEditBooking && canEditBooking && (
-          <EditMaintenanceBookingForm
-            bookingId={bookingId}
-            vehicleId={vehicleId || undefined}
-            onClose={() => setShowEditBooking(false)}
-            onSaved={() => {
-              setShowEditBooking(false);
-              onClose?.();
-            }}
-          />
+          <div style={{ margin: "0 12px 12px" }}>
+            <EditMaintenanceBookingForm
+              bookingId={bookingId}
+              vehicleId={vehicleId || undefined}
+              onClose={() => setShowEditBooking(false)}
+              onSaved={() => {
+                setShowEditBooking(false);
+                onClose?.();
+              }}
+            />
+          </div>
         )}
 
         {showEditJob && canManageJob && (
@@ -912,165 +754,213 @@ function Field({ label, children, full = false }) {
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(15,23,42,0.56)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
   zIndex: 9999,
-  padding: 16,
+  padding: 18,
 };
 
 const modal = {
-  width: "min(720px, 96vw)",
+  width: "min(760px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflow: "auto",
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-  padding: 16,
+  background: "#f3f6f9",
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
+  padding: 0,
+  color: "#0f172a",
 };
 
 const header = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "flex-start",
+  alignItems: "center",
   gap: 12,
-  marginBottom: 12,
+  padding: "14px 16px",
+  background: "#ffffff",
+  borderBottom: "1px solid #d7dee8",
 };
 
 const eyebrow = {
-  fontSize: 12,
-  color: "#64748b",
+  fontSize: 11,
+  color: "#5f6f82",
   textTransform: "uppercase",
-  letterSpacing: ".05em",
+  letterSpacing: ".08em",
+  fontWeight: 900,
 };
 
 const title = {
-  margin: "4px 0 0",
-  fontSize: 24,
+  margin: "3px 0 0",
+  fontSize: 22,
+  lineHeight: 1.08,
   color: "#0f172a",
+  fontWeight: 900,
+  letterSpacing: 0,
 };
 
 const closeBtn = {
-  border: "none",
-  background: "transparent",
-  fontSize: 24,
+  width: 34,
+  height: 34,
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  background: "#ffffff",
+  fontSize: 14,
   lineHeight: 1,
-  color: "#64748b",
+  color: "#5f6f82",
+  fontWeight: 900,
   cursor: "pointer",
 };
 
 const card = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 12,
-  background: "#fafafa",
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  padding: 10,
+  background: "#ffffff",
+  margin: 12,
+  overflow: "hidden",
 };
 
 const summaryStrip = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-  gap: 10,
-  marginBottom: 12,
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 8,
+  marginBottom: 10,
 };
 
 const summaryTile = {
-  border: "1px solid #dbe4f0",
-  background: "#ffffff",
-  borderRadius: 12,
-  padding: "10px 12px",
+  border: "1px solid #d7dee8",
+  background: "#f8fafc",
+  borderRadius: 8,
+  padding: "10px 11px",
+  minWidth: 0,
 };
 
 const summaryLabel = {
   fontSize: 11,
-  color: "#64748b",
-  fontWeight: 800,
+  color: "#5f6f82",
+  fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".04em",
   marginBottom: 4,
 };
 
 const summaryValue = {
-  fontSize: 14,
+  fontSize: 13.5,
   color: "#0f172a",
-  fontWeight: 800,
+  fontWeight: 900,
+  lineHeight: 1.35,
+  overflowWrap: "anywhere",
+};
+
+const detailsPanel = {
+  border: "1px solid #e3ebf3",
+  borderRadius: 8,
+  overflow: "hidden",
+  background: "#ffffff",
 };
 
 const row = {
   display: "grid",
-  gridTemplateColumns: "140px 1fr",
-  gap: 10,
-  padding: "8px 0",
-  borderBottom: "1px dashed #e5e7eb",
+  gridTemplateColumns: "150px minmax(0, 1fr)",
+  gap: 14,
+  padding: "8px 11px",
+  borderBottom: "1px solid #e8eef5",
+  alignItems: "start",
 };
 
 const labelStyle = {
-  fontSize: 12,
-  color: "#64748b",
-  fontWeight: 800,
+  fontSize: 11.5,
+  color: "#5f6f82",
+  fontWeight: 900,
   textTransform: "uppercase",
+  letterSpacing: ".035em",
+  lineHeight: 1.35,
 };
 
 const valueStyle = {
-  fontSize: 14,
+  fontSize: 13.5,
   color: "#0f172a",
-  fontWeight: 600,
+  fontWeight: 800,
+  lineHeight: 1.4,
+  overflowWrap: "anywhere",
+};
+
+const notesBlock = {
+  display: "grid",
+  gap: 6,
+  padding: "10px 11px",
+  background: "#f8fafc",
+};
+
+const notesText = {
+  color: "#0f172a",
+  fontSize: 13.5,
+  fontWeight: 800,
+  lineHeight: 1.45,
+  whiteSpace: "pre-wrap",
 };
 
 const actions = {
   display: "flex",
-  gap: 10,
+  gap: 8,
   flexWrap: "wrap",
-  marginTop: 12,
+  padding: "0 12px 12px",
+  marginTop: 0,
 };
 
 const primaryBtn = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: "1px solid #1f4b7a",
+  background: "#1f4b7a",
   color: "#fff",
   fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
 };
 
 const ghostBtn = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: "1px solid #c8d6e3",
   background: "#fff",
   color: "#0f172a",
   fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const successBtn = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #16a34a",
-  background: "#16a34a",
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: "1px solid #15803d",
+  background: "#15803d",
   color: "#fff",
   fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 6px 12px rgba(21,128,61,0.16)",
 };
 
 const dangerBtn = {
-  padding: "10px 12px",
-  borderRadius: 10,
+  padding: "9px 12px",
+  borderRadius: 8,
   border: "1px solid #b91c1c",
   background: "#b91c1c",
   color: "#fff",
   fontWeight: 900,
   cursor: "pointer",
+  boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
 };
 
 const jobEditorCard = {
-  marginTop: 12,
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
+  margin: "0 12px 12px",
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
   padding: 12,
-  background: "#fafafa",
+  background: "#ffffff",
 };
 
 const jobEditorTitle = {
@@ -1083,7 +973,7 @@ const jobEditorTitle = {
 const jobEditorSubtitle = {
   fontSize: 13,
   lineHeight: 1.45,
-  color: "#64748b",
+  color: "#5f6f82",
   marginBottom: 12,
 };
 
@@ -1095,27 +985,27 @@ const jobGrid = {
 
 const fieldLabel = {
   fontSize: 12,
-  color: "#64748b",
-  fontWeight: 800,
+  color: "#5f6f82",
+  fontWeight: 900,
   textTransform: "uppercase",
   marginBottom: 6,
 };
 
 const fieldInput = {
   width: "100%",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
+  padding: "9px 10px",
+  borderRadius: 8,
+  border: "1px solid #c8d6e3",
   background: "#fff",
   color: "#0f172a",
   fontSize: 14,
 };
 
 const feedbackBase = {
-  borderRadius: 10,
+  borderRadius: 8,
   padding: "10px 12px",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 800,
   marginBottom: 12,
 };
 

@@ -111,6 +111,13 @@ export function resolveEmployeeAccess(raw = {}, { isAdmin = false } = {}) {
   };
 }
 
+export function hasMirroredAccessRecord(raw = {}) {
+  const role = String(raw?.role || "").trim().toLowerCase();
+  return (
+    raw?.appAccess && typeof raw.appAccess === "object"
+  ) || ["admin", "employee", "service", "hybrid"].includes(role);
+}
+
 export function validateEmployeeAccessDraft(draft) {
   const access = {
     user: !!draft?.appAccess?.user,

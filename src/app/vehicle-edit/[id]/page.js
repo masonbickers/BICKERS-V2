@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
-  addDoc,
   collection,
   getDocs,
   doc as fsDoc,
@@ -29,19 +28,13 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { auth, db, storage } from "../../../../firebaseConfig";
+import { db, storage } from "../../../../firebaseConfig";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
+import SharedMaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingForm";
-import {
-  buildMaintenanceHistoryEntry,
-  getMaintenanceAuditIdentity,
-} from "@/app/utils/maintenanceAudit";
+import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
 import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
-import {
-  mergeInspectionHistory,
-  mergeMaintenanceHistory,
-} from "@/app/utils/inspectionHistory";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
@@ -269,6 +262,19 @@ const calcNextFromWeeks = (lastISO, freqWeeks) => {
   return clampISODate(d);
 };
 
+const calcNextEightWeekFromCycle = (baseISO, currentNextISO) => {
+  const base = parseISOorBlank(baseISO);
+  if (!base) return "";
+
+  const currentNext = parseISOorBlank(currentNextISO);
+  if (currentNext && currentNext.getTime() > base.getTime()) {
+    const diffDays = Math.round((currentNext.getTime() - base.getTime()) / 86400000);
+    if (diffDays > 0 && diffDays % 56 === 0) return clampISODate(currentNext);
+  }
+
+  return calcNextFromWeeks(baseISO, 8);
+};
+
 const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
   const explicit = Number(explicitFreq || 0);
   if (explicit > 0) return explicit;
@@ -332,23 +338,6 @@ const isArchivedMotBooking = (booking) => {
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
-const rangesOverlap = (aStart, aEnd, bStart, bEnd) => {
-  if (!aStart || !aEnd || !bStart || !bEnd) return false;
-  const as = startOfDay(aStart).getTime();
-  const ae = endOfDay(aEnd).getTime();
-  const bs = startOfDay(bStart).getTime();
-  const be = endOfDay(bEnd).getTime();
-  return as <= be && bs <= ae;
-};
-
-const ymdToDate = (ymd) => {
-  if (!ymd) return null;
-  const [y, m, d] = String(ymd).split("-").map((x) => Number(x));
-  if (!y || !m || !d) return null;
-  const dt = new Date(y, m - 1, d);
-  return Number.isNaN(+dt) ? null : dt;
-};
-
 const isTransportLorryVehicle = (vehicle = {}) => {
   const haystack = [
     vehicle.category,
@@ -369,12 +358,6 @@ const isRetentionPlateRecord = (vehicle = {}) =>
   normText(vehicle.category) === normText(RETENTION_PLATE_CATEGORY) ||
   vehicle.recordType === "numberPlateRetention";
 const isTradePlateRecord = (vehicle = {}) => normText(vehicle.plateType) === "trade";
-
-/*  completion helpers (sync bookings -> core due dates) */
-const completionISOFromBooking = ({ isMultiDay, appointmentDate, endDate, startDate }) => {
-  if (!isMultiDay) return appointmentDate || "";
-  return endDate || startDate || "";
-};
 
 const computeNextDueFromCompletion = (completedISO, freqWeeks) => {
   return calcNextFromWeeks(completedISO, freqWeeks);
@@ -479,11 +462,6 @@ export default function EditVehiclePage() {
           toISODate(motLatest.appointmentDate) ||
           toISODate(motLatest.startDate) ||
           "";
-        hydrated.motProvider = hydrated.motProvider || motLatest.provider || "";
-        hydrated.motBookingRef = hydrated.motBookingRef || motLatest.bookingRef || "";
-        hydrated.motLocation = hydrated.motLocation || motLatest.location || "";
-        hydrated.motCost = hydrated.motCost || motLatest.cost || "";
-        hydrated.motBookingNotes = hydrated.motBookingNotes || motLatest.notes || "";
       }
 
       if (serviceLatest) {
@@ -498,11 +476,6 @@ export default function EditVehiclePage() {
           toISODate(serviceLatest.appointmentDate) ||
           toISODate(serviceLatest.startDate) ||
           "";
-        hydrated.serviceProvider = hydrated.serviceProvider || serviceLatest.provider || "";
-        hydrated.serviceBookingRef = hydrated.serviceBookingRef || serviceLatest.bookingRef || "";
-        hydrated.serviceLocation = hydrated.serviceLocation || serviceLatest.location || "";
-        hydrated.serviceCost = hydrated.serviceCost || serviceLatest.cost || "";
-        hydrated.serviceBookingNotes = hydrated.serviceBookingNotes || serviceLatest.notes || "";
       }
 
       // If a completed service form exists, keep the vehicle core due-date
@@ -558,15 +531,6 @@ export default function EditVehiclePage() {
           toISODate(inspectionLatest.appointmentDate) ||
           toISODate(inspectionLatest.startDate) ||
           "";
-        hydrated.inspectionProvider =
-          hydrated.inspectionProvider || inspectionLatest.provider || "";
-        hydrated.inspectionBookingRef =
-          hydrated.inspectionBookingRef || inspectionLatest.bookingRef || "";
-        hydrated.inspectionLocation =
-          hydrated.inspectionLocation || inspectionLatest.location || "";
-        hydrated.inspectionCost = hydrated.inspectionCost || inspectionLatest.cost || "";
-        hydrated.inspectionBookingNotes =
-          hydrated.inspectionBookingNotes || inspectionLatest.notes || "";
       }
 
       setVehicle(hydrated);
@@ -609,7 +573,10 @@ export default function EditVehiclePage() {
     );
     if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
 
-    const nextEightWeekInspection = calcNextFromWeeks(vehicle.eightWeekInspectionStart, 8);
+    const nextEightWeekInspection = calcNextEightWeekFromCycle(
+      vehicle.eightWeekInspectionStart,
+      vehicle.nextEightWeekInspection
+    );
     if (
       nextEightWeekInspection &&
       vehicle.nextEightWeekInspection !== nextEightWeekInspection
@@ -808,6 +775,23 @@ export default function EditVehiclePage() {
           payload.plateExpiryFreq = "52";
         }
       }
+      Object.assign(payload, {
+        motProvider: "",
+        motBookingRef: "",
+        motLocation: "",
+        motCost: "",
+        motBookingNotes: "",
+        serviceProvider: "",
+        serviceBookingRef: "",
+        serviceLocation: "",
+        serviceCost: "",
+        serviceBookingNotes: "",
+        inspectionProvider: "",
+        inspectionBookingRef: "",
+        inspectionLocation: "",
+        inspectionCost: "",
+        inspectionBookingNotes: "",
+      });
       delete payload.id;
       await updateDoc(refDoc, { ...payload, updatedAt: serverTimestamp() });
       setVehicle((prev) => ({ ...prev, ...payload, id: vehicle.id }));
@@ -1147,7 +1131,12 @@ export default function EditVehiclePage() {
     const ok = window.confirm("Delete this maintenance/work booking?");
     if (!ok) return;
     try {
-      await deleteDoc(fsDoc(db, "maintenanceBookings", bookingId));
+      await deleteMaintenanceBookingRecord({
+        bookingId,
+        booking: vehicleBookings.find((booking) => booking.id === bookingId) || null,
+        vehicleId: id,
+        vehicle,
+      });
       await reloadVehicle();
       if (editBookingId === bookingId) setEditBookingId(null);
       alert("Booking deleted.");
@@ -1269,7 +1258,7 @@ export default function EditVehiclePage() {
 
         {/*  CREATE Booking modals */}
         {showMotBooking ? (
-          <MaintenanceBookingForm
+          <SharedMaintenanceBookingForm
             vehicleId={id}
             type="MOT"
             defaultDate={vehicle?.nextMOT || ""}
@@ -1283,7 +1272,7 @@ export default function EditVehiclePage() {
         ) : null}
 
         {showServiceBooking ? (
-          <MaintenanceBookingForm
+          <SharedMaintenanceBookingForm
             vehicleId={id}
             type="SERVICE"
             defaultDate={vehicle?.nextService || ""}
@@ -1297,10 +1286,20 @@ export default function EditVehiclePage() {
         ) : null}
 
         {showInspectionBooking ? (
-          <MaintenanceBookingForm
+          <SharedMaintenanceBookingForm
             vehicleId={id}
             type="INSPECTION"
             defaultDate={vehicle?.nextEightWeekInspection || todayISO()}
+            sourceDueDate={vehicle?.nextEightWeekInspection || ""}
+            sourceDueIsoWeek={
+              vehicle?.eightWeekInspectionISOWeek ||
+              getIsoWeekLabel(vehicle?.nextEightWeekInspection || "")
+            }
+            sourceDueKey={
+              vehicle?.nextEightWeekInspection
+                ? `inspection_due__${id}__${vehicle.nextEightWeekInspection}`
+                : ""
+            }
             vehicleSnapshot={vehicle}
             onClose={() => setShowInspectionBooking(false)}
             onSaved={async () => {
@@ -1311,7 +1310,7 @@ export default function EditVehiclePage() {
         ) : null}
 
         {showWorkBooking ? (
-          <MaintenanceBookingForm
+          <SharedMaintenanceBookingForm
             vehicleId={id}
             type="WORK"
             defaultDate={todayISO()}
@@ -1809,494 +1808,6 @@ export default function EditVehiclePage() {
         </div>
       </div>
     </HeaderSidebarLayout>
-  );
-}
-
-/* Booking Modal Component (inline)
-   - Creates doc in maintenanceBookings
-   - Updates vehicle summary fields for MOT or SERVICE
-   -  If status === Completed: sync core due dates (last + next)
-   -  Ensures booking doc always has usable date fields:
-       startDate/endDate ALWAYS Date objects
-       appointmentDate stored as Date for single day
-*/
-function MaintenanceBookingForm({ vehicleId, type = "MOT", defaultDate = "", vehicleSnapshot, onClose, onSaved }) {
-  const normalizedType = String(type || "").toUpperCase();
-  const safeType =
-    normalizedType === "SERVICE"
-      ? "SERVICE"
-      : normalizedType === "WORK"
-      ? "WORK"
-      : normalizedType === "INSPECTION"
-      ? "INSPECTION"
-      : "MOT";
-  const title =
-    safeType === "MOT"
-      ? "Book MOT"
-      : safeType === "SERVICE"
-      ? "Book Service"
-      : safeType === "INSPECTION"
-      ? "Book 8 Week Inspection"
-      : "Book Work";
-
-  const [saving, setSaving] = useState(false);
-
-  const [status, setStatus] = useState("Booked");
-  const [isMultiDay, setIsMultiDay] = useState(false);
-
-  const [appointmentDate, setAppointmentDate] = useState(defaultDate || "");
-  const [startDate, setStartDate] = useState(defaultDate || "");
-  const [endDate, setEndDate] = useState(defaultDate || "");
-
-  const [provider, setProvider] = useState("");
-  const [bookingRef, setBookingRef] = useState("");
-  const [location, setLocation] = useState("");
-  const [cost, setCost] = useState("");
-  const [notes, setNotes] = useState("");
-
-  const [existing, setExisting] = useState([]);
-  const [conflictMsg, setConflictMsg] = useState("");
-
-  const vehicleLabel = useMemo(() => {
-    const v = vehicleSnapshot || {};
-    return v.name || v.registration || v.reg || vehicleId || "";
-  }, [vehicleSnapshot, vehicleId]);
-
-  // load existing bookings for this vehicle
-  useEffect(() => {
-    const run = async () => {
-      if (!vehicleId) return;
-      const qy = query(collection(db, "maintenanceBookings"), where("vehicleId", "==", vehicleId));
-      const snap = await getDocs(qy);
-      setExisting(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    };
-    run().catch((e) => {
-      console.error("[MaintenanceBookingForm] fetch existing failed:", e);
-      setExisting([]);
-    });
-  }, [vehicleId]);
-
-  // keep multi-day fields aligned
-  useEffect(() => {
-    if (!isMultiDay) {
-      setStartDate(appointmentDate || "");
-      setEndDate(appointmentDate || "");
-    } else {
-      setStartDate((p) => p || appointmentDate || "");
-      setEndDate((p) => p || appointmentDate || "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultiDay]);
-
-  const bookingDates = useMemo(() => {
-    if (!isMultiDay) {
-      const d = ymdToDate(appointmentDate);
-      return { start: d, end: d };
-    }
-    return { start: ymdToDate(startDate), end: ymdToDate(endDate) };
-  }, [isMultiDay, appointmentDate, startDate, endDate]);
-
-  const activeConflict = useMemo(() => {
-    setConflictMsg("");
-    if (!bookingDates.start || !bookingDates.end) return null;
-
-    const conflict = existing.find((b) => {
-      const st = String(b.status || "").toLowerCase();
-      if (st.includes("cancel")) return false;
-      if (st.includes("declin")) return false;
-
-      const bs = toDate(b.startDate) || toDate(b.date) || toDate(b.appointmentDate) || null;
-      const be = toDate(b.endDate) || toDate(b.date) || toDate(b.appointmentDate) || bs;
-      if (!bs || !be) return false;
-
-      return rangesOverlap(bookingDates.start, bookingDates.end, bs, be);
-    });
-
-    return conflict || null;
-  }, [existing, bookingDates.start, bookingDates.end]);
-
-  useEffect(() => {
-    if (!activeConflict) {
-      setConflictMsg("");
-      return;
-    }
-    const bs = toDate(activeConflict.startDate) || toDate(activeConflict.date) || toDate(activeConflict.appointmentDate);
-    const be = toDate(activeConflict.endDate) || toDate(activeConflict.date) || toDate(activeConflict.appointmentDate);
-
-    setConflictMsg(
-      `Warning: this vehicle already has an overlapping maintenance booking (${activeConflict.type || "Maintenance"} - ${
-        activeConflict.status || "Booked"
-      }) from ${bs ? bs.toLocaleDateString("en-GB") : "?"} -> ${be ? be.toLocaleDateString("en-GB") : "?"}.`
-    );
-  }, [activeConflict]);
-
-  const canSubmit = useMemo(() => {
-    if (saving) return false;
-    if (!vehicleId) return false;
-
-    if (!isMultiDay) {
-      if (!appointmentDate) return false;
-    } else {
-      if (!startDate || !endDate) return false;
-      const s = ymdToDate(startDate);
-      const e = ymdToDate(endDate);
-      if (!s || !e) return false;
-      if (+s > +e) return false;
-    }
-
-    if (activeConflict) return false;
-    return true;
-  }, [saving, vehicleId, isMultiDay, appointmentDate, startDate, endDate, activeConflict]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canSubmit) return;
-
-    const start = bookingDates.start;
-    const end = bookingDates.end;
-    if (!start || !end) return;
-
-    setSaving(true);
-    try {
-      const nowAuditIso = new Date().toISOString();
-      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
-      //  ALWAYS write real Date objects into maintenanceBookings
-      const apptDateObj = !isMultiDay ? ymdToDate(appointmentDate) : null;
-
-      const completedISO =
-        status === "Completed"
-          ? completionISOFromBooking({ isMultiDay, appointmentDate, startDate, endDate })
-          : "";
-
-      // 1) create booking doc
-      const bookingPayload = {
-        kind: "MAINTENANCE",
-        type: safeType, // MOT | SERVICE
-        vehicleId,
-        vehicleLabel,
-        status,
-        isMultiDay,
-        startDate: start,
-        endDate: end,
-        appointmentDate: apptDateObj,
-        appointmentDateISO: !isMultiDay ? appointmentDate : "",
-        startDateISO: isMultiDay ? startDate : "",
-        endDateISO: isMultiDay ? endDate : "",
-        completedAtISO: completedISO || "",
-        provider: provider.trim(),
-        bookingRef: bookingRef.trim(),
-        location: location.trim(),
-        cost: cost ? String(cost).trim() : "",
-        notes: notes.trim(),
-        createdBy: auditUser.email,
-        createdByUid: auditUser.uid,
-        lastEditedBy: auditUser.email,
-        lastEditedByUid: auditUser.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        history: [
-          buildMaintenanceHistoryEntry({
-            action: "Created",
-            user: auditUser,
-            timestamp: nowAuditIso,
-          }),
-        ],
-      };
-
-      const created = await addDoc(collection(db, "maintenanceBookings"), bookingPayload);
-
-      // 2) update vehicle summary fields (+ sync core due dates on completion)
-      const vRef = fsDoc(db, "vehicles", vehicleId);
-
-      if (safeType === "MOT") {
-        const motFreqWeeks = resolveFreqWeeks(
-          vehicleSnapshot?.motFreq,
-          vehicleSnapshot?.lastMOT,
-          vehicleSnapshot?.nextMOT
-        );
-
-        const updates = {
-          motBookedStatus: status,
-          motBookedOn: todayISO(),
-          motAppointmentDate: !isMultiDay ? appointmentDate : "",
-          motBookingStartDate: isMultiDay ? startDate : "",
-          motBookingEndDate: isMultiDay ? endDate : "",
-          motProvider: provider.trim(),
-          motBookingRef: bookingRef.trim(),
-          motLocation: location.trim(),
-          motCost: cost ? String(cost).trim() : "",
-          motBookingNotes: notes.trim(),
-          motBookingId: created.id,
-          updatedAt: serverTimestamp(),
-        };
-
-        //  completed -> push core due dates forward
-        if (completedISO) {
-          updates.lastMOT = completedISO;
-          updates.nextMOT = computeNextDueFromCompletion(completedISO, motFreqWeeks);
-          updates.motHistory = mergeMaintenanceHistory(vehicleSnapshot?.motHistory, {
-            completedDate: completedISO,
-            bookingId: created.id,
-            provider: provider.trim(),
-            bookingRef: bookingRef.trim(),
-            notes: notes.trim(),
-            recordedAt: new Date().toISOString(),
-          });
-
-          // Optional: clear appointment summary fields once completed
-          updates.motAppointmentDate = "";
-          updates.motBookingStartDate = "";
-          updates.motBookingEndDate = "";
-          updates.motProvider = "";
-          updates.motBookingRef = "";
-          updates.motLocation = "";
-          updates.motCost = "";
-          updates.motBookingNotes = "";
-        }
-
-        await updateDoc(vRef, updates);
-      } else if (safeType === "SERVICE") {
-        const serviceFreqWeeks = resolveFreqWeeks(
-          vehicleSnapshot?.serviceFreq,
-          vehicleSnapshot?.lastService,
-          vehicleSnapshot?.nextService
-        );
-
-        const updates = {
-          serviceBookedStatus: status,
-          serviceBookedOn: todayISO(),
-          serviceAppointmentDate: !isMultiDay ? appointmentDate : "",
-          serviceBookingStartDate: isMultiDay ? startDate : "",
-          serviceBookingEndDate: isMultiDay ? endDate : "",
-          serviceProvider: provider.trim(),
-          serviceBookingRef: bookingRef.trim(),
-          serviceLocation: location.trim(),
-          serviceCost: cost ? String(cost).trim() : "",
-          serviceBookingNotes: notes.trim(),
-          serviceBookingId: created.id,
-          updatedAt: serverTimestamp(),
-        };
-
-        //  completed -> push core due dates forward
-        if (completedISO) {
-          updates.lastService = completedISO;
-          updates.nextService = computeNextDueFromCompletion(completedISO, serviceFreqWeeks);
-          updates.serviceHistory = mergeMaintenanceHistory(vehicleSnapshot?.serviceHistory, {
-            completedDate: completedISO,
-            bookingId: created.id,
-            provider: provider.trim(),
-            bookingRef: bookingRef.trim(),
-            notes: notes.trim(),
-            recordedAt: new Date().toISOString(),
-          });
-
-          // Optional: clear appointment summary fields once completed
-          updates.serviceAppointmentDate = "";
-          updates.serviceBookingStartDate = "";
-          updates.serviceBookingEndDate = "";
-          updates.serviceProvider = "";
-          updates.serviceBookingRef = "";
-          updates.serviceLocation = "";
-          updates.serviceCost = "";
-          updates.serviceBookingNotes = "";
-        }
-
-        await updateDoc(vRef, updates);
-      } else if (safeType === "INSPECTION") {
-        const updates = {
-          inspectionBookedStatus: status,
-          inspectionBookedOn: todayISO(),
-          inspectionAppointmentDate: !isMultiDay ? appointmentDate : "",
-          inspectionBookingStartDate: isMultiDay ? startDate : "",
-          inspectionBookingEndDate: isMultiDay ? endDate : "",
-          inspectionProvider: provider.trim(),
-          inspectionBookingRef: bookingRef.trim(),
-          inspectionLocation: location.trim(),
-          inspectionCost: cost ? String(cost).trim() : "",
-          inspectionBookingNotes: notes.trim(),
-          inspectionBookingId: created.id,
-          updatedAt: serverTimestamp(),
-        };
-
-        if (completedISO) {
-          updates.eightWeekInspectionStart = completedISO;
-          updates.nextEightWeekInspection = computeNextDueFromCompletion(completedISO, 8);
-          updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
-          updates.eightWeekInspectionHistory = mergeInspectionHistory(
-            vehicleSnapshot?.eightWeekInspectionHistory,
-            {
-              completedDate: completedISO,
-              bookingId: created.id,
-              provider: provider.trim(),
-              bookingRef: bookingRef.trim(),
-              notes: notes.trim(),
-              recordedAt: new Date().toISOString(),
-            }
-          );
-          updates.inspectionAppointmentDate = "";
-          updates.inspectionBookingStartDate = "";
-          updates.inspectionBookingEndDate = "";
-          updates.inspectionProvider = "";
-          updates.inspectionBookingRef = "";
-          updates.inspectionLocation = "";
-          updates.inspectionCost = "";
-          updates.inspectionBookingNotes = "";
-        }
-
-        await updateDoc(vRef, updates);
-      } else {
-        await updateDoc(vRef, {
-          workBookedStatus: status,
-          workBookingId: created.id,
-          workBookingDate: !isMultiDay ? appointmentDate : "",
-          workBookingStartDate: isMultiDay ? startDate : "",
-          workBookingEndDate: isMultiDay ? endDate : "",
-          workProvider: provider.trim(),
-          workBookingRef: bookingRef.trim(),
-          workLocation: location.trim(),
-          workCost: cost ? String(cost).trim() : "",
-          workBookingNotes: notes.trim(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      if (typeof onSaved === "function") onSaved({ id: created.id, ...bookingPayload });
-    } catch (err) {
-      console.error("[MaintenanceBookingForm] save error:", err);
-      alert("Failed to create booking.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={overlay}>
-      <div style={modal}>
-        <div style={headerRow}>
-          <div>
-            <h2 style={modalTitle}>{title}</h2>
-            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
-              Vehicle: <b style={{ color: UI.text }}>{vehicleLabel || "-"}</b>
-            </div>
-          </div>
-
-          <button onClick={onClose} style={closeBtn} aria-label="Close" type="button">
-            x
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-          <div>
-            <label style={modalLabel}>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={modalInput}>
-              <option value="Requested">Requested</option>
-              <option value="Booked">Booked</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={modalLabel}>Booking type</label>
-            <select value={isMultiDay ? "multi" : "single"} onChange={(e) => setIsMultiDay(e.target.value === "multi")} style={modalInput}>
-              <option value="single">Single day (appointment)</option>
-              <option value="multi">Multi-day (off-road / workshop)</option>
-            </select>
-          </div>
-
-          {!isMultiDay ? (
-            <div>
-              <label style={modalLabel}>Appointment date</label>
-              <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} required style={modalInput} />
-            </div>
-          ) : (
-            <>
-              <div>
-                <label style={modalLabel}>Start date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={modalInput} />
-              </div>
-              <div>
-                <label style={modalLabel}>End date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={modalInput} />
-              </div>
-            </>
-          )}
-
-          {conflictMsg ? (
-            <div
-              style={{
-                border: "1px solid #fecaca",
-                background: "#fef2f2",
-                color: "#991b1b",
-                borderRadius: UI.radius,
-                padding: 10,
-                fontSize: 13,
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Booking conflict</div>
-              <div>{conflictMsg}</div>
-            </div>
-          ) : null}
-
-          <div>
-            <label style={modalLabel}>Provider / garage</label>
-            <input value={provider} onChange={(e) => setProvider(e.target.value)} style={modalInput} />
-          </div>
-
-          <div>
-            <label style={modalLabel}>Booking reference</label>
-            <input value={bookingRef} onChange={(e) => setBookingRef(e.target.value)} style={modalInput} />
-          </div>
-
-          <div>
-            <label style={modalLabel}>Location</label>
-            <input value={location} onChange={(e) => setLocation(e.target.value)} style={modalInput} />
-          </div>
-
-          <div>
-            <label style={modalLabel}>Cost (optional)</label>
-            <input value={cost} onChange={(e) => setCost(e.target.value)} style={modalInput} />
-          </div>
-
-          <div>
-            <label style={modalLabel}>Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              style={{ ...modalInput, minHeight: 80, resize: "vertical", paddingTop: 12 }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              ...primaryBtn,
-              opacity: canSubmit ? 1 : 0.55,
-              cursor: canSubmit ? "pointer" : "not-allowed",
-            }}
-          >
-            {saving ? "Saving..." : "Create booking"}
-          </button>
-
-          <button type="button" onClick={onClose} style={dangerBtn}>
-            Cancel
-          </button>
-
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>
-            Saves to <b>maintenanceBookings</b> + updates the vehicle summary fields.
-            {status === "Completed" ? (
-              <>
-                {" "}
-                Also updates <b>last</b> + <b>next</b> due dates automatically.
-              </>
-            ) : null}
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }
 

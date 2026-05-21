@@ -885,11 +885,6 @@ export default function VehiclesHomePage() {
     return false;
   };
 
-  const pushAdminRoute = (path) => {
-    if (!requireAdmin("Only admins can open this vehicle management area.")) return;
-    router.push(path);
-  };
-
   /* --------- Load all vehicles ONCE for name + due date lookups --------- */
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -1114,6 +1109,7 @@ export default function VehiclesHomePage() {
             ? vehicleNameMap[vehicleId] || booking.vehicleLabel || vehicleId
             : booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle";
         },
+        groupConsecutiveDates: true,
         titleSeparator: " - ",
       }),
     [maintenanceBookingsRaw, vehicleNameMap]
@@ -1560,7 +1556,6 @@ export default function VehiclesHomePage() {
         title: "Maintenance Jobs",
         description: "Create and track workshop job cards from planned to closed.",
         link: MAINTENANCE_JOBS_PATH,
-        adminOnly: true,
         icon: ListChecks,
         rightBadges: [],
       },
@@ -1568,7 +1563,6 @@ export default function VehiclesHomePage() {
         title: "MOT Schedule",
         description: "View and manage MOT due dates for all vehicles.",
         link: "/mot-overview",
-        adminOnly: true,
         icon: CalendarCheck,
         rightBadges: [
           motCounts.overdue > 0 ? { label: `Overdue ${motCounts.overdue}`, tone: "danger" } : null,
@@ -1580,7 +1574,6 @@ export default function VehiclesHomePage() {
         title: "Service Overview",
         description: "Track past and upcoming vehicle servicing.",
         link: "/service-overview",
-        adminOnly: true,
         icon: Wrench,
         rightBadges: [
           serviceCounts.overdue > 0 ? { label: `Overdue ${serviceCounts.overdue}`, tone: "danger" } : null,
@@ -1606,7 +1599,6 @@ export default function VehiclesHomePage() {
         title: "Vehicle List",
         description: "View, edit or delete vehicles currently in the system.",
         link: "/vehicles",
-        adminOnly: true,
         icon: Car,
         rightBadges: [],
       },
@@ -1614,7 +1606,6 @@ export default function VehiclesHomePage() {
         title: "Equipment List",
         description: "View, edit or delete equipment currently in the system.",
         link: "/equipment",
-        adminOnly: true,
         icon: ClipboardCheck,
         rightBadges: [],
       },
@@ -1622,7 +1613,6 @@ export default function VehiclesHomePage() {
         title: "Add Vehicle / Equipment",
         description: "Add new vehicles and equipment in the system.",
         link: "/add-vehicle",
-        adminOnly: true,
         icon: Plus,
         rightBadges: [],
       },
@@ -1790,10 +1780,7 @@ export default function VehiclesHomePage() {
                   title={section.title}
                   description={section.description}
                   rightBadges={section.rightBadges}
-                  disabled={section.adminOnly && !isAdmin}
-                  onClick={() =>
-                    section.adminOnly ? pushAdminRoute(section.link) : router.push(section.link)
-                  }
+                  onClick={() => router.push(section.link)}
                 />
               ))}
             </div>
@@ -2231,13 +2218,8 @@ export default function VehiclesHomePage() {
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
               {selectedEvent?.vehicleId ? (
                 <button
-                  onClick={() => {
-                    if (!requireAdmin("Only admins can open the maintenance jobs workspace.")) return;
-                    openMaintenanceJobFromEvent(selectedEvent);
-                  }}
+                  onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
                   style={btn("ghost")}
-                  disabled={checkingAdmin || !isAdmin}
-                  title={!isAdmin ? "Admin only" : "Open jobs workspace"}
                 >
                   {"Open jobs workspace ->"}
                 </button>
@@ -2245,11 +2227,9 @@ export default function VehiclesHomePage() {
               {selectedEvent?.vehicleId ? (
                 <button
                   onClick={() =>
-                    pushAdminRoute(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)
+                    router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)
                   }
                   style={btn("primary")}
-                  disabled={checkingAdmin || !isAdmin}
-                  title={!isAdmin ? "Admin only" : "Open vehicle"}
                 >
                   {"Open vehicle ->"}
                 </button>

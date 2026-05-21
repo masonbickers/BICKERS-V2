@@ -87,6 +87,7 @@ export default function WorkshopPage() {
       buildMaintenanceBookingEvents(maintenanceBookings, {
         getVehicleLabel: (booking) =>
           booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+        groupConsecutiveDates: true,
       }).map((event) => {
         const type = String(event.maintenanceTypeLabel || "").toUpperCase();
         const color = getMaintenanceColor(type.includes("MOT") ? "MOT" : type.includes("SERVICE") ? "SERVICE" : "MAINTENANCE");

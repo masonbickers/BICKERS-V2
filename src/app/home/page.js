@@ -15,7 +15,13 @@ import interactionPlugin from "@fullcalendar/interaction";
 import moment from "moment";
 import { auth, db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
-import { buildAssetLabel, getCanonicalDueDate } from "../utils/maintenanceSchema";
+import { buildAssetLabel } from "../utils/maintenanceSchema";
+import {
+  buildBookedMetaByVehicle,
+  buildMaintenanceBookingEvents,
+  buildMaintenanceJobEvents,
+  buildVehicleDueEvents,
+} from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
   Bot,
@@ -328,63 +334,11 @@ const getColorByStatus = (status = "") => {
   }
 };
 
-const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
-
-const parseLocalDate = (d) => {
-  if (!d) return null;
-  if (typeof d?.toDate === "function") {
-    const ts = d.toDate();
-    if (ts instanceof Date && !Number.isNaN(ts.getTime())) {
-      ts.setHours(12, 0, 0, 0);
-      return ts;
-    }
-  }
-  if (d instanceof Date && !Number.isNaN(d.getTime())) {
-    const dt = new Date(d);
-    dt.setHours(12, 0, 0, 0);
-    return dt;
-  }
-  const s = typeof d === "string" ? d : String(d);
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0, 0);
-  const dt = new Date(s);
-  if (Number.isNaN(dt.getTime())) return null;
-  dt.setHours(12, 0, 0, 0);
-  return dt;
-};
-
-const startOfLocalDay = (d) => {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-};
-
-const addDays = (d, n) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-};
-
-const isInactiveMaintenanceBooking = (status = "") =>
-  INACTIVE_MAINTENANCE_STATUSES.some((x) => String(status || "").trim().toLowerCase().includes(x));
-
 const isApptAfterExpiry = (appt, expiry) => {
   if (!appt || !expiry) return false;
   const a = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
   const e = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()).getTime();
   return a > e;
-};
-
-const getMaintenanceDisplayType = (booking = {}) => {
-  const explicit = String(booking.maintenanceTypeLabel || "").trim();
-  if (explicit) return explicit.toUpperCase();
-  const other = String(booking.maintenanceTypeOther || "").trim();
-  if (other) return other.toUpperCase();
-  const rawType = String(booking.type || booking.maintenanceType || "").trim().toUpperCase();
-  if (rawType === "MOT") return "MOT";
-  if (rawType === "SERVICE") return "SERVICE";
-  if (rawType === "WORK") return "WORK";
-  return rawType || "MAINTENANCE";
 };
 
  
@@ -515,140 +469,41 @@ export default function HomePage() {
 
   const maintenanceJobEvents = useMemo(
     () =>
-      (maintenanceJobs || [])
-        .filter((j) => ["planned", "awaiting_parts", "in_progress", "qa"].includes(String(j.status || "").trim().toLowerCase()))
-        .map((j) => {
-          const when = parseLocalDate(j.plannedDate || j.dueDate);
-          if (!when) return null;
-          const statusLabel = String(j.status || "planned")
-            .replaceAll("_", " ")
-            .replace(/\b\w/g, (m) => m.toUpperCase());
-          return {
-            id: `maintenanceJob__${j.id}`,
-            __parentId: j.id,
-            __collection: "maintenanceJobs",
-            title: j.assetLabel || j.title || "Maintenance Job",
-            start: startOfLocalDay(when),
-            end: startOfLocalDay(addDays(when, 1)),
-            allDay: true,
-            status: "maintenance",
-            kind: "MAINTENANCE",
-            maintenanceTypeLabel: `Job Card (${statusLabel})`,
-          };
-        })
-        .filter(Boolean),
+      buildMaintenanceJobEvents(maintenanceJobs, {
+        includeStatus: true,
+        statusLabel: "maintenance",
+      }),
     [maintenanceJobs]
   );
 
   const maintenanceBookedMetaByVehicle = useMemo(() => {
-    const map = {};
-    (maintenanceBookings || []).forEach((b) => {
-      if (isInactiveMaintenanceBooking(b.status)) return;
-      const vehicleId = String(b.vehicleId || "").trim();
-      if (!vehicleId) return;
-      const type = String(b.type || "").trim().toUpperCase() === "SERVICE" ? "service" : "mot";
-      const appt = parseLocalDate(b.appointmentDate || b.startDate || b.date);
-      if (!appt) return;
-      if (!map[vehicleId]) {
-        map[vehicleId] = {
-          mot: { has: false, earliestAppt: null },
-          service: { has: false, earliestAppt: null },
-        };
-      }
-      map[vehicleId][type].has = true;
-      const cur = map[vehicleId][type].earliestAppt;
-      if (!cur || appt.getTime() < cur.getTime()) map[vehicleId][type].earliestAppt = appt;
-    });
-    return map;
+    return buildBookedMetaByVehicle(maintenanceBookings);
   }, [maintenanceBookings]);
 
   const maintenanceBookingEvents = useMemo(
     () =>
-      (maintenanceBookings || [])
-        .filter((m) => !isInactiveMaintenanceBooking(m.status))
-        .map((m) => {
-          const startBase = parseLocalDate(m.startDate || m.date || m.start || m.startDay || m.appointmentDate);
-          if (!startBase) return null;
-          const endRaw = m.endDate || m.end || m.finishDate || m.startDate || m.date || m.appointmentDate;
-          const endBase = parseLocalDate(endRaw) || startBase;
-          const safeEnd = endBase >= startBase ? endBase : startBase;
-          const typeLabel = getMaintenanceDisplayType(m);
-          const rawType = String(m.type || m.maintenanceType || "").trim().toUpperCase();
-          const kind =
-            rawType === "MOT"
-              ? "MOT_BOOKING"
-              : rawType === "SERVICE"
-              ? "SERVICE_BOOKING"
-              : "MAINTENANCE_BOOKING";
-
-          return {
-            ...m,
-            __collection: "maintenanceBookings",
-            title: m.vehicleName || m.title || "Maintenance",
-            start: startOfLocalDay(startBase),
-            end: startOfLocalDay(addDays(safeEnd, 1)),
-            allDay: true,
-            status: "maintenance",
-            kind,
-            maintenanceTypeLabel: typeLabel,
-            bookingStatus: String(m.status || "").trim(),
-          };
-        })
-        .filter(Boolean),
+      buildMaintenanceBookingEvents(maintenanceBookings, {
+        getVehicleLabel: (booking) =>
+          booking.vehicleLabel || booking.vehicleName || booking.title || booking.jobNumber || "Vehicle",
+        groupConsecutiveDates: true,
+        titleSeparator: " - ",
+        statusLabel: "maintenance",
+      }),
     [maintenanceBookings]
   );
 
   const motServiceDueEvents = useMemo(() => {
-    const out = [];
-    (vehicles || []).forEach((v) => {
-      const vehicleId = String(v.id || "").trim();
-      if (!vehicleId) return;
-      const label = buildAssetLabel(v) || vehicleLabel(v);
-      const motDue = getCanonicalDueDate(v, "mot");
-      const serviceDue = getCanonicalDueDate(v, "service");
-      const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
-
-      if (motDue) {
-        const motBooked = !!bookedMeta?.mot?.has;
-        const motAppt = bookedMeta?.mot?.earliestAppt || null;
-        const motAfterExpiry = motBooked && motAppt ? isApptAfterExpiry(motAppt, motDue) : false;
-        out.push({
-          id: `mot_due__${vehicleId}`,
-          __collection: "vehicleDueDates",
-          title: `${label} - MOT due${motBooked ? " (Booked)" : ""}`,
-          start: startOfLocalDay(motDue),
-          end: startOfLocalDay(addDays(motDue, 1)),
-          allDay: true,
-          status: "maintenance",
-          kind: "MOT",
-          vehicleId,
-          dueDate: motDue,
-          booked: motBooked,
-          bookingStatus: motAfterExpiry ? "Booked (After Expiry)" : motBooked ? "Booked" : "",
-          maintenanceTypeLabel: "MOT",
-        });
-      }
-
-      if (serviceDue) {
-        const serviceBooked = !!bookedMeta?.service?.has;
-        out.push({
-          id: `service_due__${vehicleId}`,
-          __collection: "vehicleDueDates",
-          title: `${label} - Service due${serviceBooked ? " (Booked)" : ""}`,
-          start: startOfLocalDay(serviceDue),
-          end: startOfLocalDay(addDays(serviceDue, 1)),
-          allDay: true,
-          status: "maintenance",
-          kind: "SERVICE",
-          vehicleId,
-          dueDate: serviceDue,
-          booked: serviceBooked,
-          bookingStatus: serviceBooked ? "Booked" : "",
-          maintenanceTypeLabel: "SERVICE",
-        });
-      }
+    return buildVehicleDueEvents(vehicles, {
+      bookedMetaByVehicle: maintenanceBookedMetaByVehicle,
+      getVehicleLabel: (vehicle) => buildAssetLabel(vehicle) || vehicleLabel(vehicle),
+      isApptAfterExpiry,
+    }).map((event) => {
+      return {
+        ...event,
+        status: "maintenance",
+        maintenanceTypeLabel: event.kind,
+      };
     });
-    return out;
   }, [vehicles, maintenanceBookedMetaByVehicle, vehicleLabel]);
 
   const maintenanceCalendarEvents = useMemo(

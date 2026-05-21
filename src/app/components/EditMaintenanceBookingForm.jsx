@@ -11,26 +11,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-multi-date-picker";
-import { auth, db } from "../../../firebaseConfig";
-import { getIsoWeekLabel } from "../utils/maintenanceSchema";
+import { db } from "../../../firebaseConfig";
 import {
-  buildMaintenanceChangeList,
-  buildMaintenanceHistoryEntry,
-  getMaintenanceAuditIdentity,
-} from "../utils/maintenanceAudit";
-import {
-  mergeInspectionHistory,
-  mergeMaintenanceHistory,
-} from "../utils/inspectionHistory";
+  bookingToDateKeys as serviceBookingToDateKeys,
+  cancelMaintenanceBooking,
+  deleteMaintenanceBooking,
+  normalizeMaintenanceType,
+  updateMaintenanceBooking,
+} from "../utils/maintenanceBookingService";
 import {
   collection,
   doc,
   getDoc,
   getDocs,
   query,
-  serverTimestamp,
   where,
-  writeBatch,
 } from "firebase/firestore";
 
 /**
@@ -96,11 +91,6 @@ export default function EditMaintenanceBookingForm({
     return `${y}-${m}-${day}`;
   };
 
-  const clampISODate = (d) => {
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
-    return d.toISOString().split("T")[0];
-  };
-  const todayISO = () => clampISODate(new Date());
   const enumerateDaysYMD = (startYMD, endYMD) => {
     const start = ymdToDate(startYMD);
     const end = ymdToDate(endYMD);
@@ -125,36 +115,6 @@ export default function EditMaintenanceBookingForm({
     return true;
   };
 
-  const parseISOorBlank = (v) => {
-    if (!v) return null;
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-
-  const calcNextFromWeeks = (lastISO, freqWeeks) => {
-    const last = parseISOorBlank(lastISO);
-    const w = Number(freqWeeks || 0);
-    if (!last || !w) return "";
-    const d = new Date(last);
-    d.setDate(d.getDate() + w * 7);
-    return clampISODate(d);
-  };
-
-  const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
-    const explicit = Number(explicitFreq || 0);
-    if (explicit > 0) return explicit;
-
-    const last = parseISOorBlank(lastISO);
-    const next = parseISOorBlank(nextISO);
-    if (!last || !next) return 0;
-
-    const diffMs = next.getTime() - last.getTime();
-    const diffDays = Math.round(diffMs / 86400000);
-    if (diffDays <= 0) return 0;
-
-    return Math.max(1, Math.round(diffDays / 7));
-  };
-
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
@@ -173,33 +133,6 @@ export default function EditMaintenanceBookingForm({
     const be = endOfDay(bEnd).getTime();
     return as <= be && bs <= ae;
   };
-  const bookingToDateKeys = (bookingSource) => {
-    if (Array.isArray(bookingSource?.bookingDates) && bookingSource.bookingDates.length) {
-      return bookingSource.bookingDates
-        .map((value) => String(value || "").slice(0, 10))
-        .filter(Boolean)
-        .sort();
-    }
-
-    const appointmentISO = String(bookingSource?.appointmentDateISO || "").slice(0, 10);
-    const startISO = String(bookingSource?.startDateISO || "").slice(0, 10);
-    const endISO = String(bookingSource?.endDateISO || "").slice(0, 10);
-    if (appointmentISO) return [appointmentISO];
-    if (startISO && endISO) return enumerateDaysYMD(startISO, endISO);
-
-    const start = toDate(
-      bookingSource?.startDate || bookingSource?.date || bookingSource?.appointmentDate
-    );
-    const end = toDate(
-      bookingSource?.endDate ||
-        bookingSource?.date ||
-        bookingSource?.appointmentDate ||
-        bookingSource?.startDate
-    );
-    if (!start || !end) return [];
-    return enumerateDaysYMD(dateToYMD(start), dateToYMD(end));
-  };
-
   const fmt = (d) => {
     if (!d) return "—";
     return d.toLocaleDateString("en-GB", {
@@ -210,17 +143,7 @@ export default function EditMaintenanceBookingForm({
     });
   };
 
-  const completionISOFromBooking = ({ isMultiDay, appointmentDate, endDate, startDate }) => {
-    if (!isMultiDay) return appointmentDate || "";
-    return endDate || startDate || "";
-  };
-
-  const safeType = useMemo(() => {
-    const raw = String(type || "").trim().toUpperCase();
-    if (raw === "SERVICE") return "SERVICE";
-    if (raw === "MOT") return "MOT";
-    return raw || "MAINTENANCE";
-  }, [type]);
+  const safeType = useMemo(() => normalizeMaintenanceType(type), [type]);
 
   const typeLabel = useMemo(() => {
     if (safeType === "SERVICE") return "Service";
@@ -258,7 +181,7 @@ export default function EditMaintenanceBookingForm({
       if (st.includes("cancel")) return false;
       if (st.includes("declin")) return false;
 
-      const existingKeys = bookingToDateKeys(b);
+      const existingKeys = serviceBookingToDateKeys(b);
       if (!existingKeys.length) return false;
       const selectedKeySet = new Set(bookingDates.keys);
       return existingKeys.some((key) => selectedKeySet.has(key));
@@ -333,7 +256,7 @@ export default function EditMaintenanceBookingForm({
       setType(bType);
       setStatus(b.status || "Booked");
 
-      const dateKeys = bookingToDateKeys(b);
+      const dateKeys = serviceBookingToDateKeys(b);
       const apptISO = String(b.appointmentDateISO || "").trim();
       const apptObj = b.appointmentDate ? toDate(b.appointmentDate) : null;
       const singleDate = apptISO || (apptObj ? dateToYMD(apptObj) : "") || dateKeys[0] || "";
@@ -498,174 +421,6 @@ export default function EditMaintenanceBookingForm({
     );
   };
 
-  const syncVehicleSummary = async ({
-    safeType,
-    status,
-    isMultiDay,
-    appointmentDate,
-    startDate,
-    endDate,
-    provider,
-    bookingRef,
-    location,
-    cost,
-    notes,
-    bookingId,
-  }) => {
-    if (!vehicleId) return null;
-    const effectiveIsMultiDay = isMultiDay;
-
-    const completedISO =
-      status === "Completed"
-        ? completionISOFromBooking({ isMultiDay: effectiveIsMultiDay, appointmentDate, startDate, endDate })
-        : "";
-
-    if (safeType === "MOT") {
-      const motFreqWeeks = resolveFreqWeeks(vehicle?.motFreq, vehicle?.lastMOT, vehicle?.nextMOT);
-
-      const updates = {
-        motBookedStatus: status,
-        motBookedOn: todayISO(),
-        motAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
-        motBookingStartDate: effectiveIsMultiDay ? startDate : "",
-        motBookingEndDate: effectiveIsMultiDay ? endDate : "",
-        motProvider: provider.trim(),
-        motBookingRef: bookingRef.trim(),
-        motLocation: location.trim(),
-        motCost: cost ? String(cost).trim() : "",
-        motBookingNotes: notes.trim(),
-        motBookingId: bookingId,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (completedISO) {
-        updates.lastMOT = completedISO;
-        updates.nextMOT = calcNextFromWeeks(completedISO, motFreqWeeks);
-        updates.motHistory = mergeMaintenanceHistory(vehicle?.motHistory, {
-          completedDate: completedISO,
-          bookingId,
-          provider: provider.trim(),
-          bookingRef: bookingRef.trim(),
-          notes: notes.trim(),
-          recordedAt: new Date().toISOString(),
-        });
-
-        // optional clear summary details once completed
-        updates.motAppointmentDate = "";
-        updates.motBookingStartDate = "";
-        updates.motBookingEndDate = "";
-        updates.motProvider = "";
-        updates.motBookingRef = "";
-        updates.motLocation = "";
-        updates.motCost = "";
-        updates.motBookingNotes = "";
-      }
-      return updates;
-    } else if (safeType === "SERVICE") {
-      const serviceFreqWeeks = resolveFreqWeeks(
-        vehicle?.serviceFreq,
-        vehicle?.lastService,
-        vehicle?.nextService
-      );
-
-      const updates = {
-        serviceBookedStatus: status,
-        serviceBookedOn: todayISO(),
-        serviceAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
-        serviceBookingStartDate: effectiveIsMultiDay ? startDate : "",
-        serviceBookingEndDate: effectiveIsMultiDay ? endDate : "",
-        serviceProvider: provider.trim(),
-        serviceBookingRef: bookingRef.trim(),
-        serviceLocation: location.trim(),
-        serviceCost: cost ? String(cost).trim() : "",
-        serviceBookingNotes: notes.trim(),
-        serviceBookingId: bookingId,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (completedISO) {
-        updates.lastService = completedISO;
-        updates.nextService = calcNextFromWeeks(completedISO, serviceFreqWeeks);
-        updates.serviceHistory = mergeMaintenanceHistory(vehicle?.serviceHistory, {
-          completedDate: completedISO,
-          bookingId,
-          provider: provider.trim(),
-          bookingRef: bookingRef.trim(),
-          notes: notes.trim(),
-          recordedAt: new Date().toISOString(),
-        });
-
-        // optional clear summary details once completed
-        updates.serviceAppointmentDate = "";
-        updates.serviceBookingStartDate = "";
-        updates.serviceBookingEndDate = "";
-        updates.serviceProvider = "";
-        updates.serviceBookingRef = "";
-        updates.serviceLocation = "";
-        updates.serviceCost = "";
-        updates.serviceBookingNotes = "";
-      }
-
-      return updates;
-    } else if (safeType === "INSPECTION") {
-      const updates = {
-        inspectionBookedStatus: status,
-        inspectionBookedOn: todayISO(),
-        inspectionAppointmentDate: !effectiveIsMultiDay ? appointmentDate : "",
-        inspectionBookingStartDate: effectiveIsMultiDay ? startDate : "",
-        inspectionBookingEndDate: effectiveIsMultiDay ? endDate : "",
-        inspectionProvider: provider.trim(),
-        inspectionBookingRef: bookingRef.trim(),
-        inspectionLocation: location.trim(),
-        inspectionCost: cost ? String(cost).trim() : "",
-        inspectionBookingNotes: notes.trim(),
-        inspectionBookingId: bookingId,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (completedISO) {
-        updates.eightWeekInspectionStart = completedISO;
-        updates.nextEightWeekInspection = calcNextFromWeeks(completedISO, 8);
-        updates.eightWeekInspectionISOWeek = getIsoWeekLabel(updates.nextEightWeekInspection);
-        updates.eightWeekInspectionHistory = mergeInspectionHistory(
-          vehicle?.eightWeekInspectionHistory,
-          {
-            completedDate: completedISO,
-            bookingId,
-            provider: provider.trim(),
-            bookingRef: bookingRef.trim(),
-            notes: notes.trim(),
-            recordedAt: new Date().toISOString(),
-          }
-        );
-        updates.inspectionAppointmentDate = "";
-        updates.inspectionBookingStartDate = "";
-        updates.inspectionBookingEndDate = "";
-        updates.inspectionProvider = "";
-        updates.inspectionBookingRef = "";
-        updates.inspectionLocation = "";
-        updates.inspectionCost = "";
-        updates.inspectionBookingNotes = "";
-      }
-
-      return updates;
-    } else {
-      return {
-        workBookedStatus: status,
-        workBookingId: bookingId,
-        workBookingDate: !effectiveIsMultiDay ? appointmentDate : "",
-        workBookingStartDate: effectiveIsMultiDay ? startDate : "",
-        workBookingEndDate: effectiveIsMultiDay ? endDate : "",
-        workProvider: provider.trim(),
-        workBookingRef: bookingRef.trim(),
-        workLocation: location.trim(),
-        workCost: cost ? String(cost).trim() : "",
-        workBookingNotes: notes.trim(),
-        updatedAt: serverTimestamp(),
-      };
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
@@ -677,91 +432,29 @@ export default function EditMaintenanceBookingForm({
     setFormError("");
     setSaving(true);
     try {
-      const nowAuditIso = new Date().toISOString();
-      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
-      const isNonConsecutive = useCustomDates;
-      const effectiveIsMultiDay = isNonConsecutive || isMultiDay;
-      const firstSelectedDate = bookingDates.keys[0] || "";
-      const lastSelectedDate = bookingDates.keys[bookingDates.keys.length - 1] || firstSelectedDate;
-      const apptDateObj = !effectiveIsMultiDay ? ymdToDate(appointmentDate) : null;
-      const completedISO =
-        status === "Completed"
-          ? completionISOFromBooking({
-              isMultiDay: effectiveIsMultiDay,
-              appointmentDate: effectiveIsMultiDay ? firstSelectedDate : appointmentDate,
-              startDate: effectiveIsMultiDay ? firstSelectedDate : startDate,
-              endDate: effectiveIsMultiDay ? lastSelectedDate : endDate,
-            })
-          : "";
-
-      // 1) Update booking doc (calendar-safe Dates + ISO helpers)
-      const bookingPayload = {
-        kind: "MAINTENANCE",
-        type: safeType,
+      const savedBooking = await updateMaintenanceBooking({
+        bookingId,
+        booking,
         vehicleId,
-        vehicleLabel: vehicleLabel || "",
+        vehicle,
+        vehicleLabel,
+        type: safeType,
         status,
-        isMultiDay: effectiveIsMultiDay,
-        startDate: start,
-        endDate: end,
-        appointmentDate: apptDateObj,
-        bookingDates: bookingDates.keys,
-        appointmentDateISO: !effectiveIsMultiDay ? appointmentDate : "",
-        startDateISO: effectiveIsMultiDay ? firstSelectedDate : "",
-        endDateISO: effectiveIsMultiDay ? lastSelectedDate : "",
-        completedAtISO: completedISO || "",
-        provider: provider.trim(),
-        bookingRef: bookingRef.trim(),
-        location: location.trim(),
-        cost: cost ? String(cost).trim() : "",
-        notes: notes.trim(),
-        equipment: selectedEquipment,
-        sourceDueDateISO: String(booking?.sourceDueDateISO || "").trim(),
-        sourceDueIsoWeek: String(booking?.sourceDueIsoWeek || "").trim(),
-        sourceDueKey: String(booking?.sourceDueKey || "").trim(),
-        createdBy: booking?.createdBy || auditUser.email,
-        createdByUid: booking?.createdByUid || auditUser.uid,
-        lastEditedBy: auditUser.email,
-        lastEditedByUid: auditUser.uid,
-        updatedAt: serverTimestamp(),
-      };
-
-      const changeLines = buildMaintenanceChangeList(booking || {}, bookingPayload);
-      bookingPayload.history = [
-        ...(Array.isArray(booking?.history) ? booking.history : []),
-        buildMaintenanceHistoryEntry({
-          action: "Edited",
-          user: auditUser,
-          timestamp: nowAuditIso,
-          changes: changeLines,
-        }),
-      ];
-
-      const batch = writeBatch(db);
-      batch.update(doc(db, "maintenanceBookings", bookingId), bookingPayload);
-
-      const vehicleSummaryUpdates = await syncVehicleSummary({
-        safeType,
-        status,
-        isMultiDay: effectiveIsMultiDay,
-        appointmentDate: effectiveIsMultiDay ? firstSelectedDate : appointmentDate,
-        startDate: effectiveIsMultiDay ? firstSelectedDate : startDate,
-        endDate: effectiveIsMultiDay ? lastSelectedDate : endDate,
+        useCustomDates,
+        isMultiDay,
+        appointmentDate,
+        startDate,
+        endDate,
+        dateKeys: bookingDates.keys,
         provider,
         bookingRef,
         location,
         cost,
         notes,
-        bookingId,
+        equipment: selectedEquipment,
       });
 
-      if (vehicleId && vehicleSummaryUpdates) {
-        batch.update(doc(db, "vehicles", vehicleId), vehicleSummaryUpdates);
-      }
-
-      await batch.commit();
-
-      if (typeof onSaved === "function") onSaved({ id: bookingId, ...bookingPayload });
+      if (typeof onSaved === "function") onSaved(savedBooking);
       else if (typeof onClose === "function") onClose();
     } catch (err) {
       console.error("[EditMaintenanceBookingForm] save error:", err);
@@ -778,52 +471,18 @@ export default function EditMaintenanceBookingForm({
     setFormError("");
     setSaving(true);
     try {
-      const nowAuditIso = new Date().toISOString();
-      const auditUser = getMaintenanceAuditIdentity(auth.currentUser);
-      const cancelledHistory = [
-        ...(Array.isArray(booking?.history) ? booking.history : []),
-        buildMaintenanceHistoryEntry({
-          action: "Cancelled",
-          user: auditUser,
-          timestamp: nowAuditIso,
-          changes: [`Status: ${String(booking?.status || "Blank")} -> Cancelled`],
-        }),
-      ];
-      const batch = writeBatch(db);
-      batch.update(doc(db, "maintenanceBookings", bookingId), {
-        status: "Cancelled",
-        lastEditedBy: auditUser.email,
-        lastEditedByUid: auditUser.uid,
-        history: cancelledHistory,
-        updatedAt: serverTimestamp(),
+      const cancelledBooking = await cancelMaintenanceBooking({
+        bookingId,
+        booking,
+        vehicleId,
+        vehicle,
       });
 
-      const vehicleSummaryUpdates = vehicleId
-        ? await syncVehicleSummary({
-            safeType,
-            status: "Cancelled",
-            isMultiDay: useCustomDates || isMultiDay,
-            appointmentDate: bookingDates.keys[0] || appointmentDate,
-            startDate: bookingDates.keys[0] || startDate,
-            endDate: bookingDates.keys[bookingDates.keys.length - 1] || endDate,
-            provider,
-            bookingRef,
-            location,
-            cost,
-            notes,
-            bookingId,
-          })
-        : null;
+      setBooking((prev) =>
+        prev ? { ...prev, status: "Cancelled", history: cancelledBooking.history } : prev
+      );
 
-      if (vehicleId && vehicleSummaryUpdates) {
-        batch.update(doc(db, "vehicles", vehicleId), vehicleSummaryUpdates);
-      }
-
-      await batch.commit();
-
-      setBooking((prev) => (prev ? { ...prev, status: "Cancelled", history: cancelledHistory } : prev));
-
-      if (typeof onSaved === "function") onSaved({ id: bookingId, status: "Cancelled" });
+      if (typeof onSaved === "function") onSaved(cancelledBooking);
       else if (typeof onClose === "function") onClose();
     } catch (e) {
       console.error("[EditMaintenanceBookingForm] cancel error:", e);
@@ -841,95 +500,14 @@ export default function EditMaintenanceBookingForm({
     setFormError("");
     setSaving(true);
     try {
-      // refresh vehicle doc for linkage check
-      let vDoc = vehicle;
-      if (!vDoc && vehicleId) {
-        const vSnap = await getDoc(doc(db, "vehicles", vehicleId));
-        if (vSnap.exists()) vDoc = { id: vSnap.id, ...vSnap.data() };
-      }
+      const deletedBooking = await deleteMaintenanceBooking({
+        bookingId,
+        booking,
+        vehicleId,
+        vehicle,
+      });
 
-      const batch = writeBatch(db);
-      batch.delete(doc(db, "maintenanceBookings", bookingId));
-
-      // 2) clear summary fields if vehicle points at this booking
-      if (vehicleId && vDoc) {
-        const vRef = doc(db, "vehicles", vehicleId);
-        const shouldClearMot = String(vDoc.motBookingId || "") === String(bookingId);
-        const shouldClearService = String(vDoc.serviceBookingId || "") === String(bookingId);
-        const shouldClearInspection =
-          String(vDoc.inspectionBookingId || "") === String(bookingId);
-        const shouldClearWork = String(vDoc.workBookingId || "") === String(bookingId);
-
-        const clears = {};
-        if (shouldClearMot) {
-          Object.assign(clears, {
-            motBookingId: "",
-            motBookedStatus: "",
-            motBookedOn: "",
-            motAppointmentDate: "",
-            motBookingStartDate: "",
-            motBookingEndDate: "",
-            motProvider: "",
-            motBookingRef: "",
-            motLocation: "",
-            motCost: "",
-            motBookingNotes: "",
-            motBookingFiles: [],
-          });
-        }
-        if (shouldClearService) {
-          Object.assign(clears, {
-            serviceBookingId: "",
-            serviceBookedStatus: "",
-            serviceBookedOn: "",
-            serviceAppointmentDate: "",
-            serviceBookingStartDate: "",
-            serviceBookingEndDate: "",
-            serviceProvider: "",
-            serviceBookingRef: "",
-            serviceLocation: "",
-            serviceCost: "",
-            serviceBookingNotes: "",
-          });
-        }
-        if (shouldClearInspection) {
-          Object.assign(clears, {
-            inspectionBookingId: "",
-            inspectionBookedStatus: "",
-            inspectionBookedOn: "",
-            inspectionAppointmentDate: "",
-            inspectionBookingStartDate: "",
-            inspectionBookingEndDate: "",
-            inspectionProvider: "",
-            inspectionBookingRef: "",
-            inspectionLocation: "",
-            inspectionCost: "",
-            inspectionBookingNotes: "",
-          });
-        }
-        if (shouldClearWork) {
-          Object.assign(clears, {
-            workBookingId: "",
-            workBookedStatus: "",
-            workBookingDate: "",
-            workBookingStartDate: "",
-            workBookingEndDate: "",
-            workProvider: "",
-            workBookingRef: "",
-            workLocation: "",
-            workCost: "",
-            workBookingNotes: "",
-          });
-        }
-
-        if (Object.keys(clears).length) {
-          batch.update(vRef, { ...clears, updatedAt: serverTimestamp() });
-        }
-      }
-
-      await batch.commit();
-
-      if (typeof onSaved === "function") onSaved({ id: bookingId, deleted: true });
+      if (typeof onSaved === "function") onSaved(deletedBooking);
       else if (typeof onClose === "function") onClose();
     } catch (e) {
       console.error("[EditMaintenanceBookingForm] delete error:", e);

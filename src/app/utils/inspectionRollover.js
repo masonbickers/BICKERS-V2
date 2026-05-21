@@ -44,6 +44,16 @@ const addWeeks = (date, weeks) => {
   return next;
 };
 
+const nextCycleAfter = (anchorDate, completedDate, weeks) => {
+  if (!anchorDate || !weeks) return null;
+  const next = addWeeks(anchorDate, weeks);
+  const completed = completedDate ? startOfLocalDay(completedDate) : null;
+  while (completed && next.getTime() <= completed.getTime()) {
+    next.setDate(next.getDate() + weeks * 7);
+  }
+  return next;
+};
+
 const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
   const explicit = Number(explicitFreq || 0);
   if (explicit > 0) return explicit;
@@ -194,15 +204,26 @@ export async function syncEightWeekInspectionRollovers({
         })
         .map((booking) => {
           const date =
+            parseLocalDate(booking?.completedAtISO) ||
             parseLocalDate(booking?.appointmentDateISO) ||
             parseLocalDate(booking?.startDateISO) ||
             parseLocalDate(booking?.appointmentDate) ||
             parseLocalDate(booking?.startDate);
-          return date ? startOfLocalDay(date) : null;
+          const sourceDueDate =
+            parseLocalDate(booking?.sourceDueDateISO) ||
+            parseLocalDate(booking?.sourceDueDate) ||
+            null;
+          return date
+            ? {
+                booking,
+                completedDate: startOfLocalDay(date),
+                cycleAnchorDate: sourceDueDate ? startOfLocalDay(sourceDueDate) : startOfLocalDay(date),
+              }
+            : null;
         })
         .filter(Boolean)
-        .filter((date) => date.getTime() <= today.getTime())
-        .sort((a, b) => b.getTime() - a.getTime());
+        .filter((item) => item.completedDate.getTime() <= today.getTime())
+        .sort((a, b) => b.completedDate.getTime() - a.completedDate.getTime());
 
       const latestPastInspection = inspectionBookings[0] || null;
       const inspectionHistory = maintenanceBookings
@@ -228,12 +249,12 @@ export async function syncEightWeekInspectionRollovers({
         }, Array.isArray(vehicle?.eightWeekInspectionHistory) ? vehicle.eightWeekInspectionHistory : []);
 
       if (latestPastInspection || inspectionHistory.length > 0) {
-        const latestPastIso = latestPastInspection ? ymd(latestPastInspection) : "";
+        const latestPastIso = latestPastInspection ? ymd(latestPastInspection.cycleAnchorDate) : "";
         const computedNext = latestPastInspection
-          ? ymd(addWeeks(latestPastInspection, 8))
+          ? ymd(nextCycleAfter(latestPastInspection.cycleAnchorDate, latestPastInspection.completedDate, 8))
           : String(vehicle?.nextEightWeekInspection || "").trim();
         const computedWeek = latestPastInspection
-          ? getIsoWeekLabel(addWeeks(latestPastInspection, 8))
+          ? getIsoWeekLabel(computedNext)
           : String(vehicle?.eightWeekInspectionISOWeek || "").trim();
 
         patch.eightWeekInspectionHistory = inspectionHistory;
