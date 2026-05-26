@@ -208,7 +208,7 @@ const normaliseDates = (job) => {
 
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "-");
 const getJobPrefix = (job) => (job.jobNumber ? String(job.jobNumber).split("-")[0] : "No Job #");
-const isFourDigitJob = (job) => /^\d{4}$/.test(String(job.jobNumber ?? "").trim());
+const isFourDigitJob = (job) => /^\d{4}(?:\.\d+)?$/.test(String(job.jobNumber ?? "").trim());
 
 const prettifyStatus = (raw) => {
   const s = (raw || "").toLowerCase().trim();

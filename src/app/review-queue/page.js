@@ -113,7 +113,7 @@ const normaliseDates = (job) => {
   return arr;
 };
 
-const isFourDigitJob = (job) => /^\d{4}$/.test(String(job.jobNumber ?? "").trim());
+const isFourDigitJob = (job) => /^\d{4}(?:\.\d+)?$/.test(String(job.jobNumber ?? "").trim());
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—");
 
 const isPaid = (job) => {
