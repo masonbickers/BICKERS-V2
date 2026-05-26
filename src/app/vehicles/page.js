@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import {
   collection,
   getDocs,
   addDoc,
   doc,
+  getDoc,
   updateDoc,
 } from "firebase/firestore";
 import Papa from "papaparse";
-import { ArrowLeft, FilePlus2, Plus, RotateCcw, Search } from "lucide-react";
+import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search } from "lucide-react";
 
 /* UI tokens */
 const UI = {
@@ -180,6 +181,19 @@ const formatOdometer = (vehicle) => {
   return numeric.toLocaleString("en-GB");
 };
 
+const formatSyncDateTime = (value) => {
+  if (!value) return "";
+  const d = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const getInsuredUntil = (vehicle) =>
   vehicle?.insuredUntil || vehicle?.insuranceExpiry || vehicle?.insuranceExpiryDate || vehicle?.insuranceUntil || "";
 
@@ -210,8 +224,15 @@ export default function VehicleMaintenancePage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [syncingMotHistory, setSyncingMotHistory] = useState(false);
+  const [motSyncMeta, setMotSyncMeta] = useState(null);
   const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
   const [taxDatePrompt, setTaxDatePrompt] = useState(null);
+  const lastAllMotFetchLabel = motSyncMeta?.lastAllFetchedAt
+    ? `Last all MOT fetch: ${formatSyncDateTime(motSyncMeta.lastAllFetchedAt)}${
+        motSyncMeta.lastAllFetchUpdated != null ? ` - ${motSyncMeta.lastAllFetchUpdated} updated` : ""
+      }`
+    : "Last all MOT fetch: Not run yet";
 
   const toggleCategory = (category) => {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
@@ -244,8 +265,14 @@ export default function VehicleMaintenancePage() {
     setExpandedCategories((prev) => (Object.keys(prev).length ? prev : initialExpanded));
   };
 
+  const fetchMotSyncMeta = async () => {
+    const snap = await getDoc(doc(db, "settings", "motHistorySync"));
+    setMotSyncMeta(snap.exists() ? snap.data() : null);
+  };
+
   useEffect(() => {
     fetchVehicles().catch((err) => console.error("Failed to fetch vehicles:", err));
+    fetchMotSyncMeta().catch((err) => console.error("Failed to fetch MOT sync metadata:", err));
   }, []);
 
   // Persist dropdown changes
@@ -334,6 +361,48 @@ export default function VehicleMaintenancePage() {
     await handleSelectChange(vehicle.id, "taxStatus", "Taxed", {
       nextRFL: taxedUntil,
     });
+  };
+
+  const handleSyncAllMotHistory = async () => {
+    const ok = window.confirm(
+      "Fetch DVSA MOT data for all vehicles now?\n\nThis will update MOT dates and odometer readings where newer DVSA data is found."
+    );
+    if (!ok) return;
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert("You need to be signed in to fetch MOT data.");
+      return;
+    }
+
+    setSyncingMotHistory(true);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch("/api/dvla/mot-history/sync", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.details || data?.error || "Could not fetch MOT data.");
+      }
+
+      await fetchVehicles();
+      await fetchMotSyncMeta();
+      alert(
+        `DVSA MOT sync complete.\n\nChecked: ${data.checked || 0}\nUpdated: ${data.updated || 0}\nSkipped: ${
+          data.skipped || 0
+        }\nFailed: ${data.failed || 0}`
+      );
+    } catch (err) {
+      console.error("Failed to sync MOT history:", err);
+      alert(err.message || "Could not fetch MOT data.");
+    } finally {
+      setSyncingMotHistory(false);
+    }
   };
 
   // Category list for filter UI
@@ -484,6 +553,26 @@ export default function VehicleMaintenancePage() {
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Vehicle Maintenance Overview</h1>
+            <button
+              type="button"
+              onClick={() => router.push("/mot-history-sync")}
+              className="vehicles-action"
+              style={{
+                marginTop: 3,
+                padding: 0,
+                border: "none",
+                background: "transparent",
+                color: UI.brand,
+                fontSize: 12,
+                fontWeight: 850,
+                cursor: "pointer",
+                textDecoration: "underline",
+                textUnderlineOffset: 2,
+              }}
+              title="View MOT fetch summary and errors"
+            >
+              {lastAllMotFetchLabel}
+            </button>
           </div>
 
           <div style={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -494,6 +583,17 @@ export default function VehicleMaintenancePage() {
             <button type="button" className="vehicles-action" onClick={() => router.push("/add-vehicle")} style={btn()}>
               <Plus size={15} />
               Add Vehicle
+            </button>
+            <button
+              type="button"
+              className="vehicles-action"
+              onClick={handleSyncAllMotHistory}
+              style={btn("ghost")}
+              disabled={syncingMotHistory}
+              title="Fetch latest DVSA MOT dates and odometer readings for all vehicles"
+            >
+              <Download size={15} />
+              {syncingMotHistory ? "Fetching MOT..." : "Fetch All MOT"}
             </button>
             <button type="button" className="vehicles-action" onClick={() => router.push("/add-vehicle?type=number-plate")} style={btn("ghost")}>
               <FilePlus2 size={15} />
@@ -586,7 +686,7 @@ export default function VehicleMaintenancePage() {
                       "Manufacturer",
                       "Model",
                       "Tax Status",
-                      "Tax Date",
+                      "Taxed Until",
                       "Insurance Status",
                       "Insured Until",
                       "MOT",
@@ -611,7 +711,7 @@ export default function VehicleMaintenancePage() {
                           letterSpacing: 0,
                           ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
                           ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
-                          ...(h === "Tax Date" ? { width: 118 } : {}),
+                          ...(h === "Taxed Until" ? { width: 118 } : {}),
                           ...(h === "Insurance Status" ? { width: 118 } : {}),
                           ...(h === "Insured Until" ? { width: 118 } : {}),
                         }}

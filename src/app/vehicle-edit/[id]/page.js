@@ -9,10 +9,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   CalendarPlus,
   ClipboardList,
   Download,
+  ExternalLink,
   Save,
   Trash2,
   Wrench,
@@ -305,6 +307,123 @@ const resolveFreqWeeks = (explicitFreq, lastISO, nextISO) => {
 };
 
 const safeArr = (v) => (Array.isArray(v) ? v : []);
+
+const ADDITIONAL_MAINTENANCE_SECTIONS = [
+  {
+    key: "tachoInspection",
+    label: "Tacho Inspection",
+    fields: [
+      { type: "date", label: "Last Tacho Inspection", name: "lastTacho" },
+      { type: "text", label: "Tacho Freq (weeks)", name: "tachoFreq" },
+      { type: "date", label: "Next Tacho Inspection", name: "nextTacho" },
+      { type: "text", label: "Tacho ISO Week", name: "tachoISOWeek" },
+    ],
+  },
+  {
+    key: "brakeTest",
+    label: "Brake Test",
+    fields: [
+      { type: "date", label: "Last Brake Test", name: "lastBrakeTest" },
+      { type: "text", label: "Brake Test Freq (weeks)", name: "brakeTestFreq" },
+      { type: "date", label: "Next Brake Test", name: "nextBrakeTest" },
+      { type: "text", label: "Brake Test ISO Week", name: "brakeISOWeek" },
+    ],
+  },
+  {
+    key: "pmiInspection",
+    label: "PMI Inspection",
+    fields: [
+      { type: "date", label: "Last PMI Inspection", name: "lastPMI" },
+      { type: "text", label: "PMI Freq (weeks)", name: "pmiFreq" },
+      { type: "date", label: "Next PMI Inspection", name: "nextPMI" },
+      { type: "text", label: "PMI ISO Week", name: "pmiISOWeek" },
+    ],
+  },
+  {
+    key: "rfl",
+    label: "RFL",
+    fields: [
+      { type: "date", label: "Last RFL", name: "lastRFL" },
+      { type: "text", label: "RFL Freq (weeks)", name: "rflFreq" },
+      { type: "date", label: "Next RFL", name: "nextRFL" },
+      { type: "text", label: "RFL ISO Week", name: "rflISOWeek" },
+    ],
+  },
+  {
+    key: "tachoDownload",
+    label: "Tacho Download",
+    fields: [
+      { type: "date", label: "Last Tacho Download", name: "lastTachoDownload" },
+      { type: "text", label: "Tacho Download Freq (weeks)", name: "tachoDownloadFreq" },
+      { type: "date", label: "Next Tacho Download", name: "nextTachoDownload" },
+      { type: "text", label: "Tacho DL ISO Week", name: "tachoDownloadISOWeek" },
+    ],
+  },
+  {
+    key: "tailLift",
+    label: "Tail-lift Inspection",
+    fields: [
+      { type: "date", label: "Last Tail-lift Insp.", name: "lastTailLift" },
+      { type: "text", label: "Tail-lift Freq (weeks)", name: "tailLiftFreq" },
+      { type: "date", label: "Next Tail-lift Insp.", name: "nextTailLift" },
+      { type: "text", label: "Tail-lift ISO Week", name: "tailLiftISOWeek" },
+    ],
+  },
+  {
+    key: "loler",
+    label: "LOLER",
+    fields: [
+      { type: "date", label: "Last LOLER", name: "lastLoler" },
+      { type: "text", label: "LOLER Freq (weeks)", name: "lolerFreq" },
+      { type: "date", label: "Next LOLER", name: "nextLoler" },
+      { type: "text", label: "LOLER ISO Week", name: "lolerISOWeek" },
+    ],
+  },
+];
+
+const formatDefectText = (defect) =>
+  String(defect?.text || defect?.description || defect?.defectText || defect?.itemDescription || "").trim();
+
+const getMotDefects = (test, predicate = () => true) =>
+  safeArr(test?.defects).filter((defect) => formatDefectText(defect) && predicate(defect));
+
+const normaliseMotTestForStorage = (test) => ({
+  completedDate: test?.completedDate || "",
+  expiryDate: test?.expiryDate || "",
+  testResult: test?.testResult || "",
+  motTestNumber: test?.motTestNumber || "",
+  odometerValue: test?.odometerValue || "",
+  odometerUnit: test?.odometerUnit || "",
+  odometerResultType: test?.odometerResultType || "",
+  dataSource: test?.dataSource || "",
+  defects: getMotDefects(test).map((defect) => ({
+    text: formatDefectText(defect),
+    type: defect?.type || "",
+    dangerous: Boolean(defect?.dangerous),
+  })),
+});
+
+const getLatestMotTest = (tests) => safeArr(tests)[0] || null;
+
+const getLatestPassedMotTest = (tests) =>
+  safeArr(tests).find((test) => String(test?.testResult || "").toUpperCase() === "PASSED") || null;
+
+const getMileageAnomaly = (tests) => {
+  const sorted = safeArr(tests);
+  const latest = Number(String(sorted[0]?.odometerValue || "").replace(/[^\d.]/g, ""));
+  const previous = Number(String(sorted[1]?.odometerValue || "").replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(latest) || !Number.isFinite(previous) || latest <= 0 || previous <= 0) return "";
+  return latest < previous
+    ? `Mileage lower than previous MOT (${latest.toLocaleString("en-GB")} vs ${previous.toLocaleString("en-GB")}).`
+    : "";
+};
+
+const formatOdometer = (test) => {
+  if (!test?.odometerValue) return "-";
+  const value = Number(String(test.odometerValue).replace(/[^\d.]/g, ""));
+  const displayValue = Number.isFinite(value) && value > 0 ? value.toLocaleString("en-GB") : test.odometerValue;
+  return `${displayValue}${test.odometerUnit ? ` ${String(test.odometerUnit).toLowerCase()}` : ""}`;
+};
 
 const getMotBookingStatus = ({ motBookedStatus, motAppointmentDate, nextMOT }) => {
   const appt = parseISOorBlank(motAppointmentDate);
@@ -724,6 +843,22 @@ export default function EditVehiclePage() {
     });
   };
 
+  const handleAdditionalMaintenanceToggle = (key) => {
+    setVehicle((prev) => {
+      if (!prev) return prev;
+      const hidden = new Set(safeArr(prev.hiddenAdditionalMaintenance));
+      if (hidden.has(key)) {
+        hidden.delete(key);
+      } else {
+        hidden.add(key);
+      }
+      return {
+        ...prev,
+        hiddenAdditionalMaintenance: Array.from(hidden),
+      };
+    });
+  };
+
   const handleMotChange = (e) => {
     const { name, value } = e.target;
 
@@ -764,11 +899,15 @@ export default function EditVehiclePage() {
         throw new Error(data?.details || data?.error || "Could not fetch MOT history.");
       }
 
-      const latestPassed = data?.latestMot || null;
+      const motTests = safeArr(data?.motTests).map(normaliseMotTestForStorage);
+      const latestAny = getLatestMotTest(motTests);
+      const latestPassed = data?.latestMot || getLatestPassedMotTest(motTests) || null;
       const lastMot = dateOnly(latestPassed?.completedDate || "");
       const nextMot = dateOnly(data?.nextMOT || latestPassed?.expiryDate || "");
       const odometerValue = latestPassed?.odometerValue ? String(latestPassed.odometerValue) : "";
       const odometerNumeric = Number(odometerValue.replace(/[^\d.]/g, ""));
+      const latestDefects = getMotDefects(latestAny);
+      const mileageWarning = getMileageAnomaly(motTests);
 
       setVehicle((prev) => {
         if (!prev) return prev;
@@ -782,6 +921,32 @@ export default function EditVehiclePage() {
           motDueDate: nextMot || prev.motDueDate || "",
           motHistorySyncedAt: new Date().toISOString(),
           motHistoryLatestTestNumber: latestPassed?.motTestNumber || "",
+          dvsaMotHistoryFetchedAt: new Date().toISOString(),
+          dvsaMotTests: motTests,
+          dvsaLatestMot: latestAny || latestPassed || null,
+          dvsaLatestMotResult: latestAny?.testResult || latestPassed?.testResult || "",
+          dvsaLatestMotTestNumber: latestAny?.motTestNumber || latestPassed?.motTestNumber || "",
+          dvsaLatestMotOdometer: formatOdometer(latestAny || latestPassed),
+          dvsaLatestMotDefectCount: latestDefects.length,
+          dvsaLatestMotAdvisoryCount: latestDefects.filter((defect) =>
+            String(defect?.type || "").toUpperCase().includes("ADVISORY")
+          ).length,
+          dvsaLatestMotDangerousCount: latestDefects.filter((defect) => defect?.dangerous).length,
+          dvsaLatestMotMajorCount: latestDefects.filter((defect) =>
+            String(defect?.type || "").toUpperCase().includes("MAJOR")
+          ).length,
+          dvsaMotMileageWarning: mileageWarning,
+          dvsaMotVehicleDetails: {
+            registration: data?.registration || vrm,
+            make: data?.make || "",
+            model: data?.model || "",
+            fuelType: data?.fuelType || "",
+            primaryColour: data?.primaryColour || "",
+            registrationDate: data?.registrationDate || "",
+            manufactureDate: data?.manufactureDate || "",
+            engineSize: data?.engineSize || "",
+            hasOutstandingRecall: data?.hasOutstandingRecall || "",
+          },
         };
 
         if (Number.isFinite(odometerNumeric) && odometerNumeric > 0) {
@@ -790,11 +955,11 @@ export default function EditVehiclePage() {
           next.serviceOdometer = odometerNumeric;
         }
 
-        if (!next.manufacturer && data?.make) {
+        if (data?.make) {
           next.manufacturer = data.make;
           next.make = data.make;
         }
-        if (!next.model && data?.model) next.model = data.model;
+        if (data?.model) next.model = data.model;
 
         return next;
       });
@@ -982,6 +1147,22 @@ export default function EditVehiclePage() {
   const dvsaMotSyncLabel = vehicle?.motHistorySyncedAt
     ? `DVSA MOT data loaded ${formatDisplayDateTime(vehicle.motHistorySyncedAt)}`
     : "";
+  const dvsaMotTests = useMemo(() => safeArr(vehicle?.dvsaMotTests), [vehicle?.dvsaMotTests]);
+  const dvsaLatestMot = vehicle?.dvsaLatestMot || getLatestMotTest(dvsaMotTests);
+  const dvsaLatestDefects = getMotDefects(dvsaLatestMot);
+  const dvsaLatestAdvisories = dvsaLatestDefects.filter((defect) =>
+    String(defect?.type || "").toUpperCase().includes("ADVISORY")
+  );
+  const dvsaLatestSeriousDefects = dvsaLatestDefects.filter((defect) => {
+    const type = String(defect?.type || "").toUpperCase();
+    return defect?.dangerous || type.includes("MAJOR") || type.includes("DANGEROUS");
+  });
+  const dvsaVehicleDetails = vehicle?.dvsaMotVehicleDetails || {};
+  const dvsaMotMileageWarning = vehicle?.dvsaMotMileageWarning || getMileageAnomaly(dvsaMotTests);
+  const hiddenAdditionalMaintenance = safeArr(vehicle?.hiddenAdditionalMaintenance);
+  const visibleAdditionalMaintenanceSections = ADDITIONAL_MAINTENANCE_SECTIONS.filter(
+    (section) => !hiddenAdditionalMaintenance.includes(section.key)
+  );
 
   useUnsavedChangesGuard({
     enabled: Boolean(vehicle),
@@ -1570,6 +1751,109 @@ export default function EditVehiclePage() {
                 ) : null}
               </div>
             </div>
+
+            <div style={panel}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitle}>DVSA MOT Summary</h2>
+                  <div style={sectionMeta}>
+                    Latest fetched MOT result, advisories, defects and DVSA vehicle identity.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={btn("ghost")}
+                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
+                >
+                  <ExternalLink size={15} />
+                  Full MOT History
+                </button>
+              </div>
+
+              {!dvsaLatestMot ? (
+                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
+                  No DVSA MOT data saved yet. Press Fetch DVSA MOT above, then Save.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                  <div className="vehicle-edit-core-grid" style={coreDueGrid}>
+                    <MiniLine label="Latest Result" value={vehicle.dvsaLatestMotResult || dvsaLatestMot.testResult || "-"} />
+                    <MiniLine label="Test Date" value={formatDisplayDate(dvsaLatestMot.completedDate)} />
+                    <MiniLine label="Expiry Date" value={formatDisplayDate(dvsaLatestMot.expiryDate || vehicle.nextMOT)} />
+                    <MiniLine label="Odometer" value={vehicle.dvsaLatestMotOdometer || formatOdometer(dvsaLatestMot)} />
+                    <MiniLine label="Test Number" value={vehicle.dvsaLatestMotTestNumber || dvsaLatestMot.motTestNumber || "-"} />
+                    <MiniLine label="Fuel / Colour" value={[dvsaVehicleDetails.fuelType, dvsaVehicleDetails.primaryColour].filter(Boolean).join(" / ") || "-"} />
+                    <MiniLine label="Engine Size" value={dvsaVehicleDetails.engineSize || "-"} />
+                    <MiniLine label="Outstanding Recall" value={String(dvsaVehicleDetails.hasOutstandingRecall || "-")} />
+                  </div>
+
+                  {dvsaMotMileageWarning ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "flex-start",
+                        border: "1px solid #f59e0b",
+                        background: "#fffbeb",
+                        color: "#92400e",
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        fontSize: 12.5,
+                        fontWeight: 850,
+                      }}
+                    >
+                      <AlertTriangle size={16} />
+                      <span>{dvsaMotMileageWarning}</span>
+                    </div>
+                  ) : null}
+
+                  {dvsaLatestSeriousDefects.length ? (
+                    <div
+                      style={{
+                        border: "1px solid #fecaca",
+                        background: "#fef2f2",
+                        color: "#991b1b",
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        fontSize: 12.5,
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                        Serious defects on latest MOT
+                      </div>
+                      {dvsaLatestSeriousDefects.slice(0, 3).map((defect, index) => (
+                        <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
+                          {defect.type ? `${defect.type}: ` : ""}
+                          {defect.text}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {dvsaLatestAdvisories.length ? (
+                    <div
+                      style={{
+                        border: UI.border,
+                        background: "#fff",
+                        borderRadius: UI.radius,
+                        padding: 10,
+                        fontSize: 12.5,
+                        color: UI.text,
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, marginBottom: 6 }}>
+                        Latest advisories
+                      </div>
+                      {dvsaLatestAdvisories.slice(0, 4).map((defect, index) => (
+                        <div key={`${defect.text}-${index}`} style={{ marginTop: index ? 4 : 0 }}>
+                          {defect.text}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
             {showEightWeekInspection ? (
                 <div style={panel}>
                   <h2 style={sectionTitle}>8 Week Inspection History</h2>
@@ -1624,41 +1908,78 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Additional Maintenance</h2>
+              <div style={sectionMeta}>
+                Tick only the maintenance lines needed for this vehicle.
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  marginTop: 10,
+                  marginBottom: 12,
+                }}
+              >
+                {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
+                  const checked = !hiddenAdditionalMaintenance.includes(section.key);
+                  return (
+                    <label
+                      key={section.key}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
+                        background: checked ? UI.brandSoft : "#fff",
+                        color: UI.text,
+                        borderRadius: UI.radius,
+                        padding: "7px 9px",
+                        fontSize: 12,
+                        fontWeight: 850,
+                        cursor: "pointer",
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleAdditionalMaintenanceToggle(section.key)}
+                        style={{ margin: 0 }}
+                      />
+                      {section.label}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {visibleAdditionalMaintenanceSections.length === 0 ? (
+                <div style={{ color: UI.muted, fontSize: 13 }}>
+                  All additional maintenance lines are hidden for this vehicle.
+                </div>
+              ) : null}
+
               <div className="vehicle-edit-maintenance-grid" style={coreDueGrid}>
-                <DateField label="Last Tacho Inspection" name="lastTacho" value={vehicle.lastTacho} onChange={handleChange} />
-                <Field label="Tacho Freq (weeks)" name="tachoFreq" value={vehicle.tachoFreq} onChange={handleChange} />
-                <DateField label="Next Tacho Inspection" name="nextTacho" value={vehicle.nextTacho} onChange={handleChange} />
-                <Field label="Tacho ISO Week" name="tachoISOWeek" value={vehicle.tachoISOWeek} onChange={handleChange} />
-
-                <DateField label="Last Brake Test" name="lastBrakeTest" value={vehicle.lastBrakeTest} onChange={handleChange} />
-                <Field label="Brake Test Freq (weeks)" name="brakeTestFreq" value={vehicle.brakeTestFreq} onChange={handleChange} />
-                <DateField label="Next Brake Test" name="nextBrakeTest" value={vehicle.nextBrakeTest} onChange={handleChange} />
-                <Field label="Brake Test ISO Week" name="brakeISOWeek" value={vehicle.brakeISOWeek} onChange={handleChange} />
-
-                <DateField label="Last PMI Inspection" name="lastPMI" value={vehicle.lastPMI} onChange={handleChange} />
-                <Field label="PMI Freq (weeks)" name="pmiFreq" value={vehicle.pmiFreq} onChange={handleChange} />
-                <DateField label="Next PMI Inspection" name="nextPMI" value={vehicle.nextPMI} onChange={handleChange} />
-                <Field label="PMI ISO Week" name="pmiISOWeek" value={vehicle.pmiISOWeek} onChange={handleChange} />
-
-                <DateField label="Last RFL" name="lastRFL" value={vehicle.lastRFL} onChange={handleChange} />
-                <Field label="RFL Freq (weeks)" name="rflFreq" value={vehicle.rflFreq} onChange={handleChange} />
-                <DateField label="Next RFL" name="nextRFL" value={vehicle.nextRFL} onChange={handleChange} />
-                <Field label="RFL ISO Week" name="rflISOWeek" value={vehicle.rflISOWeek} onChange={handleChange} />
-
-                <DateField label="Last Tacho Download" name="lastTachoDownload" value={vehicle.lastTachoDownload} onChange={handleChange} />
-                <Field label="Tacho Download Freq (weeks)" name="tachoDownloadFreq" value={vehicle.tachoDownloadFreq} onChange={handleChange} />
-                <DateField label="Next Tacho Download" name="nextTachoDownload" value={vehicle.nextTachoDownload} onChange={handleChange} />
-                <Field label="Tacho DL ISO Week" name="tachoDownloadISOWeek" value={vehicle.tachoDownloadISOWeek} onChange={handleChange} />
-
-                <DateField label="Last Tail-lift Insp." name="lastTailLift" value={vehicle.lastTailLift} onChange={handleChange} />
-                <Field label="Tail-lift Freq (weeks)" name="tailLiftFreq" value={vehicle.tailLiftFreq} onChange={handleChange} />
-                <DateField label="Next Tail-lift Insp." name="nextTailLift" value={vehicle.nextTailLift} onChange={handleChange} />
-                <Field label="Tail-lift ISO Week" name="tailLiftISOWeek" value={vehicle.tailLiftISOWeek} onChange={handleChange} />
-
-                <DateField label="Last LOLER" name="lastLoler" value={vehicle.lastLoler} onChange={handleChange} />
-                <Field label="LOLER Freq (weeks)" name="lolerFreq" value={vehicle.lolerFreq} onChange={handleChange} />
-                <DateField label="Next LOLER" name="nextLoler" value={vehicle.nextLoler} onChange={handleChange} />
-                <Field label="LOLER ISO Week" name="lolerISOWeek" value={vehicle.lolerISOWeek} onChange={handleChange} />
+                {visibleAdditionalMaintenanceSections.flatMap((section) =>
+                  section.fields.map((field) =>
+                    field.type === "date" ? (
+                      <DateField
+                        key={`${section.key}-${field.name}`}
+                        label={field.label}
+                        name={field.name}
+                        value={vehicle[field.name]}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <Field
+                        key={`${section.key}-${field.name}`}
+                        label={field.label}
+                        name={field.name}
+                        value={vehicle[field.name]}
+                        onChange={handleChange}
+                      />
+                    )
+                  )
+                )}
               </div>
             </div>
 
@@ -1762,8 +2083,19 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <h2 style={sectionTitle}>MOT History</h2>
-              <div style={sectionMeta}>Completed or past MOT bookings.</div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitle}>MOT Bookings</h2>
+                  <div style={sectionMeta}>Completed or past MOT bookings.</div>
+                </div>
+                <button
+                  type="button"
+                  style={btn("ghost")}
+                  onClick={() => router.push(`/vehicle-edit/${vehicle.id}/mot-history`)}
+                >
+                  DVSA History
+                </button>
+              </div>
 
               {motHistoryItems.length === 0 ? (
                 <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No MOT history yet.</div>
