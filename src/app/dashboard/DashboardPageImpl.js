@@ -1,7 +1,7 @@
 // src/app/dashboard/page.js
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -56,6 +56,7 @@ import {
   CalendarDays,
   BedDouble,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -503,6 +504,19 @@ const addDays = (d, n) => {
   return x;
 };
 
+const sameCalendarDate = (a, b) => {
+  const da = a instanceof Date ? a : new Date(a);
+  const db = b instanceof Date ? b : new Date(b);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+  return da.getTime() === db.getTime();
+};
+
+const getCalendarNow = () => new Date(2000, 0, 1);
+const allDayTrue = () => true;
+const dashboardCalendarFormats = {
+  dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
+};
+
 const mapNoteDocsToCalendarEvents = (docSnaps) => {
   const grouped = new Map();
 
@@ -582,6 +596,8 @@ const labelFromMins = (mins) => {
   const m = n % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
+
+const displayDayNote = (note) => (note === "On Set" ? "Shoot Day" : note);
 
 //  helper for timestamps / dates / strings  (use this for HOLIDAYS + NOTES)
 const toJsDate = (value) => {
@@ -783,13 +799,64 @@ const getBookingCalendarRange = (booking) => {
   return { startBase, safeEnd };
 };
 
+const groupExplicitBookingDates = (bookingDates) => {
+  const dates = Array.from(
+    new Set(
+      (Array.isArray(bookingDates) ? bookingDates : [])
+        .map((value) => parseLocalDate(value))
+        .filter((value) => value instanceof Date && !Number.isNaN(value.getTime()))
+        .map((value) => startOfLocalDay(value).getTime())
+    )
+  )
+    .sort((a, b) => a - b)
+    .map((time) => new Date(time));
+
+  const groups = [];
+  dates.forEach((date) => {
+    const last = groups[groups.length - 1];
+    if (last && startOfLocalDay(addDays(last.end, 1)).getTime() === date.getTime()) {
+      last.end = date;
+      return;
+    }
+    groups.push({ start: date, end: date });
+  });
+
+  return groups;
+};
+
 //  Single source of truth for both BOOKINGS + MAINTENANCE
 const eventsByJobNumber = (bookings, maintenanceBookings) => {
   // normal bookings  full events
   const bookingEvents = (bookings || [])
-    .map((b) => {
+    .flatMap((b) => {
+      const explicitDateGroups =
+        Array.isArray(b.bookingDates) && b.bookingDates.length
+          ? groupExplicitBookingDates(b.bookingDates)
+          : [];
+
+      if (explicitDateGroups.length) {
+        const ctByDate = ensureCallTimesByDate(b);
+        const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
+
+        return explicitDateGroups.map((group, index) => ({
+          ...b,
+          id: `${b.id || b.jobNumber || "booking"}__date_group__${index}`,
+          __bookingId: b.id,
+          __collection: b.__collection || "bookings",
+          __deletedDocId: b.__deletedDocId || null,
+          __dateGroupIndex: index,
+          title: b.client || "",
+          start: startOfLocalDay(group.start),
+          end: startOfLocalDay(addDays(group.end, 1)),
+          allDay: true,
+          status: b.status || "Confirmed",
+          callTime,
+          callTimesByDate: ctByDate,
+        }));
+      }
+
       const range = getBookingCalendarRange(b);
-      if (!range) return null;
+      if (!range) return [];
       const { startBase, safeEnd } = range;
 
       //  ensure per-day call times exist even for single-day / recce-day
@@ -798,7 +865,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
       //  normalise callTime too so badge logic + display are consistent
       const callTime = normaliseCallTime(b.callTime || b.calltime || b.call_time);
 
-      return {
+      return [{
         ...b,
         __collection: b.__collection || "bookings",
         __deletedDocId: b.__deletedDocId || null,
@@ -809,7 +876,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
         status: b.status || "Confirmed",
         callTime,
         callTimesByDate: ctByDate,
-      };
+      }];
     })
     .filter(Boolean);
 
@@ -841,26 +908,6 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   });
 
   return all;
-};
-
-const formatCrew = (employees) => {
-  if (!Array.isArray(employees) || employees.length === 0) return "-";
-  return employees
-    .map((emp) => {
-      if (typeof emp === "string") return emp;
-      if (!emp || typeof emp !== "object") return "";
-      const fromName = emp.name?.toString().trim();
-      if (fromName) return fromName;
-      const firstLast = [emp.firstName, emp.lastName].filter(Boolean).join(" ").trim();
-      if (firstLast) return firstLast;
-      const display = emp.displayName?.toString().trim();
-      if (display) return display;
-      const email = emp.email?.toString().trim();
-      if (email) return email;
-      return "";
-    })
-    .filter(Boolean)
-    .join(", ");
 };
 
 //  NEW: get crew needed / required (supports multiple field names + role arrays)
@@ -1191,10 +1238,9 @@ function CalendarEvent({ event }) {
               const isCurrentOrFutureJob = jobLastDay >= today0;
 
               if (
-                !event.offRoadTracking &&
                 isConfirmed &&
                 isCurrentOrFutureJob &&
-                (isSornOrUntaxed || isUninsured)
+                ((isSornOrUntaxed && !event.offRoadTracking) || isUninsured)
               ) {
                 return (
                   <span
@@ -1211,7 +1257,7 @@ function CalendarEvent({ event }) {
                       border: "1px solid #0b0b0b",
                       marginTop: 1,
                     }}
-                    title="Vehicle non-compliant (SORN / Not Insured) - current or future confirmed job"
+                    title="Vehicle non-compliant (SORN or not insured) - current or future confirmed job"
                   >
                     {name}
                     {plate ? ` - ${plate}` : ""}
@@ -1343,7 +1389,7 @@ function CalendarEvent({ event }) {
                                   lineHeight: 1.2,
                                 }}
                               >
-                                {formattedDate}: {note || "-"}
+                                {formattedDate}: {displayDayNote(note) || "-"}
                                 {extra}
                                 {callTimeForDay ? ` - CT ${callTimeForDay}` : ""}
                               </div>
@@ -1728,6 +1774,7 @@ function MaintenanceCalendarEvent({ event }) {
 /* ------------------------------- Page component ----------------------------- */
 export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
+  const workDiarySectionRef = useRef(null);
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -1745,6 +1792,7 @@ export default function DashboardPage({ bookingSaved }) {
   const [editingHolidayId, setEditingHolidayId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
+  const [hiddenDiaryBookingCount, setHiddenDiaryBookingCount] = useState(0);
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -1956,7 +2004,6 @@ export default function DashboardPage({ bookingSaved }) {
   );
 
   const getVehicleRisk = (vehicles, { offRoadTracking = false } = {}) => {
-    if (offRoadTracking) return { risky: false, reasons: [] };
     const reasons = [];
     const list = Array.isArray(vehicles) ? vehicles : [];
     const today = new Date();
@@ -1969,7 +2016,7 @@ export default function DashboardPage({ bookingSaved }) {
       const tax = String(v.taxStatus ?? "").trim().toLowerCase();
       const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
       const motDue = getCanonicalDueDate(v, "mot");
-      if (tax === "sorn" || tax === "untaxed" || tax === "no tax")
+      if (!offRoadTracking && (tax === "sorn" || tax === "untaxed" || tax === "no tax"))
         reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
       if (ins === "not insured" || ins === "uninsured" || ins === "no insurance")
         reasons.push(`NO INSURANCE: ${name}${plate}`);
@@ -2186,17 +2233,6 @@ export default function DashboardPage({ bookingSaved }) {
       alert("Failed to save booking.");
     }
   };
-
-  const today = new Date().toISOString().split("T")[0];
-  const todaysJobs = bookings.filter((b) => {
-    if (b.bookingDates && Array.isArray(b.bookingDates)) {
-      return b.bookingDates.includes(today);
-    }
-    const singleDate = b.date?.split("T")[0];
-    const start = b.startDate?.split("T")[0];
-    const end = b.endDate?.split("T")[0];
-    return singleDate === today || (start && end && today >= start && today <= end);
-  });
 
   const maintenanceJobEvents = useMemo(
     () => buildMaintenanceJobEvents(maintenanceJobs),
@@ -2504,6 +2540,71 @@ export default function DashboardPage({ bookingSaved }) {
       return true;
     });
   }, [allEvents, showDeletedInView, showInactiveInView]);
+
+  const workCalendarEvents = useMemo(
+    () => [...bankHolidays, ...workDiaryEvents],
+    [bankHolidays, workDiaryEvents]
+  );
+
+  useEffect(() => {
+    const updateHiddenDiaryBookingCount = () => {
+      const section = workDiarySectionRef.current;
+      if (!section || typeof window === "undefined") {
+        setHiddenDiaryBookingCount(0);
+        return;
+      }
+
+      const sectionRect = section.getBoundingClientRect();
+      const viewportBottom = window.innerHeight - 72;
+      const diaryIsInView = sectionRect.top < window.innerHeight && sectionRect.bottom > viewportBottom;
+      if (!diaryIsInView) {
+        setHiddenDiaryBookingCount(0);
+        return;
+      }
+
+      const events = Array.from(section.querySelectorAll(".rbc-event"));
+      const hiddenCount = events.filter((eventNode) => {
+        const rect = eventNode.getBoundingClientRect();
+        const text = String(eventNode.textContent || "").toUpperCase();
+        const isDisplayOnly = text.includes("BANK HOLIDAY");
+        const isHorizontallyVisible = rect.right > 0 && rect.left < window.innerWidth;
+        return !isDisplayOnly && isHorizontallyVisible && rect.bottom > viewportBottom;
+      }).length;
+
+      setHiddenDiaryBookingCount(hiddenCount);
+    };
+
+    updateHiddenDiaryBookingCount();
+    window.addEventListener("scroll", updateHiddenDiaryBookingCount, { passive: true });
+    window.addEventListener("resize", updateHiddenDiaryBookingCount);
+    return () => {
+      window.removeEventListener("scroll", updateHiddenDiaryBookingCount);
+      window.removeEventListener("resize", updateHiddenDiaryBookingCount);
+    };
+  }, [workCalendarEvents, calendarView, currentDate]);
+
+  const noteHolidayEvents = useMemo(
+    () => [
+      ...holidays.map((h) => ({
+        ...h,
+        title: h.title,
+        start: new Date(h.start),
+        end: new Date(h.end),
+        allDay: true,
+        status: "Holiday",
+      })),
+      ...notes.map((n) => ({
+        ...n,
+        title: n.title || "Note",
+        start: new Date(n.start),
+        end: new Date(n.end),
+        allDay: true,
+        status: "Note",
+      })),
+    ],
+    [holidays, notes]
+  );
+
   const maintenanceEvents = useMemo(() => {
     const vehicleById = Object.fromEntries(
       (vehiclesData || []).map((vehicle) => [String(vehicle.id || "").trim(), vehicle])
@@ -2723,6 +2824,19 @@ export default function DashboardPage({ bookingSaved }) {
               Drafts
             </button>
             <button
+              style={isRestricted ? btnDisabled(btn("ghost")) : btn("ghost")}
+              type="button"
+              onClick={() => {
+                if (isRestricted) return;
+                router.push("/enquiry");
+              }}
+              aria-disabled={isRestricted}
+              title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
+            >
+              <Plus size={14} />
+              Enquiries
+            </button>
+            <button
               style={btn("ghost")}
               type="button"
               onClick={() => router.push("/preplist-dashboard")}
@@ -2766,7 +2880,7 @@ export default function DashboardPage({ bookingSaved }) {
         </div>
 
         {/* Work Diary */}
-        <section style={card}>
+        <section ref={workDiarySectionRef} style={{ ...card, position: "relative" }}>
           <div style={sectionHeader}>
             <div style={sectionTitleWrap}>
               <div style={iconBox(UI.brand, UI.brandSoft)}>
@@ -2841,12 +2955,12 @@ export default function DashboardPage({ bookingSaved }) {
           <BigCalendar
             localizer={localizer}
             //  include bank holidays in Work Diary
-            events={[...bankHolidays, ...workDiaryEvents]}
+            events={workCalendarEvents}
             view={calendarView}
             views={["week", "month"]}
-            onView={(v) => setCalendarView(v)}
+            onView={(v) => setCalendarView((prev) => (prev === v ? prev : v))}
             date={currentDate}
-            onNavigate={(d) => setCurrentDate(d)}
+            onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
             onSelectSlot={({ start }) => {
               setEditingNoteId(null);
               const d = start instanceof Date ? start : new Date(start);
@@ -2857,15 +2971,14 @@ export default function DashboardPage({ bookingSaved }) {
             startAccessor="start"
             endAccessor="end"
             popup
-            allDayAccessor={() => true}
+            allDayAccessor={allDayTrue}
             allDaySlot
             dayLayoutAlgorithm="no-overlap"
             toolbar={false}
             nowIndicator={false}
-            getNow={() => new Date(2000, 0, 1)}
-            formats={{
-              dayFormat: (date, culture, localizer) => localizer.format(date, "EEEE dd", culture),
-            }}
+            getNow={getCalendarNow}
+            formats={dashboardCalendarFormats}
+            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
             dayPropGetter={(date) => {
               const todayD = new Date();
               const isToday =
@@ -2891,7 +3004,7 @@ export default function DashboardPage({ bookingSaved }) {
                 },
               };
             }}
-            style={calendarFrame}
+            style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
             onSelectEvent={(e) => {
               if (!e) return;
 
@@ -2909,13 +3022,14 @@ export default function DashboardPage({ bookingSaved }) {
                 return;
               }
 
-              if (e.id) {
+              const bookingId = e.__bookingId || e.id;
+              if (bookingId) {
                 if (e.__collection === "deletedBookings") {
-                  setSelectedDeletedId(e.__deletedDocId || e.id);
-                  setSelectedBookingId(e.id);
+                  setSelectedDeletedId(e.__deletedDocId || bookingId);
+                  setSelectedBookingId(bookingId);
                 } else {
                   setSelectedDeletedId(null);
-                  setSelectedBookingId(e.id);
+                  setSelectedBookingId(bookingId);
                 }
               }
             }}
@@ -2992,6 +3106,38 @@ export default function DashboardPage({ bookingSaved }) {
               };
             }}
           />
+
+          {hiddenDiaryBookingCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => window.scrollBy({ top: Math.round(window.innerHeight * 0.65), behavior: "smooth" })}
+              style={{
+                position: "fixed",
+                left: "50%",
+                bottom: 18,
+                transform: "translateX(-50%)",
+                zIndex: 60,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 999,
+                border: "1px solid #9fb7cf",
+                background: "rgba(15,23,42,0.92)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 900,
+                boxShadow: "0 12px 30px rgba(15,23,42,0.22)",
+                cursor: "pointer",
+              }}
+              aria-label={`${hiddenDiaryBookingCount} more ${
+                hiddenDiaryBookingCount === 1 ? "booking" : "bookings"
+              } below`}
+            >
+              <ChevronDown size={16} />
+              {hiddenDiaryBookingCount} more {hiddenDiaryBookingCount === 1 ? "booking" : "bookings"} below
+            </button>
+          ) : null}
         </section>
 
         {/* Maintenance Calendar */}
@@ -3036,18 +3182,18 @@ export default function DashboardPage({ bookingSaved }) {
             events={maintenanceEvents}
             view={maintenanceView}
             views={["week", "month"]}
-            onView={(v) => setMaintenanceView(v)}
+            onView={(v) => setMaintenanceView((prev) => (prev === v ? prev : v))}
             date={maintenanceDate}
-            onNavigate={(d) => setMaintenanceDate(d)}
+            onNavigate={(d) => setMaintenanceDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
             startAccessor="start"
             endAccessor="end"
-            allDayAccessor={() => true}
+            allDayAccessor={allDayTrue}
             allDaySlot
             selectable={false}
             popup
             toolbar={false}
             nowIndicator={false}
-            getNow={() => new Date(2000, 0, 1)}
+            getNow={getCalendarNow}
             components={{ event: MaintenanceCalendarEvent }}
             onSelectEvent={(e) => {
               if (!e) return;
@@ -3110,38 +3256,21 @@ export default function DashboardPage({ bookingSaved }) {
 
           <BigCalendar
             localizer={localizer}
-            events={[
-              ...holidays.map((h) => ({
-                ...h,
-                title: h.title,
-                start: new Date(h.start),
-                end: new Date(h.end),
-                allDay: true,
-                status: "Holiday",
-              })),
-              ...notes.map((n) => ({
-                ...n,
-                title: n.title || "Note",
-                start: new Date(n.start),
-                end: new Date(n.end),
-                allDay: true,
-                status: "Note",
-              })),
-            ]}
+            events={noteHolidayEvents}
             view={calendarView}
             views={["week", "month"]}
-            onView={(v) => setCalendarView(v)}
+            onView={(v) => setCalendarView((prev) => (prev === v ? prev : v))}
             date={currentDate}
-            onNavigate={(d) => setCurrentDate(d)}
+            onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
             selectable
             startAccessor="start"
             endAccessor="end"
             popup
-            allDayAccessor={() => true}
+            allDayAccessor={allDayTrue}
             dayLayoutAlgorithm="overlap"
             toolbar={false}
             nowIndicator={false}
-            getNow={() => new Date(2000, 0, 1)}
+            getNow={getCalendarNow}
             onSelectEvent={(e) => {
               if (e.status === "Holiday") {
                 setEditingHolidayId(e.id);
@@ -3207,111 +3336,6 @@ export default function DashboardPage({ bookingSaved }) {
               },
             })}
           />
-        </section>
-
-        {/* Today's Jobs */}
-        <section style={card}>
-          <div style={sectionHeader}>
-            <div style={sectionTitleWrap}>
-              <div style={iconBox("#0f766e", "#f0fdfa")}>
-                <ClipboardList size={17} />
-              </div>
-              <div>
-                <h2 style={titleMd}>Jobs Today</h2>
-                <div style={hint}>Confirmed operational schedule for today.</div>
-              </div>
-            </div>
-            <div style={chip}>{todaysJobs.length}</div>
-          </div>
-
-          {todaysJobs.length === 0 ? (
-            <p style={{ color: UI.muted, marginTop: 8 }}>No jobs today.</p>
-          ) : (
-            <div style={tableWrap}>
-              <table style={table}>
-                <colgroup>
-                  <col style={{ width: "14%" }} />
-                  <col style={{ width: "12%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "20%" }} />
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "8%" }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style={th}>Date</th>
-                    <th style={th}>Job Number</th>
-                    <th style={th}>Production</th>
-                    <th style={th}>Location</th>
-                    <th style={th}>Crew</th>
-                    <th style={th}>Crew Needed</th>
-                    <th style={th}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {todaysJobs.map((b, i) => {
-                    const crewNeeded = getCrewNeeded(b);
-                    const isCrewed = !!b.isCrewed;
-
-                    return (
-                      <tr
-                        key={i}
-                        style={{
-                          background: i % 2 === 0 ? "#fff" : "#fafafa",
-                          transition: "background-color .15s ease",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f5f6f8")}
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = i % 2 === 0 ? "#fff" : "#fafafa")
-                        }
-                      >
-                        <td style={td}>
-                          {new Date(b.date || b.startDate).toLocaleDateString("en-GB")}
-                        </td>
-                        <td style={td}>{b.jobNumber}</td>
-                        <td style={td}>{b.client || "-"}</td>
-                        <td style={td}>{b.location || "-"}</td>
-                        <td style={td}>
-                          {Array.isArray(b.employees) && b.employees.length ? formatCrew(b.employees) : "-"}
-                        </td>
-
-                        {/*  UPDATED: if crewed, show "Crewed" and hide counts */}
-                        <td style={td}>
-                          {isCrewed ? (
-                            <span style={{ fontWeight: 900 }}>Crewed</span>
-                          ) : crewNeeded === null ? (
-                            "-"
-                          ) : (
-                            crewNeeded
-                          )}
-                        </td>
-
-                        <td style={td}>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button onClick={() => setSelectedBookingId(b.id)} style={btn("ghost")} type="button">
-                              <FileText size={14} />
-                              View
-                            </button>
-                            <button
-                              onClick={() => goToEditBooking(b.id)}
-                              style={isRestricted ? btnDisabled(btn()) : btn()}
-                              aria-disabled={isRestricted}
-                              title={isRestricted ? "Your account is not allowed to edit bookings" : ""}
-                              type="button"
-                            >
-                              <ClipboardList size={14} />
-                              Edit
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
 
         {/* Add booking modal (unchanged logic, restyled a touch) */}

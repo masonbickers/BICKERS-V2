@@ -183,6 +183,8 @@ const formatOdometer = (vehicle) => {
 const getInsuredUntil = (vehicle) =>
   vehicle?.insuredUntil || vehicle?.insuranceExpiry || vehicle?.insuranceExpiryDate || vehicle?.insuranceUntil || "";
 
+const getTaxedUntil = (vehicle) => vehicle?.nextRFL || "";
+
 const getInsuranceStatus = (vehicle) => {
   const status = String(vehicle?.insuranceStatus || "").trim() || "Insured";
   const expiry = safeDate(getInsuredUntil(vehicle));
@@ -209,6 +211,7 @@ export default function VehicleMaintenancePage() {
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
   const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
+  const [taxDatePrompt, setTaxDatePrompt] = useState(null);
 
   const toggleCategory = (category) => {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
@@ -296,6 +299,40 @@ export default function VehicleMaintenancePage() {
       insuredUntil,
       insuranceExpiry: insuredUntil,
       insuranceExpiryDate: insuredUntil,
+    });
+  };
+
+  const handleTaxStatusChange = async (vehicle, value) => {
+    if (!vehicle?.id) return;
+
+    if (value !== "Taxed") {
+      await handleSelectChange(vehicle.id, "taxStatus", value, { nextRFL: "" });
+      return;
+    }
+
+    setTaxDatePrompt({
+      vehicle,
+      date: getTaxedUntil(vehicle),
+    });
+  };
+
+  const saveTaxDatePrompt = async () => {
+    const vehicle = taxDatePrompt?.vehicle;
+    const taxedUntil = String(taxDatePrompt?.date || "").trim();
+
+    if (!vehicle?.id) {
+      setTaxDatePrompt(null);
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(taxedUntil) || !safeDate(taxedUntil)) {
+      alert("Select a road tax date before marking this vehicle as taxed.");
+      return;
+    }
+
+    setTaxDatePrompt(null);
+    await handleSelectChange(vehicle.id, "taxStatus", "Taxed", {
+      nextRFL: taxedUntil,
     });
   };
 
@@ -549,10 +586,10 @@ export default function VehicleMaintenancePage() {
                       "Manufacturer",
                       "Model",
                       "Tax Status",
-                      "Insurance",
+                      "Tax Date",
+                      "Insurance Status",
                       "Insured Until",
                       "MOT",
-                      "Road Tax",
                       "Service",
                       "PMI",
                       "Brake Test",
@@ -574,7 +611,8 @@ export default function VehicleMaintenancePage() {
                           letterSpacing: 0,
                           ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
                           ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
-                          ...(h === "Insurance" ? { width: 118 } : {}),
+                          ...(h === "Tax Date" ? { width: 118 } : {}),
+                          ...(h === "Insurance Status" ? { width: 118 } : {}),
                           ...(h === "Insured Until" ? { width: 118 } : {}),
                         }}
                       >
@@ -664,7 +702,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={miniSelect}
                                 value={v.taxStatus || "Taxed"}
-                                onChange={(e) => handleSelectChange(v.id, "taxStatus", e.target.value)}
+                                onChange={(e) => handleTaxStatusChange(v, e.target.value)}
                                 disabled={savingKey === `${v.id}:taxStatus`}
                               >
                                 <option value="Taxed">Taxed</option>
@@ -672,6 +710,8 @@ export default function VehicleMaintenancePage() {
                                 <option value="N/A">N/A</option>
                               </select>
                             </td>
+
+                            {renderDateCell(v.nextRFL, rowTd)}
 
                             {/* Insurance Status */}
                             <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
@@ -693,7 +733,6 @@ export default function VehicleMaintenancePage() {
                             {/* Dates with colour-coded status */}
                             {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7 })}
                             {renderDateCell(v.nextMOT, rowTd)}
-                            {renderDateCell(v.nextRFL, rowTd)}
                             {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
                               soonDays: retentionPlate ? (isTradePlate(v) ? 31 : 365) : 21,
                             })}
@@ -780,6 +819,65 @@ export default function VehicleMaintenancePage() {
                   disabled={savingKey === `${insuranceDatePrompt.vehicle?.id}:insuranceStatus`}
                 >
                   Save insured
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {taxDatePrompt ? (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 50,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              background: "rgba(15,23,42,0.42)",
+            }}
+            onClick={() => setTaxDatePrompt(null)}
+          >
+            <div
+              style={{
+                ...card,
+                width: "min(420px, 100%)",
+                padding: 16,
+                boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set road tax date</div>
+                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                  {taxDatePrompt.vehicle?.name || taxDatePrompt.vehicle?.registration || "Vehicle"}
+                </div>
+              </div>
+
+              <label style={smallLabel}>Taxed Until</label>
+              <input
+                type="date"
+                value={taxDatePrompt.date || ""}
+                onChange={(e) =>
+                  setTaxDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))
+                }
+                style={input}
+                autoFocus
+              />
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="vehicles-action"
+                  style={btn()}
+                  onClick={saveTaxDatePrompt}
+                  disabled={savingKey === `${taxDatePrompt.vehicle?.id}:taxStatus`}
+                >
+                  Save taxed
                 </button>
               </div>
             </div>

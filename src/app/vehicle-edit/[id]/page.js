@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   ClipboardList,
+  Download,
   Save,
   Trash2,
   Wrench,
@@ -247,6 +248,19 @@ const formatDisplayDate = (value) => {
   return raw || "-";
 };
 
+const formatDisplayDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const parseISOorBlank = (v) => {
   if (!v) return null;
   const d = new Date(v);
@@ -387,6 +401,7 @@ export default function EditVehiclePage() {
   const [categories, setCategories] = useState([]);
   const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [fetchingMotHistory, setFetchingMotHistory] = useState(false);
 
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
@@ -733,6 +748,66 @@ export default function EditVehiclePage() {
     });
   };
 
+  const handleFetchMotHistory = async () => {
+    const vrm = String(vehicle?.registration || vehicle?.reg || vehicle?.registrationNumber || "").trim();
+    if (!vrm) {
+      alert("Add a registration before fetching MOT history.");
+      return;
+    }
+
+    setFetchingMotHistory(true);
+    try {
+      const res = await fetch(`/api/dvla/mot-history?vrm=${encodeURIComponent(vrm)}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.details || data?.error || "Could not fetch MOT history.");
+      }
+
+      const latestPassed = data?.latestMot || null;
+      const lastMot = dateOnly(latestPassed?.completedDate || "");
+      const nextMot = dateOnly(data?.nextMOT || latestPassed?.expiryDate || "");
+      const odometerValue = latestPassed?.odometerValue ? String(latestPassed.odometerValue) : "";
+      const odometerNumeric = Number(odometerValue.replace(/[^\d.]/g, ""));
+
+      setVehicle((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          lastMOT: lastMot || prev.lastMOT || "",
+          lastMot: lastMot || prev.lastMot || "",
+          nextMOT: nextMot || prev.nextMOT || "",
+          nextMot: nextMot || prev.nextMot || "",
+          nextMotDate: nextMot || prev.nextMotDate || "",
+          motDueDate: nextMot || prev.motDueDate || "",
+          motHistorySyncedAt: new Date().toISOString(),
+          motHistoryLatestTestNumber: latestPassed?.motTestNumber || "",
+        };
+
+        if (Number.isFinite(odometerNumeric) && odometerNumeric > 0) {
+          next.odometer = odometerNumeric;
+          next.mileage = odometerNumeric;
+          next.serviceOdometer = odometerNumeric;
+        }
+
+        if (!next.manufacturer && data?.make) {
+          next.manufacturer = data.make;
+          next.make = data.make;
+        }
+        if (!next.model && data?.model) next.model = data.model;
+
+        return next;
+      });
+
+      alert("MOT history loaded. Review the updated MOT dates and odometer, then press Save.");
+    } catch (err) {
+      console.error("Failed to fetch MOT history:", err);
+      alert(err.message || "Could not fetch MOT history.");
+    } finally {
+      setFetchingMotHistory(false);
+    }
+  };
+
   const hasUnsavedChanges = useMemo(() => {
     if (!vehicle || !initialSnapshot) return false;
     return JSON.stringify(vehicle) !== initialSnapshot;
@@ -899,6 +974,14 @@ export default function EditVehiclePage() {
   const hasServiceBooking = Boolean(activeServiceBookingId);
   const hasInspectionBooking = Boolean(activeInspectionBookingId);
   const showEightWeekInspection = isTransportLorryVehicle(vehicle || {});
+  const dvsaMotMeta = vehicle?.motHistorySyncedAt
+    ? `Auto-filled from DVSA${
+        vehicle.motHistoryLatestTestNumber ? ` - test ${vehicle.motHistoryLatestTestNumber}` : ""
+      }`
+    : "";
+  const dvsaMotSyncLabel = vehicle?.motHistorySyncedAt
+    ? `DVSA MOT data loaded ${formatDisplayDateTime(vehicle.motHistorySyncedAt)}`
+    : "";
 
   useUnsavedChangesGuard({
     enabled: Boolean(vehicle),
@@ -1396,7 +1479,7 @@ export default function EditVehiclePage() {
                 </div>
 
                 <Field label="Chassis No." name="chassis" value={vehicle.chassis} onChange={handleChange} />
-                <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} />
+                <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} meta={dvsaMotMeta} />
 
                 <div>
                   <label style={labelStyle}>Tax Status</label>
@@ -1432,11 +1515,26 @@ export default function EditVehiclePage() {
             <div style={panel}>
               <h2 style={sectionTitle}>Core Due Dates</h2>
               <div style={sectionMeta}>Edit the last date and frequency; next will auto-calculate.</div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 8, marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                  {dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFetchMotHistory}
+                  style={btn("ghost")}
+                  disabled={fetchingMotHistory}
+                  title="Fetch latest MOT history from DVSA using the registration"
+                >
+                  <Download size={15} />
+                  {fetchingMotHistory ? "Fetching MOT..." : "Fetch DVSA MOT"}
+                </button>
+              </div>
 
               <div className="vehicle-edit-core-grid" style={coreDueGrid}>
-                <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} />
-                <Field label="MOT Freq (weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} />
-                <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} />
+                <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} meta={dvsaMotMeta} />
+                <Field label="MOT Freq (fallback weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} meta="Manual fallback only; DVSA expiry is used when fetched." />
+                <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} meta={dvsaMotMeta} />
                 <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} />
 
                 <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} />
@@ -1840,20 +1938,38 @@ export default function EditVehiclePage() {
 }
 
 /* small components */
-function Field({ label, name, value, onChange }) {
+function Field({ label, name, value, onChange, meta }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
       <input type="text" name={name} value={value || ""} onChange={onChange} style={inputField} />
+      {meta ? <FieldMeta>{meta}</FieldMeta> : null}
     </div>
   );
 }
 
-function DateField({ label, name, value, onChange }) {
+function DateField({ label, name, value, onChange, meta }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
       <input type="date" name={name} value={value || ""} onChange={onChange} style={inputField} />
+      {meta ? <FieldMeta>{meta}</FieldMeta> : null}
+    </div>
+  );
+}
+
+function FieldMeta({ children }) {
+  return (
+    <div
+      style={{
+        marginTop: 4,
+        fontSize: 11.5,
+        color: UI.brand,
+        fontWeight: 850,
+        lineHeight: 1.25,
+      }}
+    >
+      {children}
     </div>
   );
 }
