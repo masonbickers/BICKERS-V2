@@ -99,6 +99,7 @@ const INITIAL_FORM_DATA = {
   nextMOT: "",
   taxStatus: "Taxed",
   insuranceStatus: "Insured",
+  insuredUntil: "",
 };
 
 const parseLocalDateOnly = (s) => {
@@ -116,6 +117,13 @@ const addWeeksToISO = (isoDate, weeks) => {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+};
+const isPastISODate = (isoDate) => {
+  const d = parseLocalDateOnly(isoDate);
+  if (!d) return false;
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return d.getTime() < todayMidnight.getTime();
 };
 
 export default function AddVehiclePage() {
@@ -264,7 +272,14 @@ export default function AddVehiclePage() {
         motDueDate: isNumberPlateMode ? "" : formData.nextMOT || "",
 
         taxStatus: isNumberPlateMode ? "N/A" : formData.taxStatus || "Taxed",
-        insuranceStatus: isNumberPlateMode ? "N/A" : formData.insuranceStatus || "Insured",
+        insuredUntil: isNumberPlateMode ? "" : formData.insuredUntil || "",
+        insuranceExpiry: isNumberPlateMode ? "" : formData.insuredUntil || "",
+        insuranceExpiryDate: isNumberPlateMode ? "" : formData.insuredUntil || "",
+        insuranceStatus: isNumberPlateMode
+          ? "N/A"
+          : formData.insuredUntil && isPastISODate(formData.insuredUntil)
+            ? "Not Insured"
+            : formData.insuranceStatus || "Insured",
 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -531,7 +546,12 @@ export default function AddVehiclePage() {
                   </select>
                 </div>
 
-                <div style={col(9)}>
+                <div style={col(3)}>
+                  <label style={label}>Insured Until</label>
+                  <input type="date" name="insuredUntil" value={formData.insuredUntil} onChange={handleChange} style={input} />
+                </div>
+
+                <div style={col(6)}>
                   <label style={label}>Notes</label>
                   <textarea name="notes" value={formData.notes} onChange={handleChange} style={textarea} placeholder="Anything useful: quirks, kit, keys, restrictions..." />
                 </div>

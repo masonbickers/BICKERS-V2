@@ -180,8 +180,23 @@ const formatOdometer = (vehicle) => {
   return numeric.toLocaleString("en-GB");
 };
 
+const getInsuredUntil = (vehicle) =>
+  vehicle?.insuredUntil || vehicle?.insuranceExpiry || vehicle?.insuranceExpiryDate || vehicle?.insuranceUntil || "";
+
+const getInsuranceStatus = (vehicle) => {
+  const status = String(vehicle?.insuranceStatus || "").trim() || "Insured";
+  const expiry = safeDate(getInsuredUntil(vehicle));
+  if (expiry && daysUntil(expiry) < 0) return "Not Insured";
+  return status;
+};
+
+const isInsuranceExpired = (vehicle) => {
+  const expiry = safeDate(getInsuredUntil(vehicle));
+  return Boolean(expiry && daysUntil(expiry) < 0);
+};
+
 /* columns count (IMPORTANT for colSpan) */
-const COLS = 14;
+const COLS = 15;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
@@ -193,6 +208,7 @@ export default function VehicleMaintenancePage() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [savingKey, setSavingKey] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
 
   const toggleCategory = (category) => {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
@@ -201,9 +217,25 @@ export default function VehicleMaintenancePage() {
   const fetchVehicles = async () => {
     const snapshot = await getDocs(collection(db, "vehicles"));
     const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setVehicles(list);
+    const normalisedList = list.map((vehicle) =>
+      isInsuranceExpired(vehicle) && vehicle.insuranceStatus !== "Not Insured"
+        ? { ...vehicle, insuranceStatus: "Not Insured" }
+        : vehicle
+    );
+    setVehicles(normalisedList);
 
-    const categories = Array.from(new Set(list.map((v) => v.category).filter(Boolean))).sort(categorySort);
+    const expiredInsuranceUpdates = list.filter(
+      (vehicle) => isInsuranceExpired(vehicle) && vehicle.insuranceStatus !== "Not Insured"
+    );
+    if (expiredInsuranceUpdates.length) {
+      Promise.allSettled(
+        expiredInsuranceUpdates.map((vehicle) =>
+          updateDoc(doc(db, "vehicles", vehicle.id), { insuranceStatus: "Not Insured" })
+        )
+      ).catch((err) => console.error("Failed to sync expired insurance statuses:", err));
+    }
+
+    const categories = Array.from(new Set(normalisedList.map((v) => v.category).filter(Boolean))).sort(categorySort);
     const initialExpanded = {};
     categories.forEach((cat) => (initialExpanded[cat] = true));
     setExpandedCategories((prev) => (Object.keys(prev).length ? prev : initialExpanded));
@@ -214,13 +246,14 @@ export default function VehicleMaintenancePage() {
   }, []);
 
   // Persist dropdown changes
-  const handleSelectChange = async (id, field, value) => {
+  const handleSelectChange = async (id, field, value, extraUpdates = {}) => {
     const key = `${id}:${field}`;
     setSavingKey(key);
 
-    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: value } : v)));
+    const updates = { [field]: value, ...extraUpdates };
+    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
     try {
-      await updateDoc(doc(db, "vehicles", id), { [field]: value });
+      await updateDoc(doc(db, "vehicles", id), updates);
     } catch (err) {
       console.error("Failed to update vehicle:", err);
       alert("Could not save. Please try again.");
@@ -228,6 +261,42 @@ export default function VehicleMaintenancePage() {
     } finally {
       setSavingKey(null);
     }
+  };
+
+  const handleInsuranceStatusChange = async (vehicle, value) => {
+    if (!vehicle?.id) return;
+
+    if (value !== "Insured") {
+      await handleSelectChange(vehicle.id, "insuranceStatus", value);
+      return;
+    }
+
+    setInsuranceDatePrompt({
+      vehicle,
+      date: getInsuredUntil(vehicle),
+    });
+  };
+
+  const saveInsuranceDatePrompt = async () => {
+    const vehicle = insuranceDatePrompt?.vehicle;
+    const insuredUntil = String(insuranceDatePrompt?.date || "").trim();
+
+    if (!vehicle?.id) {
+      setInsuranceDatePrompt(null);
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(insuredUntil) || !safeDate(insuredUntil)) {
+      alert("Select an insured until date before marking this vehicle as insured.");
+      return;
+    }
+
+    setInsuranceDatePrompt(null);
+    await handleSelectChange(vehicle.id, "insuranceStatus", "Insured", {
+      insuredUntil,
+      insuranceExpiry: insuredUntil,
+      insuranceExpiryDate: insuredUntil,
+    });
   };
 
   // Category list for filter UI
@@ -251,6 +320,7 @@ export default function VehicleMaintenancePage() {
           v.model,
           v.category,
           v.retentionExpiry,
+          getInsuredUntil(v),
         ]
           .filter(Boolean)
           .join(" ");
@@ -320,6 +390,13 @@ export default function VehicleMaintenancePage() {
     ];
 
     for (const v of filteredVehicles) {
+      const insuredUntil = safeDate(getInsuredUntil(v));
+      if (insuredUntil) {
+        const diff = daysUntil(insuredUntil);
+        if (diff < 0) overdue++;
+        else if (diff <= 7) soon++;
+      }
+
       for (const f of fields) {
         const d = safeDate(v[f]);
         if (!d) continue;
@@ -463,7 +540,7 @@ export default function VehicleMaintenancePage() {
         <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
           <div style={{ overflowX: "auto" }}>
             <div className="vh-sticky">
-              <table style={{ width: "100%", minWidth: 1320, borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", minWidth: 1420, borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
                     {[
@@ -473,6 +550,7 @@ export default function VehicleMaintenancePage() {
                       "Model",
                       "Tax Status",
                       "Insurance",
+                      "Insured Until",
                       "MOT",
                       "Road Tax",
                       "Service",
@@ -497,6 +575,7 @@ export default function VehicleMaintenancePage() {
                           ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
                           ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
                           ...(h === "Insurance" ? { width: 118 } : {}),
+                          ...(h === "Insured Until" ? { width: 118 } : {}),
                         }}
                       >
                         {h}
@@ -565,6 +644,7 @@ export default function VehicleMaintenancePage() {
                         };
                         const taxCell = { ...rowTd, paddingLeft: 5 };
                         const insuranceCell = { ...rowTd, width: 118, maxWidth: 118 };
+                        const insuranceStatus = getInsuranceStatus(v);
 
                         return (
                           <tr
@@ -596,9 +676,12 @@ export default function VehicleMaintenancePage() {
                             {/* Insurance Status */}
                             <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
                               <select
-                                style={miniSelect}
-                                value={v.insuranceStatus || "Insured"}
-                                onChange={(e) => handleSelectChange(v.id, "insuranceStatus", e.target.value)}
+                                style={{
+                                  ...miniSelect,
+                                  ...(insuranceStatus === "Not Insured" ? { color: UI.red, fontWeight: 900 } : {}),
+                                }}
+                                value={insuranceStatus}
+                                onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
                                 disabled={savingKey === `${v.id}:insuranceStatus`}
                               >
                                 <option value="Insured">Insured</option>
@@ -608,6 +691,7 @@ export default function VehicleMaintenancePage() {
                             </td>
 
                             {/* Dates with colour-coded status */}
+                            {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7 })}
                             {renderDateCell(v.nextMOT, rowTd)}
                             {renderDateCell(v.nextRFL, rowTd)}
                             {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
@@ -640,8 +724,67 @@ export default function VehicleMaintenancePage() {
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
-          <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
+          insurance = due within 7 days, <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
         </div>
+
+        {insuranceDatePrompt ? (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 50,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              background: "rgba(15,23,42,0.42)",
+            }}
+            onClick={() => setInsuranceDatePrompt(null)}
+          >
+            <div
+              style={{
+                ...card,
+                width: "min(420px, 100%)",
+                padding: 16,
+                boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set insured until date</div>
+                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                  {insuranceDatePrompt.vehicle?.name || insuranceDatePrompt.vehicle?.registration || "Vehicle"}
+                </div>
+              </div>
+
+              <label style={smallLabel}>Insured Until</label>
+              <input
+                type="date"
+                value={insuranceDatePrompt.date || ""}
+                onChange={(e) =>
+                  setInsuranceDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))
+                }
+                style={input}
+                autoFocus
+              />
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="vehicles-action"
+                  style={btn()}
+                  onClick={saveInsuranceDatePrompt}
+                  disabled={savingKey === `${insuranceDatePrompt.vehicle?.id}:insuranceStatus`}
+                >
+                  Save insured
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </HeaderSidebarLayout>
   );
@@ -668,6 +811,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
             const nextService = vehicle.nextService || vehicle.nextServiceDate || vehicle.serviceDueDate || "";
             const lastMot = vehicle.lastMOT || vehicle.lastMot || "";
             const nextMot = vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || "";
+            const insuredUntil = vehicle.insuredUntil || vehicle.insuranceExpiry || vehicle.insuranceExpiryDate || vehicle.insuranceUntil || "";
 
             await addDoc(collection(db, "vehicles"), {
               name: vehicle.name,
@@ -691,6 +835,10 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
               nextMot,
               nextMotDate: nextMot,
               motDueDate: nextMot,
+              insuredUntil,
+              insuranceExpiry: insuredUntil,
+              insuranceExpiryDate: insuredUntil,
+              insuranceStatus: vehicle.insuranceStatus || (safeDate(insuredUntil) && daysUntil(safeDate(insuredUntil)) < 0 ? "Not Insured" : "Insured"),
               notes: vehicle.notes || "",
             });
           }

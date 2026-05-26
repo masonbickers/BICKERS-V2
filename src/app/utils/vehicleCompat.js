@@ -75,6 +75,9 @@ export function normalizeVehicleRecord(raw = {}) {
   );
   const lastService = dateOnlyString(firstNonEmpty(raw.lastService, raw.lastServiceDate));
   const lastMot = dateOnlyString(firstNonEmpty(raw.lastMOT, raw.lastMot, raw.lastMotDate));
+  const insuredUntil = dateOnlyString(
+    firstNonEmpty(raw.insuredUntil, raw.insuranceExpiry, raw.insuranceExpiryDate, raw.insuranceUntil)
+  );
   const odometer = firstNonEmpty(raw.odometer, raw.serviceOdometer, raw.mileage);
   const name = String(firstNonEmpty(raw.name, raw.vehicleName, raw.make) || "").trim();
   const manufacturer = String(firstNonEmpty(raw.manufacturer, raw.make) || "").trim();
@@ -109,6 +112,9 @@ export function normalizeVehicleRecord(raw = {}) {
     serviceHistory: normalizeServiceHistory(raw.serviceHistory),
     taxStatus: String(raw.taxStatus || "").trim(),
     insuranceStatus: String(raw.insuranceStatus || "").trim(),
+    insuredUntil,
+    insuranceExpiry: insuredUntil,
+    insuranceExpiryDate: insuredUntil,
     odometer: odometer || null,
     serviceOdometer: odometer || null,
     mileage: odometer || null,

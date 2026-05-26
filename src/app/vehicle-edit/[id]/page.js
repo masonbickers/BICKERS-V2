@@ -359,6 +359,21 @@ const isRetentionPlateRecord = (vehicle = {}) =>
   vehicle.recordType === "numberPlateRetention";
 const isTradePlateRecord = (vehicle = {}) => normText(vehicle.plateType) === "trade";
 
+const getInsuredUntil = (vehicle = {}) =>
+  dateOnly(
+    vehicle.insuredUntil ||
+      vehicle.insuranceExpiry ||
+      vehicle.insuranceExpiryDate ||
+      vehicle.insuranceUntil ||
+      ""
+  );
+
+const isPastISODate = (value) => {
+  const parsed = parseISOorBlank(value);
+  if (!parsed) return false;
+  return startOfDay(parsed).getTime() < startOfDay(new Date()).getTime();
+};
+
 const computeNextDueFromCompletion = (completedISO, freqWeeks) => {
   return calcNextFromWeeks(completedISO, freqWeeks);
 };
@@ -687,6 +702,9 @@ export default function EditVehiclePage() {
       if (name === "plateType" && value === "trade") {
         next.plateExpiryFreq = "52";
       }
+      if (name === "insuredUntil" && value && isPastISODate(value)) {
+        next.insuranceStatus = "Not Insured";
+      }
       return next;
     });
   };
@@ -740,6 +758,7 @@ export default function EditVehiclePage() {
       const manufacturer = String(payload.manufacturer || payload.make || "").trim();
       const nextMot = String(payload.nextMOT || payload.nextMot || payload.nextMotDate || "").trim();
       const lastMot = String(payload.lastMOT || payload.lastMot || "").trim();
+      const insuredUntil = getInsuredUntil(payload);
       const nextService = String(payload.nextService || payload.nextServiceDate || "").trim();
       if (registration) {
         payload.registration = registration;
@@ -759,6 +778,14 @@ export default function EditVehiclePage() {
         payload.nextMot = nextMot;
         payload.nextMotDate = nextMot;
         payload.motDueDate = nextMot;
+      }
+      payload.insuredUntil = insuredUntil;
+      payload.insuranceExpiry = insuredUntil;
+      payload.insuranceExpiryDate = insuredUntil;
+      if (insuredUntil && isPastISODate(insuredUntil)) {
+        payload.insuranceStatus = "Not Insured";
+      } else if (!String(payload.insuranceStatus || "").trim()) {
+        payload.insuranceStatus = "Insured";
       }
       if (nextService) {
         payload.nextService = nextService;
@@ -1370,7 +1397,6 @@ export default function EditVehiclePage() {
 
                 <Field label="Chassis No." name="chassis" value={vehicle.chassis} onChange={handleChange} />
                 <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} />
-                <Field label="MOT Certificate" name="motCertificate" value={vehicle.motCertificate} onChange={handleChange} />
 
                 <div>
                   <label style={labelStyle}>Tax Status</label>
@@ -1394,6 +1420,8 @@ export default function EditVehiclePage() {
                     <option value="N/A">N/A</option>
                   </select>
                 </div>
+
+                <DateField label="Insured Until" name="insuredUntil" value={getInsuredUntil(vehicle)} onChange={handleChange} />
 
                 <SelectField label="Warranty" name="warranty" value={vehicle.warranty} onChange={handleChange} options={["Yes", "No"]} />
                 <DateField label="Warranty Expiry" name="warrantyExpiry" value={vehicle.warrantyExpiry} onChange={handleChange} />
