@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -771,6 +772,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         employeeCode,
         startDate: startAsDate,
         endDate: endAsDate,
+        holidayDateKeys: holidayDateKeysFromRange(finalStart, finalEnd),
 
         startHalfDay: !!startHalfDay,
         startAMPM: startHalfDay ? startAMPM : null,

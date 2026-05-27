@@ -12,6 +12,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
 
 /* ───────────────────────────────────────────
    Admin allow-list (for UI labels + future gating)
@@ -330,6 +331,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         employeeCode,
         startDate: startAsDate,
         endDate: endAsDate,
+        holidayDateKeys: holidayDateKeysFromRange(finalStart, finalEnd),
 
         // half-day schema (same as create)
         startHalfDay: !!startHalfDay,

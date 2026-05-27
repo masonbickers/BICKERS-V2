@@ -4,28 +4,21 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Inter } from "next/font/google";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import {
-  doc,
-  getDoc,
   onSnapshot,
   collection,
-  getDocs,
   query,
   where,
   limit,
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import {
-  findEmployeeForUser,
   getStoredActiveWorkspace,
   getWorkspaceForPath,
-  hasMirroredAccessRecord,
-  resolveEmployeeAccess,
   selectLandingRoute,
-  setStoredActiveWorkspace,
 } from "@/app/utils/accessControl";
 import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
+import { useAuth } from "@/app/context/authContext";
 import {
   UNSAVED_CHANGES_EVENT,
   bypassUnsavedChangesOnce,
@@ -56,16 +49,6 @@ const UI = {
   text: "#0f172a",
   muted: "#5f6f82",
 };
-
-/* -------------------------------------------
-   Admin allow-list (same as HR page)
-------------------------------------------- */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
-];
-
 
 /* -------------------------------------------
    Date helpers (match HR page logic)
@@ -116,12 +99,9 @@ export default function HeaderSidebarLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const auth = getAuth();
+  const { user, userDoc, employeeAccess, isAdmin, logout } = useAuth() || {};
 
   const [showMenu, setShowMenu] = useState(false); // (kept)
-  const [user, setUser] = useState(null);
-  const [userDoc, setUserDoc] = useState(null);
-  const [employeeAccess, setEmployeeAccess] = useState(null);
   const [activeWorkspace, setActiveWorkspace] = useState("user");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
@@ -129,133 +109,54 @@ export default function HeaderSidebarLayout({
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
 
-  const unsubUserRef = useRef(null);
   const unsubHrRef = useRef(null);
   const contentRef = useRef(null);
   const pendingNavigationRef = useRef(null);
 
-  const emailLower = useMemo(
-    () => String(user?.email || "").trim().toLowerCase(),
-    [user?.email]
-  );
-
   const currentWorkspace = useMemo(() => getWorkspaceForPath(pathname), [pathname]);
 
   //  single source of truth for whether Admin tab should show
-  const canSeeAdmin = useMemo(() => {
-    return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
-  }, [emailLower, userDoc?.role]);
+  const canSeeAdmin = !!isAdmin;
 
   //  HR badge should show for admins only
-  const canSeeHrBadge = useMemo(() => {
-    return ADMIN_EMAILS.includes(emailLower) || userDoc?.role === "admin";
-  }, [emailLower, userDoc?.role]);
+  const canSeeHrBadge = !!isAdmin;
 
-  /* -------------------------------------------
-     Locked AUTH + LIVE DISABLE GUARD (robust user doc resolution)
-  -------------------------------------------- */
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
-      // clean old snapshots
-      if (unsubUserRef.current) {
-        unsubUserRef.current();
-        unsubUserRef.current = null;
-      }
-      if (unsubHrRef.current) {
-        unsubHrRef.current();
-        unsubHrRef.current = null;
-      }
+    if (!employeeAccess) return;
 
-      setUser(currentUser);
+    const storedWorkspace =
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
 
-      if (!currentUser) {
-        setUserDoc(null);
-        setEmployeeAccess(null);
-        setActiveWorkspace("user");
-        setHrNotif({ requests: 0, deletes: 0 });
-        return;
-      }
+    setActiveWorkspace(
+      storedWorkspace === "service" && employeeAccess.hasServiceAccess
+        ? "service"
+        : storedWorkspace === "user" && employeeAccess.hasUserAccess
+          ? "user"
+          : employeeAccess.defaultWorkspace
+    );
+  }, [employeeAccess]);
 
-      // 1) Try users/{uid} (best practice)
-      let resolvedRef = doc(db, "users", currentUser.uid);
-      let snap = await getDoc(resolvedRef);
+  useEffect(() => {
+    if (unsubHrRef.current) {
+      unsubHrRef.current();
+      unsubHrRef.current = null;
+    }
 
-      // 2) If missing, fall back to finding user doc by email
-      if (!snap.exists()) {
-        const emailA = String(currentUser.email || "").trim();
-        const emailB = emailA.toLowerCase();
+    if (!canSeeHrBadge) {
+      setHrNotif({ requests: 0, deletes: 0 });
+      return undefined;
+    }
 
-        const q1 = query(
-          collection(db, "users"),
-          where("email", "==", emailA),
-          limit(1)
-        );
-        const r1 = await getDocs(q1);
 
-        if (!r1.empty) {
-          resolvedRef = doc(db, "users", r1.docs[0].id);
-          snap = r1.docs[0];
-        } else {
-          const q2 = query(
-            collection(db, "users"),
-            where("email", "==", emailB),
-            limit(1)
-          );
-          const r2 = await getDocs(q2);
-
-          if (!r2.empty) {
-            resolvedRef = doc(db, "users", r2.docs[0].id);
-            snap = r2.docs[0];
-          }
-        }
-      }
-
-      const nextUserDoc = snap?.exists?.() ? snap.data() : null;
-      setUserDoc(nextUserDoc);
-
-      const accessSource = hasMirroredAccessRecord(nextUserDoc || {})
-        ? nextUserDoc || {}
-        : (await findEmployeeForUser(db, currentUser)) || {};
-      const nextAccess = resolveEmployeeAccess(accessSource, {
-        isAdmin:
-          ADMIN_EMAILS.includes(String(currentUser.email || "").trim().toLowerCase()) ||
-          nextUserDoc?.role === "admin",
-      });
-      setEmployeeAccess(nextAccess);
-
-      const storedWorkspace =
-        getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
-        getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
-      setActiveWorkspace(
-        storedWorkspace === "service" && nextAccess.hasServiceAccess
-          ? "service"
-          : storedWorkspace === "user" && nextAccess.hasUserAccess
-            ? "user"
-            : nextAccess.defaultWorkspace
-      );
-
-      //  LIVE WATCH � force logout if disabled (only if we resolved a doc)
-      unsubUserRef.current = onSnapshot(resolvedRef, async (docSnap) => {
-        const data = docSnap.data();
-        setUserDoc(data);
-        setEmployeeAccess(
-          resolveEmployeeAccess(hasMirroredAccessRecord(data || {}) ? data || {} : accessSource, {
-            isAdmin:
-              ADMIN_EMAILS.includes(String(currentUser.email || "").trim().toLowerCase()) ||
-              data?.role === "admin",
-          })
-        );
-
-        if (data?.isEnabled === false) {
-          await signOut(auth);
-          router.replace("/login?disabled=1");
-        }
-      });
-
-      //  LIVE HR NOTIFICATION � match HR year bucketing rules
-      unsubHrRef.current = onSnapshot(collection(db, "holidays"), (qs) => {
-        let requested = 0;
-        let deleteReq = 0;
+    const hrRequestQuery = query(
+      collection(db, "holidays"),
+      where("status", "in", ["requested", "delete_requested", "delete-requested"]),
+      limit(100)
+    );
+    unsubHrRef.current = onSnapshot(hrRequestQuery, (qs) => {
+      let requested = 0;
+      let deleteReq = 0;
 
         const CURRENT_YEAR = new Date().getFullYear();
 
@@ -267,21 +168,21 @@ export default function HeaderSidebarLayout({
           const y = holidayYearBucket(h);
           if (y !== CURRENT_YEAR) return;
 
-          if (st === "requested" || !st) requested += 1;
+          if (st === "requested") requested += 1;
           if (st === "delete_requested" || st === "delete-requested")
             deleteReq += 1;
         });
 
         setHrNotif({ requests: requested, deletes: deleteReq });
       });
-    });
 
     return () => {
-      unsubAuth();
-      if (unsubUserRef.current) unsubUserRef.current();
-      if (unsubHrRef.current) unsubHrRef.current();
+      if (unsubHrRef.current) {
+        unsubHrRef.current();
+        unsubHrRef.current = null;
+      }
     };
-  }, [auth, router]);
+  }, [canSeeHrBadge]);
 
   /* -------------------------------------------
      NAV DEFINITIONS
@@ -331,7 +232,7 @@ export default function HeaderSidebarLayout({
      LOGOUT
   -------------------------------------------- */
   const handleLogout = async () => {
-    await signOut(auth);
+    if (typeof logout === "function") await logout();
     router.push("/login");
   };
 

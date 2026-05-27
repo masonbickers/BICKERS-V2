@@ -1,116 +1,82 @@
 "use client";
 
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { db } from "../../../firebaseConfig";
+import { useAuth } from "@/app/context/authContext";
 import {
-  findEmployeeForUser,
   getStoredActiveWorkspace,
-  hasMirroredAccessRecord,
   isAdminPath,
   isPathAllowedForAccess,
-  resolveEmployeeAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
-import {
-  hasAuthenticatorMfa,
-  isMfaVerifiedOnDevice,
-  isPhoneVerified,
-} from "@/app/utils/authSecurity";
 
 const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
 
 export default function ProtectedLayout({ children }) {
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const {
+    user,
+    loading,
+    accessReady,
+    employeeAccess,
+    isAdmin,
+    phoneReady,
+    mfaReady,
+    mfaPassed,
+  } = useAuth() || {};
+
+  const isPublic = PUBLIC_PATHS.some(
+    (path) => pathname === path || String(pathname || "").startsWith(`${path}/`)
+  );
 
   useEffect(() => {
-    const auth = getAuth();
+    if (loading) return;
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      const isPublic = PUBLIC_PATHS.some(
-        (path) => pathname === path || pathname.startsWith(`${path}/`)
-      );
+    if (!user) {
+      if (!isPublic) router.push("/login");
+      return;
+    }
 
-      if (!currentUser) {
-        setLoading(false);
-        if (!isPublic) router.push("/login");
-        return;
-      }
+    if (isPublic) return;
+    if (!accessReady || !employeeAccess) return;
 
-      if (isPublic) {
-        setLoading(false);
-        return;
-      }
+    if (!phoneReady || !mfaReady) {
+      if (pathname !== "/setup-mfa") router.replace("/setup-mfa");
+      return;
+    }
 
-      try {
-        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-        const userData = userSnap.data() || {};
-        const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-        const accessSource = hasMirroredAccessRecord(userData)
-          ? userData
-          : (await findEmployeeForUser(db, currentUser)) || {};
-        const access = resolveEmployeeAccess(accessSource, { isAdmin });
-        const phoneReady = isPhoneVerified(userData);
-        const mfaReady = hasAuthenticatorMfa(userData);
-        const mfaPassed = isMfaVerifiedOnDevice(
-          typeof window !== "undefined" ? window.localStorage : null,
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          currentUser.uid
-        );
+    if (!mfaPassed) {
+      if (pathname !== "/verify-mfa") router.replace("/verify-mfa");
+      return;
+    }
 
-        if (!phoneReady) {
-          if (pathname !== "/setup-mfa") {
-            router.replace("/setup-mfa");
-            return;
-          }
-          setLoading(false);
-          return;
-        }
+    if (isAdminPath(pathname) && !isAdmin) {
+      router.replace(selectLandingRoute(employeeAccess));
+      return;
+    }
 
-        if (!mfaReady) {
-          if (pathname !== "/setup-mfa") {
-            router.replace("/setup-mfa");
-            return;
-          }
-          setLoading(false);
-          return;
-        }
-
-        if (!mfaPassed) {
-          if (pathname !== "/verify-mfa") {
-            router.replace("/verify-mfa");
-            return;
-          }
-          setLoading(false);
-          return;
-        }
-
-        if (isAdminPath(pathname) && !isAdmin) {
-          router.replace(selectLandingRoute(access));
-          return;
-        }
-
-        if (!isPathAllowedForAccess(pathname, access)) {
-          const preferred =
-            typeof window !== "undefined"
-              ? getStoredActiveWorkspace(window.localStorage) ||
-                getStoredActiveWorkspace(window.sessionStorage)
-              : null;
-
-          router.replace(selectLandingRoute(access, preferred));
-          return;
-        }
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [pathname, router]);
+    if (!isPathAllowedForAccess(pathname, employeeAccess)) {
+      const preferred =
+        typeof window !== "undefined"
+          ? getStoredActiveWorkspace(window.localStorage) ||
+            getStoredActiveWorkspace(window.sessionStorage)
+          : null;
+      router.replace(selectLandingRoute(employeeAccess, preferred));
+    }
+  }, [
+    loading,
+    user,
+    isPublic,
+    accessReady,
+    employeeAccess,
+    isAdmin,
+    phoneReady,
+    mfaReady,
+    mfaPassed,
+    pathname,
+    router,
+  ]);
 
   if (loading) {
     return <div style={{ padding: "20px" }}>Loading...</div>;

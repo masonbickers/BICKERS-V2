@@ -2,17 +2,25 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth, storage as storageInstance } from "../../../firebaseConfig";
-import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import DatePicker from "react-multi-date-picker";
+import { collection, addDoc, getDocs, doc, setDoc, query, orderBy, limit } from "firebase/firestore";
 import {
   contactIdFromEmail,
   employeesKey,
   normalizeVehicleKeysListForLookup,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
+import {
+  loadBookingFormReferenceData,
+  loadSavedContacts,
+} from "@/app/utils/bookingFormReferenceData";
+import {
+  holidayDateKeysFromRecord,
+  loadBookingAvailabilityForDates,
+  loadVehicleChecksForVehicles,
+} from "@/app/utils/bookingAvailability";
 import { getCanonicalDueDate, ymd as toYmd } from "@/app/utils/maintenanceSchema";
 import {
   buildBookingDerivedFields,
@@ -149,6 +157,7 @@ const field = {
   label: {
     display: "block",
     fontWeight: 800,
+    marginTop: 10,
     marginBottom: 5,
     color: UI.muted,
     fontSize: 11.5,
@@ -224,6 +233,12 @@ const checkboxGrid = {
   alignItems: "start",
 };
 
+const driverCheckboxGrid = {
+  ...checkboxGrid,
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "7px 16px",
+};
+
 const personCheckboxLabel = {
   display: "inline-flex",
   alignItems: "center",
@@ -246,6 +261,11 @@ const subCard = {
   background: UI.bgAlt,
   border: "1px solid #e2e8f0",
 };
+
+const DatePicker = dynamic(() => import("react-multi-date-picker"), {
+  ssr: false,
+  loading: () => <div style={{ ...field.input, color: UI.muted }}>Loading dates...</div>,
+});
 
 const btn = {
   display: "inline-flex",
@@ -287,6 +307,67 @@ const summaryRow = {
   padding: "7px 0",
   borderBottom: "1px dashed #d6e0ea",
 };
+const summaryGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+  gap: 8,
+};
+const summarySection = {
+  border: UI.border,
+  borderRadius: UI.radiusSm,
+  background: "#f8fafc",
+  padding: "8px 10px",
+};
+const summarySectionTitle = {
+  margin: "0 0 5px",
+  fontSize: 11,
+  fontWeight: 900,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: 0,
+};
+const summaryCompactRow = {
+  ...summaryRow,
+  gridTemplateColumns: "82px 1fr",
+  gap: 8,
+  padding: "3px 0",
+  borderBottom: "none",
+  fontSize: 12.5,
+};
+const summaryLabel = { color: UI.muted, fontWeight: 800 };
+const summaryValue = { color: UI.text, fontWeight: 600, minWidth: 0 };
+const summaryPill = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  border: UI.border,
+  background: UI.bgAlt,
+  borderRadius: 999,
+  padding: "2px 7px",
+  marginRight: 5,
+  marginBottom: 5,
+  fontSize: 12,
+};
+const SummaryRow = ({ label, children }) => (
+  <div style={summaryCompactRow}>
+    <div style={summaryLabel}>{label}</div>
+    <div style={summaryValue}>{children || "-"}</div>
+  </div>
+);
+const formatSummaryDate = (date) => {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+};
+const formatSummaryDates = (dates) => dates.map(formatSummaryDate).filter(Boolean).join(", ");
+const formatSummaryCallTimes = (dates, times, fallback = "") => {
+  const picked = dates
+    .map((date) => [formatSummaryDate(date), times?.[date]])
+    .filter(([, time]) => time)
+    .map(([date, time]) => `${date} ${time}`);
+  return picked.length ? picked.join(", ") : fallback || "-";
+};
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 32,
@@ -302,7 +383,7 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
 });
 
 const pageSub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 };
+const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 };
 const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
@@ -361,23 +442,8 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "electric tracking vehicles",
   "small tracking vehicles",
 ]);
-const getVehicleCategoryGroup = (vehicle = {}) =>
-  String(vehicle.category || "").trim() || "Uncategorised";
-const shouldShowVehicleCategory = (group) =>
-  String(group || "").trim().toLowerCase() !== "taurus";
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
-const sortVehicleGroupEntries = (groups) =>
-  Object.fromEntries(
-    Object.entries(groups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([group, items]) => [
-        group,
-        [...items].sort((a, b) =>
-          String(a.name || a.registration || "").localeCompare(String(b.name || b.registration || ""))
-        ),
-      ])
-  );
 
 /* ────────────────────────────────────────────────────────────────────────────
    UTC day helpers
@@ -542,10 +608,11 @@ const toJsDate = (raw) => {
 /* ────────────────────────────────────────────────────────────────────────────
    Create Booking Page
 ──────────────────────────────────────────────────────────────────────────── */
-export default function CreateBookingPage() {
+export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftIdFromQuery = searchParams.get("draft") || "";
+  const statusFromQuery = searchParams.get("status") === "Enquiry" ? "Enquiry" : initialStatus;
   const hydratedDraftRef = useRef(false);
 
   // Core fields
@@ -553,7 +620,7 @@ export default function CreateBookingPage() {
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
 
-  const [status, setStatus] = useState("Confirmed");
+  const [status, setStatus] = useState(statusFromQuery);
   const [shootType, setShootType] = useState("Day");
 
   const [statusReasons, setStatusReasons] = useState([]);
@@ -608,9 +675,11 @@ export default function CreateBookingPage() {
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
   const [holidayBookings, setHolidayBookings] = useState([]);
+  const [unavailableNotes, setUnavailableNotes] = useState([]);
 
   const [employeeList, setEmployeeList] = useState([]); // [{id,name}]
   const [freelancerList, setFreelancerList] = useState([]); // [{id,name}]
+  const [referenceDataLoading, setReferenceDataLoading] = useState(true);
 
   const [vehicleGroups, setVehicleGroups] = useState({});
   const [openGroups, setOpenGroups] = useState({});
@@ -631,6 +700,8 @@ export default function CreateBookingPage() {
   // Contacts block (only)
   const [additionalContacts, setAdditionalContacts] = useState([]);
   const [savedContacts, setSavedContacts] = useState([]);
+  const [savedContactsLoaded, setSavedContactsLoaded] = useState(false);
+  const [savedContactsLoading, setSavedContactsLoading] = useState(false);
   const [selectedSavedContactId, setSelectedSavedContactId] = useState("");
   const [savedContactSearch, setSavedContactSearch] = useState("");
 
@@ -650,6 +721,14 @@ export default function CreateBookingPage() {
     if (isRange && endDate) return enumerateDaysYMD_UTC(startDate, endDate);
     return [startDate];
   }, [useCustomDates, customDates, startDate, isRange, endDate]);
+  const availabilityDateKey = useMemo(
+    () => [...selectedDates].filter(Boolean).sort().join("|"),
+    [selectedDates]
+  );
+  const selectedVehicleKey = useMemo(
+    () => [...vehicles].filter(Boolean).sort().join("|"),
+    [vehicles]
+  );
 
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
@@ -885,116 +964,102 @@ export default function CreateBookingPage() {
      Load all data
   ───────────────────────────────────────────────────────────── */
   useEffect(() => {
+    try {
+      if (window.localStorage.getItem("debugBookingLoads") === "1") {
+        console.log("[booking-load] create route mounted");
+      }
+    } catch {
+      // Debug logging is optional.
+    }
+  }, []);
+
+  useEffect(() => {
     const loadData = async () => {
-      const [bookingSnap, holidaySnap, empSnap, vehicleSnap, equipSnap, maintenanceSnap, contactsSnap, checksSnap] =
-        await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "holidays")),
-          getDocs(collection(db, "employees")),
-          getDocs(collection(db, "vehicles")),
-          getDocs(collection(db, "equipment")),
-          getDocs(collection(db, "maintenanceBookings")),
-          getDocs(collection(db, "contacts")),
-          getDocs(collection(db, "vehicleChecks")),
+      setReferenceDataLoading(true);
+      try {
+        const latestBookingPromise = getDocs(
+          query(collection(db, "bookings"), orderBy("jobNumber", "desc"), limit(1))
+        ).catch((err) => {
+          console.warn("Failed loading latest booking number:", err);
+          return null;
+        });
+
+        const [latestBookingSnap, referenceData] = await Promise.all([
+          latestBookingPromise,
+          loadBookingFormReferenceData(db),
         ]);
 
-      const bookings = bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setAllBookings(bookings);
-
-      const jobNumbers = bookings
-        .map((b) => b.jobNumber)
-        .filter((jn) => /^\d+$/.test(jn))
-        .map((jn) => parseInt(jn, 10));
-      const max = jobNumbers.length ? Math.max(...jobNumbers) : 0;
-      if (!draftIdFromQuery || !hydratedDraftRef.current) {
-        setJobNumber(String(max + 1).padStart(4, "0"));
-      }
-
-      setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
-
-      const allEmployees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      setEmployeeList(
-        allEmployees
-          .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
-            return titles.some((t) => (t || "").toLowerCase() === "driver");
-          })
-          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
-      );
-
-      setFreelancerList(
-        allEmployees
-          .filter((emp) => {
-            const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
-            return titles.some((t) => {
-              const val = (t || "").toLowerCase();
-              return val === "freelance" || val === "freelancer";
-            });
-          })
-          .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }))
-      );
-
-      const map = {};
-      for (const emp of allEmployees) {
-        const nm = String(emp.name || emp.fullName || "").trim().toLowerCase();
-        const code = String(emp.userCode || "").trim();
-        if (nm && code) map[nm] = code;
-      }
-      setNameToCode(map);
-
-      const grouped = {};
-
-      const byId = {};
-      const byReg = {};
-      const byName = {};
-
-      vehicleSnap.docs.forEach((docu) => {
-        const v = docu.data();
-        const id = docu.id;
-        const name = (v.name || "").trim();
-        const registration = (v.registration || "").trim();
-        if (!name && !registration) return;
-
-        const group = getVehicleCategoryGroup(v);
-
-        const info = { id, name, registration, group, ...(v || {}) };
-        if (id) byId[id] = info;
-        if (registration) byReg[registration.toUpperCase()] = info;
-        if (name) byName[name.toLowerCase()] = info;
-
-        if (shouldShowVehicleCategory(group)) {
-          if (!grouped[group]) grouped[group] = [];
-          grouped[group].push(info);
+        const latestJobNumber = latestBookingSnap?.docs?.[0]?.data()?.jobNumber;
+        const max = /^\d+$/.test(String(latestJobNumber || "")) ? parseInt(latestJobNumber, 10) : 0;
+        if (!draftIdFromQuery || !hydratedDraftRef.current) {
+          setJobNumber(String(max + 1).padStart(4, "0"));
         }
-      });
 
-      setVehicleGroups(sortVehicleGroupEntries(grouped));
-      setVehicleLookup({ byId, byReg, byName });
-
-      const groupedEquip = {};
-      equipSnap.docs.forEach((d) => {
-        const e = d.data();
-        const cat = (e.category || "Other").trim();
-        const nm = (e.name || e.label || "").trim();
-        if (!nm) return;
-        if (!groupedEquip[cat]) groupedEquip[cat] = [];
-        groupedEquip[cat].push(nm);
-      });
-      setEquipmentGroups(groupedEquip);
-
-      const openEquip = {};
-      Object.keys(groupedEquip).forEach((k) => (openEquip[k] = false));
-      setOpenEquipGroups(openEquip);
-
-      setMaintenanceBookings(maintenanceSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setVehicleChecks(checksSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-
-      setSavedContacts(contactsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setEmployeeList(referenceData.employeeList || []);
+        setFreelancerList(referenceData.freelancerList || []);
+        setNameToCode(referenceData.nameToCode || {});
+        setVehicleGroups(referenceData.vehicleGroups || {});
+        setVehicleLookup(referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} });
+        setEquipmentGroups(referenceData.equipmentGroups || {});
+        setOpenEquipGroups(referenceData.openEquipGroups || {});
+      } catch (err) {
+        console.error("Failed loading booking form reference data:", err);
+      } finally {
+        setReferenceDataLoading(false);
+      }
     };
 
     loadData();
   }, [draftIdFromQuery]);
+
+  useEffect(() => {
+    const dates = availabilityDateKey.split("|").filter(Boolean);
+    if (!dates.length) {
+      setAllBookings([]);
+      setHolidayBookings([]);
+      setUnavailableNotes([]);
+      setMaintenanceBookings([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    loadBookingAvailabilityForDates(db, dates)
+      .then((availability) => {
+        if (cancelled) return;
+        setAllBookings(availability.bookings || []);
+        setHolidayBookings(availability.holidays || []);
+        setUnavailableNotes(availability.unavailableNotes || []);
+        setMaintenanceBookings(availability.maintenanceBookings || []);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Failed loading booking availability data:", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [availabilityDateKey]);
+
+  useEffect(() => {
+    const vehicleIds = selectedVehicleKey.split("|").filter(Boolean);
+    if (!vehicleIds.length) {
+      setVehicleChecks([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    loadVehicleChecksForVehicles(db, vehicleIds)
+      .then((checks) => {
+        if (!cancelled) setVehicleChecks(checks || []);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Failed loading vehicle check data:", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVehicleKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1344,16 +1409,55 @@ export default function CreateBookingPage() {
      Holiday checks
   ───────────────────────────────────────────────────────────── */
   const isEmployeeOnHolidayForDates = (employeeName, dates) => {
-    if (!employeeName || !dates?.length) return false;
+    const target = String(employeeName || "").trim().toLowerCase();
+    const dateSet = new Set((dates || []).map((d) => String(d || "").slice(0, 10)));
+    if (!target || !dateSet.size) return false;
     return holidayBookings.some((h) => {
-      if (h.employee !== employeeName) return false;
-      const hs = new Date(h.startDate);
-      const he = new Date(h.endDate);
-      return dates.some((dStr) => {
-        const d = new Date(dStr);
-        return d >= hs && d <= he;
-      });
+      const holidayEmployee = String(h.employee || h.employeeName || "").trim().toLowerCase();
+      return holidayEmployee === target && holidayDateKeysFromRecord(h).some((dateKey) => dateSet.has(dateKey));
     });
+  };
+
+  const getEmployeeUnavailableNoteForDates = (employeeName, dates) => {
+    const target = String(employeeName || "").trim().toLowerCase();
+    if (!target || !dates?.length) return null;
+    const dateSet = new Set((dates || []).map((d) => String(d || "").slice(0, 10)));
+
+    return (
+      unavailableNotes.find((note) => {
+        const noteEmployee = String(note.employee || note.employeeName || "").trim().toLowerCase();
+        if (noteEmployee !== target) return false;
+        const noteDate = String(note.date || note.startDate || "").slice(0, 10);
+        return noteDate && dateSet.has(noteDate);
+      }) || null
+    );
+  };
+
+  const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
+    Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
+
+  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
+    const blockingById = {};
+    const blockingStatusesById = {};
+
+    (bookingRows || [])
+      .filter((booking) => anyDateOverlap(expandBookingDates(booking), dates))
+      .forEach((booking) => {
+        const keys = normalizeVehicleKeysListForLookup(booking.vehicles || [], vehicleLookup);
+        const vmap = booking.vehicleStatus || {};
+
+        keys.forEach((vid) => {
+          const itemStatus = (vmap[vid] ?? booking.status) || "";
+          if (!isVehicleBlockingStatus(itemStatus)) return;
+          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
+          if (!blockingStatusesById[vid].includes(itemStatus)) {
+            blockingStatusesById[vid].push(itemStatus);
+          }
+          if (!blockingById[vid]) blockingById[vid] = itemStatus;
+        });
+      });
+
+    return { blockingById, blockingStatusesById };
   };
 
   /* ────────────────────────────────────────────────────────────
@@ -1374,7 +1478,7 @@ export default function CreateBookingPage() {
     const base = employeeList.map((e) => e?.name).filter(Boolean);
     const selected = selectedNamesByRole("Precision Driver");
     const customSelected = selected.filter((n) => !base.includes(n));
-    return [...uniqStrings([...base, ...customSelected]), "Other"];
+    return uniqStrings([...base, ...customSelected]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeList, employees]);
 
@@ -1469,13 +1573,18 @@ export default function CreateBookingPage() {
 
   // Auto-open groups containing selected equipment
   useEffect(() => {
-    const next = { ...openEquipGroups };
-    Object.entries(equipmentGroups).forEach(([group, items]) => {
-      const hasSelected = items?.some((name) => equipment.includes(name));
-      if (hasSelected) next[group] = true;
+    setOpenEquipGroups((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(equipmentGroups).forEach(([group, items]) => {
+        const hasSelected = items?.some((name) => equipment.includes(name));
+        if (hasSelected && !next[group]) {
+          next[group] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
     });
-    setOpenEquipGroups(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipmentGroups, equipment]);
 
   /* ────────────────────────────────────────────────────────────
@@ -1496,6 +1605,20 @@ export default function CreateBookingPage() {
 
   const handleRemoveContactRow = (index) => {
     setAdditionalContacts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const ensureSavedContactsLoaded = async () => {
+    if (savedContactsLoaded || savedContactsLoading) return;
+    setSavedContactsLoading(true);
+    try {
+      const contacts = await loadSavedContacts(db);
+      setSavedContacts(contacts || []);
+      setSavedContactsLoaded(true);
+    } catch (err) {
+      console.error("Failed loading saved contacts:", err);
+    } finally {
+      setSavedContactsLoading(false);
+    }
   };
 
   const handleQuickAddSavedContact = (id) => {
@@ -1533,18 +1656,23 @@ export default function CreateBookingPage() {
   /* ────────────────────────────────────────────────────────────
      Submit (contacts-only: remove contactEmail/contactNumber)
   ───────────────────────────────────────────────────────────── */
-  const selectedVehicleConflictLabels = (selectedIds, statuses) =>
+  const selectedVehicleConflictLabels = (
+    selectedIds,
+    statuses,
+    blockingStatuses = vehicleBlockingStatusesById,
+    blockingStatus = vehicleBlockingStatusById
+  ) =>
     (selectedIds || [])
       .filter((vehicleId) =>
         existingVehicleStatusConflictsWithRequested(
-          vehicleBlockingStatusesById[vehicleId] || [],
+          blockingStatuses[vehicleId] || [],
           statuses?.[vehicleId] || status
         )
       )
       .map((vehicleId) => {
         const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
         const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
-        const existingStatus = (vehicleBlockingStatusesById[vehicleId] || [vehicleBlockingStatusById[vehicleId] || "booked"]).join(", ");
+        const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
         return `${label} (${existingStatus})`;
       });
 
@@ -1582,8 +1710,29 @@ export default function CreateBookingPage() {
     ]);
 
     const bookingDates = status !== "Enquiry" ? selectedDates : [];
+    let availabilityForSave = null;
+    if (bookingDates.length) {
+      try {
+        availabilityForSave = await loadBookingAvailabilityForDates(db, bookingDates);
+        setAllBookings(availabilityForSave.bookings || []);
+        setHolidayBookings(availabilityForSave.holidays || []);
+        setUnavailableNotes(availabilityForSave.unavailableNotes || []);
+        setMaintenanceBookings(availabilityForSave.maintenanceBookings || []);
+      } catch (err) {
+        console.error("Failed checking booking availability before save:", err);
+        return alert("Could not check availability for the selected dates. Please try saving again.");
+      }
+    }
 
-    const vehicleConflicts = selectedVehicleConflictLabels(vehicles, vehicleStatus);
+    const freshVehicleBlocking = availabilityForSave
+      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+      : null;
+    const vehicleConflicts = selectedVehicleConflictLabels(
+      vehicles,
+      vehicleStatus,
+      freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
+      freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
+    );
     if (bookingDates.length && vehicleConflicts.length) {
       return alert(
         `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
@@ -1619,13 +1768,47 @@ export default function CreateBookingPage() {
       }
     }
 
+    const holidaysForSave = availabilityForSave?.holidays || holidayBookings;
+    const unavailableNotesForSave = availabilityForSave?.unavailableNotes || unavailableNotes;
+    const isEmployeeOnHolidayForSave = (employeeName, dates) => {
+      const target = String(employeeName || "").trim().toLowerCase();
+      const dateSet = new Set((dates || []).map((d) => String(d || "").slice(0, 10)));
+      if (!target || !dateSet.size) return false;
+      return (holidaysForSave || []).some((holiday) => {
+        const holidayEmployee = String(holiday.employee || holiday.employeeName || "").trim().toLowerCase();
+        return (
+          holidayEmployee === target &&
+          holidayDateKeysFromRecord(holiday).some((dateKey) => dateSet.has(dateKey))
+        );
+      });
+    };
+    const getEmployeeUnavailableNoteForSave = (employeeName, dates) => {
+      const target = String(employeeName || "").trim().toLowerCase();
+      const dateSet = new Set((dates || []).map((d) => String(d || "").slice(0, 10)));
+      if (!target || !dateSet.size) return null;
+      return (
+        (unavailableNotesForSave || []).find((note) => {
+          const noteEmployee = String(note.employee || note.employeeName || "").trim().toLowerCase();
+          const noteDate = String(note.date || note.startDate || "").slice(0, 10);
+          return noteEmployee === target && noteDate && dateSet.has(noteDate);
+        }) || null
+      );
+    };
+
     for (const employee of cleanedEmployees) {
       const datesForEmp = bookingDates.filter((d) => {
         const list = employeesByDatePayload[d] || [];
         return list.some((e) => e.name === employee.name && e.role === employee.role);
       });
-      if (datesForEmp.length && isEmployeeOnHolidayForDates(employee.name, datesForEmp)) {
+      if (datesForEmp.length && isEmployeeOnHolidayForSave(employee.name, datesForEmp)) {
         alert(`${employee.name} is on holiday for one or more selected dates.`);
+        return;
+      }
+      const unavailableNote = getEmployeeUnavailableNoteForSave(employee.name, datesForEmp);
+      if (datesForEmp.length && unavailableNote) {
+        alert(
+          `${employee.name} is marked unavailable on a note for one or more selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
+        );
         return;
       }
     }
@@ -1645,6 +1828,7 @@ export default function CreateBookingPage() {
 
     if (newFiles.length > 0) {
       const uploaded = [];
+      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
@@ -1770,7 +1954,7 @@ export default function CreateBookingPage() {
         hasHotel && Number.isFinite(hotelNightsNum) && Number.isFinite(hotelPricePerNightNum)
           ? hotelNightsNum * hotelPricePerNightNum
           : 0,
-      callTime: (!isRange && !useCustomDates ? callTime || "" : ""),
+      callTime: (!isRange && !useCustomDates ? callTimesByDate[bookingDates[0]] || callTime || "" : ""),
       ...(Object.keys(callTimesByDatePayload).length ? { callTimesByDate: callTimesByDatePayload } : {}),
 
       hasRiggingAddress,
@@ -1869,6 +2053,11 @@ export default function CreateBookingPage() {
               Job {jobNumber || "Draft"}
             </div>
           </div>
+          {referenceDataLoading && (
+            <div style={{ ...subCard, color: UI.muted, fontSize: 12, marginBottom: 12 }}>
+              Loading employees, vehicles and equipment...
+            </div>
+          )}
 
           <div style={headerChecks}>
             {!isBickersJob && (
@@ -1907,7 +2096,7 @@ export default function CreateBookingPage() {
                   <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
                 ) : (
                   <div style={{ fontSize: 12, color: UI.muted }}>
-                    Skips tax/insurance compliance for allowed tracking vehicles.
+                    Skips tax/SORN compliance only. Insurance is still required.
                   </div>
                 )}
               </div>
@@ -2039,7 +2228,7 @@ export default function CreateBookingPage() {
                     >
                       <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Department</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Department</label>
                           <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={field.input}>
                             <option value="">Select department</option>
                             {FILM_DEPARTMENTS.map((dep) => (
@@ -2060,18 +2249,18 @@ export default function CreateBookingPage() {
                         </div>
 
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Name</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Name</label>
                           <input type="text" value={row.name} onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)} style={field.input} placeholder="Contact name" />
                         </div>
                       </div>
 
                       <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Email</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Email</label>
                           <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={field.input} placeholder="Email" />
                         </div>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>Number</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Number</label>
                           <input type="tel" value={row.phone} onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)} style={field.input} placeholder="Phone number" />
                         </div>
                       </div>
@@ -2096,44 +2285,55 @@ export default function CreateBookingPage() {
                     </div>
                   ))}
 
-                  {savedContacts.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
-                      <label style={{ ...field.label, fontWeight: 500, marginBottom: 4 }}>
-                        Quick add from saved contacts
-                      </label>
-                      <input
-                        type="text"
-                        value={savedContactSearch}
-                        onChange={(e) => setSavedContactSearch(e.target.value)}
-                        placeholder="Search saved contacts..."
-                        style={{ ...field.input, marginBottom: 6 }}
-                      />
-                      <select
-                        value={selectedSavedContactId}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSelectedSavedContactId(val);
-                          if (val) {
-                            handleQuickAddSavedContact(val);
-                            setSelectedSavedContactId("");
-                          }
-                        }}
-                        style={field.input}
+                  <div style={{ marginTop: 6 }}>
+                    <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
+                      Quick add from saved contacts
+                    </label>
+                    {!savedContactsLoaded ? (
+                      <button
+                        type="button"
+                        onClick={ensureSavedContactsLoaded}
+                        disabled={savedContactsLoading}
+                        style={{ ...btn, width: "100%", justifyContent: "center" }}
                       >
-                        <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
-                        {filteredSavedContacts.map((c) => {
-                          const labelBase = c.name || c.email || "Unnamed";
-                          const deptLabel = c.department ? ` - ${c.department}` : "";
-                          return (
-                            <option key={c.id} value={c.id}>
-                              {labelBase}
-                              {deptLabel}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  )}
+                        {savedContactsLoading ? "Loading saved contacts..." : "Load saved contacts"}
+                      </button>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={savedContactSearch}
+                          onChange={(e) => setSavedContactSearch(e.target.value)}
+                          placeholder="Search saved contacts..."
+                          style={{ ...field.input, marginBottom: 6 }}
+                        />
+                        <select
+                          value={selectedSavedContactId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSelectedSavedContactId(val);
+                            if (val) {
+                              handleQuickAddSavedContact(val);
+                              setSelectedSavedContactId("");
+                            }
+                          }}
+                          style={field.input}
+                        >
+                          <option value="">{filteredSavedContacts.length ? "Select saved contact" : "No saved contacts match"}</option>
+                          {filteredSavedContacts.map((c) => {
+                            const labelBase = c.name || c.email || "Unnamed";
+                            const deptLabel = c.department ? ` - ${c.department}` : "";
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {labelBase}
+                                {deptLabel}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <label style={field.label}>Location</label>
@@ -2143,6 +2343,21 @@ export default function CreateBookingPage() {
                   style={field.input}
                   required
                 />
+                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
+                    Add Rigging Address
+                  </label>
+                  {hasRiggingAddress && (
+                    <textarea
+                      value={riggingAddress}
+                      onChange={(e) => setRiggingAddress(e.target.value)}
+                      rows={3}
+                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "#fff" }}
+                      placeholder="Enter rigging address..."
+                    />
+                  )}
+                </div>
               </div>
 
               {/* Column 2: Dates & People */}
@@ -2205,35 +2420,56 @@ export default function CreateBookingPage() {
                   <div style={{ marginTop: 12 }}>
                     <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
                       {selectedDates.map((date) => {
                         const selectedNote = notesByDate[date] || "";
                         const isOther = selectedNote === "Other";
                         const customOtherValue = notesByDate[`${date}-other`] || "";
+                        const callTimeForDate = callTimesByDate[date] || "";
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: UI.bgAlt }}>
-                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{new Date(date).toDateString()}</div>
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "#f8fafc" }}>
+                            <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 13.5, lineHeight: 1.15 }}>{new Date(date).toDateString()}</div>
 
-                            <select
-                              value={selectedNote}
-                              onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
-                              style={field.input}
-                            >
-                              <option value="">Select note</option>
-                              <option value="1/2 Day Travel">1/2 Day Travel</option>
-                              <option value="Night Shoot">Night Shoot</option>
-                              <option value="On Set">Shoot Day</option>
-                              <option value="Other">Other</option>
-                              <option value="Rehearsal Day">Rehearsal Day</option>
-                              <option value="Rest Day">Rest Day</option>
-                              <option value="Rig Day">Rig Day</option>
-                              <option value="Standby Day">Standby Day</option>
-                              <option value="Spilt Day">Spilt Day</option>
-                              <option value="Travel Day">Travel Day</option>
-                              <option value="Travel Time">Travel Time</option>
-                              <option value="Turnaround Day">Turnaround Day</option>
-                              <option value="Recce Day">Recce Day</option>
-                            </select>
+                            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div>
+                                <label style={{ ...field.label, marginTop: 0, marginBottom: 3, fontSize: 10.5, lineHeight: 1 }}>Day note</label>
+                                <select
+                                  value={selectedNote}
+                                  onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
+                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                >
+                                  <option value="">Select note</option>
+                                  <option value="1/2 Day Travel">1/2 Day Travel</option>
+                                  <option value="Night Shoot">Night Shoot</option>
+                                  <option value="On Set">Shoot Day</option>
+                                  <option value="Other">Other</option>
+                                  <option value="Rehearsal Day">Rehearsal Day</option>
+                                  <option value="Rest Day">Rest Day</option>
+                                  <option value="Rig Day">Rig Day</option>
+                                  <option value="Standby Day">Standby Day</option>
+                                  <option value="Spilt Day">Spilt Day</option>
+                                  <option value="Travel Day">Travel Day</option>
+                                  <option value="Travel Time">Travel Time</option>
+                                  <option value="Turnaround Day">Turnaround Day</option>
+                                  <option value="Recce Day">Recce Day</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{ ...field.label, marginTop: 0, marginBottom: 3, fontSize: 10.5, lineHeight: 1 }}>Call Time</label>
+                                <select
+                                  value={callTimeForDate}
+                                  onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [date]: e.target.value }))}
+                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                >
+                                  <option value="">Select time</option>
+                                  {TIME_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
 
                             {isOther && (
                               <div style={{ marginTop: 8 }}>
@@ -2288,15 +2524,16 @@ export default function CreateBookingPage() {
                 <h4 style={{ margin: "8px 0", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
                   <Users size={15} /> Precision Driver
                 </h4>
-                <div style={checkboxGrid}>
+                <div style={driverCheckboxGrid}>
                   {driverOptions.map((name) => {
                     const isSelected = employees.some((e) => e.name === name && e.role === "Precision Driver");
                     const isBooked = isEmployeeBooked(name);
                     const isHeld = isEmployeeHeld(name);
                     const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
+                    const isUnavailable = isEmployeeUnavailableByNoteForDates(name, selectedDates);
 
                     //  changed: do NOT block selection just because booking is crewed.
-                    const disabled = (isBooked || isHoliday) && !isSelected;
+                    const disabled = (isBooked || isHoliday || isUnavailable) && !isSelected;
 
                     return (
                       <label key={`pd-${name}`} style={{ display: "block", marginBottom: 6 }}>
@@ -2318,7 +2555,7 @@ export default function CreateBookingPage() {
                           }}
                         />{" "}
                         <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                          {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(On Holiday)"}
+                          {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
                     );
@@ -2326,22 +2563,19 @@ export default function CreateBookingPage() {
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "start" }}>
-                    <div>
-                      <label style={{ ...field.label, marginBottom: 6, lineHeight: 1.25 }}>Crew required</label>
-                      <label style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", marginTop: 10 }}>
-                        <input
-                          type="checkbox"
-                          checked={isCrewed}
-                          onChange={(e) => setIsCrewed(e.target.checked)}
-                        />{" "}
-                        Booking Crewed
-                      </label>
-                      <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>Manual only - selecting crew will not tick this.</div>
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
+                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "#f8fafc" }}>
+                  <div className="create-booking-crew-box" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 76px 76px auto", gap: 6, alignItems: "stretch" }}>
+                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                      <input
+                        type="checkbox"
+                        checked={isCrewed}
+                        onChange={(e) => setIsCrewed(e.target.checked)}
+                        style={{ margin: 0 }}
+                      />
+                      Crewed
+                    </label>
+                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                      <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
                       <input
                         type="number"
                         min={0}
@@ -2351,16 +2585,16 @@ export default function CreateBookingPage() {
                           const v = Math.max(0, parseInt(e.target.value || "0", 10));
                           setRequiredCrewCount(Number.isFinite(v) ? v : 0);
                         }}
-                        style={{ ...field.input, width: 110, marginLeft: "auto", marginBottom: 8 }}
+                        style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
-                      <div style={{ fontSize: 12, color: UI.muted }}>Allocated crew</div>
-                      <div style={{ fontSize: 18, fontWeight: 800 }}>
-                        {allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}
-                      </div>
-                      <div style={{ fontSize: 12, color: isCrewed ? "#16a34a" : "#b45309", fontWeight: 700 }}>
-                        {isCrewed ? "Crewed Yes (manual)" : "Not crewed (manual)"}
-                      </div>
                     </div>
+                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
+                      <span style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
+                    </div>
+                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "#166534" : "#92400e", background: isCrewed ? "#dcfce7" : "#fff7ed", border: `1px solid ${isCrewed ? "#86efac" : "#fed7aa"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
+                      {isCrewed ? "Crewed" : "Manual"}
+                    </span>
                   </div>
                 </div>
 
@@ -2372,7 +2606,8 @@ export default function CreateBookingPage() {
                     const isSelected = employees.some((e) => e.name === name && e.role === "Freelancer");
                     const isBooked = isEmployeeBooked(name);
                     const isHoliday = isEmployeeOnHolidayForDates(name, selectedDates);
-                    const disabled = (isBooked || isHoliday) && !isSelected;
+                    const isUnavailable = isEmployeeUnavailableByNoteForDates(name, selectedDates);
+                    const disabled = (isBooked || isHoliday || isUnavailable) && !isSelected;
 
                     return (
                       <label key={`fl-${name}`} style={{ display: "block", marginBottom: 6 }}>
@@ -2394,7 +2629,7 @@ export default function CreateBookingPage() {
                           }}
                         />{" "}
                         <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
-                          {name} {isBooked && "(Booked)"} {isHoliday && "(On Holiday)"}
+                          {name} {isBooked && "(Booked)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
                     );
@@ -2647,14 +2882,12 @@ export default function CreateBookingPage() {
             </div>
 
             {/* Files & Notes */}
-            <div style={{ ...seamlessSection, borderBottom: "none", paddingBottom: 0 }}>
-              <div style={sectionTitleRow}>
-                <span style={iconBox()}><FileText size={17} /></span>
-                <h3 style={cardTitle}>Files & Notes</h3>
-              </div>
-
-              <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
-                <div>
+            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+                <div style={seamlessSection}>
+                  <div style={sectionTitleRow}>
+                    <span style={iconBox()}><FileText size={17} /></span>
+                    <h3 style={cardTitle}>Files</h3>
+                  </div>
                   <label style={field.label}>Attach files (PDF/XLS/XLSX/CSV/JPG/JPEG)</label>
                   <input
                     type="file"
@@ -2663,74 +2896,24 @@ export default function CreateBookingPage() {
                     onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
                     style={{ ...field.input, height: "auto", padding: 10 }}
                   />
-                </div>
 
-                <div style={{ paddingTop: 28 }}>
-              {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
-              {newFiles?.length > 0 && (
-                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
-                  {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Save.
-                </div>
-              )}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 14 }} />
-
-              <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div style={subCard}>
-                  <label style={field.label}>Call Time</label>
-
-                  {selectedDates.length > 1 ? (
-                    <div style={{ borderRadius: UI.radiusSm, padding: 10, background: "#fff", maxHeight: 260, overflow: "auto" }}>
-                      {selectedDates.map((d) => {
-                        const pretty = new Date(d).toDateString();
-                        const value = callTimesByDate[d] || "";
-                        return (
-                          <div key={d} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                            <span style={{ minWidth: 120, fontSize: 13, fontWeight: 600 }}>{pretty}</span>
-                            <select value={value} onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [d]: e.target.value }))} style={field.input}>
-                              <option value="">-- Select time --</option>
-                              {TIME_OPTIONS.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      })}
+                  {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+                  {newFiles?.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                      {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Save.
                     </div>
-                  ) : (
-                    <select value={callTime} onChange={(e) => setCallTime(e.target.value)} style={field.input}>
-                      <option value="">-- Select time --</option>
-                      {TIME_OPTIONS.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
                   )}
                 </div>
 
-                <div style={subCard}>
-                  <label style={field.label}>Rigging Address</label>
-                  <div style={field.checkboxRow}>
-                    <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
-                    Add Rigging Address
+                <div style={{ ...seamlessSection, display: "grid", gap: 8 }}>
+                  <div style={{ ...sectionTitleRow, marginBottom: 4 }}>
+                    <span style={iconBox()}><FileText size={17} /></span>
+                    <h3 style={cardTitle}>Notes</h3>
                   </div>
-                  {hasRiggingAddress && <textarea value={riggingAddress} onChange={(e) => setRiggingAddress(e.target.value)} rows={4} style={{ ...field.textarea, background: "#fff" }} placeholder="Enter rigging address..." />}
-                </div>
-              </div>
+                  <label style={{ ...field.label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "#fff" }} placeholder="Anything extra to include for this booking..." />
 
-              <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, alignItems: "start" }}>
-                <div style={subCard}>
-                  <label style={field.label}>Additional Notes</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={6} style={{ ...field.textarea, background: "#fff" }} placeholder="Anything extra to include for this booking..." />
-                </div>
-
-                <div style={{ ...subCard, display: "grid", gap: 12 }}>
-                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0, marginTop: 2 }}>
                     <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
                     Hotel Booked
                   </label>
@@ -2804,7 +2987,6 @@ export default function CreateBookingPage() {
                     </button>
                   </div>
                 </div>
-              </div>
             </div>
 
             {/* Summary */}
@@ -2815,120 +2997,76 @@ export default function CreateBookingPage() {
                   <h3 style={cardTitle}>Summary</h3>
                 </div>
 
-                <div style={summaryRow}>
-                  <div>Job Number</div>
-                  <div>{jobNumber || "-"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Status</div>
-                  <div>{status || "-"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Shoot Type</div>
-                  <div>{shootType || "-"}</div>
-                </div>
-                <div style={summaryRow}>
-                  <div>Client</div>
-                  <div>{client || "-"}</div>
-                </div>
+                <div style={summaryGrid}>
+                  <div style={summarySection}>
+                    <h4 style={summarySectionTitle}>Job</h4>
+                    <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
+                    <SummaryRow label="Status">{status || "-"}</SummaryRow>
+                    <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>
+                    <SummaryRow label="Client">{client || "-"}</SummaryRow>
+                  </div>
 
-                <div style={summaryRow}>
-                  <div>Contacts</div>
-                  <div>
-                    {additionalContacts.length
-                      ? additionalContacts
-                          .map((c) => {
-                            const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
-                            return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
-                          })
-                          .join(", ")
-                      : "-"}
+                  <div style={summarySection}>
+                    <h4 style={summarySectionTitle}>Schedule</h4>
+                    <SummaryRow label="Dates">
+                      {useCustomDates
+                        ? customDates.length
+                          ? formatSummaryDates(customDates)
+                          : "-"
+                        : isRange
+                        ? `${formatSummaryDate(startDate) || "-"} to ${formatSummaryDate(endDate) || "-"}`
+                        : formatSummaryDate(startDate) || "-"}
+                    </SummaryRow>
+                    <SummaryRow label="Call">
+                      {formatSummaryCallTimes(selectedDates, callTimesByDate, callTime)}
+                    </SummaryRow>
+                    <SummaryRow label="Location">{location || "-"}</SummaryRow>
+                  </div>
+
+                  <div style={summarySection}>
+                    <h4 style={summarySectionTitle}>People</h4>
+                    <SummaryRow label="Contacts">
+                      {additionalContacts.length
+                        ? additionalContacts
+                            .map((c) => {
+                              const dept = c.department === "Other" && c.departmentOther ? c.departmentOther : c.department;
+                              return [c.name || c.email || "Unnamed", dept ? `(${dept})` : ""].filter(Boolean).join(" ");
+                            })
+                            .join(", ")
+                        : "-"}
+                    </SummaryRow>
+                    <SummaryRow label="Drivers">{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "-"}</SummaryRow>
+                    <SummaryRow label="Freelancers">{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "-"}</SummaryRow>
+                    <SummaryRow label="Crew">{`${isCrewed ? "Crewed" : "Manual"} - ${allocatedCrewCount} / ${Number(requiredCrewCount) || 0}`}</SummaryRow>
+                  </div>
+
+                  <div style={summarySection}>
+                    <h4 style={summarySectionTitle}>Assets</h4>
+                    <SummaryRow label="Vehicles">
+                      {Object.values(vehicleGroups)
+                        .flat()
+                        .filter((v) => vehicles.includes(v.id))
+                        .map((v) => {
+                          const vs = vehicleStatus[v.id] || status;
+                          const label = v.registration ? `${v.name} - ${v.registration}` : v.name;
+                          return <span key={v.id} style={summaryPill}>{label} - {vs}</span>;
+                        })}
+                      {vehicles.length === 0 && "-"}
+                    </SummaryRow>
+                    <SummaryRow label="Equipment">{equipment.join(", ") || "-"}</SummaryRow>
+                  </div>
+
+                  <div style={summarySection}>
+                    <h4 style={summarySectionTitle}>Logistics</h4>
+                    <SummaryRow label="Hotel">{hasHotel ? "Yes" : "No"}</SummaryRow>
+                    {hasHotel && (
+                      <SummaryRow label="Cost">{`${hotelPaidBy || "-"} - ${hotelNights || "-"} nights - ${hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}`}</SummaryRow>
+                    )}
+                    {hasRiggingAddress && (
+                      <SummaryRow label="Rigging">{riggingAddress || "-"}</SummaryRow>
+                    )}
                   </div>
                 </div>
-
-                <div style={summaryRow}>
-                  <div>Location</div>
-                  <div>{location || "-"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Dates</div>
-                  <div>
-                    {useCustomDates ? (customDates.length ? customDates.join(", ") : "-") : isRange ? `${startDate || "-"} to ${endDate || "-"}` : startDate || "-"}
-                  </div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Drivers</div>
-                  <div>{employees.filter((e) => e.role === "Precision Driver").map((e) => e.name).join(", ") || "-"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Freelancers</div>
-                  <div>{employees.filter((e) => e.role === "Freelancer").map((e) => e.name).join(", ") || "-"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Crewing</div>
-                  <div>
-                    {`Manual - ${isCrewed ? "Crewed Yes" : "Not crewed"} - Allocated ${allocatedCrewCount} / Required ${Number(requiredCrewCount) || 0}`}
-                  </div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Vehicles</div>
-                  <div>
-                    {Object.values(vehicleGroups)
-                      .flat()
-                      .filter((v) => vehicles.includes(v.id))
-                      .map((v) => {
-                        const vs = vehicleStatus[v.id] || status;
-                        const label = v.registration ? `${v.name} - ${v.registration}` : v.name;
-                        return (
-                          <span
-                            key={v.id}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              border: UI.border,
-                              background: UI.bgAlt,
-                              borderRadius: 999,
-                              padding: "2px 8px",
-                              marginRight: 6,
-                              marginBottom: 6,
-                            }}
-                          >
-                            {label} - {vs}
-                          </span>
-                        );
-                      })}
-                    {vehicles.length === 0 && "-"}
-                  </div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Equipment</div>
-                  <div>{equipment.join(", ") || "-"}</div>
-                </div>
-
-                <div style={summaryRow}>
-                  <div>Hotel / CT</div>
-                  <div>
-                    {hasHotel ? "Hotel Yes" : "Hotel No"}
-                    {" - "}
-                    {selectedDates.length > 1
-                      ? selectedDates.map((d) => `${d}: ${callTimesByDate[d] || "-"}`).join(" | ")
-                      : callTime || "-"}
-                  </div>
-                </div>
-
-                {hasRiggingAddress && (
-                  <div style={summaryRow}>
-                    <div>Rigging Address</div>
-                    <div>{riggingAddress || "-"}</div>
-                  </div>
-                )}
               </div>
             </div>
             </div>
