@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { auth, db } from "../../../firebaseConfig";
+import { auth, db } from "@/app/utils/firebaseClient";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -79,6 +79,7 @@ import EditNoteModal from "../components/EditNoteModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
+import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 
 /*
    New styling tokens (match your HR page)
@@ -1891,11 +1892,18 @@ export default function DashboardPage({ bookingSaved }) {
   }, [isRestricted, router]);
 
   const goToEditBooking = useCallback(
-    (id) => {
+    (bookingOrId) => {
       if (isRestricted) return;
+      const booking =
+        bookingOrId && typeof bookingOrId === "object"
+          ? bookingOrId
+          : bookings.find((item) => item.id === bookingOrId);
+      const id = booking?.id || bookingOrId;
+      if (!id) return;
+      if (booking) cacheBookingForEdit(booking);
       router.push(`/edit-booking/${id}`);
     },
-    [isRestricted, router]
+    [bookings, isRestricted, router]
   );
 
   const goToCreateMaintenance = useCallback(
@@ -3608,6 +3616,7 @@ export default function DashboardPage({ bookingSaved }) {
           deletedId={selectedDeletedId}
           initialBooking={selectedBooking}
           initialVehicles={vehiclesData}
+          onEdit={goToEditBooking}
           onClose={handleCloseBookingModal}
         />
       )}

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { db, auth, storage as storageInstance } from "../../../../firebaseConfig";
+import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
+import { readCachedBookingForEdit } from "@/app/utils/editBookingCache";
 import {
   doc,
   getDoc,
@@ -489,6 +490,10 @@ const toYMD = (raw) => {
     const d = raw.toDate();
     return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
   }
+  if (typeof raw?.seconds === "number") {
+    const d = new Date(raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1_000_000));
+    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  }
   const d = new Date(raw);
   return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
@@ -588,6 +593,9 @@ const toJsDate = (raw) => {
   if (!raw) return null;
   if (raw instanceof Date) return raw;
   if (typeof raw?.toDate === "function") return raw.toDate();
+  if (typeof raw?.seconds === "number") {
+    return new Date(raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1_000_000));
+  }
   const d = new Date(String(raw));
   return isNaN(d.getTime()) ? null : d;
 };
@@ -616,6 +624,187 @@ const toMoney = (raw) => {
   if (!s) return "";
   const n = Number(s);
   return Number.isFinite(n) ? String(n) : "";
+};
+
+const buildDatePrefillState = (bookingData = {}) => {
+  const bd = Array.isArray(bookingData.bookingDates)
+    ? bookingData.bookingDates.map(toYMD).filter(Boolean)
+    : [];
+  const sY = toYMD(bookingData.startDate);
+  const eY = toYMD(bookingData.endDate);
+  const dY = toYMD(bookingData.date);
+
+  if (sY && eY) {
+    return {
+      useCustomDates: false,
+      isRange: true,
+      startDate: sY,
+      endDate: eY,
+      customDates: [],
+    };
+  }
+
+  if (dY) {
+    return {
+      useCustomDates: false,
+      isRange: false,
+      startDate: dY,
+      endDate: "",
+      customDates: [],
+    };
+  }
+
+  if (bd.length) {
+    const sorted = [...bd].sort();
+    const consecutive =
+      sorted.length > 1
+        ? enumerateDaysYMD_UTC(sorted[0], sorted[sorted.length - 1]).length === sorted.length
+        : false;
+
+    if (consecutive && sorted.length > 1) {
+      return {
+        useCustomDates: false,
+        isRange: true,
+        startDate: sorted[0],
+        endDate: sorted[sorted.length - 1],
+        customDates: [],
+      };
+    }
+
+    if (sorted.length === 1) {
+      return {
+        useCustomDates: false,
+        isRange: false,
+        startDate: sorted[0],
+        endDate: "",
+        customDates: [],
+      };
+    }
+
+    return {
+      useCustomDates: true,
+      isRange: false,
+      startDate: "",
+      endDate: "",
+      customDates: sorted,
+    };
+  }
+
+  return {
+    useCustomDates: false,
+    isRange: false,
+    startDate: "",
+    endDate: "",
+    customDates: [],
+  };
+};
+
+const buildEditBookingPrefillState = (bookingData) => {
+  const booking = bookingData || {};
+  const dateState = buildDatePrefillState(booking);
+  const rawEmployees = Array.isArray(booking.employees) ? booking.employees : [];
+  const employees = rawEmployees.length
+    ? uniqEmpObjects(
+        rawEmployees.map((employee) =>
+          typeof employee === "string"
+            ? { role: "Precision Driver", name: employee }
+            : employee
+        )
+      )
+    : [];
+  const rawVehicles = Array.isArray(booking.vehicles) ? booking.vehicles : [];
+  const vehicleIds = fallbackVehicleKeys(rawVehicles);
+  const vehicleStatus = {
+    ...(booking.vehicleStatus && typeof booking.vehicleStatus === "object"
+      ? booking.vehicleStatus
+      : {}),
+  };
+  vehicleIds.forEach((vehicleId) => {
+    if (!vehicleStatus[vehicleId]) vehicleStatus[vehicleId] = booking.status || "Confirmed";
+  });
+  const equipment = Array.from(
+    new Set(
+      (Array.isArray(booking.equipment) ? booking.equipment : [])
+        .map((item) => (typeof item === "string" ? item : item?.name))
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+    )
+  );
+  const hasUsefulBooking = Boolean(
+    bookingData?.id && Object.keys(booking).some((key) => key !== "id")
+  );
+
+  return {
+    hasBooking: hasUsefulBooking,
+    jobNumber: booking.jobNumber || "",
+    client: booking.client || "",
+    location: booking.location || "",
+    status: booking.status || "Confirmed",
+    shootType: booking.shootType || "Day",
+    statusReasons: Array.isArray(booking.statusReasons) ? booking.statusReasons : [],
+    statusReasonOther: booking.statusReasonOther || "",
+    ...dateState,
+    notesByDate: booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate : {},
+    notes: booking.notes || "",
+    callTime: booking.callTime || "",
+    callTimesByDate:
+      booking.callTimesByDate && typeof booking.callTimesByDate === "object"
+        ? booking.callTimesByDate
+        : {},
+    hasHotel: Boolean(booking.hasHotel ?? booking.hotelBooked ?? booking.isHotelBooked ?? booking.hotel),
+    hotelPaidBy: String(booking.hotelPaidBy ?? booking.hotelPaid ?? booking.hotelPayer ?? ""),
+    hotelNights:
+      booking.hotelNights === 0 || booking.hotelNights
+        ? String(booking.hotelNights)
+        : booking.nights === 0 || booking.nights
+        ? String(booking.nights)
+        : booking.hotelNightCount === 0 || booking.hotelNightCount
+        ? String(booking.hotelNightCount)
+        : "",
+    hotelPricePerNight: toMoney(
+      booking.hotelPricePerNight ??
+        booking.pricePerNight ??
+        booking.hotelRate ??
+        booking.hotelCostPerNight ??
+        ""
+    ),
+    hasRiggingAddress: Boolean(booking.hasRiggingAddress),
+    riggingAddress: booking.riggingAddress || "",
+    isSecondPencil: Boolean(booking.isSecondPencil),
+    isCrewed: Boolean(booking.isCrewed),
+    hasHS: Boolean(booking.hasHS),
+    hasRiskAssessment: Boolean(booking.hasRiskAssessment),
+    offRoadTracking: Boolean(booking.offRoadTracking),
+    requiredCrewCount: Number.isFinite(Number(booking.requiredCrewCount))
+      ? Number(booking.requiredCrewCount)
+      : 1,
+    employees,
+    employeesByDate:
+      booking.employeesByDate && typeof booking.employeesByDate === "object"
+        ? booking.employeesByDate
+        : {},
+    vehicles: vehicleIds,
+    vehicleStatus,
+    equipment,
+    additionalContacts: (Array.isArray(booking.additionalContacts) ? booking.additionalContacts : []).map(
+      (contact) => ({
+        department: contact.department || "",
+        departmentOther: "",
+        name: contact.name || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
+      })
+    ),
+    attachments: Array.isArray(booking.attachments) ? booking.attachments : [],
+    existingHistory: Array.isArray(booking.history) ? booking.history : [],
+    existingStatusHistory: Array.isArray(booking.statusHistory) ? booking.statusHistory : [],
+    existingLifecycle:
+      booking.lifecycle && typeof booking.lifecycle === "object" ? booking.lifecycle : null,
+    createdAtIso: booking.createdAt || null,
+    createdByEmail: booking.createdBy || null,
+    createdByUid: booking.createdByUid || null,
+    originalBookingData: bookingData || null,
+  };
 };
 
 const formatAuditDate = (raw) => {
@@ -853,76 +1042,78 @@ export default function EditBookingPage() {
   const router = useRouter();
   const params = useParams();
   const bookingId = params?.id;
+  const cachedBooking = useMemo(() => readCachedBookingForEdit(bookingId), [bookingId]);
+  const prefill = useMemo(() => buildEditBookingPrefillState(cachedBooking), [cachedBooking]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!prefill.hasBooking);
   const [supportingDataLoading, setSupportingDataLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Core fields
-  const [jobNumber, setJobNumber] = useState("");
-  const [client, setClient] = useState("");
-  const [location, setLocation] = useState("");
+  const [jobNumber, setJobNumber] = useState(prefill.jobNumber);
+  const [client, setClient] = useState(prefill.client);
+  const [location, setLocation] = useState(prefill.location);
 
-  const [status, setStatus] = useState("Confirmed");
-  const [shootType, setShootType] = useState("Day");
+  const [status, setStatus] = useState(prefill.status);
+  const [shootType, setShootType] = useState(prefill.shootType);
 
-  const [statusReasons, setStatusReasons] = useState([]);
-  const [statusReasonOther, setStatusReasonOther] = useState("");
+  const [statusReasons, setStatusReasons] = useState(prefill.statusReasons);
+  const [statusReasonOther, setStatusReasonOther] = useState(prefill.statusReasonOther);
 
   // Dates
-  const [isRange, setIsRange] = useState(false);
-  const [useCustomDates, setUseCustomDates] = useState(false);
-  const [customDates, setCustomDates] = useState([]);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [isRange, setIsRange] = useState(prefill.isRange);
+  const [useCustomDates, setUseCustomDates] = useState(prefill.useCustomDates);
+  const [customDates, setCustomDates] = useState(prefill.customDates);
+  const [startDate, setStartDate] = useState(prefill.startDate);
+  const [endDate, setEndDate] = useState(prefill.endDate);
 
   // Notes per day
-  const [notesByDate, setNotesByDate] = useState({});
-  const [notes, setNotes] = useState("");
+  const [notesByDate, setNotesByDate] = useState(prefill.notesByDate);
+  const [notes, setNotes] = useState(prefill.notes);
 
   // Call times
-  const [callTime, setCallTime] = useState("");
-  const [callTimesByDate, setCallTimesByDate] = useState({});
+  const [callTime, setCallTime] = useState(prefill.callTime);
+  const [callTimesByDate, setCallTimesByDate] = useState(prefill.callTimesByDate);
 
   // Hotel / rigging
-  const [hasHotel, setHasHotel] = useState(false);
+  const [hasHotel, setHasHotel] = useState(prefill.hasHotel);
 
   //  restored hotel details
-  const [hotelPaidBy, setHotelPaidBy] = useState(""); // "Production" | "Bickers"
-  const [hotelNights, setHotelNights] = useState(""); // string for input
-  const [hotelPricePerNight, setHotelPricePerNight] = useState(""); // string for input
+  const [hotelPaidBy, setHotelPaidBy] = useState(prefill.hotelPaidBy); // "Production" | "Bickers"
+  const [hotelNights, setHotelNights] = useState(prefill.hotelNights); // string for input
+  const [hotelPricePerNight, setHotelPricePerNight] = useState(prefill.hotelPricePerNight); // string for input
 
-  const [hasRiggingAddress, setHasRiggingAddress] = useState(false);
-  const [riggingAddress, setRiggingAddress] = useState("");
+  const [hasRiggingAddress, setHasRiggingAddress] = useState(prefill.hasRiggingAddress);
+  const [riggingAddress, setRiggingAddress] = useState(prefill.riggingAddress);
 
   // Flags
-  const [isSecondPencil, setIsSecondPencil] = useState(false);
+  const [isSecondPencil, setIsSecondPencil] = useState(prefill.isSecondPencil);
 
   //  manual crewing only
-  const [isCrewed, setIsCrewed] = useState(false);
+  const [isCrewed, setIsCrewed] = useState(prefill.isCrewed);
 
-  const [hasHS, setHasHS] = useState(false);
-  const [hasRiskAssessment, setHasRiskAssessment] = useState(false);
-  const [offRoadTracking, setOffRoadTracking] = useState(false);
+  const [hasHS, setHasHS] = useState(prefill.hasHS);
+  const [hasRiskAssessment, setHasRiskAssessment] = useState(prefill.hasRiskAssessment);
+  const [offRoadTracking, setOffRoadTracking] = useState(prefill.offRoadTracking);
 
   // Crew requirement is guidance only. "Crewed" is controlled manually.
-  const [requiredCrewCount, setRequiredCrewCount] = useState(1);
+  const [requiredCrewCount, setRequiredCrewCount] = useState(prefill.requiredCrewCount);
 
   // Employees
-  const [employees, setEmployees] = useState([]); // [{role,name}]
-  const [employeesByDate, setEmployeesByDate] = useState({});
+  const [employees, setEmployees] = useState(prefill.employees); // [{role,name}]
+  const [employeesByDate, setEmployeesByDate] = useState(prefill.employeesByDate);
   const [customEmployee, setCustomEmployee] = useState("");
 
   // Vehicles
-  const [vehicles, setVehicles] = useState([]); // vehicleIds
-  const [vehicleStatus, setVehicleStatus] = useState({}); // {vehicleId: status}
+  const [vehicles, setVehicles] = useState(prefill.vehicles); // vehicleIds
+  const [vehicleStatus, setVehicleStatus] = useState(prefill.vehicleStatus); // {vehicleId: status}
 
   // Equipment
-  const [equipment, setEquipment] = useState([]);
+  const [equipment, setEquipment] = useState(prefill.equipment);
   const [assetSearch, setAssetSearch] = useState("");
 
   // Contacts block
-  const [additionalContacts, setAdditionalContacts] = useState([]);
+  const [additionalContacts, setAdditionalContacts] = useState(prefill.additionalContacts);
   const [savedContacts, setSavedContacts] = useState([]);
   const [savedContactsLoaded, setSavedContactsLoaded] = useState(false);
   const [savedContactsLoading, setSavedContactsLoading] = useState(false);
@@ -930,7 +1121,7 @@ export default function EditBookingPage() {
   const [savedContactSearch, setSavedContactSearch] = useState("");
 
   // Attachments
-  const [attachments, setAttachments] = useState([]); // existing
+  const [attachments, setAttachments] = useState(prefill.attachments); // existing
   const [newFiles, setNewFiles] = useState([]);
   const [pdfProgress, setPdfProgress] = useState(0);
 
@@ -1014,13 +1205,13 @@ export default function EditBookingPage() {
   }, [sortedSavedContacts, savedContactSearch]);
 
   // Preserve existing history on save
-  const [existingHistory, setExistingHistory] = useState([]);
-  const [createdAtIso, setCreatedAtIso] = useState(null);
-  const [createdByEmail, setCreatedByEmail] = useState(null);
-  const [createdByUid, setCreatedByUid] = useState(null);
-  const [existingStatusHistory, setExistingStatusHistory] = useState([]);
-  const [existingLifecycle, setExistingLifecycle] = useState(null);
-  const [originalBookingData, setOriginalBookingData] = useState(null);
+  const [existingHistory, setExistingHistory] = useState(prefill.existingHistory);
+  const [createdAtIso, setCreatedAtIso] = useState(prefill.createdAtIso);
+  const [createdByEmail, setCreatedByEmail] = useState(prefill.createdByEmail);
+  const [createdByUid, setCreatedByUid] = useState(prefill.createdByUid);
+  const [existingStatusHistory, setExistingStatusHistory] = useState(prefill.existingStatusHistory);
+  const [existingLifecycle, setExistingLifecycle] = useState(prefill.existingLifecycle);
+  const [originalBookingData, setOriginalBookingData] = useState(prefill.originalBookingData);
 
   const isMaintenance = status === "Maintenance";
   const isBickersJob = status === "Bickers";
@@ -1131,13 +1322,14 @@ export default function EditBookingPage() {
     const loadAll = async () => {
       if (!bookingId) return;
 
-      setLoading(true);
+      setLoading(!prefill.hasBooking);
       setSupportingDataLoading(false);
 
       const bookingLoadStartedAt =
         typeof performance !== "undefined" && typeof performance.now === "function"
           ? performance.now()
           : Date.now();
+      const referenceDataPromise = loadBookingFormReferenceData(db);
       const bookingDocSnap = await getDoc(doc(db, "bookings", bookingId));
 
       if (!bookingDocSnap.exists()) {
@@ -1374,7 +1566,7 @@ export default function EditBookingPage() {
       await new Promise((resolve) => setTimeout(resolve, 0));
       setSupportingDataLoading(true);
       try {
-        const referenceData = await loadBookingFormReferenceData(db);
+        const referenceData = await referenceDataPromise;
 
         setEmployeeList(referenceData.employeeList || []);
         setFreelancerList(referenceData.freelancerList || []);
@@ -1410,7 +1602,7 @@ export default function EditBookingPage() {
       alert("Failed to load booking.");
       router.push("/dashboard");
     });
-  }, [bookingId, router]);
+  }, [bookingId, prefill.hasBooking, router]);
 
   useEffect(() => {
     const dates = availabilityDateKey.split("|").filter(Boolean);
@@ -2078,11 +2270,12 @@ export default function EditBookingPage() {
     // Upload new files if any
     if (newFiles.length > 0) {
       const uploaded = [];
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { storage, ref, uploadBytesResumable, getDownloadURL } =
+        await getFirebaseStorageTools();
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
-        const storageRefObj = ref(storageInstance, `${folder}/${safeName}`);
+        const storageRefObj = ref(storage, `${folder}/${safeName}`);
 
         const contentType =
           file.type ||

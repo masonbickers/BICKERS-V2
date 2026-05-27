@@ -1,0 +1,39 @@
+"use client";
+
+import { initializeApp, getApps } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE",
+  authDomain: "bickers-booking.firebaseapp.com",
+  databaseURL: "https://bickers-booking-default-rtdb.firebaseio.com",
+  projectId: "bickers-booking",
+  storageBucket: "bickers-booking.firebasestorage.app",
+  messagingSenderId: "784506946068",
+  appId: "1:784506946068:web:7a86167b5f7f4b0b249d01",
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+let storageToolsPromise = null;
+
+export async function getFirebaseStorageTools() {
+  if (!storageToolsPromise) {
+    storageToolsPromise = import("firebase/storage").then(
+      ({ getStorage, ref, uploadBytesResumable, getDownloadURL }) => ({
+        storage: getStorage(app),
+        ref,
+        uploadBytesResumable,
+        getDownloadURL,
+      })
+    );
+  }
+  return storageToolsPromise;
+}
+
+export { app, auth, db, googleProvider };

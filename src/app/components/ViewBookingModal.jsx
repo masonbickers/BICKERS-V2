@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { db, auth } from "../../../firebaseConfig";
+import { auth, db } from "@/app/utils/firebaseClient";
 import {
   doc,
   getDoc,
@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -240,6 +241,7 @@ export default function ViewBookingModal({
   deletedId = null,
   initialBooking = null,
   initialVehicles = [],
+  onEdit = null,
 }) {
   const [booking, setBooking] = useState(initialBooking);
   const [allVehicles, setAllVehicles] = useState(initialVehicles);
@@ -247,6 +249,16 @@ export default function ViewBookingModal({
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
   const router = useRouter();
+
+  const handleEdit = () => {
+    const bookingForCache = booking?.id ? booking : { ...(booking || {}), id };
+    cacheBookingForEdit(bookingForCache);
+    if (typeof onEdit === "function") {
+      onEdit(bookingForCache);
+      return;
+    }
+    router.push(`/edit-booking/${id}`);
+  };
 
   useEffect(() => {
     const onEsc = (e) => e.key === "Escape" && onClose?.();
@@ -929,7 +941,7 @@ export default function ViewBookingModal({
           ) : (
             <>
               <button
-                onClick={() => router.push(`/edit-booking/${id}`)}
+                onClick={handleEdit}
                 style={{ ...btn, background: "#0d6efd" }}
               >
                 Edit

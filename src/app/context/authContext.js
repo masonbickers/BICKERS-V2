@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
-import { auth, db } from "../../../firebaseConfig";
+import { auth, db } from "@/app/utils/firebaseClient";
 import {
   findEmployeeForUser,
   hasMirroredAccessRecord,

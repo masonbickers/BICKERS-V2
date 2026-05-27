@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { db, auth, storage as storageInstance } from "../../../firebaseConfig";
+import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
 import { collection, addDoc, getDocs, doc, setDoc, query, orderBy, limit } from "firebase/firestore";
 import {
   contactIdFromEmail,
@@ -1828,11 +1828,12 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
     if (newFiles.length > 0) {
       const uploaded = [];
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { storage, ref, uploadBytesResumable, getDownloadURL } =
+        await getFirebaseStorageTools();
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
-        const storageRef = ref(storageInstance, `${folder}/${safeName}`);
+        const storageRef = ref(storage, `${folder}/${safeName}`);
 
         const contentType =
           file.type ||
