@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
+import RouteLoadingOverlay from "./RouteLoadingOverlay";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -248,23 +249,61 @@ export default function ViewBookingModal({
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteReasonOther, setDeleteReasonOther] = useState("");
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editProgress, setEditProgress] = useState(0);
   const router = useRouter();
 
   const handleEdit = () => {
-    const bookingForCache = booking?.id ? booking : { ...(booking || {}), id };
-    cacheBookingForEdit(bookingForCache);
-    if (typeof onEdit === "function") {
-      onEdit(bookingForCache);
-      return;
+    if (editLoading) return;
+
+    setEditLoading(true);
+    setEditProgress(8);
+
+    try {
+      const bookingForCache = booking?.id ? booking : { ...(booking || {}), id };
+      cacheBookingForEdit(bookingForCache);
+
+      setTimeout(() => {
+        try {
+          if (typeof onEdit === "function") {
+            onEdit(bookingForCache);
+            return;
+          }
+          router.push(`/edit-booking/${id}`);
+        } catch (error) {
+          console.error("Open edit booking failed:", error);
+          setEditLoading(false);
+          setEditProgress(0);
+          alert("Failed to open edit page. Please try again.");
+        }
+      }, 80);
+    } catch (error) {
+      console.error("Prepare edit booking failed:", error);
+      setEditLoading(false);
+      setEditProgress(0);
+      alert("Failed to open edit page. Please try again.");
     }
-    router.push(`/edit-booking/${id}`);
   };
 
   useEffect(() => {
-    const onEsc = (e) => e.key === "Escape" && onClose?.();
+    if (!editLoading) return undefined;
+
+    const timer = setInterval(() => {
+      setEditProgress((current) => {
+        if (current >= 95) return current;
+        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
+        return Math.min(95, current + step);
+      });
+    }, 320);
+
+    return () => clearInterval(timer);
+  }, [editLoading]);
+
+  useEffect(() => {
+    const onEsc = (e) => e.key === "Escape" && !editLoading && onClose?.();
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose]);
+  }, [onClose, editLoading]);
 
   useEffect(() => {
     let mounted = true;
@@ -517,7 +556,10 @@ export default function ViewBookingModal({
     : historyTrail.slice(Math.max(historyTrail.length - 3, 0));
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+    <div
+      style={overlay}
+      onClick={(e) => e.target === e.currentTarget && !editLoading && onClose?.()}
+    >
       <div style={modal}>
         {/* Header */}
         <div style={header}>
@@ -942,20 +984,52 @@ export default function ViewBookingModal({
             <>
               <button
                 onClick={handleEdit}
-                style={{ ...btn, background: "#0d6efd" }}
+                disabled={editLoading}
+                style={{
+                  ...btn,
+                  background: "#0d6efd",
+                  cursor: editLoading ? "wait" : "pointer",
+                  opacity: editLoading ? 0.82 : 1,
+                }}
               >
-                Edit
+                {editLoading ? `Opening ${editProgress}%` : "Edit"}
               </button>
-              <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
+              <button
+                onClick={handleDelete}
+                disabled={editLoading}
+                style={{
+                  ...btn,
+                  background: "#dc3545",
+                  cursor: editLoading ? "not-allowed" : "pointer",
+                  opacity: editLoading ? 0.58 : 1,
+                }}
+              >
                 Delete
               </button>
-              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+              <button
+                onClick={onClose}
+                disabled={editLoading}
+                style={{
+                  ...btn,
+                  background: "#6c757d",
+                  cursor: editLoading ? "not-allowed" : "pointer",
+                  opacity: editLoading ? 0.58 : 1,
+                }}
+              >
                 Close
               </button>
             </>
           )}
         </div>
       </div>
+
+      {editLoading && (
+        <RouteLoadingOverlay
+          progress={editProgress}
+          title="Opening edit page"
+          hint="Preparing booking details..."
+        />
+      )}
     </div>
   );
 }
@@ -965,7 +1039,7 @@ function Section({ title, children, full = false }) {
   return (
     <section style={{ gridColumn: full ? "1 / -1" : "auto" }}>
       <h3 style={sectionTitle}>{title}</h3>
-      <div style={sectionCard}>{children}</div>
+      <div style={compactSectionCard}>{children}</div>
     </section>
   );
 }
@@ -982,7 +1056,12 @@ function Field({ label, value }) {
 const Chip = ({ good, label, title }) => (
   <span
     title={title}
-    style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}
+    style={{
+      ...chip,
+      background: good ? "#dcfce7" : "#fee2e2",
+      color: good ? "#166534" : "#991b1b",
+      borderColor: good ? "#86efac" : "#fecaca",
+    }}
   >
     {label} {good ? "Yes" : "No"}
   </span>
@@ -992,9 +1071,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "#22c55e" : dark ? "#111" : "#f3f4f6",
-      color: success || dark ? "#fff" : "#111",
-      border: success || dark ? "1px solid #111" : "1px solid #e5e7eb",
+      background: success ? "#dcfce7" : dark ? "#e0f2fe" : "#f8fafc",
+      color: success ? "#166534" : dark ? "#075985" : "#334155",
+      border: success ? "1px solid #86efac" : dark ? "1px solid #7dd3fc" : "1px solid #e2e8f0",
     }}
   >
     {children}
@@ -1005,7 +1084,7 @@ const Tag = ({ children, dark, success }) => (
 const overlay = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "rgba(0,0,0,0.5)",
+  backgroundColor: "rgba(15,23,42,0.58)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
@@ -1014,14 +1093,15 @@ const overlay = {
 };
 
 const modal = {
-  background: "#fff",
-  color: "#111",
+  background: "#f8fafc",
+  color: "#0f172a",
   width: "min(1240px, 98vw)",
   maxHeight: "94vh",
   overflow: "auto",
-  borderRadius: 12,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-  padding: 16,
+  borderRadius: 14,
+  border: "1px solid rgba(226,232,240,0.95)",
+  boxShadow: "0 24px 70px rgba(15,23,42,0.32)",
+  padding: 12,
 };
 
 const header = {
@@ -1029,83 +1109,101 @@ const header = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 8,
+  marginBottom: 7,
+  paddingBottom: 7,
+  borderBottom: "1px solid #e2e8f0",
 };
 
 const eyebrow = {
-  fontSize: 12,
-  letterSpacing: 1,
+  fontSize: 11,
+  letterSpacing: 0,
   textTransform: "uppercase",
-  color: "#6b7280",
+  color: "#64748b",
+  fontWeight: 800,
 };
-const title = { margin: 0, fontSize: 20, lineHeight: 1.15 };
+const title = { margin: 0, fontSize: 19, lineHeight: 1.08, color: "#0f172a", fontWeight: 900 };
 
 const badge = {
-  padding: "6px 10px",
+  padding: "5px 10px",
   borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  border: "1px solid #111",
+  fontSize: 11.5,
+  fontWeight: 900,
+  border: "1px solid rgba(15,23,42,0.18)",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
 };
 
-const chipRow = { display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 12px" };
+const chipRow = { display: "flex", gap: 5, flexWrap: "wrap", margin: "6px 0 9px" };
 
 /*  NEW: top split layout */
 const topSplit = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 12,
+  gap: 10,
   alignItems: "start",
 };
 const topCol = { minWidth: 0 }; // prevents overflow
 
 /*  NEW: below stack */
 const belowStack = {
-  marginTop: 12,
+  marginTop: 10,
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 12,
+  gap: 10,
   alignItems: "start",
 };
 
 const sectionTitle = {
-  margin: "0 0 6px 0",
-  fontSize: 12,
-  color: "#374151",
+  margin: "0 0 4px 0",
+  fontSize: 11.5,
+  color: "#475569",
   textTransform: "uppercase",
-  letterSpacing: 0.5,
+  letterSpacing: 0,
+  fontWeight: 900,
 };
 const sectionCard = {
-  background: "#fafafa",
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 10,
+  background: "#fff",
+  border: "1px solid #dbe4ef",
+  borderRadius: 9,
+  padding: 8,
+  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+};
+const compactSectionCard = {
+  background: "rgba(255,255,255,0.62)",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  padding: 6,
+  boxShadow: "none",
 };
 
 const fieldRow = {
   display: "grid",
   gridTemplateColumns: "118px 1fr",
   gap: 8,
-  padding: "5px 0",
-  borderBottom: "1px dashed #e5e7eb",
+  padding: "3px 0",
+  borderBottom: "1px solid #edf2f7",
 };
-const fieldLabel = { color: "#6b7280", fontSize: 12 };
-const fieldValue = { color: "#111", fontSize: 13 };
+const fieldLabel = { color: "#64748b", fontSize: 11.5, fontWeight: 700 };
+const fieldValue = { color: "#0f172a", fontSize: 12.5, fontWeight: 600 };
 
 const notesGrid = {
   display: "grid",
   gridTemplateColumns: "1fr",
-  gap: 6,
+  gap: 5,
 };
-const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8 };
-const noteDate = { fontWeight: 800, fontSize: 12, marginBottom: 4 };
-const noteText = { fontSize: 12, color: "#111" };
+const noteCard = {
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 7,
+  padding: "6px 8px",
+};
+const noteDate = { fontWeight: 900, fontSize: 11.5, marginBottom: 2, color: "#0f172a" };
+const noteText = { fontSize: 12, color: "#334155" };
 
 const noteBox = {
   background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 10,
+  border: "1px solid #dbe4ef",
+  borderRadius: 7,
+  padding: "6px 8px",
   lineHeight: 1.4,
   fontSize: 12,
 };
@@ -1115,53 +1213,56 @@ const tagPill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 5,
-  padding: "3px 7px",
-  background: "#f3f4f6",
-  border: "1px solid #e5e7eb",
+  padding: "2px 6px",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
   borderRadius: 999,
-  fontSize: 11,
+  fontSize: 10.5,
   whiteSpace: "nowrap",
+  color: "#0f172a",
+  fontWeight: 700,
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
 const tagStatus = {
   marginLeft: 6,
   padding: "2px 6px",
   borderRadius: 999,
-  border: "1px solid #d1d5db",
+  border: "1px solid #cbd5e1",
   background: "#fff",
   fontSize: 11,
   fontWeight: 800,
 };
 
-const chip = { padding: "3px 7px", borderRadius: 999, fontSize: 11, border: "1px solid #111" };
+const chip = { padding: "2px 7px", borderRadius: 999, fontSize: 10.5, border: "1px solid #cbd5e1", fontWeight: 800 };
 
 const tag = {
   display: "inline-flex",
   alignItems: "center",
   gap: 5,
-  padding: "3px 7px",
-  background: "#f3f4f6",
-  border: "1px solid #e5e7eb",
+  padding: "2px 7px",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
   borderRadius: 999,
-  fontSize: 11,
+  fontSize: 10.5,
   whiteSpace: "nowrap",
+  fontWeight: 800,
 };
 
 const fileBtn = {
   display: "inline-block",
-  padding: "4px 8px",
+  padding: "3px 7px",
   background: "#fff",
-  color: "#111",
+  color: "#0f172a",
   borderRadius: 999,
   textDecoration: "none",
-  border: "1px solid #d1d5db",
-  fontSize: 11,
+  border: "1px solid #cbd5e1",
+  fontSize: 10.5,
 };
 
 const historyDetails = {
-  marginTop: 12,
-  paddingTop: 8,
-  borderTop: "1px solid #e5e7eb",
+  marginTop: 9,
+  paddingTop: 6,
+  borderTop: "1px solid #e2e8f0",
 };
 
 const historySummary = {
@@ -1171,30 +1272,33 @@ const historySummary = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 10,
-  padding: "4px 0",
+  padding: "3px 0",
   fontSize: 12,
-  fontWeight: 700,
-  color: "#111827",
+  fontWeight: 800,
+  color: "#0f172a",
 };
 
 const historyCount = {
   minWidth: 20,
   padding: "1px 6px",
   borderRadius: 999,
-  background: "#e5e7eb",
-  color: "#111827",
+  background: "#e2e8f0",
+  color: "#334155",
   fontSize: 11,
   textAlign: "center",
 };
 
 const historyBody = {
   display: "grid",
-  gap: 8,
-  padding: "6px 0 0",
+  gap: 6,
+  padding: "5px 0 0",
 };
 
 const historyItem = {
-  padding: "2px 0",
+  padding: "6px 7px",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  background: "#fff",
 };
 
 const historyTopRow = {
@@ -1207,19 +1311,19 @@ const historyTopRow = {
 
 const historyAction = {
   fontSize: 12,
-  fontWeight: 700,
-  color: "#111827",
+  fontWeight: 800,
+  color: "#0f172a",
 };
 
 const historyMeta = {
   fontSize: 12,
-  color: "#6b7280",
+  color: "#64748b",
 };
 
 const historyNote = {
   marginTop: 4,
   fontSize: 12,
-  color: "#111827",
+  color: "#334155",
   whiteSpace: "pre-wrap",
 };
 
@@ -1231,12 +1335,12 @@ const historyChanges = {
 
 const historyChangeLine = {
   fontSize: 12,
-  color: "#111827",
+  color: "#334155",
 };
 
 const historyEmpty = {
   fontSize: 12,
-  color: "#6b7280",
+  color: "#64748b",
 };
 
 const historyToggleBtn = {
@@ -1252,18 +1356,18 @@ const historyToggleBtn = {
 };
 
 const deleteDetails = {
-  marginTop: 10,
-  paddingTop: 8,
-  borderTop: "1px solid #e5e7eb",
+  marginTop: 8,
+  paddingTop: 6,
+  borderTop: "1px solid #e2e8f0",
 };
 
 const deleteSummary = {
   cursor: "pointer",
   listStyle: "none",
-  padding: "4px 0",
+  padding: "3px 0",
   fontSize: 12,
-  fontWeight: 700,
-  color: "#111827",
+  fontWeight: 800,
+  color: "#0f172a",
 };
 
 const deleteBody = {
@@ -1271,10 +1375,10 @@ const deleteBody = {
 };
 
 const footerMeta = {
-  marginTop: 10,
-  paddingTop: 10,
-  borderTop: "1px solid #e5e7eb",
-  color: "#6b7280",
+  marginTop: 8,
+  paddingTop: 8,
+  borderTop: "1px solid #e2e8f0",
+  color: "#64748b",
   fontSize: 11,
   display: "flex",
   gap: 12,
@@ -1283,29 +1387,30 @@ const footerMeta = {
 
 const actions = {
   display: "flex",
-  gap: 10,
+  gap: 8,
   justifyContent: "flex-end",
-  marginTop: 10,
-  paddingTop: 10,
-  borderTop: "1px solid #e5e7eb",
+  marginTop: 8,
+  paddingTop: 8,
+  borderTop: "1px solid #e2e8f0",
   flexWrap: "wrap",
 };
 
 const btn = {
-  padding: "8px 12px",
+  padding: "7px 11px",
   color: "#fff",
   border: "none",
   borderRadius: 8,
   cursor: "pointer",
-  fontWeight: 600,
+  fontWeight: 800,
   fontSize: 12,
+  boxShadow: "0 1px 2px rgba(15,23,42,0.16)",
 };
 
 const miniCard = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  padding: 8,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: 8,
+  padding: 7,
 };
 
 function statusColor(status = "") {

@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
+import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -259,19 +260,106 @@ const btnGhost = {
 };
 
 const homeResponsiveCss = `
+  .home-puzzle-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+    grid-auto-flow: dense;
+  }
+  .home-tile {
+    min-width: 0;
+    height: 100%;
+  }
+  .home-window-tile { grid-column: span 3; }
+  .home-stats-tile { grid-column: span 7; }
+  .home-action-tile { grid-column: span 2; }
+  .home-calendar-tile { grid-column: span 7; }
+  .home-right-rail {
+    grid-column: span 5;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    min-height: 0;
+  }
+  .home-followup-tile,
+  .home-conflict-tile {
+    grid-column: 1 / -1;
+    overflow: auto;
+  }
+  .home-prep-tile { grid-column: span 6; }
+  .home-fleet-tile { grid-column: span 3; }
+  .home-assistant-tile { grid-column: span 3; }
+  .home-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    height: 100%;
+  }
+  .home-fleet-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr;
+  }
+  .home-calendar-tile .fc {
+    font-size: 12px;
+  }
+  .home-calendar-tile .fc .fc-toolbar {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .home-calendar-tile .fc .fc-toolbar-title {
+    font-size: 16px;
+    font-weight: 900;
+  }
+  .home-calendar-tile .fc .fc-button {
+    padding: 4px 7px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .home-calendar-tile .fc .fc-daygrid-day-frame {
+    min-height: 66px;
+  }
+  .home-calendar-tile .fc .fc-event {
+    border-radius: 4px;
+    padding: 1px 3px;
+    font-size: 11px;
+  }
   @media (max-width: 1280px) {
-    .home-command-grid,
-    .home-main-layout {
-      grid-template-columns: 1fr !important;
+    .home-window-tile,
+    .home-stats-tile,
+    .home-action-tile,
+    .home-calendar-tile,
+    .home-right-rail,
+    .home-prep-tile,
+    .home-fleet-tile,
+    .home-assistant-tile {
+      grid-column: 1 / -1 !important;
+    }
+    .home-right-rail {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      grid-template-rows: auto !important;
+    }
+    .home-followup-tile,
+    .home-conflict-tile {
+      grid-column: span 1 !important;
+      overflow: visible !important;
     }
     .home-stat-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     }
   }
   @media (max-width: 760px) {
+    .home-puzzle-grid,
+    .home-right-rail,
     .home-stat-grid,
     .home-fleet-grid {
       grid-template-columns: 1fr !important;
+    }
+    .home-followup-tile,
+    .home-conflict-tile {
+      grid-column: 1 / -1 !important;
     }
   }
 `;
@@ -352,13 +440,15 @@ function StatBlock({ label, value }) {
       style={{
         ...surface,
         display: "grid",
-        gap: 6,
+        gap: 4,
         minWidth: 0,
-        padding: 12,
+        padding: "10px 11px",
+        alignContent: "center",
+        minHeight: 74,
       }}
     >
-      <div style={{ fontSize: 24, fontWeight: 900, color: UI.text, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+      <div style={{ fontSize: 24, fontWeight: 900, color: UI.text, lineHeight: 0.95 }}>{value}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {label}
       </div>
     </div>
@@ -367,22 +457,22 @@ function StatBlock({ label, value }) {
 
 function Bucket({ title, items }) {
   return (
-    <div style={{ ...surface, padding: 12 }}>
+    <div style={{ ...surface, padding: 10 }}>
       <div style={sectionHeader}>
         <div style={{ fontWeight: 900, fontSize: 15, color: UI.text }}>{title}</div>
-        <span style={chip}>Top 8</span>
+        <span style={{ ...chip, padding: "4px 8px", fontSize: 10.5 }}>Top 5</span>
       </div>
       {items && items.length ? (
         <ul style={listReset}>
-          {items.slice(0, 8).map((v) => (
-            <li key={v.id} style={liItem}>
+          {items.slice(0, 5).map((v) => (
+            <li key={v.id} style={{ ...liItem, padding: "8px 9px", marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                 <strong style={{ color: UI.text }}>
                   {v.name || v.registration || "-"}
                 </strong>
                 <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "-"}</span>
               </div>
-              <div style={{ fontSize: 13, color: "#374151" }}>
+              <div style={{ fontSize: 12.5, color: "#374151" }}>
                 MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
                 {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
               </div>
@@ -414,6 +504,8 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
+  const [createBookingOpening, setCreateBookingOpening] = useState(false);
+  const [createBookingProgress, setCreateBookingProgress] = useState(0);
 
   // Window filter (days)
   const [windowDays, setWindowDays] = useState(30);
@@ -633,6 +725,37 @@ export default function HomePage() {
     [maintenanceCalendarEvents, now]
   );
 
+  useEffect(() => {
+    if (!createBookingOpening) return undefined;
+
+    const timer = setInterval(() => {
+      setCreateBookingProgress((current) => {
+        if (current >= 95) return current;
+        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
+        return Math.min(95, current + step);
+      });
+    }, 320);
+
+    return () => clearInterval(timer);
+  }, [createBookingOpening]);
+
+  const openCreateBooking = useCallback(() => {
+    if (createBookingOpening) return;
+    setCreateBookingOpening(true);
+    setCreateBookingProgress(8);
+
+    setTimeout(() => {
+      try {
+        router.push("/create-booking");
+      } catch (error) {
+        console.error("Open create booking failed:", error);
+        setCreateBookingOpening(false);
+        setCreateBookingProgress(0);
+        alert("Failed to open create booking. Please try again.");
+      }
+    }, 80);
+  }, [createBookingOpening, router]);
+
   // Assistant call
   const askAssistant = async () => {
     setLoading(true);
@@ -669,11 +792,10 @@ export default function HomePage() {
       <HeaderSidebarLayout>
         <style>{homeResponsiveCss}</style>
         <div style={pageWrap}>
-          {/* Header */}
           <div style={headerBar}>
             <div>
               <h1 style={h1}>Home</h1>
-              <div style={sub}>Executive operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
+              <div style={sub}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={chip}>Operations overview</span>
@@ -683,80 +805,55 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div
-            className="home-command-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(300px, 0.62fr) minmax(0, 1.38fr)",
-              gap: UI.gap,
-              marginBottom: UI.gap,
-              alignItems: "stretch",
-            }}
-          >
-          {/* Window filter */}
-          <div style={{ ...executivePanel, marginBottom: 0 }}>
-            <div style={{ ...sectionHeader, marginBottom: 0 }}>
+          <div className="home-puzzle-grid">
+            <section className="home-tile home-window-tile" style={{ ...executivePanel, display: "grid", gap: 10 }}>
               <span style={{ ...titleRow, color: UI.text, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 <CalendarDays size={16} />
                 Reporting window
               </span>
-              {[7, 14, 30, 90].map((d) => (
-                <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
-                  {d} days
-                </button>
-              ))}
-              <span style={{ marginLeft: 8, fontSize: 12, color: UI.muted, fontWeight: 800 }}>
-                {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
-              </span>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="home-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: UI.gap, marginBottom: 0 }}>
-            <div>
-              <StatBlock label="Total Jobs" value={jobCounts.total} />
-            </div>
-            <div>
-              <StatBlock label="Enquiry" value={jobCounts.enquiry} />
-            </div>
-            <div>
-              <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
-            </div>
-            <div>
-              <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
-            </div>
-            <div>
-              <StatBlock label="Confirmed" value={jobCounts.confirmed} />
-            </div>
-            <div>
-              <div style={{ ...surface, padding: 12, display: "grid", gap: 8, minWidth: 160, background: UI.card }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Primary action
-                </div>
-                <div style={{ color: UI.text, fontSize: 13, lineHeight: 1.45 }}>
-                  Create a booking directly from the operations overview.
-                </div>
-                <button type="button" style={btnPrimary} onClick={() => router.push("/create-booking")}>
-                  <Plus size={14} />
-                  Create booking
-                </button>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {[7, 14, 30, 90].map((d) => (
+                  <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
+                    {d}d
+                  </button>
+                ))}
               </div>
-            </div>
-          </div>
-          </div>
+              <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
+              </div>
+            </section>
 
-          {/* Main grid */}
-          <div
-            className="home-main-layout"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1.55fr) minmax(360px, 0.95fr)",
-              gap: UI.gap,
-              alignItems: "start",
-            }}
-          >
-            {/* Calendar */}
-            <section style={{ gridColumn: "auto", ...card }}>
+            <section className="home-tile home-stats-tile" style={{ ...card, padding: 8 }}>
+              <div className="home-stat-grid">
+                <StatBlock label="Total Jobs" value={jobCounts.total} />
+                <StatBlock label="Enquiry" value={jobCounts.enquiry} />
+                <StatBlock label="First Pencil" value={jobCounts["first pencil"]} />
+                <StatBlock label="Second Pencil" value={jobCounts["second pencil"]} />
+                <StatBlock label="Confirmed" value={jobCounts.confirmed} />
+              </div>
+            </section>
+
+            <section className="home-tile home-action-tile" style={{ ...card, display: "grid", gap: 8, alignContent: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Primary action
+              </div>
+              <button
+                type="button"
+                disabled={createBookingOpening}
+                style={{
+                  ...btnPrimary,
+                  width: "100%",
+                  cursor: createBookingOpening ? "wait" : "pointer",
+                  opacity: createBookingOpening ? 0.82 : 1,
+                }}
+                onClick={openCreateBooking}
+              >
+                <Plus size={14} />
+                {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create booking"}
+              </button>
+            </section>
+
+            <section className="home-tile home-calendar-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
                   <span style={iconBox()}>
@@ -779,7 +876,9 @@ export default function HomePage() {
                     center: "title",
                     right: "dayGridMonth,dayGridWeek,dayGridDay",
                   }}
-                  contentHeight="auto"
+                  height={462}
+                  dayMaxEventRows={3}
+                  moreLinkClick="popover"
                   events={[
                     ...events.map((e) => ({
                       id: e.id,
@@ -836,9 +935,8 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Right column */}
-            <section style={{ gridColumn: "auto", display: "grid", gap: UI.gap }}>
-              <div style={card}>
+            <section className="home-right-rail">
+              <div className="home-tile home-followup-tile" style={card}>
                 <div style={sectionHeader}>
                   <div>
                     <h2 style={cardTitle}>Follow-Up Queue</h2>
@@ -867,7 +965,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div style={card}>
+              <div className="home-tile home-conflict-tile" style={card}>
                 <div style={sectionHeader}>
                   <div>
                     <h2 style={cardTitle}>Scheduling Conflicts</h2>
@@ -902,8 +1000,7 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Prep list */}
-            <section style={{ gridColumn: "auto", ...card }}>
+            <section className="home-tile home-prep-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
                   <span style={iconBox("#0f766e", "#f0fdfa", "#99f6e4")}>
@@ -918,7 +1015,7 @@ export default function HomePage() {
               </div>
 
               {prepList.length ? (
-                <div style={tableWrap}>
+                <div style={{ ...tableWrap, maxHeight: 330 }}>
                   <table style={tableEl}>
                     <thead>
                       <tr>
@@ -951,8 +1048,7 @@ export default function HomePage() {
               )}
             </section>
 
-            {/* Maintenance buckets */}
-            <section style={{ gridColumn: "auto", ...card }}>
+            <section className="home-tile home-fleet-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
                   <span style={iconBox(UI.accent, UI.accentSoft, "#dcc8b8")}>
@@ -966,7 +1062,7 @@ export default function HomePage() {
                 <span style={sectionTag}>Vehicle review</span>
               </div>
 
-              <div className="home-fleet-grid" style={{ display: "grid", gap: UI.gap, gridTemplateColumns: "1fr" }}>
+              <div className="home-fleet-grid">
                 <Bucket title={`MOT Overdue (${overdueMOT.length})`} items={overdueMOT} />
                 <Bucket title={`Service Overdue (${overdueService.length})`} items={overdueService} />
                 <Bucket title={`MOT due in 3 weeks (${motDueSoon.length})`} items={motDueSoon} />
@@ -974,8 +1070,7 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Assistant */}
-            <section style={{ gridColumn: "1 / -1", ...card }}>
+            <section className="home-tile home-assistant-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
                   <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
@@ -1044,6 +1139,13 @@ export default function HomePage() {
           <DashboardMaintenanceModal
             event={selectedMaintenanceEvent}
             onClose={() => setSelectedMaintenanceEvent(null)}
+          />
+        )}
+        {createBookingOpening && (
+          <RouteLoadingOverlay
+            progress={createBookingProgress}
+            title="Opening create booking"
+            hint="Preparing booking form..."
           />
         )}
       </HeaderSidebarLayout>

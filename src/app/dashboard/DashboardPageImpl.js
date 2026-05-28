@@ -79,6 +79,7 @@ import EditNoteModal from "../components/EditNoteModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
+import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 
 /*
@@ -324,6 +325,13 @@ const compactCalendarFrame = {
   height: "auto",
 };
 
+const monthCalendarFrame = {
+  ...calendarFrame,
+  minHeight: 620,
+  height: "auto",
+  overflow: "visible",
+};
+
 const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
   width: 34,
   height: 34,
@@ -406,6 +414,40 @@ const dashboardCalendarCss = `
 }
 .dashboard-page .dashboard-compact-calendar .rbc-allday-cell {
   min-height: 96px;
+}
+.dashboard-page .dashboard-month-calendar {
+  height: auto !important;
+  min-height: 620px !important;
+  overflow: visible !important;
+}
+.dashboard-page .dashboard-month-calendar .rbc-month-view {
+  display: block;
+  height: auto !important;
+  overflow: visible !important;
+}
+.dashboard-page .dashboard-month-calendar .rbc-month-row {
+  display: block;
+  min-height: 120px;
+  height: auto !important;
+  overflow: visible !important;
+}
+.dashboard-page .dashboard-month-calendar .rbc-row-bg {
+  inset: 0;
+  min-height: 120px;
+}
+.dashboard-page .dashboard-month-calendar .rbc-row-content {
+  min-height: 120px;
+  height: auto !important;
+  overflow: visible !important;
+  padding-bottom: 8px;
+}
+.dashboard-page .dashboard-month-calendar .rbc-row {
+  min-height: 0;
+  height: auto !important;
+  overflow: visible !important;
+}
+.dashboard-page .dashboard-month-calendar .rbc-event {
+  height: auto !important;
 }
 `;
 
@@ -505,6 +547,82 @@ const addDays = (d, n) => {
   return x;
 };
 
+const normalizeForStableCompare = (value) => {
+  if (!value) return value;
+  if (typeof value?.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date && !Number.isNaN(date.getTime())
+      ? date.toISOString()
+      : "";
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? "" : value.toISOString();
+  }
+  if (Array.isArray(value)) return value.map(normalizeForStableCompare);
+  if (typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = normalizeForStableCompare(value[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+};
+
+const stableCompareString = (value) => JSON.stringify(normalizeForStableCompare(value));
+
+const vehicleSnapshotCompareString = (vehicle) => {
+  const { updatedAt, lastUpdatedAt, syncedAt, ...rest } = vehicle || {};
+  return stableCompareString(rest);
+};
+
+const sameVehicleSnapshotRows = (left = [], right = []) => {
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (vehicleSnapshotCompareString(left[i]) !== vehicleSnapshotCompareString(right[i])) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const buildInspectionRolloverSyncKey = (vehicles = [], maintenanceBookings = []) =>
+  stableCompareString({
+    vehicles: vehicles.map((vehicle) => ({
+      id: vehicle?.id || "",
+      lastMOT: vehicle?.lastMOT || "",
+      nextMOT: vehicle?.nextMOT || "",
+      motFreq: vehicle?.motFreq || "",
+      lastService: vehicle?.lastService || "",
+      nextService: vehicle?.nextService || "",
+      serviceFreq: vehicle?.serviceFreq || "",
+      eightWeekInspectionStart: vehicle?.eightWeekInspectionStart || "",
+      nextEightWeekInspection: vehicle?.nextEightWeekInspection || "",
+      eightWeekInspectionISOWeek: vehicle?.eightWeekInspectionISOWeek || "",
+      motHistory: vehicle?.motHistory || [],
+      serviceHistory: vehicle?.serviceHistory || [],
+      eightWeekInspectionHistory: vehicle?.eightWeekInspectionHistory || [],
+    })),
+    maintenanceBookings: maintenanceBookings.map((booking) => ({
+      id: booking?.id || "",
+      vehicleId: booking?.vehicleId || "",
+      type: booking?.type || "",
+      status: booking?.status || "",
+      provider: booking?.provider || "",
+      bookingRef: booking?.bookingRef || "",
+      notes: booking?.notes || "",
+      appointmentDateISO: booking?.appointmentDateISO || "",
+      startDateISO: booking?.startDateISO || "",
+      completedAtISO: booking?.completedAtISO || "",
+      sourceDueDateISO: booking?.sourceDueDateISO || "",
+      appointmentDate: booking?.appointmentDate || "",
+      startDate: booking?.startDate || "",
+      updatedAt: booking?.updatedAt || "",
+      createdAt: booking?.createdAt || "",
+    })),
+  });
+
 const sameCalendarDate = (a, b) => {
   const da = a instanceof Date ? a : new Date(a);
   const db = b instanceof Date ? b : new Date(b);
@@ -549,12 +667,14 @@ const mapNoteDocsToCalendarEvents = (docSnaps) => {
         allDay: true,
         status: "Note",
         employee,
+        blocksEmployeeBooking: Boolean(data.blocksEmployeeBooking),
         sourceNoteIds: [docSnap.id],
       });
       return;
     }
 
     grouped.get(key).sourceNoteIds.push(docSnap.id);
+    if (data.blocksEmployeeBooking) grouped.get(key).blocksEmployeeBooking = true;
   });
 
   return Array.from(grouped.values());
@@ -1596,6 +1716,13 @@ function maintenanceEventPropGetter(event) {
   const kind = event?.kind || "MAINTENANCE";
   const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
   const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
+  const isBookingBlock =
+    kind === "MOT_BOOKING" ||
+    kind === "SERVICE_BOOKING" ||
+    kind === "INSPECTION_BOOKING" ||
+    kind === "MAINTENANCE_BOOKING";
+  const isDueBlock = kind === "MOT" || kind === "SERVICE" || kind === "INSPECTION";
+  const hasRail = isBookingBlock || isDueBlock || kind === "MAINTENANCE";
   const isCompleted =
     bookingStatus === "completed" ||
     bookingStatus === "complete" ||
@@ -1607,32 +1734,61 @@ function maintenanceEventPropGetter(event) {
   let text = "#172a3d";
 
   if (kind === "MOT") {
-    bg = "#dfc4a0";
-    border = "#bb8d52";
-    text = "#56361d";
+    bg = "#fff7ed";
+    border = "#f59e0b";
+    text = "#713f12";
     if (event?.booked) {
-      bg = "#c3dccb";
-      border = "#7fa590";
-      text = "#173a27";
+      bg = "#fef3c7";
+      border = "#d97706";
+      text = "#713f12";
     }
   } else if (kind === "MOT_BOOKING") {
-    bg = "#c3dccb";
-    border = "#7fa590";
-    text = "#173a27";
+    bg = "#dbeafe";
+    border = "#2563eb";
+    text = "#102a56";
     if (String(event?.bookingStatus || "").includes("After Expiry")) {
       bg = "#e4c0bd";
       border = "#bf847f";
       text = "#631f1a";
     }
-  } else if (kind === "SERVICE" || kind === "SERVICE_BOOKING") {
-    bg = "#c3dccb";
-    border = "#7fa590";
-    text = "#173a27";
+  } else if (kind === "SERVICE") {
+    bg = "#ecfdf5";
+    border = "#10b981";
+    text = "#064e3b";
+    if (event?.booked) {
+      bg = "#d1fae5";
+      border = "#059669";
+      text = "#064e3b";
+    }
+  } else if (kind === "SERVICE_BOOKING") {
+    bg = "#dbeafe";
+    border = "#2563eb";
+    text = "#102a56";
+  } else if (kind === "INSPECTION") {
+    bg = "#f5f3ff";
+    border = "#8b5cf6";
+    text = "#3b0764";
+    if (event?.booked) {
+      bg = "#ede9fe";
+      border = "#7c3aed";
+      text = "#3b0764";
+    }
+  } else if (kind === "INSPECTION_BOOKING") {
+    bg = "#ede9fe";
+    border = "#7c3aed";
+    text = "#321064";
+  } else if (kind === "MAINTENANCE_BOOKING") {
+    bg = "#ccfbf1";
+    border = "#0d9488";
+    text = "#134e4a";
+  } else if (kind === "MAINTENANCE") {
+    bg = "#e2e8f0";
+    border = "#64748b";
+    text = "#1e293b";
   }
 
-  const isBookingBlock = kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING";
   const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
-  const suppressEscalation = (kind === "MOT" || kind === "SERVICE") && event?.booked;
+  const suppressEscalation = isDueBlock && event?.booked;
 
   if (!suppressEscalation) {
     if (tone === "overdue") {
@@ -1656,10 +1812,13 @@ function maintenanceEventPropGetter(event) {
     style: {
       borderRadius: 10,
       border: `1px solid ${border}`,
+      borderLeft: hasRail ? `6px solid ${border}` : `1px solid ${border}`,
       background: bg,
       color: text,
       padding: 0,
-      boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
+      boxShadow: isBookingBlock
+        ? "0 4px 10px rgba(37,99,235,0.12)"
+        : "0 2px 6px rgba(15,23,42,0.08)",
       overflow: "hidden",
       cursor: "pointer",
     },
@@ -1700,25 +1859,68 @@ function MaintenanceCalendarEvent({ event }) {
 
   const label =
     kind === "MOT"
-      ? event?.booked
-        ? "MOT due - Booked"
-        : "MOT due"
+      ? "MOT expiry"
       : kind === "SERVICE"
-      ? event?.booked
-        ? "Service due - Booked"
-        : "Service due"
+      ? "Service due"
       : kind === "MOT_BOOKING"
-      ? "MOT booking"
+      ? "MOT appointment"
       : kind === "SERVICE_BOOKING"
-      ? "Service booking"
+      ? "Service appointment"
+      : kind === "INSPECTION"
+      ? "8 week inspection due"
+      : kind === "INSPECTION_BOOKING"
+      ? "Inspection appointment"
+      : kind === "MAINTENANCE_BOOKING"
+      ? `${displayType} appointment`
+      : kind === "MAINTENANCE"
+      ? event?.maintenanceTypeLabel || "Workshop job card"
       : `${displayType} booking`;
 
   const dd = event?.dueDate ? new Date(event.dueDate) : null;
   const isBookingBlock =
-    kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
-  const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
+    kind === "MOT_BOOKING" ||
+    kind === "SERVICE_BOOKING" ||
+    kind === "INSPECTION_BOOKING" ||
+    kind === "MAINTENANCE_BOOKING";
+  const isDueBlock = kind === "MOT" || kind === "SERVICE" || kind === "INSPECTION";
+  const showTone = !isBookingBlock && !(isDueBlock && event?.booked);
   const tone = showTone && dd ? dueTone(dd) : "soft";
-  const toneText = tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+  const toneText =
+    tone === "overdue"
+      ? "Overdue"
+      : tone === "soon"
+      ? "Due soon"
+      : tone === "ok" && kind === "SERVICE"
+      ? "Service in date"
+      : tone === "ok" && kind === "MOT"
+      ? "MOT in date"
+      : tone === "ok" && kind === "INSPECTION"
+      ? "Inspection in cycle"
+      : "";
+  const cleanTitle = (() => {
+    const title = String(event?.title || "Maintenance").trim();
+    if (!isDueBlock) return title;
+    return title
+      .replace(/\s+-\s+MOT due(?:\s+\(Booked\))?$/i, "")
+      .replace(/\s+-\s+Service due(?:\s+\(Booked\))?$/i, "")
+      .replace(/\s+-\s+8 week inspection due(?:\s+\(Booked(?:\s+-\s+Outside ISO Week)?\))?$/i, "");
+  })();
+  const dueLabelColor =
+    tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
+  const labelColor =
+    isDueBlock && dueLabelColor
+      ? dueLabelColor
+      : kind === "MOT"
+      ? "#b45309"
+      : kind === "SERVICE"
+      ? "#047857"
+      : kind === "INSPECTION"
+      ? "#7c3aed"
+      : isBookingBlock
+      ? "#1d4ed8"
+      : kind === "MAINTENANCE"
+      ? "#475569"
+      : "#1d4ed8";
   const nextDueLabel =
     isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
       ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
@@ -1726,11 +1928,19 @@ function MaintenanceCalendarEvent({ event }) {
       ? `Next Service Due: ${new Date(event.nextService).toLocaleDateString("en-GB")}`
       : "";
   const subline = isBookingBlock
-    ? event?.bookingStatus || "Booked"
+    ? event?.bookingStatus
+      ? String(event.bookingStatus).replace(/^booked$/i, "Booked")
+      : "Booked"
+    : event?.booked && isDueBlock
+    ? event?.bookingStatus
+      ? String(event.bookingStatus).includes("After Expiry")
+        ? "Appointment after expiry"
+        : String(event.bookingStatus).includes("Outside ISO Week")
+        ? "Appointment outside ISO week"
+        : "Appointment booked"
+      : "Appointment booked"
     : workflowStatus
     ? workflowStatus.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
-    : event?.booked && (kind === "MOT" || kind === "SERVICE")
-    ? event?.bookingStatus || "Booked"
     : toneText;
 
   return (
@@ -1751,8 +1961,8 @@ function MaintenanceCalendarEvent({ event }) {
         minWidth: 0,
       }}
     >
-      <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
-      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{event?.title || "Maintenance"}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{cleanTitle}</span>
       {vehicleText ? (
         <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
       ) : null}
@@ -1770,6 +1980,65 @@ function MaintenanceCalendarEvent({ event }) {
       ) : null}
     </div>
   );
+}
+
+function HolidayNotesCalendarEvent({ event }) {
+  const isHoliday = event.status === "Holiday";
+  const label = isHoliday ? "Holiday" : "Note";
+  const title = isHoliday ? event.employee || "Holiday" : event.title || "Note";
+  const detail = isHoliday
+    ? formatHolidayDetail(event)
+    : event.blocksEmployeeBooking && event.employee
+    ? `${event.employee} unavailable`
+    : event.employee || "Shared note";
+  const labelColor = isHoliday ? "#475569" : "#0d9488";
+
+  return (
+    <div
+      title={event.title || title}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        fontSize: 12.5,
+        lineHeight: 1.3,
+        fontWeight: 900,
+        padding: 8,
+        letterSpacing: 0,
+        whiteSpace: "normal",
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
+        minWidth: 0,
+      }}
+    >
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{title}</span>
+      {detail ? (
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function holidayNotesEventPropGetter(event) {
+  const isHoliday = event.status === "Holiday";
+  const bg = isHoliday ? "#e2e8f0" : "#ccfbf1";
+  const border = isHoliday ? "#64748b" : "#0d9488";
+  const text = isHoliday ? "#1e293b" : "#134e4a";
+
+  return {
+    style: {
+      borderRadius: 10,
+      border: `1px solid ${border}`,
+      borderLeft: `6px solid ${border}`,
+      background: bg,
+      color: text,
+      padding: 0,
+      boxShadow: "0 2px 6px rgba(15,23,42,0.08)",
+      overflow: "hidden",
+      cursor: "pointer",
+    },
+  };
 }
 
 /* ------------------------------- Page component ----------------------------- */
@@ -1794,6 +2063,8 @@ export default function DashboardPage({ bookingSaved }) {
   const [authReady, setAuthReady] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   const [hiddenDiaryBookingCount, setHiddenDiaryBookingCount] = useState(0);
+  const [createBookingOpening, setCreateBookingOpening] = useState(false);
+  const [createBookingProgress, setCreateBookingProgress] = useState(0);
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -1836,6 +2107,7 @@ export default function DashboardPage({ bookingSaved }) {
 
   const [userEmail, setUserEmail] = useState(null);
   const [userUid, setUserUid] = useState(null);
+  const rolloverSyncRef = useRef({ key: "", inFlight: false });
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -1850,6 +2122,20 @@ export default function DashboardPage({ bookingSaved }) {
   const canSeeDeletedOnCalendar = userEmail
     ? DELETED_ON_CALENDAR_EMAILS.has(userEmail)
     : false;
+
+  useEffect(() => {
+    if (!createBookingOpening) return undefined;
+
+    const timer = setInterval(() => {
+      setCreateBookingProgress((current) => {
+        if (current >= 95) return current;
+        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
+        return Math.min(95, current + step);
+      });
+    }, 320);
+
+    return () => clearInterval(timer);
+  }, [createBookingOpening]);
 
   useEffect(() => {
     if (!authReady || !userEmail) return;
@@ -1887,9 +2173,21 @@ export default function DashboardPage({ bookingSaved }) {
   }, [authReady, userEmail, showInactiveInView, showDeletedInView]);
 
   const goToCreateBooking = useCallback(() => {
-    if (isRestricted) return;
-    router.push("/create-booking");
-  }, [isRestricted, router]);
+    if (isRestricted || createBookingOpening) return;
+    setCreateBookingOpening(true);
+    setCreateBookingProgress(8);
+
+    setTimeout(() => {
+      try {
+        router.push("/create-booking");
+      } catch (error) {
+        console.error("Open create booking failed:", error);
+        setCreateBookingOpening(false);
+        setCreateBookingProgress(0);
+        alert("Failed to open create booking. Please try again.");
+      }
+    }, 80);
+  }, [createBookingOpening, isRestricted, router]);
 
   const goToEditBooking = useCallback(
     (bookingOrId) => {
@@ -2011,7 +2309,7 @@ export default function DashboardPage({ bookingSaved }) {
     [vehiclesData]
   );
 
-  const getVehicleRisk = (vehicles, { offRoadTracking = false } = {}) => {
+  const getVehicleRisk = useCallback((vehicles, { offRoadTracking = false } = {}) => {
     const reasons = [];
     const list = Array.isArray(vehicles) ? vehicles : [];
     const today = new Date();
@@ -2037,7 +2335,7 @@ export default function DashboardPage({ bookingSaved }) {
       }
     });
     return { risky: reasons.length > 0, reasons };
-  };
+  }, []);
 
   const isCurrentOrFutureJobEvent = (event) => {
     const today0 = new Date();
@@ -2124,7 +2422,8 @@ export default function DashboardPage({ bookingSaved }) {
     );
 
     const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
-      setVehiclesData(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+      const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+      setVehiclesData((prev) => (sameVehicleSnapshotRows(prev, rows) ? prev : rows));
     });
 
     return () => {
@@ -2351,14 +2650,29 @@ export default function DashboardPage({ bookingSaved }) {
     return map;
   }, [maintenanceBookings]);
 
+  const inspectionRolloverSyncKey = useMemo(
+    () => buildInspectionRolloverSyncKey(vehiclesData, maintenanceBookings),
+    [vehiclesData, maintenanceBookings]
+  );
+
   useEffect(() => {
+    if (!vehiclesData.length || !maintenanceBookings.length) return;
+    const syncState = rolloverSyncRef.current;
+    if (syncState.inFlight || syncState.key === inspectionRolloverSyncKey) return;
+
+    syncState.inFlight = true;
     syncEightWeekInspectionRollovers({
       db,
       vehicles: vehiclesData,
       maintenanceBookings,
       loggerPrefix: "[dashboard] inspection rollover",
-    }).catch(() => {});
-  }, [vehiclesData, maintenanceBookings]);
+    })
+      .catch(() => {})
+      .finally(() => {
+        rolloverSyncRef.current.key = inspectionRolloverSyncKey;
+        rolloverSyncRef.current.inFlight = false;
+      });
+  }, [inspectionRolloverSyncKey, maintenanceBookings, vehiclesData]);
 
   const motServiceDueEvents = useMemo(() => {
     if (!Array.isArray(vehiclesData) || !vehiclesData.length) return [];
@@ -2522,7 +2836,7 @@ export default function DashboardPage({ bookingSaved }) {
         callTime: normaliseCallTime(ev.callTime || ev.calltime || ev.call_time),
       };
     });
-  }, [allEventsRaw, normalizeVehicles, reccesByBooking]);
+  }, [allEventsRaw, getVehicleRisk, normalizeVehicles, reccesByBooking]);
 
   //  NEW: quick lookup for bank holiday day highlighting
   const bankHolidaySet = useMemo(() => {
@@ -2933,14 +3247,21 @@ export default function DashboardPage({ bookingSaved }) {
               </button>
 
               <button
-                style={isRestricted ? btnDisabled(btn()) : btn()}
+                style={
+                  isRestricted
+                    ? btnDisabled(btn())
+                    : createBookingOpening
+                      ? { ...btn(), opacity: 0.82, cursor: "wait" }
+                      : btn()
+                }
                 onClick={goToCreateBooking}
-                aria-disabled={isRestricted}
+                disabled={isRestricted || createBookingOpening}
+                aria-disabled={isRestricted || createBookingOpening}
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
                 <Plus size={14} />
-                Add Booking
+                {createBookingOpening ? `Opening ${createBookingProgress}%` : "Add Booking"}
               </button>
 
               <button
@@ -3199,6 +3520,7 @@ export default function DashboardPage({ bookingSaved }) {
             allDaySlot
             selectable={false}
             popup
+            showAllEvents
             toolbar={false}
             nowIndicator={false}
             getNow={getCalendarNow}
@@ -3212,7 +3534,7 @@ export default function DashboardPage({ bookingSaved }) {
               setSelectedMaintenanceEvent(e);
             }}
             eventPropGetter={maintenanceEventPropGetter}
-            className={maintenanceView === "week" ? "dashboard-compact-calendar" : ""}
+            className={maintenanceView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
             dayPropGetter={(date) => {
               const todayD = new Date();
               const isToday =
@@ -3227,7 +3549,7 @@ export default function DashboardPage({ bookingSaved }) {
                 },
               };
             }}
-            style={maintenanceView === "week" ? compactCalendarFrame : calendarFrame}
+            style={maintenanceView === "week" ? compactCalendarFrame : monthCalendarFrame}
           />
 
           {selectedMaintenanceEvent && (
@@ -3254,6 +3576,10 @@ export default function DashboardPage({ bookingSaved }) {
               <button style={btn()} type="button" onClick={() => setHolidayModalOpen(true)}>
                 <Plus size={14} />
                 Add Holiday
+              </button>
+              <button style={btn()} type="button" onClick={() => router.push("/shift-change")}>
+                <Clock3 size={14} />
+                Shift Change
               </button>
               <button style={btn()} type="button" onClick={() => setCreateNoteOpen(true)}>
                 <Plus size={14} />
@@ -3290,53 +3616,9 @@ export default function DashboardPage({ bookingSaved }) {
             className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
             style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
             components={{
-              event: ({ event }) => (
-                <div
-                  title={event.title}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    fontSize: "0.85rem",
-                    lineHeight: 1.35,
-                    color: "#0b0b0b",
-                    fontWeight: 600,
-                    fontFamily: "Inter, system-ui, Arial, sans-serif",
-                    textAlign: "left",
-                    padding: 6,
-                    minHeight: 40,
-                    whiteSpace: "normal",
-                    overflowWrap: "anywhere",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {event.status === "Holiday" ? (
-                    <>
-                      <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
-                      <span style={{ fontStyle: "italic", opacity: 0.75 }}>{formatHolidayDetail(event)}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{event.employee}</span>
-                      <span style={{ fontWeight: 800, overflowWrap: "anywhere", wordBreak: "break-word" }}>
-                        {event.title}
-                      </span>
-                      <span style={{ fontStyle: "italic", opacity: 0.75 }}>Note</span>
-                    </>
-                  )}
-                </div>
-              ),
+              event: HolidayNotesCalendarEvent,
             }}
-            eventPropGetter={(event) => ({
-              style: {
-                backgroundColor: event.status === "Holiday" ? "#ced8e3" : "#c6d3df",
-                color: "#1b3044",
-                fontWeight: 700,
-                padding: 0,
-                borderRadius: 8,
-                border: event.status === "Holiday" ? "1px solid #9fb2c4" : "1px solid #97adc0",
-                boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
-              },
-            })}
+            eventPropGetter={holidayNotesEventPropGetter}
             dayPropGetter={() => ({
               style: {
                 borderRight: "1px solid #e5e7eb",
@@ -3618,6 +3900,13 @@ export default function DashboardPage({ bookingSaved }) {
           initialVehicles={vehiclesData}
           onEdit={goToEditBooking}
           onClose={handleCloseBookingModal}
+        />
+      )}
+      {createBookingOpening && (
+        <RouteLoadingOverlay
+          progress={createBookingProgress}
+          title="Opening create booking"
+          hint="Preparing booking form..."
         />
       )}
     </HeaderSidebarLayout>
