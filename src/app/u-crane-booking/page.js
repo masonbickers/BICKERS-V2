@@ -73,6 +73,7 @@ export default function CreateBookingPage() {
   const [quoteURL, setQuoteURL] = useState(null);
   const [allBookings, setAllBookings] = useState([]);
   const [holidayBookings, setHolidayBookings] = useState([]);
+  const [unavailableNotes, setUnavailableNotes] = useState([]);
   const [status, setStatus] = useState("Confirmed");
   const [shootType, setShootType] = useState("Day");
   const [notesByDate, setNotesByDate] = useState({});
@@ -225,6 +226,13 @@ export default function CreateBookingPage() {
       const holidaySnap = await getDocs(collection(db, "holidays"));
       setHolidayBookings(holidaySnap.docs.map((doc) => doc.data()));
 
+      const noteSnap = await getDocs(collection(db, "notes"));
+      setUnavailableNotes(
+        noteSnap.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((note) => note.blocksEmployeeBooking === true)
+      );
+
       // - 5. Load employees (HR)
       const empSnap = await getDocs(collection(db, "employees"));
       const allEmployees = empSnap.docs.map((doc) => ({
@@ -299,6 +307,38 @@ export default function CreateBookingPage() {
       );
     });
   };
+
+  const selectedBookingDateStrings = () => {
+    if (!startDate) return [];
+    const out = [];
+    const current = new Date(startDate);
+    const end = isRange && endDate ? new Date(endDate) : new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    while (current <= end) {
+      out.push(current.toISOString().split("T")[0]);
+      current.setDate(current.getDate() + 1);
+    }
+    return out;
+  };
+
+  const getEmployeeUnavailableNote = (employeeName) => {
+    const target = String(employeeName || "").trim().toLowerCase();
+    if (!target) return null;
+    const dateSet = new Set(selectedBookingDateStrings());
+    if (!dateSet.size) return null;
+
+    return (
+      unavailableNotes.find((note) => {
+        const noteEmployee = String(note.employee || note.employeeName || "").trim().toLowerCase();
+        if (noteEmployee !== target) return false;
+        const noteDate = String(note.date || note.startDate || "").slice(0, 10);
+        return noteDate && dateSet.has(noteDate);
+      }) || null
+    );
+  };
+
+  const isEmployeeUnavailableByNote = (employeeName) => Boolean(getEmployeeUnavailableNote(employeeName));
 
   const selectedDates = (() => {
     if (!startDate) return [];
@@ -386,6 +426,13 @@ export default function CreateBookingPage() {
     for (const employee of cleanedEmployees) {
       if (isEmployeeOnHoliday(employee)) {
         alert(`${employee} is on holiday during the selected dates.`);
+        return;
+      }
+      const unavailableNote = getEmployeeUnavailableNote(employee);
+      if (unavailableNote) {
+        alert(
+          `${employee} is marked unavailable on a note during the selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
+        );
         return;
       }
     }
@@ -685,7 +732,8 @@ export default function CreateBookingPage() {
                         const personName = getDisplayName(person);
                         const isBooked = bookedEmployees.includes(personName);
                         const isHoliday = isEmployeeOnHoliday(personName);
-                        const disabled = isBooked || isHoliday;
+                        const isUnavailable = isEmployeeUnavailableByNote(personName);
+                        const disabled = isBooked || isHoliday || isUnavailable;
 
                         return (
                           <label
@@ -720,7 +768,7 @@ export default function CreateBookingPage() {
                             <span style={{ color: disabled ? "grey" : "#333" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
-                              {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"}
+                              {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
                             </span>
                           </label>
                         );

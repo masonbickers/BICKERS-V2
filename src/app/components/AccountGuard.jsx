@@ -27,7 +27,15 @@ export default function AccountGuard() {
         userRef,
         async (snap) => {
           const data = snap.data();
-          if (data?.isEnabled === false) {
+          if (
+            data?.isEnabled === false ||
+            data?.active === false ||
+            data?.archived === true ||
+            data?.isArchived === true ||
+            data?.disabled === true ||
+            data?.appDisabled === true ||
+            String(data?.role || "").trim().toLowerCase() === "archived"
+          ) {
             try {
               await signOut(auth);
             } finally {

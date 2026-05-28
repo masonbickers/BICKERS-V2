@@ -856,6 +856,16 @@ export default function HRPage() {
       border: UI.amberBorder,
     },
     {
+      key: "shiftChange",
+      title: "Quick Shift Change",
+      description: "Request or approve adjusted start and finish times.",
+      link: "/shift-change",
+      icon: Clock3,
+      color: UI.brand,
+      bg: UI.brandSoft,
+      border: UI.brandBorder,
+    },
+    {
       key: "policy",
       title: "HR Policy Manual",
       description: "View company policies and employee handbook.",

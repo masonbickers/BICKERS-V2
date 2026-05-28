@@ -43,8 +43,14 @@ export function getUnsavedChangesState() {
 export function setUnsavedChangesState(nextState) {
   const store = ensureStore();
   if (!store) return;
+  const changed =
+    store.ownerId !== nextState?.ownerId ||
+    store.isDirty !== !!nextState?.isDirty ||
+    store.message !== (nextState?.message || "") ||
+    store.saveLabel !== (nextState?.saveLabel || "") ||
+    store.onSave !== nextState?.onSave;
   Object.assign(store, nextState || {});
-  emitChange();
+  if (changed) emitChange();
 }
 
 export function clearUnsavedChangesState(ownerId) {
@@ -88,13 +94,15 @@ export function useUnsavedChangesGuard({
   saveRef.current = onSave;
 
   useEffect(() => {
+    const ownerId = ownerRef.current;
+
     if (!enabled) {
-      clearUnsavedChangesState(ownerRef.current);
+      clearUnsavedChangesState(ownerId);
       return;
     }
 
     setUnsavedChangesState({
-      ownerId: ownerRef.current,
+      ownerId,
       isDirty: !!isDirty,
       message,
       saveLabel,
@@ -105,9 +113,9 @@ export function useUnsavedChangesGuard({
     });
 
     return () => {
-      clearUnsavedChangesState(ownerRef.current);
+      clearUnsavedChangesState(ownerId);
     };
-  }, [enabled, isDirty, message, saveLabel, onSave]);
+  }, [enabled, isDirty, message, saveLabel]);
 
   useEffect(() => {
     if (!enabled || !isDirty || typeof window === "undefined") return undefined;

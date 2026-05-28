@@ -6,7 +6,18 @@ import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 import { auth, db } from "../../../../firebaseConfig";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
+  onSnapshot,
+  where,
+} from "firebase/firestore";
 import {
   deriveRoleFromAccess,
   resolveDefaultWorkspace,
@@ -42,44 +53,52 @@ const EMPTY_GLOBAL_PAYROLL_RATES = {
    Mini design system (matches your Holiday page)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
 
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 16,
+  marginBottom: 14,
+  flexWrap: "wrap",
 };
 
 const h1 = {
   color: UI.text,
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  letterSpacing: "-0.01em",
+  fontSize: 22,
+  lineHeight: 1.08,
+  fontWeight: 750,
+  letterSpacing: 0,
   margin: 0,
 };
 
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = {
   background: UI.card,
@@ -89,39 +108,42 @@ const surface = {
 };
 
 const btn = (kind = "primary") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "6px 9px",
+    borderRadius: UI.radiusSm,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontSize: 12.5,
+    lineHeight: 1.2,
+  };
   if (kind === "ghost") {
     return {
-      padding: "10px 12px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      ...base,
+      border: `1px solid ${UI.brandBorder}`,
+      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
       color: UI.text,
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
+      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
   }
   if (kind === "danger") {
     return {
-      padding: "10px 12px",
-      borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#7f1d1d",
-      fontWeight: 900,
-      cursor: "pointer",
-      whiteSpace: "nowrap",
+      ...base,
+      border: `1px solid ${UI.redBorder}`,
+      background: UI.redSoft,
+      color: UI.red,
     };
   }
   return {
-    padding: "10px 12px",
-    borderRadius: UI.radiusSm,
+    ...base,
     border: `1px solid ${UI.brand}`,
-    background: UI.brand,
+    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
     color: "#fff",
-    fontWeight: 900,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
+    boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
 };
 
@@ -139,20 +161,20 @@ function Pill({ active, children, onClick }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "8px 10px",
+        padding: "6px 9px",
         borderRadius: 999,
-        border: `1px solid ${active ? "#93c5fd" : "#e5e7eb"}`,
+        border: `1px solid ${active ? UI.brandBorder : "#d7dee8"}`,
         background: active ? UI.brandSoft : "#fff",
         color: UI.text,
-        fontSize: 12.5,
-        fontWeight: 900,
+        fontSize: 12,
+        fontWeight: 800,
         cursor: "pointer",
         userSelect: "none",
         transition: "all 120ms ease",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#93c5fd")}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = UI.brandBorder)}
       onMouseLeave={(e) =>
-        (e.currentTarget.style.borderColor = active ? "#93c5fd" : "#e5e7eb")
+        (e.currentTarget.style.borderColor = active ? UI.brandBorder : "#d7dee8")
       }
     >
       {children}
@@ -162,23 +184,24 @@ function Pill({ active, children, onClick }) {
 
 const inputBase = {
   width: "100%",
-  padding: "10px 12px",
+  minHeight: 36,
+  padding: "7px 9px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  fontSize: 14,
+  border: UI.border,
+  fontSize: 13,
   outline: "none",
   background: "#fff",
   color: UI.text,
 };
 
 const chip = {
-  padding: "6px 10px",
+  padding: "5px 9px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
   color: UI.text,
   fontSize: 12,
-  fontWeight: 900,
+  fontWeight: 800,
   whiteSpace: "nowrap",
 };
 
@@ -186,8 +209,9 @@ const labelStyle = {
   display: "block",
   marginBottom: 6,
   fontWeight: 900,
-  color: UI.text,
-  fontSize: 13,
+  color: UI.muted,
+  fontSize: 11.5,
+  textTransform: "uppercase",
 };
 
 const helperStyle = { marginTop: 6, color: UI.muted, fontSize: 12 };
@@ -249,6 +273,7 @@ export default function EditEmployeePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
@@ -268,6 +293,14 @@ export default function EditEmployeePage() {
     appAccess: { user: true, service: false },
     defaultWorkspace: "user",
     payrollRates: EMPTY_PAYROLL_RATES,
+    employeeCode: "",
+    userCode: "",
+    code: "",
+    uid: "",
+    authUid: "",
+    archived: false,
+    active: true,
+    appDisabled: false,
   });
 
   useEffect(() => {
@@ -361,6 +394,14 @@ export default function EditEmployeePage() {
           isService: data.isService === true,
           appAccess: loadedAccess,
           defaultWorkspace: resolveDefaultWorkspace(data, loadedAccess),
+          employeeCode: asStr(data.employeeCode || data.userCode || data.code || ""),
+          userCode: asStr(data.userCode || data.employeeCode || data.code || ""),
+          code: asStr(data.code || data.userCode || data.employeeCode || ""),
+          uid: asStr(data.uid || ""),
+          authUid: asStr(data.authUid || ""),
+          archived: data.archived === true || data.isArchived === true || data.active === false,
+          active: data.active !== false && data.archived !== true && data.isArchived !== true,
+          appDisabled: data.appDisabled === true,
           payrollRates: {
             ...EMPTY_PAYROLL_RATES,
             ...(data.payrollRates || {}),
@@ -539,6 +580,10 @@ export default function EditEmployeePage() {
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
         role: effectiveRole,
         isService: !!normalizedAppAccess.service,
+        active: formData.archived ? false : formData.active !== false,
+        archived: !!formData.archived,
+        isArchived: !!formData.archived,
+        appDisabled: !!formData.appDisabled,
         appAccess: normalizedAppAccess,
         defaultWorkspace: normalizedDefaultWorkspace,
         payrollRates: normalizedPayrollRates,
@@ -552,6 +597,10 @@ export default function EditEmployeePage() {
                 {
                   role: effectiveRole,
                   isService: !!normalizedAppAccess.service,
+                  active: formData.archived ? false : formData.active !== false,
+                  archived: !!formData.archived,
+                  isArchived: !!formData.archived,
+                  appDisabled: !!formData.appDisabled,
                   appAccess: normalizedAppAccess,
                   defaultWorkspace: normalizedDefaultWorkspace,
                   email: String(formData.email || "").trim().toLowerCase(),
@@ -585,6 +634,100 @@ export default function EditEmployeePage() {
 
   const handleCancel = () => router.push("/employees");
 
+  const findLinkedUserRefs = async () => {
+    const refs = [];
+    const seen = new Set();
+    const addRef = (ref) => {
+      if (!ref?.path || seen.has(ref.path)) return;
+      seen.add(ref.path);
+      refs.push(ref);
+    };
+
+    const linkedUserId = String(formData.uid || formData.authUid || "").trim();
+    if (linkedUserId) addRef(doc(db, "users", linkedUserId));
+
+    const email = String(formData.email || "").trim().toLowerCase();
+    if (email) {
+      const snap = await getDocs(query(collection(db, "users"), where("email", "==", email)));
+      snap.docs.forEach((row) => addRef(row.ref));
+    }
+
+    return refs;
+  };
+
+  const handleArchiveEmployee = async () => {
+    if (!employeeId) return;
+
+    if (!isAdmin) {
+      setSaveError("Only admins can archive employees.");
+      return;
+    }
+
+    const confirmArchive = confirm(
+      "Archive this employee from the whole system? They will be hidden from active use and app access will be switched off, but historic bookings and timesheets will be kept."
+    );
+    if (!confirmArchive) return;
+
+    setArchiving(true);
+    setSaveMessage("");
+    setSaveError("");
+
+    try {
+      const archivedBy = auth?.currentUser?.email || auth?.currentUser?.uid || "";
+      const userRefs = await findLinkedUserRefs();
+      const archivePatch = {
+        active: false,
+        archived: true,
+        isArchived: true,
+        appDisabled: true,
+        archivedAt: serverTimestamp(),
+        archivedBy,
+        appAccess: { user: false, service: false },
+        role: "archived",
+        isService: false,
+        updatedAt: serverTimestamp(),
+        updatedBy: archivedBy,
+      };
+
+      await Promise.all([
+        setDoc(doc(db, "employees", employeeId), archivePatch, { merge: true }),
+        ...userRefs.map((ref) =>
+          setDoc(
+            ref,
+            {
+              active: false,
+              archived: true,
+              isArchived: true,
+              disabled: true,
+              appDisabled: true,
+              appAccess: { user: false, service: false },
+              role: "archived",
+              updatedAt: serverTimestamp(),
+              updatedBy: archivedBy,
+            },
+            { merge: true }
+          )
+        ),
+      ]);
+
+      setFormData((prev) => ({
+        ...prev,
+        active: false,
+        archived: true,
+        appDisabled: true,
+        appAccess: { user: false, service: false },
+        role: "archived",
+        isService: false,
+      }));
+      setSaveMessage("Employee archived and removed from active system access.");
+    } catch (err) {
+      console.error("Error archiving employee:", err);
+      setSaveError("Failed to archive employee.");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!employeeId) return;
 
@@ -612,6 +755,7 @@ export default function EditEmployeePage() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto" }}>
         {/* Header */}
         <div style={headerBar}>
           <div>
@@ -621,9 +765,18 @@ export default function EditEmployeePage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" onClick={handleCancel} style={btn("ghost")}>
               ← Back
+            </button>
+            <button
+              type="button"
+              onClick={handleArchiveEmployee}
+              style={btn("danger")}
+              disabled={archiving || loading || formData.archived}
+              title="Hide employee from active system use and switch off app access"
+            >
+              {formData.archived ? "Archived" : archiving ? "Archivingâ€¦" : "Archive Employee"}
             </button>
             <button type="button" onClick={handleDelete} style={btn("danger")} disabled={deleting || loading}>
               {deleting ? "Deleting…" : "Delete"}
@@ -638,20 +791,20 @@ export default function EditEmployeePage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) minmax(320px, 0.85fr)",
+            gridTemplateColumns: "minmax(0, 1.35fr) minmax(300px, 0.65fr)",
             gap: UI.gap,
             alignItems: "start",
           }}
         >
           {/* LEFT: Form */}
-          <div style={{ ...surface, padding: 14 }}>
+          <div style={{ ...surface, padding: 12 }}>
             {loading ? (
               <div style={{ padding: 14, color: UI.muted, fontWeight: 800 }}>Loading employee…</div>
             ) : (
               <form
                 id="edit-employee-form"
                 onSubmit={handleSubmit}
-                style={{ display: "grid", gap: 14 }}
+                style={{ display: "grid", gap: 12 }}
               >
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
@@ -720,15 +873,15 @@ export default function EditEmployeePage() {
                   </div>
                 </div>
 
-                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 14 }}>
-                  <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>
+                <div style={{ borderTop: UI.border, paddingTop: 12 }}>
+                  <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                     Job Title(s)
                   </div>
                   <div style={{ color: UI.muted, fontSize: 12, marginBottom: 10 }}>
                     Select one or more roles (saved as an array in <span style={mono}>jobTitle</span>).
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                     {jobOptions.map((job) => (
                       <Pill
                         key={job}
@@ -741,9 +894,9 @@ export default function EditEmployeePage() {
                   </div>
                 </div>
 
-                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 14, display: "grid", gap: 12 }}>
+                <div style={{ borderTop: UI.border, paddingTop: 12, display: "grid", gap: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                       Access & Role
                     </div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
@@ -751,7 +904,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <button
                       type="button"
                       onClick={() => handleAccessToggle("user")}
@@ -805,10 +958,10 @@ export default function EditEmployeePage() {
 
                   <div
                     style={{
-                      border: "1px solid #dbe2ea",
+                      border: UI.border,
                       borderRadius: UI.radiusSm,
                       background: "#f8fbfd",
-                      padding: 12,
+                      padding: 10,
                       display: "grid",
                       gap: 6,
                     }}
@@ -826,9 +979,9 @@ export default function EditEmployeePage() {
                 </div>
 
                 {isAdmin ? (
-                  <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 14, display: "grid", gap: 12 }}>
+                  <div style={{ borderTop: UI.border, paddingTop: 12, display: "grid", gap: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 800, color: UI.text, marginBottom: 5, fontSize: 15 }}>
                         Payroll Rates
                       </div>
                     <div style={{ color: UI.muted, fontSize: 12 }}>
@@ -839,7 +992,7 @@ export default function EditEmployeePage() {
                     </div>
                   </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
                       {[
                         ["workshopRate", "Workshop rate"],
                         ["overtimeRate", "Overtime rate"],
@@ -906,20 +1059,27 @@ export default function EditEmployeePage() {
 
           {/* RIGHT: Summary */}
           <div style={{ display: "grid", gap: UI.gap, position: "sticky", top: 16 }}>
-            <div style={{ ...surface, padding: 14 }}>
-              <div style={{ fontWeight: 950, fontSize: 15, marginBottom: 8, color: UI.text }}>
+            <div style={{ ...surface, padding: 12 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8, color: UI.text }}>
                 Summary
               </div>
 
               {loading ? (
                 <div style={{ color: UI.muted, fontSize: 13 }}>Loading…</div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ display: "grid", gap: 9 }}>
                   <div style={{ display: "grid", gap: 6 }}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Name
                     </div>
-                    <div style={{ fontWeight: 950, color: UI.text }}>{formData.name || "—"}</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 850, color: UI.text }}>{formData.name || "—"}</div>
+                      {formData.archived ? (
+                        <span style={{ ...chip, background: UI.redSoft, color: UI.red, borderColor: UI.redBorder }}>
+                          Archived
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div style={{ display: "grid", gap: 6 }}>
@@ -931,13 +1091,13 @@ export default function EditEmployeePage() {
                         <span
                           key={j}
                           style={{
-                            padding: "6px 10px",
+                            padding: "5px 9px",
                             borderRadius: 999,
-                            border: "1px solid #e5e7eb",
-                            background: "#f1f5f9",
+                            border: `1px solid ${UI.brandBorder}`,
+                            background: UI.brandSoft,
                             color: UI.text,
                             fontSize: 12,
-                            fontWeight: 900,
+                            fontWeight: 800,
                           }}
                         >
                           {j}
@@ -1011,6 +1171,14 @@ export default function EditEmployeePage() {
                     </button>
                     <button
                       type="button"
+                      onClick={handleArchiveEmployee}
+                      style={btn("danger")}
+                      disabled={archiving || loading || formData.archived}
+                    >
+                      {formData.archived ? "Archived" : archiving ? "Archivingâ€¦" : "Archive Employee"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleDelete}
                       style={btn("danger")}
                       disabled={deleting || loading}
@@ -1022,13 +1190,14 @@ export default function EditEmployeePage() {
               )}
             </div>
 
-            <div style={{ ...surface, padding: 14, background: UI.brandSoft, border: "1px solid #dbeafe" }}>
-              <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>Tip</div>
+            <div style={{ ...surface, padding: 12, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}` }}>
+              <div style={{ fontWeight: 800, color: UI.text, marginBottom: 6 }}>Archive behavior</div>
               <div style={{ color: UI.muted, fontSize: 13 }}>
-                This page uses the same styling tokens as your Holiday Overview page so everything feels consistent.
+                Archiving removes active access and hides the employee from current booking lists while keeping old records readable.
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </HeaderSidebarLayout>

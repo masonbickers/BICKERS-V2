@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
@@ -53,6 +53,13 @@ function formatWeekRange(mondayStr) {
     month: "short",
     year: "numeric",
   })}`;
+}
+
+function formatWeekEnding(mondayStr) {
+  const monday = new Date(mondayStr);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday.toLocaleDateString("en-GB");
 }
 
 function toMillis(val) {
@@ -493,6 +500,7 @@ export default function TimesheetListPage() {
   const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [approvingId, setApprovingId] = useState("");
 
   const [searchTerm, setSearchTerm] = useState(() => searchParams?.get("q") || "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams?.get("status") || "all");
@@ -537,6 +545,47 @@ export default function TimesheetListPage() {
       return;
     }
     router.replace(target, { scroll: false });
+  };
+
+  const handleApproveTimesheet = async (event, ts) => {
+    event.stopPropagation();
+    if (!ts?.id || approvingId) return;
+
+    setApprovingId(ts.id);
+    setError("");
+
+    try {
+      await updateDoc(doc(db, "timesheets", ts.id), {
+        status: "approved",
+        approved: true,
+        approvedAt: serverTimestamp(),
+      });
+
+      setGrouped((prev) => {
+        const next = {};
+        Object.entries(prev).forEach(([code, emp]) => {
+          next[code] = {
+            ...emp,
+            timesheets: emp.timesheets.map((item) =>
+              item.id === ts.id
+                ? {
+                    ...item,
+                    status: "approved",
+                    approved: true,
+                    approvedAt: new Date(),
+                  }
+                : item
+            ),
+          };
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error("Error approving timesheet:", err);
+      setError("Unable to approve that timesheet. Please try again.");
+    } finally {
+      setApprovingId("");
+    }
   };
 
   const weekOptions = useMemo(
@@ -586,9 +635,11 @@ export default function TimesheetListPage() {
 
         const deduped = Object.values(latestMap);
         const groupedByEmp = {};
+        const employeeByCode = {};
+        const employeeByName = {};
 
         employees.forEach((emp) => {
-          const code = emp.userCode || emp.code || "";
+          const code = emp.userCode || emp.employeeCode || emp.code || "";
           if (!code) return;
 
           groupedByEmp[code] = {
@@ -597,10 +648,31 @@ export default function TimesheetListPage() {
             employeeId: emp.id,
             timesheets: [],
           };
+
+          [emp.userCode, emp.employeeCode, emp.code]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+            .forEach((value) => {
+              employeeByCode[value.toLowerCase()] = groupedByEmp[code];
+            });
+
+          [emp.name, emp.fullName, emp.employeeName]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+            .forEach((value) => {
+              employeeByName[value.toLowerCase()] = groupedByEmp[code];
+            });
         });
 
         deduped.forEach((ts) => {
-          const code = ts.employeeCode || "unknown";
+          const storedCode = String(ts.employeeCode || "").trim();
+          const storedName = String(ts.employeeName || "").trim();
+          const matchedEmployee =
+            employeeByCode[storedCode.toLowerCase()] ||
+            employeeByName[storedName.toLowerCase()] ||
+            null;
+          const code = matchedEmployee?.code || storedCode || "unknown";
+
           if (!groupedByEmp[code]) {
             groupedByEmp[code] = {
               name: ts.employeeName || "Unknown employee",
@@ -743,6 +815,7 @@ export default function TimesheetListPage() {
     { label: "Draft", value: overview.draft, icon: PencilLine, color: UI.amber, bg: UI.amberSoft, border: UI.amberBorder },
     { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.red, bg: UI.redSoft, border: UI.redBorder },
   ];
+  const compactReviewView = !!searchTerm.trim() || statusFilter !== "all" || sortBy === "name";
 
   const canGoToNewerWindow = weekFilter === "all" ? weekWindowOffset > 0 : weekOptions.indexOf(weekFilter) > 0;
   const canGoToOlderWindow =
@@ -842,7 +915,7 @@ export default function TimesheetListPage() {
             </div>
           </div>
 
-          <section style={{ ...cardStyle, marginBottom: UI.gap }}>
+          <section style={{ ...cardStyle, padding: compactReviewView ? 10 : cardStyle.padding, marginBottom: UI.gap }}>
             <div style={sectionHeader}>
               <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
                 <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
@@ -882,16 +955,32 @@ export default function TimesheetListPage() {
               </button>
             </div>
 
-            <div className="timesheet-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: UI.gap }}>
+            <div
+              className="timesheet-stat-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                gap: compactReviewView ? 8 : UI.gap,
+              }}
+            >
               {metricCards.map((metric) => {
                 const Icon = metric.icon;
                 return (
-                  <section key={metric.label} style={statCard}>
+                  <section
+                    key={metric.label}
+                    style={{
+                      ...statCard,
+                      minHeight: compactReviewView ? 52 : statCard.minHeight,
+                      padding: compactReviewView ? 9 : statCard.padding,
+                    }}
+                  >
                     <div>
                       <div style={statLabel}>{metric.label}</div>
-                      <div style={statValue}>{metric.value}</div>
+                      <div style={{ ...statValue, fontSize: compactReviewView ? 19 : statValue.fontSize, marginTop: compactReviewView ? 4 : statValue.marginTop }}>
+                        {metric.value}
+                      </div>
                     </div>
-                    <span style={iconBox(metric.color, metric.bg, metric.border)}>
+                    <span style={{ ...iconBox(metric.color, metric.bg, metric.border), width: compactReviewView ? 28 : 34, height: compactReviewView ? 28 : 34 }}>
                       <Icon size={17} />
                     </span>
                   </section>
@@ -1066,22 +1155,28 @@ export default function TimesheetListPage() {
                   key={emp.code}
                   style={{
                     ...cardStyle,
-                    padding: 14,
-                    marginBottom: UI.gap,
+                    padding: compactReviewView ? 9 : 14,
+                    marginBottom: compactReviewView ? 8 : UI.gap,
                   }}
                 >
                   <div
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 10,
+                      alignItems: compactReviewView ? "center" : "flex-start",
+                      gap: compactReviewView ? 8 : 10,
                       flexWrap: "wrap",
-                      marginBottom: 12,
+                      marginBottom: compactReviewView ? 8 : 12,
                     }}
                   >
-                    <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                      <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}>
+                    <div style={{ display: "flex", gap: compactReviewView ? 7 : 10, minWidth: 0, alignItems: "center" }}>
+                      <span
+                        style={{
+                          ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder),
+                          width: compactReviewView ? 28 : 34,
+                          height: compactReviewView ? 28 : 34,
+                        }}
+                      >
                         <UserRound size={17} />
                       </span>
                       <div>
@@ -1095,7 +1190,7 @@ export default function TimesheetListPage() {
                         >
                           <h2
                             style={{
-                              fontSize: 18,
+                              fontSize: compactReviewView ? 15 : 18,
                               fontWeight: 800,
                               margin: 0,
                               color: UI.ink,
@@ -1103,28 +1198,30 @@ export default function TimesheetListPage() {
                           >
                             {emp.name || "Unknown employee"}
                           </h2>
-                          <span style={{ ...chip(), color: UI.brand }}>
+                          <span style={{ ...chip(), padding: compactReviewView ? "3px 7px" : "5px 9px", fontSize: compactReviewView ? 11 : 12, color: UI.brand }}>
                             {emp.code || "No code"}
                           </span>
                         </div>
-                        <p
-                          style={{
-                            margin: "4px 0 0",
-                            color: UI.muted,
-                            fontSize: 12,
-                          }}
-                        >
-                          {displayedWeeks.length === 1
-                            ? "Single-week review window"
-                            : `Reviewing ${displayedWeeks.length} weekly slots for this employee`}
-                        </p>
+                        {!compactReviewView ? (
+                          <p
+                            style={{
+                              margin: "4px 0 0",
+                              color: UI.muted,
+                              fontSize: 12,
+                            }}
+                          >
+                            {displayedWeeks.length === 1
+                              ? "Single-week review window"
+                              : `Reviewing ${displayedWeeks.length} weekly slots for this employee`}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
 
                     <div
                       style={{
                         display: "flex",
-                        gap: 8,
+                        gap: compactReviewView ? 5 : 8,
                         flexWrap: "wrap",
                         justifyContent: "flex-end",
                       }}
@@ -1155,23 +1252,25 @@ export default function TimesheetListPage() {
                           color: "#9f1239",
                         },
                       ].map((item) => (
+                        item.value > 0 || !compactReviewView ? (
                         <span
                           key={item.label}
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: 6,
-                            padding: "6px 10px",
+                            gap: 5,
+                            padding: compactReviewView ? "3px 7px" : "6px 10px",
                             borderRadius: 999,
                             background: item.bg,
                             color: item.color,
-                            fontSize: 11,
+                            fontSize: compactReviewView ? 10.5 : 11,
                             fontWeight: 700,
                           }}
                         >
                           {item.label}
                           <span>{item.value}</span>
                         </span>
+                        ) : null
                       ))}
                     </div>
                   </div>
@@ -1179,8 +1278,10 @@ export default function TimesheetListPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                      gap: 12,
+                      gridTemplateColumns: compactReviewView
+                        ? "repeat(auto-fit, minmax(210px, 1fr))"
+                        : "repeat(auto-fit, minmax(250px, 1fr))",
+                      gap: compactReviewView ? 7 : 12,
                     }}
                   >
                     {displayedWeeks.map((weekStart) => {
@@ -1189,6 +1290,8 @@ export default function TimesheetListPage() {
                       const lastUpdateMs = ts ? getTimesheetUpdatedMs(ts) : 0;
                       const weeklyHours = ts ? getTimesheetWeekHours(ts) : 0;
                       const showWeeklyHours = !!ts && (ts.submitted || status.key === "approved");
+                      const canApprove = !!ts && status.key === "submitted";
+                      const isApproving = approvingId === ts?.id;
                       const lastUpdateText =
                         lastUpdateMs > 0
                           ? new Date(lastUpdateMs).toLocaleString("en-GB")
@@ -1205,7 +1308,7 @@ export default function TimesheetListPage() {
                             borderStyle: "solid",
                             borderColor: status.border,
                             boxShadow: UI.shadowSm,
-                            padding: 12,
+                            padding: compactReviewView ? 8 : 12,
                             cursor: status.clickable ? "pointer" : "default",
                             transition: "transform 0.12s ease, box-shadow 0.12s ease",
                           }}
@@ -1223,18 +1326,24 @@ export default function TimesheetListPage() {
                             style={{
                               display: "flex",
                               justifyContent: "space-between",
-                              gap: 8,
-                              alignItems: "flex-start",
+                              gap: compactReviewView ? 6 : 8,
+                              alignItems: compactReviewView ? "center" : "flex-start",
                             }}
                           >
-                            <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
-                              <span style={iconBox(status.text, status.bg, status.border)}>
+                            <div style={{ display: "flex", gap: compactReviewView ? 6 : 8, minWidth: 0, alignItems: "center" }}>
+                              <span
+                                style={{
+                                  ...iconBox(status.text, status.bg, status.border),
+                                  width: compactReviewView ? 26 : 34,
+                                  height: compactReviewView ? 26 : 34,
+                                }}
+                              >
                                 <FileCheck2 size={15} />
                               </span>
                               <div>
                                 <div
                                   style={{
-                                    fontSize: 14,
+                                    fontSize: compactReviewView ? 12.5 : 14,
                                     fontWeight: 800,
                                     color: UI.ink,
                                     lineHeight: 1.2,
@@ -1244,12 +1353,12 @@ export default function TimesheetListPage() {
                                 </div>
                                 <div
                                   style={{
-                                    marginTop: 3,
-                                    fontSize: 11,
+                                    marginTop: compactReviewView ? 1 : 3,
+                                    fontSize: compactReviewView ? 10.5 : 11,
                                     color: UI.muted,
                                   }}
                                 >
-                                  Week starting {new Date(weekStart).toLocaleDateString("en-GB")}
+                                  Week ending {formatWeekEnding(weekStart)}
                                 </div>
                               </div>
                             </div>
@@ -1259,11 +1368,11 @@ export default function TimesheetListPage() {
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 6,
-                                padding: "5px 9px",
+                                padding: compactReviewView ? "4px 7px" : "5px 9px",
                                 borderRadius: 999,
                                 background: status.bg,
                                 color: status.text,
-                                fontSize: 11,
+                                fontSize: compactReviewView ? 10.5 : 11,
                                 fontWeight: 800,
                                 whiteSpace: "nowrap",
                               }}
@@ -1282,53 +1391,69 @@ export default function TimesheetListPage() {
 
                           <div
                             style={{
-                              marginTop: 10,
+                              marginTop: compactReviewView ? 6 : 10,
                               display: "grid",
-                              gap: 6,
+                              gap: compactReviewView ? 4 : 6,
                             }}
                           >
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: UI.muted,
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              {status.helper}
-                            </div>
+                            {!compactReviewView ? (
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: UI.muted,
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {status.helper}
+                              </div>
+                            ) : null}
 
                             <div
                               style={{
-                                display: "grid",
-                                gap: 4,
-                                padding: "10px 11px",
+                                display: compactReviewView ? "flex" : "grid",
+                                gap: compactReviewView ? 8 : 4,
+                                alignItems: compactReviewView ? "center" : "initial",
+                                justifyContent: compactReviewView ? "space-between" : "initial",
+                                padding: compactReviewView ? "6px 7px" : "10px 11px",
                                 borderRadius: UI.radius,
                                 background: "#f8fbfd",
                                 border: UI.border,
                               }}
                             >
-                              <div style={{ fontSize: 11, color: UI.muted }}>Timesheet ID</div>
-                              <div
-                                style={{
-                                  fontFamily:
-                                    "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-                                  fontSize: 11,
-                                  color: UI.ink,
-                                  wordBreak: "break-all",
-                                }}
-                              >
-                                {ts?.id || "Not created"}
+                              {!compactReviewView ? (
+                                <>
+                                  <div style={{ fontSize: 11, color: UI.muted }}>Timesheet ID</div>
+                                  <div
+                                    style={{
+                                      fontFamily:
+                                        "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                                      fontSize: 11,
+                                      color: UI.ink,
+                                      wordBreak: "break-all",
+                                    }}
+                                  >
+                                    {ts?.id || "Not created"}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
+                                    Last update
+                                  </div>
+                                </>
+                              ) : null}
+                              <div style={{ fontSize: compactReviewView ? 10.5 : 11, color: UI.ink }}>
+                                {compactReviewView
+                                  ? status.key === "missing"
+                                    ? status.helper
+                                    : `Updated ${lastUpdateText.replace(/:\d{2}$/, "")}`
+                                  : lastUpdateText}
                               </div>
-                              <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
-                                Last update
-                              </div>
-                              <div style={{ fontSize: 11, color: UI.ink }}>{lastUpdateText}</div>
                               {showWeeklyHours ? (
                                 <>
-                                  <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
+                                  {!compactReviewView ? (
+                                    <div style={{ fontSize: 11, color: UI.muted, marginTop: 2 }}>
                                     Weekly hours
-                                  </div>
-                                  <div style={{ fontSize: 11, color: UI.ink, fontWeight: 800 }}>
+                                    </div>
+                                  ) : null}
+                                  <div style={{ fontSize: compactReviewView ? 11 : 11, color: UI.ink, fontWeight: 800 }}>
                                     {formatHoursCompact(weeklyHours)}
                                   </div>
                                 </>
@@ -1338,7 +1463,7 @@ export default function TimesheetListPage() {
 
                           <div
                             style={{
-                              marginTop: 10,
+                              marginTop: compactReviewView ? 6 : 10,
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
@@ -1354,15 +1479,39 @@ export default function TimesheetListPage() {
                             >
                               {status.clickable ? "Open timesheet" : "Awaiting submission"}
                             </span>
-                            <span
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 800,
-                                color: status.clickable ? UI.brand : "#94a3b8",
-                              }}
-                            >
-                              {status.clickable ? <ChevronRight size={16} /> : "-"}
-                            </span>
+                            {canApprove ? (
+                              <button
+                                type="button"
+                                onClick={(event) => handleApproveTimesheet(event, ts)}
+                                disabled={isApproving}
+                                style={{
+                                  ...btn("primary"),
+                                  padding: compactReviewView ? "5px 8px" : "6px 10px",
+                                  fontSize: compactReviewView ? 11.5 : 12.5,
+                                  borderColor: "#047857",
+                                  background: isApproving
+                                    ? UI.greenSoft
+                                    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
+                                  color: isApproving ? UI.green : "#ffffff",
+                                  boxShadow: isApproving
+                                    ? UI.shadowSm
+                                    : "0 8px 18px rgba(21,128,61,0.22)",
+                                }}
+                              >
+                                <CheckCircle2 size={14} />
+                                {isApproving ? "Approving..." : "Approve"}
+                              </button>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: 16,
+                                  fontWeight: 800,
+                                  color: status.clickable ? UI.brand : "#94a3b8",
+                                }}
+                              >
+                                {status.clickable ? <ChevronRight size={16} /> : "-"}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );

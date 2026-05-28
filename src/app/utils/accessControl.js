@@ -65,6 +65,17 @@ export function inferAccessFromLegacyFields(raw = {}) {
 }
 
 export function normalizeAppAccess(raw = {}) {
+  if (
+    raw?.active === false ||
+    raw?.archived === true ||
+    raw?.isArchived === true ||
+    raw?.disabled === true ||
+    raw?.appDisabled === true ||
+    String(raw?.role || "").trim().toLowerCase() === "archived"
+  ) {
+    return { user: false, service: false };
+  }
+
   const fallback = inferAccessFromLegacyFields(raw);
   const incoming = raw?.appAccess && typeof raw.appAccess === "object" ? raw.appAccess : {};
 
@@ -90,6 +101,7 @@ export function resolveDefaultWorkspace(raw = {}, appAccess = normalizeAppAccess
   const requested = String(raw?.defaultWorkspace || "").trim().toLowerCase();
   if (requested === "service" && appAccess.service) return "service";
   if (requested === "user" && appAccess.user) return "user";
+  if (!appAccess.user && !appAccess.service) return "user";
   return appAccess.user ? "user" : "service";
 }
 
@@ -115,7 +127,7 @@ export function hasMirroredAccessRecord(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();
   return (
     raw?.appAccess && typeof raw.appAccess === "object"
-  ) || ["admin", "employee", "service", "hybrid"].includes(role);
+  ) || ["admin", "employee", "service", "hybrid", "archived"].includes(role);
 }
 
 export function validateEmployeeAccessDraft(draft) {

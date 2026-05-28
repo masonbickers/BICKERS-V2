@@ -17,6 +17,7 @@ import {
 export default function EditNoteModal({ id, onClose }) {
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
 
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [noteDate, setNoteDate] = useState("");
@@ -39,6 +40,7 @@ export default function EditNoteModal({ id, onClose }) {
         const data = noteSnap.data() || {};
         setEmployee(data.employee || "");
         setNoteText(data.text || "");
+        setBlocksEmployeeBooking(Boolean(data.blocksEmployeeBooking));
 
         if (data.startDate && data.endDate) {
           setIsMultiDay(true);
@@ -98,10 +100,11 @@ export default function EditNoteModal({ id, onClose }) {
   const canSubmit = useMemo(() => {
     if (saving) return false;
     if (!noteText.trim()) return false;
+    if (blocksEmployeeBooking && !employee) return false;
 
     if (isMultiDay) return !!startDate && !!endDate;
     return !!noteDate;
-  }, [saving, noteText, isMultiDay, startDate, endDate, noteDate]);
+  }, [saving, noteText, blocksEmployeeBooking, employee, isMultiDay, startDate, endDate, noteDate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -134,6 +137,7 @@ export default function EditNoteModal({ id, onClose }) {
         for (const noteDoc of existing) {
           await updateDoc(doc(db, "notes", noteDoc.id), {
             employee: employee || "",
+            blocksEmployeeBooking,
             date: noteDoc.data()?.date || "",
             text: noteText.trim(),
             startDate,
@@ -147,6 +151,7 @@ export default function EditNoteModal({ id, onClose }) {
           if (existingDates.has(date)) continue;
           await addDoc(collection(db, "notes"), {
             employee: employee || "",
+            blocksEmployeeBooking,
             date,
             text: noteText.trim(),
             startDate,
@@ -164,6 +169,7 @@ export default function EditNoteModal({ id, onClose }) {
 
         await updateDoc(doc(db, "notes", id), {
           employee: employee || "",
+          blocksEmployeeBooking,
           date: noteDate,
           text: noteText.trim(),
           isMultiDay: false,
@@ -216,7 +222,14 @@ export default function EditNoteModal({ id, onClose }) {
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
           <div>
             <label style={label}>Employee (optional)</label>
-            <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input}>
+            <select
+              value={employee}
+              onChange={(e) => {
+                setEmployee(e.target.value);
+                if (!e.target.value) setBlocksEmployeeBooking(false);
+              }}
+              style={input}
+            >
               <option value="">No one specific</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.name}>
@@ -225,6 +238,19 @@ export default function EditNoteModal({ id, onClose }) {
               ))}
             </select>
           </div>
+
+          <label style={checkRow}>
+            <input
+              type="checkbox"
+              checked={blocksEmployeeBooking}
+              onChange={(e) => setBlocksEmployeeBooking(e.target.checked)}
+              disabled={!employee}
+            />
+            <span>Mark employee unavailable for bookings</span>
+          </label>
+          {blocksEmployeeBooking && !employee ? (
+            <div style={helpText}>Select an employee to block bookings for this note.</div>
+          ) : null}
 
           <div>
             <label style={label}>Note Type</label>
@@ -370,6 +396,22 @@ const label = {
   color: "rgba(255,255,255,0.78)",
   textTransform: "uppercase",
   letterSpacing: ".04em",
+};
+
+const checkRow = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
+const helpText = {
+  marginTop: -8,
+  color: "#fca5a5",
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 const input = {

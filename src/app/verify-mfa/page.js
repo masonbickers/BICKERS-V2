@@ -17,6 +17,7 @@ import {
   isPhoneVerified,
   markMfaVerified,
 } from "@/app/utils/authSecurity";
+import { useAuth } from "@/app/context/authContext";
 
 export default function VerifyMfaPage() {
   const [code, setCode] = useState("");
@@ -24,6 +25,7 @@ export default function VerifyMfaPage() {
   const [loading, setLoading] = useState(true);
   const [rememberDevice, setRememberDevice] = useState(true);
   const router = useRouter();
+  const { refreshMfaState } = useAuth() || {};
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -45,6 +47,7 @@ export default function VerifyMfaPage() {
         user.uid
       );
       if (alreadyTrusted) {
+        refreshMfaState?.();
         const [userSnap, employeeDoc] = await Promise.all([
           getDoc(doc(db, "users", user.uid)),
           findEmployeeForUser(db, user),
@@ -62,7 +65,7 @@ export default function VerifyMfaPage() {
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [refreshMfaState, router]);
 
   const handleVerify = async () => {
     try {
@@ -126,7 +129,8 @@ export default function VerifyMfaPage() {
             ? window.localStorage
             : window.sessionStorage;
         markMfaVerified(targetStorage, user.uid, rememberDevice ? { daysValid: 30 } : {});
-        router.push(selectLandingRoute(access, preferred));
+        refreshMfaState?.();
+        router.replace(selectLandingRoute(access, preferred));
       } else {
         setError(verifyData?.error || "Invalid code, try again.");
       }

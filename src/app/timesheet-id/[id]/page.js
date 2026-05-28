@@ -30,6 +30,8 @@ const ADMIN_EMAILS = [
   "paul@bickers.co.uk",
   "adam@bickers.co.uk",
 ];
+const PAY_ADVICE_PIN_EMAIL = "adam@bickers.co.uk";
+const PAY_ADVICE_PIN = "4159";
 
 /* -------------------------------------------------------------------------- */
 /*                               HELPERS                                      */
@@ -142,6 +144,22 @@ const controlButton = (kind = "ghost", disabled = false) => {
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
 };
+
+const approveButtonStyle = (disabled = false) => ({
+  ...controlButton("success", disabled),
+  padding: "9px 15px",
+  fontSize: 13.5,
+  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid #047857",
+  background: disabled
+    ? UI.greenSoft
+    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
+  color: disabled ? UI.green : "#fff",
+  boxShadow: disabled
+    ? UI.shadowSm
+    : "0 10px 22px rgba(21,128,61,0.28), inset 0 1px 0 rgba(255,255,255,0.2)",
+  textTransform: "uppercase",
+  letterSpacing: 0,
+});
 
 const formControlStyle = {
   width: "100%",
@@ -922,6 +940,9 @@ export default function TimesheetDetailPage() {
   const [payAdviceRateEdits, setPayAdviceRateEdits] = useState({});
   const [payAdviceSaving, setPayAdviceSaving] = useState(false);
   const [payAdviceMessage, setPayAdviceMessage] = useState("");
+  const [payAdvicePin, setPayAdvicePin] = useState("");
+  const [payAdvicePinUnlocked, setPayAdvicePinUnlocked] = useState(false);
+  const [payAdvicePinError, setPayAdvicePinError] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
@@ -963,6 +984,18 @@ export default function TimesheetDetailPage() {
     () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
     [userEmail, userRole]
   );
+  const needsPayAdvicePin = userEmail === PAY_ADVICE_PIN_EMAIL && !payAdvicePinUnlocked;
+
+  const handlePayAdvicePinSubmit = (event) => {
+    event.preventDefault();
+    if (payAdvicePin.trim() === PAY_ADVICE_PIN) {
+      setPayAdvicePinUnlocked(true);
+      setPayAdvicePin("");
+      setPayAdvicePinError("");
+      return;
+    }
+    setPayAdvicePinError("Incorrect PIN.");
+  };
 
   /* ----------------------- Load timesheet ----------------------- */
   useEffect(() => {
@@ -1000,7 +1033,7 @@ export default function TimesheetDetailPage() {
           .filter((item) => {
             const code = String(item.employeeCode || "").trim().toLowerCase();
             const name = String(item.employeeName || "").trim().toLowerCase();
-            return (targetCode && code === targetCode) || (!targetCode && targetName && name === targetName);
+            return (targetCode && code === targetCode) || (targetName && name === targetName);
           })
           .map((item) => ({
             id: item.id,
@@ -1289,7 +1322,7 @@ export default function TimesheetDetailPage() {
         const snap = await getDocs(collection(db, "employees"));
         const employees = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const match = employees.find((emp) => {
-          const code = String(emp.employeeCode || emp.code || "").trim().toLowerCase();
+          const code = String(emp.userCode || emp.employeeCode || emp.code || "").trim().toLowerCase();
           const name = String(emp.name || emp.fullName || "").trim().toLowerCase();
           return (
             (timesheet.employeeCode && code && code === String(timesheet.employeeCode).trim().toLowerCase()) ||
@@ -1929,10 +1962,11 @@ export default function TimesheetDetailPage() {
             <button
               onClick={handleApprove}
               disabled={approving || isApproved}
-              style={controlButton("success", approving || isApproved)}
+              style={approveButtonStyle(approving || isApproved)}
+              title={isApproved ? "This timesheet has already been approved" : "Approve this timesheet"}
             >
-              <CheckCircle2 size={14} />
-              {isApproved ? "Approved" : approving ? "Approving..." : "Approve"}
+              <CheckCircle2 size={17} />
+              {isApproved ? "Approved" : approving ? "Approving..." : "Approve Timesheet"}
             </button>
           </div>
         </div>
@@ -2560,6 +2594,7 @@ export default function TimesheetDetailPage() {
             <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
               Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
             </div>
+            {!needsPayAdvicePin ? (
             <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -2576,8 +2611,51 @@ export default function TimesheetDetailPage() {
                 </div>
               ) : null}
             </div>
+            ) : null}
           </div>
 
+          {needsPayAdvicePin ? (
+          <form
+            onSubmit={handlePayAdvicePinSubmit}
+            style={{
+              padding: 14,
+              display: "grid",
+              gap: 10,
+              maxWidth: 360,
+            }}
+          >
+            <div style={{ fontSize: 13, color: UI.muted }}>
+              Enter the PIN to view weekly pay advice.
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={payAdvicePin}
+                onChange={(e) => {
+                  setPayAdvicePin(e.target.value);
+                  setPayAdvicePinError("");
+                }}
+                placeholder="PIN"
+                style={{
+                  ...formControlStyle,
+                  maxWidth: 140,
+                  textAlign: "center",
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                }}
+              />
+              <button type="submit" style={controlButton("primary", false)}>
+                Unlock
+              </button>
+            </div>
+            {payAdvicePinError ? (
+              <div style={{ fontSize: 12, color: UI.red, fontWeight: 700 }}>
+                {payAdvicePinError}
+              </div>
+            ) : null}
+          </form>
+          ) : (
           <div style={{ overflowX: "auto", padding: 12 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11.5 }}>
               <thead>
@@ -2836,6 +2914,7 @@ export default function TimesheetDetailPage() {
               </div>
             ) : null}
           </div>
+          )}
         </div>
         ) : null}
 

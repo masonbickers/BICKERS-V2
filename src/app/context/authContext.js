@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db } from "@/app/utils/firebaseClient";
@@ -71,6 +71,13 @@ const writeAccessCache = (uid, value) => {
   }
 };
 
+const readStoredMfaPassed = (uid) =>
+  isMfaVerifiedOnDevice(
+    typeof window !== "undefined" ? window.localStorage : null,
+    typeof window !== "undefined" ? window.sessionStorage : null,
+    uid
+  );
+
 async function resolveUserDoc(currentUser) {
   let resolvedRef = doc(db, "users", currentUser.uid);
   let snap = await getDoc(resolvedRef);
@@ -110,11 +117,7 @@ const resolveAccessState = async (currentUser, userDoc) => {
   const employeeAccess = resolveEmployeeAccess(accessSource, { isAdmin });
   const phoneReady = isPhoneVerified(userDoc || {});
   const mfaReady = hasAuthenticatorMfa(userDoc || {});
-  const mfaPassed = isMfaVerifiedOnDevice(
-    typeof window !== "undefined" ? window.localStorage : null,
-    typeof window !== "undefined" ? window.sessionStorage : null,
-    currentUser.uid
-  );
+  const mfaPassed = readStoredMfaPassed(currentUser.uid);
 
   return {
     userDoc: userDoc || {},
@@ -157,7 +160,11 @@ export const AuthProvider = ({ children }) => {
 
       const cached = readAccessCache(firebaseUser.uid);
       if (cached) {
-        setAccessState({ ...cached, accessReady: true });
+        setAccessState({
+          ...cached,
+          mfaPassed: readStoredMfaPassed(firebaseUser.uid),
+          accessReady: true,
+        });
         debugBookingLoads("auth/access cache ready", Math.round(nowMs() - startedAt), "ms");
       } else {
         setAccessState({ ...emptyAccess, user: firebaseUser, accessReady: false });
@@ -198,6 +205,17 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const refreshMfaState = useCallback(() => {
+    const uid = auth.currentUser?.uid || user?.uid;
+    if (!uid) return false;
+    const nextMfaPassed = readStoredMfaPassed(uid);
+    setAccessState((prev) => ({
+      ...prev,
+      mfaPassed: nextMfaPassed,
+    }));
+    return nextMfaPassed;
+  }, [user?.uid]);
+
   const value = useMemo(
     () => ({
       user,
@@ -209,10 +227,11 @@ export const AuthProvider = ({ children }) => {
       phoneReady: accessState.phoneReady,
       mfaReady: accessState.mfaReady,
       mfaPassed: accessState.mfaPassed,
+      refreshMfaState,
       accessReady: accessState.accessReady,
       accessLoading: !!user && !accessState.accessReady,
     }),
-    [user, loading, accessState]
+    [user, loading, accessState, refreshMfaState]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

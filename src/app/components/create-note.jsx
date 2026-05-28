@@ -11,6 +11,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
 
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
 
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [noteDate, setNoteDate] = useState(defaultDate || ""); // yyyy-mm-dd
@@ -56,10 +57,11 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   const canSubmit = useMemo(() => {
     if (saving) return false;
     if (!noteText.trim()) return false;
+    if (blocksEmployeeBooking && !employee) return false;
 
     if (isMultiDay) return !!startDate && !!endDate;
     return !!noteDate;
-  }, [saving, noteText, isMultiDay, startDate, endDate, noteDate]);
+  }, [saving, noteText, blocksEmployeeBooking, employee, isMultiDay, startDate, endDate, noteDate]);
 
   const handleBack = () => {
     if (typeof onClose === "function") return onClose();
@@ -98,6 +100,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         for (const date of range) {
           await addDoc(collection(db, "notes"), {
             employee: employee || "",
+            blocksEmployeeBooking,
             date,
             text: noteText.trim(),
             startDate,
@@ -118,6 +121,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
 
         await addDoc(collection(db, "notes"), {
           employee: employee || "",
+          blocksEmployeeBooking,
           date: noteDate,
           text: noteText.trim(),
           isMultiDay: false,
@@ -153,7 +157,10 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             <label style={label}>Employee (optional)</label>
             <select
               value={employee}
-              onChange={(e) => setEmployee(e.target.value)}
+              onChange={(e) => {
+                setEmployee(e.target.value);
+                if (!e.target.value) setBlocksEmployeeBooking(false);
+              }}
               style={input}
             >
               <option value="">No one specific</option>
@@ -164,6 +171,19 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
               ))}
             </select>
           </div>
+
+          <label style={checkRow}>
+            <input
+              type="checkbox"
+              checked={blocksEmployeeBooking}
+              onChange={(e) => setBlocksEmployeeBooking(e.target.checked)}
+              disabled={!employee}
+            />
+            <span>Mark employee unavailable for bookings</span>
+          </label>
+          {blocksEmployeeBooking && !employee ? (
+            <div style={helpText}>Select an employee to block bookings for this note.</div>
+          ) : null}
 
           {/* Type toggle */}
           <div>
@@ -305,6 +325,22 @@ const label = {
   fontWeight: 700,
   color: "rgba(255,255,255,0.85)",
   marginBottom: 6,
+};
+
+const checkRow = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  color: "rgba(255,255,255,0.9)",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
+const helpText = {
+  marginTop: -8,
+  color: "#fca5a5",
+  fontSize: 12,
+  fontWeight: 700,
 };
 
 /**

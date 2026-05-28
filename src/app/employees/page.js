@@ -233,7 +233,14 @@ function isEmployeeRecord(employee = {}) {
     ? employee.jobTitle.join(" ").toLowerCase()
     : String(employee.jobTitle || "").toLowerCase();
 
-  if (employee.deleted === true || employee.isDeleted === true || employee.archived === true) return false;
+  if (
+    employee.deleted === true ||
+    employee.isDeleted === true ||
+    employee.archived === true ||
+    employee.isArchived === true ||
+    employee.active === false ||
+    employee.appDisabled === true
+  ) return false;
   if (employee.isService === true) return false;
   if (role === "service" || role === "hybrid") return false;
   if (role === "freelancer" || role === "freelance") return false;

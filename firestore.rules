@@ -124,6 +124,34 @@ service cloud.firestore {
         && request.resource.data.requestedByEmail == resource.data.requestedByEmail;
     }
 
+    function isShiftChangeOwner() {
+      return isSignedIn()
+        && (
+          resource.data.requestedByUid == request.auth.uid
+          || matchesAuthEmail(resource.data.requestedByEmail)
+        );
+    }
+
+    function isShiftChangeOwnerOnCreate() {
+      return isSignedIn()
+        && (
+          request.resource.data.requestedByUid == request.auth.uid
+          || matchesAuthEmail(request.resource.data.requestedByEmail)
+        );
+    }
+
+    function keepsShiftChangeOwnerIdentity() {
+      return request.resource.data.requestedByUid == resource.data.requestedByUid
+        && request.resource.data.requestedByEmail == resource.data.requestedByEmail;
+    }
+
+    function shiftChangeOwnerCancelOnly() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        "status",
+        "updatedAt"
+      ]);
+    }
+
     function isApprovedHolidayRecord() {
       return resource.data.approved == true
         || resource.data.status == "approved"
@@ -227,6 +255,26 @@ service cloud.firestore {
           && isHolidayOwner()
           && !isApprovedHolidayRecord()
         );
+    }
+
+    match /shiftChangeRequests/{requestId} {
+      allow read: if hasUserAccess() || hasServiceAccess();
+      allow create: if isAdmin()
+        || (
+          (hasUserAccess() || hasServiceAccess())
+          && isShiftChangeOwnerOnCreate()
+          && request.resource.data.status == "requested"
+        );
+      allow update: if isAdmin()
+        || (
+          (hasUserAccess() || hasServiceAccess())
+          && isShiftChangeOwner()
+          && keepsShiftChangeOwnerIdentity()
+          && resource.data.status == "requested"
+          && request.resource.data.status == "cancelled"
+          && shiftChangeOwnerCancelOnly()
+        );
+      allow delete: if isAdmin();
     }
 
     match /hr/{docId} {

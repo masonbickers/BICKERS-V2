@@ -28,6 +28,7 @@ export default function EditNotePage() {
   const [employee, setEmployee] = useState("");
   const [noteDate, setNoteDate] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
 
   // lists
   const [employees, setEmployees] = useState([]);
@@ -63,6 +64,7 @@ export default function EditNotePage() {
         }
         const n = snap.data();
         setEmployee(n.employee || "");
+        setBlocksEmployeeBooking(Boolean(n.blocksEmployeeBooking));
         // handle date as yyyy-mm-dd
         const raw = n.date || n.noteDate;
         const dateISO = toISODateOnly(raw);
@@ -89,6 +91,7 @@ export default function EditNotePage() {
       const ref = doc(db, "notes", id);
       await updateDoc(ref, {
         employee,
+        blocksEmployeeBooking,
         date: noteDate,
         text: noteText,
         updatedAt: serverTimestamp(),
@@ -173,7 +176,10 @@ export default function EditNotePage() {
               <label style={labelStyle}>Employee (optional)</label>
               <select
                 value={employee}
-                onChange={(e) => setEmployee(e.target.value)}
+                onChange={(e) => {
+                  setEmployee(e.target.value);
+                  if (!e.target.value) setBlocksEmployeeBooking(false);
+                }}
                 style={inputStyle}
               >
                 <option value="">No one specific</option>
@@ -184,6 +190,16 @@ export default function EditNotePage() {
                 ))}
               </select>
             </div>
+
+            <label style={checkRowStyle}>
+              <input
+                type="checkbox"
+                checked={blocksEmployeeBooking}
+                onChange={(e) => setBlocksEmployeeBooking(e.target.checked)}
+                disabled={!employee}
+              />
+              <span>Mark employee unavailable for bookings</span>
+            </label>
 
             <div style={inputContainerStyle}>
               <label style={labelStyle}>Date</label>
@@ -317,6 +333,16 @@ const labelStyle = {
   marginBottom: "5px",
   display: "block",
   color: "#fff",
+};
+
+const checkRowStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 15,
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: 700,
 };
 
 const inputStyle = {

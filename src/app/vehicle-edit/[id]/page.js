@@ -381,6 +381,11 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
   },
 ];
 
+const sectionHasDateValue = (vehicle, section) =>
+  section.fields
+    .filter((field) => field.type === "date")
+    .some((field) => String(vehicle?.[field.name] || "").trim());
+
 const formatDefectText = (defect) =>
   String(defect?.text || defect?.description || defect?.defectText || defect?.itemDescription || "").trim();
 
@@ -536,6 +541,7 @@ export default function EditVehiclePage() {
   const [vehicleBookings, setVehicleBookings] = useState([]);
   const [serviceRecords, setServiceRecords] = useState([]);
   const [initialSnapshot, setInitialSnapshot] = useState("");
+  const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
 
   // categories list
   useEffect(() => {
@@ -690,6 +696,7 @@ export default function EditVehiclePage() {
   useEffect(() => {
     if (!id) return;
     setInitialSnapshot("");
+    setShownAdditionalMaintenance([]);
     reloadVehicle().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -844,13 +851,25 @@ export default function EditVehiclePage() {
   };
 
   const handleAdditionalMaintenanceToggle = (key) => {
+    const section = ADDITIONAL_MAINTENANCE_SECTIONS.find((item) => item.key === key);
+    const hiddenNow = new Set(safeArr(vehicle?.hiddenAdditionalMaintenance));
+    const isVisible =
+      section &&
+      !hiddenNow.has(key) &&
+      (sectionHasDateValue(vehicle, section) || shownAdditionalMaintenance.includes(key));
+
+    setShownAdditionalMaintenance((current) => {
+      if (isVisible) return current.filter((item) => item !== key);
+      return current.includes(key) ? current : [...current, key];
+    });
+
     setVehicle((prev) => {
       if (!prev) return prev;
       const hidden = new Set(safeArr(prev.hiddenAdditionalMaintenance));
-      if (hidden.has(key)) {
-        hidden.delete(key);
-      } else {
+      if (isVisible) {
         hidden.add(key);
+      } else {
+        hidden.delete(key);
       }
       return {
         ...prev,
@@ -1161,7 +1180,9 @@ export default function EditVehiclePage() {
   const dvsaMotMileageWarning = vehicle?.dvsaMotMileageWarning || getMileageAnomaly(dvsaMotTests);
   const hiddenAdditionalMaintenance = safeArr(vehicle?.hiddenAdditionalMaintenance);
   const visibleAdditionalMaintenanceSections = ADDITIONAL_MAINTENANCE_SECTIONS.filter(
-    (section) => !hiddenAdditionalMaintenance.includes(section.key)
+    (section) =>
+      !hiddenAdditionalMaintenance.includes(section.key) &&
+      (sectionHasDateValue(vehicle, section) || shownAdditionalMaintenance.includes(section.key))
   );
 
   useUnsavedChangesGuard({
@@ -1921,7 +1942,10 @@ export default function EditVehiclePage() {
                 }}
               >
                 {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
-                  const checked = !hiddenAdditionalMaintenance.includes(section.key);
+                  const checked =
+                    !hiddenAdditionalMaintenance.includes(section.key) &&
+                    (sectionHasDateValue(vehicle, section) ||
+                      shownAdditionalMaintenance.includes(section.key));
                   return (
                     <label
                       key={section.key}

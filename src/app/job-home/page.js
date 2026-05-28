@@ -646,51 +646,28 @@ export default function JobHomePage() {
             )}
           </section>
 
-          <section style={card}>
+          <section style={{ ...card, alignSelf: "stretch" }}>
             <div style={sectionHeader}>
               <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
                 <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
-                  <CheckCircle2 size={17} />
+                  <ChevronRight size={17} />
                 </span>
                 <div>
-                  <h2 style={titleMd}>At a Glance</h2>
-                  <div style={cardHint}>Current work and finance state.</div>
+                  <h2 style={titleMd}>Workflow</h2>
+                  <div style={cardHint}>Open the next action area without repeating the dashboard totals.</div>
                 </div>
               </div>
-              <span style={chip("green")}>Summary</span>
+              <span style={chip("purple")}>Shortcuts</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-              <MiniStat label="Upcoming" value={grouped.Upcoming ?? 0} />
-              <MiniStat label="Review Queue" value={reviewQueueCount} />
-              <MiniStat label="Ready to Invoice" value={financeReadyCount} />
-              <MiniStat label="Needs Action" value={grouped["Needs Action"] ?? 0} />
+            <div style={{ display: "grid", gap: 7 }}>
+              <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
+              <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
+              <WorkflowLink href="/invoiced" label="Invoiced" count={invoicedCount} />
+              <WorkflowLink href="/paid" label="Paid" count={paidCount} tone="green" />
+              <WorkflowLink href="/job-sheet?section=Overdue" label="Overdue Payments" count={overdueCount} tone="amber" />
             </div>
           </section>
         </div>
-
-        <section style={{ marginBottom: UI.gap }}>
-          <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Shortcuts</h2>
-              <div style={cardHint}>Jump straight into the stage you need.</div>
-            </div>
-            <span style={chip("purple")}>Workflow</span>
-          </div>
-
-          <div className="job-home-shortcut-grid" style={grid(4)}>
-            {navCard("/review-queue", "Review Queue", "Fill notes / PO / invoice details", `${reviewQueueCount}`, ClipboardList, UI.purple, UI.purpleSoft, UI.purpleBorder)}
-            {navCard("/finance-queue", "Ready to Invoice", "Price it and send quote/invoice", `${financeReadyCount}`, Receipt, UI.green, UI.greenSoft, UI.greenBorder)}
-            {navCard("/invoiced", "Invoiced", "Invoiced, awaiting payment", `${invoicedCount}`, FileText, UI.brand, UI.brandSoft, UI.brandBorder)}
-            {navCard("/paid", "Paid", "Jobs marked as paid", `${paidCount}`, CheckCircle2, UI.green, UI.greenSoft, UI.greenBorder)}
-          </div>
-
-          <div className="job-home-shortcut-grid" style={{ ...grid(4), marginTop: UI.gap }}>
-            {navCard("/job-sheet?section=Upcoming", "Upcoming", "Pending / future dates", `${grouped.Upcoming ?? 0}`, CalendarDays)}
-            {navCard("/job-sheet?section=Cancelled", "Cancelled", "Cancelled bookings", `${cancelledCount}`, AlertTriangle, UI.red, UI.redSoft, UI.redBorder)}
-            {navCard("/job-sheet?section=Needs%20Action", "Needs Action", "Jobs requiring attention", `${grouped["Needs Action"] ?? 0}`, AlertTriangle, UI.red, UI.redSoft, UI.redBorder)}
-            {navCard("/job-sheet?section=Overdue", "Overdue Payments", ">30 days since invoice, not paid", `${overdueCount}`, Clock3, UI.amber, UI.amberSoft, UI.amberBorder)}
-          </div>
-        </section>
 
         <div className="job-home-pipeline-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap }}>
           <PipelinePanel
@@ -755,6 +732,32 @@ function MiniStat({ label, value }) {
       <div style={statLabel}>{label}</div>
       <div style={{ ...statValue, fontSize: 22 }}>{value}</div>
     </div>
+  );
+}
+
+function WorkflowLink({ href, label, count, tone = "neutral" }) {
+  return (
+    <Link
+      href={href}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr auto 16px",
+        gap: 8,
+        alignItems: "center",
+        padding: "8px 9px",
+        borderRadius: UI.radiusSm,
+        border: UI.border,
+        background: "#fff",
+        color: UI.text,
+        textDecoration: "none",
+        fontSize: 13,
+        fontWeight: 800,
+      }}
+    >
+      <span>{label}</span>
+      <span style={chip(tone)}>{count}</span>
+      <ChevronRight size={15} color={UI.brand} />
+    </Link>
   );
 }
 

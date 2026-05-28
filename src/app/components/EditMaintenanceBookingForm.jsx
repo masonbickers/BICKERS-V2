@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DatePicker from "react-multi-date-picker";
 import { db } from "../../../firebaseConfig";
+import { getIsoWeekLabel } from "../utils/maintenanceSchema";
 import {
   bookingToDateKeys as serviceBookingToDateKeys,
   cancelMaintenanceBooking,
@@ -62,7 +63,8 @@ export default function EditMaintenanceBookingForm({
   const [cost, setCost] = useState("");
   const [notes, setNotes] = useState("");
   const [equipmentGroups, setEquipmentGroups] = useState({});
-  const [openEquipmentGroups, setOpenEquipmentGroups] = useState({});
+  const [equipmentSearch, setEquipmentSearch] = useState("");
+  const [equipmentSearchOpen, setEquipmentSearchOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState([]);
 
   const [saving, setSaving] = useState(false);
@@ -148,6 +150,8 @@ export default function EditMaintenanceBookingForm({
   const typeLabel = useMemo(() => {
     if (safeType === "SERVICE") return "Service";
     if (safeType === "MOT") return "MOT";
+    if (safeType === "INSPECTION") return "8 Week Inspection";
+    if (safeType === "WORK") return "Work";
     return safeType;
   }, [safeType]);
 
@@ -169,6 +173,46 @@ export default function EditMaintenanceBookingForm({
     const last = selectedDateKeys[selectedDateKeys.length - 1] || first;
     return { start: ymdToDate(first), end: ymdToDate(last), keys: selectedDateKeys };
   }, [selectedDateKeys]);
+
+  const sourceDueDateObj = useMemo(
+    () => ymdToDate(String(booking?.sourceDueDate || "").slice(0, 10)),
+    [booking?.sourceDueDate]
+  );
+
+  const selectedInspectionWeek = useMemo(() => {
+    const seed = useCustomDates
+      ? customDates[0] || ""
+      : isMultiDay
+      ? startDate || ""
+      : appointmentDate || "";
+    return seed ? getIsoWeekLabel(seed) : "";
+  }, [useCustomDates, customDates, isMultiDay, startDate, appointmentDate]);
+
+  const inspectionOutsideDueWeek =
+    safeType === "INSPECTION" &&
+    !!booking?.sourceDueIsoWeek &&
+    !!selectedInspectionWeek &&
+    selectedInspectionWeek !== booking.sourceDueIsoWeek;
+
+  const equipmentOptions = useMemo(
+    () =>
+      Object.entries(equipmentGroups)
+        .flatMap(([category, items]) =>
+          (Array.isArray(items) ? items : []).map((name) => ({
+            category,
+            name,
+            search: `${category} ${name}`.toLowerCase(),
+          }))
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [equipmentGroups]
+  );
+
+  const filteredEquipmentOptions = useMemo(() => {
+    const queryText = equipmentSearch.trim().toLowerCase();
+    if (!queryText) return equipmentOptions.slice(0, 10);
+    return equipmentOptions.filter((item) => item.search.includes(queryText)).slice(0, 10);
+  }, [equipmentOptions, equipmentSearch]);
 
   const activeConflict = useMemo(() => {
     setConflictMsg("");
@@ -311,13 +355,7 @@ export default function EditMaintenanceBookingForm({
         groupedEquipment[category].sort((a, b) => a.localeCompare(b));
       });
 
-      const defaultOpenGroups = {};
-      Object.keys(groupedEquipment).forEach((category) => {
-        defaultOpenGroups[category] = false;
-      });
-
       setEquipmentGroups(groupedEquipment);
-      setOpenEquipmentGroups(defaultOpenGroups);
 
       // vehicle
       if (resolvedVehicleId) {
@@ -346,21 +384,6 @@ export default function EditMaintenanceBookingForm({
       setLoadError("Could not load booking. Please refresh.");
     });
   }, [bookingId, vehicleIdProp]);
-
-  useEffect(() => {
-    if (!Object.keys(equipmentGroups).length) return;
-    setOpenEquipmentGroups((prev) => {
-      const next = { ...(prev || {}) };
-      Object.entries(equipmentGroups).forEach(([category, items]) => {
-        if (Array.isArray(items) && items.some((name) => selectedEquipment.includes(name))) {
-          next[category] = true;
-        } else if (typeof next[category] !== "boolean") {
-          next[category] = false;
-        }
-      });
-      return next;
-    });
-  }, [equipmentGroups, selectedEquipment]);
 
   // keep date fields in sync when toggling modes
   useEffect(() => {
@@ -527,11 +550,11 @@ export default function EditMaintenanceBookingForm({
         <div style={headerRow}>
           <div>
             <h2 style={modalTitle}>{title}</h2>
-            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-              Vehicle: <b style={{ color: "rgba(255,255,255,0.92)" }}>{vehicleLabel || "—"}</b>
+            <div style={modalSubtitle}>
+              Vehicle: <b style={{ color: "#0f172a" }}>{vehicleLabel || "—"}</b>
             </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
-              Booking ID: <b style={{ color: "rgba(255,255,255,0.8)" }}>{bookingId}</b>
+            <div style={modalMeta}>
+              Booking ID: <b>{bookingId}</b>
             </div>
           </div>
 
@@ -576,7 +599,7 @@ export default function EditMaintenanceBookingForm({
         ) : null}
 
         {loading ? (
-          <div style={{ padding: 14, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>Loading booking…</div>
+          <div style={{ padding: 14, color: "#5f6f82", fontSize: 13, fontWeight: 800 }}>Loading booking...</div>
         ) : (
           <form onSubmit={handleSubmit} style={formGrid}>
             {/* Type */}
@@ -635,6 +658,35 @@ export default function EditMaintenanceBookingForm({
               </select>
             </div>
 
+            {safeType === "INSPECTION" ? (
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
+                  background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
+                  color: "#0f172a",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  fontWeight: 750,
+                }}
+              >
+                Inspection cadence is currently fixed at <b>8 weeks</b> from the vehicle's inspection cycle.
+                {sourceDueDateObj ? (
+                  <>
+                    {" "}Due week: <b>{booking?.sourceDueIsoWeek || "Unknown"}</b> for{" "}
+                    <b>{sourceDueDateObj.toLocaleDateString("en-GB")}</b>.
+                    {inspectionOutsideDueWeek
+                      ? " This booking sits outside the due ISO week."
+                      : " This booking is inside the due ISO week."}
+                  </>
+                ) : (
+                  " Change the cycle from the lorry's vehicle edit page if a different cadence is needed."
+                )}
+              </div>
+            ) : null}
+
             {useCustomDates ? (
               <div style={{ ...fieldBlock, ...fullWidth }}>
                 <label style={label}>Selected dates</label>
@@ -651,7 +703,7 @@ export default function EditMaintenanceBookingForm({
                   }}
                 />
                 {customDates.length > 0 ? (
-                  <div style={{ marginTop: 8, fontSize: 12.5, color: "rgba(255,255,255,0.78)" }}>
+                  <div style={helperText}>
                     {customDates.join(", ")}
                   </div>
                 ) : null}
@@ -698,13 +750,8 @@ export default function EditMaintenanceBookingForm({
               <div
                 style={{
                   ...fullWidth,
-                  border: "1px solid rgba(239,68,68,0.45)",
-                  background: "rgba(239,68,68,0.12)",
-                  color: "rgba(255,255,255,0.92)",
-                  borderRadius: 12,
-                  padding: 10,
-                  fontSize: 13,
-                  lineHeight: 1.35,
+                  ...feedbackError,
+                  margin: 0,
                 }}
               >
                 <div style={{ fontWeight: 900, marginBottom: 4 }}>Booking conflict</div>
@@ -735,47 +782,64 @@ export default function EditMaintenanceBookingForm({
 
             <div style={{ ...fieldBlock, ...fullWidth }}>
               <label style={label}>Book equipment off</label>
-              {Object.keys(equipmentGroups).length ? (
-                <div style={categoryGrid}>
-                  {Object.entries(equipmentGroups).map(([category, items]) => {
-                    const isOpen = openEquipmentGroups[category] || false;
+              {equipmentOptions.length ? (
+                <div style={equipmentSearchShell}>
+                  <div style={equipmentSearchBox}>
+                    <input
+                      value={equipmentSearch}
+                      onChange={(e) => {
+                        setEquipmentSearch(e.target.value);
+                        setEquipmentSearchOpen(true);
+                      }}
+                      onFocus={() => setEquipmentSearchOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setEquipmentSearchOpen(false);
+                      }}
+                      placeholder="Search equipment by name or category..."
+                      style={input}
+                    />
 
-                    return (
-                      <div key={category} style={categoryCard}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenEquipmentGroups((prev) => ({
-                              ...prev,
-                              [category]: !prev[category],
-                            }))
-                          }
-                          style={categoryToggle}
-                        >
-                          <span>{isOpen ? "v" : ">"} {category}</span>
-                          <span style={categoryCount}>{items.length}</span>
-                        </button>
-
-                        {isOpen && (
-                          <div style={pickerGrid}>
-                            {items.map((name) => {
-                              const checked = selectedEquipment.includes(name);
-                              return (
-                                <label key={name} style={pickerItem}>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={(e) => toggleEquipment(name, e.target.checked)}
-                                  />{" "}
-                                  {name}
-                                </label>
-                              );
-                            })}
-                          </div>
+                    {equipmentSearchOpen && equipmentSearch.trim() ? (
+                      <div style={equipmentResults}>
+                        {filteredEquipmentOptions.length ? (
+                          filteredEquipmentOptions.map(({ category, name }) => {
+                            const checked = selectedEquipment.includes(name);
+                            return (
+                              <label key={`${category}:${name}`} style={equipmentResultItem}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => toggleEquipment(name, e.target.checked)}
+                                />
+                                <span style={equipmentResultText}>
+                                  <span style={equipmentResultName}>{name}</span>
+                                  <span style={equipmentResultCategory}>{category}</span>
+                                </span>
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <div style={emptySearchState}>No equipment matches that search.</div>
                         )}
                       </div>
-                    );
-                  })}
+                    ) : null}
+                  </div>
+
+                  {selectedEquipment.length ? (
+                    <div style={selectedEquipmentWrap}>
+                      {selectedEquipment.map((name) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => toggleEquipment(name, false)}
+                          style={selectedEquipmentChip}
+                          title="Remove equipment"
+                        >
+                          {name} <span style={chipRemove}>X</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div style={helperText}>No equipment found.</div>
@@ -842,7 +906,7 @@ export default function EditMaintenanceBookingForm({
               Close
             </button>
 
-            <div style={{ ...fullWidth, fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+            <div style={{ ...fullWidth, ...helperText, marginTop: 0 }}>
               Updates <b>maintenanceBookings</b> and keeps the linked fields on the vehicle document in sync.
               {status === "Completed" ? (
                 <>
@@ -858,82 +922,104 @@ export default function EditMaintenanceBookingForm({
   );
 }
 
-/* -------------------- styles (match HolidayForm vibe) -------------------- */
+/* -------------------- styles -------------------- */
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(15,23,42,0.56)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  zIndex: 90,
-  padding: 16,
+  zIndex: 9999,
+  padding: 18,
 };
 
 const modal = {
-  width: "min(820px, 96vw)",
+  width: "min(800px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflowY: "auto",
-  borderRadius: 16,
-  padding: 18,
-  color: "#fff",
-  background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
-  backdropFilter: "blur(10px)",
+  borderRadius: 8,
+  padding: 0,
+  color: "#0f172a",
+  background: "#f3f6f9",
+  border: "1px solid #d7dee8",
+  boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
 };
 
 const headerRow = {
   display: "flex",
-  alignItems: "flex-start",
+  alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 10,
+  padding: "14px 16px",
+  background: "#ffffff",
+  borderBottom: "1px solid #d7dee8",
 };
 
 const modalTitle = {
   margin: 0,
-  fontSize: 18,
-  fontWeight: 800,
-  letterSpacing: 0.2,
+  fontSize: 20,
+  lineHeight: 1.1,
+  fontWeight: 900,
+  letterSpacing: 0,
+};
+
+const modalSubtitle = {
+  marginTop: 4,
+  fontSize: 12.5,
+  color: "#5f6f82",
+  fontWeight: 700,
+};
+
+const modalMeta = {
+  marginTop: 4,
+  fontSize: 12,
+  color: "#7b8794",
+  fontWeight: 700,
 };
 
 const closeBtn = {
-  border: "none",
-  background: "transparent",
-  color: "#cbd5e1",
-  fontSize: 20,
+  width: 34,
+  height: 34,
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  background: "#ffffff",
+  color: "#5f6f82",
+  fontSize: 14,
+  fontWeight: 900,
   cursor: "pointer",
-  padding: 6,
   lineHeight: 1,
 };
 
 const label = {
   display: "block",
-  fontSize: 12,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.85)",
+  fontSize: 11.5,
+  fontWeight: 900,
+  color: "#52657a",
   marginBottom: 6,
+  textTransform: "uppercase",
+  letterSpacing: ".035em",
 };
 
 const input = {
   width: "100%",
-  padding: "12px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.10)",
-  backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff",
+  padding: "9px 10px",
+  borderRadius: 8,
+  border: "1px solid #c8d6e3",
+  backgroundColor: "#ffffff",
+  color: "#0f172a",
   outline: "none",
   fontSize: 14,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
   appearance: "none",
 };
 
 const formGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: 12,
   alignItems: "start",
+  padding: 12,
 };
 
 const fieldBlock = {
@@ -944,102 +1030,153 @@ const fullWidth = {
   gridColumn: "1 / -1",
 };
 
-const categoryGrid = {
+const equipmentSearchShell = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 10,
+  gap: 8,
 };
 
-const categoryCard = {
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.06)",
-  overflow: "hidden",
+const equipmentSearchBox = {
+  position: "relative",
 };
 
-const categoryToggle = {
-  width: "100%",
+const selectedEquipmentWrap = {
   display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-  padding: "10px 12px",
-  border: "none",
-  background: "rgba(255,255,255,0.04)",
-  color: "rgba(255,255,255,0.95)",
-  fontSize: 13,
-  fontWeight: 800,
-  cursor: "pointer",
-  textAlign: "left",
+  gap: 8,
+  flexWrap: "wrap",
 };
 
-const categoryCount = {
+const selectedEquipmentChip = {
   display: "inline-flex",
   alignItems: "center",
-  justifyContent: "center",
-  minWidth: 22,
-  height: 22,
-  padding: "0 8px",
+  gap: 8,
+  border: "1px solid #b8c8d8",
   borderRadius: 999,
-  background: "rgba(255,255,255,0.12)",
-  color: "#fff",
+  background: "#e8f2fb",
+  color: "#1f4b7a",
+  padding: "6px 9px",
   fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const chipRemove = {
+  color: "#5f6f82",
+  fontSize: 11,
   fontWeight: 900,
 };
 
-const pickerGrid = {
+const equipmentResults = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 8,
-  padding: 10,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.08)",
+  gap: 6,
+  position: "absolute",
+  top: 42,
+  left: 0,
+  right: 0,
+  zIndex: 20,
+  maxHeight: 245,
+  overflowY: "auto",
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  background: "#ffffff",
+  padding: 6,
+  boxShadow: "0 14px 30px rgba(15,23,42,0.18)",
 };
 
-const pickerItem = {
+const equipmentResultItem = {
   display: "flex",
   alignItems: "center",
   gap: 8,
+  border: "1px solid transparent",
+  borderRadius: 8,
+  background: "#ffffff",
+  padding: "8px 10px",
+  minWidth: 0,
+  cursor: "pointer",
+};
+
+const equipmentResultText = {
+  display: "grid",
+  gap: 2,
+  minWidth: 0,
+};
+
+const equipmentResultName = {
+  color: "#0f172a",
   fontSize: 13,
-  color: "rgba(255,255,255,0.92)",
+  fontWeight: 900,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const equipmentResultCategory = {
+  color: "#5f6f82",
+  fontSize: 11.5,
+  fontWeight: 800,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const emptySearchState = {
+  padding: "10px 12px",
+  color: "#5f6f82",
+  fontSize: 12.5,
+  fontWeight: 800,
 };
 
 const helperText = {
+  marginTop: 8,
   fontSize: 12,
-  color: "rgba(255,255,255,0.65)",
+  color: "#5f6f82",
+  lineHeight: 1.4,
+};
+
+const feedbackError = {
+  margin: 12,
+  border: "1px solid #fecaca",
+  background: "#fef2f2",
+  color: "#991b1b",
+  borderRadius: 8,
+  padding: "10px 12px",
+  fontSize: 12.5,
+  fontWeight: 800,
+  lineHeight: 1.45,
 };
 
 const primaryBtn = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid #1f4b7a",
+  background: "#1f4b7a",
   color: "#fff",
-  fontWeight: 800,
+  fontWeight: 900,
   fontSize: 14,
+  boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
 };
 
 const dangerBtn = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)",
-  color: "#fee2e2",
-  fontWeight: 800,
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid #b91c1c",
+  background: "#b91c1c",
+  color: "#ffffff",
+  fontWeight: 900,
   fontSize: 14,
+  cursor: "pointer",
+  boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
 };
 
 const ghostBtn = {
   width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.08)",
-  color: "#e2e8f0",
-  fontWeight: 800,
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid #b8c8d8",
+  background: "#ffffff",
+  color: "#1f4b7a",
+  fontWeight: 900,
   fontSize: 14,
   cursor: "pointer",
 };

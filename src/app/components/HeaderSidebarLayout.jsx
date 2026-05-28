@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { Inter } from "next/font/google";
 import {
   onSnapshot,
   collection,
@@ -24,6 +25,11 @@ import {
   getUnsavedChangesState,
   shouldBypassUnsavedChanges,
 } from "@/app/utils/unsavedChanges";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 const UI = {
   shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
@@ -410,12 +416,13 @@ export default function HeaderSidebarLayout({
 
   return (
     <div
+      className={inter.variable}
       style={{
         display: "flex",
         height: "100dvh",
         minHeight: "100dvh",
         overflow: "hidden",
-        fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: "var(--font-inter)",
         background: UI.shellBg,
       }}
     >

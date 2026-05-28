@@ -1,6 +1,7 @@
 HEAD
 node_modules
 .next
+.next-dev
 .env.local
 .DS_Store
 
@@ -82,6 +83,7 @@ web_modules/
 
 # Next.js build output
 .next
+.next-dev
 out
 
 # Nuxt.js build / generate output

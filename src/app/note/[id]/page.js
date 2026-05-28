@@ -15,6 +15,7 @@ export default function EditNoteForm() {
   const [employee, setEmployee] = useState("");
   const [noteDate, setNoteDate] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
   const [employees, setEmployees] = useState([]);
 
   
@@ -27,6 +28,7 @@ export default function EditNoteForm() {
         if (noteSnap.exists()) {
           const data = noteSnap.data();
           setEmployee(data.employee || "");
+          setBlocksEmployeeBooking(Boolean(data.blocksEmployeeBooking));
           setNoteDate(data.date);
           setNoteText(data.text);
         }
@@ -64,6 +66,7 @@ export default function EditNoteForm() {
     try {
       await updateDoc(doc(db, "notes", noteId), {
         employee,
+        blocksEmployeeBooking,
         date: noteDate,
         text: noteText,
         updatedAt: new Date(),
@@ -117,7 +120,10 @@ export default function EditNoteForm() {
               <label style={labelStyle}>Employee (optional)</label>
               <select
                 value={employee}
-                onChange={(e) => setEmployee(e.target.value)}
+                onChange={(e) => {
+                  setEmployee(e.target.value);
+                  if (!e.target.value) setBlocksEmployeeBooking(false);
+                }}
                 style={inputStyle}
               >
                 <option value="">No one specific</option>
@@ -128,6 +134,16 @@ export default function EditNoteForm() {
                 ))}
               </select>
             </div>
+
+            <label style={checkRowStyle}>
+              <input
+                type="checkbox"
+                checked={blocksEmployeeBooking}
+                onChange={(e) => setBlocksEmployeeBooking(e.target.checked)}
+                disabled={!employee}
+              />
+              <span>Mark employee unavailable for bookings</span>
+            </label>
 
             <div style={inputContainerStyle}>
               <label style={labelStyle}>Date</label>
@@ -188,6 +204,7 @@ const formContainerStyle = { backgroundColor: "#222", padding: "30px", borderRad
 const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "#fff" };
 const inputContainerStyle = { marginBottom: "15px" };
 const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "#fff" };
+const checkRowStyle = { display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 15, color: "#fff", fontSize: 14, fontWeight: 700 };
 const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #444", fontSize: "14px", backgroundColor: "#333", color: "#fff" };
 const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "#1976d2", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
 const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "#f44336", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };

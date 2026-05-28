@@ -16,6 +16,7 @@ export default function NoteForm() {
 
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
 
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [noteDate, setNoteDate] = useState("");
@@ -69,6 +70,7 @@ export default function NoteForm() {
         for (const date of range) {
           await addDoc(collection(db, "notes"), {
             employee,
+            blocksEmployeeBooking,
             date,
             text: noteText,
             startDate,
@@ -84,6 +86,7 @@ export default function NoteForm() {
 
         await addDoc(collection(db, "notes"), {
           employee,
+          blocksEmployeeBooking,
           date: noteDate,
           text: noteText,
           createdAt: new Date(),
@@ -130,7 +133,10 @@ export default function NoteForm() {
               <label style={label}>Employee (optional)</label>
               <select
                 value={employee}
-                onChange={(e) => setEmployee(e.target.value)}
+                onChange={(e) => {
+                  setEmployee(e.target.value);
+                  if (!e.target.value) setBlocksEmployeeBooking(false);
+                }}
                 style={input}
               >
                 <option value="">No one specific</option>
@@ -141,6 +147,16 @@ export default function NoteForm() {
                 ))}
               </select>
             </div>
+
+            <label style={checkRow}>
+              <input
+                type="checkbox"
+                checked={blocksEmployeeBooking}
+                onChange={(e) => setBlocksEmployeeBooking(e.target.checked)}
+                disabled={!employee}
+              />
+              <span>Mark employee unavailable for bookings</span>
+            </label>
 
             {/* Type toggle */}
             <div style={inputGroup}>
@@ -301,6 +317,15 @@ const label = {
   fontWeight: 600,
   marginBottom: 6,
   display: "block",
+};
+
+const checkRow = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 16,
+  fontSize: 14,
+  fontWeight: 700,
 };
 
 const input = {

@@ -50,12 +50,39 @@ const addDays = (d, n) => {
   return x;
 };
 
+const groupExplicitBookingDates = (bookingDates) => {
+  const dates = Array.from(
+    new Set(
+      (Array.isArray(bookingDates) ? bookingDates : [])
+        .map((value) => parseLocalDate(value))
+        .filter((value) => value instanceof Date && !Number.isNaN(value.getTime()))
+        .map((value) => startOfLocalDay(value).getTime())
+    )
+  )
+    .sort((a, b) => a - b)
+    .map((time) => new Date(time));
+
+  const groups = [];
+  dates.forEach((date) => {
+    const last = groups[groups.length - 1];
+    if (last && startOfLocalDay(addDays(last.end, 1)).getTime() === date.getTime()) {
+      last.end = date;
+      return;
+    }
+    groups.push({ start: date, end: date });
+  });
+
+  return groups;
+};
+
 const labelFromMins = (mins) => {
   const n = Number(mins) || 0;
   const h = Math.floor(n / 60);
   const m = n % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
+
+const displayDayNote = (note) => (note === "On Set" ? "Shoot Day" : note);
 
 const toJsDate = (value) => {
   if (!value) return null;
@@ -111,16 +138,38 @@ const formatEventEquipmentText = (equipment = []) => {
 };
 
 const eventsByJobNumber = (bookings, maintenanceBookings, maintenanceJobs) => {
-  const bookingEvents = (bookings || []).map((b) => {
+  const bookingEvents = (bookings || []).flatMap((b) => {
     const statusLC = String(b.status || "").trim().toLowerCase();
-    if (HIDEABLE_STATUSES.has(statusLC)) return null;
+    if (HIDEABLE_STATUSES.has(statusLC)) return [];
+
+    const explicitDateGroups =
+      Array.isArray(b.bookingDates) && b.bookingDates.length
+        ? groupExplicitBookingDates(b.bookingDates)
+        : [];
+
+    if (explicitDateGroups.length) {
+      return explicitDateGroups.map((group, index) => ({
+        ...b,
+        id: `${b.id || b.jobNumber || "booking"}__date_group__${index}`,
+        __bookingId: b.id,
+        __collection: "bookings",
+        __dateGroupIndex: index,
+        title: b.client || "",
+        start: startOfLocalDay(group.start),
+        end: startOfLocalDay(addDays(group.end, 1)),
+        allDay: true,
+        status: b.status || "Confirmed",
+      }));
+    }
+
     const startBase = parseLocalDate(b.startDate || b.date);
     const endRaw = b.endDate || b.date || b.startDate;
     const endBase = parseLocalDate(endRaw);
     const safeEnd =
       endBase && startBase && endBase < startBase ? startBase : endBase || startBase;
+    if (!startBase) return [];
 
-    return {
+    return [{
       ...b,
       __collection: "bookings",
       title: b.client || "",
@@ -128,7 +177,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings, maintenanceJobs) => {
       end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive
       allDay: true,
       status: b.status || "Confirmed",
-    };
+    }];
   }).filter(Boolean);
 
   const maintenanceEvents = buildMaintenanceBookingEvents(maintenanceBookings, {
@@ -173,6 +222,7 @@ const STATUS_COLORS = {
   "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
   "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
   Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
+  "Shift Change": { bg: "#dbeafe", text: "#111", border: "#2563eb" },
   Maintenance: { bg: "#f97316", text: "#111", border: "#0b0b0b" },
   Note: { bg: "#9e9e9e", text: "#111", border: "#0b0b0b" },
   Complete: { bg: "#719b6eff", text: "#111", border: "#0b0b0b" },
@@ -260,21 +310,53 @@ function WallCalendarEvent({ event }) {
         style={{
           display: "flex",
           flexDirection: "column",
-          fontSize: "0.8rem",
-          lineHeight: 1.2,
-          color: "#0b0b0b",
-          fontWeight: 800,
-          fontFamily: "Inter, system-ui, Arial, sans-serif",
-          textAlign: "left",
-          padding: 6,
           gap: 2,
-          borderRadius: 6,
-          textTransform: "uppercase",
-          letterSpacing: "0.02em",
+          padding: 8,
+          fontSize: 12.5,
+          lineHeight: 1.3,
+          fontWeight: 900,
+          color: "#0f172a",
+          textAlign: "left",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          letterSpacing: "0.01em",
         }}
       >
-        <span style={{ fontSize: "0.72rem", opacity: 0.85 }}>NOTE</span>
-        <span style={{ fontWeight: 900 }}>{event.title}</span>
+        <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12 }}>Note</span>
+        <span>{event.title}</span>
+        {event.employee ? (
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b" }}>
+            {event.blocksEmployeeBooking ? `${event.employee} unavailable` : event.employee}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (event.status === "Holiday") {
+    return (
+      <div
+        title={event.employee || ""}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: 8,
+          fontSize: 12.5,
+          lineHeight: 1.3,
+          fontWeight: 900,
+          color: "#0f172a",
+          textAlign: "left",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          letterSpacing: "0.01em",
+        }}
+      >
+        <span style={{ color: "#1d4ed8", fontWeight: 900, fontSize: 12 }}>Holiday</span>
+        <span>{event.employee || "Employee"}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b" }}>
+          {String(event?.holidayType || "").trim() || "Holiday"}
+        </span>
       </div>
     );
   }
@@ -571,7 +653,7 @@ function WallCalendarEvent({ event }) {
                                   lineHeight: 1.2,
                                 }}
                               >
-                                {formattedDate}: {note || "—"}
+                                {formattedDate}: {displayDayNote(note) || "—"}
                                 {extra}
                                 {callTimeForDay ? ` — CT ${callTimeForDay}` : ""}
                               </div>
@@ -823,8 +905,53 @@ function CompactWallCalendarEvent({ event }) {
   const compactLocation = String(event?.location || "").trim();
   const compactClient = String(event?.client || event?.title || "").trim();
   const compactJob = String(event?.jobNumber || "").trim();
+  const compactCardStyle = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 1,
+    padding: 5,
+    fontSize: "0.72rem",
+    lineHeight: 1.08,
+    fontWeight: 800,
+    color: "#111",
+    textAlign: "left",
+  };
+  const compactLabelStyle = { fontSize: "0.62rem", opacity: 0.78 };
+  const compactMetaStyle = { opacity: 0.82 };
 
   if (event.status === "Note") {
+    return (
+      <div
+        title={event.title || ""}
+        style={compactCardStyle}
+      >
+        <span style={compactLabelStyle}>Note</span>
+        <span>{event.title}</span>
+        {event.employee ? (
+          <span style={compactMetaStyle}>
+            {event.blocksEmployeeBooking ? `${event.employee} unavailable` : event.employee}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (event.status === "Holiday") {
+    return (
+      <div
+        title={event.employee || ""}
+        style={compactCardStyle}
+      >
+        <span style={compactLabelStyle}>Holiday</span>
+        <span>{event.employee || "Employee"}</span>
+        <span style={compactMetaStyle}>
+          {String(event?.holidayType || "").trim() || "Holiday"}
+        </span>
+      </div>
+    );
+  }
+
+  if (event.status === "Shift Change") {
     return (
       <div
         title={event.title || ""}
@@ -840,32 +967,9 @@ function CompactWallCalendarEvent({ event }) {
           textAlign: "left",
         }}
       >
-        <span style={{ fontSize: "0.62rem", opacity: 0.78 }}>NOTE</span>
-        <span>{event.title}</span>
-      </div>
-    );
-  }
-
-  if (event.status === "Holiday") {
-    return (
-      <div
-        title={event.employee || ""}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-          padding: 5,
-          fontSize: "0.72rem",
-          lineHeight: 1.08,
-          fontWeight: 800,
-          color: "#111",
-          textAlign: "left",
-        }}
-      >
-        <span>{event.employee}</span>
-        <span style={{ fontStyle: "italic", opacity: 0.76 }}>
-          {String(event?.holidayType || "").trim() || "Holiday"}
-        </span>
+        <span style={{ fontSize: "0.62rem", opacity: 0.78 }}>APPROVED SHIFT</span>
+        <span>{event.employeeName || "Employee"}</span>
+        <span style={{ opacity: 0.82 }}>{event.startTime || "--:--"} to {event.finishTime || "--:--"}</span>
       </div>
     );
   }
@@ -875,20 +979,10 @@ function CompactWallCalendarEvent({ event }) {
     return (
       <div
         title={event.noteToShow || event.title || ""}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-          padding: 5,
-          fontSize: "0.72rem",
-          lineHeight: 1.08,
-          fontWeight: 800,
-          color: "#111",
-          textAlign: "left",
-        }}
+        style={compactCardStyle}
       >
         <span>{compactAsset || event.title || "Maintenance"}</span>
-        <span style={{ opacity: 0.82 }}>
+        <span style={compactMetaStyle}>
           {displayType}
           {compactLocation ? ` • ${compactLocation}` : ""}
         </span>
@@ -935,6 +1029,7 @@ export default function WallViewCalendarPage() {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [holidays, setHolidays] = useState([]);
+  const [shiftChanges, setShiftChanges] = useState([]);
   const [notes, setNotes] = useState([]);
 
   const [vehiclesData, setVehiclesData] = useState([]);
@@ -1027,6 +1122,32 @@ export default function WallViewCalendarPage() {
       setNotes(noteEvents);
     });
 
+    const unsubShiftChanges = onSnapshot(collection(db, "shiftChangeRequests"), (snap) => {
+      const shiftEvents = snap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() || {};
+          if (String(data.status || "").toLowerCase() !== "approved") return null;
+          const parsedDate = parseLocalDate(data.date);
+          if (!parsedDate) return null;
+          const day = startOfLocalDay(parsedDate);
+          return {
+            id: docSnap.id,
+            title: `${data.employeeName || "Employee"} - Approved shift ${data.startTime || "--:--"} to ${data.finishTime || "--:--"}`,
+            start: day,
+            end: addDays(day, 1),
+            allDay: true,
+            status: "Shift Change",
+            employeeName: data.employeeName || "",
+            startTime: data.startTime || "",
+            finishTime: data.finishTime || "",
+            ...data,
+          };
+        })
+        .filter(Boolean);
+
+      setShiftChanges(shiftEvents);
+    });
+
     const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
       setVehiclesData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -1062,6 +1183,7 @@ export default function WallViewCalendarPage() {
       unsubMaintenance();
       unsubMaintenanceJobs();
       unsubHolidays();
+      unsubShiftChanges();
       unsubNotes();
       unsubVehicles();
       unsubRecces();
@@ -1117,9 +1239,10 @@ export default function WallViewCalendarPage() {
     return [
       ...workAndMaintenance,
       ...holidays,
+      ...shiftChanges,
       ...notes,
     ];
-  }, [workAndMaintenance, holidays, notes]);
+  }, [workAndMaintenance, holidays, shiftChanges, notes]);
 
   if (!user) {
     return <p style={{ textAlign: "center", marginTop: 50 }}>Loading calendar...</p>;
@@ -1330,6 +1453,11 @@ export default function WallViewCalendarPage() {
               return;
             }
 
+            if (e.status === "Shift Change") {
+              router.push("/shift-change");
+              return;
+            }
+
             if (e.status === "Maintenance") {
               if (e.__collection === "maintenanceJobs") {
                 router.push("/maintenance-jobs");
@@ -1346,7 +1474,7 @@ export default function WallViewCalendarPage() {
               return;
             }
 
-            if (e.id) router.push(`/view-booking/${e.id}`);
+            if (e.__bookingId || e.id) router.push(`/view-booking/${e.__bookingId || e.id}`);
           }}
           components={{ event: CompactWallCalendarEvent }}
           eventPropGetter={(event) => {

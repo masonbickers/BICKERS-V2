@@ -9,6 +9,7 @@ import {
   isPathAllowedForAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
+import { isMfaVerifiedOnDevice } from "@/app/utils/authSecurity";
 
 const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
 
@@ -41,12 +42,20 @@ export default function ProtectedLayout({ children }) {
     if (isPublic) return;
     if (!accessReady || !employeeAccess) return;
 
+    const hasCurrentMfaPass =
+      mfaPassed ||
+      isMfaVerifiedOnDevice(
+        typeof window !== "undefined" ? window.localStorage : null,
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
+
     if (!phoneReady || !mfaReady) {
       if (pathname !== "/setup-mfa") router.replace("/setup-mfa");
       return;
     }
 
-    if (!mfaPassed) {
+    if (!hasCurrentMfaPass) {
       if (pathname !== "/verify-mfa") router.replace("/verify-mfa");
       return;
     }

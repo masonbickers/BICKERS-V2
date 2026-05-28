@@ -348,6 +348,7 @@ function isCreditBookingStatus(status) {
 
 function isFullTimeEmployeeRecord(employee = {}) {
   const role = String(employee.role || "").trim().toLowerCase();
+  const status = String(employee.status || employee.employmentStatus || "").trim().toLowerCase();
   const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
     .trim()
     .toLowerCase();
@@ -355,6 +356,15 @@ function isFullTimeEmployeeRecord(employee = {}) {
     ? employee.jobTitle.join(" ").toLowerCase()
     : String(employee.jobTitle || "").toLowerCase();
 
+  if (
+    employee.deleted === true ||
+    employee.isDeleted === true ||
+    employee.archived === true ||
+    employee.isArchived === true ||
+    employee.active === false ||
+    employee.appDisabled === true
+  ) return false;
+  if (status === "inactive" || status === "archived") return false;
   if (employee.isService === true) return false;
   if (role === "service" || role === "hybrid") return false;
   if (role === "freelancer" || role === "freelance") return false;
@@ -362,6 +372,7 @@ function isFullTimeEmployeeRecord(employee = {}) {
   if (employmentType.includes("freelance")) return false;
   if (employmentType.includes("contract")) return false;
   if (jobTitleBlob.includes("freelance")) return false;
+  if (jobTitleBlob.includes("freelancer")) return false;
   if (employmentType.includes("full")) return true;
   return true;
 }
@@ -560,13 +571,12 @@ export default function EmployeesHomePage() {
         const registerEmployee = (employee = {}) => {
           const rawName = employee.name || employee.fullName || [employee.firstName, employee.lastName].filter(Boolean).join(" ");
           const key = String(employee.id || normaliseName(rawName) || "").trim();
-          const role = String(employee.role || employee.jobTitle || "").trim().toLowerCase();
-          if (!key || !rawName || role === "freelancer" || role === "freelance") return "";
+          if (!key || !rawName || !isFullTimeEmployeeRecord(employee)) return "";
           if (!employeeMeta.has(key)) {
             employeeMeta.set(key, {
               key,
               displayName: titleCase(rawName),
-              isFullTime: isFullTimeEmployeeRecord(employee),
+              isFullTime: true,
             });
           }
           return key;
@@ -574,9 +584,6 @@ export default function EmployeesHomePage() {
 
         employeesSnap.forEach((docSnap) => {
           const employee = { id: docSnap.id, ...(docSnap.data() || {}) };
-          const status = String(employee.status || employee.employmentStatus || "").trim().toLowerCase();
-          if (employee.deleted === true || employee.isDeleted === true || employee.archived === true) return;
-          if (status === "inactive" || status === "archived") return;
           registerEmployee(employee);
         });
 
@@ -780,6 +787,7 @@ export default function EmployeesHomePage() {
       { title: "Employee List", description: "Manage staff and freelancer records.", link: "/employees", icon: Users },
       { title: "Add Employee", description: "Register a new person.", link: "/add-employee", icon: UserPlus },
       { title: "Holiday Tracker", description: "Review leave usage.", link: "/holiday-usage", icon: CalendarClock },
+      { title: "Quick Shift Change", description: "Request or approve adjusted working hours.", link: "/shift-change", icon: ClipboardList },
       { title: "Upload Documents", description: "Contracts and certificates.", link: "/upload-contract", icon: FileUp },
     ],
     []

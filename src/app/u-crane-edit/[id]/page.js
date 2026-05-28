@@ -134,6 +134,7 @@ export default function EditBookingPage() {
   // lists / lookups
   const [allBookings, setAllBookings] = useState([]);
   const [holidayBookings, setHolidayBookings] = useState([]);
+  const [unavailableNotes, setUnavailableNotes] = useState([]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
 
   const [vehicleGroups, setVehicleGroups] = useState({
@@ -194,6 +195,23 @@ export default function EditBookingPage() {
     });
   };
 
+  const getEmployeeUnavailableNote = (employeeName) => {
+    const target = String(employeeName || "").trim().toLowerCase();
+    if (!target || !selectedDates.length) return null;
+    const dateSet = new Set(selectedDates.map((d) => String(d || "").slice(0, 10)));
+
+    return (
+      unavailableNotes.find((note) => {
+        const noteEmployee = String(note.employee || note.employeeName || "").trim().toLowerCase();
+        if (noteEmployee !== target) return false;
+        const noteDate = String(note.date || note.startDate || "").slice(0, 10);
+        return noteDate && dateSet.has(noteDate);
+      }) || null
+    );
+  };
+
+  const isEmployeeUnavailableByNote = (employeeName) => Boolean(getEmployeeUnavailableNote(employeeName));
+
   const nameFromEmployeeValue = (e) => {
     if (!e) return "";
     if (typeof e === "string") return e;
@@ -210,6 +228,7 @@ export default function EditBookingPage() {
         const [
           bookingSnap,
           holidaySnap,
+          noteSnap,
           workSnap,
           vehicleSnap,
           empSnap,
@@ -217,6 +236,7 @@ export default function EditBookingPage() {
         ] = await Promise.all([
           getDocs(collection(db, "bookings")),
           getDocs(collection(db, "holidays")),
+          getDocs(collection(db, "notes")),
           getDocs(collection(db, "workBookings")),
           getDocs(collection(db, "vehicles")),
           getDocs(collection(db, "employees")),
@@ -227,6 +247,11 @@ export default function EditBookingPage() {
         setAllBookings(bookings);
 
         setHolidayBookings(holidaySnap.docs.map((d) => d.data()));
+        setUnavailableNotes(
+          noteSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((note) => note.blocksEmployeeBooking === true)
+        );
         setMaintenanceBookings(workSnap.docs.map((d) => d.data()));
 
         // Vehicles groups (same as Create page)
@@ -398,6 +423,14 @@ export default function EditBookingPage() {
         if (isEmployeeOnHoliday(employeeName)) {
           setSaving(false);
           alert(`${employeeName} is on holiday during the selected dates.`);
+          return;
+        }
+        const unavailableNote = getEmployeeUnavailableNote(employeeName);
+        if (unavailableNote) {
+          setSaving(false);
+          alert(
+            `${employeeName} is marked unavailable on a note during the selected dates.${unavailableNote.text ? `\n\nNote: ${unavailableNote.text}` : ""}`
+          );
           return;
         }
       }
@@ -635,7 +668,8 @@ export default function EditBookingPage() {
                         const personName = getDisplayName(person);
                         const isBooked = bookedEmployees.includes(personName);
                         const isHoliday = isEmployeeOnHoliday(personName);
-                        const disabled = isBooked || isHoliday;
+                        const isUnavailable = isEmployeeUnavailableByNote(personName);
+                        const disabled = isBooked || isHoliday || isUnavailable;
 
                         return (
                           <label
@@ -666,7 +700,7 @@ export default function EditBookingPage() {
                             <span style={{ color: disabled ? "grey" : "#333" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
-                              {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"}
+                              {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
                             </span>
                           </label>
                         );
