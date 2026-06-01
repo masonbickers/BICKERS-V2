@@ -42,8 +42,38 @@ service firebase.storage {
       return isNotDisabled()
         && (
           isKnownAdminEmail()
-          || (userData() != null && userData().role == "admin")
+          || (
+            userData() != null
+            && userData().keys().hasAny(["role"])
+            && userData().role == "admin"
+          )
         );
+    }
+
+    function appAccessEnabled(workspace) {
+      return userData() != null
+        && userData().keys().hasAny(["appAccess"])
+        && userData().appAccess is map
+        && userData().appAccess.keys().hasAny([workspace])
+        && userData().appAccess[workspace] == true;
+    }
+
+    function defaultWorkspaceIs(workspace) {
+      return userData() != null
+        && userData().keys().hasAny(["defaultWorkspace"])
+        && userData().defaultWorkspace == workspace;
+    }
+
+    function roleIn(roles) {
+      return userData() != null
+        && userData().keys().hasAny(["role"])
+        && userData().role in roles;
+    }
+
+    function isServiceUser() {
+      return userData() != null
+        && userData().keys().hasAny(["isService"])
+        && userData().isService == true;
     }
 
     function hasUserAccess() {
@@ -52,9 +82,9 @@ service firebase.storage {
           && isCompanyEmail()
           && (
             userData() == null
-            || userData().appAccess.user == true
-            || userData().defaultWorkspace == "user"
-            || userData().role in ["user", "employee", "hybrid"]
+            || appAccessEnabled("user")
+            || defaultWorkspaceIs("user")
+            || roleIn(["user", "employee", "hybrid"])
           ));
     }
 
@@ -63,10 +93,10 @@ service firebase.storage {
         || (isNotDisabled()
           && userData() != null
           && (
-            userData().appAccess.service == true
-            || userData().isService == true
-            || userData().defaultWorkspace == "service"
-            || userData().role in ["service", "hybrid"]
+            appAccessEnabled("service")
+            || isServiceUser()
+            || defaultWorkspaceIs("service")
+            || roleIn(["service", "hybrid"])
           ));
     }
 
