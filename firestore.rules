@@ -232,15 +232,37 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow read: if hasUserAccess() || hasLegacyMobileAccess();
-      allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
-      allow update: if hasUserAccess()
-        && hasBookingAuditFieldsOnCreate()
-        && keepsBookingAuditIdentity();
+      allow create: if hasLegacyMobileAccess()
+        || (hasUserAccess() && hasBookingAuditFieldsOnCreate());
+      allow update: if hasLegacyMobileAccess()
+        || (
+          hasUserAccess()
+          && hasBookingAuditFieldsOnCreate()
+          && keepsBookingAuditIdentity()
+        );
       allow delete: if isAdmin();
     }
 
     match /notes/{noteId} {
-      allow read, write: if hasUserAccess();
+      allow read, write: if hasUserAccess() || hasLegacyMobileAccess();
+    }
+
+    match /contacts/{contactId} {
+      allow read, create, update: if hasUserAccess() || hasLegacyMobileAccess();
+      allow delete: if isAdmin();
+    }
+
+    match /deletedBookings/{docId} {
+      allow read: if hasUserAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /appState/{docId} {
+      allow read, write: if hasUserAccess() || hasLegacyMobileAccess();
+    }
+
+    match /recces/{docId} {
+      allow read, write: if hasUserAccess() || hasLegacyMobileAccess();
     }
 
     match /holidays/{holidayId} {
@@ -296,31 +318,38 @@ service cloud.firestore {
     }
 
     match /vehicles/{vehicleId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /equipment/{equipmentId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /maintenance/{docId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /maintenanceJobs/{jobId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /vehicleChecks/{docId} {
-      allow read, write: if hasServiceAccess();
+      allow read, create, update: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow delete: if hasServiceAccess();
     }
 
     match /defects/{docId} {
-      allow read, write: if hasServiceAccess();
+      allow read: if hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
+      allow create, update, delete: if hasServiceAccess();
     }
 
     match /settings/{docId} {
