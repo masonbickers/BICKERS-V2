@@ -165,7 +165,19 @@ export async function POST(req) {
       createdAt: now,
     });
 
-    return NextResponse.json({ customToken });
+    return NextResponse.json({
+      customToken,
+      employee: {
+        id: employee.id,
+        name: employee.data?.name || employee.data?.fullName || "",
+        email: cleanEmail,
+        userCode: String(employeeCode || cleanCode),
+      },
+      session: {
+        role: access.role,
+        employeeId: employee.id,
+      },
+    });
   } catch (error) {
     console.error("User code login failed", error);
     return NextResponse.json(
