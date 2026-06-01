@@ -12,7 +12,17 @@ import {
   sendEmailVerification,
   setPersistence,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import Image from "next/image";
 import {
   clearMfaVerified,
@@ -43,6 +53,7 @@ export default function LoginPage() {
   const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
+    const legacyUserData = await findLegacyUserDocByEmail(user.email || "", user.uid);
 
     const baseIfNew = snap.exists()
       ? {}
@@ -55,6 +66,11 @@ export default function LoginPage() {
           defaultWorkspace: "user",
           phoneVerified: false,
         };
+    const currentData = snap.exists() ? snap.data() || {} : {};
+    const nameFromExisting =
+      currentData.name || legacyUserData?.name || fullName || "";
+    const phoneFromExisting =
+      currentData.phone || legacyUserData?.phone || phoneNumber || "";
 
     await setDoc(
       ref,
@@ -62,14 +78,68 @@ export default function LoginPage() {
         ...baseIfNew,
         uid: user.uid,
         email: (user.email || "").toLowerCase(),
-        name: snap.exists() ? (snap.data()?.name || fullName || "") : (fullName || ""),
-        phone: snap.exists() ? (snap.data()?.phone || phoneNumber || "") : (phoneNumber || ""),
+        name: nameFromExisting,
+        phone: phoneFromExisting,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
 
+    const latestSnap = await getDoc(ref);
+    const latestData = latestSnap.data() || {};
+    const mfaRepair = buildMfaRepairPatch(latestData, legacyUserData);
+    if (Object.keys(mfaRepair).length > 0) {
+      await setDoc(
+        ref,
+        {
+          ...mfaRepair,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
     return ref;
+  };
+
+  const findLegacyUserDocByEmail = async (rawEmail, currentUid) => {
+    const email = String(rawEmail || "").trim();
+    const variants = [...new Set([email, email.toLowerCase()].filter(Boolean))];
+
+    for (const variant of variants) {
+      const snap = await getDocs(
+        query(collection(db, "users"), where("email", "==", variant), limit(5))
+      );
+      const match = snap.docs.find((docSnap) => docSnap.id !== currentUid);
+      if (match) return match.data() || {};
+    }
+
+    return null;
+  };
+
+  const buildMfaRepairPatch = (currentData = {}, legacyData = {}) => {
+    if (!legacyData) return {};
+
+    const patch = {};
+    const legacyPhone = String(legacyData.phone || legacyData.mfaPhoneNumber || "").trim();
+    const legacySecret = String(legacyData.mfaSecret || "").trim();
+
+    if (currentData.phoneVerified !== true && legacyData.phoneVerified === true) {
+      patch.phoneVerified = true;
+      if (legacyData.phoneVerifiedAt) patch.phoneVerifiedAt = legacyData.phoneVerifiedAt;
+    }
+    if (!currentData.phone && legacyPhone) patch.phone = legacyPhone;
+    if (!currentData.mfaPhoneNumber && legacyPhone) patch.mfaPhoneNumber = legacyPhone;
+
+    if (!hasAuthenticatorMfa(currentData) && legacySecret) {
+      patch.mfaEnabled = true;
+      patch.mfaMethod = legacyData.mfaMethod || "totp";
+      patch.mfaSecret = legacySecret;
+      patch.mfaResetRequired = legacyData.mfaResetRequired === true;
+      if (legacyData.mfaEnrolledAt) patch.mfaEnrolledAt = legacyData.mfaEnrolledAt;
+    }
+
+    return patch;
   };
 
   //  Handle Login / Signup
