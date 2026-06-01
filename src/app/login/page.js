@@ -84,14 +84,18 @@ export default function LoginPage() {
 
   const refreshServerAccess = async (user) => {
     if (!user?.getIdToken) return;
-    const token = await user.getIdToken();
-    const res = await fetch("/api/security/bootstrap-access", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || "Could not refresh account access.");
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/security/bootstrap-access", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.warn("[login] account access refresh skipped:", data?.error || res.status);
+      }
+    } catch (err) {
+      console.warn("[login] account access refresh skipped:", err);
     }
   };
 

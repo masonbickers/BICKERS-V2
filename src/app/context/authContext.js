@@ -118,6 +118,22 @@ async function resolveUserDoc(currentUser) {
   };
 }
 
+async function refreshServerAccess(currentUser) {
+  if (!currentUser?.getIdToken || typeof fetch !== "function") return false;
+
+  try {
+    const token = await currentUser.getIdToken();
+    const res = await fetch("/api/security/bootstrap-access", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch (error) {
+    console.warn("[authContext] access bootstrap failed:", error);
+    return false;
+  }
+}
+
 const resolveAccessState = async (currentUser, userDoc) => {
   const email = String(currentUser?.email || "").trim().toLowerCase();
   const isEnabled = userDoc?.isEnabled !== false;
@@ -185,7 +201,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
 
       try {
-        const { resolvedRef, userDoc } = await resolveUserDoc(firebaseUser);
+        let { resolvedRef, userDoc } = await resolveUserDoc(firebaseUser);
         if (token !== resolvingRef.current) return;
 
         if (userDoc?.isEnabled === false) {
@@ -194,6 +210,14 @@ export const AuthProvider = ({ children }) => {
           await signOut(auth);
           return;
         }
+
+        const refreshed = await refreshServerAccess(firebaseUser);
+        if (refreshed) {
+          const fresh = await resolveUserDoc(firebaseUser);
+          resolvedRef = fresh.resolvedRef;
+          userDoc = fresh.userDoc;
+        }
+        if (token !== resolvingRef.current) return;
 
         const nextAccess = await resolveAccessState(firebaseUser, userDoc);
         if (token !== resolvingRef.current) return;
