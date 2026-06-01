@@ -5,107 +5,38 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userDocExists() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function isKnownAdminEmail() {
-      return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email in [
-          "mason@bickers.co.uk",
-          "paul@bickers.co.uk",
-          "adam@bickers.co.uk"
-        ];
-    }
-
-    function isCompanyEmail() {
-      return isSignedIn()
-        && (
-          (
-            request.auth.token.email is string
-            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
-          )
-        );
-    }
-
-    function isNotDisabled() {
-      return isSignedIn()
-        && (
-          !userDocExists()
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false
-        );
-    }
-
-    function activeUserDocExists() {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false;
+    function userData() {
+      return userDoc().data;
     }
 
     function isAdmin() {
-      return isNotDisabled()
-        && (
-          isKnownAdminEmail()
-          || (
-            userDocExists()
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["role"])
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
-          )
-        );
-    }
-
-    function currentUserAppAccessEnabled(workspace) {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["appAccess"])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess is map
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess.keys().hasAny([workspace])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess[workspace] == true;
-    }
-
-    function currentUserDefaultWorkspaceIs(workspace) {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["defaultWorkspace"])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.defaultWorkspace == workspace;
-    }
-
-    function currentUserRoleIn(roles) {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["role"])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
-    }
-
-    function currentUserIsService() {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["isService"])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isService == true;
+      return isSignedIn() && userDoc().exists() && userData().role == "admin";
     }
 
     function hasUserAccess() {
       return isAdmin()
-        || (isNotDisabled()
-          && isCompanyEmail()
+        || (isSignedIn()
+          && userDoc().exists()
           && (
-            !userDocExists()
-            || currentUserAppAccessEnabled("user")
-            || currentUserDefaultWorkspaceIs("user")
-            || currentUserRoleIn(["user", "employee", "hybrid"])
+            userData().appAccess.user == true
+            || userData().defaultWorkspace == "user"
+            || userData().role in ["employee", "hybrid"]
           ));
     }
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isNotDisabled()
-          && userDocExists()
+        || (isSignedIn()
+          && userDoc().exists()
           && (
-            currentUserAppAccessEnabled("service")
-            || currentUserIsService()
-            || currentUserDefaultWorkspaceIs("service")
-            || currentUserRoleIn(["service", "hybrid"])
+            userData().appAccess.service == true
+            || userData().isService == true
+            || userData().defaultWorkspace == "service"
+            || userData().role in ["service", "hybrid"]
           ));
     }
 
@@ -113,21 +44,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    function isOwnEmployeeDoc(employeeId) {
-      return activeUserDocExists()
+    function isOwnEmployeeDoc() {
+      return isSignedIn()
         && (
           resource.data.uid == request.auth.uid
           || resource.data.authUid == request.auth.uid
-          || employeeId == request.auth.uid
+          || resource.id == request.auth.uid
         );
     }
 
-    function isOwnEmployeeDocAfterWrite(employeeId) {
-      return activeUserDocExists()
+    function isOwnEmployeeDocAfterWrite() {
+      return isSignedIn()
         && (
           request.resource.data.uid == request.auth.uid
           || request.resource.data.authUid == request.auth.uid
-          || employeeId == request.auth.uid
+          || resource.id == request.auth.uid
         );
     }
 
@@ -138,8 +69,7 @@ service cloud.firestore {
     }
 
     function isSafeOwnUserCreate(uid) {
-      return isSignedIn()
-        && request.auth.uid == uid
+      return isOwnUserDoc(uid)
         && request.resource.data.keys().hasOnly([
           "appAccess",
           "createdAt",
@@ -162,23 +92,15 @@ service cloud.firestore {
         && request.resource.data.isService == false
         && request.resource.data.defaultWorkspace == "user"
         && request.resource.data.appAccess is map
-        && request.resource.data.appAccess["user"] == true
-        && request.resource.data.appAccess["service"] == false;
+        && request.resource.data.appAccess.user == true
+        && request.resource.data.appAccess.service == false;
     }
 
     function matchesAuthEmail(email) {
       return isSignedIn()
         && email is string
-        && (
-          (
-            request.auth.token.email is string
-            && email == request.auth.token.email
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && email == request.auth.token.companyEmail
-          )
-        );
+        && request.auth.token.email is string
+        && email == request.auth.token.email;
     }
 
     function isHolidayOwner() {
@@ -249,27 +171,16 @@ service cloud.firestore {
     }
 
     function hasBookingAuditFieldsOnCreate() {
-      return isNotDisabled()
+      return isSignedIn()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.lastEditedByUid == request.auth.uid;
     }
 
-    function hasBookingAuditFieldsOnUpdate() {
-      return isNotDisabled()
-        && request.resource.data.lastEditedByUid == request.auth.uid;
-    }
-
     function keepsBookingAuditIdentity() {
-      return (
-          !resource.data.keys().hasAny(["createdBy"])
-          || request.resource.data.createdBy == resource.data.createdBy
-        )
+      return request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
         && (
-          !resource.data.keys().hasAny(["createdAt"])
-          || request.resource.data.createdAt == resource.data.createdAt
-        )
-        && (
-          !resource.data.keys().hasAny(["createdByUid"])
+          resource.data.createdByUid == null
           || request.resource.data.createdByUid == resource.data.createdByUid
         );
     }
@@ -296,6 +207,7 @@ service cloud.firestore {
         "mfaMethod",
         "mfaEnabled",
         "mfaPhoneNumber",
+        "mfaSecret",
         "mfaEnrolledAt",
         "mfaResetRequired"
       ]);
@@ -308,63 +220,22 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /mfaSecrets/{uid} {
-      allow read, write: if false;
-    }
-
-    match /adminAuditLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /loginSecurityLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /passkeyCredentials/{credentialId} {
-      allow read, write: if false;
-    }
-
-    match /passkeyChallenges/{challengeId} {
-      allow read, write: if false;
-    }
-
     match /employees/{employeeId} {
       allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isOwnEmployeeDoc(employeeId) && keepsOwnEmployeeIdentity());
+      allow update: if isAdmin() || (isOwnEmployeeDoc() && keepsOwnEmployeeIdentity());
     }
 
     match /bookings/{bookingId} {
       allow read: if hasUserAccess();
       allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
       allow update: if hasUserAccess()
-        && hasBookingAuditFieldsOnUpdate()
+        && hasBookingAuditFieldsOnCreate()
         && keepsBookingAuditIdentity();
       allow delete: if isAdmin();
     }
 
-    match /contacts/{contactId} {
-      allow read: if hasUserAccess();
-      allow create, update: if hasUserAccess();
-      allow delete: if isAdmin();
-    }
-
-    match /deletedBookings/{docId} {
-      allow read: if hasUserAccess();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /appState/{docId} {
-      allow read, write: if hasUserAccess();
-    }
-
     match /notes/{noteId} {
-      allow read, write: if hasUserAccess();
-    }
-
-    match /recces/{docId} {
       allow read, write: if hasUserAccess();
     }
 
@@ -425,120 +296,36 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /timesheetQueries/{queryId}/messages/{messageId} {
-      allow read, create: if isAdmin() || hasUserAccess();
-      allow update, delete: if isAdmin();
-    }
-
-    match /sickLeave/{docId} {
-      allow read, write: if isAdmin() || hasUserAccess();
-    }
-
-    match /uCraneFreelancers/{docId} {
-      allow read, write: if hasUserAccess();
-    }
-
-    match /lorries/{docId} {
-      allow read, write: if hasUserAccess() || hasServiceAccess();
-    }
-
-    match /invoiceQueue/{docId} {
-      allow read, create, update: if isAdmin() || hasUserAccess();
-      allow delete: if isAdmin();
-    }
-
     match /vehicles/{vehicleId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /equipment/{equipmentId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /maintenance/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /maintenanceJobs/{jobId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /vehicleChecks/{docId} {
-      allow read, create, update: if hasUserAccess() || hasServiceAccess();
-      allow delete: if hasServiceAccess();
+      allow read, write: if hasServiceAccess();
     }
 
     match /defects/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /workBookings/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /serviceRecords/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /defectReports/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /motPreChecks/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /vehiclePrepRecords/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
-    }
-
-    match /vehicleIssues/{docId} {
-      allow read, create, update: if hasUserAccess() || hasServiceAccess();
-      allow delete: if hasServiceAccess();
-    }
-
-    match /vehicleUsageNotes/{docId} {
-      allow read, write: if hasUserAccess() || hasServiceAccess();
-    }
-
-    match /hsRegister/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
-    }
-
-    match /hsCheckRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
-    }
-
-    match /ppeIssueRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
-    }
-
-    match /employeeTrainingRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read, write: if hasServiceAccess();
     }
 
     match /settings/{docId} {
-      allow read: if isAdmin()
-        || (docId == "motHistorySync" && (hasUserAccess() || hasServiceAccess()));
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 

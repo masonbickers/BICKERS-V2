@@ -19,12 +19,14 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import {
+  clearPendingMfaSetup,
+  getPendingMfaSetup,
   hasAuthenticatorMfa,
   isMfaVerifiedOnDevice,
   isPhoneVerified,
   markMfaVerified,
+  setPendingMfaSetup,
 } from "@/app/utils/authSecurity";
-import { sendLoginNotification } from "@/app/utils/loginNotification";
 
 export default function SetupMFA() {
   const router = useRouter();
@@ -37,6 +39,7 @@ export default function SetupMFA() {
   const [info, setInfo] = useState("");
   const [userData, setUserData] = useState(null);
   const [authenticatorCode, setAuthenticatorCode] = useState("");
+  const [authSecret, setAuthSecret] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const recaptchaRef = useRef(null);
   const smsCodeInputRef = useRef(null);
@@ -98,10 +101,21 @@ export default function SetupMFA() {
   }, [routeUserToWorkspace, router]);
 
   useEffect(() => {
-    if (!auth.currentUser || hasAuthenticatorMfa(userData) || qrCodeUrl) return;
+    if (!auth.currentUser || hasAuthenticatorMfa(userData) || authSecret) return;
 
     const loadAuthenticatorSetup = async () => {
       try {
+        const pendingSetup = getPendingMfaSetup(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          auth.currentUser.uid
+        );
+        if (pendingSetup?.base32 && pendingSetup?.otpauthUrl) {
+          setAuthSecret(String(pendingSetup.base32));
+          const nextQrCodeUrl = await QRCode.toDataURL(String(pendingSetup.otpauthUrl));
+          setQrCodeUrl(nextQrCodeUrl);
+          return;
+        }
+
         const idToken = await auth.currentUser.getIdToken();
         const res = await fetch("/api/mfa/setup", {
           method: "POST",
@@ -111,9 +125,18 @@ export default function SetupMFA() {
           },
         });
         const data = await res.json();
-        if (!res.ok || !data?.otpauthUrl) {
+        if (!res.ok || !data?.base32 || !data?.otpauthUrl) {
           throw new Error(data?.error || "Failed to prepare authenticator setup.");
         }
+        setAuthSecret(String(data.base32));
+        setPendingMfaSetup(
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          auth.currentUser.uid,
+          {
+            base32: String(data.base32),
+            otpauthUrl: String(data.otpauthUrl),
+          }
+        );
         const nextQrCodeUrl = await QRCode.toDataURL(String(data.otpauthUrl));
         setQrCodeUrl(nextQrCodeUrl);
       } catch (err) {
@@ -123,7 +146,7 @@ export default function SetupMFA() {
     };
 
     loadAuthenticatorSetup();
-  }, [qrCodeUrl, userData]);
+  }, [authSecret, userData]);
 
   const ensureRecaptcha = () => {
     if (typeof window === "undefined") return null;
@@ -232,7 +255,7 @@ export default function SetupMFA() {
         setError("Verify your phone number first.");
         return;
       }
-      if (!qrCodeUrl) {
+      if (!authSecret) {
         setError("Authenticator setup is unavailable.");
         return;
       }
@@ -252,7 +275,7 @@ export default function SetupMFA() {
         },
         body: JSON.stringify({
           token: normalizedAuthenticatorCode,
-          mode: "enroll",
+          secret: authSecret,
         }),
       });
       const verifyData = await verifyRes.json();
@@ -263,20 +286,37 @@ export default function SetupMFA() {
       }
 
       const nowIso = new Date().toISOString();
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          mfaMethod: "totp",
+          mfaEnabled: true,
+          mfaSecret: authSecret,
+          mfaEnrolledAt: nowIso,
+          mfaResetRequired: false,
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
+
       setUserData((prev) => ({
         ...(prev || {}),
         mfaMethod: "totp",
         mfaEnabled: true,
+        mfaSecret: authSecret,
         mfaEnrolledAt: nowIso,
         mfaResetRequired: false,
       }));
+      clearPendingMfaSetup(
+        typeof window !== "undefined" ? window.sessionStorage : null,
+        user.uid
+      );
 
       markMfaVerified(
         typeof window !== "undefined" ? window.localStorage : null,
         user.uid,
         { daysValid: 30 }
       );
-      await sendLoginNotification(user, "mfa-enrollment");
       await routeUserToWorkspace(user);
     } catch (err) {
       setError("Error enabling authenticator: " + err.message);

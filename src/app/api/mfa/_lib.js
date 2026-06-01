@@ -6,17 +6,6 @@ const FIREBASE_WEB_API_KEY =
   process.env.FIREBASE_API_KEY ||
   "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
 
-function decodeJwtPayload(token) {
-  try {
-    const payload = String(token || "").split(".")[1] || "";
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
-    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-  } catch {
-    return {};
-  }
-}
-
 export async function verifyFirebaseIdTokenFromRequest(req) {
   const authHeader = req.headers.get("authorization") || "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
@@ -39,17 +28,10 @@ export async function verifyFirebaseIdTokenFromRequest(req) {
     const data = await res.json();
     const user = Array.isArray(data?.users) ? data.users[0] : null;
     if (!user?.localId) return null;
-    const tokenPayload = decodeJwtPayload(idToken);
-    const email = String(
-      user.email ||
-        tokenPayload.email ||
-        tokenPayload.companyEmail ||
-        ""
-    ).toLowerCase();
 
     return {
       uid: user.localId,
-      email,
+      email: String(user.email || "").toLowerCase(),
     };
   } catch (error) {
     console.error("Firebase ID token lookup failed:", error);
@@ -62,12 +44,9 @@ export async function getVerifiedUserDoc(req) {
   if (!verifiedUser?.uid) return null;
 
   const userSnap = await getDoc(doc(db, "users", verifiedUser.uid));
-  const userData = userSnap.data() || {};
-  if (userData?.isEnabled === false) return null;
-
   return {
     verifiedUser,
     userSnap,
-    userData,
+    userData: userSnap.data() || {},
   };
 }

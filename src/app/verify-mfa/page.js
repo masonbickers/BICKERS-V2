@@ -17,7 +17,6 @@ import {
   isPhoneVerified,
   markMfaVerified,
 } from "@/app/utils/authSecurity";
-import { sendLoginNotification } from "@/app/utils/loginNotification";
 import { useAuth } from "@/app/context/authContext";
 
 export default function VerifyMfaPage() {
@@ -78,6 +77,7 @@ export default function VerifyMfaPage() {
         return;
       }
 
+      //  Load secret key from Firestore
       const docRef = doc(db, "users", user.uid);
       const snap = await getDoc(docRef);
 
@@ -107,6 +107,7 @@ export default function VerifyMfaPage() {
         },
         body: JSON.stringify({
           token: normalizedCode,
+          secret: String(userData?.mfaSecret || ""),
         }),
       });
       const verifyData = await verifyRes.json();
@@ -128,7 +129,6 @@ export default function VerifyMfaPage() {
             ? window.localStorage
             : window.sessionStorage;
         markMfaVerified(targetStorage, user.uid, rememberDevice ? { daysValid: 30 } : {});
-        await sendLoginNotification(user, "mfa");
         refreshMfaState?.();
         router.replace(selectLandingRoute(access, preferred));
       } else {

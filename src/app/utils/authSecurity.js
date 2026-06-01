@@ -3,7 +3,11 @@ export function isPhoneVerified(userData = {}) {
 }
 
 export function hasAuthenticatorMfa(userData = {}) {
-  return userData?.mfaEnabled === true && userData?.mfaMethod === "totp";
+  return (
+    userData?.mfaEnabled === true
+    && typeof userData?.mfaSecret === "string"
+    && userData.mfaSecret.trim().length > 0
+  );
 }
 
 export function getMfaVerifiedStorageKey(uid) {

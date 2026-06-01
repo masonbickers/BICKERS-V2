@@ -14,97 +14,30 @@ service firebase.storage {
       return userDoc().data;
     }
 
-    function isKnownAdminEmail() {
-      return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email in [
-          "mason@bickers.co.uk",
-          "paul@bickers.co.uk",
-          "adam@bickers.co.uk"
-        ];
-    }
-
-    function isCompanyEmail() {
-      return isSignedIn()
-        && (
-          (
-            request.auth.token.email is string
-            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
-          )
-        );
-    }
-
-    function isNotDisabled() {
-      return isSignedIn()
-        && (
-          userData() == null
-          || userData().isEnabled != false
-        );
-    }
-
     function isAdmin() {
-      return isNotDisabled()
-        && (
-          isKnownAdminEmail()
-          || (
-            userData() != null
-            && userData().keys().hasAny(["role"])
-            && userData().role == "admin"
-          )
-        );
-    }
-
-    function appAccessEnabled(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["appAccess"])
-        && userData().appAccess is map
-        && userData().appAccess.keys().hasAny([workspace])
-        && userData().appAccess[workspace] == true;
-    }
-
-    function defaultWorkspaceIs(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["defaultWorkspace"])
-        && userData().defaultWorkspace == workspace;
-    }
-
-    function roleIn(roles) {
-      return userData() != null
-        && userData().keys().hasAny(["role"])
-        && userData().role in roles;
-    }
-
-    function isServiceUser() {
-      return userData() != null
-        && userData().keys().hasAny(["isService"])
-        && userData().isService == true;
+      return isSignedIn() && userData() != null && userData().role == "admin";
     }
 
     function hasUserAccess() {
       return isAdmin()
-        || (isNotDisabled()
-          && isCompanyEmail()
+        || (isSignedIn()
+          && userData() != null
           && (
-            userData() == null
-            || appAccessEnabled("user")
-            || defaultWorkspaceIs("user")
-            || roleIn(["user", "employee", "hybrid"])
+            userData().appAccess.user == true
+            || userData().defaultWorkspace == "user"
+            || userData().role in ["employee", "hybrid"]
           ));
     }
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isNotDisabled()
+        || (isSignedIn()
           && userData() != null
           && (
-            appAccessEnabled("service")
-            || isServiceUser()
-            || defaultWorkspaceIs("service")
-            || roleIn(["service", "hybrid"])
+            userData().appAccess.service == true
+            || userData().isService == true
+            || userData().defaultWorkspace == "service"
+            || userData().role in ["service", "hybrid"]
           ));
     }
 

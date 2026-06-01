@@ -1,7 +1,6 @@
 import axios from "axios";
 import { collection, doc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../../../../../../firebaseConfig";
-import { adminReadDocument } from "../../../_firebaseAdminRest";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -548,16 +547,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const user = await verifyFirebaseIdTokenFromRequest(request);
-  if (!user) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userData = await adminReadDocument("users", user.uid);
-  if (userData?.isEnabled === false) {
-    return Response.json({ error: "Account disabled" }, { status: 403 });
-  }
-
-  if (!(await isAdminUser(user))) {
+  if (!user || !(await isAdminUser(user))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
