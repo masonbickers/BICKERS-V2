@@ -172,10 +172,24 @@ export async function POST(req) {
         name: employee.data?.name || employee.data?.fullName || "",
         email: cleanEmail,
         userCode: String(employeeCode || cleanCode),
+        role: access.role,
+        isService: access.isService,
+        appAccess: access.appAccess,
+        defaultWorkspace: access.defaultWorkspace,
+        timesheetDefaults: employee.data?.timesheetDefaults || null,
+        yardStartTime: employee.data?.yardStartTime || employee.data?.yardStart || "",
+        yardEndTime: employee.data?.yardEndTime || employee.data?.yardEnd || "",
+        officeStartTime:
+          employee.data?.officeStartTime || employee.data?.officeStart || "",
+        officeEndTime: employee.data?.officeEndTime || employee.data?.officeEnd || "",
+        timesheetDefaultType: employee.data?.timesheetDefaultType || "",
       },
       session: {
         role: access.role,
         employeeId: employee.id,
+        isService: access.isService || access.appAccess.service === true,
+        appAccess: access.appAccess,
+        defaultWorkspace: access.defaultWorkspace,
       },
     });
   } catch (error) {
