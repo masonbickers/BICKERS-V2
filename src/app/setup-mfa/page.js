@@ -63,12 +63,26 @@ export default function SetupMFA() {
     return raw;
   };
 
+  const refreshServerAccess = async (user) => {
+    if (!user?.getIdToken) return;
+    try {
+      const idToken = await user.getIdToken();
+      await fetch("/api/security/bootstrap-access", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+    } catch (err) {
+      console.warn("[setup-mfa] access refresh skipped:", err);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace("/login");
         return;
       }
+      await refreshServerAccess(user);
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
         const nextUserData = snap.data() || {};
@@ -98,7 +112,7 @@ export default function SetupMFA() {
   }, [routeUserToWorkspace, router]);
 
   useEffect(() => {
-    if (!auth.currentUser || hasAuthenticatorMfa(userData) || qrCodeUrl) return;
+    if (!auth.currentUser || userData === null || hasAuthenticatorMfa(userData) || qrCodeUrl) return;
 
     const loadAuthenticatorSetup = async () => {
       try {
@@ -111,6 +125,10 @@ export default function SetupMFA() {
           },
         });
         const data = await res.json();
+        if (data?.alreadyEnrolled) {
+          router.replace("/verify-mfa");
+          return;
+        }
         if (!res.ok || !data?.otpauthUrl) {
           throw new Error(data?.error || "Failed to prepare authenticator setup.");
         }
@@ -123,7 +141,7 @@ export default function SetupMFA() {
     };
 
     loadAuthenticatorSetup();
-  }, [qrCodeUrl, userData]);
+  }, [qrCodeUrl, router, userData]);
 
   const ensureRecaptcha = () => {
     if (typeof window === "undefined") return null;

@@ -83,6 +83,7 @@ export async function POST(req) {
 
     const uid = verifiedUser.uid;
     const currentUserDoc = (await adminReadDocument("users", uid)) || {};
+    const mfaSecretDoc = (await adminReadDocument("mfaSecrets", uid)) || {};
     const email = String(verifiedUser.email || currentUserDoc.email || "").trim().toLowerCase();
 
     if (currentUserDoc?.isEnabled === false) {
@@ -107,6 +108,16 @@ export async function POST(req) {
       updatedAt: new Date().toISOString(),
       accessMirroredAt: new Date().toISOString(),
     };
+
+    const hasPrivateMfaSecret = String(mfaSecretDoc?.secret || "").trim().length > 0;
+    if (hasPrivateMfaSecret && currentUserDoc?.mfaResetRequired !== true) {
+      patch.mfaEnabled = true;
+      patch.mfaMethod = "totp";
+      patch.mfaResetRequired = false;
+      if (mfaSecretDoc.enrolledAt && !currentUserDoc?.mfaEnrolledAt) {
+        patch.mfaEnrolledAt = mfaSecretDoc.enrolledAt;
+      }
+    }
 
     const displayName = employee?.name || employee?.fullName || employee?.employeeName;
     if (displayName && !currentUserDoc?.name) patch.name = displayName;

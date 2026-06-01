@@ -17,6 +17,23 @@ export async function POST(req) {
       return NextResponse.json({ error: "Account disabled." }, { status: 403 });
     }
 
+    const secretDoc = (await adminReadDocument("mfaSecrets", verifiedUser.uid)) || {};
+    const existingSecret = String(secretDoc?.secret || "").trim();
+    if (existingSecret && userData?.mfaResetRequired !== true) {
+      const nowIso = new Date().toISOString();
+      await adminPatchDocument("users", verifiedUser.uid, {
+        mfaMethod: "totp",
+        mfaEnabled: true,
+        mfaResetRequired: false,
+        updatedAt: nowIso,
+        ...(secretDoc.enrolledAt && !userData?.mfaEnrolledAt
+          ? { mfaEnrolledAt: secretDoc.enrolledAt }
+          : {}),
+      });
+
+      return NextResponse.json({ alreadyEnrolled: true });
+    }
+
     const secret = speakeasy.generateSecret({
       name: verifiedUser.email || "Bickers Booking",
       issuer: "Bickers Booking",

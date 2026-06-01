@@ -16,7 +16,7 @@ import {
 } from "@/app/utils/authSecurity";
 
 const AuthContext = createContext(null);
-const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v1";
+const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -188,7 +188,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       const cached = readAccessCache(firebaseUser.uid);
-      if (cached) {
+      const canUseCachedSecurityState = cached?.phoneReady === true && cached?.mfaReady === true;
+      if (cached && canUseCachedSecurityState) {
         setAccessState({
           ...cached,
           mfaPassed: readStoredMfaPassed(firebaseUser.uid),
