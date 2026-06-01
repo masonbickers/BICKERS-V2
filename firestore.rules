@@ -206,16 +206,27 @@ service cloud.firestore {
     }
 
     function hasBookingAuditFieldsOnCreate() {
-      return activeUserDocExists()
+      return isNotDisabled()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.lastEditedByUid == request.auth.uid;
     }
 
+    function hasBookingAuditFieldsOnUpdate() {
+      return isNotDisabled()
+        && request.resource.data.lastEditedByUid == request.auth.uid;
+    }
+
     function keepsBookingAuditIdentity() {
-      return request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt
+      return (
+          !resource.data.keys().hasAny(["createdBy"])
+          || request.resource.data.createdBy == resource.data.createdBy
+        )
         && (
-          resource.data.createdByUid == null
+          !resource.data.keys().hasAny(["createdAt"])
+          || request.resource.data.createdAt == resource.data.createdAt
+        )
+        && (
+          !resource.data.keys().hasAny(["createdByUid"])
           || request.resource.data.createdByUid == resource.data.createdByUid
         );
     }
@@ -286,8 +297,14 @@ service cloud.firestore {
       allow read: if hasUserAccess();
       allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
       allow update: if hasUserAccess()
-        && hasBookingAuditFieldsOnCreate()
+        && hasBookingAuditFieldsOnUpdate()
         && keepsBookingAuditIdentity();
+      allow delete: if isAdmin();
+    }
+
+    match /contacts/{contactId} {
+      allow read: if hasUserAccess();
+      allow create, update: if hasUserAccess();
       allow delete: if isAdmin();
     }
 
