@@ -208,7 +208,8 @@ service cloud.firestore {
         "mfaEnabled",
         "mfaPhoneNumber",
         "mfaSecret",
-        "mfaEnrolledAt"
+        "mfaEnrolledAt",
+        "mfaResetRequired"
       ]);
     }
 

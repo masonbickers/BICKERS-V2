@@ -293,6 +293,7 @@ export default function SetupMFA() {
           mfaEnabled: true,
           mfaSecret: authSecret,
           mfaEnrolledAt: nowIso,
+          mfaResetRequired: false,
           updatedAt: nowIso,
         },
         { merge: true }
@@ -304,6 +305,7 @@ export default function SetupMFA() {
         mfaEnabled: true,
         mfaSecret: authSecret,
         mfaEnrolledAt: nowIso,
+        mfaResetRequired: false,
       }));
       clearPendingMfaSetup(
         typeof window !== "undefined" ? window.sessionStorage : null,

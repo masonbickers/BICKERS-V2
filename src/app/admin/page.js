@@ -12,6 +12,7 @@ import {
   getDocs,
   setDoc,
   addDoc,
+  deleteField,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -168,6 +169,7 @@ export default function AdminPage() {
 
   const [qText, setQText] = useState("");
   const [toast, setToast] = useState(null);
+  const [resettingMfaUserId, setResettingMfaUserId] = useState("");
 
   // Data
   const [users, setUsers] = useState([]); // de-duped list
@@ -491,6 +493,41 @@ export default function AdminPage() {
     await fetchUsers();
   };
 
+  const resetUserMfa = async (targetUser) => {
+    if (!targetUser?.id) return;
+
+    const label = targetUser.email || targetUser.name || targetUser.id;
+    if (
+      !confirm(
+        `Reset MFA for ${label}?\n\nThey will need to log in with their password and set up Authenticator again.`
+      )
+    ) {
+      return;
+    }
+
+    setResettingMfaUserId(targetUser.id);
+    try {
+      await updateDoc(doc(db, "users", targetUser.id), {
+        mfaEnabled: false,
+        mfaMethod: "",
+        mfaSecret: deleteField(),
+        mfaEnrolledAt: deleteField(),
+        mfaResetRequired: true,
+        mfaResetAt: serverTimestamp(),
+        mfaResetBy: me?.email || "admin",
+        mfaResetByUid: me?.uid || "",
+        updatedAt: serverTimestamp(),
+        updatedBy: me?.email || "admin",
+      });
+      showToast("ok", "MFA reset. User must set up Authenticator again.");
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to reset MFA");
+    } finally {
+      setResettingMfaUserId("");
+    }
+  };
+
   /* -------------------------------------------
      Holiday allowance management (legacy table)
   -------------------------------------------- */
@@ -630,6 +667,18 @@ export default function AdminPage() {
     });
   }, [activityRows, qText]);
 
+  const filteredUsers = useMemo(() => {
+    const q = qText.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) =>
+      [u.email, u.name, u.displayName, u.role]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [users, qText]);
+
   const activityByHour = useMemo(() => {
     const selectedDay = String(activityDay || "").trim();
     const counts = Array.from({ length: 24 }, (_, hour) => ({
@@ -722,6 +771,8 @@ export default function AdminPage() {
                 placeholder={
                   activeTab === Tabs.ACTIVITY
                     ? "Search activity (user, action, area)..."
+                    : activeTab === Tabs.ACCESS
+                    ? "Search users..."
                     : "Search employees (name or email)..."
                 }
                 style={headerSearchInputStyle}
@@ -840,22 +891,32 @@ export default function AdminPage() {
                       <Th>Email</Th>
                       <Th>Role</Th>
                       <Th>Enabled</Th>
+                      <Th>MFA</Th>
                       <Th>Actions</Th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {users.length === 0 ? (
+                    {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={4} style={emptyTd}>
-                          No users found in Firestore <code>users</code> collection.
+                        <td colSpan={5} style={emptyTd}>
+                          {users.length === 0 ? (
+                            <>
+                              No users found in Firestore <code>users</code> collection.
+                            </>
+                          ) : (
+                            "No users match your search."
+                          )}
                         </td>
                       </tr>
                     ) : (
-                      users.map((u) => {
+                      filteredUsers.map((u) => {
                         const email = (u.email || "").toLowerCase();
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
+                        const mfaEnabled =
+                          u.mfaEnabled === true && typeof u.mfaSecret === "string" && u.mfaSecret.trim();
+                        const resetInProgress = resettingMfaUserId === u.id;
 
                         return (
                           <tr key={u.id} style={rowStyle}>
@@ -888,24 +949,54 @@ export default function AdminPage() {
                             </Td>
 
                             <Td>
-                              <button
-                                disabled={locked}
-                                onClick={() => toggleUserEnabled(u.id, enabled)}
-                                style={{
-                                  ...btnStyle,
-                                  background: locked ? "#f1f5f9" : UI.card,
-                                  cursor: locked ? "not-allowed" : "pointer",
-                                  color: locked ? UI.muted : UI.text,
-                                  fontWeight: 900,
-                                }}
-                                title={
-                                  locked
-                                    ? "This account is part of the admin gate"
-                                    : "Enable/disable this user"
-                                }
-                              >
-                                {enabled ? "Disable" : "Enable"}
-                              </button>
+                              <span style={{ fontWeight: 900, color: mfaEnabled ? UI.ok : UI.warn }}>
+                                {mfaEnabled ? "Enabled" : "Needs setup"}
+                              </span>
+                              {u.mfaResetRequired ? (
+                                <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
+                                  Reset requested
+                                </div>
+                              ) : null}
+                            </Td>
+
+                            <Td>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <button
+                                  disabled={locked}
+                                  onClick={() => toggleUserEnabled(u.id, enabled)}
+                                  style={{
+                                    ...btnStyle,
+                                    background: locked ? "#f1f5f9" : UI.card,
+                                    cursor: locked ? "not-allowed" : "pointer",
+                                    color: locked ? UI.muted : UI.text,
+                                    fontWeight: 900,
+                                  }}
+                                  title={
+                                    locked
+                                      ? "This account is part of the admin gate"
+                                      : "Enable/disable this user"
+                                  }
+                                >
+                                  {enabled ? "Disable" : "Enable"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => resetUserMfa(u)}
+                                  disabled={resetInProgress}
+                                  style={{
+                                    ...btnStyle,
+                                    borderColor: "#fed7aa",
+                                    background: resetInProgress ? "#f1f5f9" : UI.warnSoft,
+                                    color: resetInProgress ? UI.muted : UI.warn,
+                                    cursor: resetInProgress ? "wait" : "pointer",
+                                  }}
+                                  title="Clear this user's Authenticator setup"
+                                >
+                                  <ShieldCheck size={14} />
+                                  {resetInProgress ? "Resetting..." : "Reset MFA"}
+                                </button>
+                              </div>
                             </Td>
                           </tr>
                         );
