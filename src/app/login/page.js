@@ -21,6 +21,7 @@ import {
   isMfaVerified,
   isPhoneVerified,
 } from "@/app/utils/authSecurity";
+import { sendLoginNotification } from "@/app/utils/loginNotification";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -136,6 +137,7 @@ export default function LoginPage() {
           user.uid
         );
         if (trustedDeviceVerified) {
+          await sendLoginNotification(user, "trusted-device");
           router.push("/dashboard");
           return;
         }

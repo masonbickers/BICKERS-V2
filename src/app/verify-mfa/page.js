@@ -17,6 +17,7 @@ import {
   isPhoneVerified,
   markMfaVerified,
 } from "@/app/utils/authSecurity";
+import { sendLoginNotification } from "@/app/utils/loginNotification";
 import { useAuth } from "@/app/context/authContext";
 
 export default function VerifyMfaPage() {
@@ -127,6 +128,7 @@ export default function VerifyMfaPage() {
             ? window.localStorage
             : window.sessionStorage;
         markMfaVerified(targetStorage, user.uid, rememberDevice ? { daysValid: 30 } : {});
+        await sendLoginNotification(user, "mfa");
         refreshMfaState?.();
         router.replace(selectLandingRoute(access, preferred));
       } else {

@@ -226,6 +226,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /loginSecurityLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /employees/{employeeId} {
       allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
       allow create, delete: if isAdmin();

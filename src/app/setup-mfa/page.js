@@ -24,6 +24,7 @@ import {
   isPhoneVerified,
   markMfaVerified,
 } from "@/app/utils/authSecurity";
+import { sendLoginNotification } from "@/app/utils/loginNotification";
 
 export default function SetupMFA() {
   const router = useRouter();
@@ -275,6 +276,7 @@ export default function SetupMFA() {
         user.uid,
         { daysValid: 30 }
       );
+      await sendLoginNotification(user, "mfa-enrollment");
       await routeUserToWorkspace(user);
     } catch (err) {
       setError("Error enabling authenticator: " + err.message);
