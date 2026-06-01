@@ -124,6 +124,17 @@ const fmtYMD = (v) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const fmtDateTime = (v) => {
+  const d = toDateSafe(v);
+  if (!d) return "-";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+};
+
 const toISO = (d) => (d ? d : "");
 
 const tsToMs = (t) => {
@@ -969,6 +980,7 @@ export default function AdminPage() {
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
                         const mfaEnabled = hasAdminMfaEnrollment(u);
+                        const mfaSetupAt = fmtDateTime(u.mfaEnrolledAt);
                         const resetInProgress = resettingMfaUserId === u.id;
 
                         return (
@@ -1005,6 +1017,11 @@ export default function AdminPage() {
                               <span style={{ fontWeight: 900, color: mfaEnabled ? UI.ok : UI.warn }}>
                                 {mfaEnabled ? "Enabled" : "Needs setup"}
                               </span>
+                              {mfaEnabled ? (
+                                <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
+                                  Set up: {mfaSetupAt === "-" ? "date unknown" : mfaSetupAt}
+                                </div>
+                              ) : null}
                               {u.mfaResetRequired ? (
                                 <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
                                   Reset requested
