@@ -1,3 +1,5 @@
+import { adminReadDocument } from "../_firebaseAdminRest";
+
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
   process.env.FIREBASE_API_KEY ||
@@ -174,8 +176,12 @@ export async function requireAdminFromRequest(req) {
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser?.uid) return { error: jsonError("Not signed in.", 401) };
 
-  const userData = await readFirestoreDocument("users", verifiedUser.uid, idToken);
+  const userData = await adminReadDocument("users", verifiedUser.uid);
   const role = String(userData?.role || "").trim().toLowerCase();
+
+  if (userData?.isEnabled === false) {
+    return { error: jsonError("Account disabled.", 403) };
+  }
 
   if (role !== "admin") {
     return { error: jsonError("Admin access required.", 403) };

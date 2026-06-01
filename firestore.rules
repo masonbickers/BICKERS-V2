@@ -5,47 +5,44 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function userData() {
-      return userDoc().data;
+    function activeUserDocExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false;
     }
 
     function isAdmin() {
-      return isSignedIn() && userDoc().exists() && userData().role == "admin";
+      return activeUserDocExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
     function hasUserAccess() {
       return isAdmin()
-        || (isSignedIn()
-          && userDoc().exists()
+        || (activeUserDocExists()
           && (
-            userData().appAccess.user == true
-            || userData().defaultWorkspace == "user"
-            || userData().role in ["employee", "hybrid"]
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["user"] == true
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.defaultWorkspace == "user"
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["employee", "hybrid"]
           ));
     }
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isSignedIn()
-          && userDoc().exists()
+        || (activeUserDocExists()
           && (
-            userData().appAccess.service == true
-            || userData().isService == true
-            || userData().defaultWorkspace == "service"
-            || userData().role in ["service", "hybrid"]
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["service"] == true
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isService == true
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.defaultWorkspace == "service"
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["service", "hybrid"]
           ));
     }
 
     function isOwnUserDoc(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+      return activeUserDocExists() && request.auth.uid == uid;
     }
 
     function isOwnEmployeeDoc() {
-      return isSignedIn()
+      return activeUserDocExists()
         && (
           resource.data.uid == request.auth.uid
           || resource.data.authUid == request.auth.uid
@@ -54,7 +51,7 @@ service cloud.firestore {
     }
 
     function isOwnEmployeeDocAfterWrite() {
-      return isSignedIn()
+      return activeUserDocExists()
         && (
           request.resource.data.uid == request.auth.uid
           || request.resource.data.authUid == request.auth.uid
@@ -69,7 +66,8 @@ service cloud.firestore {
     }
 
     function isSafeOwnUserCreate(uid) {
-      return isOwnUserDoc(uid)
+      return isSignedIn()
+        && request.auth.uid == uid
         && request.resource.data.keys().hasOnly([
           "appAccess",
           "createdAt",
@@ -92,8 +90,8 @@ service cloud.firestore {
         && request.resource.data.isService == false
         && request.resource.data.defaultWorkspace == "user"
         && request.resource.data.appAccess is map
-        && request.resource.data.appAccess.user == true
-        && request.resource.data.appAccess.service == false;
+        && request.resource.data.appAccess["user"] == true
+        && request.resource.data.appAccess["service"] == false;
     }
 
     function matchesAuthEmail(email) {
@@ -171,7 +169,7 @@ service cloud.firestore {
     }
 
     function hasBookingAuditFieldsOnCreate() {
-      return isSignedIn()
+      return activeUserDocExists()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.lastEditedByUid == request.auth.uid;
     }

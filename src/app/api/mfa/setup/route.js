@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
-import { adminPatchDocument } from "../../_firebaseAdminRest";
+import { adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
 
@@ -10,6 +10,11 @@ export async function POST(req) {
     const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
     if (!verifiedUser?.uid) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
+    const userData = await adminReadDocument("users", verifiedUser.uid);
+    if (userData?.isEnabled === false) {
+      return NextResponse.json({ error: "Account disabled." }, { status: 403 });
     }
 
     const secret = speakeasy.generateSecret({

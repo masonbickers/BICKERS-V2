@@ -44,9 +44,12 @@ export async function getVerifiedUserDoc(req) {
   if (!verifiedUser?.uid) return null;
 
   const userSnap = await getDoc(doc(db, "users", verifiedUser.uid));
+  const userData = userSnap.data() || {};
+  if (userData?.isEnabled === false) return null;
+
   return {
     verifiedUser,
     userSnap,
-    userData: userSnap.data() || {},
+    userData,
   };
 }

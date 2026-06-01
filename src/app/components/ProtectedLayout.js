@@ -22,6 +22,7 @@ export default function ProtectedLayout({ children }) {
     accessReady,
     employeeAccess,
     isAdmin,
+    isEnabled,
     phoneReady,
     mfaReady,
     mfaPassed,
@@ -41,6 +42,11 @@ export default function ProtectedLayout({ children }) {
 
     if (isPublic) return;
     if (!accessReady || !employeeAccess) return;
+
+    if (isEnabled === false) {
+      router.replace("/login?disabled=1");
+      return;
+    }
 
     const hasCurrentMfaPass =
       mfaPassed ||
@@ -80,6 +86,7 @@ export default function ProtectedLayout({ children }) {
     accessReady,
     employeeAccess,
     isAdmin,
+    isEnabled,
     phoneReady,
     mfaReady,
     mfaPassed,

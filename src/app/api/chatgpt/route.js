@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { adminReadDocument } from "../_firebaseAdminRest";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -267,6 +268,11 @@ export async function POST(req) {
     const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
     if (!verifiedUser?.uid) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
+    const userData = await adminReadDocument("users", verifiedUser.uid);
+    if (userData?.isEnabled === false) {
+      return NextResponse.json({ error: "Account disabled." }, { status: 403 });
     }
 
     const { prompt, messages, clientContext } = await req.json();

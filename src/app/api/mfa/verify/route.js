@@ -12,6 +12,11 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
+    const userData = await adminReadDocument("users", verifiedUser.uid);
+    if (userData?.isEnabled === false) {
+      return NextResponse.json({ error: "Account disabled." }, { status: 403 });
+    }
+
     const body = await req.json();
     const token = String(body?.token || "").replace(/\s+/g, "").trim();
     const mode = String(body?.mode || "").trim();

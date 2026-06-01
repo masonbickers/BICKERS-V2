@@ -45,6 +45,7 @@ const emptyAccess = {
   userDoc: null,
   employeeAccess: null,
   isAdmin: false,
+  isEnabled: true,
   phoneReady: false,
   mfaReady: false,
   mfaPassed: false,
@@ -66,6 +67,15 @@ const writeAccessCache = (uid, value) => {
   if (typeof window === "undefined" || !uid) return;
   try {
     window.sessionStorage.setItem(ACCESS_CACHE_KEY, JSON.stringify({ uid, value }));
+  } catch {
+    // Cache is optional.
+  }
+};
+
+const clearAccessCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(ACCESS_CACHE_KEY);
   } catch {
     // Cache is optional.
   }
@@ -110,6 +120,7 @@ async function resolveUserDoc(currentUser) {
 
 const resolveAccessState = async (currentUser, userDoc) => {
   const email = String(currentUser?.email || "").trim().toLowerCase();
+  const isEnabled = userDoc?.isEnabled !== false;
   const isAdmin = ADMIN_EMAILS.includes(email) || userDoc?.role === "admin";
   const accessSource = hasMirroredAccessRecord(userDoc || {})
     ? userDoc || {}
@@ -123,6 +134,7 @@ const resolveAccessState = async (currentUser, userDoc) => {
     userDoc: userDoc || {},
     employeeAccess,
     isAdmin,
+    isEnabled,
     phoneReady,
     mfaReady,
     mfaPassed,
@@ -153,6 +165,7 @@ export const AuthProvider = ({ children }) => {
       setUser(firebaseUser);
 
       if (!firebaseUser) {
+        clearAccessCache();
         setAccessState(emptyAccess);
         setLoading(false);
         return;
@@ -175,6 +188,13 @@ export const AuthProvider = ({ children }) => {
         const { resolvedRef, userDoc } = await resolveUserDoc(firebaseUser);
         if (token !== resolvingRef.current) return;
 
+        if (userDoc?.isEnabled === false) {
+          clearAccessCache();
+          setAccessState(emptyAccess);
+          await signOut(auth);
+          return;
+        }
+
         const nextAccess = await resolveAccessState(firebaseUser, userDoc);
         if (token !== resolvingRef.current) return;
 
@@ -185,6 +205,8 @@ export const AuthProvider = ({ children }) => {
         userDocUnsubRef.current = onSnapshot(resolvedRef, async (docSnap) => {
           const liveUserDoc = docSnap.data() || {};
           if (liveUserDoc?.isEnabled === false) {
+            clearAccessCache();
+            setAccessState(emptyAccess);
             await signOut(auth);
             return;
           }
@@ -224,6 +246,7 @@ export const AuthProvider = ({ children }) => {
       userDoc: accessState.userDoc,
       employeeAccess: accessState.employeeAccess,
       isAdmin: accessState.isAdmin,
+      isEnabled: accessState.isEnabled,
       phoneReady: accessState.phoneReady,
       mfaReady: accessState.mfaReady,
       mfaPassed: accessState.mfaPassed,

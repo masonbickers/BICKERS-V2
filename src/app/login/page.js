@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
+  signOut,
   setPersistence,
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -32,6 +33,10 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
+  const [disabledRedirect] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("disabled") === "1";
+  });
 
   //  Password strength check
   const isStrongPassword = (password) => {
@@ -102,6 +107,13 @@ export default function LoginPage() {
           return;
         }
 
+        const existingSnap = await getDoc(doc(db, "users", user.uid));
+        if (existingSnap.exists() && existingSnap.data()?.isEnabled === false) {
+          await signOut(auth);
+          setError("This account has been disabled. Contact an administrator.");
+          return;
+        }
+
         //  Make sure the UID user doc exists + updatedAt is refreshed
         const ref = await upsertUserDoc(user);
 
@@ -159,6 +171,13 @@ export default function LoginPage() {
         setIsLogin(true);
       }
     } catch (err) {
+      if (err?.code === "permission-denied" || String(err?.message || "").includes("permission")) {
+        setError("This account is disabled or does not have access.");
+        try {
+          await signOut(auth);
+        } catch {}
+        return;
+      }
       setError(err?.message || "Login error");
     }
   };
@@ -293,7 +312,11 @@ export default function LoginPage() {
                   </a>
                 </p>
 
-                {error && <p style={styles.error}>{error}</p>}
+                {(error || disabledRedirect) && (
+                  <p style={styles.error}>
+                    {error || "This account has been disabled. Contact an administrator."}
+                  </p>
+                )}
                 {message && <p style={styles.success}>{message}</p>}
               </form>
           </>
