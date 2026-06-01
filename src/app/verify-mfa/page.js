@@ -77,7 +77,6 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      //  Load secret key from Firestore
       const docRef = doc(db, "users", user.uid);
       const snap = await getDoc(docRef);
 
@@ -107,7 +106,6 @@ export default function VerifyMfaPage() {
         },
         body: JSON.stringify({
           token: normalizedCode,
-          secret: String(userData?.mfaSecret || ""),
         }),
       });
       const verifyData = await verifyRes.json();

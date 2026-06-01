@@ -207,7 +207,6 @@ service cloud.firestore {
         "mfaMethod",
         "mfaEnabled",
         "mfaPhoneNumber",
-        "mfaSecret",
         "mfaEnrolledAt",
         "mfaResetRequired"
       ]);
@@ -218,6 +217,15 @@ service cloud.firestore {
       allow create: if isAdmin() || isSafeOwnUserCreate(uid);
       allow update: if isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged());
       allow delete: if isAdmin();
+    }
+
+    match /mfaSecrets/{uid} {
+      allow read, write: if false;
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /employees/{employeeId} {

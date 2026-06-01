@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
+import { adminPatchDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
 
@@ -17,8 +18,15 @@ export async function POST(req) {
       length: 20,
     });
 
+    const nowIso = new Date().toISOString();
+    await adminPatchDocument("mfaSecrets", verifiedUser.uid, {
+      pendingSecret: secret.base32,
+      pendingCreatedAt: nowIso,
+      updatedAt: nowIso,
+      userEmail: verifiedUser.email || "",
+    });
+
     return NextResponse.json({
-      base32: secret.base32,
       otpauthUrl: secret.otpauth_url,
     });
   } catch (error) {

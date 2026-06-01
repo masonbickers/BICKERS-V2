@@ -12,7 +12,6 @@ import {
   getDocs,
   setDoc,
   addDoc,
-  deleteField,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -170,6 +169,7 @@ export default function AdminPage() {
   const [qText, setQText] = useState("");
   const [toast, setToast] = useState(null);
   const [resettingMfaUserId, setResettingMfaUserId] = useState("");
+  const [migratingMfaSecrets, setMigratingMfaSecrets] = useState(false);
 
   // Data
   const [users, setUsers] = useState([]); // de-duped list
@@ -203,6 +203,53 @@ export default function AdminPage() {
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 2200);
+  };
+
+  const callAdminUserAction = async (userId, payload) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("You need to sign in again.");
+
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Admin action failed.");
+    return data;
+  };
+
+  const migrateMfaSecrets = async () => {
+    if (
+      !confirm(
+        "Move legacy MFA secrets out of user records?\n\nThis should be run once after deploying the private MFA store."
+      )
+    ) {
+      return;
+    }
+
+    setMigratingMfaSecrets(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("You need to sign in again.");
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/migrate-mfa-secrets", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "MFA migration failed.");
+      showToast("ok", `Migrated ${data?.migrated || 0} MFA secret(s)`);
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "MFA migration failed");
+    } finally {
+      setMigratingMfaSecrets(false);
+    }
   };
 
   /* -------------------------------------------
@@ -476,21 +523,23 @@ export default function AdminPage() {
      Access management
   -------------------------------------------- */
   const updateUserRole = async (userId, role) => {
-    await updateDoc(doc(db, "users", userId), {
-      role,
-      updatedAt: serverTimestamp(),
-    });
-    showToast("ok", "Role updated");
-    await fetchUsers();
+    try {
+      await callAdminUserAction(userId, { action: "setRole", role });
+      showToast("ok", "Role updated");
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to update role");
+    }
   };
 
   const toggleUserEnabled = async (userId, current) => {
-    await updateDoc(doc(db, "users", userId), {
-      isEnabled: !current,
-      updatedAt: serverTimestamp(),
-    });
-    showToast("ok", !current ? "User enabled" : "User disabled");
-    await fetchUsers();
+    try {
+      await callAdminUserAction(userId, { action: "setEnabled", isEnabled: !current });
+      showToast("ok", !current ? "User enabled" : "User disabled");
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to update user");
+    }
   };
 
   const resetUserMfa = async (targetUser) => {
@@ -507,18 +556,7 @@ export default function AdminPage() {
 
     setResettingMfaUserId(targetUser.id);
     try {
-      await updateDoc(doc(db, "users", targetUser.id), {
-        mfaEnabled: false,
-        mfaMethod: "",
-        mfaSecret: deleteField(),
-        mfaEnrolledAt: deleteField(),
-        mfaResetRequired: true,
-        mfaResetAt: serverTimestamp(),
-        mfaResetBy: me?.email || "admin",
-        mfaResetByUid: me?.uid || "",
-        updatedAt: serverTimestamp(),
-        updatedBy: me?.email || "admin",
-      });
+      await callAdminUserAction(targetUser.id, { action: "resetMfa" });
       showToast("ok", "MFA reset. User must set up Authenticator again.");
       await fetchUsers();
     } catch (e) {
@@ -793,6 +831,22 @@ export default function AdminPage() {
               Refresh
             </button>
 
+            <button
+              onClick={migrateMfaSecrets}
+              disabled={migratingMfaSecrets}
+              style={{
+                ...btnStyle,
+                background: migratingMfaSecrets ? "#f1f5f9" : UI.warnSoft,
+                borderColor: "#fed7aa",
+                color: migratingMfaSecrets ? UI.muted : UI.warn,
+                cursor: migratingMfaSecrets ? "wait" : "pointer",
+              }}
+              title="Move legacy MFA secrets into the private server store"
+            >
+              <ShieldCheck size={14} />
+              {migratingMfaSecrets ? "Migrating..." : "Migrate MFA"}
+            </button>
+
             {showAprilFools && (
               <button
                 onClick={() => {
@@ -914,8 +968,7 @@ export default function AdminPage() {
                         const email = (u.email || "").toLowerCase();
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
-                        const mfaEnabled =
-                          u.mfaEnabled === true && typeof u.mfaSecret === "string" && u.mfaSecret.trim();
+                        const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
                         const resetInProgress = resettingMfaUserId === u.id;
 
                         return (

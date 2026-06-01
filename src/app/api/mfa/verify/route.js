@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
+import { adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
 
@@ -13,13 +14,17 @@ export async function POST(req) {
 
     const body = await req.json();
     const token = String(body?.token || "").replace(/\s+/g, "").trim();
-    const enrollmentSecret = String(body?.secret || "").trim();
+    const mode = String(body?.mode || "").trim();
 
     if (!token) {
       return NextResponse.json({ error: "Missing code." }, { status: 400 });
     }
 
-    const secret = enrollmentSecret;
+    const secretDoc = await adminReadDocument("mfaSecrets", verifiedUser.uid);
+    const isEnrollment = mode === "enroll";
+    const secret = String(
+      isEnrollment ? secretDoc?.pendingSecret || "" : secretDoc?.secret || ""
+    ).trim();
 
     if (!secret) {
       return NextResponse.json({ error: "MFA not set up." }, { status: 400 });
@@ -34,6 +39,35 @@ export async function POST(req) {
 
     if (!verified) {
       return NextResponse.json({ error: "Invalid code." }, { status: 401 });
+    }
+
+    if (isEnrollment) {
+      const nowIso = new Date().toISOString();
+      await Promise.all([
+        adminPatchDocument(
+          "mfaSecrets",
+          verifiedUser.uid,
+          {
+            secret,
+            enrolledAt: nowIso,
+            updatedAt: nowIso,
+            userEmail: verifiedUser.email || "",
+          },
+          { deleteFields: ["pendingSecret", "pendingCreatedAt"] }
+        ),
+        adminPatchDocument(
+          "users",
+          verifiedUser.uid,
+          {
+            mfaMethod: "totp",
+            mfaEnabled: true,
+            mfaEnrolledAt: nowIso,
+            mfaResetRequired: false,
+            updatedAt: nowIso,
+          },
+          { deleteFields: ["mfaSecret"] }
+        ),
+      ]);
     }
 
     return NextResponse.json({ success: true });
