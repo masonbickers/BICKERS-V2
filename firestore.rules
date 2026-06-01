@@ -5,6 +5,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function hasLegacyMobileAccess() {
+      return isSignedIn();
+    }
+
     function userDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
@@ -221,13 +225,13 @@ service cloud.firestore {
     }
 
     match /employees/{employeeId} {
-      allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
+      allow read: if isAdmin() || hasUserAccess() || hasServiceAccess() || hasLegacyMobileAccess();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (isOwnEmployeeDoc() && keepsOwnEmployeeIdentity());
     }
 
     match /bookings/{bookingId} {
-      allow read: if hasUserAccess();
+      allow read: if hasUserAccess() || hasLegacyMobileAccess();
       allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
       allow update: if hasUserAccess()
         && hasBookingAuditFieldsOnCreate()
@@ -240,8 +244,7 @@ service cloud.firestore {
     }
 
     match /holidays/{holidayId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create: if (hasUserAccess() || hasServiceAccess()) && isHolidayOwnerOnCreate();
+      allow read, create, update, delete: if hasLegacyMobileAccess();
       allow update: if isAdmin()
         || (
           (hasUserAccess() || hasServiceAccess())
@@ -283,16 +286,12 @@ service cloud.firestore {
     }
 
     match /timesheets/{timesheetId} {
-      allow read: if isAdmin() || hasUserAccess();
-      allow create: if isAdmin() || hasUserAccess();
-      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetIdentity();
+      allow read, create, update: if isAdmin() || hasUserAccess() || hasLegacyMobileAccess();
       allow delete: if isAdmin();
     }
 
     match /timesheetQueries/{queryId} {
-      allow read: if isAdmin() || hasUserAccess();
-      allow create: if isAdmin() || hasUserAccess();
-      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetQueryIdentity();
+      allow read, create, update: if isAdmin() || hasUserAccess() || hasLegacyMobileAccess();
       allow delete: if isAdmin();
     }
 
