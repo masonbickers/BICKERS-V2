@@ -218,7 +218,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwnUserDoc(uid) || isAdmin();
+      allow read: if isOwnUserDoc(uid) || isAdmin() || matchesAuthEmail(resource.data.email);
       allow create: if isAdmin() || isSafeOwnUserCreate(uid);
       allow update: if isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged());
       allow delete: if isAdmin();
