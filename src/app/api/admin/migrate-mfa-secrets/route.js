@@ -1,4 +1,4 @@
-import { adminListDocuments, adminPatchDocument } from "../../_firebaseAdminRest";
+import { adminCreateDocument, adminListDocuments, adminPatchDocument } from "../../_firebaseAdminRest";
 import { jsonError, requireAdminFromRequest } from "../_lib";
 
 export const runtime = "nodejs";
@@ -37,6 +37,16 @@ export async function POST(req) {
 
       migrated += 1;
     }
+
+    await adminCreateDocument("adminAuditLogs", {
+      action: "Migrated MFA secrets",
+      area: "Access",
+      actorEmail: admin.verifiedUser.email || "",
+      actorUid: admin.verifiedUser.uid || "",
+      targetUserId: "",
+      details: { migrated },
+      createdAt: nowIso,
+    });
 
     return Response.json({ ok: true, migrated });
   } catch (error) {

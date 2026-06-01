@@ -24,6 +24,7 @@ import {
   Activity,
   CalendarDays,
   HeartPulse,
+  ListChecks,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -72,6 +73,7 @@ const Tabs = {
   HOLIDAY: "Holiday Allowance",
   SICK: "Sick Leave",
   ACTIVITY: "Activity",
+  AUDIT: "Audit Log",
   APRIL_FOOLS: "April Fools",
 };
 
@@ -80,6 +82,7 @@ const TAB_ICONS = {
   [Tabs.HOLIDAY]: CalendarDays,
   [Tabs.SICK]: HeartPulse,
   [Tabs.ACTIVITY]: Activity,
+  [Tabs.AUDIT]: ListChecks,
   [Tabs.APRIL_FOOLS]: ShieldCheck,
 };
 
@@ -185,6 +188,8 @@ export default function AdminPage() {
   const [activityRows, setActivityRows] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityDay, setActivityDay] = useState(() => fmtYMD(new Date()));
+  const [auditRows, setAuditRows] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [systemRecovered, setSystemRecovered] = useState(false);
 
   // Sick form (add)
@@ -338,6 +343,7 @@ export default function AdminPage() {
       fetchAllowances(),
       fetchSickLeaves(),
       fetchActivity(),
+      fetchAuditLogs(),
     ]);
   };
 
@@ -516,6 +522,31 @@ export default function AdminPage() {
       setActivityRows([]);
     } finally {
       setActivityLoading(false);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    setAuditLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "adminAuditLogs"), orderBy("createdAt", "desc"), limit(200))
+      );
+      setAuditRows(
+        snap.docs.map((docSnap) => {
+          const data = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            ...data,
+            at: toDateSafe(data.createdAt),
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Failed to load admin audit logs:", err);
+      setAuditRows([]);
+      showToast("error", "Could not load audit logs");
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -717,6 +748,25 @@ export default function AdminPage() {
     );
   }, [users, qText]);
 
+  const filteredAuditRows = useMemo(() => {
+    const q = qText.trim().toLowerCase();
+    if (!q) return auditRows;
+    return auditRows.filter((row) =>
+      [
+        row.action,
+        row.area,
+        row.actorEmail,
+        row.actorUid,
+        row.targetUserId,
+        row.details ? JSON.stringify(row.details) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [auditRows, qText]);
+
   const activityByHour = useMemo(() => {
     const selectedDay = String(activityDay || "").trim();
     const counts = Array.from({ length: 24 }, (_, hour) => ({
@@ -809,6 +859,8 @@ export default function AdminPage() {
                 placeholder={
                   activeTab === Tabs.ACTIVITY
                     ? "Search activity (user, action, area)..."
+                    : activeTab === Tabs.AUDIT
+                    ? "Search audit log..."
                     : activeTab === Tabs.ACCESS
                     ? "Search users..."
                     : "Search employees (name or email)..."
@@ -1524,6 +1576,106 @@ export default function AdminPage() {
                           </Td>
                         </tr>
                       ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === Tabs.AUDIT && (
+            <Card
+              title="Admin Audit Log"
+              subtitle="Security-sensitive admin actions including role changes, user enable/disable, MFA resets and MFA migration."
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 10,
+                }}
+              >
+                <span style={pillStyle}>Showing {filteredAuditRows.length}</span>
+                <button onClick={fetchAuditLogs} style={btnStyle}>
+                  Refresh audit log
+                </button>
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <Th>When</Th>
+                      <Th>Admin</Th>
+                      <Th>Action</Th>
+                      <Th>Target</Th>
+                      <Th>Details</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLoading ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          Loading audit log...
+                        </td>
+                      </tr>
+                    ) : filteredAuditRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          No audit log entries found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAuditRows.map((row) => {
+                        const details = row.details && typeof row.details === "object"
+                          ? Object.entries(row.details)
+                              .map(([key, value]) => `${key}: ${String(value)}`)
+                              .join(" | ")
+                          : String(row.details || "");
+
+                        return (
+                          <tr key={row.id} style={rowStyle}>
+                            <Td>
+                              <div style={{ fontWeight: 900, color: UI.text }}>
+                                {row.at
+                                  ? row.at.toLocaleTimeString("en-GB", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "-"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.at ? row.at.toLocaleDateString("en-GB") : "-"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ fontWeight: 800, color: UI.text }}>
+                                {row.actorEmail || "Unknown"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.actorUid || ""}
+                              </div>
+                            </Td>
+                            <Td>
+                              <span style={pillStyle}>{row.action || "Admin action"}</span>
+                            </Td>
+                            <Td>
+                              <div style={{ fontWeight: 800, color: UI.text }}>
+                                {row.targetUserId || "-"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.area || "Access"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ color: UI.text }}>{details || "-"}</div>
+                            </Td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
