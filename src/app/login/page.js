@@ -105,16 +105,57 @@ export default function LoginPage() {
   const findLegacyUserDocByEmail = async (rawEmail, currentUid) => {
     const email = String(rawEmail || "").trim();
     const variants = [...new Set([email, email.toLowerCase()].filter(Boolean))];
+    const matchesById = new Map();
 
     for (const variant of variants) {
       const snap = await getDocs(
         query(collection(db, "users"), where("email", "==", variant), limit(5))
       );
-      const match = snap.docs.find((docSnap) => docSnap.id !== currentUid);
-      if (match) return match.data() || {};
+      snap.docs.forEach((docSnap) => {
+        if (docSnap.id !== currentUid) {
+          matchesById.set(docSnap.id, { id: docSnap.id, ...(docSnap.data() || {}) });
+        }
+      });
     }
 
-    return null;
+    return mergeLegacyUserDocs(Array.from(matchesById.values()));
+  };
+
+  const mergeLegacyUserDocs = (docs) => {
+    if (!Array.isArray(docs) || docs.length === 0) return null;
+
+    const sorted = [...docs].sort((a, b) => {
+      const aHasMfa = hasAuthenticatorMfa(a);
+      const bHasMfa = hasAuthenticatorMfa(b);
+      if (aHasMfa !== bHasMfa) return aHasMfa ? -1 : 1;
+      const aUpdated = new Date(a?.updatedAt || a?.createdAt || 0).getTime() || 0;
+      const bUpdated = new Date(b?.updatedAt || b?.createdAt || 0).getTime() || 0;
+      return bUpdated - aUpdated;
+    });
+
+    const primary = sorted[0] || {};
+    const mfaSource = sorted.find((item) => hasAuthenticatorMfa(item)) || primary;
+    const phoneSource =
+      sorted.find((item) => item?.phoneVerified === true || item?.phone || item?.mfaPhoneNumber) ||
+      primary;
+
+    return {
+      ...primary,
+      phone: primary.phone || phoneSource.phone || phoneSource.mfaPhoneNumber || "",
+      phoneVerified: primary.phoneVerified === true || phoneSource.phoneVerified === true,
+      phoneVerifiedAt: primary.phoneVerifiedAt || phoneSource.phoneVerifiedAt || "",
+      mfaPhoneNumber:
+        primary.mfaPhoneNumber ||
+        phoneSource.mfaPhoneNumber ||
+        phoneSource.phone ||
+        "",
+      mfaEnabled: primary.mfaEnabled === true || mfaSource.mfaEnabled === true,
+      mfaMethod: primary.mfaMethod || mfaSource.mfaMethod || "",
+      mfaSecret: primary.mfaSecret || mfaSource.mfaSecret || "",
+      mfaEnrolledAt: primary.mfaEnrolledAt || mfaSource.mfaEnrolledAt || "",
+      mfaResetRequired:
+        primary.mfaResetRequired === true || mfaSource.mfaResetRequired === true,
+    };
   };
 
   const buildMfaRepairPatch = (currentData = {}, legacyData = {}) => {

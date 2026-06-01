@@ -151,6 +151,53 @@ const bestUserDoc = (a, b) => {
   return a;
 };
 
+const hasAdminMfaEnrollment = (user = {}) =>
+  user?.mfaResetRequired !== true &&
+  user?.mfaEnabled === true &&
+  typeof user?.mfaSecret === "string" &&
+  user.mfaSecret.trim().length > 0;
+
+const mergeUserDocForAdmin = (a, b) => {
+  const primary = bestUserDoc(a, b);
+  const secondary = primary === a ? b : a;
+  const duplicateIds = [
+    ...(Array.isArray(primary?._duplicateIds) ? primary._duplicateIds : [primary?.id]),
+    ...(Array.isArray(secondary?._duplicateIds) ? secondary._duplicateIds : [secondary?.id]),
+  ].filter(Boolean);
+  const mfaSource = hasAdminMfaEnrollment(primary)
+    ? primary
+    : hasAdminMfaEnrollment(secondary)
+    ? secondary
+    : null;
+  const phoneSource =
+    [primary, secondary].find(
+      (item) => item?.phoneVerified === true || item?.phone || item?.mfaPhoneNumber
+    ) || {};
+  const merged = {
+    ...secondary,
+    ...primary,
+    _duplicateIds: [...new Set(duplicateIds)],
+  };
+
+  if (phoneSource.phoneVerified === true && merged.phoneVerified !== true) {
+    merged.phoneVerified = true;
+    merged.phoneVerifiedAt = merged.phoneVerifiedAt || phoneSource.phoneVerifiedAt || "";
+  }
+  merged.phone = merged.phone || phoneSource.phone || phoneSource.mfaPhoneNumber || "";
+  merged.mfaPhoneNumber =
+    merged.mfaPhoneNumber || phoneSource.mfaPhoneNumber || phoneSource.phone || "";
+
+  if (!hasAdminMfaEnrollment(merged) && mfaSource && merged.mfaResetRequired !== true) {
+    merged.mfaEnabled = true;
+    merged.mfaMethod = mfaSource.mfaMethod || "totp";
+    merged.mfaSecret = mfaSource.mfaSecret;
+    merged.mfaEnrolledAt = merged.mfaEnrolledAt || mfaSource.mfaEnrolledAt || "";
+    merged.mfaResetRequired = false;
+  }
+
+  return merged;
+};
+
 const daysBetweenInclusive = (startISO, endISO) => {
   if (!startISO || !endISO) return 0;
   const s = new Date(startISO + "T00:00:00");
@@ -309,7 +356,7 @@ export default function AdminPage() {
 
       const existing = byEmail.get(email);
       if (!existing) byEmail.set(email, r);
-      else byEmail.set(email, bestUserDoc(existing, r));
+      else byEmail.set(email, mergeUserDocForAdmin(existing, r));
     }
 
     const deduped = Array.from(byEmail.values()).sort((a, b) =>
@@ -507,18 +554,25 @@ export default function AdminPage() {
 
     setResettingMfaUserId(targetUser.id);
     try {
-      await updateDoc(doc(db, "users", targetUser.id), {
-        mfaEnabled: false,
-        mfaMethod: "",
-        mfaSecret: deleteField(),
-        mfaEnrolledAt: deleteField(),
-        mfaResetRequired: true,
-        mfaResetAt: serverTimestamp(),
-        mfaResetBy: me?.email || "admin",
-        mfaResetByUid: me?.uid || "",
-        updatedAt: serverTimestamp(),
-        updatedBy: me?.email || "admin",
-      });
+      const targetIds = Array.isArray(targetUser._duplicateIds) && targetUser._duplicateIds.length
+        ? targetUser._duplicateIds
+        : [targetUser.id];
+      await Promise.all(
+        [...new Set(targetIds)].map((userId) =>
+          updateDoc(doc(db, "users", userId), {
+            mfaEnabled: false,
+            mfaMethod: "",
+            mfaSecret: deleteField(),
+            mfaEnrolledAt: deleteField(),
+            mfaResetRequired: true,
+            mfaResetAt: serverTimestamp(),
+            mfaResetBy: me?.email || "admin",
+            mfaResetByUid: me?.uid || "",
+            updatedAt: serverTimestamp(),
+            updatedBy: me?.email || "admin",
+          })
+        )
+      );
       showToast("ok", "MFA reset. User must set up Authenticator again.");
       await fetchUsers();
     } catch (e) {
@@ -914,8 +968,7 @@ export default function AdminPage() {
                         const email = (u.email || "").toLowerCase();
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
-                        const mfaEnabled =
-                          u.mfaEnabled === true && typeof u.mfaSecret === "string" && u.mfaSecret.trim();
+                        const mfaEnabled = hasAdminMfaEnrollment(u);
                         const resetInProgress = resettingMfaUserId === u.id;
 
                         return (
