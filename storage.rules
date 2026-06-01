@@ -26,8 +26,16 @@ service firebase.storage {
 
     function isCompanyEmail() {
       return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email.matches(".*@bickers\\.co\\.uk$");
+        && (
+          (
+            request.auth.token.email is string
+            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
+          )
+          || (
+            request.auth.token.companyEmail is string
+            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
+          )
+        );
     }
 
     function isNotDisabled() {

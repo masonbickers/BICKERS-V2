@@ -126,11 +126,12 @@ export async function POST(req) {
     const userAgent = headerValue(req.headers, "user-agent") || "Unknown";
     const loginMethod = String(body?.method || "password").trim() || "password";
     const manageUrl = getBaseUrl(req);
+    const notifyEmail = verifiedUser.email || userData?.email || "";
 
     let emailResult = { sent: false, reason: "Not attempted." };
     try {
       emailResult = await sendLoginEmail({
-        to: verifiedUser.email,
+        to: notifyEmail,
         ip,
         location,
         userAgent,
@@ -144,7 +145,7 @@ export async function POST(req) {
 
     await adminCreateDocument("loginSecurityLogs", {
       uid: verifiedUser.uid,
-      email: verifiedUser.email || "",
+      email: notifyEmail,
       ip,
       location,
       userAgent,

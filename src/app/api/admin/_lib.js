@@ -22,6 +22,17 @@ export function readBearerToken(req) {
   return authHeader.slice(7).trim();
 }
 
+function decodeJwtPayload(token) {
+  try {
+    const payload = String(token || "").split(".")[1] || "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return {};
+  }
+}
+
 export async function verifyFirebaseIdToken(idToken) {
   if (!idToken || !FIREBASE_WEB_API_KEY) return null;
 
@@ -39,10 +50,17 @@ export async function verifyFirebaseIdToken(idToken) {
   const data = await res.json();
   const user = Array.isArray(data?.users) ? data.users[0] : null;
   if (!user?.localId) return null;
+  const tokenPayload = decodeJwtPayload(idToken);
+  const email = String(
+    user.email ||
+      tokenPayload.email ||
+      tokenPayload.companyEmail ||
+      ""
+  ).trim().toLowerCase();
 
   return {
     uid: user.localId,
-    email: String(user.email || "").trim().toLowerCase(),
+    email,
   };
 }
 

@@ -82,8 +82,8 @@ export async function POST(req) {
     }
 
     const uid = verifiedUser.uid;
-    const email = String(verifiedUser.email || "").trim().toLowerCase();
     const currentUserDoc = (await adminReadDocument("users", uid)) || {};
+    const email = String(verifiedUser.email || currentUserDoc.email || "").trim().toLowerCase();
 
     if (currentUserDoc?.isEnabled === false) {
       return Response.json({ error: "Account disabled." }, { status: 403 });

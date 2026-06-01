@@ -22,8 +22,16 @@ service cloud.firestore {
 
     function isCompanyEmail() {
       return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email.matches(".*@bickers\\.co\\.uk$");
+        && (
+          (
+            request.auth.token.email is string
+            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
+          )
+          || (
+            request.auth.token.companyEmail is string
+            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
+          )
+        );
     }
 
     function isNotDisabled() {
@@ -161,8 +169,16 @@ service cloud.firestore {
     function matchesAuthEmail(email) {
       return isSignedIn()
         && email is string
-        && request.auth.token.email is string
-        && email == request.auth.token.email;
+        && (
+          (
+            request.auth.token.email is string
+            && email == request.auth.token.email
+          )
+          || (
+            request.auth.token.companyEmail is string
+            && email == request.auth.token.companyEmail
+          )
+        );
     }
 
     function isHolidayOwner() {

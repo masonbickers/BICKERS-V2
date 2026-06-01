@@ -7,9 +7,7 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  sendEmailVerification,
   signOut,
   signInWithCustomToken,
   setPersistence,
@@ -28,12 +26,8 @@ import { sendLoginNotification } from "@/app/utils/loginNotification";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -42,13 +36,6 @@ export default function LoginPage() {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).get("disabled") === "1";
   });
-
-  //  Password strength check
-  const isStrongPassword = (password) => {
-    const regex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return regex.test(password);
-  };
 
   const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
     const ref = doc(db, "users", user.uid);
@@ -99,6 +86,21 @@ export default function LoginPage() {
     }
   };
 
+  const signInWithUserCode = async (cleanEmail, userCode) => {
+    const res = await fetch("/api/auth/user-code-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail, userCode }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data?.error || "Invalid email or user code.");
+      err.status = res.status;
+      throw err;
+    }
+    return signInWithCustomToken(auth, data.customToken);
+  };
+
   //  Handle Login / Signup
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,87 +121,79 @@ export default function LoginPage() {
         rememberDevice ? browserLocalPersistence : browserSessionPersistence
       );
 
-      if (isLogin) {
-        // LOGIN
-        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        const user = cred.user;
+      let cred;
+      let loginMethod = "user-code";
+      let userCodeError = null;
 
-        if (!user.emailVerified) {
-          setError("Please verify your email before logging in.");
-          return;
+      try {
+        cred = await signInWithUserCode(cleanEmail, password);
+      } catch (err) {
+        userCodeError = err;
+        loginMethod = "password";
+        try {
+          cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        } catch (passwordErr) {
+          if (userCodeError?.status >= 500) throw userCodeError;
+          throw passwordErr;
         }
-
-        const existingSnap = await getDoc(doc(db, "users", user.uid));
-        if (existingSnap.exists() && existingSnap.data()?.isEnabled === false) {
-          await signOut(auth);
-          setError("This account has been disabled. Contact an administrator.");
-          return;
-        }
-
-        //  Make sure the UID user doc exists + updatedAt is refreshed
-        const ref = await upsertUserDoc(user);
-        await refreshServerAccess(user);
-
-        const snap = await getDoc(ref);
-        const userData = snap.data() || {};
-        clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
-
-        if (!isPhoneVerified(userData)) {
-          router.push("/setup-mfa");
-          return;
-        }
-
-        if (!hasAuthenticatorMfa(userData)) {
-          router.push("/setup-mfa");
-          return;
-        }
-
-        const trustedDeviceVerified = isMfaVerified(
-          typeof window !== "undefined" ? window.localStorage : null,
-          user.uid
-        );
-        if (trustedDeviceVerified) {
-          await sendLoginNotification(user, "trusted-device");
-          router.push("/dashboard");
-          return;
-        }
-
-        router.push("/verify-mfa");
-        return;
-      } else {
-        // SIGN UP
-        if (!isStrongPassword(password)) {
-          setError(
-            "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
-          );
-          return;
-        }
-        if (password !== confirmPassword) {
-          setError("Passwords do not match.");
-          return;
-        }
-
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          cleanEmail,
-          password
-        );
-        const user = userCredential.user;
-
-        //  Create/merge user doc using UID as docId (prevents duplicates forever)
-        await upsertUserDoc(user, { name, phone });
-
-        //  Send verification
-        await sendEmailVerification(user);
-        setError("Account created. Please verify your email before logging in.");
-        setIsLogin(true);
       }
+
+      const user = cred.user;
+
+      if (loginMethod === "password" && !user.emailVerified) {
+        setError("Please verify your email before logging in.");
+        return;
+      }
+
+      const userRef =
+        loginMethod === "user-code"
+          ? doc(db, "users", user.uid)
+          : await upsertUserDoc(user);
+
+      const existingSnap = await getDoc(userRef);
+      if (existingSnap.exists() && existingSnap.data()?.isEnabled === false) {
+        await signOut(auth);
+        setError("This account has been disabled. Contact an administrator.");
+        return;
+      }
+
+      await refreshServerAccess(user);
+
+      const snap = await getDoc(userRef);
+      const userData = snap.data() || {};
+      clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
+
+      if (!isPhoneVerified(userData)) {
+        router.push("/setup-mfa");
+        return;
+      }
+
+      if (!hasAuthenticatorMfa(userData)) {
+        router.push("/setup-mfa");
+        return;
+      }
+
+      const trustedDeviceVerified = isMfaVerified(
+        typeof window !== "undefined" ? window.localStorage : null,
+        user.uid
+      );
+      if (trustedDeviceVerified) {
+        await sendLoginNotification(user, loginMethod === "user-code" ? "user-code" : "trusted-device");
+        router.push("/dashboard");
+        return;
+      }
+
+      router.push("/verify-mfa");
     } catch (err) {
       if (err?.code === "permission-denied" || String(err?.message || "").includes("permission")) {
         setError("This account is disabled or does not have access.");
         try {
           await signOut(auth);
         } catch {}
+        return;
+      }
+      if (String(err?.code || "").includes("invalid-credential")) {
+        setError("Login failed. Check the email and user code.");
         return;
       }
       setError(err?.message || "Login error");
@@ -302,36 +296,10 @@ export default function LoginPage() {
           />
 
           <>
-              <h1 style={styles.title}>
-                {isLogin ? "Welcome back" : "Create your account"}
-              </h1>
-              <p style={styles.subtitle}>
-                {isLogin ? "Please enter your details" : "Fill in your details to sign up"}
-              </p>
+              <h1 style={styles.title}>Welcome back</h1>
+              <p style={styles.subtitle}>Enter your email and user code</p>
 
               <form onSubmit={handleSubmit}>
-                {!isLogin && (
-                  <>
-                    <label style={styles.label}>Full Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      style={styles.input}
-                    />
-
-                    <label style={styles.label}>Phone Number</label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                      style={styles.input}
-                    />
-                  </>
-                )}
-
                 <label style={styles.label}>Email address</label>
                 <input
                   type="email"
@@ -341,7 +309,7 @@ export default function LoginPage() {
                   style={styles.input}
                 />
 
-                <label style={styles.label}>Password</label>
+                <label style={styles.label}>User code</label>
                 <input
                   type="password"
                   value={password}
@@ -350,61 +318,33 @@ export default function LoginPage() {
                   style={styles.input}
                 />
 
-                {!isLogin && (
-                  <>
-                    <label style={styles.label}>Confirm Password</label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      style={styles.input}
-                    />
-                  </>
-                )}
-
                 <div style={styles.formFooter}>
-                  {isLogin && (
-                    <label style={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={rememberDevice}
-                        onChange={(e) => setRememberDevice(e.target.checked)}
-                        style={styles.checkbox}
-                      />
-                      Remember for 30 days
-                    </label>
-                  )}
+                  <label style={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={rememberDevice}
+                      onChange={(e) => setRememberDevice(e.target.checked)}
+                      style={styles.checkbox}
+                    />
+                    Remember for 30 days
+                  </label>
                   <a href="#" onClick={handleForgotPassword} style={styles.link}>
                     Forgot password
                   </a>
                 </div>
 
                 <button type="submit" style={styles.primaryButton}>
-                  {isLogin ? "Sign in" : "Sign up"}
+                  Sign in
                 </button>
 
-                {isLogin && (
-                  <button
-                    type="button"
-                    style={styles.secondaryButton}
-                    onClick={handlePasskeyLogin}
-                    disabled={passkeyLoading}
-                  >
-                    {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
-                  </button>
-                )}
-
-                <p style={styles.toggleText}>
-                  {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-                  <a
-                    href="#"
-                    onClick={() => setIsLogin(!isLogin)}
-                    style={styles.link}
-                  >
-                    {isLogin ? "Sign up" : "Log in"}
-                  </a>
-                </p>
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  onClick={handlePasskeyLogin}
+                  disabled={passkeyLoading}
+                >
+                  {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
+                </button>
 
                 {(error || disabledRedirect) && (
                   <p style={styles.error}>
