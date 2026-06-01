@@ -91,5 +91,9 @@ export default function ProtectedLayout({ children }) {
     return <div style={{ padding: "20px" }}>Loading...</div>;
   }
 
+  if (user && !isPublic && !accessReady) {
+    return <div style={{ padding: "20px" }}>Loading security check...</div>;
+  }
+
   return <>{children}</>;
 }

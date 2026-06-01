@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db } from "../../../firebaseConfig";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
   linkWithCredential,
@@ -66,30 +66,56 @@ export default function SetupMFA() {
     return raw;
   };
 
+  const resolveSetupUserDoc = useCallback(async (user) => {
+    let resolvedRef = doc(db, "users", user.uid);
+    let snap = await getDoc(resolvedRef);
+
+    if (!snap.exists()) {
+      const emailA = String(user.email || "").trim();
+      const emailB = emailA.toLowerCase();
+      const q1 = query(collection(db, "users"), where("email", "==", emailA), limit(1));
+      const r1 = await getDocs(q1);
+
+      if (!r1.empty) {
+        resolvedRef = doc(db, "users", r1.docs[0].id);
+        snap = r1.docs[0];
+      } else if (emailB && emailB !== emailA) {
+        const q2 = query(collection(db, "users"), where("email", "==", emailB), limit(1));
+        const r2 = await getDocs(q2);
+        if (!r2.empty) {
+          resolvedRef = doc(db, "users", r2.docs[0].id);
+          snap = r2.docs[0];
+        }
+      }
+    }
+
+    return {
+      resolvedRef,
+      userData: snap?.exists?.() ? snap.data() || {} : {},
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace("/login");
         return;
       }
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        const nextUserData = snap.data() || {};
-        setUserData(nextUserData);
-        setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
-        if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
-          const alreadyVerified = isMfaVerifiedOnDevice(
-            typeof window !== "undefined" ? window.localStorage : null,
-            typeof window !== "undefined" ? window.sessionStorage : null,
-            user.uid
-          );
-          if (alreadyVerified) {
-            await routeUserToWorkspace(user);
-          } else {
-            router.replace("/verify-mfa");
-          }
-          return;
+      const { userData: nextUserData } = await resolveSetupUserDoc(user);
+      setUserData(nextUserData);
+      setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
+      if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
+        const alreadyVerified = isMfaVerifiedOnDevice(
+          typeof window !== "undefined" ? window.localStorage : null,
+          typeof window !== "undefined" ? window.sessionStorage : null,
+          user.uid
+        );
+        if (alreadyVerified) {
+          await routeUserToWorkspace(user);
+        } else {
+          router.replace("/verify-mfa");
         }
+        return;
       }
     });
 
@@ -98,10 +124,10 @@ export default function SetupMFA() {
       recaptchaRef.current?.clear?.();
       recaptchaRef.current = null;
     };
-  }, [routeUserToWorkspace, router]);
+  }, [resolveSetupUserDoc, routeUserToWorkspace, router]);
 
   useEffect(() => {
-    if (!auth.currentUser || hasAuthenticatorMfa(userData) || authSecret) return;
+    if (!auth.currentUser || userData === null || hasAuthenticatorMfa(userData) || authSecret) return;
 
     const loadAuthenticatorSetup = async () => {
       try {
