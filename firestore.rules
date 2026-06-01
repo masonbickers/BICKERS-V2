@@ -58,7 +58,7 @@ service cloud.firestore {
             !userDocExists()
             || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["user"] == true
             || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.defaultWorkspace == "user"
-            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["employee", "hybrid"]
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["user", "employee", "hybrid"]
           ));
     }
 
@@ -78,21 +78,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    function isOwnEmployeeDoc() {
+    function isOwnEmployeeDoc(employeeId) {
       return activeUserDocExists()
         && (
           resource.data.uid == request.auth.uid
           || resource.data.authUid == request.auth.uid
-          || resource.id == request.auth.uid
+          || employeeId == request.auth.uid
         );
     }
 
-    function isOwnEmployeeDocAfterWrite() {
+    function isOwnEmployeeDocAfterWrite(employeeId) {
       return activeUserDocExists()
         && (
           request.resource.data.uid == request.auth.uid
           || request.resource.data.authUid == request.auth.uid
-          || resource.id == request.auth.uid
+          || employeeId == request.auth.uid
         );
     }
 
@@ -290,7 +290,7 @@ service cloud.firestore {
     match /employees/{employeeId} {
       allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isOwnEmployeeDoc() && keepsOwnEmployeeIdentity());
+      allow update: if isAdmin() || (isOwnEmployeeDoc(employeeId) && keepsOwnEmployeeIdentity());
     }
 
     match /bookings/{bookingId} {
@@ -308,7 +308,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /deletedBookings/{docId} {
+      allow read: if hasUserAccess();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /appState/{docId} {
+      allow read, write: if hasUserAccess();
+    }
+
     match /notes/{noteId} {
+      allow read, write: if hasUserAccess();
+    }
+
+    match /recces/{docId} {
       allow read, write: if hasUserAccess();
     }
 
@@ -366,6 +379,28 @@ service cloud.firestore {
       allow read: if isAdmin() || hasUserAccess();
       allow create: if isAdmin() || hasUserAccess();
       allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetQueryIdentity();
+      allow delete: if isAdmin();
+    }
+
+    match /timesheetQueries/{queryId}/messages/{messageId} {
+      allow read, create: if isAdmin() || hasUserAccess();
+      allow update, delete: if isAdmin();
+    }
+
+    match /sickLeave/{docId} {
+      allow read, write: if isAdmin() || hasUserAccess();
+    }
+
+    match /uCraneFreelancers/{docId} {
+      allow read, write: if hasUserAccess();
+    }
+
+    match /lorries/{docId} {
+      allow read, write: if hasUserAccess() || hasServiceAccess();
+    }
+
+    match /invoiceQueue/{docId} {
+      allow read, create, update: if isAdmin() || hasUserAccess();
       allow delete: if isAdmin();
     }
 
@@ -434,8 +469,33 @@ service cloud.firestore {
       allow delete: if hasServiceAccess();
     }
 
+    match /vehicleUsageNotes/{docId} {
+      allow read, write: if hasUserAccess() || hasServiceAccess();
+    }
+
+    match /hsRegister/{docId} {
+      allow read, create, update: if hasUserAccess();
+      allow delete: if isAdmin();
+    }
+
+    match /hsCheckRecords/{docId} {
+      allow read, create, update: if hasUserAccess();
+      allow delete: if isAdmin();
+    }
+
+    match /ppeIssueRecords/{docId} {
+      allow read, create, update: if hasUserAccess();
+      allow delete: if isAdmin();
+    }
+
+    match /employeeTrainingRecords/{docId} {
+      allow read, create, update: if hasUserAccess();
+      allow delete: if isAdmin();
+    }
+
     match /settings/{docId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin()
+        || (docId == "motHistorySync" && (hasUserAccess() || hasServiceAccess()));
       allow write: if isAdmin();
     }
 

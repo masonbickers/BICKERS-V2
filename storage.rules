@@ -14,24 +14,53 @@ service firebase.storage {
       return userDoc().data;
     }
 
+    function isKnownAdminEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email in [
+          "mason@bickers.co.uk",
+          "paul@bickers.co.uk",
+          "adam@bickers.co.uk"
+        ];
+    }
+
+    function isCompanyEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches(".*@bickers\\.co\\.uk$");
+    }
+
+    function isNotDisabled() {
+      return isSignedIn()
+        && (
+          userData() == null
+          || userData().isEnabled != false
+        );
+    }
+
     function isAdmin() {
-      return isSignedIn() && userData() != null && userData().role == "admin";
+      return isNotDisabled()
+        && (
+          isKnownAdminEmail()
+          || (userData() != null && userData().role == "admin")
+        );
     }
 
     function hasUserAccess() {
       return isAdmin()
-        || (isSignedIn()
-          && userData() != null
+        || (isNotDisabled()
+          && isCompanyEmail()
           && (
-            userData().appAccess.user == true
+            userData() == null
+            || userData().appAccess.user == true
             || userData().defaultWorkspace == "user"
-            || userData().role in ["employee", "hybrid"]
+            || userData().role in ["user", "employee", "hybrid"]
           ));
     }
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isSignedIn()
+        || (isNotDisabled()
           && userData() != null
           && (
             userData().appAccess.service == true
