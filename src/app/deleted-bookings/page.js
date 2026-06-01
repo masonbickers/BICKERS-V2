@@ -29,7 +29,7 @@ import {
 /* ───────────────────────────────────────────
    Admin gate (ONLY these emails)
 ─────────────────────────────────────────── */
-const ADMIN_EMAILS = ["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"];
+const ADMIN_EMAILS = ["mason@bickers.co.uk"];
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = {

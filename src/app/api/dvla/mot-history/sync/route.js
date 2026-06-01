@@ -16,7 +16,7 @@ const FIREBASE_WEB_API_KEY =
   process.env.FIREBASE_API_KEY ||
   "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
-const ADMIN_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"]);
+const ADMIN_EMAILS = new Set(["mason@bickers.co.uk"]);
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;

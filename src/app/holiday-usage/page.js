@@ -32,8 +32,6 @@ import EditHolidayForm from "@/app/components/EditHolidayForm";
 /* Admin allow-list */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 /* Mini design system */

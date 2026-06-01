@@ -20,8 +20,6 @@ const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v1";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 const debugBookingLoads = (...args) => {

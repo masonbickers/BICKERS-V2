@@ -19,8 +19,6 @@ import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
 ─────────────────────────────────────────── */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();

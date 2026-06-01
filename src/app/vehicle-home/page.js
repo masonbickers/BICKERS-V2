@@ -57,8 +57,6 @@ import { db, auth } from "../../../firebaseConfig";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";

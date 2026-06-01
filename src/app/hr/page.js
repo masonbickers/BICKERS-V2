@@ -42,8 +42,6 @@ import {
 /* Admin allow-list */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 /*  Hide specific employees from the holiday usage chart */
