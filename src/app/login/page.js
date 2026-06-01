@@ -11,8 +11,10 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   signOut,
+  signInWithCustomToken,
   setPersistence,
 } from "firebase/auth";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import Image from "next/image";
 import {
@@ -20,6 +22,7 @@ import {
   hasAuthenticatorMfa,
   isMfaVerified,
   isPhoneVerified,
+  markMfaVerified,
 } from "@/app/utils/authSecurity";
 import { sendLoginNotification } from "@/app/utils/loginNotification";
 
@@ -34,6 +37,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [disabledRedirect] = useState(() => {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).get("disabled") === "1";
@@ -78,6 +82,19 @@ export default function LoginPage() {
     return ref;
   };
 
+  const refreshServerAccess = async (user) => {
+    if (!user?.getIdToken) return;
+    const token = await user.getIdToken();
+    const res = await fetch("/api/security/bootstrap-access", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || "Could not refresh account access.");
+    }
+  };
+
   //  Handle Login / Signup
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,6 +134,7 @@ export default function LoginPage() {
 
         //  Make sure the UID user doc exists + updatedAt is refreshed
         const ref = await upsertUserDoc(user);
+        await refreshServerAccess(user);
 
         const snap = await getDoc(ref);
         const userData = snap.data() || {};
@@ -205,6 +223,65 @@ export default function LoginPage() {
       setMessage(`Password reset email sent to ${cleanEmail}.`);
     } catch (err) {
       setError(err?.message || "Failed to send password reset email.");
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setMessage("");
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+    if (!cleanEmail) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    if (!cleanEmail.endsWith("@bickers.co.uk")) {
+      setError("Only @bickers.co.uk emails are allowed.");
+      return;
+    }
+
+    if (!browserSupportsWebAuthn()) {
+      setError("This browser does not support passkeys.");
+      return;
+    }
+
+    setPasskeyLoading(true);
+    try {
+      await setPersistence(
+        auth,
+        rememberDevice ? browserLocalPersistence : browserSessionPersistence
+      );
+
+      const optionsRes = await fetch("/api/passkeys/login/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const optionsData = await optionsRes.json();
+      if (!optionsRes.ok) throw new Error(optionsData?.error || "Could not start passkey login.");
+
+      const credential = await startAuthentication({ optionsJSON: optionsData.options });
+      const verifyRes = await fetch("/api/passkeys/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, credential }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData?.error || "Passkey login failed.");
+
+      const cred = await signInWithCustomToken(auth, verifyData.customToken);
+      await refreshServerAccess(cred.user);
+      const storage = rememberDevice
+        ? typeof window !== "undefined" ? window.localStorage : null
+        : typeof window !== "undefined" ? window.sessionStorage : null;
+      markMfaVerified(storage, cred.user.uid, rememberDevice ? { daysValid: 30 } : {});
+      await sendLoginNotification(cred.user, "passkey");
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err?.message || "Passkey login failed.");
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -303,6 +380,17 @@ export default function LoginPage() {
                   {isLogin ? "Sign in" : "Sign up"}
                 </button>
 
+                {isLogin && (
+                  <button
+                    type="button"
+                    style={styles.secondaryButton}
+                    onClick={handlePasskeyLogin}
+                    disabled={passkeyLoading}
+                  >
+                    {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
+                  </button>
+                )}
+
                 <p style={styles.toggleText}>
                   {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
                   <a
@@ -352,6 +440,7 @@ const styles = {
   checkbox: { marginRight: 6 },
   link: { color: "#f87171", textDecoration: "none", cursor: "pointer" },
   primaryButton: { width: "100%", padding: "12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginBottom: "12px", transition: "background 0.3s" },
+  secondaryButton: { width: "100%", padding: "12px", backgroundColor: "#111827", color: "#fff", border: "1px solid #374151", borderRadius: "6px", fontSize: "15px", fontWeight: "bold", cursor: "pointer", marginBottom: "12px" },
   error: { color: "#f87171", marginTop: "15px", fontSize: "14px" },
   success: { color: "#86efac", marginTop: "15px", fontSize: "14px" },
   imageSide: { flex: 1.3, backgroundColor: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" },

@@ -38,7 +38,7 @@ service cloud.firestore {
     }
 
     function isOwnUserDoc(uid) {
-      return activeUserDocExists() && request.auth.uid == uid;
+      return isSignedIn() && request.auth.uid == uid;
     }
 
     function isOwnEmployeeDoc() {
@@ -229,6 +229,14 @@ service cloud.firestore {
     match /loginSecurityLogs/{logId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    match /passkeyCredentials/{credentialId} {
+      allow read, write: if false;
+    }
+
+    match /passkeyChallenges/{challengeId} {
+      allow read, write: if false;
     }
 
     match /employees/{employeeId} {

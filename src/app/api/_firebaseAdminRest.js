@@ -58,6 +58,33 @@ function createServiceAccountJwt() {
   return `${unsigned}.${base64Url(signature)}`;
 }
 
+export function createFirebaseCustomToken(uid, claims = {}) {
+  ensureServiceAccountConfig();
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const claim = {
+    iss: SERVICE_ACCOUNT_CLIENT_EMAIL,
+    sub: SERVICE_ACCOUNT_CLIENT_EMAIL,
+    aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
+    iat: now,
+    exp: now + 3600,
+    uid,
+  };
+
+  if (claims && typeof claims === "object" && Object.keys(claims).length) {
+    claim.claims = claims;
+  }
+
+  const unsigned = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(claim))}`;
+  const signature = crypto
+    .createSign("RSA-SHA256")
+    .update(unsigned)
+    .sign(SERVICE_ACCOUNT_PRIVATE_KEY);
+
+  return `${unsigned}.${base64Url(signature)}`;
+}
+
 export async function getFirebaseAdminAccessToken() {
   ensureServiceAccountConfig();
 

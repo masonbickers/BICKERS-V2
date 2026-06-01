@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
+import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -193,6 +194,9 @@ export default function SettingsPage() {
   const [userData, setUserData] = useState(null);
   const [userDocData, setUserDocData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState("");
+  const [securityError, setSecurityError] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -250,6 +254,56 @@ export default function SettingsPage() {
     router.push("/login");
   };
 
+  const handleRegisterPasskey = async () => {
+    setSecurityMessage("");
+    setSecurityError("");
+
+    if (!browserSupportsWebAuthn()) {
+      setSecurityError("This browser does not support passkeys.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    setPasskeyBusy(true);
+    try {
+      const token = await user.getIdToken();
+      const optionsRes = await fetch("/api/passkeys/register/options", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const optionsData = await optionsRes.json();
+      if (!optionsRes.ok) throw new Error(optionsData?.error || "Could not start passkey setup.");
+
+      const credential = await startRegistration({ optionsJSON: optionsData.options });
+      const verifyRes = await fetch("/api/passkeys/register/verify", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ credential }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verifyData?.error || "Could not save passkey.");
+
+      setUserDocData((current) => ({
+        ...(current || {}),
+        passkeyEnabled: true,
+        passkeyRegisteredAt: new Date().toISOString(),
+      }));
+      setSecurityMessage("Passkey added. You can now use it from the login page.");
+    } catch (err) {
+      setSecurityError(err?.message || "Passkey setup failed.");
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
   const avatarNode = useMemo(() => {
     if (!userData) return null;
     if (userData.photoURL) {
@@ -285,6 +339,7 @@ export default function SettingsPage() {
       emailVerified: userData?.emailVerified === true,
       phoneVerified: userDocData?.phoneVerified === true,
       authenticator: userDocData?.mfaEnabled === true,
+      passkey: userDocData?.passkeyEnabled === true,
       mfaMethod: userDocData?.mfaMethod || "Not configured",
     }),
     [userData?.emailVerified, userDocData]
@@ -552,6 +607,9 @@ export default function SettingsPage() {
                     <span style={statusPill("Authenticator", securitySummary.authenticator).style}>
                       Authenticator {securitySummary.authenticator ? "enabled" : "not enabled"}
                     </span>
+                    <span style={statusPill("Passkey", securitySummary.passkey).style}>
+                      Passkey {securitySummary.passkey ? "enabled" : "not enabled"}
+                    </span>
                   </div>
 
                   <div style={detailCard}>
@@ -567,6 +625,12 @@ export default function SettingsPage() {
                     <KeyRound size={14} />
                     Change password
                   </button>
+                  <button type="button" style={btnSoft} onClick={handleRegisterPasskey} disabled={passkeyBusy}>
+                    <ShieldCheck size={14} />
+                    {passkeyBusy ? "Adding passkey..." : securitySummary.passkey ? "Add another passkey" : "Add passkey"}
+                  </button>
+                  {securityMessage ? <div style={{ color: UI.successText, fontSize: 13, fontWeight: 800 }}>{securityMessage}</div> : null}
+                  {securityError ? <div style={{ color: "#991b1b", fontSize: 13, fontWeight: 800 }}>{securityError}</div> : null}
                   <button type="button" style={btnDanger} onClick={handleSignOut}>
                     <LogOut size={14} />
                     Sign out of this device
