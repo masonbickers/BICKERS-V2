@@ -5,22 +5,58 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function activeUserDocExists() {
+    function userDocExists() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isKnownAdminEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email in [
+          "mason@bickers.co.uk",
+          "paul@bickers.co.uk",
+          "adam@bickers.co.uk"
+        ];
+    }
+
+    function isCompanyEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches(".*@bickers\\.co\\.uk$");
+    }
+
+    function isNotDisabled() {
+      return isSignedIn()
+        && (
+          !userDocExists()
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false
+        );
+    }
+
+    function activeUserDocExists() {
+      return userDocExists()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false;
     }
 
     function isAdmin() {
-      return activeUserDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      return isNotDisabled()
+        && (
+          isKnownAdminEmail()
+          || (
+            userDocExists()
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+          )
+        );
     }
 
     function hasUserAccess() {
       return isAdmin()
-        || (activeUserDocExists()
+        || (isNotDisabled()
+          && isCompanyEmail()
           && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["user"] == true
+            !userDocExists()
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["user"] == true
             || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.defaultWorkspace == "user"
             || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["employee", "hybrid"]
           ));
@@ -28,7 +64,8 @@ service cloud.firestore {
 
     function hasServiceAccess() {
       return isAdmin()
-        || (activeUserDocExists()
+        || (isNotDisabled()
+          && userDocExists()
           && (
             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.appAccess["service"] == true
             || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isService == true
