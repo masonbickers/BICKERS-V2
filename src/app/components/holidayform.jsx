@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
+import { CalendarPlus, Check, X } from "lucide-react";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
@@ -816,15 +817,23 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
       <div style={modal}>
         {/* Header */}
         <div style={headerRow}>
-          <h2 style={modalTitle}>Add Holiday</h2>
+          <div style={titleRow}>
+            <span style={iconBox}>
+              <CalendarPlus size={18} />
+            </span>
+            <div>
+              <div style={eyebrow}>Employee leave</div>
+              <h2 style={modalTitle}>Add Holiday</h2>
+            </div>
+          </div>
           <button onClick={handleBack} style={closeBtn} aria-label="Close" type="button">
-            x
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+        <form onSubmit={handleSubmit} style={form}>
           {/* Employee */}
-          <div>
+          <div style={fieldGroup}>
             <label style={label}>Employee</label>
             <select value={employee} onChange={(e) => setEmployee(e.target.value)} style={input} required>
               <option value="">Select employee…</option>
@@ -837,7 +846,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Type toggle */}
-          <div>
+          <div style={fieldGroup}>
             <label style={label}>Holiday Type</label>
             <select
               value={isMultiDay ? "multi" : "single"}
@@ -851,7 +860,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
           {/* Dates */}
           {!isMultiDay ? (
-            <div>
+            <div style={fieldGroup}>
               <label style={label}>Date</label>
               <input
                 type="date"
@@ -862,17 +871,17 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               />
             </div>
           ) : (
-            <>
-              <div>
+            <div style={formGrid}>
+              <div style={fieldGroup}>
                 <label style={label}>Start Date</label>
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required style={input} />
               </div>
 
-              <div>
+              <div style={fieldGroup}>
                 <label style={label}>End Date</label>
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required style={input} />
               </div>
-            </>
+            </div>
           )}
 
           {/*  Allowance banner */}
@@ -887,8 +896,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   allowanceInfo.remainingPaid <= 0
                     ? "rgba(239,68,68,0.12)"
                     : "rgba(59,130,246,0.12)",
-                color: "rgba(255,255,255,0.92)",
-                borderRadius: 12,
+                color: "#0f172a",
+                borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
                 lineHeight: 1.35,
@@ -915,8 +924,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(239,68,68,0.45)",
                 background: "rgba(239,68,68,0.12)",
-                color: "rgba(255,255,255,0.92)",
-                borderRadius: 12,
+                color: "#7f1d1d",
+                borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
                 lineHeight: 1.35,
@@ -924,7 +933,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             >
               <div style={{ fontWeight: 900, marginBottom: 4 }}>Holiday conflict</div>
               <div>{holidayConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#991b1b", fontWeight: 700 }}>
                 You can’t submit an overlapping holiday for the same employee (unless it’s AM vs PM half-day on the same date).
               </div>
             </div>
@@ -936,8 +945,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(245,158,11,0.55)",
                 background: "rgba(245,158,11,0.14)",
-                color: "rgba(255,255,255,0.92)",
-                borderRadius: 12,
+                color: "#78350f",
+                borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
                 lineHeight: 1.35,
@@ -945,7 +954,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             >
               <div style={{ fontWeight: 900, marginBottom: 4 }}>Job conflict</div>
               <div>{jobConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
                 Remove them from the job first, or choose different holiday dates.
               </div>
             </div>
@@ -955,8 +964,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>Half day</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+                <div style={{ fontWeight: 900, fontSize: 13, color: "#0f172a" }}>Half day</div>
+                <div style={{ fontSize: 12, color: "#5f6f82", marginTop: 2, fontWeight: 700 }}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
@@ -966,7 +975,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                 />
-                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
+                <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
@@ -992,7 +1001,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                         />
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
                       </label>
                     </div>
 
@@ -1018,7 +1027,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                     />
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                    <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
                   </label>
                 </div>
 
@@ -1036,7 +1045,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Reason */}
-          <div>
+          <div style={fieldGroup}>
             <label style={label}>Reason</label>
             <textarea
               value={holidayReason}
@@ -1049,7 +1058,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           </div>
 
           {/* Paid vs unpaid */}
-          <div>
+          <div style={fieldGroup}>
             <label style={label}>Paid status</label>
             <select value={paidStatus} onChange={(e) => setPaidStatus(e.target.value)} style={input}>
               <option value="Paid" disabled={!paidAllowed}>
@@ -1059,39 +1068,49 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </select>
 
             {paidStatus === "Paid" && paidAllowed && !paidEnoughForThisRequest ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
                 Not enough paid remaining for this request — pick Unpaid or split.
               </div>
             ) : null}
           </div>
 
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              ...primaryBtn,
-              opacity: canSubmit ? 1 : 0.55,
-              cursor: canSubmit ? "pointer" : "not-allowed",
-            }}
-          >
-            {saving ? "Saving..." : "Save holiday"}
-          </button>
+          <div style={actions}>
+            <button type="button" onClick={handleBack} style={secondaryBtn}>
+              Cancel
+            </button>
 
-          <button type="button" onClick={handleBack} style={dangerBtn}>
-            Cancel
-          </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              style={{
+                ...primaryBtn,
+                opacity: canSubmit ? 1 : 0.55,
+                cursor: canSubmit ? "pointer" : "not-allowed",
+              }}
+            >
+              <Check size={15} />
+              {saving ? "Saving..." : "Save Holiday"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
 
-/* -------------------- styles -------------------- */
+const UI = {
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  border: "#d7dee8",
+  text: "#0f172a",
+  muted: "#5f6f82",
+};
 
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(15,23,42,0.42)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -1100,73 +1119,125 @@ const overlay = {
 };
 
 const modal = {
-  width: "min(520px, 95vw)",
-  borderRadius: 16,
-  padding: 18,
-  color: "#fff",
-  background:
-    "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
-  backdropFilter: "blur(10px)",
+  width: "min(620px, 95vw)",
+  borderRadius: 8,
+  padding: 14,
+  color: UI.text,
+  background: "#ffffff",
+  border: `1px solid ${UI.border}`,
+  boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
 
 const headerRow = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  marginBottom: 10,
+  gap: 12,
+  marginBottom: 14,
+  paddingBottom: 12,
+  borderBottom: "1px solid #e2e8f0",
+};
+
+const titleRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  minWidth: 0,
+};
+
+const iconBox = {
+  width: 38,
+  height: 38,
+  borderRadius: 8,
+  border: `1px solid ${UI.brandBorder}`,
+  background: UI.brandSoft,
+  color: UI.brand,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
+};
+
+const eyebrow = {
+  color: UI.muted,
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  marginBottom: 2,
 };
 
 const modalTitle = {
   margin: 0,
-  fontSize: 18,
-  fontWeight: 800,
-  letterSpacing: 0.2,
+  fontSize: 19,
+  lineHeight: 1.1,
+  fontWeight: 900,
+  color: UI.text,
 };
 
 const closeBtn = {
-  border: "none",
-  background: "transparent",
-  color: "#cbd5e1",
-  fontSize: 20,
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  border: `1px solid ${UI.border}`,
+  background: "#f8fbfe",
+  color: UI.muted,
   cursor: "pointer",
-  padding: 6,
-  lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+};
+
+const form = {
+  display: "grid",
+  gap: 12,
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gap: 10,
+};
+
+const fieldGroup = {
+  display: "grid",
+  gap: 6,
 };
 
 const label = {
   display: "block",
   fontSize: 12,
-  fontWeight: 700,
-  color: "rgba(255,255,255,0.85)",
-  marginBottom: 6,
+  fontWeight: 900,
+  color: "#475569",
+  textTransform: "uppercase",
+  letterSpacing: "0.03em",
 };
 
 const input = {
   width: "100%",
-  padding: "12px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.10)",
-  backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff",
+  padding: "10px 11px",
+  borderRadius: 8,
+  border: "1px solid #cbd5e1",
+  backgroundColor: "#ffffff",
+  color: UI.text,
   outline: "none",
   fontSize: 14,
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-  appearance: "none",
+  fontWeight: 700,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
 };
 
 const halfWrap = {
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.08)",
-  borderRadius: 12,
-  padding: 12,
+  border: `1px solid ${UI.border}`,
+  background: "#f8fbfe",
+  borderRadius: 8,
+  padding: 10,
 };
 
 const globalOptionCSS = `
 select option {
-  background: #0b0b0b !important;
-  color: #fff !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
 }
 `;
 
@@ -1178,24 +1249,40 @@ if (typeof document !== "undefined" && !document.getElementById("holiday-form-op
 }
 
 const primaryBtn = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 7,
+  minWidth: 138,
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: `1px solid ${UI.brand}`,
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
   color: "#fff",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 13,
+  boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 
-const dangerBtn = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 10,
-  border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)",
-  color: "#fee2e2",
+const secondaryBtn = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 98,
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: `1px solid ${UI.brandBorder}`,
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  color: UI.text,
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: 13,
   cursor: "pointer",
+};
+
+const actions = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 8,
+  flexWrap: "wrap",
+  paddingTop: 2,
 };

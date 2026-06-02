@@ -17,7 +17,7 @@ const FIREBASE_WEB_API_KEY =
   process.env.FIREBASE_API_KEY ||
   "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
-const ADMIN_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers.co.uk", "adam@bickers.co.uk"]);
+const ADMIN_EMAILS = new Set(["mason@bickers.co.uk"]);
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
@@ -362,16 +362,30 @@ function buildVehiclePatch(vehicle, motHistory) {
   const nextMOT = motHistory.nextMOT;
   const latestPassedMot = motHistory.latestPassedMot;
 
-  if (lastMOT && dateOnly(vehicle.lastMOT || vehicle.lastMot) !== lastMOT) {
+  if (
+    lastMOT &&
+    (dateOnly(vehicle.lastMOT) !== lastMOT ||
+      dateOnly(vehicle.lastMot) !== lastMOT ||
+      dateOnly(vehicle.lastMotDate) !== lastMOT)
+  ) {
     patch.lastMOT = lastMOT;
     patch.lastMot = lastMOT;
+    patch.lastMotDate = lastMOT;
   }
 
-  if (nextMOT && dateOnly(vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate) !== nextMOT) {
+  if (
+    nextMOT &&
+    (dateOnly(vehicle.nextMOT) !== nextMOT ||
+      dateOnly(vehicle.nextMot) !== nextMOT ||
+      dateOnly(vehicle.nextMotDate) !== nextMOT ||
+      dateOnly(vehicle.motDueDate) !== nextMOT ||
+      dateOnly(vehicle.motExpiryDate) !== nextMOT)
+  ) {
     patch.nextMOT = nextMOT;
     patch.nextMot = nextMOT;
     patch.nextMotDate = nextMOT;
     patch.motDueDate = nextMOT;
+    patch.motExpiryDate = nextMOT;
   }
 
   const motOdometer = Number(String(latestPassedMot?.odometerValue || "").replace(/[^\d.]/g, ""));

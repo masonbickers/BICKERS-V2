@@ -36,6 +36,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 
 import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 /* ------------------------------- Styling tokens ------------------------------- */
@@ -220,6 +221,28 @@ const pageCss = `
   }
   .ucrane-page .rbc-event {
     overflow: visible;
+  }
+  .ucrane-page .ucrane-month-calendar {
+    overflow: visible;
+  }
+  .ucrane-page .ucrane-month-calendar .rbc-calendar,
+  .ucrane-page .ucrane-month-calendar .rbc-month-view {
+    height: auto !important;
+    min-height: 620px;
+    overflow: visible;
+  }
+  .ucrane-page .ucrane-month-calendar .rbc-month-row {
+    min-height: 118px;
+    height: auto !important;
+    overflow: visible;
+  }
+  .ucrane-page .ucrane-month-calendar .rbc-row-content {
+    min-height: 118px;
+    overflow: visible;
+  }
+  .ucrane-page .ucrane-month-calendar .rbc-event {
+    height: auto !important;
+    min-height: 0;
   }
   .ucrane-upcoming-grid {
     display: grid;
@@ -957,6 +980,9 @@ export default function DashboardPage({ bookingSaved }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedBookingSnapshot, setSelectedBookingSnapshot] = useState(null);
+  const [createBookingOpening, setCreateBookingOpening] = useState(false);
+  const [createBookingProgress, setCreateBookingProgress] = useState(0);
+  const [showBookingSaved, setShowBookingSaved] = useState(Boolean(bookingSaved));
   const closeSelectedBooking = useCallback(() => {
     setSelectedBookingId(null);
     setSelectedBookingSnapshot(null);
@@ -976,6 +1002,29 @@ export default function DashboardPage({ bookingSaved }) {
   }, []);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
+
+  useEffect(() => {
+    if (bookingSaved) {
+      setShowBookingSaved(true);
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    setShowBookingSaved(params.get("saved") === "true" || params.get("success") === "true");
+  }, [bookingSaved]);
+
+  useEffect(() => {
+    if (!createBookingOpening) return undefined;
+
+    const timer = window.setInterval(() => {
+      setCreateBookingProgress((current) => {
+        if (current < 72) return current + 7;
+        if (current < 91) return current + 2;
+        return current;
+      });
+    }, 260);
+
+    return () => window.clearInterval(timer);
+  }, [createBookingOpening]);
 
   // Vehicles (needed to resolve booking vehicle IDs to names)
   useEffect(() => {
@@ -1086,9 +1135,20 @@ export default function DashboardPage({ bookingSaved }) {
   }, [workDiaryEvents]);
 
   const goToCreateUCraneBooking = useCallback(() => {
-    if (isRestricted) return;
-    router.push("/u-crane-booking");
-  }, [isRestricted, router]);
+    if (isRestricted || createBookingOpening) return;
+    setCreateBookingOpening(true);
+    setCreateBookingProgress(8);
+
+    window.setTimeout(() => {
+      try {
+        router.push("/u-crane-booking");
+      } catch (error) {
+        console.error("Failed to open U-Crane booking page:", error);
+        setCreateBookingOpening(false);
+        setCreateBookingProgress(0);
+      }
+    }, 80);
+  }, [createBookingOpening, isRestricted, router]);
 
   const UpcomingColumn = useCallback(
     ({ label }) => {
@@ -1210,7 +1270,7 @@ export default function DashboardPage({ bookingSaved }) {
             <div style={sub}>Dedicated operations diary for U-Crane activity and related vehicle bookings.</div>
           </div>
           <div style={sectionActions}>
-            {bookingSaved && (
+            {showBookingSaved && (
               <div style={successBanner}>
                 <Check size={14} strokeWidth={3} /> Booking saved successfully
               </div>
@@ -1255,14 +1315,21 @@ export default function DashboardPage({ bookingSaved }) {
               </button>
 
               <button
-                style={isRestricted ? btnDisabled(btn()) : btn()}
+                style={
+                  isRestricted
+                    ? btnDisabled(btn())
+                    : createBookingOpening
+                    ? { ...btn(), opacity: 0.86, cursor: "wait" }
+                    : btn()
+                }
                 onClick={goToCreateUCraneBooking}
-                aria-disabled={isRestricted}
+                disabled={isRestricted || createBookingOpening}
+                aria-disabled={isRestricted || createBookingOpening}
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
                 <Plus size={14} />
-                Create U-Crane Booking
+                {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create U-Crane Booking"}
               </button>
 
               <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
@@ -1272,7 +1339,10 @@ export default function DashboardPage({ bookingSaved }) {
             </div>
           </div>
 
-          <div style={calendarShell}>
+          <div
+            style={calendarShell}
+            className={calendarView === "month" ? "ucrane-month-calendar" : ""}
+          >
             <BigCalendar
               localizer={localizer}
               events={workDiaryEvents}
@@ -1308,7 +1378,7 @@ export default function DashboardPage({ bookingSaved }) {
                   },
                 };
               }}
-              style={{ height: calendarView === "month" ? 680 : 610, background: "#fff" }}
+              style={{ height: calendarView === "month" ? "auto" : 610, background: "#fff" }}
               onSelectEvent={(e) => {
                 openSelectedBooking(e);
               }}
@@ -1326,11 +1396,11 @@ export default function DashboardPage({ bookingSaved }) {
                     style: {
                       backgroundColor: "#e53935",
                       color: "#fff",
-                      fontWeight: 700,
-                      padding: 0,
-                      borderRadius: 8,
-                      border: "2px solid #0b0b0b",
-                      boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                    fontWeight: 700,
+                    padding: 0,
+                    borderRadius: 8,
+                      border: "1px solid #991b1b",
+                      boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                       cursor: "pointer",
                     },
                   };
@@ -1358,8 +1428,8 @@ export default function DashboardPage({ bookingSaved }) {
                     fontWeight: 700,
                     padding: 0,
                     borderRadius: 8,
-                    border: `2px solid ${style.border}`,
-                    boxShadow: "0 2px 2px rgba(0,0,0,0.18)",
+                    border: `1px solid ${style.border}`,
+                    boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                     cursor: "pointer",
                   },
                 };
@@ -1422,6 +1492,14 @@ export default function DashboardPage({ bookingSaved }) {
           onClose={closeSelectedBooking}
           initialBooking={selectedBooking}
           initialVehicles={vehiclesData}
+        />
+      )}
+
+      {createBookingOpening && (
+        <RouteLoadingOverlay
+          progress={createBookingProgress}
+          title="Opening U-Crane booking"
+          hint="Preparing the U-Crane create page..."
         />
       )}
     </HeaderSidebarLayout>

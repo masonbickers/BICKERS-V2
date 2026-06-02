@@ -39,8 +39,6 @@ import {
 ------------------------------------------- */
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 /* -------------------------------------------
@@ -172,6 +170,7 @@ export default function AdminPage() {
   const [qText, setQText] = useState("");
   const [toast, setToast] = useState(null);
   const [resettingMfaUserId, setResettingMfaUserId] = useState("");
+  const [deletingUserId, setDeletingUserId] = useState("");
   const [migratingMfaSecrets, setMigratingMfaSecrets] = useState(false);
 
   // Data
@@ -225,6 +224,20 @@ export default function AdminPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Admin action failed.");
+    return data;
+  };
+
+  const callAdminUserDelete = async (userId) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("You need to sign in again.");
+
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Delete failed.");
     return data;
   };
 
@@ -597,6 +610,32 @@ export default function AdminPage() {
     }
   };
 
+  const deleteAccessAccount = async (targetUser) => {
+    if (!targetUser?.id) return;
+
+    const label = targetUser.email || targetUser.name || targetUser.id;
+    if (
+      !confirm(
+        `Delete access account for ${label}?\n\nThis removes their Firestore access record and MFA secret record. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingUserId(targetUser.id);
+    try {
+      const data = await callAdminUserDelete(targetUser.id);
+      const count = Number(data?.deletedUserDocs || 1);
+      showToast("ok", `Deleted ${count} access record${count === 1 ? "" : "s"}`);
+      await fetchUsers();
+      await fetchAuditLogs();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to delete access account");
+    } finally {
+      setDeletingUserId("");
+    }
+  };
+
   /* -------------------------------------------
      Holiday allowance management (legacy table)
   -------------------------------------------- */
@@ -870,6 +909,15 @@ export default function AdminPage() {
             </div>
 
             <button
+              onClick={() => router.push("/admin/security-audit")}
+              style={btnStyle}
+              title="Review user access and MFA readiness"
+            >
+              <ShieldCheck size={14} />
+              Security audit
+            </button>
+
+            <button
               onClick={() => router.push("/deleted-bookings")}
               style={btnStyle}
               title="View deleted bookings"
@@ -1022,6 +1070,11 @@ export default function AdminPage() {
                         const enabled = u.isEnabled ?? true;
                         const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
                         const resetInProgress = resettingMfaUserId === u.id;
+                        const deleteInProgress = deletingUserId === u.id;
+                        const isSelf =
+                          (me?.uid && u.id === me.uid) ||
+                          (me?.email && email === String(me.email).trim().toLowerCase());
+                        const deleteBlocked = locked || isSelf || deleteInProgress;
 
                         return (
                           <tr key={u.id} style={rowStyle}>
@@ -1100,6 +1153,33 @@ export default function AdminPage() {
                                 >
                                   <ShieldCheck size={14} />
                                   {resetInProgress ? "Resetting..." : "Reset MFA"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => deleteAccessAccount(u)}
+                                  disabled={deleteBlocked}
+                                  style={{
+                                    ...btnStyle,
+                                    borderColor: "#fecaca",
+                                    background: deleteBlocked ? "#f1f5f9" : "#fff1f2",
+                                    color: deleteBlocked ? UI.muted : UI.danger,
+                                    cursor: deleteInProgress
+                                      ? "wait"
+                                      : deleteBlocked
+                                        ? "not-allowed"
+                                        : "pointer",
+                                  }}
+                                  title={
+                                    locked
+                                      ? "Admin gate accounts cannot be deleted"
+                                      : isSelf
+                                        ? "You cannot delete your own access account"
+                                        : "Delete this Firestore access account"
+                                  }
+                                >
+                                  <Trash2 size={14} />
+                                  {deleteInProgress ? "Deleting..." : "Delete"}
                                 </button>
                               </div>
                             </Td>

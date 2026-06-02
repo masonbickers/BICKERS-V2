@@ -7,6 +7,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
 import { ArrowLeft, Save } from "lucide-react";
 
 /* UI tokens */
@@ -86,7 +87,9 @@ const INITIAL_FORM_DATA = {
   category: "",
   manufacturer: "",
   model: "",
+  chassis: "",
   odometer: "",
+  operationalStatus: "Active",
   notes: "",
   retentionExpiry: "",
   plateType: "retention",
@@ -94,13 +97,118 @@ const INITIAL_FORM_DATA = {
   lastService: "",
   serviceFreq: "",
   nextService: "",
+  serviceISOWeek: "",
   lastMOT: "",
   motFreq: "",
   nextMOT: "",
+  motISOWeek: "",
   taxStatus: "Taxed",
+  lastRFL: "",
+  rflFreq: "",
+  nextRFL: "",
   insuranceStatus: "Insured",
   insuredUntil: "",
+  warranty: "No",
+  warrantyExpiry: "",
+  eightWeekInspectionStart: "",
+  nextEightWeekInspection: "",
+  eightWeekInspectionISOWeek: "",
+  lastTacho: "",
+  tachoFreq: "",
+  nextTacho: "",
+  tachoISOWeek: "",
+  lastBrakeTest: "",
+  brakeTestFreq: "",
+  nextBrakeTest: "",
+  brakeISOWeek: "",
+  lastPMI: "",
+  pmiFreq: "",
+  nextPMI: "",
+  pmiISOWeek: "",
+  lastTachoDownload: "",
+  tachoDownloadFreq: "",
+  nextTachoDownload: "",
+  tachoDownloadISOWeek: "",
+  lastTailLift: "",
+  tailLiftFreq: "",
+  nextTailLift: "",
+  tailLiftISOWeek: "",
+  lastLoler: "",
+  lolerFreq: "",
+  nextLoler: "",
+  lolerISOWeek: "",
+  lastTachoCalibration: "",
+  tachoCalibrationFreq: "",
+  nextTachoCalibration: "",
+  tachoCalibrationISOWeek: "",
+  lastLorryInspection: "",
+  lorryInspectionFreq: "",
+  nextLorryInspection: "",
+  lorryInspectionISOWeek: "",
 };
+
+const ADDITIONAL_MAINTENANCE_SECTIONS = [
+  {
+    key: "tachoInspection",
+    label: "Tacho Inspection",
+    fields: [
+      { type: "date", label: "Last Tacho Inspection", name: "lastTacho" },
+      { type: "text", label: "Tacho Freq (weeks)", name: "tachoFreq" },
+      { type: "date", label: "Next Tacho Inspection", name: "nextTacho" },
+      { type: "text", label: "Tacho ISO Week", name: "tachoISOWeek" },
+    ],
+  },
+  {
+    key: "brakeTest",
+    label: "Brake Test",
+    fields: [
+      { type: "date", label: "Last Brake Test", name: "lastBrakeTest" },
+      { type: "text", label: "Brake Test Freq (weeks)", name: "brakeTestFreq" },
+      { type: "date", label: "Next Brake Test", name: "nextBrakeTest" },
+      { type: "text", label: "Brake Test ISO Week", name: "brakeISOWeek" },
+    ],
+  },
+  {
+    key: "pmiInspection",
+    label: "PMI Inspection",
+    fields: [
+      { type: "date", label: "Last PMI Inspection", name: "lastPMI" },
+      { type: "text", label: "PMI Freq (weeks)", name: "pmiFreq" },
+      { type: "date", label: "Next PMI Inspection", name: "nextPMI" },
+      { type: "text", label: "PMI ISO Week", name: "pmiISOWeek" },
+    ],
+  },
+  {
+    key: "tachoDownload",
+    label: "Tacho Download",
+    fields: [
+      { type: "date", label: "Last Tacho Download", name: "lastTachoDownload" },
+      { type: "text", label: "Tacho Download Freq (weeks)", name: "tachoDownloadFreq" },
+      { type: "date", label: "Next Tacho Download", name: "nextTachoDownload" },
+      { type: "text", label: "Tacho DL ISO Week", name: "tachoDownloadISOWeek" },
+    ],
+  },
+  {
+    key: "tailLift",
+    label: "Tail-lift Inspection",
+    fields: [
+      { type: "date", label: "Last Tail-lift Insp.", name: "lastTailLift" },
+      { type: "text", label: "Tail-lift Freq (weeks)", name: "tailLiftFreq" },
+      { type: "date", label: "Next Tail-lift Insp.", name: "nextTailLift" },
+      { type: "text", label: "Tail-lift ISO Week", name: "tailLiftISOWeek" },
+    ],
+  },
+  {
+    key: "loler",
+    label: "LOLER",
+    fields: [
+      { type: "date", label: "Last LOLER", name: "lastLoler" },
+      { type: "text", label: "LOLER Freq (weeks)", name: "lolerFreq" },
+      { type: "date", label: "Next LOLER", name: "nextLoler" },
+      { type: "text", label: "LOLER ISO Week", name: "lolerISOWeek" },
+    ],
+  },
+];
 
 const parseLocalDateOnly = (s) => {
   if (!s) return null;
@@ -108,15 +216,31 @@ const parseLocalDateOnly = (s) => {
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 };
+const clampISODate = (d) => {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 const addWeeksToISO = (isoDate, weeks) => {
   const d = parseLocalDateOnly(isoDate);
   const w = Number(weeks || 0);
   if (!d || !w) return "";
   d.setDate(d.getDate() + w * 7);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return clampISODate(d);
+};
+const calcNextEightWeekFromCycle = (baseISO, currentNextISO) => {
+  const base = parseLocalDateOnly(baseISO);
+  if (!base) return "";
+
+  const currentNext = parseLocalDateOnly(currentNextISO);
+  if (currentNext && currentNext.getTime() > base.getTime()) {
+    const diffDays = Math.round((currentNext.getTime() - base.getTime()) / 86400000);
+    if (diffDays > 0 && diffDays % 56 === 0) return clampISODate(currentNext);
+  }
+
+  return addWeeksToISO(baseISO, 8);
 };
 const isPastISODate = (isoDate) => {
   const d = parseLocalDateOnly(isoDate);
@@ -125,6 +249,14 @@ const isPastISODate = (isoDate) => {
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return d.getTime() < todayMidnight.getTime();
 };
+const isTransportLorryVehicle = (vehicle = {}) => {
+  const haystack = [vehicle.category, vehicle.name, vehicle.manufacturer, vehicle.model]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .join(" ");
+  return haystack.includes("lorry") || haystack.includes("transport");
+};
+const sectionHasValue = (formData, section) =>
+  section.fields.some((field) => String(formData?.[field.name] || "").trim());
 
 export default function AddVehiclePage() {
   const router = useRouter();
@@ -132,6 +264,7 @@ export default function AddVehiclePage() {
 
   const [saving, setSaving] = useState(false);
   const [existingCategories, setExistingCategories] = useState([]);
+  const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
 
@@ -170,7 +303,21 @@ export default function AddVehiclePage() {
     const { name, value } = e.target;
 
     // numeric fields
-    const numeric = ["odometer", "serviceFreq", "motFreq", "plateExpiryFreq"];
+    const numeric = [
+      "odometer",
+      "serviceFreq",
+      "motFreq",
+      "plateExpiryFreq",
+      "rflFreq",
+      "tachoFreq",
+      "brakeTestFreq",
+      "pmiFreq",
+      "tachoDownloadFreq",
+      "tailLiftFreq",
+      "lolerFreq",
+      "tachoCalibrationFreq",
+      "lorryInspectionFreq",
+    ];
     const v = numeric.includes(name) ? (value === "" ? "" : String(value).replace(/[^\d]/g, "")) : value;
 
     setFormData((prev) => ({
@@ -180,26 +327,118 @@ export default function AddVehiclePage() {
     }));
   };
 
-  // Auto-calc next dates if user provides last + freq and next is blank or matches previous calc
+  // Auto-calc next dates and ISO week labels so new records match edit-page behaviour.
   useEffect(() => {
+    const updates = {};
+
     if (formData.lastMOT && formData.motFreq) {
       const calc = addWeeksToISO(formData.lastMOT, formData.motFreq);
-      if (calc && (!formData.nextMOT || formData.nextMOT === calc)) {
-        setFormData((p) => ({ ...p, nextMOT: calc }));
-      }
+      if (calc && formData.nextMOT !== calc) updates.nextMOT = calc;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.lastMOT, formData.motFreq]);
-
-  useEffect(() => {
     if (formData.lastService && formData.serviceFreq) {
       const calc = addWeeksToISO(formData.lastService, formData.serviceFreq);
-      if (calc && (!formData.nextService || formData.nextService === calc)) {
-        setFormData((p) => ({ ...p, nextService: calc }));
-      }
+      if (calc && formData.nextService !== calc) updates.nextService = calc;
+    }
+    if (formData.lastRFL && formData.rflFreq) {
+      const calc = addWeeksToISO(formData.lastRFL, formData.rflFreq);
+      if (calc && formData.nextRFL !== calc) updates.nextRFL = calc;
+    }
+    if (formData.eightWeekInspectionStart) {
+      const calc = calcNextEightWeekFromCycle(formData.eightWeekInspectionStart, formData.nextEightWeekInspection);
+      if (calc && formData.nextEightWeekInspection !== calc) updates.nextEightWeekInspection = calc;
+    }
+
+    [
+      ["lastTacho", "tachoFreq", "nextTacho"],
+      ["lastBrakeTest", "brakeTestFreq", "nextBrakeTest"],
+      ["lastPMI", "pmiFreq", "nextPMI"],
+      ["lastTachoDownload", "tachoDownloadFreq", "nextTachoDownload"],
+      ["lastTailLift", "tailLiftFreq", "nextTailLift"],
+      ["lastLoler", "lolerFreq", "nextLoler"],
+      ["lastTachoCalibration", "tachoCalibrationFreq", "nextTachoCalibration"],
+      ["lastLorryInspection", "lorryInspectionFreq", "nextLorryInspection"],
+    ].forEach(([lastKey, freqKey, nextKey]) => {
+      if (!formData[lastKey] || !formData[freqKey]) return;
+      const calc = addWeeksToISO(formData[lastKey], formData[freqKey]);
+      if (calc && formData[nextKey] !== calc) updates[nextKey] = calc;
+    });
+
+    const nextMot = updates.nextMOT ?? formData.nextMOT;
+    const nextService = updates.nextService ?? formData.nextService;
+    const nextInspection = updates.nextEightWeekInspection ?? formData.nextEightWeekInspection;
+    const motIso = getIsoWeekLabel(nextMot);
+    const serviceIso = getIsoWeekLabel(nextService);
+    const inspectionIso = getIsoWeekLabel(nextInspection);
+
+    if (motIso && formData.motISOWeek !== motIso) updates.motISOWeek = motIso;
+    if (serviceIso && formData.serviceISOWeek !== serviceIso) updates.serviceISOWeek = serviceIso;
+    if (inspectionIso && formData.eightWeekInspectionISOWeek !== inspectionIso) {
+      updates.eightWeekInspectionISOWeek = inspectionIso;
+    }
+
+    [
+      ["nextTacho", "tachoISOWeek"],
+      ["nextBrakeTest", "brakeISOWeek"],
+      ["nextPMI", "pmiISOWeek"],
+      ["nextTachoDownload", "tachoDownloadISOWeek"],
+      ["nextTailLift", "tailLiftISOWeek"],
+      ["nextLoler", "lolerISOWeek"],
+      ["nextTachoCalibration", "tachoCalibrationISOWeek"],
+      ["nextLorryInspection", "lorryInspectionISOWeek"],
+    ].forEach(([nextKey, isoKey]) => {
+      const iso = getIsoWeekLabel(updates[nextKey] ?? formData[nextKey]);
+      if (iso && formData[isoKey] !== iso) updates[isoKey] = iso;
+    });
+
+    if (Object.keys(updates).length) {
+      setFormData((prev) => ({ ...prev, ...updates }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.lastService, formData.serviceFreq]);
+  }, [
+    formData.lastMOT,
+    formData.motFreq,
+    formData.nextMOT,
+    formData.lastService,
+    formData.serviceFreq,
+    formData.nextService,
+    formData.lastRFL,
+    formData.rflFreq,
+    formData.nextRFL,
+    formData.eightWeekInspectionStart,
+    formData.nextEightWeekInspection,
+    formData.lastTacho,
+    formData.tachoFreq,
+    formData.lastBrakeTest,
+    formData.brakeTestFreq,
+    formData.lastPMI,
+    formData.pmiFreq,
+    formData.lastTachoDownload,
+    formData.tachoDownloadFreq,
+    formData.lastTailLift,
+    formData.tailLiftFreq,
+    formData.lastLoler,
+    formData.lolerFreq,
+    formData.lastTachoCalibration,
+    formData.tachoCalibrationFreq,
+    formData.lastLorryInspection,
+    formData.lorryInspectionFreq,
+  ]);
+
+  const showEightWeekInspection = useMemo(() => isTransportLorryVehicle(formData), [formData]);
+
+  const visibleAdditionalMaintenanceSections = useMemo(
+    () =>
+      ADDITIONAL_MAINTENANCE_SECTIONS.filter(
+        (section) => shownAdditionalMaintenance.includes(section.key) || sectionHasValue(formData, section)
+      ),
+    [formData, shownAdditionalMaintenance]
+  );
+
+  const toggleAdditionalMaintenance = (key) => {
+    setShownAdditionalMaintenance((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+    );
+  };
 
   const canSave = useMemo(() => {
     if (isNumberPlateMode) return formData.registration.trim();
@@ -235,21 +474,52 @@ export default function AddVehiclePage() {
     setSaving(true);
     try {
       const odometerValue = isNumberPlateMode || formData.odometer === "" ? "" : Number(formData.odometer);
+      const registration = formData.registration.trim();
+      const manufacturer = isNumberPlateMode ? "" : formData.manufacturer.trim();
+      const lastMot = isNumberPlateMode ? "" : formData.lastMOT || "";
+      const nextMot = isNumberPlateMode ? "" : formData.nextMOT || "";
+      const lastService = isNumberPlateMode ? "" : formData.lastService || "";
+      const nextService = isNumberPlateMode ? "" : formData.nextService || "";
+      const insuredUntil =
+        isNumberPlateMode || formData.insuranceStatus !== "Insured" || isPastISODate(formData.insuredUntil)
+          ? ""
+          : formData.insuredUntil || "";
+      const nextRFL =
+        isNumberPlateMode || formData.taxStatus !== "Taxed" || isPastISODate(formData.nextRFL)
+          ? ""
+          : formData.nextRFL || "";
+      const taxStatus =
+        isNumberPlateMode
+          ? "N/A"
+          : formData.taxStatus === "Taxed" && formData.nextRFL && isPastISODate(formData.nextRFL)
+            ? "Sorn"
+            : formData.taxStatus || "Taxed";
+      const insuranceStatus =
+        isNumberPlateMode
+          ? "N/A"
+          : formData.insuranceStatus === "Insured" && formData.insuredUntil && isPastISODate(formData.insuredUntil)
+            ? "Not Insured"
+            : formData.insuranceStatus || "Insured";
 
       // Build clean payload (avoid empty strings where possible)
       const payload = {
-        name: isNumberPlateMode ? (formData.name.trim() || formData.registration.trim()) : formData.name.trim(),
-        registration: formData.registration.trim(),
-        reg: formData.registration.trim(),
-        registrationNumber: formData.registration.trim(),
+        name: isNumberPlateMode ? (formData.name.trim() || registration) : formData.name.trim(),
+        vehicleName: isNumberPlateMode ? (formData.name.trim() || registration) : formData.name.trim(),
+        registration,
+        reg: registration,
+        registrationNumber: registration,
         category: isNumberPlateMode ? RETENTION_PLATE_CATEGORY : formData.category.trim(),
         recordType: isNumberPlateMode ? "numberPlateRetention" : "vehicle",
+        operationalStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
+        fleetStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
+        vehicleStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
         plateType: isNumberPlateMode ? formData.plateType || "retention" : "",
         plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? "52" : formData.plateExpiryFreq || "",
 
-        manufacturer: isNumberPlateMode ? "" : formData.manufacturer.trim(),
-        make: isNumberPlateMode ? "" : formData.manufacturer.trim(),
+        manufacturer,
+        make: manufacturer,
         model: isNumberPlateMode ? "" : formData.model.trim(),
+        chassis: isNumberPlateMode ? "" : formData.chassis.trim(),
 
         odometer: odometerValue,
         mileage: odometerValue,
@@ -257,29 +527,94 @@ export default function AddVehiclePage() {
         notes: formData.notes || "",
         retentionExpiry: isNumberPlateMode ? formData.retentionExpiry || "" : "",
 
-        lastService: isNumberPlateMode ? "" : formData.lastService || "",
+        lastService,
+        lastServiceDate: lastService,
         serviceFreq: isNumberPlateMode ? "" : formData.serviceFreq || "",
-        nextService: isNumberPlateMode ? "" : formData.nextService || "",
-        nextServiceDate: isNumberPlateMode ? "" : formData.nextService || "",
-        serviceDueDate: isNumberPlateMode ? "" : formData.nextService || "",
+        nextService,
+        nextServiceDate: nextService,
+        serviceDueDate: nextService,
+        serviceISOWeek: isNumberPlateMode ? "" : formData.serviceISOWeek || getIsoWeekLabel(nextService),
+        serviceHistory: [],
+        serviceHistoryFiles: [],
 
-        lastMOT: isNumberPlateMode ? "" : formData.lastMOT || "",
-        lastMot: isNumberPlateMode ? "" : formData.lastMOT || "",
+        lastMOT: lastMot,
+        lastMot,
+        lastMotDate: lastMot,
         motFreq: isNumberPlateMode ? "" : formData.motFreq || "",
-        nextMOT: isNumberPlateMode ? "" : formData.nextMOT || "",
-        nextMot: isNumberPlateMode ? "" : formData.nextMOT || "",
-        nextMotDate: isNumberPlateMode ? "" : formData.nextMOT || "",
-        motDueDate: isNumberPlateMode ? "" : formData.nextMOT || "",
+        nextMOT: nextMot,
+        nextMot,
+        nextMotDate: nextMot,
+        motDueDate: nextMot,
+        motISOWeek: isNumberPlateMode ? "" : formData.motISOWeek || getIsoWeekLabel(nextMot),
+        motHistory: [],
+        dvsaMotTests: [],
+        motPrecheckStatus: "",
+        motPrecheckDate: "",
+        preChecksSummary: "",
+        preChecksNotes: "",
+        preChecks: {},
+        preChecksFiles: [],
 
-        taxStatus: isNumberPlateMode ? "N/A" : formData.taxStatus || "Taxed",
-        insuredUntil: isNumberPlateMode ? "" : formData.insuredUntil || "",
-        insuranceExpiry: isNumberPlateMode ? "" : formData.insuredUntil || "",
-        insuranceExpiryDate: isNumberPlateMode ? "" : formData.insuredUntil || "",
-        insuranceStatus: isNumberPlateMode
-          ? "N/A"
-          : formData.insuredUntil && isPastISODate(formData.insuredUntil)
-            ? "Not Insured"
-            : formData.insuranceStatus || "Insured",
+        taxStatus,
+        lastRFL: isNumberPlateMode ? "" : formData.lastRFL || "",
+        rflFreq: isNumberPlateMode ? "" : formData.rflFreq || "",
+        nextRFL,
+        insuredUntil,
+        insuranceExpiry: insuredUntil,
+        insuranceExpiryDate: insuredUntil,
+        insuranceUntil: insuredUntil,
+        insuranceStatus,
+
+        warranty: isNumberPlateMode ? "No" : formData.warranty || "No",
+        warrantyExpiry: isNumberPlateMode ? "" : formData.warrantyExpiry || "",
+
+        eightWeekInspectionStart: isNumberPlateMode ? "" : formData.eightWeekInspectionStart || "",
+        nextEightWeekInspection: isNumberPlateMode ? "" : formData.nextEightWeekInspection || "",
+        eightWeekInspectionISOWeek:
+          isNumberPlateMode
+            ? ""
+            : formData.eightWeekInspectionISOWeek || getIsoWeekLabel(formData.nextEightWeekInspection),
+        eightWeekInspectionHistory: [],
+
+        lastTacho: isNumberPlateMode ? "" : formData.lastTacho || "",
+        tachoFreq: isNumberPlateMode ? "" : formData.tachoFreq || "",
+        nextTacho: isNumberPlateMode ? "" : formData.nextTacho || "",
+        tachoISOWeek: isNumberPlateMode ? "" : formData.tachoISOWeek || getIsoWeekLabel(formData.nextTacho),
+        lastBrakeTest: isNumberPlateMode ? "" : formData.lastBrakeTest || "",
+        brakeTestFreq: isNumberPlateMode ? "" : formData.brakeTestFreq || "",
+        nextBrakeTest: isNumberPlateMode ? "" : formData.nextBrakeTest || "",
+        brakeISOWeek: isNumberPlateMode ? "" : formData.brakeISOWeek || getIsoWeekLabel(formData.nextBrakeTest),
+        lastPMI: isNumberPlateMode ? "" : formData.lastPMI || "",
+        pmiFreq: isNumberPlateMode ? "" : formData.pmiFreq || "",
+        nextPMI: isNumberPlateMode ? "" : formData.nextPMI || "",
+        pmiISOWeek: isNumberPlateMode ? "" : formData.pmiISOWeek || getIsoWeekLabel(formData.nextPMI),
+        lastTachoDownload: isNumberPlateMode ? "" : formData.lastTachoDownload || "",
+        tachoDownloadFreq: isNumberPlateMode ? "" : formData.tachoDownloadFreq || "",
+        nextTachoDownload: isNumberPlateMode ? "" : formData.nextTachoDownload || "",
+        tachoDownloadISOWeek:
+          isNumberPlateMode ? "" : formData.tachoDownloadISOWeek || getIsoWeekLabel(formData.nextTachoDownload),
+        lastTailLift: isNumberPlateMode ? "" : formData.lastTailLift || "",
+        tailLiftFreq: isNumberPlateMode ? "" : formData.tailLiftFreq || "",
+        nextTailLift: isNumberPlateMode ? "" : formData.nextTailLift || "",
+        tailLiftISOWeek: isNumberPlateMode ? "" : formData.tailLiftISOWeek || getIsoWeekLabel(formData.nextTailLift),
+        lastLoler: isNumberPlateMode ? "" : formData.lastLoler || "",
+        lolerFreq: isNumberPlateMode ? "" : formData.lolerFreq || "",
+        nextLoler: isNumberPlateMode ? "" : formData.nextLoler || "",
+        lolerISOWeek: isNumberPlateMode ? "" : formData.lolerISOWeek || getIsoWeekLabel(formData.nextLoler),
+        lastTachoCalibration: isNumberPlateMode ? "" : formData.lastTachoCalibration || "",
+        tachoCalibrationFreq: isNumberPlateMode ? "" : formData.tachoCalibrationFreq || "",
+        nextTachoCalibration: isNumberPlateMode ? "" : formData.nextTachoCalibration || "",
+        tachoCalibrationISOWeek:
+          isNumberPlateMode ? "" : formData.tachoCalibrationISOWeek || getIsoWeekLabel(formData.nextTachoCalibration),
+        lastLorryInspection: isNumberPlateMode ? "" : formData.lastLorryInspection || "",
+        lorryInspectionFreq: isNumberPlateMode ? "" : formData.lorryInspectionFreq || "",
+        nextLorryInspection: isNumberPlateMode ? "" : formData.nextLorryInspection || "",
+        lorryInspectionISOWeek:
+          isNumberPlateMode ? "" : formData.lorryInspectionISOWeek || getIsoWeekLabel(formData.nextLorryInspection),
+        hiddenAdditionalMaintenance: [],
+        defects: [],
+        attachments: [],
+        files: [],
 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -524,8 +859,21 @@ export default function AddVehiclePage() {
                 </div>
 
                 <div style={col(3)}>
+                  <label style={label}>Chassis No.</label>
+                  <input name="chassis" value={formData.chassis} onChange={handleChange} style={input} />
+                </div>
+
+                <div style={col(3)}>
                   <label style={label}>Odometer</label>
                   <input name="odometer" value={formData.odometer} onChange={handleChange} style={input} placeholder="e.g., 124000" inputMode="numeric" />
+                </div>
+
+                <div style={col(3)}>
+                  <label style={label}>Operating Status</label>
+                  <select name="operationalStatus" value={formData.operationalStatus} onChange={handleChange} style={input}>
+                    <option value="Active">Active</option>
+                    <option value="Out of use">Out of use</option>
+                  </select>
                 </div>
 
                 <div style={col(3)}>
@@ -535,6 +883,11 @@ export default function AddVehiclePage() {
                     <option value="Sorn">SORN</option>
                     <option value="N/A">N/A</option>
                   </select>
+                </div>
+
+                <div style={col(3)}>
+                  <label style={label}>Taxed Until</label>
+                  <input type="date" name="nextRFL" value={formData.nextRFL} onChange={handleChange} style={input} />
                 </div>
 
                 <div style={col(3)}>
@@ -584,6 +937,11 @@ export default function AddVehiclePage() {
                   <input type="date" name="nextMOT" value={formData.nextMOT} onChange={handleChange} style={input} />
                 </div>
 
+                <div style={col(4)}>
+                  <label style={label}>MOT ISO Week</label>
+                  <input name="motISOWeek" value={formData.motISOWeek} onChange={handleChange} style={input} />
+                </div>
+
                 {/* Service */}
                 <div style={col(12)}>
                   <div style={{ fontSize: 12, fontWeight: 950, color: UI.text, margin: "10px 0 8px" }}>Service</div>
@@ -604,7 +962,152 @@ export default function AddVehiclePage() {
                   <label style={label}>Next Service</label>
                   <input type="date" name="nextService" value={formData.nextService} onChange={handleChange} style={input} />
                 </div>
+
+                <div style={col(4)}>
+                  <label style={label}>Service ISO Week</label>
+                  <input name="serviceISOWeek" value={formData.serviceISOWeek} onChange={handleChange} style={input} />
+                </div>
+
+                {/* RFL */}
+                <div style={col(12)}>
+                  <div style={{ fontSize: 12, fontWeight: 950, color: UI.text, margin: "10px 0 8px" }}>Road Tax / RFL</div>
+                </div>
+
+                <div style={col(4)}>
+                  <label style={label}>Last RFL</label>
+                  <input type="date" name="lastRFL" value={formData.lastRFL} onChange={handleChange} style={input} />
+                </div>
+
+                <div style={col(4)}>
+                  <label style={label}>RFL Frequency (weeks)</label>
+                  <input name="rflFreq" value={formData.rflFreq} onChange={handleChange} style={input} inputMode="numeric" />
+                </div>
+
+                <div style={col(4)}>
+                  <label style={label}>Next RFL / Taxed Until</label>
+                  <input type="date" name="nextRFL" value={formData.nextRFL} onChange={handleChange} style={input} />
+                </div>
+
+                {showEightWeekInspection ? (
+                  <>
+                    <div style={col(12)}>
+                      <div style={{ fontSize: 12, fontWeight: 950, color: UI.text, margin: "10px 0 8px" }}>8 Week Inspection</div>
+                    </div>
+
+                    <div style={col(4)}>
+                      <label style={label}>8 Week Inspection Base Date</label>
+                      <input
+                        type="date"
+                        name="eightWeekInspectionStart"
+                        value={formData.eightWeekInspectionStart}
+                        onChange={handleChange}
+                        style={input}
+                      />
+                    </div>
+
+                    <div style={col(4)}>
+                      <label style={label}>Inspection Frequency (weeks)</label>
+                      <input value="8" readOnly style={{ ...input, background: "#f8fafc" }} />
+                    </div>
+
+                    <div style={col(4)}>
+                      <label style={label}>Next 8 Week Inspection</label>
+                      <input
+                        type="date"
+                        name="nextEightWeekInspection"
+                        value={formData.nextEightWeekInspection}
+                        onChange={handleChange}
+                        style={input}
+                      />
+                    </div>
+
+                    <div style={col(4)}>
+                      <label style={label}>Inspection ISO Week</label>
+                      <input
+                        name="eightWeekInspectionISOWeek"
+                        value={formData.eightWeekInspectionISOWeek}
+                        onChange={handleChange}
+                        style={input}
+                      />
+                    </div>
+                  </>
+                ) : null}
               </div>
+            </div>
+
+            {/* Additional maintenance */}
+            <div style={{ ...card, padding: 12 }}>
+              <div style={sectionTitle}>Additional Maintenance</div>
+              <div className="add-vehicle-form-grid" style={{ ...grid, marginTop: 10, marginBottom: 12 }}>
+                <div style={col(4)}>
+                  <label style={label}>Warranty</label>
+                  <select name="warranty" value={formData.warranty} onChange={handleChange} style={input}>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+
+                <div style={col(4)}>
+                  <label style={label}>Warranty Expiry</label>
+                  <input type="date" name="warrantyExpiry" value={formData.warrantyExpiry} onChange={handleChange} style={input} />
+                </div>
+              </div>
+
+              <div style={helpText}>Tick the extra maintenance lines this vehicle needs.</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10, marginBottom: 12 }}>
+                {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
+                  const checked = shownAdditionalMaintenance.includes(section.key) || sectionHasValue(formData, section);
+                  return (
+                    <label
+                      key={section.key}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                        border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
+                        background: checked ? UI.brandSoft : "#fff",
+                        color: UI.text,
+                        borderRadius: UI.radius,
+                        padding: "7px 9px",
+                        fontSize: 12,
+                        fontWeight: 850,
+                        cursor: "pointer",
+                        userSelect: "none",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAdditionalMaintenance(section.key)}
+                        style={{ margin: 0 }}
+                      />
+                      {section.label}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {visibleAdditionalMaintenanceSections.length ? (
+                <div className="add-vehicle-form-grid" style={grid}>
+                  {visibleAdditionalMaintenanceSections.flatMap((section) =>
+                    section.fields.map((field) => (
+                      <div key={`${section.key}-${field.name}`} style={col(3)}>
+                        <label style={label}>{field.label}</label>
+                        <input
+                          type={field.type === "date" ? "date" : "text"}
+                          name={field.name}
+                          value={formData[field.name]}
+                          onChange={handleChange}
+                          style={input}
+                          inputMode={field.label.includes("Freq") ? "numeric" : undefined}
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: UI.muted, fontSize: 13 }}>No additional maintenance lines selected.</div>
+              )}
             </div>
 
             {/* Footer actions (redundant + nice UX) */}

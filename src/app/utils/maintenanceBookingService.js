@@ -179,6 +179,10 @@ const cleanObject = (value) =>
   Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined));
 
 const trimText = (value) => String(value || "").trim();
+const normalizeTime = (value) => {
+  const clean = String(value || "").trim();
+  return /^\d{2}:\d{2}$/.test(clean) ? clean : "";
+};
 
 const activeSummaryClears = (type) => {
   if (type === "MOT") {
@@ -224,6 +228,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
   status,
   isMultiDay,
   appointmentDate,
+  appointmentTime = "",
   startDate,
   endDate,
   provider = "",
@@ -236,6 +241,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
   const safeType = normalizeMaintenanceType(type);
   const doneISO = String(completedISO || "").slice(0, 10);
   const activeAppointmentDate = doneISO ? "" : !isMultiDay ? String(appointmentDate || "").slice(0, 10) : "";
+  const activeAppointmentTime = doneISO ? "" : normalizeTime(appointmentTime);
   const activeStartDate = doneISO ? "" : isMultiDay ? String(startDate || "").slice(0, 10) : "";
   const activeEndDate = doneISO ? "" : isMultiDay ? String(endDate || startDate || "").slice(0, 10) : "";
 
@@ -246,6 +252,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
       motBookedStatus: status,
       motBookedOn: doneISO || nowISO,
       motAppointmentDate: activeAppointmentDate,
+      motAppointmentTime: activeAppointmentTime,
       motBookingStartDate: activeStartDate,
       motBookingEndDate: activeEndDate,
       ...activeSummaryClears("MOT"),
@@ -274,6 +281,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
       serviceBookedStatus: status,
       serviceBookedOn: doneISO || nowISO,
       serviceAppointmentDate: activeAppointmentDate,
+      serviceAppointmentTime: activeAppointmentTime,
       serviceBookingStartDate: activeStartDate,
       serviceBookingEndDate: activeEndDate,
       ...activeSummaryClears("SERVICE"),
@@ -301,6 +309,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
       inspectionBookedStatus: status,
       inspectionBookedOn: doneISO || nowISO,
       inspectionAppointmentDate: activeAppointmentDate,
+      inspectionAppointmentTime: activeAppointmentTime,
       inspectionBookingStartDate: activeStartDate,
       inspectionBookingEndDate: activeEndDate,
       ...activeSummaryClears("INSPECTION"),
@@ -328,6 +337,7 @@ export const buildVehicleMaintenanceSummaryUpdates = ({
     workBookingId: bookingId,
     workBookedStatus: status,
     workBookingDate: activeAppointmentDate,
+    workBookingTime: activeAppointmentTime,
     workBookingStartDate: activeStartDate,
     workBookingEndDate: activeEndDate,
     ...activeSummaryClears("WORK"),
@@ -344,6 +354,7 @@ export const buildClearVehicleMaintenanceSummaryUpdates = ({ vehicle = {}, booki
       motBookedStatus: "",
       motBookedOn: "",
       motAppointmentDate: "",
+      motAppointmentTime: "",
       motBookingStartDate: "",
       motBookingEndDate: "",
       motBookingFiles: [],
@@ -357,6 +368,7 @@ export const buildClearVehicleMaintenanceSummaryUpdates = ({ vehicle = {}, booki
       serviceBookedStatus: "",
       serviceBookedOn: "",
       serviceAppointmentDate: "",
+      serviceAppointmentTime: "",
       serviceBookingStartDate: "",
       serviceBookingEndDate: "",
       ...activeSummaryClears("SERVICE"),
@@ -369,6 +381,7 @@ export const buildClearVehicleMaintenanceSummaryUpdates = ({ vehicle = {}, booki
       inspectionBookedStatus: "",
       inspectionBookedOn: "",
       inspectionAppointmentDate: "",
+      inspectionAppointmentTime: "",
       inspectionBookingStartDate: "",
       inspectionBookingEndDate: "",
       ...activeSummaryClears("INSPECTION"),
@@ -380,6 +393,7 @@ export const buildClearVehicleMaintenanceSummaryUpdates = ({ vehicle = {}, booki
       workBookingId: "",
       workBookedStatus: "",
       workBookingDate: "",
+      workBookingTime: "",
       workBookingStartDate: "",
       workBookingEndDate: "",
       ...activeSummaryClears("WORK"),
@@ -409,6 +423,7 @@ const buildBookingPayload = ({
   vehicleLabel,
   status,
   dateInfo,
+  appointmentTime,
   provider,
   bookingRef,
   location,
@@ -433,6 +448,7 @@ const buildBookingPayload = ({
     appointmentDate: dateInfo.appointmentDateObject,
     bookingDates: dateInfo.keys,
     appointmentDateISO: dateInfo.appointmentDateISO,
+    appointmentTime: normalizeTime(appointmentTime),
     startDateISO: dateInfo.startDateISO,
     endDateISO: dateInfo.endDateISO,
     completedAtISO:
@@ -467,6 +483,7 @@ export const createMaintenanceBooking = async ({
   useCustomDates = false,
   isMultiDay = false,
   appointmentDate = "",
+  appointmentTime = "",
   startDate = "",
   endDate = "",
   dateKeys = [],
@@ -513,6 +530,7 @@ export const createMaintenanceBooking = async ({
       vehicleLabel: resolvedVehicleLabel,
       status,
       dateInfo,
+      appointmentTime,
       provider,
       bookingRef,
       location,
@@ -548,6 +566,7 @@ export const createMaintenanceBooking = async ({
         status,
         isMultiDay: dateInfo.effectiveIsMultiDay,
         appointmentDate: dateInfo.appointmentDateISO || dateInfo.firstSelectedDate,
+        appointmentTime,
         startDate: dateInfo.firstSelectedDate,
         endDate: dateInfo.lastSelectedDate,
         provider,
@@ -572,6 +591,7 @@ export const updateMaintenanceBooking = async ({
   useCustomDates = false,
   isMultiDay = false,
   appointmentDate = "",
+  appointmentTime = "",
   startDate = "",
   endDate = "",
   dateKeys = [],
@@ -616,6 +636,7 @@ export const updateMaintenanceBooking = async ({
       "",
     status,
     dateInfo,
+    appointmentTime,
     provider,
     bookingRef,
     location,
@@ -649,6 +670,7 @@ export const updateMaintenanceBooking = async ({
         status,
         isMultiDay: dateInfo.effectiveIsMultiDay,
         appointmentDate: dateInfo.appointmentDateISO || dateInfo.firstSelectedDate,
+        appointmentTime,
         startDate: dateInfo.firstSelectedDate,
         endDate: dateInfo.lastSelectedDate,
         provider,

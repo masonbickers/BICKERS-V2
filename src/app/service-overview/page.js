@@ -18,6 +18,7 @@ import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 
 const UI = {
   radius: 8,
@@ -347,7 +348,11 @@ export default function ServiceOverviewPage() {
         getDocs(collection(db, "serviceRecords")),
       ]);
       const today = new Date();
-      setVehicles(vehiclesSnap.docs.map((docSnap) => buildServiceRow(docSnap, today)));
+      setVehicles(
+        vehiclesSnap.docs
+          .map((docSnap) => buildServiceRow(docSnap, today))
+          .filter((row) => !isVehicleOutOfUse(row))
+      );
       setMaintenanceBookings(bookingsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
       setServiceRecords(recordsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
     } finally {

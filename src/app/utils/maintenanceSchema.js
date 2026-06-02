@@ -20,6 +20,30 @@ const DUE_FIELD_CANDIDATES = {
   loler: ["nextLoler", "nextLOLER", "nextLOLERInspection"],
 };
 
+const OUT_OF_USE_STATUS_VALUES = new Set([
+  "out of use",
+  "out-of-use",
+  "out_of_use",
+  "inactive",
+  "off road",
+  "off-road",
+  "off_road",
+]);
+
+export const isVehicleOutOfUse = (asset = {}) => {
+  const candidates = [
+    asset.operationalStatus,
+    asset.fleetStatus,
+    asset.vehicleStatus,
+    asset.availabilityStatus,
+    asset.status,
+  ];
+
+  return candidates.some((value) =>
+    OUT_OF_USE_STATUS_VALUES.has(String(value || "").trim().toLowerCase())
+  );
+};
+
 export const toDateSafe = (value) => {
   if (!value) return null;
   if (typeof value?.toDate === "function") return value.toDate();
@@ -84,6 +108,7 @@ export const normalizeAssetRecord = (raw = {}) => {
     ...raw,
     id: String(raw.id || raw.vehicleId || raw.assetId || "").trim(),
     assetLabel: buildAssetLabel(raw),
+    outOfUse: isVehicleOutOfUse(raw),
     dueDates,
   };
 };

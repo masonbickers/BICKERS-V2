@@ -27,8 +27,6 @@ import {
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 const PAY_ADVICE_PIN_EMAIL = "adam@bickers.co.uk";
 const PAY_ADVICE_PIN = "4159";

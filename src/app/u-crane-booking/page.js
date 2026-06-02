@@ -540,7 +540,7 @@ export default function CreateBookingPage() {
     try {
       await addDoc(collection(db, "bookings"), booking);
       alert("Booking Saved ");
-      router.push("/dashboard?saved=true");
+      router.push("/u-crane?saved=true");
     } catch (err) {
       console.error(" Error saving booking:", err);
       alert("Failed to save booking \n\n" + err.message);
@@ -564,9 +564,14 @@ export default function CreateBookingPage() {
             color: "#0f172a",
           }}
         >
-          <h1 style={{ color: "#0f172a", margin: "0 0 12px", fontSize: "22px", fontWeight: 800 }}>
-            Create New Booking
-          </h1>
+          <div style={{ marginBottom: 12 }}>
+            <h1 style={{ color: "#0f172a", margin: 0, fontSize: "22px", fontWeight: 850 }}>
+              Create U-Crane Booking
+            </h1>
+            <div style={{ color: "#5f6f82", marginTop: 5, fontSize: "13.5px", fontWeight: 700 }}>
+              Add U-Crane work using the same structure and diary logic as the calendar.
+            </div>
+          </div>
 
           <div style={safetyHeaderStyle}>
             <label style={safetyCheckStyle}>
@@ -806,9 +811,9 @@ export default function CreateBookingPage() {
                   <div key={group} style={{ marginBottom: "15px" }}>
                     <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>{groupLabel}</h4>
                     {vehicleGroups[group]?.length > 0 ? (
-                      vehicleGroups[group].map((vehicle) => (
+                      vehicleGroups[group].map((vehicle, index) => (
                         <label
-                          key={vehicle.name}
+                          key={`${group}-${vehicle.id || vehicle.name || "vehicle"}-${vehicle.registration || ""}-${index}`}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -882,10 +887,10 @@ export default function CreateBookingPage() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/u-crane")}
                 style={{
                   ...buttonStyle,
-                  backgroundColor: "#ffffff",
+                  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
                   color: "#0f172a",
                   border: "1px solid #c8d6e3",
                   boxShadow: "none",
@@ -988,8 +993,8 @@ export default function CreateBookingPage() {
 const buttonStyle = {
   marginRight: "10px",
   marginTop: "0",
-  padding: "8px 12px",
-  backgroundColor: "#1f4b7a",
+  padding: "8px 13px",
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
   color: "#fff",
   border: "1px solid #1f4b7a",
   borderRadius: "8px",

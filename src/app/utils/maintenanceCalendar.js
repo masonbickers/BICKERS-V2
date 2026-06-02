@@ -1,6 +1,6 @@
 "use client";
 
-import { getCanonicalDueDate } from "./maintenanceSchema";
+import { getCanonicalDueDate, isVehicleOutOfUse } from "./maintenanceSchema";
 
 const INACTIVE_MAINTENANCE_BOOKING_STATUSES = new Set([
   "cancelled",
@@ -282,6 +282,8 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
   } = options;
 
   return (vehicles || []).flatMap((vehicle) => {
+    if (isVehicleOutOfUse(vehicle)) return [];
+
     const vehicleId = String(vehicle.id || "").trim();
     const label = getVehicleLabel ? getVehicleLabel(vehicle) : vehicleId || "Vehicle";
     const bookedMeta = bookedMetaByVehicle[vehicleId] || null;

@@ -7,6 +7,7 @@ const FIELD_LABELS = [
   ["isMultiDay", "Multi-day"],
   ["bookingDates", "Booking dates"],
   ["appointmentDateISO", "Appointment date"],
+  ["appointmentTime", "Appointment time"],
   ["startDateISO", "Start date"],
   ["endDateISO", "End date"],
   ["completedAtISO", "Completed date"],

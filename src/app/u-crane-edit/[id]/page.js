@@ -39,58 +39,127 @@ const getDisplayName = (row) =>
 /* ───────────────────────────────────────────
    Styles (MATCH Create booking page vibe)
 ─────────────────────────────────────────── */
+const UI = {
+  radius: 8,
+  bg: "#f3f6f9",
+  card: "#ffffff",
+  text: "#0f172a",
+  muted: "#516174",
+  border: "1px solid #d7dee8",
+  borderSoft: "1px solid #dde5ef",
+  brand: "#1f4b7a",
+  brandBorder: "#c8d6e3",
+  shadowSm: "0 1px 2px rgba(15, 23, 42, 0.05)",
+};
+
+const pageCss = `
+  .ucrane-edit-page h3,
+  .ucrane-edit-page h4 {
+    color: ${UI.muted} !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.03em !important;
+    text-transform: uppercase !important;
+    margin: 0 0 6px !important;
+  }
+  .ucrane-edit-page label {
+    color: ${UI.text};
+    font-size: 14px;
+    font-weight: 650;
+  }
+  .ucrane-edit-page input[type="checkbox"] {
+    accent-color: ${UI.brand};
+  }
+`;
+
 const pageBg = {
   display: "flex",
   minHeight: "100vh",
-  fontFamily: "Arial, sans-serif",
-  backgroundColor: "#f4f4f5",
+  fontFamily: "Inter, system-ui, Arial, sans-serif",
+  backgroundColor: UI.bg,
 };
-const main = { flex: 1, padding: "20px 40px", color: "#333" };
+const main = { flex: 1, padding: "16px", color: UI.text };
 const panel = {
   display: "flex",
-  gap: "40px",
+  gap: "12px",
   flexWrap: "wrap",
   alignItems: "flex-start",
-  marginTop: "20px",
-  backgroundColor: "#f9f9f9",
-  padding: "30px",
-  borderRadius: "10px",
-  boxShadow: "0 3px 10px rgba(0, 0, 0, 0.08)",
+  marginTop: "12px",
+  backgroundColor: UI.card,
+  padding: "12px",
+  border: UI.border,
+  borderRadius: UI.radius,
+  boxShadow: UI.shadowSm,
   fontSize: "14px",
-  lineHeight: "1.6",
+  lineHeight: "1.45",
 };
-const col = { flex: "1 1 300px", minWidth: "280px" };
+const col = {
+  flex: "1 1 300px",
+  minWidth: "280px",
+  padding: "12px",
+  border: UI.borderSoft,
+  borderRadius: UI.radius,
+  backgroundColor: UI.card,
+};
 
 const inputStyle = {
-  width: "90%",
-  height: "28px",
-  marginBottom: "12px",
-  padding: "4px 6px",
+  width: "100%",
+  height: "34px",
+  marginBottom: "10px",
+  padding: "6px 9px",
   fontSize: "14px",
-  border: "1px solid #ccc",
-  borderRadius: "4px",
+  border: "1px solid #d2dce8",
+  borderRadius: UI.radius,
+  boxSizing: "border-box",
+  backgroundColor: "#fff",
+  color: UI.text,
 };
 
 const textArea = {
   width: "100%",
-  padding: "8px",
-  fontSize: "16px",
-  border: "1px solid #ccc",
-  borderRadius: "4px",
+  padding: "9px 10px",
+  fontSize: "14px",
+  border: "1px solid #d2dce8",
+  borderRadius: UI.radius,
+  boxSizing: "border-box",
+  backgroundColor: "#fff",
+  color: UI.text,
 };
 
 const buttonStyle = {
   marginRight: "10px",
   marginTop: "10px",
-  padding: "8px 12px",
-  backgroundColor: "#4caf50",
+  padding: "8px 13px",
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
   color: "#fff",
-  border: "none",
-  borderRadius: "4px",
+  border: `1px solid ${UI.brand}`,
+  borderRadius: UI.radius,
   cursor: "pointer",
+  fontWeight: 800,
+  boxShadow: "0 8px 18px rgba(31, 75, 122, 0.16)",
 };
-const cancelBtn = { ...buttonStyle, backgroundColor: "#ccc", color: "#000" };
-const dangerBtn = { ...buttonStyle, backgroundColor: "#ef4444" };
+const cancelBtn = {
+  ...buttonStyle,
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  color: UI.text,
+  border: `1px solid ${UI.brandBorder}`,
+  boxShadow: "none",
+};
+const dangerBtn = {
+  ...buttonStyle,
+  background: "#fff1f2",
+  color: "#991b1b",
+  border: "1px solid #e9c6c4",
+  boxShadow: "none",
+};
+const summaryCard = {
+  marginTop: 12,
+  padding: 14,
+  backgroundColor: UI.card,
+  border: UI.border,
+  borderRadius: UI.radius,
+  boxShadow: UI.shadowSm,
+};
 
 /* ───────────────────────────────────────────
    Edit Booking Page (Matches Create Page logic + layout)
@@ -536,9 +605,12 @@ export default function EditBookingPage() {
   if (loading) {
     return (
       <HeaderSidebarLayout>
-        <div style={pageBg}>
+        <style>{pageCss}</style>
+        <div className="ucrane-edit-page" style={pageBg}>
           <div style={main}>
-            <h1 style={{ color: "#111", marginBottom: 12 }}> Edit Booking</h1>
+            <h1 style={{ color: UI.text, margin: "0 0 8px", fontSize: 22, fontWeight: 850 }}>
+              Edit U-Crane Booking
+            </h1>
             <p>Loading booking…</p>
           </div>
         </div>
@@ -548,15 +620,32 @@ export default function EditBookingPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={pageBg}>
+      <style>{pageCss}</style>
+      <div className="ucrane-edit-page" style={pageBg}>
         <div style={main}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <h1 style={{ color: "#111", marginBottom: 0 }}> Edit Booking</h1>
-            <span style={{ color: "#6b7280" }}>ID: {id}</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+            <div>
+              <h1 style={{ color: UI.text, margin: 0, fontSize: 22, fontWeight: 850 }}>
+                Edit U-Crane Booking
+              </h1>
+              <div style={{ color: UI.muted, marginTop: 5, fontSize: 13.5, fontWeight: 700 }}>
+                Booking ID: {id}
+              </div>
+            </div>
 
             <Link
               href={`/job-numbers/${id}`}
-              style={{ marginLeft: "auto", textDecoration: "none", fontWeight: 700 }}
+              style={{
+                marginLeft: "auto",
+                textDecoration: "none",
+                fontWeight: 800,
+                color: UI.brand,
+                border: UI.border,
+                borderRadius: UI.radius,
+                padding: "7px 10px",
+                background: "#fff",
+                boxShadow: UI.shadowSm,
+              }}
             >
               View Booking →
             </Link>
@@ -734,14 +823,14 @@ export default function EditBookingPage() {
                     <h4 style={{ marginBottom: "6px" }}>{group}</h4>
 
                     {vehicleGroups[group]?.length > 0 ? (
-                      vehicleGroups[group].map((vehicle) => {
+                      vehicleGroups[group].map((vehicle, index) => {
                         const maintenanceBlocked = maintenanceBookedVehicles.includes(vehicle.name);
                         const dateBlocked = bookedVehicles.includes(vehicle.name);
                         const disabled = maintenanceBlocked || dateBlocked;
 
                         return (
                           <label
-                            key={vehicle.name}
+                            key={`${group}-${vehicle.id || vehicle.name || "vehicle"}-${vehicle.registration || ""}-${index}`}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -920,8 +1009,10 @@ export default function EditBookingPage() {
           </form>
 
           {/* Summary (NO equipment shown) */}
-          <div style={{ marginTop: 40, padding: 20, backgroundColor: "#e0f7fa", borderRadius: 8 }}>
-            <h2 style={{ marginBottom: 10 }}>Booking Summary</h2>
+          <div style={summaryCard}>
+            <h2 style={{ margin: "0 0 10px", color: UI.text, fontSize: 16, fontWeight: 850 }}>
+              Booking Summary
+            </h2>
 
             <p>
               <strong>Job Number:</strong> {jobNumber}

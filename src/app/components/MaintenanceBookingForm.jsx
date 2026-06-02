@@ -45,6 +45,7 @@ export default function MaintenanceBookingForm({
   const [useCustomDates, setUseCustomDates] = useState(false);
 
   const [appointmentDate, setAppointmentDate] = useState(defaultDate || "");
+  const [appointmentTime, setAppointmentTime] = useState("");
   const [startDate, setStartDate] = useState(defaultDate || "");
   const [endDate, setEndDate] = useState(defaultDate || "");
   const [customDates, setCustomDates] = useState(defaultDate ? [defaultDate] : []);
@@ -343,6 +344,7 @@ export default function MaintenanceBookingForm({
         useCustomDates,
         isMultiDay,
         appointmentDate,
+        appointmentTime,
         startDate,
         endDate,
         dateKeys: bookingDates.keys,
@@ -480,37 +482,61 @@ export default function MaintenanceBookingForm({
           ) : null}
 
           {useCustomDates ? (
-            <div style={{ ...fieldBlock, ...fullWidth }}>
-              <label style={label}>Selected dates</label>
-              <DatePicker
-                multiple
-                value={customDates}
-                format="YYYY-MM-DD"
-                onChange={(vals) => {
-                  const normalised = (Array.isArray(vals) ? vals : [])
-                    .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
-                    .filter(Boolean)
-                    .sort();
-                  setCustomDates(normalised);
-                }}
-              />
-              {customDates.length > 0 ? (
-                <div style={helperText}>
-                  {customDates.join(", ")}
-                </div>
-              ) : null}
-            </div>
+            <>
+              <div style={{ ...fieldBlock, ...fullWidth }}>
+                <label style={label}>Selected dates</label>
+                <DatePicker
+                  multiple
+                  value={customDates}
+                  format="YYYY-MM-DD"
+                  onChange={(vals) => {
+                    const normalised = (Array.isArray(vals) ? vals : [])
+                      .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                      .filter(Boolean)
+                      .sort();
+                    setCustomDates(normalised);
+                  }}
+                />
+                {customDates.length > 0 ? (
+                  <div style={helperText}>
+                    {customDates.join(", ")}
+                  </div>
+                ) : null}
+              </div>
+
+              <div style={fieldBlock}>
+                <label style={label}>Appointment time</label>
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
+                  style={input}
+                />
+              </div>
+            </>
           ) : !isMultiDay ? (
-            <div style={fieldBlock}>
-              <label style={label}>Appointment date</label>
-              <input
-                type="date"
-                value={appointmentDate}
-                onChange={(e) => setAppointmentDate(e.target.value)}
-                required
-                style={input}
-              />
-            </div>
+            <>
+              <div style={fieldBlock}>
+                <label style={label}>Appointment date</label>
+                <input
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(e) => setAppointmentDate(e.target.value)}
+                  required
+                  style={input}
+                />
+              </div>
+
+              <div style={fieldBlock}>
+                <label style={label}>Appointment time</label>
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
+                  style={input}
+                />
+              </div>
+            </>
           ) : (
             <>
               <div style={fieldBlock}>
@@ -531,6 +557,16 @@ export default function MaintenanceBookingForm({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   required
+                  style={input}
+                />
+              </div>
+
+              <div style={fieldBlock}>
+                <label style={label}>Appointment time</label>
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
                   style={input}
                 />
               </div>

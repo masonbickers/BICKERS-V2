@@ -32,7 +32,7 @@ const BigCalendar = dynamic(
 );
 
 import { localizer } from "../utils/localizer";
-import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, ymd } from "../utils/maintenanceSchema";
+import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, isVehicleOutOfUse, ymd } from "../utils/maintenanceSchema";
 import {
   buildMaintenanceBookingEvents,
   buildMaintenanceJobEvents,
@@ -56,7 +56,6 @@ import {
   CalendarDays,
   BedDouble,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -412,6 +411,14 @@ const dashboardCalendarCss = `
 .dashboard-page .dashboard-compact-calendar .rbc-time-header {
   border-bottom: 0;
 }
+.dashboard-page .dashboard-compact-calendar .rbc-time-header-content,
+.dashboard-page .dashboard-compact-calendar .rbc-row-content,
+.dashboard-page .dashboard-compact-calendar .rbc-row,
+.dashboard-page .dashboard-compact-calendar .rbc-allday-cell {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
 .dashboard-page .dashboard-compact-calendar .rbc-allday-cell {
   min-height: 96px;
 }
@@ -490,6 +497,25 @@ const normalizeStatusLabel = (raw = "") => {
 
 const getStatusStyle = (s = "") =>
   STATUS_COLORS[normalizeStatusLabel(s)] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+
+const WORK_DIARY_BORDERS = {
+  Confirmed: "#cadf52",
+  Bickers: "#94a3b8",
+  Stunt: "#d6a900",
+  "First Pencil": "#2f8fc8",
+  "Second Pencil": "#b91c1c",
+  Holiday: "#94a3b8",
+  Maintenance: "#a95622",
+  Complete: "#3d8b37",
+  "Action Required": "#b45309",
+  DNH: "#8f8f8f",
+  Postponed: "#8f8f8f",
+  Deleted: "#8f8f8f",
+  "Bank Holiday": "#7ca0d6",
+};
+
+const getWorkDiaryBorder = (status, fallback) =>
+  WORK_DIARY_BORDERS[normalizeStatusLabel(status)] || fallback;
 
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
@@ -628,6 +654,19 @@ const sameCalendarDate = (a, b) => {
   const db = b instanceof Date ? b : new Date(b);
   if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
   return da.getTime() === db.getTime();
+};
+
+const normalizeCalendarView = (value) => (value === "month" ? "month" : "week");
+
+const getDashboardInitialDate = (value) => parseLocalDate(value) || new Date();
+
+const buildEditBookingUrl = (bookingId, calendarDate, calendarView) => {
+  const params = new URLSearchParams();
+  const returnDate = ymd(calendarDate);
+  if (returnDate) params.set("returnDate", returnDate);
+  params.set("returnView", normalizeCalendarView(calendarView));
+  const query = params.toString();
+  return `/edit-booking/${encodeURIComponent(bookingId)}${query ? `?${query}` : ""}`;
 };
 
 const getCalendarNow = () => new Date(2000, 0, 1);
@@ -2042,7 +2081,7 @@ function holidayNotesEventPropGetter(event) {
 }
 
 /* ------------------------------- Page component ----------------------------- */
-export default function DashboardPage({ bookingSaved }) {
+export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week" }) {
   const router = useRouter();
   const workDiarySectionRef = useRef(null);
 
@@ -2050,8 +2089,8 @@ export default function DashboardPage({ bookingSaved }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [deletedBookings, setDeletedBookings] = useState([]);
-  const [calendarView, setCalendarView] = useState("week");
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [calendarView, setCalendarView] = useState(() => normalizeCalendarView(initialView));
+  const [currentDate, setCurrentDate] = useState(() => getDashboardInitialDate(initialDate));
   const [holidays, setHolidays] = useState([]);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [createNoteDate, setCreateNoteDate] = useState("");
@@ -2062,7 +2101,6 @@ export default function DashboardPage({ bookingSaved }) {
   const [editingHolidayId, setEditingHolidayId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
-  const [hiddenDiaryBookingCount, setHiddenDiaryBookingCount] = useState(0);
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
 
@@ -2108,6 +2146,36 @@ export default function DashboardPage({ bookingSaved }) {
   const [userEmail, setUserEmail] = useState(null);
   const [userUid, setUserUid] = useState(null);
   const rolloverSyncRef = useRef({ key: "", inFlight: false });
+
+  useEffect(() => {
+    const nextDate = parseLocalDate(initialDate);
+    if (nextDate) {
+      setCurrentDate((prev) => (sameCalendarDate(prev, nextDate) ? prev : nextDate));
+    }
+  }, [initialDate]);
+
+  useEffect(() => {
+    setCalendarView((prev) => {
+      const nextView = normalizeCalendarView(initialView);
+      return prev === nextView ? prev : nextView;
+    });
+  }, [initialView]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/dashboard") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const dateKey = ymd(currentDate);
+    if (dateKey) params.set("date", dateKey);
+    params.set("view", normalizeCalendarView(calendarView));
+
+    const query = params.toString();
+    const nextUrl = `/dashboard${query ? `?${query}` : ""}`;
+    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+      window.history.replaceState(window.history.state, "", nextUrl);
+    }
+  }, [calendarView, currentDate]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -2199,9 +2267,9 @@ export default function DashboardPage({ bookingSaved }) {
       const id = booking?.id || bookingOrId;
       if (!id) return;
       if (booking) cacheBookingForEdit(booking);
-      router.push(`/edit-booking/${id}`);
+      router.push(buildEditBookingUrl(id, currentDate, calendarView));
     },
-    [bookings, isRestricted, router]
+    [bookings, calendarView, currentDate, isRestricted, router]
   );
 
   const goToCreateMaintenance = useCallback(
@@ -2682,6 +2750,8 @@ export default function DashboardPage({ bookingSaved }) {
     const windowEnd = addDays(today, 420);
 
     vehiclesData.forEach((v) => {
+      if (isVehicleOutOfUse(v)) return;
+
       const vehicleId = String(v.id || "").trim();
       if (!vehicleId) return;
 
@@ -2867,43 +2937,6 @@ export default function DashboardPage({ bookingSaved }) {
     () => [...bankHolidays, ...workDiaryEvents],
     [bankHolidays, workDiaryEvents]
   );
-
-  useEffect(() => {
-    const updateHiddenDiaryBookingCount = () => {
-      const section = workDiarySectionRef.current;
-      if (!section || typeof window === "undefined") {
-        setHiddenDiaryBookingCount(0);
-        return;
-      }
-
-      const sectionRect = section.getBoundingClientRect();
-      const viewportBottom = window.innerHeight - 72;
-      const diaryIsInView = sectionRect.top < window.innerHeight && sectionRect.bottom > viewportBottom;
-      if (!diaryIsInView) {
-        setHiddenDiaryBookingCount(0);
-        return;
-      }
-
-      const events = Array.from(section.querySelectorAll(".rbc-event"));
-      const hiddenCount = events.filter((eventNode) => {
-        const rect = eventNode.getBoundingClientRect();
-        const text = String(eventNode.textContent || "").toUpperCase();
-        const isDisplayOnly = text.includes("BANK HOLIDAY");
-        const isHorizontallyVisible = rect.right > 0 && rect.left < window.innerWidth;
-        return !isDisplayOnly && isHorizontallyVisible && rect.bottom > viewportBottom;
-      }).length;
-
-      setHiddenDiaryBookingCount(hiddenCount);
-    };
-
-    updateHiddenDiaryBookingCount();
-    window.addEventListener("scroll", updateHiddenDiaryBookingCount, { passive: true });
-    window.addEventListener("resize", updateHiddenDiaryBookingCount);
-    return () => {
-      window.removeEventListener("scroll", updateHiddenDiaryBookingCount);
-      window.removeEventListener("resize", updateHiddenDiaryBookingCount);
-    };
-  }, [workCalendarEvents, calendarView, currentDate]);
 
   const noteHolidayEvents = useMemo(
     () => [
@@ -3282,90 +3315,91 @@ export default function DashboardPage({ bookingSaved }) {
           </div>
 
           <BigCalendar
-            localizer={localizer}
-            //  include bank holidays in Work Diary
-            events={workCalendarEvents}
-            view={calendarView}
-            views={["week", "month"]}
-            onView={(v) => setCalendarView((prev) => (prev === v ? prev : v))}
-            date={currentDate}
-            onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
-            onSelectSlot={({ start }) => {
-              setEditingNoteId(null);
-              const d = start instanceof Date ? start : new Date(start);
-              setCreateNoteDate(d.toISOString().split("T")[0]);
-              setNoteModalOpen(true);
-            }}
-            selectable
-            startAccessor="start"
-            endAccessor="end"
-            popup
-            allDayAccessor={allDayTrue}
-            allDaySlot
-            dayLayoutAlgorithm="no-overlap"
-            toolbar={false}
-            nowIndicator={false}
-            getNow={getCalendarNow}
-            formats={dashboardCalendarFormats}
-            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
-            dayPropGetter={(date) => {
-              const todayD = new Date();
-              const isToday =
-                date.getDate() === todayD.getDate() &&
-                date.getMonth() === todayD.getMonth() &&
-                date.getFullYear() === todayD.getFullYear();
-
-              const key = date.toISOString().slice(0, 10);
-              const isBankHoliday = bankHolidaySet.has(key);
-
-              return {
-                style: {
-                  backgroundColor: isToday
-                    ? "rgba(31,75,122,0.12)"
-                    : isBankHoliday
-                    ? "rgba(103,128,157,0.08)"
-                    : undefined,
-                  border: isToday
-                    ? "1px solid rgba(31,75,122,0.34)"
-                    : isBankHoliday
-                    ? "1px dashed rgba(103,128,157,0.38)"
-                    : undefined,
-                },
-              };
-            }}
-            style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
-            onSelectEvent={(e) => {
-              if (!e) return;
-
-              //  bank holidays are display-only
-              if (e.status === "Bank Holiday") return;
-
-              if (e.status === "Holiday") {
-                setEditingHolidayId(e.id);
-                return;
-              }
-
-              if (e.status === "Note") {
-                setEditingNoteId(e.id);
+              localizer={localizer}
+              //  include bank holidays in Work Diary
+              events={workCalendarEvents}
+              view={calendarView}
+              views={["week", "month"]}
+              onView={(v) => setCalendarView((prev) => (prev === v ? prev : v))}
+              date={currentDate}
+              onNavigate={(d) => setCurrentDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
+              onSelectSlot={({ start }) => {
+                setEditingNoteId(null);
+                const d = start instanceof Date ? start : new Date(start);
+                setCreateNoteDate(d.toISOString().split("T")[0]);
                 setNoteModalOpen(true);
-                return;
-              }
+              }}
+              selectable
+              startAccessor="start"
+              endAccessor="end"
+              popup
+              allDayAccessor={allDayTrue}
+              allDaySlot
+              dayLayoutAlgorithm="no-overlap"
+              toolbar={false}
+              nowIndicator={false}
+              getNow={getCalendarNow}
+              formats={dashboardCalendarFormats}
+              className={calendarView === "week" ? "dashboard-compact-calendar dashboard-month-calendar" : "dashboard-month-calendar"}
+              dayPropGetter={(date) => {
+                const todayD = new Date();
+                const isToday =
+                  date.getDate() === todayD.getDate() &&
+                  date.getMonth() === todayD.getMonth() &&
+                  date.getFullYear() === todayD.getFullYear();
 
-              const bookingId = e.__bookingId || e.id;
-              if (bookingId) {
-                if (e.__collection === "deletedBookings") {
-                  setSelectedDeletedId(e.__deletedDocId || bookingId);
-                  setSelectedBookingId(bookingId);
-                } else {
-                  setSelectedDeletedId(null);
-                  setSelectedBookingId(bookingId);
+                const key = date.toISOString().slice(0, 10);
+                const isBankHoliday = bankHolidaySet.has(key);
+
+                return {
+                  style: {
+                    backgroundColor: isToday
+                      ? "rgba(31,75,122,0.12)"
+                      : isBankHoliday
+                      ? "rgba(103,128,157,0.08)"
+                      : undefined,
+                    border: isToday
+                      ? "1px solid rgba(31,75,122,0.34)"
+                      : isBankHoliday
+                      ? "1px dashed rgba(103,128,157,0.38)"
+                      : undefined,
+                  },
+                };
+              }}
+              style={monthCalendarFrame}
+              onSelectEvent={(e) => {
+                if (!e) return;
+
+                //  bank holidays are display-only
+                if (e.status === "Bank Holiday") return;
+
+                if (e.status === "Holiday") {
+                  setEditingHolidayId(e.id);
+                  return;
                 }
-              }
-            }}
-            components={{ event: CalendarEvent }}
-            eventPropGetter={(event) => {
+
+                if (e.status === "Note") {
+                  setEditingNoteId(e.id);
+                  setNoteModalOpen(true);
+                  return;
+                }
+
+                const bookingId = e.__bookingId || e.id;
+                if (bookingId) {
+                  if (e.__collection === "deletedBookings") {
+                    setSelectedDeletedId(e.__deletedDocId || bookingId);
+                    setSelectedBookingId(bookingId);
+                  } else {
+                    setSelectedDeletedId(null);
+                    setSelectedBookingId(bookingId);
+                  }
+                }
+              }}
+              components={{ event: CalendarEvent }}
+              eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
+                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "#9eb0c6");
                 return {
                   style: {
                     backgroundColor: "#e9eef5",
@@ -3373,7 +3407,8 @@ export default function DashboardPage({ bookingSaved }) {
                     fontWeight: 800,
                     padding: 0,
                     borderRadius: 8,
-                    border: "1px dashed #9eb0c6",
+                    border: `1px dashed ${bankHolidayBorder}`,
+                    borderLeft: `6px solid ${bankHolidayBorder}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
                     pointerEvents: "none", //  doesn't steal clicks from jobs
                   },
@@ -3384,7 +3419,7 @@ export default function DashboardPage({ bookingSaved }) {
               const tone = getStatusStyle(status);
               let bg = tone.bg;
               let text = tone.text;
-              let border = tone.border;
+              let border = getWorkDiaryBorder(status, tone.border);
 
               let risky = !!event.isRisky;
               if (!("isRisky" in event) && Array.isArray(event.vehicles)) {
@@ -3408,7 +3443,7 @@ export default function DashboardPage({ bookingSaved }) {
               if (!risky && bookingStatuses.has((status || "").toLowerCase()) && shoot === "night") {
                 bg = NIGHT_SHOOT_STYLE.bg;
                 text = NIGHT_SHOOT_STYLE.text;
-                border = NIGHT_SHOOT_STYLE.border;
+                border = getWorkDiaryBorder(status, NIGHT_SHOOT_STYLE.border);
                 return {
                   style: {
                     backgroundColor: bg,
@@ -3417,6 +3452,7 @@ export default function DashboardPage({ bookingSaved }) {
                     padding: 0,
                     borderRadius: 8,
                     border: `1px solid ${border}`,
+                    borderLeft: `6px solid ${border}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                   },
                 };
@@ -3430,43 +3466,12 @@ export default function DashboardPage({ bookingSaved }) {
                   padding: 0,
                   borderRadius: 8,
                   border: `1px solid ${border}`,
+                  borderLeft: `6px solid ${border}`,
                   boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                 },
               };
-            }}
-          />
-
-          {hiddenDiaryBookingCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => window.scrollBy({ top: Math.round(window.innerHeight * 0.65), behavior: "smooth" })}
-              style={{
-                position: "fixed",
-                left: "50%",
-                bottom: 18,
-                transform: "translateX(-50%)",
-                zIndex: 60,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 999,
-                border: "1px solid #9fb7cf",
-                background: "rgba(15,23,42,0.92)",
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 900,
-                boxShadow: "0 12px 30px rgba(15,23,42,0.22)",
-                cursor: "pointer",
               }}
-              aria-label={`${hiddenDiaryBookingCount} more ${
-                hiddenDiaryBookingCount === 1 ? "booking" : "bookings"
-              } below`}
-            >
-              <ChevronDown size={16} />
-              {hiddenDiaryBookingCount} more {hiddenDiaryBookingCount === 1 ? "booking" : "bookings"} below
-            </button>
-          ) : null}
+            />
         </section>
 
         {/* Maintenance Calendar */}

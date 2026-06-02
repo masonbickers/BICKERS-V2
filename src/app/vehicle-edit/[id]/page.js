@@ -340,16 +340,6 @@ const ADDITIONAL_MAINTENANCE_SECTIONS = [
     ],
   },
   {
-    key: "rfl",
-    label: "RFL",
-    fields: [
-      { type: "date", label: "Last RFL", name: "lastRFL" },
-      { type: "text", label: "RFL Freq (weeks)", name: "rflFreq" },
-      { type: "date", label: "Next RFL", name: "nextRFL" },
-      { type: "text", label: "RFL ISO Week", name: "rflISOWeek" },
-    ],
-  },
-  {
     key: "tachoDownload",
     label: "Tacho Download",
     fields: [
@@ -506,10 +496,44 @@ const getInsuredUntil = (vehicle = {}) =>
       ""
   );
 
+const getTaxedUntil = (vehicle = {}) => dateOnly(vehicle.nextRFL || "");
+
 const isPastISODate = (value) => {
   const parsed = parseISOorBlank(value);
   if (!parsed) return false;
   return startOfDay(parsed).getTime() < startOfDay(new Date()).getTime();
+};
+
+const syncStatusDateFields = (vehicle = {}) => {
+  const next = { ...vehicle };
+  const taxStatus = String(next.taxStatus || "").trim();
+  const taxedUntil = getTaxedUntil(next);
+  const insuranceStatus = String(next.insuranceStatus || "").trim();
+  let insuredUntil = getInsuredUntil(next);
+
+  if (taxStatus && taxStatus !== "Taxed") {
+    next.nextRFL = "";
+  } else if (taxedUntil && isPastISODate(taxedUntil)) {
+    next.taxStatus = "Sorn";
+    next.nextRFL = "";
+  } else if (!taxStatus) {
+    next.taxStatus = "Taxed";
+  }
+
+  if (insuredUntil && isPastISODate(insuredUntil)) {
+    next.insuranceStatus = "Not Insured";
+    insuredUntil = "";
+  } else if (insuranceStatus && insuranceStatus !== "Insured") {
+    insuredUntil = "";
+  } else if (!insuranceStatus) {
+    next.insuranceStatus = "Insured";
+  }
+  next.insuredUntil = insuredUntil;
+  next.insuranceExpiry = insuredUntil;
+  next.insuranceExpiryDate = insuredUntil;
+  next.insuranceUntil = insuredUntil;
+
+  return next;
 };
 
 const computeNextDueFromCompletion = (completedISO, freqWeeks) => {
@@ -526,6 +550,8 @@ export default function EditVehiclePage() {
   const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
   const [fetchingMotHistory, setFetchingMotHistory] = useState(false);
+  const [taxDatePrompt, setTaxDatePrompt] = useState(null);
+  const [insuranceDatePrompt, setInsuranceDatePrompt] = useState(null);
 
   // booking modals (create)
   const [showMotBooking, setShowMotBooking] = useState(false);
@@ -688,7 +714,7 @@ export default function EditVehiclePage() {
           "";
       }
 
-      setVehicle(hydrated);
+      setVehicle(syncStatusDateFields(hydrated));
     }
   };
 
@@ -715,12 +741,23 @@ export default function EditVehiclePage() {
 
     const updates = {};
 
-    // MOT expiry due
-    const nextMOT = calcNextFromWeeks(
-      vehicle.lastMOT,
-      resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
-    );
-    if (nextMOT && vehicle.nextMOT !== nextMOT) updates.nextMOT = nextMOT;
+    // MOT expiry due. DVSA-fetched expiry dates are the source of truth;
+    // frequency is only a fallback for records without fetched MOT data.
+    const hasFetchedMotData =
+      Boolean(vehicle.dvsaMotHistoryFetchedAt || vehicle.dvsaLatestMot) ||
+      safeArr(vehicle.dvsaMotTests).length > 0;
+    if (!hasFetchedMotData || !vehicle.nextMOT) {
+      const nextMOT = calcNextFromWeeks(
+        vehicle.lastMOT,
+        resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
+      );
+      if (nextMOT && vehicle.nextMOT !== nextMOT) {
+        updates.nextMOT = nextMOT;
+        updates.nextMot = nextMOT;
+        updates.nextMotDate = nextMOT;
+        updates.motDueDate = nextMOT;
+      }
+    }
 
     // Service
     const nextService = calcNextFromWeeks(
@@ -840,14 +877,95 @@ export default function EditVehiclePage() {
     const { name, value } = e.target;
     setVehicle((prev) => {
       const next = { ...prev, [name]: value };
+      if (name === "registration" || name === "reg" || name === "registrationNumber") {
+        next.registration = value;
+        next.reg = value;
+        next.registrationNumber = value;
+      }
+      if (name === "manufacturer" || name === "make") {
+        next.manufacturer = value;
+        next.make = value;
+      }
+      if (name === "lastMOT" || name === "lastMot") {
+        next.lastMOT = value;
+        next.lastMot = value;
+      }
+      if (name === "nextMOT" || name === "nextMot" || name === "nextMotDate" || name === "motDueDate") {
+        next.nextMOT = value;
+        next.nextMot = value;
+        next.nextMotDate = value;
+        next.motDueDate = value;
+      }
+      if (name === "nextService" || name === "nextServiceDate" || name === "serviceDueDate") {
+        next.nextService = value;
+        next.nextServiceDate = value;
+        next.serviceDueDate = value;
+      }
+      if (name === "insuredUntil" || name === "insuranceExpiry" || name === "insuranceExpiryDate") {
+        next.insuredUntil = value;
+        next.insuranceExpiry = value;
+        next.insuranceExpiryDate = value;
+      }
       if (name === "plateType" && value === "trade") {
         next.plateExpiryFreq = "52";
       }
-      if (name === "insuredUntil" && value && isPastISODate(value)) {
-        next.insuranceStatus = "Not Insured";
-      }
-      return next;
+      return syncStatusDateFields(next);
     });
+  };
+
+  const handleTaxStatusChange = (e) => {
+    const value = e.target.value;
+    if (value === "Taxed") {
+      setTaxDatePrompt({ date: getTaxedUntil(vehicle) });
+      return;
+    }
+    setVehicle((prev) => syncStatusDateFields({ ...prev, taxStatus: value }));
+  };
+
+  const saveTaxDatePrompt = () => {
+    const taxedUntil = String(taxDatePrompt?.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(taxedUntil) || !parseISOorBlank(taxedUntil)) {
+      alert("Select a road tax date before marking this vehicle as taxed.");
+      return;
+    }
+    setVehicle((prev) => syncStatusDateFields({ ...prev, taxStatus: "Taxed", nextRFL: taxedUntil }));
+    setTaxDatePrompt(null);
+  };
+
+  const handleInsuranceStatusChange = (e) => {
+    const value = e.target.value;
+    if (value === "Insured") {
+      setInsuranceDatePrompt({ date: getInsuredUntil(vehicle) });
+      return;
+    }
+    setVehicle((prev) =>
+      syncStatusDateFields({
+        ...prev,
+        insuranceStatus: value,
+        insuredUntil: "",
+        insuranceExpiry: "",
+        insuranceExpiryDate: "",
+        insuranceUntil: "",
+      })
+    );
+  };
+
+  const saveInsuranceDatePrompt = () => {
+    const insuredUntil = String(insuranceDatePrompt?.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(insuredUntil) || !parseISOorBlank(insuredUntil)) {
+      alert("Select an insured until date before marking this vehicle as insured.");
+      return;
+    }
+    setVehicle((prev) =>
+      syncStatusDateFields({
+        ...prev,
+        insuranceStatus: "Insured",
+        insuredUntil,
+        insuranceExpiry: insuredUntil,
+        insuranceExpiryDate: insuredUntil,
+      })
+    );
+    setInsuranceDatePrompt(null);
   };
 
   const handleAdditionalMaintenanceToggle = (key) => {
@@ -1015,8 +1133,8 @@ export default function EditVehiclePage() {
       }
       const registration = String(payload.registration || payload.reg || payload.registrationNumber || "").trim();
       const manufacturer = String(payload.manufacturer || payload.make || "").trim();
-      const nextMot = String(payload.nextMOT || payload.nextMot || payload.nextMotDate || "").trim();
-      const lastMot = String(payload.lastMOT || payload.lastMot || "").trim();
+      const nextMot = dateOnly(payload.nextMOT ?? payload.nextMot ?? payload.nextMotDate ?? "");
+      const lastMot = dateOnly(payload.lastMOT ?? payload.lastMot ?? "");
       const insuredUntil = getInsuredUntil(payload);
       const nextService = String(payload.nextService || payload.nextServiceDate || "").trim();
       if (registration) {
@@ -1028,24 +1146,16 @@ export default function EditVehiclePage() {
         payload.manufacturer = manufacturer;
         payload.make = manufacturer;
       }
-      if (lastMot) {
-        payload.lastMOT = lastMot;
-        payload.lastMot = lastMot;
-      }
-      if (nextMot) {
-        payload.nextMOT = nextMot;
-        payload.nextMot = nextMot;
-        payload.nextMotDate = nextMot;
-        payload.motDueDate = nextMot;
-      }
+      payload.lastMOT = lastMot;
+      payload.lastMot = lastMot;
+      payload.nextMOT = nextMot;
+      payload.nextMot = nextMot;
+      payload.nextMotDate = nextMot;
+      payload.motDueDate = nextMot;
       payload.insuredUntil = insuredUntil;
       payload.insuranceExpiry = insuredUntil;
       payload.insuranceExpiryDate = insuredUntil;
-      if (insuredUntil && isPastISODate(insuredUntil)) {
-        payload.insuranceStatus = "Not Insured";
-      } else if (!String(payload.insuranceStatus || "").trim()) {
-        payload.insuranceStatus = "Insured";
-      }
+      Object.assign(payload, syncStatusDateFields(payload));
       if (nextService) {
         payload.nextService = nextService;
         payload.nextServiceDate = nextService;
@@ -1680,36 +1790,45 @@ export default function EditVehiclePage() {
                   </select>
                 </div>
 
+                <SelectField
+                  label="Operating Status"
+                  name="operationalStatus"
+                  value={vehicle.operationalStatus || "Active"}
+                  onChange={handleChange}
+                  options={["Active", "Out of use"]}
+                />
+
                 <Field label="Chassis No." name="chassis" value={vehicle.chassis} onChange={handleChange} />
                 <Field label="Odometer" name="odometer" value={vehicle.odometer} onChange={handleChange} meta={dvsaMotMeta} />
 
-                <div>
-                  <label style={labelStyle}>Tax Status</label>
-                  <select name="taxStatus" value={vehicle.taxStatus || "Taxed"} onChange={handleChange} style={inputField}>
-                    <option value="Taxed">Taxed</option>
-                    <option value="Sorn">Sorn</option>
-                    <option value="N/A">N/A</option>
-                  </select>
+                <div style={{ gridColumn: "1 / -1", ...coreDueGrid, marginTop: 0 }}>
+                  <div>
+                    <label style={labelStyle}>Tax Status</label>
+                    <select name="taxStatus" value={vehicle.taxStatus || "Taxed"} onChange={handleTaxStatusChange} style={inputField}>
+                      <option value="Taxed">Taxed</option>
+                      <option value="Sorn">Sorn</option>
+                      <option value="N/A">N/A</option>
+                    </select>
+                  </div>
+
+                  <DateField label="Taxed Until" name="nextRFL" value={vehicle.nextRFL} onChange={handleChange} />
+
+                  <div>
+                    <label style={labelStyle}>Insurance Status</label>
+                    <select
+                      name="insuranceStatus"
+                      value={vehicle.insuranceStatus || "Insured"}
+                      onChange={handleInsuranceStatusChange}
+                      style={inputField}
+                    >
+                      <option value="Insured">Insured</option>
+                      <option value="Not Insured">Not Insured</option>
+                      <option value="N/A">N/A</option>
+                    </select>
+                  </div>
+
+                  <DateField label="Insured Until" name="insuredUntil" value={getInsuredUntil(vehicle)} onChange={handleChange} />
                 </div>
-
-                <div>
-                  <label style={labelStyle}>Insurance Status</label>
-                  <select
-                    name="insuranceStatus"
-                    value={vehicle.insuranceStatus || "Insured"}
-                    onChange={handleChange}
-                    style={inputField}
-                  >
-                    <option value="Insured">Insured</option>
-                    <option value="Not Insured">Not Insured</option>
-                    <option value="N/A">N/A</option>
-                  </select>
-                </div>
-
-                <DateField label="Insured Until" name="insuredUntil" value={getInsuredUntil(vehicle)} onChange={handleChange} />
-
-                <SelectField label="Warranty" name="warranty" value={vehicle.warranty} onChange={handleChange} options={["Yes", "No"]} />
-                <DateField label="Warranty Expiry" name="warrantyExpiry" value={vehicle.warrantyExpiry} onChange={handleChange} />
               </div>
             </div>
 
@@ -1929,6 +2048,10 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Additional Maintenance</h2>
+              <div style={{ ...grid(2), marginTop: 10, marginBottom: 12 }}>
+                <SelectField label="Warranty" name="warranty" value={vehicle.warranty} onChange={handleChange} options={["Yes", "No"]} />
+                <DateField label="Warranty Expiry" name="warrantyExpiry" value={vehicle.warrantyExpiry} onChange={handleChange} />
+              </div>
               <div style={sectionMeta}>
                 Tick only the maintenance lines needed for this vehicle.
               </div>
@@ -2278,6 +2401,72 @@ export default function EditVehiclePage() {
             </div>
           </div>
         </div>
+
+        {taxDatePrompt ? (
+          <div style={overlay} onClick={() => setTaxDatePrompt(null)}>
+            <div style={modal} onClick={(e) => e.stopPropagation()}>
+              <div style={headerRow}>
+                <div>
+                  <h2 style={modalTitle}>Set road tax date</h2>
+                  <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
+                </div>
+                <button type="button" style={closeBtn} onClick={() => setTaxDatePrompt(null)}>
+                  x
+                </button>
+              </div>
+              <label style={modalLabel}>Taxed Until</label>
+              <input
+                type="date"
+                value={taxDatePrompt.date || ""}
+                onChange={(e) => setTaxDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))}
+                style={modalInput}
+                autoFocus
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                <button type="button" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
+                  Cancel
+                </button>
+                <button type="button" style={btn()} onClick={saveTaxDatePrompt}>
+                  Save taxed
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {insuranceDatePrompt ? (
+          <div style={overlay} onClick={() => setInsuranceDatePrompt(null)}>
+            <div style={modal} onClick={(e) => e.stopPropagation()}>
+              <div style={headerRow}>
+                <div>
+                  <h2 style={modalTitle}>Set insured until date</h2>
+                  <div style={sectionMeta}>{vehicle.name || vehicle.registration || "Vehicle"}</div>
+                </div>
+                <button type="button" style={closeBtn} onClick={() => setInsuranceDatePrompt(null)}>
+                  x
+                </button>
+              </div>
+              <label style={modalLabel}>Insured Until</label>
+              <input
+                type="date"
+                value={insuranceDatePrompt.date || ""}
+                onChange={(e) =>
+                  setInsuranceDatePrompt((prev) => (prev ? { ...prev, date: e.target.value } : prev))
+                }
+                style={modalInput}
+                autoFocus
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                <button type="button" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
+                  Cancel
+                </button>
+                <button type="button" style={btn()} onClick={saveInsuranceDatePrompt}>
+                  Save insured
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Bottom actions */}
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>

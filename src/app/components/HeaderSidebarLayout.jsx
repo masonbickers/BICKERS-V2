@@ -117,6 +117,8 @@ export default function HeaderSidebarLayout({
 
   //  single source of truth for whether Admin tab should show
   const canSeeAdmin = !!isAdmin;
+  const canSeePlatformAdmin =
+    canSeeAdmin && String(user?.email || "").trim().toLowerCase() === "mason@bickers.co.uk";
 
   //  HR badge should show for admins only
   const canSeeHrBadge = !!isAdmin;
@@ -192,6 +194,7 @@ export default function HeaderSidebarLayout({
     { label: "Assistant", path: "/assistant", icon: "AI" },
     { label: "Wall View", path: "/wall-view" },
     { label: "Dashboard", path: "/dashboard" },
+    ...(canSeePlatformAdmin ? [{ label: "Platform", path: "/platform-admin" }] : []),
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 

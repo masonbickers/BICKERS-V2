@@ -3,8 +3,6 @@ import { readBearerToken, verifyFirebaseIdToken } from "../../admin/_lib";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 function normalizeAppAccess(raw = {}) {

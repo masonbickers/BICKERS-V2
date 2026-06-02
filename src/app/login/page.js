@@ -70,19 +70,22 @@ export default function LoginPage() {
   };
 
   const refreshServerAccess = async (user) => {
-    if (!user?.getIdToken) return;
+    if (!user?.getIdToken) return null;
     try {
       const token = await user.getIdToken();
       const res = await fetch("/api/security/bootstrap-access", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         console.warn("[login] account access refresh skipped:", data?.error || res.status);
+        return null;
       }
+      return data?.access || null;
     } catch (err) {
       console.warn("[login] account access refresh skipped:", err);
+      return null;
     }
   };
 
@@ -94,7 +97,7 @@ export default function LoginPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = new Error(data?.error || "Invalid email or user code.");
+      const err = new Error(data?.error || "Invalid email or setup code.");
       err.status = res.status;
       throw err;
     }
@@ -157,10 +160,10 @@ export default function LoginPage() {
         return;
       }
 
-      await refreshServerAccess(user);
+      const refreshedAccess = await refreshServerAccess(user);
 
       const snap = await getDoc(userRef);
-      const userData = snap.data() || {};
+      const userData = { ...(snap.data() || {}), ...(refreshedAccess || {}) };
       clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
 
       if (!isPhoneVerified(userData)) {
@@ -193,7 +196,7 @@ export default function LoginPage() {
         return;
       }
       if (String(err?.code || "").includes("invalid-credential")) {
-        setError("Login failed. Check the email and user code.");
+        setError("Login failed. Check the email and password or setup code.");
         return;
       }
       setError(err?.message || "Login error");
@@ -297,7 +300,7 @@ export default function LoginPage() {
 
           <>
               <h1 style={styles.title}>Welcome back</h1>
-              <p style={styles.subtitle}>Enter your email and user code</p>
+              <p style={styles.subtitle}>Enter your email and password or setup code</p>
 
               <form onSubmit={handleSubmit}>
                 <label style={styles.label}>Email address</label>
@@ -309,7 +312,7 @@ export default function LoginPage() {
                   style={styles.input}
                 />
 
-                <label style={styles.label}>User code</label>
+                <label style={styles.label}>Password or setup code</label>
                 <input
                   type="password"
                   value={password}

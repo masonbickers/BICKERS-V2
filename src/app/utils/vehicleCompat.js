@@ -1,4 +1,5 @@
 import { dateOnlyString, toDateLike } from "./serviceRecordCompat";
+import { isVehicleOutOfUse } from "./maintenanceSchema";
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -94,6 +95,8 @@ export function normalizeVehicleRecord(raw = {}) {
     registration,
     reg: String(firstNonEmpty(raw.reg, registration) || "").trim(),
     registrationNumber: String(firstNonEmpty(raw.registrationNumber, registration) || "").trim(),
+    operationalStatus: String(firstNonEmpty(raw.operationalStatus, raw.fleetStatus, raw.vehicleStatus) || "Active").trim(),
+    outOfUse: isVehicleOutOfUse(raw),
     lastService,
     nextService: serviceDate,
     nextServiceDate: serviceDate,

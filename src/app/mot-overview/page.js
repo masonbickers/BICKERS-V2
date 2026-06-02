@@ -6,6 +6,8 @@ import { db } from "../../../firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -197,7 +199,8 @@ export default function MOTOverviewPage() {
         const today = new Date();
 
         const data = snapshot.docs.map((d) => {
-          const vehicle = d.data();
+          const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
+          if (isVehicleOutOfUse(vehicle)) return null;
 
           const next = parseDateAny(vehicle.nextMOT);
           const diffDays = next ? daysDiff(next, today) : null;
@@ -216,7 +219,7 @@ export default function MOTOverviewPage() {
             daysUntilMOT: diffDays,
             status,
           };
-        });
+        }).filter(Boolean);
 
         setVehicles(data);
       } finally {
@@ -233,7 +236,9 @@ export default function MOTOverviewPage() {
       const snapshot = await getDocs(collection(db, "vehicles"));
       const today = new Date();
       const data = snapshot.docs.map((d) => {
-        const vehicle = d.data();
+        const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
+        if (isVehicleOutOfUse(vehicle)) return null;
+
         const next = parseDateAny(vehicle.nextMOT);
         const diffDays = next ? daysDiff(next, today) : null;
         const status = diffDays === null ? "unknown" : statusFromDays(diffDays);
@@ -249,7 +254,7 @@ export default function MOTOverviewPage() {
           daysUntilMOT: diffDays,
           status,
         };
-      });
+      }).filter(Boolean);
 
       setVehicles(data);
     } finally {

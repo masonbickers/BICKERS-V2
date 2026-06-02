@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import {
   adminCreateDocument,
   adminListDocuments,
   adminPatchDocument,
+  adminReadDocument,
   createFirebaseCustomToken,
 } from "@/app/api/_firebaseAdminRest";
 
 export const runtime = "nodejs";
+
+const DEFAULT_COMPANY_ID = "bickers-action";
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX_ATTEMPTS = 8;
+const RATE_LIMIT_LOCK_MS = 30 * 60 * 1000;
 
 const normalize = (value) => String(value || "").trim().toLowerCase();
 
@@ -90,14 +97,129 @@ function safeUid(candidate) {
   return value.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 128);
 }
 
+function hashKey(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 48);
+}
+
+function clientIp(req) {
+  const forwarded = req.headers.get("x-forwarded-for") || "";
+  return normalize(forwarded.split(",")[0] || req.headers.get("x-real-ip") || "unknown");
+}
+
+function rateLimitId(email, ip) {
+  return hashKey(`${normalize(email)}|${normalize(ip)}`);
+}
+
+function codeAttemptId(code) {
+  return hashKey(normalize(code));
+}
+
+async function userCodeLoginAllowed() {
+  const company = await adminReadDocument("platformCompanies", DEFAULT_COMPANY_ID);
+  return company?.security?.userCodeLogin !== false;
+}
+
+async function readRateLimit(email, ip) {
+  const id = rateLimitId(email, ip);
+  const data = (await adminReadDocument("setupCodeRateLimits", id)) || {};
+  const now = Date.now();
+  const windowStartedAt = Date.parse(data.windowStartedAt || "") || 0;
+  const lockedUntil = Date.parse(data.lockedUntil || "") || 0;
+
+  if (lockedUntil > now) {
+    return { id, blocked: true, lockedUntil: data.lockedUntil };
+  }
+
+  if (!windowStartedAt || now - windowStartedAt > RATE_LIMIT_WINDOW_MS) {
+    return { id, attempts: 0, windowStartedAt: new Date(now).toISOString(), blocked: false };
+  }
+
+  return {
+    id,
+    attempts: Number(data.attempts || 0),
+    windowStartedAt: data.windowStartedAt,
+    blocked: false,
+  };
+}
+
+async function recordRateLimitFailure(limit, email, ip, code) {
+  const now = Date.now();
+  const attempts = Number(limit.attempts || 0) + 1;
+  const lockedUntil =
+    attempts >= RATE_LIMIT_MAX_ATTEMPTS
+      ? new Date(now + RATE_LIMIT_LOCK_MS).toISOString()
+      : "";
+
+  await adminPatchDocument("setupCodeRateLimits", limit.id, {
+    emailHash: hashKey(email),
+    ipHash: hashKey(ip),
+    codeHash: codeAttemptId(code),
+    attempts,
+    windowStartedAt: limit.windowStartedAt || new Date(now).toISOString(),
+    lockedUntil,
+    lastFailedAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString(),
+  });
+}
+
+async function recordRateLimitSuccess(limit, email, ip) {
+  await adminPatchDocument("setupCodeRateLimits", limit.id, {
+    emailHash: hashKey(email),
+    ipHash: hashKey(ip),
+    attempts: 0,
+    lockedUntil: "",
+    lastSuccessAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function userMatchesUid(user, uid) {
+  if (!uid || !user) return false;
+  return safeUid(user.id) === uid || safeUid(user.data?.uid) === uid;
+}
+
+function userHasStableUid(user) {
+  const id = safeUid(user?.id);
+  const uid = safeUid(user?.data?.uid);
+  return !!id && !!uid && id === uid;
+}
+
+function chooseExistingUserForLogin(matchingUsers, employeeUid) {
+  const activeUsers = matchingUsers.filter(({ data }) => !isDisabledRecord(data));
+
+  return (
+    activeUsers.find((user) => userMatchesUid(user, employeeUid)) ||
+    activeUsers.find(userHasStableUid) ||
+    activeUsers.find(({ data }) => data?.mfaEnabled === true && data?.mfaMethod === "totp") ||
+    activeUsers[0] ||
+    null
+  );
+}
+
 export async function POST(req) {
   try {
     const { email, userCode } = await req.json();
     const cleanEmail = normalize(email);
     const cleanCode = normalize(userCode);
+    const ip = clientIp(req);
 
     if (!cleanEmail.endsWith("@bickers.co.uk") || !cleanCode) {
-      return NextResponse.json({ error: "Invalid email or user code." }, { status: 401 });
+      return NextResponse.json({ error: "Invalid email or setup code." }, { status: 401 });
+    }
+
+    if (!(await userCodeLoginAllowed())) {
+      return NextResponse.json(
+        { error: "Setup-code login is currently disabled. Please use your password or passkey." },
+        { status: 403 }
+      );
+    }
+
+    const rateLimit = await readRateLimit(cleanEmail, ip);
+    if (rateLimit.blocked) {
+      return NextResponse.json(
+        { error: "Too many setup-code attempts. Try again later." },
+        { status: 429 }
+      );
     }
 
     const [employees, users] = await Promise.all([
@@ -111,18 +233,22 @@ export async function POST(req) {
     });
 
     if (!employee) {
-      return NextResponse.json({ error: "Invalid email or user code." }, { status: 401 });
+      await recordRateLimitFailure(rateLimit, cleanEmail, ip, cleanCode);
+      return NextResponse.json({ error: "Invalid email or setup code." }, { status: 401 });
     }
 
-    const existingUser = users.find(({ data }) => normalize(data?.email) === cleanEmail);
-    if (existingUser?.data?.isEnabled === false) {
+    const matchingUsers = users.filter(({ data }) => normalize(data?.email) === cleanEmail);
+    const employeeUid = safeUid(employee.data?.authUid) || safeUid(employee.data?.uid);
+    const existingUser = chooseExistingUserForLogin(matchingUsers, employeeUid);
+    if (matchingUsers.length > 0 && !existingUser && !employeeUid) {
+      await recordRateLimitFailure(rateLimit, cleanEmail, ip, cleanCode);
       return NextResponse.json({ error: "This account is disabled." }, { status: 403 });
     }
 
     const uid =
+      employeeUid ||
+      safeUid(existingUser?.data?.uid) ||
       safeUid(existingUser?.id) ||
-      safeUid(employee.data?.authUid) ||
-      safeUid(employee.data?.uid) ||
       safeUid(`employee_${employee.id}`);
     if (!uid) {
       return NextResponse.json({ error: "Could not resolve user account." }, { status: 500 });
@@ -150,6 +276,8 @@ export async function POST(req) {
       defaultWorkspace: access.defaultWorkspace,
       updatedAt: now,
     });
+
+    await recordRateLimitSuccess(rateLimit, cleanEmail, ip);
 
     const customToken = createFirebaseCustomToken(uid, {
       authMethod: "userCode",
@@ -193,9 +321,9 @@ export async function POST(req) {
       },
     });
   } catch (error) {
-    console.error("User code login failed", error);
+    console.error("Setup-code login failed", error);
     return NextResponse.json(
-      { error: error?.message || "Could not sign in with user code." },
+      { error: error?.message || "Could not sign in with setup code." },
       { status: 500 }
     );
   }

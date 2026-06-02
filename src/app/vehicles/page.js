@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import { auth, db } from "../../../firebaseConfig";
 import {
   collection,
@@ -129,14 +131,18 @@ const daysUntil = (d) => {
 };
 
 const formatDateWithStyle = (raw, options = {}) => {
-  const { soonDays = 21 } = options;
+  const { soonDays = 21, suppressStatus = false } = options;
   const d = safeDate(raw);
   if (!d) return { text: "-", style: { color: UI.muted } };
 
   const diff = daysUntil(d);
   let style = {};
-  if (diff < 0) style = { color: UI.red, fontWeight: 950 };
-  else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
+  if (!suppressStatus) {
+    if (diff < 0) style = { color: UI.red, fontWeight: 950 };
+    else if (diff <= soonDays) style = { color: UI.amber, fontWeight: 950 };
+  } else {
+    style = { color: UI.muted, fontWeight: 800 };
+  }
 
   const text = d.toLocaleDateString("en-GB");
   return { text, style, diff };
@@ -240,7 +246,7 @@ export default function VehicleMaintenancePage() {
 
   const fetchVehicles = async () => {
     const snapshot = await getDocs(collection(db, "vehicles"));
-    const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const list = snapshot.docs.map((d) => normalizeVehicleRecord({ id: d.id, ...d.data() }));
     const normalisedList = list.map((vehicle) =>
       isInsuranceExpired(vehicle) && vehicle.insuranceStatus !== "Not Insured"
         ? { ...vehicle, insuranceStatus: "Not Insured" }
@@ -297,7 +303,12 @@ export default function VehicleMaintenancePage() {
     if (!vehicle?.id) return;
 
     if (value !== "Insured") {
-      await handleSelectChange(vehicle.id, "insuranceStatus", value);
+      await handleSelectChange(vehicle.id, "insuranceStatus", value, {
+        insuredUntil: "",
+        insuranceExpiry: "",
+        insuranceExpiryDate: "",
+        insuranceUntil: "",
+      });
       return;
     }
 
@@ -496,6 +507,8 @@ export default function VehicleMaintenancePage() {
     ];
 
     for (const v of filteredVehicles) {
+      if (isVehicleOutOfUse(v)) continue;
+
       const insuredUntil = safeDate(getInsuredUntil(v));
       if (insuredUntil) {
         const diff = daysUntil(insuredUntil);
@@ -755,6 +768,7 @@ export default function VehicleMaintenancePage() {
                       list.map((v, i) => {
                         const zebra = i % 2 === 0 ? "#ffffff" : "#f8fafc";
                         const retentionPlate = isRetentionPlate(v);
+                        const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";
 
                         const rowTd = {
@@ -782,18 +796,27 @@ export default function VehicleMaintenancePage() {
                         };
                         const taxCell = { ...rowTd, paddingLeft: 5 };
                         const insuranceCell = { ...rowTd, width: 118, maxWidth: 118 };
-                        const insuranceStatus = getInsuranceStatus(v);
+                        const insuranceStatus = outOfUse ? v.insuranceStatus || "N/A" : getInsuranceStatus(v);
+                        const dateOptions = outOfUse ? { suppressStatus: true } : undefined;
+                        const rowBackground = outOfUse ? "#f1f5f9" : zebra;
 
                         return (
                           <tr
                             key={v.id}
                             className="vehicleDataRow"
-                            title={retentionPlate ? "Number plate on retention" : "Vehicle"}
+                            title={outOfUse ? "Vehicle marked out of use" : retentionPlate ? "Number plate on retention" : "Vehicle"}
                             onClick={() => router.push(`/vehicle-edit/${v.id}`)}
-                            style={{ background: zebra, cursor: "pointer" }}
+                            style={{ background: rowBackground, cursor: "pointer", opacity: outOfUse ? 0.78 : 1 }}
                           >
                             <td style={regCell}>{reg}</td>
-                            <td style={vehicleNameCell}>{v.name || "-"}</td>
+                            <td style={vehicleNameCell}>
+                              {v.name || "-"}
+                              {outOfUse ? (
+                                <span style={{ marginLeft: 6, color: UI.muted, fontWeight: 900 }}>
+                                  Out of use
+                                </span>
+                              ) : null}
+                            </td>
                             <td style={rowTd}>{v.manufacturer || "-"}</td>
                             <td style={modelCell}>{v.model || "-"}</td>
 
@@ -811,14 +834,14 @@ export default function VehicleMaintenancePage() {
                               </select>
                             </td>
 
-                            {renderDateCell(v.nextRFL, rowTd)}
+                            {renderDateCell(v.nextRFL, rowTd, dateOptions)}
 
                             {/* Insurance Status */}
                             <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" ? { color: UI.red, fontWeight: 900 } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: UI.red, fontWeight: 900 } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
@@ -831,15 +854,16 @@ export default function VehicleMaintenancePage() {
                             </td>
 
                             {/* Dates with colour-coded status */}
-                            {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7 })}
-                            {renderDateCell(v.nextMOT, rowTd)}
+                            {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7, suppressStatus: outOfUse })}
+                            {renderDateCell(v.nextMOT, rowTd, dateOptions)}
                             {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
                               soonDays: retentionPlate ? (isTradePlate(v) ? 31 : 365) : 21,
+                              suppressStatus: outOfUse,
                             })}
-                            {renderDateCell(v.nextPMI, rowTd)}
-                            {renderDateCell(v.nextBrakeTest, rowTd)}
-                            {renderDateCell(v.nextTacho, rowTd)}
-                            {renderDateCell(v.nextTachoDownload, rowTd)}
+                            {renderDateCell(v.nextPMI, rowTd, dateOptions)}
+                            {renderDateCell(v.nextBrakeTest, rowTd, dateOptions)}
+                            {renderDateCell(v.nextTacho, rowTd, dateOptions)}
+                            {renderDateCell(v.nextTachoDownload, rowTd, dateOptions)}
                             <td style={rowTd}>{formatOdometer(v)}</td>
                           </tr>
                         );

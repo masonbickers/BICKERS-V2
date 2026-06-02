@@ -7,8 +7,10 @@ import { collection, getDocs, addDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import Papa from "papaparse";
 import {
-  BriefcaseBusiness,
+  ContactRound,
+  FileText,
   FileUp,
+  IdCard,
   Pencil,
   SlidersHorizontal,
   UserPlus,
@@ -162,7 +164,7 @@ const toolsGrid = {
 
 const summaryGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 10,
   marginBottom: UI.gap,
 };
@@ -249,6 +251,35 @@ function isEmployeeRecord(employee = {}) {
   return true;
 }
 
+function getPersonnelStatus(employee = {}) {
+  const file = employee.personnelFile || {};
+  const passport = employee.passport || file.passport || {};
+  const drivingLicence = employee.drivingLicence || file.drivingLicence || {};
+  const emergencyContacts = Array.isArray(employee.emergencyContacts)
+    ? employee.emergencyContacts
+    : Array.isArray(file.emergencyContacts)
+      ? file.emergencyContacts
+      : [];
+  const documents = Array.isArray(employee.personnelDocuments)
+    ? employee.personnelDocuments
+    : Array.isArray(file.documents)
+      ? file.documents
+      : [];
+  const hasPassport = Boolean(employee.passportNumber || passport.number || passport.documentUrl);
+  const hasLicence = Boolean(employee.licenceNumber || employee.licenseNumber || drivingLicence.number || drivingLicence.documentUrl);
+  const emergencyCount = emergencyContacts.filter((row) =>
+    [row?.name, row?.phone, row?.email].some((value) => String(value || "").trim())
+  ).length;
+  const documentCount =
+    documents.filter((row) =>
+      [row?.type, row?.title, row?.reference, row?.documentUrl].some((value) => String(value || "").trim())
+    ).length +
+    (passport.documentUrl ? 1 : 0) +
+    (drivingLicence.documentUrl ? 1 : 0);
+
+  return { hasPassport, hasLicence, emergencyCount, documentCount };
+}
+
 export default function EmployeeListPage() {
   const router = useRouter();
   const [employees, setEmployees] = useState([]);
@@ -277,6 +308,20 @@ export default function EmployeeListPage() {
     });
     return titles.size;
   }, [employees]);
+  const personnelMetrics = useMemo(() => {
+    return employees.reduce(
+      (acc, employee) => {
+        const status = getPersonnelStatus(employee);
+        if (status.emergencyCount > 0) acc.withEmergency += 1;
+        if (status.documentCount > 0) acc.withDocuments += 1;
+        if (status.hasPassport || status.hasLicence || status.emergencyCount > 0 || status.documentCount > 0) {
+          acc.started += 1;
+        }
+        return acc;
+      },
+      { started: 0, withEmergency: 0, withDocuments: 0 }
+    );
+  }, [employees]);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -297,8 +342,8 @@ export default function EmployeeListPage() {
         {/* Header */}
         <div style={headerBar}>
           <div>
-            <h1 style={h1}>Employees</h1>
-            <div style={sub}>View, sort, import and update employee records.</div>
+            <h1 style={h1}>Employee Personnel Files</h1>
+            <div style={sub}>Open each employee file to manage contact details, right-to-work, licence, emergency contacts and HR documents.</div>
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
@@ -311,8 +356,9 @@ export default function EmployeeListPage() {
 
         <div className="employees-summary-grid" style={summaryGrid}>
           <MetricCard label="Employees" value={employees.length} icon={Users} />
-          <MetricCard label="Visible" value={filteredEmployees.length} icon={SlidersHorizontal} tone="soft" />
-          <MetricCard label="Job Titles" value={jobTitleCount} icon={BriefcaseBusiness} tone="soft" />
+          <MetricCard label="Files Started" value={personnelMetrics.started} icon={FileText} tone="soft" />
+          <MetricCard label="Emergency Contacts" value={personnelMetrics.withEmergency} icon={ContactRound} tone="soft" />
+          <MetricCard label="HR Documents" value={personnelMetrics.withDocuments} icon={IdCard} tone="soft" />
         </div>
 
         {/* Tools row */}
@@ -357,8 +403,8 @@ export default function EmployeeListPage() {
         <section style={{ ...cardBase, marginTop: UI.gap }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>Employee Register</h2>
-              <div style={hint}>Click edit to update an employee record.</div>
+              <h2 style={titleMd}>Personnel File Register</h2>
+              <div style={hint}>Click open file to update employment, passport, licence, emergency and document records.</div>
             </div>
             <span style={chipSoft}>{filteredEmployees.length} listed</span>
           </div>
@@ -373,11 +419,14 @@ export default function EmployeeListPage() {
                   <th style={th}>Job title</th>
                   <th style={th}>Email</th>
                   <th style={th}>Mobile</th>
+                  <th style={th}>Personnel file</th>
                   <th style={th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((employee) => (
+                {filteredEmployees.map((employee) => {
+                  const personnel = getPersonnelStatus(employee);
+                  return (
                   <tr key={employee.id} data-row="true">
                     <td style={td}>
                       <div style={{ fontWeight: 850 }}>{employee.name || "-"}</div>
@@ -406,16 +455,33 @@ export default function EmployeeListPage() {
                     </td>
                     <td style={td}>{employee.mobile || "-"}</td>
                     <td style={td}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ ...badge, background: personnel.hasPassport ? "#ecfdf5" : "#f8fafc" }}>
+                          Passport {personnel.hasPassport ? "added" : "missing"}
+                        </span>
+                        <span style={{ ...badge, background: personnel.hasLicence ? "#ecfdf5" : "#f8fafc" }}>
+                          Licence {personnel.hasLicence ? "added" : "missing"}
+                        </span>
+                        <span style={{ ...badge, background: personnel.emergencyCount ? "#ecfdf5" : "#f8fafc" }}>
+                          Emergency {personnel.emergencyCount}
+                        </span>
+                        <span style={{ ...badge, background: personnel.documentCount ? "#eff6ff" : "#f8fafc" }}>
+                          Docs {personnel.documentCount}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={td}>
                       <button style={btn("success")} onClick={() => router.push(`/edit-employee/${employee.id}`)} type="button">
-                        <Pencil size={14} /> Edit
+                        <Pencil size={14} /> Open file
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {filteredEmployees.length === 0 ? (
                   <tr>
-                    <td style={{ ...td, color: UI.muted }} colSpan={7}>
+                    <td style={{ ...td, color: UI.muted }} colSpan={8}>
                       No employees found.
                     </td>
                   </tr>

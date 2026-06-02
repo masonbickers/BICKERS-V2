@@ -570,7 +570,7 @@ function WallCalendarEvent({ event }) {
                       borderRadius: 2,
                       backgroundColor: style.bg,
                       color: style.text,
-                      border: `0px solid ${style.border}`,
+                      border: `1px solid ${style.border}`,
                       marginTop: 2,
                     }}
                     title={`Vehicle status: ${itemStatus}`}

@@ -224,6 +224,21 @@ export async function adminCreateDocument(collection, data) {
   return res.json();
 }
 
+export async function adminDeleteDocument(collection, documentId) {
+  const token = await getFirebaseAdminAccessToken();
+  const res = await fetch(
+    `${FIRESTORE_BASE_URL}/${collection}/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Admin Firestore delete failed: ${res.status} ${await res.text()}`);
+  return true;
+}
+
 export async function adminListDocuments(collection) {
   const token = await getFirebaseAdminAccessToken();
   const docs = [];

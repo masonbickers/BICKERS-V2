@@ -47,6 +47,7 @@ export const SERVICE_PATH_PREFIXES = [
 
 export const ADMIN_PATH_PREFIXES = [
   "/admin",
+  "/platform-admin",
   "/employees",
   "/add-employee",
   "/edit-employee",

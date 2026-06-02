@@ -1038,12 +1038,36 @@ function buildBookingChangeList(before = {}, after = {}) {
 /* ────────────────────────────────────────────────────────────────────────────
    Edit Booking Page (MATCH CREATE UI)
 ──────────────────────────────────────────────────────────────────────────── */
+const normalizeDashboardView = (value) => (value === "month" ? "month" : "week");
+
+const buildDashboardHref = ({ returnDate = "", returnView = "week", updated = false } = {}) => {
+  const params = new URLSearchParams();
+  const cleanDate = String(returnDate || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) params.set("date", cleanDate);
+  params.set("view", normalizeDashboardView(returnView));
+  if (updated) params.set("updated", "true");
+  const query = params.toString();
+  return `/dashboard${query ? `?${query}` : ""}`;
+};
+
 export default function EditBookingPage() {
   const router = useRouter();
   const params = useParams();
   const bookingId = params?.id;
   const cachedBooking = useMemo(() => readCachedBookingForEdit(bookingId), [bookingId]);
   const prefill = useMemo(() => buildEditBookingPrefillState(cachedBooking), [cachedBooking]);
+  const [dashboardReturnContext, setDashboardReturnContext] = useState({
+    returnDate: "",
+    returnView: "week",
+  });
+  const dashboardReturnHref = useMemo(
+    () => buildDashboardHref(dashboardReturnContext),
+    [dashboardReturnContext]
+  );
+  const dashboardUpdatedHref = useMemo(
+    () => buildDashboardHref({ ...dashboardReturnContext, updated: true }),
+    [dashboardReturnContext]
+  );
 
   const [loading, setLoading] = useState(!prefill.hasBooking);
   const [supportingDataLoading, setSupportingDataLoading] = useState(false);
@@ -1168,6 +1192,15 @@ export default function EditBookingPage() {
     });
     return out;
   }, [vehicleGroups, assetSearchLower]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = new URLSearchParams(window.location.search);
+    setDashboardReturnContext({
+      returnDate: query.get("returnDate") || "",
+      returnView: normalizeDashboardView(query.get("returnView") || "week"),
+    });
+  }, []);
 
   const filteredEquipmentGroups = useMemo(() => {
     if (!assetSearchLower) return equipmentGroups;
@@ -2507,7 +2540,7 @@ export default function EditBookingPage() {
       setPdfProgress(0);
       setNewFiles([]);
       alert("Booking Updated ");
-      router.push("/dashboard?updated=true");
+      router.push(dashboardUpdatedHref);
     } catch (err) {
       console.error(" Error updating booking:", err);
       alert("Failed to update booking \n\n" + err.message);
@@ -3908,7 +3941,7 @@ export default function EditBookingPage() {
                   {saving ? "Updating..." : "Update Booking"}
                 </button>
 
-                <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
+                <button type="button" onClick={() => router.push(dashboardReturnHref)} style={btnGhost}>
                   Cancel
                 </button>
               </div>

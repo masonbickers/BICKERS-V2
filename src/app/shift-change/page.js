@@ -23,8 +23,6 @@ import {
 
 const ADMIN_EMAILS = new Set([
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ]);
 
 const UI = {

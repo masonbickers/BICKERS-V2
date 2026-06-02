@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
-import { auth, db } from "../../../../firebaseConfig";
+import { auth, db, storage } from "../../../../firebaseConfig";
 import {
   collection,
   doc,
@@ -18,6 +18,7 @@ import {
   onSnapshot,
   where,
 } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   deriveRoleFromAccess,
   resolveDefaultWorkspace,
@@ -27,8 +28,6 @@ import {
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 const EMPTY_PAYROLL_RATES = {
@@ -47,6 +46,49 @@ const EMPTY_GLOBAL_PAYROLL_RATES = {
   travelRate: "",
   overnightRate: "",
   travelMealRate: "",
+};
+
+const EMPTY_EMERGENCY_CONTACT = {
+  name: "",
+  relationship: "",
+  phone: "",
+  email: "",
+  address: "",
+  notes: "",
+};
+
+const EMPTY_PERSONNEL_DOCUMENT = {
+  type: "",
+  title: "",
+  reference: "",
+  expiryDate: "",
+  documentUrl: "",
+  notes: "",
+};
+
+const EMPTY_PASSPORT = {
+  number: "",
+  country: "",
+  expiryDate: "",
+  documentUrl: "",
+  notes: "",
+};
+
+const EMPTY_DRIVING_LICENCE = {
+  number: "",
+  categories: "",
+  expiryDate: "",
+  checkCode: "",
+  points: "",
+  documentUrl: "",
+  notes: "",
+};
+
+const EMPTY_MEDICAL = {
+  allergies: "",
+  conditions: "",
+  medication: "",
+  notes: "",
 };
 
 /* ───────────────────────────────────────────
@@ -226,8 +268,48 @@ const inlineNotice = (tone = "success") => ({
   color: tone === "error" ? "#9f1239" : "#166534",
 });
 
+const personnelSection = {
+  borderTop: UI.border,
+  paddingTop: 12,
+  display: "grid",
+  gap: 10,
+};
+
+const personnelHeader = {
+  fontWeight: 850,
+  color: UI.text,
+  marginBottom: 4,
+  fontSize: 15,
+};
+
+const grid2 = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: 10,
+};
+
+const textareaBase = {
+  ...inputBase,
+  minHeight: 74,
+  resize: "vertical",
+};
+
 /* ── Utils ─────────────────────────────────────────────────────────────── */
 const asStr = (v) => (v == null ? "" : String(v));
+const objectHasValue = (obj = {}) =>
+  Object.values(obj || {}).some((value) => String(value ?? "").trim());
+
+const normalizeRows = (rows, emptyRow) =>
+  (Array.isArray(rows) ? rows : [])
+    .map((row) => ({ ...emptyRow, ...(row || {}) }))
+    .filter(objectHasValue);
+
+const safeFileName = (name = "document") =>
+  String(name || "document")
+    .trim()
+    .replace(/[^\w.\-() ]+/g, "_")
+    .slice(0, 120) || "document";
+
 const asDateInput = (v) => {
   // supports "YYYY-MM-DD", timestamp string, Date, Firestore Timestamp
   if (!v) return "";
@@ -277,6 +359,10 @@ export default function EditEmployeePage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [accessErrors, setAccessErrors] = useState({});
+  const [passportFile, setPassportFile] = useState(null);
+  const [drivingLicenceFile, setDrivingLicenceFile] = useState(null);
+  const [documentFiles, setDocumentFiles] = useState({});
+  const [uploadProgress, setUploadProgress] = useState({});
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("");
   const [globalPayrollRates, setGlobalPayrollRates] = useState(EMPTY_GLOBAL_PAYROLL_RATES);
@@ -301,6 +387,20 @@ export default function EditEmployeePage() {
     archived: false,
     active: true,
     appDisabled: false,
+    address: "",
+    postcode: "",
+    nationalInsuranceNumber: "",
+    startDate: "",
+    employmentStatus: "Active",
+    contractType: "",
+    payrollNumber: "",
+    rightToWorkChecked: false,
+    rightToWorkExpiry: "",
+    passport: EMPTY_PASSPORT,
+    drivingLicence: EMPTY_DRIVING_LICENCE,
+    medical: EMPTY_MEDICAL,
+    emergencyContacts: [],
+    personnelDocuments: [],
   });
 
   useEffect(() => {
@@ -366,6 +466,70 @@ export default function EditEmployeePage() {
               : data.isService === true ||
                 ["service", "hybrid"].includes(String(data.role || "").trim().toLowerCase()),
         };
+        const personnelFile = data.personnelFile || {};
+        const passport = {
+          ...EMPTY_PASSPORT,
+          ...(personnelFile.passport || {}),
+          ...(data.passport || {}),
+          number: asStr(data.passportNumber || data.passport?.number || personnelFile.passport?.number || ""),
+          country: asStr(data.passportCountry || data.passport?.country || personnelFile.passport?.country || ""),
+          expiryDate: asDateInput(
+            data.passportExpiry || data.passport?.expiryDate || personnelFile.passport?.expiryDate || ""
+          ),
+          documentUrl: asStr(
+            data.passportDocumentUrl || data.passport?.documentUrl || personnelFile.passport?.documentUrl || ""
+          ),
+          notes: asStr(data.passportNotes || data.passport?.notes || personnelFile.passport?.notes || ""),
+        };
+        const drivingLicence = {
+          ...EMPTY_DRIVING_LICENCE,
+          ...(personnelFile.drivingLicence || {}),
+          ...(data.drivingLicence || {}),
+          number: asStr(
+            data.licenceNumber ||
+              data.licenseNumber ||
+              data.drivingLicence?.number ||
+              personnelFile.drivingLicence?.number ||
+              ""
+          ),
+          categories: asStr(
+            data.drivingLicenceCategories ||
+              data.drivingLicence?.categories ||
+              personnelFile.drivingLicence?.categories ||
+              ""
+          ),
+          expiryDate: asDateInput(
+            data.drivingLicenceExpiry ||
+              data.drivingLicence?.expiryDate ||
+              personnelFile.drivingLicence?.expiryDate ||
+              ""
+          ),
+          checkCode: asStr(
+            data.drivingLicenceCheckCode ||
+              data.drivingLicence?.checkCode ||
+              personnelFile.drivingLicence?.checkCode ||
+              ""
+          ),
+          points: asStr(
+            data.drivingLicencePoints || data.drivingLicence?.points || personnelFile.drivingLicence?.points || ""
+          ),
+          documentUrl: asStr(
+            data.drivingLicenceDocumentUrl ||
+              data.drivingLicence?.documentUrl ||
+              personnelFile.drivingLicence?.documentUrl ||
+              ""
+          ),
+          notes: asStr(data.drivingLicenceNotes || data.drivingLicence?.notes || personnelFile.drivingLicence?.notes || ""),
+        };
+        const medical = {
+          ...EMPTY_MEDICAL,
+          ...(personnelFile.medical || {}),
+          ...(data.medical || {}),
+          allergies: asStr(data.allergies || data.medical?.allergies || personnelFile.medical?.allergies || ""),
+          conditions: asStr(data.medicalConditions || data.medical?.conditions || personnelFile.medical?.conditions || ""),
+          medication: asStr(data.medication || data.medical?.medication || personnelFile.medical?.medication || ""),
+          notes: asStr(data.medicalNotes || data.medical?.notes || personnelFile.medical?.notes || ""),
+        };
 
         setGlobalPayrollRates({
           travelRate:
@@ -402,6 +566,26 @@ export default function EditEmployeePage() {
           archived: data.archived === true || data.isArchived === true || data.active === false,
           active: data.active !== false && data.archived !== true && data.isArchived !== true,
           appDisabled: data.appDisabled === true,
+          address: asStr(data.address || personnelFile.address || ""),
+          postcode: asStr(data.postcode || personnelFile.postcode || ""),
+          nationalInsuranceNumber: asStr(data.nationalInsuranceNumber || data.niNumber || personnelFile.nationalInsuranceNumber || ""),
+          startDate: asDateInput(data.startDate || data.employmentStartDate || personnelFile.startDate || ""),
+          employmentStatus: asStr(data.employmentStatus || personnelFile.employmentStatus || "Active"),
+          contractType: asStr(data.contractType || personnelFile.contractType || ""),
+          payrollNumber: asStr(data.payrollNumber || personnelFile.payrollNumber || ""),
+          rightToWorkChecked: data.rightToWorkChecked === true || personnelFile.rightToWorkChecked === true,
+          rightToWorkExpiry: asDateInput(data.rightToWorkExpiry || personnelFile.rightToWorkExpiry || ""),
+          passport,
+          drivingLicence,
+          medical,
+          emergencyContacts: normalizeRows(
+            data.emergencyContacts || personnelFile.emergencyContacts,
+            EMPTY_EMERGENCY_CONTACT
+          ),
+          personnelDocuments: normalizeRows(
+            data.personnelDocuments || personnelFile.documents,
+            EMPTY_PERSONNEL_DOCUMENT
+          ),
           payrollRates: {
             ...EMPTY_PAYROLL_RATES,
             ...(data.payrollRates || {}),
@@ -432,8 +616,110 @@ export default function EditEmployeePage() {
   }, [employeeId, router]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
+  };
+
+  const handleNestedChange = (section, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: {
+        ...(prev[section] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateEmergencyContact = (index, field, value) => {
+    setFormData((prev) => {
+      const rows = [...(prev.emergencyContacts || [])];
+      rows[index] = { ...EMPTY_EMERGENCY_CONTACT, ...(rows[index] || {}), [field]: value };
+      return { ...prev, emergencyContacts: rows };
+    });
+  };
+
+  const addEmergencyContact = () => {
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: [...(prev.emergencyContacts || []), { ...EMPTY_EMERGENCY_CONTACT }],
+    }));
+  };
+
+  const removeEmergencyContact = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      emergencyContacts: (prev.emergencyContacts || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const updatePersonnelDocument = (index, field, value) => {
+    setFormData((prev) => {
+      const rows = [...(prev.personnelDocuments || [])];
+      rows[index] = { ...EMPTY_PERSONNEL_DOCUMENT, ...(rows[index] || {}), [field]: value };
+      return { ...prev, personnelDocuments: rows };
+    });
+  };
+
+  const addPersonnelDocument = () => {
+    setFormData((prev) => ({
+      ...prev,
+      personnelDocuments: [...(prev.personnelDocuments || []), { ...EMPTY_PERSONNEL_DOCUMENT }],
+    }));
+  };
+
+  const removePersonnelDocument = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      personnelDocuments: (prev.personnelDocuments || []).filter((_, i) => i !== index),
+    }));
+    setDocumentFiles((prev) => {
+      const next = {};
+      Object.entries(prev || {}).forEach(([key, value]) => {
+        const numericKey = Number(key);
+        if (numericKey < index) next[numericKey] = value;
+        if (numericKey > index) next[numericKey - 1] = value;
+      });
+      return next;
+    });
+  };
+
+  const uploadPersonnelFile = async (file, folder, progressKey) => {
+    if (!file || !employeeId) return null;
+    const originalName = file.name || "document";
+    const storagePath = `hr/personnel/${employeeId}/${folder}/${Date.now()}_${safeFileName(originalName)}`;
+    const fileRef = storageRef(storage, storagePath);
+    const task = uploadBytesResumable(fileRef, file, {
+      contentType: file.type || "application/octet-stream",
+    });
+
+    setUploadProgress((prev) => ({ ...prev, [progressKey]: 0 }));
+
+    await new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snapshot) => {
+          const pct = snapshot.totalBytes
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          setUploadProgress((prev) => ({ ...prev, [progressKey]: pct }));
+        },
+        reject,
+        resolve
+      );
+    });
+
+    const url = await getDownloadURL(task.snapshot.ref);
+    setUploadProgress((prev) => ({ ...prev, [progressKey]: 100 }));
+
+    return {
+      documentUrl: url,
+      storagePath,
+      fileName: originalName,
+      fileType: file.type || "",
+      fileSize: file.size || 0,
+      uploadedAt: new Date().toISOString(),
+    };
   };
 
   const handleAccessToggle = (workspace) => {
@@ -530,6 +816,7 @@ export default function EditEmployeePage() {
     }
 
     setSaving(true);
+    setUploadProgress({});
     try {
       const docRef = doc(db, "employees", employeeId);
       const settingsRef = doc(db, "settings", "payrollRates");
@@ -567,6 +854,83 @@ export default function EditEmployeePage() {
         "";
       const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
       const employeeCode = String(formData.employeeCode || formData.userCode || formData.code || "").trim();
+      let passport = {
+        ...EMPTY_PASSPORT,
+        ...(formData.passport || {}),
+        number: String(formData.passport?.number || "").trim(),
+        country: String(formData.passport?.country || "").trim(),
+        expiryDate: formData.passport?.expiryDate || "",
+        documentUrl: String(formData.passport?.documentUrl || "").trim(),
+        notes: String(formData.passport?.notes || "").trim(),
+      };
+      let drivingLicence = {
+        ...EMPTY_DRIVING_LICENCE,
+        ...(formData.drivingLicence || {}),
+        number: String(formData.licenceNumber || formData.drivingLicence?.number || "").trim(),
+        categories: String(formData.drivingLicence?.categories || "").trim(),
+        expiryDate: formData.drivingLicence?.expiryDate || "",
+        checkCode: String(formData.drivingLicence?.checkCode || "").trim(),
+        points: String(formData.drivingLicence?.points || "").trim(),
+        documentUrl: String(formData.drivingLicence?.documentUrl || "").trim(),
+        notes: String(formData.drivingLicence?.notes || "").trim(),
+      };
+      const medical = {
+        ...EMPTY_MEDICAL,
+        ...(formData.medical || {}),
+        allergies: String(formData.medical?.allergies || "").trim(),
+        conditions: String(formData.medical?.conditions || "").trim(),
+        medication: String(formData.medical?.medication || "").trim(),
+        notes: String(formData.medical?.notes || "").trim(),
+      };
+      const emergencyContacts = normalizeRows(formData.emergencyContacts, EMPTY_EMERGENCY_CONTACT);
+      let rawPersonnelDocuments = (Array.isArray(formData.personnelDocuments) ? formData.personnelDocuments : []).map((row) => ({
+        ...EMPTY_PERSONNEL_DOCUMENT,
+        ...(row || {}),
+      }));
+
+      if (passportFile) {
+        const upload = await uploadPersonnelFile(passportFile, "passport", "passport");
+        if (upload) passport = { ...passport, ...upload };
+      }
+
+      if (drivingLicenceFile) {
+        const upload = await uploadPersonnelFile(drivingLicenceFile, "driving-licence", "drivingLicence");
+        if (upload) drivingLicence = { ...drivingLicence, ...upload };
+      }
+
+      for (const [indexKey, file] of Object.entries(documentFiles || {})) {
+        const index = Number(indexKey);
+        if (!file || Number.isNaN(index)) continue;
+        if (!rawPersonnelDocuments[index]) {
+          rawPersonnelDocuments[index] = { ...EMPTY_PERSONNEL_DOCUMENT };
+        }
+        const upload = await uploadPersonnelFile(file, "documents", `document-${index}`);
+        if (upload) {
+          rawPersonnelDocuments[index] = {
+            ...rawPersonnelDocuments[index],
+            ...upload,
+            title: rawPersonnelDocuments[index].title || upload.fileName,
+          };
+        }
+      }
+
+      const personnelDocuments = normalizeRows(rawPersonnelDocuments, EMPTY_PERSONNEL_DOCUMENT);
+      const personnelFile = {
+        address: String(formData.address || "").trim(),
+        postcode: String(formData.postcode || "").trim(),
+        nationalInsuranceNumber: String(formData.nationalInsuranceNumber || "").trim(),
+        startDate: formData.startDate || "",
+        employmentStatus: String(formData.employmentStatus || "").trim(),
+        contractType: String(formData.contractType || "").trim(),
+        payrollNumber: String(formData.payrollNumber || "").trim(),
+        rightToWorkChecked: !!formData.rightToWorkChecked,
+        rightToWorkExpiry: formData.rightToWorkExpiry || "",
+        passport,
+        drivingLicence,
+        medical,
+        emergencyContacts,
+        documents: personnelDocuments,
+      };
 
       await Promise.all([
         setDoc(docRef, {
@@ -577,6 +941,30 @@ export default function EditEmployeePage() {
         ...(employeeCode ? { employeeCode, userCode: employeeCode, code: employeeCode } : {}),
         // keep dob as YYYY-MM-DD string (matches your other pages)
         dob: formData.dob || "",
+        address: personnelFile.address,
+        postcode: personnelFile.postcode,
+        nationalInsuranceNumber: personnelFile.nationalInsuranceNumber,
+        startDate: personnelFile.startDate,
+        employmentStatus: personnelFile.employmentStatus,
+        contractType: personnelFile.contractType,
+        payrollNumber: personnelFile.payrollNumber,
+        rightToWorkChecked: personnelFile.rightToWorkChecked,
+        rightToWorkExpiry: personnelFile.rightToWorkExpiry,
+        passport,
+        passportNumber: passport.number,
+        passportCountry: passport.country,
+        passportExpiry: passport.expiryDate,
+        passportDocumentUrl: passport.documentUrl,
+        drivingLicence,
+        licenceNumber: drivingLicence.number,
+        drivingLicenceExpiry: drivingLicence.expiryDate,
+        drivingLicenceCategories: drivingLicence.categories,
+        drivingLicenceCheckCode: drivingLicence.checkCode,
+        drivingLicenceDocumentUrl: drivingLicence.documentUrl,
+        medical,
+        emergencyContacts,
+        personnelDocuments,
+        personnelFile,
         jobTitle: Array.isArray(formData.jobTitle) ? formData.jobTitle : [],
         role: effectiveRole,
         isService: !!normalizedAppAccess.service,
@@ -624,6 +1012,10 @@ export default function EditEmployeePage() {
         }, { merge: true }),
       ]);
       setSaveMessage("Employee access and profile updated.");
+      setPassportFile(null);
+      setDrivingLicenceFile(null);
+      setDocumentFiles({});
+      setUploadProgress({});
     } catch (err) {
       console.error("Error updating employee:", err);
       setSaveError("Failed to update employee.");
@@ -759,9 +1151,9 @@ export default function EditEmployeePage() {
         {/* Header */}
         <div style={headerBar}>
           <div>
-            <h1 style={h1}>Edit Employee</h1>
+            <h1 style={h1}>Employee Personnel File</h1>
             <div style={sub}>
-              ID: <b style={mono}>{employeeId || "—"}</b>
+              Employee record ID: <b style={mono}>{employeeId || "—"}</b>
             </div>
           </div>
 
@@ -858,19 +1250,451 @@ export default function EditEmployeePage() {
                     />
                   </div>
 
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label style={labelStyle}>Driving Licence Number</label>
+                  <div>
+                    <label style={labelStyle}>Employee code</label>
                     <input
-                      name="licenceNumber"
+                      name="employeeCode"
                       type="text"
-                      value={formData.licenceNumber}
+                      value={formData.employeeCode}
                       onChange={handleChange}
-                      required
                       style={inputBase}
-                      placeholder="Licence number"
+                      placeholder="Internal code"
                     />
-                    <div style={helperStyle}>Stored on the employee document as <span style={mono}>licenceNumber</span>.</div>
                   </div>
+
+                  <div>
+                    <label style={labelStyle}>Payroll number</label>
+                    <input
+                      name="payrollNumber"
+                      type="text"
+                      value={formData.payrollNumber}
+                      onChange={handleChange}
+                      style={inputBase}
+                      placeholder="Payroll reference"
+                    />
+                  </div>
+                </div>
+
+                <div style={personnelSection}>
+                  <div>
+                    <div style={personnelHeader}>Personnel File</div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      HR details kept on the employee record for compliance and day-to-day admin.
+                    </div>
+                  </div>
+
+                  <div style={grid2}>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={labelStyle}>Home address</label>
+                      <textarea
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        style={textareaBase}
+                        placeholder="Address"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Postcode</label>
+                      <input name="postcode" value={formData.postcode} onChange={handleChange} style={inputBase} />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>National insurance number</label>
+                      <input
+                        name="nationalInsuranceNumber"
+                        value={formData.nationalInsuranceNumber}
+                        onChange={handleChange}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Start date</label>
+                      <input name="startDate" type="date" value={formData.startDate} onChange={handleChange} style={inputBase} />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Employment status</label>
+                      <select name="employmentStatus" value={formData.employmentStatus} onChange={handleChange} style={inputBase}>
+                        <option value="Active">Active</option>
+                        <option value="Probation">Probation</option>
+                        <option value="On leave">On leave</option>
+                        <option value="Leaver">Leaver</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Contract type</label>
+                      <select name="contractType" value={formData.contractType} onChange={handleChange} style={inputBase}>
+                        <option value="">Select...</option>
+                        <option value="Full-time">Full-time</option>
+                        <option value="Part-time">Part-time</option>
+                        <option value="Casual">Casual</option>
+                        <option value="Freelance">Freelance</option>
+                        <option value="Zero-hours">Zero-hours</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={personnelSection}>
+                  <div>
+                    <div style={personnelHeader}>Passport & Right To Work</div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Store passport details, right-to-work checks and links to scanned documents.
+                    </div>
+                  </div>
+
+                  <div style={grid2}>
+                    <div>
+                      <label style={labelStyle}>Passport number</label>
+                      <input
+                        value={formData.passport?.number || ""}
+                        onChange={(e) => handleNestedChange("passport", "number", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Issuing country</label>
+                      <input
+                        value={formData.passport?.country || ""}
+                        onChange={(e) => handleNestedChange("passport", "country", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Passport expiry</label>
+                      <input
+                        type="date"
+                        value={formData.passport?.expiryDate || ""}
+                        onChange={(e) => handleNestedChange("passport", "expiryDate", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Document link</label>
+                      <input
+                        type="text"
+                        value={formData.passport?.documentUrl || ""}
+                        onChange={(e) => handleNestedChange("passport", "documentUrl", e.target.value)}
+                        style={inputBase}
+                        placeholder="https://..."
+                      />
+                      {formData.passport?.documentUrl ? (
+                        <a href={formData.passport.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
+                          Open current passport file
+                        </a>
+                      ) : null}
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Upload passport file</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.webp"
+                        onChange={(e) => setPassportFile(e.target.files?.[0] || null)}
+                        style={inputBase}
+                      />
+                      <div style={helperStyle}>
+                        {passportFile
+                          ? `${passportFile.name} selected${uploadProgress.passport != null ? ` - ${uploadProgress.passport}%` : ""}`
+                          : "Choose a file, then press Save Changes to upload."}
+                      </div>
+                    </div>
+
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800 }}>
+                      <input
+                        type="checkbox"
+                        name="rightToWorkChecked"
+                        checked={!!formData.rightToWorkChecked}
+                        onChange={handleChange}
+                      />
+                      Right to work checked
+                    </label>
+
+                    <div>
+                      <label style={labelStyle}>Right-to-work expiry</label>
+                      <input
+                        name="rightToWorkExpiry"
+                        type="date"
+                        value={formData.rightToWorkExpiry}
+                        onChange={handleChange}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={labelStyle}>Passport notes</label>
+                      <textarea
+                        value={formData.passport?.notes || ""}
+                        onChange={(e) => handleNestedChange("passport", "notes", e.target.value)}
+                        style={textareaBase}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={personnelSection}>
+                  <div>
+                    <div style={personnelHeader}>Driving Licence</div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Licence number is also saved as <span style={mono}>licenceNumber</span> for existing booking screens.
+                    </div>
+                  </div>
+
+                  <div style={grid2}>
+                    <div>
+                      <label style={labelStyle}>Licence number</label>
+                      <input
+                        name="licenceNumber"
+                        value={formData.licenceNumber}
+                        onChange={(e) => {
+                          handleChange(e);
+                          handleNestedChange("drivingLicence", "number", e.target.value);
+                        }}
+                        required
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Expiry date</label>
+                      <input
+                        type="date"
+                        value={formData.drivingLicence?.expiryDate || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "expiryDate", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Categories</label>
+                      <input
+                        value={formData.drivingLicence?.categories || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "categories", e.target.value)}
+                        style={inputBase}
+                        placeholder="B, C1, C, BE..."
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>DVLA check code</label>
+                      <input
+                        value={formData.drivingLicence?.checkCode || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "checkCode", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Points / endorsements</label>
+                      <input
+                        value={formData.drivingLicence?.points || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "points", e.target.value)}
+                        style={inputBase}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={labelStyle}>Document link</label>
+                      <input
+                        type="text"
+                        value={formData.drivingLicence?.documentUrl || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "documentUrl", e.target.value)}
+                        style={inputBase}
+                        placeholder="https://..."
+                      />
+                      {formData.drivingLicence?.documentUrl ? (
+                        <a href={formData.drivingLicence.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
+                          Open current licence file
+                        </a>
+                      ) : null}
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={labelStyle}>Upload licence file</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.webp"
+                        onChange={(e) => setDrivingLicenceFile(e.target.files?.[0] || null)}
+                        style={inputBase}
+                      />
+                      <div style={helperStyle}>
+                        {drivingLicenceFile
+                          ? `${drivingLicenceFile.name} selected${uploadProgress.drivingLicence != null ? ` - ${uploadProgress.drivingLicence}%` : ""}`
+                          : "Choose a file, then press Save Changes to upload."}
+                      </div>
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label style={labelStyle}>Licence notes</label>
+                      <textarea
+                        value={formData.drivingLicence?.notes || ""}
+                        onChange={(e) => handleNestedChange("drivingLicence", "notes", e.target.value)}
+                        style={textareaBase}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={personnelSection}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <div>
+                      <div style={personnelHeader}>Emergency Contacts</div>
+                      <div style={{ color: UI.muted, fontSize: 12 }}>Add one or more contacts for emergencies.</div>
+                    </div>
+                    <button type="button" style={btn("ghost")} onClick={addEmergencyContact}>
+                      Add contact
+                    </button>
+                  </div>
+
+                  {(formData.emergencyContacts || []).length === 0 ? (
+                    <div style={helperStyle}>No emergency contacts added yet.</div>
+                  ) : null}
+
+                  {(formData.emergencyContacts || []).map((contact, index) => (
+                    <div key={index} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, display: "grid", gap: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                        <div style={{ fontWeight: 850, color: UI.text }}>Contact {index + 1}</div>
+                        <button type="button" style={btn("danger")} onClick={() => removeEmergencyContact(index)}>
+                          Remove
+                        </button>
+                      </div>
+                      <div style={grid2}>
+                        <div>
+                          <label style={labelStyle}>Name</label>
+                          <input value={contact.name || ""} onChange={(e) => updateEmergencyContact(index, "name", e.target.value)} style={inputBase} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Relationship</label>
+                          <input value={contact.relationship || ""} onChange={(e) => updateEmergencyContact(index, "relationship", e.target.value)} style={inputBase} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Phone</label>
+                          <input value={contact.phone || ""} onChange={(e) => updateEmergencyContact(index, "phone", e.target.value)} style={inputBase} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Email</label>
+                          <input value={contact.email || ""} onChange={(e) => updateEmergencyContact(index, "email", e.target.value)} style={inputBase} />
+                        </div>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={labelStyle}>Address / notes</label>
+                          <textarea value={contact.address || contact.notes || ""} onChange={(e) => updateEmergencyContact(index, "address", e.target.value)} style={textareaBase} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={personnelSection}>
+                  <div>
+                    <div style={personnelHeader}>Medical Notes</div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>Keep only work-relevant notes needed for safety and emergency response.</div>
+                  </div>
+                  <div style={grid2}>
+                    <div>
+                      <label style={labelStyle}>Allergies</label>
+                      <textarea value={formData.medical?.allergies || ""} onChange={(e) => handleNestedChange("medical", "allergies", e.target.value)} style={textareaBase} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Conditions</label>
+                      <textarea value={formData.medical?.conditions || ""} onChange={(e) => handleNestedChange("medical", "conditions", e.target.value)} style={textareaBase} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Medication</label>
+                      <textarea value={formData.medical?.medication || ""} onChange={(e) => handleNestedChange("medical", "medication", e.target.value)} style={textareaBase} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Other medical notes</label>
+                      <textarea value={formData.medical?.notes || ""} onChange={(e) => handleNestedChange("medical", "notes", e.target.value)} style={textareaBase} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={personnelSection}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <div>
+                      <div style={personnelHeader}>Other Documents</div>
+                      <div style={{ color: UI.muted, fontSize: 12 }}>Contracts, training certificates, permits and any other HR documents.</div>
+                    </div>
+                    <button type="button" style={btn("ghost")} onClick={addPersonnelDocument}>
+                      Add document
+                    </button>
+                  </div>
+
+                  {(formData.personnelDocuments || []).length === 0 ? (
+                    <div style={helperStyle}>No additional documents added yet.</div>
+                  ) : null}
+
+                  {(formData.personnelDocuments || []).map((documentRow, index) => (
+                    <div key={index} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, display: "grid", gap: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                        <div style={{ fontWeight: 850, color: UI.text }}>Document {index + 1}</div>
+                        <button type="button" style={btn("danger")} onClick={() => removePersonnelDocument(index)}>
+                          Remove
+                        </button>
+                      </div>
+                      <div style={grid2}>
+                        <div>
+                          <label style={labelStyle}>Type</label>
+                          <input value={documentRow.type || ""} onChange={(e) => updatePersonnelDocument(index, "type", e.target.value)} style={inputBase} placeholder="Contract, training, permit..." />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Title</label>
+                          <input value={documentRow.title || ""} onChange={(e) => updatePersonnelDocument(index, "title", e.target.value)} style={inputBase} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Reference</label>
+                          <input value={documentRow.reference || ""} onChange={(e) => updatePersonnelDocument(index, "reference", e.target.value)} style={inputBase} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Expiry / review date</label>
+                          <input type="date" value={documentRow.expiryDate || ""} onChange={(e) => updatePersonnelDocument(index, "expiryDate", e.target.value)} style={inputBase} />
+                        </div>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={labelStyle}>Document link</label>
+                          <input type="text" value={documentRow.documentUrl || ""} onChange={(e) => updatePersonnelDocument(index, "documentUrl", e.target.value)} style={inputBase} placeholder="https://..." />
+                          {documentRow.documentUrl ? (
+                            <a href={documentRow.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
+                              Open current document
+                            </a>
+                          ) : null}
+                        </div>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={labelStyle}>Upload file</label>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.heic,.webp"
+                            onChange={(e) =>
+                              setDocumentFiles((prev) => ({
+                                ...prev,
+                                [index]: e.target.files?.[0] || null,
+                              }))
+                            }
+                            style={inputBase}
+                          />
+                          <div style={helperStyle}>
+                            {documentFiles[index]
+                              ? `${documentFiles[index].name} selected${
+                                  uploadProgress[`document-${index}`] != null
+                                    ? ` - ${uploadProgress[`document-${index}`]}%`
+                                    : ""
+                                }`
+                              : "Choose a file, then press Save Changes to upload."}
+                          </div>
+                        </div>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={labelStyle}>Notes</label>
+                          <textarea value={documentRow.notes || ""} onChange={(e) => updatePersonnelDocument(index, "notes", e.target.value)} style={textareaBase} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div style={{ borderTop: UI.border, paddingTop: 12 }}>
@@ -1119,6 +1943,30 @@ export default function EditEmployeePage() {
 
                   <div style={{ display: "grid", gap: 6 }}>
                     <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
+                      Personnel file
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "#ecfdf5" : "#f8fafc" }}>
+                        Passport: {formData.passport?.number || formData.passport?.documentUrl ? "Added" : "Missing"}
+                      </span>
+                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "#ecfdf5" : "#f8fafc" }}>
+                        Licence: {formData.licenceNumber || formData.drivingLicence?.documentUrl ? "Added" : "Missing"}
+                      </span>
+                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "#ecfdf5" : "#f8fafc" }}>
+                        Emergency: {(formData.emergencyContacts || []).length || 0}
+                      </span>
+                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "#eff6ff" : "#f8fafc" }}>
+                        Docs: {(formData.personnelDocuments || []).length || 0}
+                      </span>
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12 }}>
+                      Start: <b style={{ color: UI.text }}>{formData.startDate || "—"}</b> · Status:{" "}
+                      <b style={{ color: UI.text }}>{formData.employmentStatus || "—"}</b>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>
                       Access
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1191,9 +2039,9 @@ export default function EditEmployeePage() {
             </div>
 
             <div style={{ ...surface, padding: 12, background: UI.brandSoft, border: `1px solid ${UI.brandBorder}` }}>
-              <div style={{ fontWeight: 800, color: UI.text, marginBottom: 6 }}>Archive behavior</div>
+              <div style={{ fontWeight: 800, color: UI.text, marginBottom: 6 }}>Personnel file storage</div>
               <div style={{ color: UI.muted, fontSize: 13 }}>
-                Archiving removes active access and hides the employee from current booking lists while keeping old records readable.
+                Passport, licence, emergency contacts, medical notes and document links are saved on the employee document under the personnel file.
               </div>
             </div>
           </div>

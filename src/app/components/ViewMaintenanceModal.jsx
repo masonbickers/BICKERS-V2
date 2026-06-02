@@ -27,6 +27,11 @@ const fmtDateRange = (b) => {
   return "Not set";
 };
 
+const fmtTime = (value) => {
+  const clean = String(value || "").trim();
+  return /^\d{2}:\d{2}$/.test(clean) ? clean : "";
+};
+
 /* ---------- ATTACHMENTS HELPERS (same as booking modal) ---------- */
 const canonicalKeyFromUrl = (url = "") => {
   try {
@@ -234,6 +239,7 @@ export default function ViewMaintenanceModal({
             <Field label="Type" value={maintenanceTitle || "—"} />
             <Field label="Location" value={booking.location || "—"} />
             <Field label="Date(s)" value={fmtDateRange(booking)} />
+            <Field label="Time" value={fmtTime(booking.appointmentTime) || "Not set"} />
             <Field label="Contact Email" value={booking.contactEmail || "Not provided"} />
             <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
             {showReasons && <Field label="Status Reason(s)" value={reasonsText} />}

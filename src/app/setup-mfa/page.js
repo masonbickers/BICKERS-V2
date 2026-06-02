@@ -10,6 +10,7 @@ import {
   onAuthStateChanged,
   PhoneAuthProvider,
   RecaptchaVerifier,
+  signOut,
 } from "firebase/auth";
 import QRCode from "qrcode";
 import {
@@ -19,6 +20,7 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import {
+  clearMfaVerified,
   hasAuthenticatorMfa,
   isMfaVerifiedOnDevice,
   isPhoneVerified,
@@ -64,15 +66,18 @@ export default function SetupMFA() {
   };
 
   const refreshServerAccess = async (user) => {
-    if (!user?.getIdToken) return;
+    if (!user?.getIdToken) return null;
     try {
       const idToken = await user.getIdToken();
-      await fetch("/api/security/bootstrap-access", {
+      const res = await fetch("/api/security/bootstrap-access", {
         method: "POST",
         headers: { Authorization: `Bearer ${idToken}` },
       });
+      const data = await res.json().catch(() => ({}));
+      return res.ok ? data?.access || null : null;
     } catch (err) {
       console.warn("[setup-mfa] access refresh skipped:", err);
+      return null;
     }
   };
 
@@ -82,10 +87,10 @@ export default function SetupMFA() {
         router.replace("/login");
         return;
       }
-      await refreshServerAccess(user);
+      const refreshedAccess = await refreshServerAccess(user);
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
-        const nextUserData = snap.data() || {};
+        const nextUserData = { ...(snap.data() || {}), ...(refreshedAccess || {}) };
         setUserData(nextUserData);
         setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
         if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
@@ -307,6 +312,22 @@ export default function SetupMFA() {
   const authenticatorDone = hasAuthenticatorMfa(userData);
   const canEditPhone = !phoneDone && !saving;
 
+  const handleBackToLogin = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      const uid = auth.currentUser?.uid;
+      clearMfaVerified(typeof window !== "undefined" ? window.localStorage : null, uid);
+      clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, uid);
+      await signOut(auth);
+      router.replace("/login");
+    } catch (err) {
+      setError(err?.message || "Could not return to login.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.formSide}>
@@ -316,6 +337,14 @@ export default function SetupMFA() {
             Verify your phone number, then connect your authenticator app before entering
             the system.
           </p>
+          <button
+            type="button"
+            onClick={handleBackToLogin}
+            style={styles.backButton}
+            disabled={saving}
+          >
+            Back to login
+          </button>
 
           {!phoneDone ? (
             <div style={styles.section}>
@@ -487,6 +516,18 @@ const styles = {
     padding: "12px",
     backgroundColor: "#1f2937",
     color: "#fff",
+    border: "1px solid #374151",
+    borderRadius: "6px",
+    fontSize: "15px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  backButton: {
+    width: "100%",
+    padding: "10px 12px",
+    marginBottom: "14px",
+    backgroundColor: "#111827",
+    color: "#dbeafe",
     border: "1px solid #374151",
     borderRadius: "6px",
     fontSize: "15px",

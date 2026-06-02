@@ -31,6 +31,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import { localizer } from "../utils/localizer";
 import {
   getCanonicalDueDate,
+  isVehicleOutOfUse,
   normalizeAssetRecord,
   ymd as ymdDate,
 } from "../utils/maintenanceSchema";
@@ -57,8 +58,6 @@ import { db, auth } from "../../../firebaseConfig";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
-  "paul@bickers.co.uk",
-  "adam@bickers.co.uk",
 ];
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
@@ -931,8 +930,9 @@ export default function VehiclesHomePage() {
       return { overdue, soon, ok, total };
     };
 
-    setMotCounts(calcCounts(vehiclesRaw.map((v) => getCanonicalDueDate(v, "mot"))));
-    setServiceCounts(calcCounts(vehiclesRaw.map((v) => getCanonicalDueDate(v, "service"))));
+    const activeVehicles = vehiclesRaw.filter((v) => !isVehicleOutOfUse(v));
+    setMotCounts(calcCounts(activeVehicles.map((v) => getCanonicalDueDate(v, "mot"))));
+    setServiceCounts(calcCounts(activeVehicles.map((v) => getCanonicalDueDate(v, "service"))));
   }, [vehiclesRaw]);
 
   /* --------- Usage histogram (vehicle usage from bookings) --------- */

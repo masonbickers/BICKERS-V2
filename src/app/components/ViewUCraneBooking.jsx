@@ -12,6 +12,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import RouteLoadingOverlay from "./RouteLoadingOverlay";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -185,14 +186,32 @@ export default function ViewUCraneBookingModal({
   const [allVehicles, setAllVehicles] = useState(() =>
     Array.isArray(initialVehicles) ? initialVehicles : []
   );
+  const [editOpening, setEditOpening] = useState(false);
+  const [editProgress, setEditProgress] = useState(0);
   const router = useRouter();
 
   // close on ESC
   useEffect(() => {
-    const onEsc = (e) => e.key === "Escape" && onClose?.();
+    const onEsc = (e) => {
+      if (e.key === "Escape" && !editOpening) onClose?.();
+    };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
-  }, [onClose]);
+  }, [editOpening, onClose]);
+
+  useEffect(() => {
+    if (!editOpening) return undefined;
+
+    const timer = window.setInterval(() => {
+      setEditProgress((current) => {
+        if (current < 72) return current + 7;
+        if (current < 91) return current + 2;
+        return current;
+      });
+    }, 260);
+
+    return () => window.clearInterval(timer);
+  }, [editOpening]);
 
   // load booking (normal OR deleted)
   useEffect(() => {
@@ -389,6 +408,22 @@ export default function ViewUCraneBookingModal({
     }
   };
 
+  const handleOpenEdit = () => {
+    if (editOpening) return;
+    setEditOpening(true);
+    setEditProgress(8);
+
+    window.setTimeout(() => {
+      try {
+        router.push(`/u-crane-edit/${id}`);
+      } catch (error) {
+        console.error("Failed to open U-Crane edit page:", error);
+        setEditOpening(false);
+        setEditProgress(0);
+      }
+    }, 80);
+  };
+
   if (!booking) return null;
 
   const employeesPrettyText = prettyEmployees(booking.employees || []);
@@ -413,7 +448,10 @@ export default function ViewUCraneBookingModal({
     uCraneVehiclesPrettyWithStatus.length > 0;
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+    <div
+      style={overlay}
+      onClick={(e) => e.target === e.currentTarget && !editOpening && onClose?.()}
+    >
       <div style={modal}>
         {/* Header */}
         <div style={header}>
@@ -691,28 +729,37 @@ export default function ViewUCraneBookingModal({
               <button onClick={handleRestore} style={{ ...btn, background: "#111827" }}>
                 Restore
               </button>
-              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+              <button onClick={onClose} style={{ ...btn, ...btnSecondary }}>
                 Close
               </button>
             </>
           ) : (
             <>
               <button
-                onClick={() => router.push(`/u-crane-edit/${id}`)}
-                style={{ ...btn, background: "#0d6efd" }}
+                onClick={handleOpenEdit}
+                disabled={editOpening}
+                style={{ ...btn, ...(editOpening ? btnBusy : null) }}
               >
-                Edit
+                {editOpening ? `Opening ${editProgress}%` : "Edit"}
               </button>
-              <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
+              <button onClick={handleDelete} disabled={editOpening} style={{ ...btn, ...btnDanger }}>
                 Delete
               </button>
-              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+              <button onClick={onClose} disabled={editOpening} style={{ ...btn, ...btnSecondary }}>
                 Close
               </button>
             </>
           )}
         </div>
       </div>
+
+      {editOpening && (
+        <RouteLoadingOverlay
+          progress={editProgress}
+          title="Opening U-Crane edit"
+          hint="Loading the booking editor..."
+        />
+      )}
     </div>
   );
 }
@@ -737,7 +784,7 @@ function Field({ label, value }) {
 }
 
 const Chip = ({ good, label, title }) => (
-  <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
+  <span title={title} style={{ ...chip, ...(good ? chipGood : chipBad) }}>
     {label} {good ? "Yes" : "No"}
   </span>
 );
@@ -746,9 +793,7 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tagPill,
-      background: success ? "#22c55e" : dark ? "#111" : "#f3f4f6",
-      color: success || dark ? "#fff" : "#111",
-      border: success || dark ? "1px solid #111" : "1px solid #e5e7eb",
+      ...(success ? tagSuccess : dark ? tagDark : null),
     }}
   >
     {children}
@@ -756,91 +801,121 @@ const Tag = ({ children, dark, success }) => (
 );
 
 /* ---------- styles ---------- */
+const UI = {
+  radius: 8,
+  bg: "#f3f6f9",
+  card: "#ffffff",
+  text: "#0f172a",
+  muted: "#5f6f82",
+  border: "1px solid #d7dee8",
+  borderSoft: "1px solid #e4ebf3",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  dangerSoft: "#fff1f2",
+  shadow: "0 24px 70px rgba(15,23,42,0.28)",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+};
+
 const overlay = {
   position: "fixed",
   inset: 0,
-  backgroundColor: "rgba(0,0,0,0.5)",
+  backgroundColor: "rgba(15,23,42,0.58)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
   padding: 16,
   zIndex: 9999,
+  backdropFilter: "blur(2px)",
 };
 
 const modal = {
-  background: "#fff",
-  color: "#111",
-  width: "min(900px, 96vw)",
-  maxHeight: "90vh",
+  background: UI.bg,
+  color: UI.text,
+  width: "min(1120px, 98vw)",
+  maxHeight: "94vh",
   overflow: "auto",
-  borderRadius: 12,
-  boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-  padding: 20,
+  borderRadius: 14,
+  border: UI.border,
+  boxShadow: UI.shadow,
+  padding: 14,
 };
 
 const header = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 10,
+  marginBottom: 12,
+  padding: "4px 2px 12px",
+  borderBottom: UI.borderSoft,
 };
 
-const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#6b7280" };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
+const eyebrow = { fontSize: 12.5, letterSpacing: 0, color: UI.muted, fontWeight: 800 };
+const title = { margin: "3px 0 0", fontSize: 22, lineHeight: 1.14, color: UI.text, fontWeight: 850 };
 
 const badge = {
   padding: "6px 10px",
   borderRadius: 999,
   fontSize: 12,
-  fontWeight: 700,
-  border: "1px solid #111",
+  fontWeight: 850,
+  border: "1px solid rgba(15,23,42,0.16)",
+  boxShadow: UI.shadowSm,
+  whiteSpace: "nowrap",
 };
 
-const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
+const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "4px 0 14px" };
 
 const grid = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 16,
+  gap: 12,
 };
 
 const sectionTitle = {
   margin: "0 0 8px 0",
-  fontSize: 14,
-  color: "#374151",
-  textTransform: "uppercase",
-  letterSpacing: 0.6,
+  fontSize: 13,
+  color: UI.text,
+  fontWeight: 850,
+  letterSpacing: 0,
 };
-const sectionCard = { background: "#fafafa", border: "1px solid #e5e7eb", borderRadius: 10, padding: 14 };
+const sectionCard = {
+  background: UI.card,
+  border: UI.border,
+  borderRadius: UI.radius,
+  padding: 12,
+  boxShadow: UI.shadowSm,
+};
 
 const fieldRow = {
   display: "grid",
-  gridTemplateColumns: "160px 1fr",
+  gridTemplateColumns: "150px 1fr",
   gap: 10,
-  padding: "8px 0",
-  borderBottom: "1px dashed #e5e7eb",
+  padding: "7px 0",
+  borderBottom: "1px dashed #dce6f0",
 };
-const fieldLabel = { color: "#6b7280", fontSize: 13 };
-const fieldValue = { color: "#111", fontSize: 14 };
+const fieldLabel = { color: UI.muted, fontSize: 12.5, fontWeight: 800 };
+const fieldValue = { color: UI.text, fontSize: 13.5, fontWeight: 650, minWidth: 0 };
 
 const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
-const noteCard = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 };
-const noteDate = { fontWeight: 800, fontSize: 13, marginBottom: 6 };
-const noteText = { fontSize: 14, color: "#111" };
+const noteCard = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
+const noteDate = { fontWeight: 850, fontSize: 12.5, marginBottom: 6, color: UI.text };
+const noteText = { fontSize: 13.5, color: UI.text };
 
-const noteBox = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, lineHeight: 1.4 };
+const noteBox = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
 
 const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
 const tagPill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
-  padding: "4px 8px",
-  background: "#f3f4f6",
-  border: "1px solid #e5e7eb",
+  padding: "4px 9px",
+  background: "#f8fbfe",
+  color: UI.text,
+  border: UI.borderSoft,
   borderRadius: 999,
   fontSize: 12,
+  fontWeight: 800,
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
@@ -848,29 +923,40 @@ const tagStatus = {
   marginLeft: 6,
   padding: "2px 6px",
   borderRadius: 999,
-  border: "1px solid #d1d5db",
+  border: UI.borderSoft,
   background: "#fff",
   fontSize: 11,
   fontWeight: 800,
 };
 
-const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+const chip = {
+  padding: "4px 9px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 850,
+  border: UI.borderSoft,
+};
+const chipGood = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
+const chipBad = { background: UI.dangerSoft, color: "#991b1b", border: "1px solid #e9c6c4" };
+const tagSuccess = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
+const tagDark = { background: "#10233a", color: "#fff", border: "1px solid #10233a" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
-  background: "#111",
+  background: UI.brand,
   color: "#fff",
-  borderRadius: 8,
+  borderRadius: UI.radius,
   textDecoration: "none",
-  border: "1px solid #111",
+  border: `1px solid ${UI.brand}`,
+  fontWeight: 800,
 };
 
 const footerMeta = {
   marginTop: 12,
   paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
-  color: "#6b7280",
+  borderTop: UI.borderSoft,
+  color: UI.muted,
   fontSize: 12,
   display: "flex",
   gap: 16,
@@ -883,22 +969,45 @@ const actions = {
   justifyContent: "flex-end",
   marginTop: 14,
   paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
+  borderTop: UI.borderSoft,
+  flexWrap: "wrap",
 };
 
 const btn = {
-  padding: "10px 14px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 36,
+  padding: "8px 13px",
+  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
   color: "#fff",
-  border: "none",
-  borderRadius: 8,
+  border: `1px solid ${UI.brand}`,
+  borderRadius: UI.radius,
   cursor: "pointer",
-  fontWeight: 600,
+  fontWeight: 850,
+  boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
+};
+const btnSecondary = {
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  color: UI.text,
+  border: `1px solid ${UI.brandBorder}`,
+  boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
+};
+const btnDanger = {
+  background: UI.dangerSoft,
+  color: "#991b1b",
+  border: "1px solid #e9c6c4",
+  boxShadow: "none",
+};
+const btnBusy = {
+  opacity: 0.82,
+  cursor: "wait",
 };
 
 const miniCard = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
+  background: "#f8fbfe",
+  border: UI.borderSoft,
+  borderRadius: UI.radius,
   padding: 10,
 };
 
