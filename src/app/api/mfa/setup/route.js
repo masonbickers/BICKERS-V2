@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
+import { adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
 
@@ -11,14 +12,43 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
+    const userData = await adminReadDocument("users", verifiedUser.uid);
+    if (userData?.isEnabled === false) {
+      return NextResponse.json({ error: "Account disabled." }, { status: 403 });
+    }
+
+    const secretDoc = (await adminReadDocument("mfaSecrets", verifiedUser.uid)) || {};
+    const existingSecret = String(secretDoc?.secret || "").trim();
+    if (existingSecret && userData?.mfaResetRequired !== true) {
+      const nowIso = new Date().toISOString();
+      await adminPatchDocument("users", verifiedUser.uid, {
+        mfaMethod: "totp",
+        mfaEnabled: true,
+        mfaResetRequired: false,
+        updatedAt: nowIso,
+        ...(secretDoc.enrolledAt && !userData?.mfaEnrolledAt
+          ? { mfaEnrolledAt: secretDoc.enrolledAt }
+          : {}),
+      });
+
+      return NextResponse.json({ alreadyEnrolled: true });
+    }
+
     const secret = speakeasy.generateSecret({
       name: verifiedUser.email || "Bickers Booking",
       issuer: "Bickers Booking",
       length: 20,
     });
 
+    const nowIso = new Date().toISOString();
+    await adminPatchDocument("mfaSecrets", verifiedUser.uid, {
+      pendingSecret: secret.base32,
+      pendingCreatedAt: nowIso,
+      updatedAt: nowIso,
+      userEmail: verifiedUser.email || "",
+    });
+
     return NextResponse.json({
-      base32: secret.base32,
       otpauthUrl: secret.otpauth_url,
     });
   } catch (error) {

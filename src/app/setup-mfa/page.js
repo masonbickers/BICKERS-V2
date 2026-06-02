@@ -3,13 +3,14 @@
 import Image from "next/image";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db } from "../../../firebaseConfig";
-import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
   linkWithCredential,
   onAuthStateChanged,
   PhoneAuthProvider,
   RecaptchaVerifier,
+  signOut,
 } from "firebase/auth";
 import QRCode from "qrcode";
 import {
@@ -19,14 +20,13 @@ import {
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import {
-  clearPendingMfaSetup,
-  getPendingMfaSetup,
+  clearMfaVerified,
   hasAuthenticatorMfa,
   isMfaVerifiedOnDevice,
   isPhoneVerified,
   markMfaVerified,
-  setPendingMfaSetup,
 } from "@/app/utils/authSecurity";
+import { sendLoginNotification } from "@/app/utils/loginNotification";
 
 export default function SetupMFA() {
   const router = useRouter();
@@ -39,7 +39,6 @@ export default function SetupMFA() {
   const [info, setInfo] = useState("");
   const [userData, setUserData] = useState(null);
   const [authenticatorCode, setAuthenticatorCode] = useState("");
-  const [authSecret, setAuthSecret] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const recaptchaRef = useRef(null);
   const smsCodeInputRef = useRef(null);
@@ -66,34 +65,21 @@ export default function SetupMFA() {
     return raw;
   };
 
-  const resolveSetupUserDoc = useCallback(async (user) => {
-    let resolvedRef = doc(db, "users", user.uid);
-    let snap = await getDoc(resolvedRef);
-
-    if (!snap.exists()) {
-      const emailA = String(user.email || "").trim();
-      const emailB = emailA.toLowerCase();
-      const q1 = query(collection(db, "users"), where("email", "==", emailA), limit(1));
-      const r1 = await getDocs(q1);
-
-      if (!r1.empty) {
-        resolvedRef = doc(db, "users", r1.docs[0].id);
-        snap = r1.docs[0];
-      } else if (emailB && emailB !== emailA) {
-        const q2 = query(collection(db, "users"), where("email", "==", emailB), limit(1));
-        const r2 = await getDocs(q2);
-        if (!r2.empty) {
-          resolvedRef = doc(db, "users", r2.docs[0].id);
-          snap = r2.docs[0];
-        }
-      }
+  const refreshServerAccess = async (user) => {
+    if (!user?.getIdToken) return null;
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/security/bootstrap-access", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      return res.ok ? data?.access || null : null;
+    } catch (err) {
+      console.warn("[setup-mfa] access refresh skipped:", err);
+      return null;
     }
-
-    return {
-      resolvedRef,
-      userData: snap?.exists?.() ? snap.data() || {} : {},
-    };
-  }, []);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -101,21 +87,25 @@ export default function SetupMFA() {
         router.replace("/login");
         return;
       }
-      const { userData: nextUserData } = await resolveSetupUserDoc(user);
-      setUserData(nextUserData);
-      setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
-      if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
-        const alreadyVerified = isMfaVerifiedOnDevice(
-          typeof window !== "undefined" ? window.localStorage : null,
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          user.uid
-        );
-        if (alreadyVerified) {
-          await routeUserToWorkspace(user);
-        } else {
-          router.replace("/verify-mfa");
+      const refreshedAccess = await refreshServerAccess(user);
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        const nextUserData = { ...(snap.data() || {}), ...(refreshedAccess || {}) };
+        setUserData(nextUserData);
+        setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
+        if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
+          const alreadyVerified = isMfaVerifiedOnDevice(
+            typeof window !== "undefined" ? window.localStorage : null,
+            typeof window !== "undefined" ? window.sessionStorage : null,
+            user.uid
+          );
+          if (alreadyVerified) {
+            await routeUserToWorkspace(user);
+          } else {
+            router.replace("/verify-mfa");
+          }
+          return;
         }
-        return;
       }
     });
 
@@ -124,24 +114,13 @@ export default function SetupMFA() {
       recaptchaRef.current?.clear?.();
       recaptchaRef.current = null;
     };
-  }, [resolveSetupUserDoc, routeUserToWorkspace, router]);
+  }, [routeUserToWorkspace, router]);
 
   useEffect(() => {
-    if (!auth.currentUser || userData === null || hasAuthenticatorMfa(userData) || authSecret) return;
+    if (!auth.currentUser || userData === null || hasAuthenticatorMfa(userData) || qrCodeUrl) return;
 
     const loadAuthenticatorSetup = async () => {
       try {
-        const pendingSetup = getPendingMfaSetup(
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          auth.currentUser.uid
-        );
-        if (pendingSetup?.base32 && pendingSetup?.otpauthUrl) {
-          setAuthSecret(String(pendingSetup.base32));
-          const nextQrCodeUrl = await QRCode.toDataURL(String(pendingSetup.otpauthUrl));
-          setQrCodeUrl(nextQrCodeUrl);
-          return;
-        }
-
         const idToken = await auth.currentUser.getIdToken();
         const res = await fetch("/api/mfa/setup", {
           method: "POST",
@@ -151,18 +130,13 @@ export default function SetupMFA() {
           },
         });
         const data = await res.json();
-        if (!res.ok || !data?.base32 || !data?.otpauthUrl) {
+        if (data?.alreadyEnrolled) {
+          router.replace("/verify-mfa");
+          return;
+        }
+        if (!res.ok || !data?.otpauthUrl) {
           throw new Error(data?.error || "Failed to prepare authenticator setup.");
         }
-        setAuthSecret(String(data.base32));
-        setPendingMfaSetup(
-          typeof window !== "undefined" ? window.sessionStorage : null,
-          auth.currentUser.uid,
-          {
-            base32: String(data.base32),
-            otpauthUrl: String(data.otpauthUrl),
-          }
-        );
         const nextQrCodeUrl = await QRCode.toDataURL(String(data.otpauthUrl));
         setQrCodeUrl(nextQrCodeUrl);
       } catch (err) {
@@ -172,7 +146,7 @@ export default function SetupMFA() {
     };
 
     loadAuthenticatorSetup();
-  }, [authSecret, userData]);
+  }, [qrCodeUrl, router, userData]);
 
   const ensureRecaptcha = () => {
     if (typeof window === "undefined") return null;
@@ -281,7 +255,7 @@ export default function SetupMFA() {
         setError("Verify your phone number first.");
         return;
       }
-      if (!authSecret) {
+      if (!qrCodeUrl) {
         setError("Authenticator setup is unavailable.");
         return;
       }
@@ -301,7 +275,7 @@ export default function SetupMFA() {
         },
         body: JSON.stringify({
           token: normalizedAuthenticatorCode,
-          secret: authSecret,
+          mode: "enroll",
         }),
       });
       const verifyData = await verifyRes.json();
@@ -312,37 +286,20 @@ export default function SetupMFA() {
       }
 
       const nowIso = new Date().toISOString();
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          mfaMethod: "totp",
-          mfaEnabled: true,
-          mfaSecret: authSecret,
-          mfaEnrolledAt: nowIso,
-          mfaResetRequired: false,
-          updatedAt: nowIso,
-        },
-        { merge: true }
-      );
-
       setUserData((prev) => ({
         ...(prev || {}),
         mfaMethod: "totp",
         mfaEnabled: true,
-        mfaSecret: authSecret,
         mfaEnrolledAt: nowIso,
         mfaResetRequired: false,
       }));
-      clearPendingMfaSetup(
-        typeof window !== "undefined" ? window.sessionStorage : null,
-        user.uid
-      );
 
       markMfaVerified(
         typeof window !== "undefined" ? window.localStorage : null,
         user.uid,
         { daysValid: 30 }
       );
+      await sendLoginNotification(user, "mfa-enrollment");
       await routeUserToWorkspace(user);
     } catch (err) {
       setError("Error enabling authenticator: " + err.message);
@@ -355,6 +312,22 @@ export default function SetupMFA() {
   const authenticatorDone = hasAuthenticatorMfa(userData);
   const canEditPhone = !phoneDone && !saving;
 
+  const handleBackToLogin = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      const uid = auth.currentUser?.uid;
+      clearMfaVerified(typeof window !== "undefined" ? window.localStorage : null, uid);
+      clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, uid);
+      await signOut(auth);
+      router.replace("/login");
+    } catch (err) {
+      setError(err?.message || "Could not return to login.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.formSide}>
@@ -364,6 +337,14 @@ export default function SetupMFA() {
             Verify your phone number, then connect your authenticator app before entering
             the system.
           </p>
+          <button
+            type="button"
+            onClick={handleBackToLogin}
+            style={styles.backButton}
+            disabled={saving}
+          >
+            Back to login
+          </button>
 
           {!phoneDone ? (
             <div style={styles.section}>
@@ -535,6 +516,18 @@ const styles = {
     padding: "12px",
     backgroundColor: "#1f2937",
     color: "#fff",
+    border: "1px solid #374151",
+    borderRadius: "6px",
+    fontSize: "15px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  backButton: {
+    width: "100%",
+    padding: "10px 12px",
+    marginBottom: "14px",
+    backgroundColor: "#111827",
+    color: "#dbeafe",
     border: "1px solid #374151",
     borderRadius: "6px",
     fontSize: "15px",
