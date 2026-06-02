@@ -112,6 +112,22 @@ function publicUser({ id, data = {} }) {
   };
 }
 
+function publicEmployee({ id, data = {} }) {
+  return {
+    id,
+    uid: data.uid || "",
+    authUid: data.authUid || "",
+    email: cleanEmail(data.email || data.workEmail || data.personalEmail || data.emailAddress),
+    name: data.name || data.fullName || data.employeeName || "",
+    role: data.role || "employee",
+    active: data.active !== false && data.archived !== true && data.disabled !== true,
+    isService: data.isService === true,
+    companyId: data.companyId || DEFAULT_COMPANY_ID,
+    userCodePresent: !!(data.userCode || data.employeeCode || data.code || data.loginCode),
+    updatedAt: data.updatedAt || "",
+  };
+}
+
 function sanitizeCompanyPatch(raw = {}) {
   const patch = {};
 
@@ -197,11 +213,12 @@ export async function GET(req) {
     const admin = await requirePlatformAdmin(req);
     if (admin.error) return admin.error;
 
-    const [companyDocs, userDocs, employeeDocs, auditDocs, passkeyDocs] = await Promise.all([
+    const [companyDocs, userDocs, employeeDocs, auditDocs, loginLogDocs, passkeyDocs] = await Promise.all([
       adminListDocuments("platformCompanies"),
       adminListDocuments("users"),
       adminListDocuments("employees"),
       adminListDocuments("adminAuditLogs"),
+      adminListDocuments("loginSecurityLogs"),
       adminListDocuments("passkeyCredentials"),
     ]);
 
@@ -215,6 +232,10 @@ export async function GET(req) {
       .filter((user) => user.email)
       .sort((a, b) => a.email.localeCompare(b.email));
 
+    const employees = employeeDocs
+      .map(publicEmployee)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     const passkeyCountsByUid = passkeyDocs.reduce((acc, { data }) => {
       const uid = String(data?.uid || "").trim();
       if (uid) acc[uid] = (acc[uid] || 0) + 1;
@@ -226,9 +247,23 @@ export async function GET(req) {
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       .slice(0, 80);
 
+    const loginLogs = loginLogDocs
+      .map(({ id, data }) => ({
+        id,
+        email: cleanEmail(data.email),
+        uid: data.uid || "",
+        loginMethod: data.loginMethod || data.method || "",
+        status: data.status || "",
+        employeeId: data.employeeId || "",
+        createdAt: data.createdAt || "",
+      }))
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, 120);
+
     return Response.json({
       ok: true,
       companies,
+      employees,
       users: users.map((user) => ({
         ...user,
         passkeyCount: passkeyCountsByUid[user.uid] || passkeyCountsByUid[user.id] || 0,
@@ -241,6 +276,7 @@ export async function GET(req) {
         mfaMissing: users.filter((user) => !user.mfaEnabled).length,
       },
       audits,
+      loginLogs,
     });
   } catch (error) {
     console.error("Platform admin load failed:", error);

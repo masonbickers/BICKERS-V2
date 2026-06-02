@@ -744,7 +744,7 @@ export default function VehicleMaintenancePage() {
                           padding: "5px 10px",
                           background: UI.brand,
                           color: "#fff",
-                          borderBottom: "1px solid #183d64",
+                          borderBottom: "1px solid #5b92ce",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
