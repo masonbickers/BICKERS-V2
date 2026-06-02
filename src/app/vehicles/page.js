@@ -205,6 +205,19 @@ const getInsuredUntil = (vehicle) =>
 
 const getTaxedUntil = (vehicle) => vehicle?.nextRFL || "";
 
+const clearTaxDateFields = {
+  nextRFL: "",
+  taxedUntil: "",
+  taxExpiry: "",
+  taxExpiryDate: "",
+  rflDueDate: "",
+};
+
+const normalizeTaxStatusValue = (value) => {
+  const clean = String(value || "").trim();
+  return clean.toLowerCase() === "sorn" ? "Sorn" : clean;
+};
+
 const getInsuranceStatus = (vehicle) => {
   const status = String(vehicle?.insuranceStatus || "").trim() || "Insured";
   const expiry = safeDate(getInsuredUntil(vehicle));
@@ -247,11 +260,16 @@ export default function VehicleMaintenancePage() {
   const fetchVehicles = async () => {
     const snapshot = await getDocs(collection(db, "vehicles"));
     const list = snapshot.docs.map((d) => normalizeVehicleRecord({ id: d.id, ...d.data() }));
-    const normalisedList = list.map((vehicle) =>
-      isInsuranceExpired(vehicle) && vehicle.insuranceStatus !== "Not Insured"
-        ? { ...vehicle, insuranceStatus: "Not Insured" }
-        : vehicle
-    );
+    const normalisedList = list.map((vehicle) => {
+      let next = vehicle;
+      if (isInsuranceExpired(next) && next.insuranceStatus !== "Not Insured") {
+        next = { ...next, insuranceStatus: "Not Insured" };
+      }
+      if (norm(next.taxStatus) === "sorn" && getTaxedUntil(next)) {
+        next = { ...next, taxStatus: "Sorn", ...clearTaxDateFields };
+      }
+      return next;
+    });
     setVehicles(normalisedList);
 
     const expiredInsuranceUpdates = list.filter(
@@ -263,6 +281,15 @@ export default function VehicleMaintenancePage() {
           updateDoc(doc(db, "vehicles", vehicle.id), { insuranceStatus: "Not Insured" })
         )
       ).catch((err) => console.error("Failed to sync expired insurance statuses:", err));
+    }
+
+    const sornTaxDateUpdates = list.filter((vehicle) => norm(vehicle.taxStatus) === "sorn" && getTaxedUntil(vehicle));
+    if (sornTaxDateUpdates.length) {
+      Promise.allSettled(
+        sornTaxDateUpdates.map((vehicle) =>
+          updateDoc(doc(db, "vehicles", vehicle.id), { taxStatus: "Sorn", ...clearTaxDateFields })
+        )
+      ).catch((err) => console.error("Failed to clear SORN tax dates:", err));
     }
 
     const categories = Array.from(new Set(normalisedList.map((v) => v.category).filter(Boolean))).sort(categorySort);
@@ -342,9 +369,10 @@ export default function VehicleMaintenancePage() {
 
   const handleTaxStatusChange = async (vehicle, value) => {
     if (!vehicle?.id) return;
+    const nextValue = normalizeTaxStatusValue(value);
 
-    if (value !== "Taxed") {
-      await handleSelectChange(vehicle.id, "taxStatus", value, { nextRFL: "" });
+    if (nextValue !== "Taxed") {
+      await handleSelectChange(vehicle.id, "taxStatus", nextValue, clearTaxDateFields);
       return;
     }
 
@@ -841,7 +869,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: UI.red, fontWeight: 900 } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "#000", fontWeight: 900 } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
