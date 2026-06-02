@@ -97,7 +97,7 @@ export default function LoginPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = new Error(data?.error || "Invalid email or user code.");
+      const err = new Error(data?.error || "Invalid email or setup code.");
       err.status = res.status;
       throw err;
     }
@@ -196,7 +196,7 @@ export default function LoginPage() {
         return;
       }
       if (String(err?.code || "").includes("invalid-credential")) {
-        setError("Login failed. Check the email and user code.");
+        setError("Login failed. Check the email and password or setup code.");
         return;
       }
       setError(err?.message || "Login error");
@@ -300,7 +300,7 @@ export default function LoginPage() {
 
           <>
               <h1 style={styles.title}>Welcome back</h1>
-              <p style={styles.subtitle}>Enter your email and user code</p>
+              <p style={styles.subtitle}>Enter your email and password or setup code</p>
 
               <form onSubmit={handleSubmit}>
                 <label style={styles.label}>Email address</label>
@@ -312,7 +312,7 @@ export default function LoginPage() {
                   style={styles.input}
                 />
 
-                <label style={styles.label}>User code</label>
+                <label style={styles.label}>Password or setup code</label>
                 <input
                   type="password"
                   value={password}

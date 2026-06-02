@@ -12,7 +12,6 @@ import {
   getDocs,
   setDoc,
   addDoc,
-  deleteField,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -25,6 +24,7 @@ import {
   Activity,
   CalendarDays,
   HeartPulse,
+  ListChecks,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -71,6 +71,7 @@ const Tabs = {
   HOLIDAY: "Holiday Allowance",
   SICK: "Sick Leave",
   ACTIVITY: "Activity",
+  AUDIT: "Audit Log",
   APRIL_FOOLS: "April Fools",
 };
 
@@ -79,6 +80,7 @@ const TAB_ICONS = {
   [Tabs.HOLIDAY]: CalendarDays,
   [Tabs.SICK]: HeartPulse,
   [Tabs.ACTIVITY]: Activity,
+  [Tabs.AUDIT]: ListChecks,
   [Tabs.APRIL_FOOLS]: ShieldCheck,
 };
 
@@ -122,17 +124,6 @@ const fmtYMD = (v) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const fmtDateTime = (v) => {
-  const d = toDateSafe(v);
-  if (!d) return "-";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
-};
-
 const toISO = (d) => (d ? d : "");
 
 const tsToMs = (t) => {
@@ -160,53 +151,6 @@ const bestUserDoc = (a, b) => {
   return a;
 };
 
-const hasAdminMfaEnrollment = (user = {}) =>
-  user?.mfaResetRequired !== true &&
-  user?.mfaEnabled === true &&
-  typeof user?.mfaSecret === "string" &&
-  user.mfaSecret.trim().length > 0;
-
-const mergeUserDocForAdmin = (a, b) => {
-  const primary = bestUserDoc(a, b);
-  const secondary = primary === a ? b : a;
-  const duplicateIds = [
-    ...(Array.isArray(primary?._duplicateIds) ? primary._duplicateIds : [primary?.id]),
-    ...(Array.isArray(secondary?._duplicateIds) ? secondary._duplicateIds : [secondary?.id]),
-  ].filter(Boolean);
-  const mfaSource = hasAdminMfaEnrollment(primary)
-    ? primary
-    : hasAdminMfaEnrollment(secondary)
-    ? secondary
-    : null;
-  const phoneSource =
-    [primary, secondary].find(
-      (item) => item?.phoneVerified === true || item?.phone || item?.mfaPhoneNumber
-    ) || {};
-  const merged = {
-    ...secondary,
-    ...primary,
-    _duplicateIds: [...new Set(duplicateIds)],
-  };
-
-  if (phoneSource.phoneVerified === true && merged.phoneVerified !== true) {
-    merged.phoneVerified = true;
-    merged.phoneVerifiedAt = merged.phoneVerifiedAt || phoneSource.phoneVerifiedAt || "";
-  }
-  merged.phone = merged.phone || phoneSource.phone || phoneSource.mfaPhoneNumber || "";
-  merged.mfaPhoneNumber =
-    merged.mfaPhoneNumber || phoneSource.mfaPhoneNumber || phoneSource.phone || "";
-
-  if (!hasAdminMfaEnrollment(merged) && mfaSource && merged.mfaResetRequired !== true) {
-    merged.mfaEnabled = true;
-    merged.mfaMethod = mfaSource.mfaMethod || "totp";
-    merged.mfaSecret = mfaSource.mfaSecret;
-    merged.mfaEnrolledAt = merged.mfaEnrolledAt || mfaSource.mfaEnrolledAt || "";
-    merged.mfaResetRequired = false;
-  }
-
-  return merged;
-};
-
 const daysBetweenInclusive = (startISO, endISO) => {
   if (!startISO || !endISO) return 0;
   const s = new Date(startISO + "T00:00:00");
@@ -226,6 +170,8 @@ export default function AdminPage() {
   const [qText, setQText] = useState("");
   const [toast, setToast] = useState(null);
   const [resettingMfaUserId, setResettingMfaUserId] = useState("");
+  const [deletingUserId, setDeletingUserId] = useState("");
+  const [migratingMfaSecrets, setMigratingMfaSecrets] = useState(false);
 
   // Data
   const [users, setUsers] = useState([]); // de-duped list
@@ -241,6 +187,8 @@ export default function AdminPage() {
   const [activityRows, setActivityRows] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityDay, setActivityDay] = useState(() => fmtYMD(new Date()));
+  const [auditRows, setAuditRows] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [systemRecovered, setSystemRecovered] = useState(false);
 
   // Sick form (add)
@@ -259,6 +207,67 @@ export default function AdminPage() {
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 2200);
+  };
+
+  const callAdminUserAction = async (userId, payload) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("You need to sign in again.");
+
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Admin action failed.");
+    return data;
+  };
+
+  const callAdminUserDelete = async (userId) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("You need to sign in again.");
+
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Delete failed.");
+    return data;
+  };
+
+  const migrateMfaSecrets = async () => {
+    if (
+      !confirm(
+        "Move legacy MFA secrets out of user records?\n\nThis should be run once after deploying the private MFA store."
+      )
+    ) {
+      return;
+    }
+
+    setMigratingMfaSecrets(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("You need to sign in again.");
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/migrate-mfa-secrets", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "MFA migration failed.");
+      showToast("ok", `Migrated ${data?.migrated || 0} MFA secret(s)`);
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "MFA migration failed");
+    } finally {
+      setMigratingMfaSecrets(false);
+    }
   };
 
   /* -------------------------------------------
@@ -347,6 +356,7 @@ export default function AdminPage() {
       fetchAllowances(),
       fetchSickLeaves(),
       fetchActivity(),
+      fetchAuditLogs(),
     ]);
   };
 
@@ -365,7 +375,7 @@ export default function AdminPage() {
 
       const existing = byEmail.get(email);
       if (!existing) byEmail.set(email, r);
-      else byEmail.set(email, mergeUserDocForAdmin(existing, r));
+      else byEmail.set(email, bestUserDoc(existing, r));
     }
 
     const deduped = Array.from(byEmail.values()).sort((a, b) =>
@@ -528,25 +538,52 @@ export default function AdminPage() {
     }
   };
 
+  const fetchAuditLogs = async () => {
+    setAuditLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "adminAuditLogs"), orderBy("createdAt", "desc"), limit(200))
+      );
+      setAuditRows(
+        snap.docs.map((docSnap) => {
+          const data = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            ...data,
+            at: toDateSafe(data.createdAt),
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Failed to load admin audit logs:", err);
+      setAuditRows([]);
+      showToast("error", "Could not load audit logs");
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   /* -------------------------------------------
      Access management
   -------------------------------------------- */
   const updateUserRole = async (userId, role) => {
-    await updateDoc(doc(db, "users", userId), {
-      role,
-      updatedAt: serverTimestamp(),
-    });
-    showToast("ok", "Role updated");
-    await fetchUsers();
+    try {
+      await callAdminUserAction(userId, { action: "setRole", role });
+      showToast("ok", "Role updated");
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to update role");
+    }
   };
 
   const toggleUserEnabled = async (userId, current) => {
-    await updateDoc(doc(db, "users", userId), {
-      isEnabled: !current,
-      updatedAt: serverTimestamp(),
-    });
-    showToast("ok", !current ? "User enabled" : "User disabled");
-    await fetchUsers();
+    try {
+      await callAdminUserAction(userId, { action: "setEnabled", isEnabled: !current });
+      showToast("ok", !current ? "User enabled" : "User disabled");
+      await fetchUsers();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to update user");
+    }
   };
 
   const resetUserMfa = async (targetUser) => {
@@ -563,31 +600,39 @@ export default function AdminPage() {
 
     setResettingMfaUserId(targetUser.id);
     try {
-      const targetIds = Array.isArray(targetUser._duplicateIds) && targetUser._duplicateIds.length
-        ? targetUser._duplicateIds
-        : [targetUser.id];
-      await Promise.all(
-        [...new Set(targetIds)].map((userId) =>
-          updateDoc(doc(db, "users", userId), {
-            mfaEnabled: false,
-            mfaMethod: "",
-            mfaSecret: deleteField(),
-            mfaEnrolledAt: deleteField(),
-            mfaResetRequired: true,
-            mfaResetAt: serverTimestamp(),
-            mfaResetBy: me?.email || "admin",
-            mfaResetByUid: me?.uid || "",
-            updatedAt: serverTimestamp(),
-            updatedBy: me?.email || "admin",
-          })
-        )
-      );
+      await callAdminUserAction(targetUser.id, { action: "resetMfa" });
       showToast("ok", "MFA reset. User must set up Authenticator again.");
       await fetchUsers();
     } catch (e) {
       showToast("error", e?.message || "Failed to reset MFA");
     } finally {
       setResettingMfaUserId("");
+    }
+  };
+
+  const deleteAccessAccount = async (targetUser) => {
+    if (!targetUser?.id) return;
+
+    const label = targetUser.email || targetUser.name || targetUser.id;
+    if (
+      !confirm(
+        `Delete access account for ${label}?\n\nThis removes their Firestore access record and MFA secret record. It does not delete bookings, employees, timesheets, or the Firebase Authentication login.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingUserId(targetUser.id);
+    try {
+      const data = await callAdminUserDelete(targetUser.id);
+      const count = Number(data?.deletedUserDocs || 1);
+      showToast("ok", `Deleted ${count} access record${count === 1 ? "" : "s"}`);
+      await fetchUsers();
+      await fetchAuditLogs();
+    } catch (e) {
+      showToast("error", e?.message || "Failed to delete access account");
+    } finally {
+      setDeletingUserId("");
     }
   };
 
@@ -742,6 +787,25 @@ export default function AdminPage() {
     );
   }, [users, qText]);
 
+  const filteredAuditRows = useMemo(() => {
+    const q = qText.trim().toLowerCase();
+    if (!q) return auditRows;
+    return auditRows.filter((row) =>
+      [
+        row.action,
+        row.area,
+        row.actorEmail,
+        row.actorUid,
+        row.targetUserId,
+        row.details ? JSON.stringify(row.details) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [auditRows, qText]);
+
   const activityByHour = useMemo(() => {
     const selectedDay = String(activityDay || "").trim();
     const counts = Array.from({ length: 24 }, (_, hour) => ({
@@ -834,6 +898,8 @@ export default function AdminPage() {
                 placeholder={
                   activeTab === Tabs.ACTIVITY
                     ? "Search activity (user, action, area)..."
+                    : activeTab === Tabs.AUDIT
+                    ? "Search audit log..."
                     : activeTab === Tabs.ACCESS
                     ? "Search users..."
                     : "Search employees (name or email)..."
@@ -841,6 +907,15 @@ export default function AdminPage() {
                 style={headerSearchInputStyle}
               />
             </div>
+
+            <button
+              onClick={() => router.push("/admin/security-audit")}
+              style={btnStyle}
+              title="Review user access and MFA readiness"
+            >
+              <ShieldCheck size={14} />
+              Security audit
+            </button>
 
             <button
               onClick={() => router.push("/deleted-bookings")}
@@ -854,6 +929,22 @@ export default function AdminPage() {
             <button onClick={bootstrap} style={btnStyle} title="Refresh">
               <RefreshCw size={14} />
               Refresh
+            </button>
+
+            <button
+              onClick={migrateMfaSecrets}
+              disabled={migratingMfaSecrets}
+              style={{
+                ...btnStyle,
+                background: migratingMfaSecrets ? "#f1f5f9" : UI.warnSoft,
+                borderColor: "#fed7aa",
+                color: migratingMfaSecrets ? UI.muted : UI.warn,
+                cursor: migratingMfaSecrets ? "wait" : "pointer",
+              }}
+              title="Move legacy MFA secrets into the private server store"
+            >
+              <ShieldCheck size={14} />
+              {migratingMfaSecrets ? "Migrating..." : "Migrate MFA"}
             </button>
 
             {showAprilFools && (
@@ -977,9 +1068,13 @@ export default function AdminPage() {
                         const email = (u.email || "").toLowerCase();
                         const locked = ADMIN_EMAILS.includes(email);
                         const enabled = u.isEnabled ?? true;
-                        const mfaEnabled = hasAdminMfaEnrollment(u);
-                        const mfaSetupAt = fmtDateTime(u.mfaEnrolledAt);
+                        const mfaEnabled = u.mfaEnabled === true && u.mfaMethod === "totp";
                         const resetInProgress = resettingMfaUserId === u.id;
+                        const deleteInProgress = deletingUserId === u.id;
+                        const isSelf =
+                          (me?.uid && u.id === me.uid) ||
+                          (me?.email && email === String(me.email).trim().toLowerCase());
+                        const deleteBlocked = locked || isSelf || deleteInProgress;
 
                         return (
                           <tr key={u.id} style={rowStyle}>
@@ -1015,11 +1110,6 @@ export default function AdminPage() {
                               <span style={{ fontWeight: 900, color: mfaEnabled ? UI.ok : UI.warn }}>
                                 {mfaEnabled ? "Enabled" : "Needs setup"}
                               </span>
-                              {mfaEnabled ? (
-                                <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
-                                  Set up: {mfaSetupAt === "-" ? "date unknown" : mfaSetupAt}
-                                </div>
-                              ) : null}
                               {u.mfaResetRequired ? (
                                 <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
                                   Reset requested
@@ -1063,6 +1153,33 @@ export default function AdminPage() {
                                 >
                                   <ShieldCheck size={14} />
                                   {resetInProgress ? "Resetting..." : "Reset MFA"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => deleteAccessAccount(u)}
+                                  disabled={deleteBlocked}
+                                  style={{
+                                    ...btnStyle,
+                                    borderColor: "#fecaca",
+                                    background: deleteBlocked ? "#f1f5f9" : "#fff1f2",
+                                    color: deleteBlocked ? UI.muted : UI.danger,
+                                    cursor: deleteInProgress
+                                      ? "wait"
+                                      : deleteBlocked
+                                        ? "not-allowed"
+                                        : "pointer",
+                                  }}
+                                  title={
+                                    locked
+                                      ? "Admin gate accounts cannot be deleted"
+                                      : isSelf
+                                        ? "You cannot delete your own access account"
+                                        : "Delete this Firestore access account"
+                                  }
+                                >
+                                  <Trash2 size={14} />
+                                  {deleteInProgress ? "Deleting..." : "Delete"}
                                 </button>
                               </div>
                             </Td>
@@ -1539,6 +1656,106 @@ export default function AdminPage() {
                           </Td>
                         </tr>
                       ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {activeTab === Tabs.AUDIT && (
+            <Card
+              title="Admin Audit Log"
+              subtitle="Security-sensitive admin actions including role changes, user enable/disable, MFA resets and MFA migration."
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 10,
+                }}
+              >
+                <span style={pillStyle}>Showing {filteredAuditRows.length}</span>
+                <button onClick={fetchAuditLogs} style={btnStyle}>
+                  Refresh audit log
+                </button>
+              </div>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <Th>When</Th>
+                      <Th>Admin</Th>
+                      <Th>Action</Th>
+                      <Th>Target</Th>
+                      <Th>Details</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLoading ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          Loading audit log...
+                        </td>
+                      </tr>
+                    ) : filteredAuditRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={emptyTd}>
+                          No audit log entries found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAuditRows.map((row) => {
+                        const details = row.details && typeof row.details === "object"
+                          ? Object.entries(row.details)
+                              .map(([key, value]) => `${key}: ${String(value)}`)
+                              .join(" | ")
+                          : String(row.details || "");
+
+                        return (
+                          <tr key={row.id} style={rowStyle}>
+                            <Td>
+                              <div style={{ fontWeight: 900, color: UI.text }}>
+                                {row.at
+                                  ? row.at.toLocaleTimeString("en-GB", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "-"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.at ? row.at.toLocaleDateString("en-GB") : "-"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ fontWeight: 800, color: UI.text }}>
+                                {row.actorEmail || "Unknown"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.actorUid || ""}
+                              </div>
+                            </Td>
+                            <Td>
+                              <span style={pillStyle}>{row.action || "Admin action"}</span>
+                            </Td>
+                            <Td>
+                              <div style={{ fontWeight: 800, color: UI.text }}>
+                                {row.targetUserId || "-"}
+                              </div>
+                              <div style={{ marginTop: 2, fontSize: 11.5, color: UI.muted }}>
+                                {row.area || "Access"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ color: UI.text }}>{details || "-"}</div>
+                            </Td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
