@@ -130,8 +130,8 @@ export const DEFAULT_FEATURE_FLAGS = {
 };
 
 export const MODULE_ROUTE_PREFIXES = {
-  diary: ["/dashboard", "/booking-page", "/wall-view"],
-  bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page", "/wall-view"],
+  diary: ["/dashboard", "/booking-page"],
+  bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page"],
   workshop: ["/workshop", "/service", "/service-home", "/service-overview", "/maintenance", "/maintenance-jobs", "/mot-overview", "/mot-history-sync", "/defects", "/general", "/immediate", "/usage-overview"],
   vehicles: ["/vehicle-home", "/vehicles", "/vehicle-edit", "/vehicle-info", "/vehicle-activity", "/vehicle-checks", "/vehicle-checkid", "/equipment", "/add-equipment", "/edit-equipment", "/mot-overview", "/mot-history-sync", "/preplist", "/preplist-dashboard"],
   equipment: ["/equipment", "/add-equipment", "/edit-equipment"],

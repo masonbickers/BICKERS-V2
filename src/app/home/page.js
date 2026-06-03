@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
@@ -15,7 +15,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
 import moment from "moment";
-import { auth, db } from "../../../firebaseConfig";
+import { db } from "../../../firebaseConfig";
 import { getDocs } from "firebase/firestore";
 import {
   dataAccessKey,
@@ -33,11 +33,13 @@ import {
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import {
-  Bot,
   CalendarDays,
   ClipboardList,
   Plus,
+  Users,
+  Car,
   Wrench,
+  Package,
 } from "lucide-react";
 
 /* ───────────────────────────────────────────
@@ -421,6 +423,8 @@ const getColorByStatus = (status = "") => {
       return "#f97316";
     case "holiday":
       return "#d3d3d3";
+    case "note":
+      return "#ccfbf1";
     case "workshop":
       return "#da8e58ff";
     case "complete":
@@ -428,6 +432,39 @@ const getColorByStatus = (status = "") => {
     default:
       return "#c2c2c2";
   }
+};
+
+const asHolidayEvent = (docSnap) => {
+  const data = docSnap.data() || {};
+  const start = toJSDate(data.startDate);
+  const end = toJSDate(data.endDate || data.startDate) || start;
+  if (!start) return null;
+  const safeStart = startOfDay(start);
+  const safeEnd = end && end >= start ? startOfDay(end) : safeStart;
+  return {
+    id: docSnap.id,
+    title: `${data.employee || data.employeeCode || "Employee"} - Holiday`,
+    start: safeStart,
+    end: new Date(safeEnd.getFullYear(), safeEnd.getMonth(), safeEnd.getDate() + 1),
+    allDay: true,
+    status: "holiday",
+    employee: data.employee || data.employeeCode || "Employee",
+  };
+};
+
+const asNoteEvent = (docSnap) => {
+  const data = docSnap.data() || {};
+  const date = toJSDate(data.date);
+  if (!date) return null;
+  const day = startOfDay(date);
+  return {
+    id: docSnap.id,
+    title: data.text || "Note",
+    start: day,
+    end: new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1),
+    allDay: true,
+    status: "note",
+  };
 };
 
 const isApptAfterExpiry = (appt, expiry) => {
@@ -499,7 +536,6 @@ function Bucket({ title, items }) {
 ──────────────────────────────────────────────────────────────────────────── */
 export default function HomePage() {
   const router = useRouter();
-  const pathname = usePathname();
   const authAccess = useAuth() || {};
   const dataAccessState = useMemo(
     () => ({
@@ -516,13 +552,11 @@ export default function HomePage() {
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
-
-  // Assistant UI
-  const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [dataState, setDataState] = useState({ status: "loading", message: "" });
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
 
@@ -548,13 +582,27 @@ export default function HomePage() {
   // Fetch data
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
-    if (gate.checking) return;
+    if (gate.checking) {
+      setDataState({ status: "loading", message: "Loading home data..." });
+      return;
+    }
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read home data" });
+      setBookings([]);
+      setVehicles([]);
+      setMaintenanceBookings([]);
+      setMaintenanceJobs([]);
+      setHolidays([]);
+      setNotes([]);
+      setDataState({
+        status: "denied",
+        message: gate.reason || "This account cannot access company dashboard data.",
+      });
       return;
     }
 
     const run = async () => {
+      setDataState({ status: "loading", message: "Loading home data..." });
       const snap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setBookings(rows);
@@ -567,11 +615,23 @@ export default function HomePage() {
 
       const mjSnap = await getDocs(tenantCollectionQuery(db, "maintenanceJobs", dataAccessState));
       setMaintenanceJobs(mjSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+
+      const hSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
+      setHolidays(hSnap.docs.map(asHolidayEvent).filter(Boolean));
+
+      const nSnap = await getDocs(tenantCollectionQuery(db, "notes", dataAccessState));
+      setNotes(nSnap.docs.map(asNoteEvent).filter(Boolean));
+
+      setDataState({ status: "ready", message: "" });
     };
     run().catch((error) => {
       if (!handleFirestoreAccessError(error, { collectionName: "home", operation: "read home data" })) {
         console.error("[home] data load error:", error);
       }
+      setDataState({
+        status: "error",
+        message: "Home data could not be loaded. Check account permissions and try again.",
+      });
     });
   }, [accessKey, dataAccessState]);
 
@@ -631,6 +691,43 @@ export default function HomePage() {
   const maintenanceCalendarEvents = useMemo(
     () => [...maintenanceBookingEvents, ...maintenanceJobEvents, ...motServiceDueEvents],
     [maintenanceBookingEvents, maintenanceJobEvents, motServiceDueEvents]
+  );
+  const homeCalendarEvents = useMemo(
+    () => [
+      ...events.map((e) => ({
+        id: `booking__${e.id}`,
+        title: `${e.jobNumber} - ${e.client}`,
+        start: e.start,
+        end: e.end,
+        allDay: true,
+        status: e.status,
+        sourceType: "booking",
+        sourceId: e.id,
+        backgroundColor: getColorByStatus(e.status),
+      })),
+      ...holidays.map((h) => ({
+        ...h,
+        id: `holiday__${h.id}`,
+        sourceType: "holiday",
+        sourceId: h.id,
+        backgroundColor: getColorByStatus("holiday"),
+      })),
+      ...notes.map((n) => ({
+        ...n,
+        id: `note__${n.id}`,
+        sourceType: "note",
+        sourceId: n.id,
+        backgroundColor: getColorByStatus("note"),
+      })),
+      ...maintenanceCalendarEvents.map((m) => ({
+        ...m,
+        id: `maintenance__${m.id}`,
+        sourceType: "maintenance",
+        sourceId: m.id,
+        backgroundColor: getColorByStatus("maintenance"),
+      })),
+    ],
+    [events, holidays, maintenanceCalendarEvents, notes]
   );
 
   const now = useMemo(() => new Date(), []);
@@ -786,37 +883,6 @@ export default function HomePage() {
     }, 80);
   }, [createBookingOpening, router]);
 
-  // Assistant call
-  const askAssistant = async () => {
-    setLoading(true);
-    try {
-      const idToken = await auth.currentUser?.getIdToken?.();
-      if (!idToken) {
-        throw new Error("Please sign in again.");
-      }
-
-      const res = await fetch("/api/chatgpt", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ prompt: input }),
-      });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || "Something went wrong.");
-      }
-      const data = await res.json();
-      setResponse(data.reply || "No response.");
-    } catch (err) {
-      console.error(err);
-      setResponse(err.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
@@ -829,11 +895,54 @@ export default function HomePage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={chip}>Operations overview</span>
+              <span
+                style={{
+                  ...chip,
+                  background:
+                    dataState.status === "ready"
+                      ? "#ecfdf5"
+                      : dataState.status === "denied" || dataState.status === "error"
+                        ? "#fef2f2"
+                        : "#fffbeb",
+                  borderColor:
+                    dataState.status === "ready"
+                      ? "#bbf7d0"
+                      : dataState.status === "denied" || dataState.status === "error"
+                        ? "#fecaca"
+                        : "#fde68a",
+                  color:
+                    dataState.status === "ready"
+                      ? "#166534"
+                      : dataState.status === "denied" || dataState.status === "error"
+                        ? "#991b1b"
+                        : "#92400e",
+                }}
+                title={dataState.message || "Home data loaded."}
+              >
+                Data: {dataState.status === "ready" ? "Loaded" : dataState.status}
+              </span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
                 Window: <b style={{ marginLeft: 6 }}>{windowDays}d</b>
               </span>
             </div>
           </div>
+
+          {dataState.status !== "ready" && (
+            <div
+              style={{
+                ...surface,
+                padding: "10px 12px",
+                marginBottom: 12,
+                background: dataState.status === "denied" || dataState.status === "error" ? "#fef2f2" : "#fffbeb",
+                borderColor: dataState.status === "denied" || dataState.status === "error" ? "#fecaca" : "#fde68a",
+                color: dataState.status === "denied" || dataState.status === "error" ? "#991b1b" : "#92400e",
+                fontSize: 13,
+                fontWeight: 800,
+              }}
+            >
+              {dataState.message || "Loading home data..."}
+            </div>
+          )}
 
           <div className="home-puzzle-grid">
             <section className="home-tile home-window-tile" style={{ ...executivePanel, display: "grid", gap: 10 }}>
@@ -909,30 +1018,27 @@ export default function HomePage() {
                   height={462}
                   dayMaxEventRows={3}
                   moreLinkClick="popover"
-                  events={[
-                    ...events.map((e) => ({
-                      id: e.id,
-                      title: `${e.jobNumber} - ${e.client}`,
-                      start: e.start,
-                      end: e.end,
-                      allDay: true,
-                      backgroundColor: getColorByStatus(e.status),
-                    })),
-                    ...maintenanceCalendarEvents.map((m) => ({
-                      ...m,
-                      backgroundColor: getColorByStatus("maintenance"),
-                    })),
-                  ]}
+                  events={homeCalendarEvents}
                   eventClick={(info) => {
-                    const id = info.event.id;
+                    const id = info.event.extendedProps?.sourceId || info.event.id;
+                    const sourceType = info.event.extendedProps?.sourceType || "";
                     if (!id) return;
-                    const maintenanceEvent = maintenanceCalendarEvents.find((event) => event.id === id);
-                    if (maintenanceEvent) {
+                    if (sourceType === "maintenance") {
+                      const maintenanceEvent = maintenanceCalendarEvents.find((event) => event.id === id);
+                      if (!maintenanceEvent) return;
                       if (maintenanceEvent.__collection === "maintenanceJobs") {
                         router.push("/maintenance-jobs");
                         return;
                       }
                       setSelectedMaintenanceEvent(maintenanceEvent);
+                      return;
+                    }
+                    if (sourceType === "holiday") {
+                      router.push(`/edit-holiday/${encodeURIComponent(id)}`);
+                      return;
+                    }
+                    if (sourceType === "note") {
+                      router.push(`/edit-note/${encodeURIComponent(id)}`);
                       return;
                     }
                     setSelectedBookingId(id);
@@ -956,6 +1062,8 @@ export default function HomePage() {
                   { label: "First Pencil", color: "#89caf5" },
                   { label: "Second Pencil", color: "#f73939" },
                   { label: "Maintenance", color: "#f97316" },
+                  { label: "Holiday", color: "#d3d3d3" },
+                  { label: "Note", color: "#ccfbf1" },
                 ].map((item) => (
                   <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid #d1d5db", borderRadius: 3 }} />
@@ -1103,59 +1211,35 @@ export default function HomePage() {
             <section className="home-tile home-assistant-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
-                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
-                    <Bot size={17} />
+                  <span style={iconBox("#1f4b7a", "#edf3f8", "#c8d6e3")}>
+                    <Plus size={17} />
                   </span>
                   <div>
-                    <h2 style={cardTitle}>Operations Assistant</h2>
-                    <div style={cardHint}>Ask about bookings, holidays and fleet maintenance without leaving the page.</div>
+                    <h2 style={cardTitle}>Quick Actions</h2>
+                    <div style={cardHint}>Open the core operational sections from the home hub.</div>
                   </div>
                 </div>
-                <span style={sectionTag}>AI support</span>
+                <span style={sectionTag}>v1.0 links</span>
               </div>
-
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about bookings, holidays, scheduling or fleet maintenance."
-                rows={3}
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 14,
-                  borderRadius: UI.radiusSm,
-                  border: UI.border,
-                  background: "#fff",
-                  color: UI.text,
-                  outline: "none",
-                }}
-              />
-
-              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-                <button onClick={askAssistant} disabled={loading} style={btnPrimary} type="button">
-                  {loading ? "Generating response..." : "Ask assistant"}
-                </button>
-                <button onClick={() => setInput("")} style={btnGhost} type="button">
-                  Clear
-                </button>
+              <div style={{ display: "grid", gap: 8 }}>
+                {[
+                  { label: "Create Booking", href: "/create-booking", icon: <Plus size={14} /> },
+                  { label: "Employees", href: "/employee-home", icon: <Users size={14} /> },
+                  { label: "Vehicles", href: "/vehicle-home", icon: <Car size={14} /> },
+                  { label: "Workshop", href: "/workshop", icon: <Wrench size={14} /> },
+                  { label: "Equipment", href: "/equipment", icon: <Package size={14} /> },
+                ].map((action) => (
+                  <button
+                    key={action.href}
+                    type="button"
+                    onClick={() => router.push(action.href)}
+                    style={{ ...btnGhost, width: "100%", justifyContent: "flex-start" }}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </button>
+                ))}
               </div>
-
-              {response ? (
-                <div
-                  style={{
-                    marginTop: 12,
-                    whiteSpace: "pre-wrap",
-                    background: "#f7fafc",
-                    padding: 14,
-                    borderRadius: UI.radiusSm,
-                    border: UI.border,
-                    color: UI.text,
-                  }}
-                >
-                  <div style={{ fontWeight: 900, marginBottom: 6 }}>Operations Assistant</div>
-                  <div style={{ color: UI.text, fontSize: 14 }}>{response}</div>
-                </div>
-              ) : null}
             </section>
           </div>
         </div>
