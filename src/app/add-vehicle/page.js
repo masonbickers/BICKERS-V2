@@ -8,6 +8,15 @@ import { db } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
 import { ArrowLeft, Save } from "lucide-react";
 
 /* UI tokens */
@@ -261,6 +270,8 @@ const sectionHasValue = (formData, section) =>
 
 export default function AddVehiclePage() {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
   const [isNumberPlateMode, setIsNumberPlateMode] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -288,8 +299,15 @@ export default function AddVehiclePage() {
   // Pull categories from existing vehicles so the dropdown stays consistent
   useEffect(() => {
     const loadCats = async () => {
+      const gate = resolveDataAccess(authState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load vehicle categories" });
+        return;
+      }
+
       try {
-        const snap = await getDocs(collection(db, "vehicles"));
+        const snap = await getDocs(tenantCollectionQuery(db, "vehicles", authState));
         const cats = snap.docs
           .map((d) => d.data()?.category)
           .filter(Boolean);
@@ -300,7 +318,7 @@ export default function AddVehiclePage() {
       }
     };
     loadCats();
-  }, []);
+  }, [accessKey, authState]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -486,6 +504,12 @@ export default function AddVehiclePage() {
     if (!canSave || saving) return false;
 
     const { navigateOnSuccess = true } = options;
+    const gate = resolveDataAccess(authState);
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "add vehicle" });
+      alert(gate.reason || "You do not have permission to add vehicles.");
+      return false;
+    }
 
     setSaving(true);
     try {
@@ -636,7 +660,7 @@ export default function AddVehiclePage() {
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "vehicles"), payload);
+      await addDoc(collection(db, "vehicles"), tenantPayload(authState, payload));
 
       alert(isNumberPlateMode ? "Number plate added" : "Vehicle added");
       if (navigateOnSuccess) {
@@ -645,6 +669,10 @@ export default function AddVehiclePage() {
       }
       return true;
     } catch (err) {
+      if (handleFirestoreAccessError(err, { collectionName: "vehicles", operation: "add vehicle" })) {
+        alert("You do not have permission to add vehicles.");
+        return false;
+      }
       console.error("Error adding vehicle:", err);
       alert("Failed to add vehicle");
       return false;

@@ -554,9 +554,9 @@ service cloud.firestore {
 
     match /vehicles/{vehicleId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if canCreateServiceTenantDoc();
-      allow update: if canUpdateServiceTenantDoc();
-      allow delete: if canDeleteServiceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /equipment/{equipmentId} {
