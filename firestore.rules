@@ -10,53 +10,13 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function isKnownAdminEmail() {
-      return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email in [
-          "mason@bickers.co.uk",
-          "paul@bickers.co.uk",
-          "adam@bickers.co.uk"
-        ];
-    }
-
-    function isCompanyEmail() {
-      return isSignedIn()
-        && (
-          (
-            request.auth.token.email is string
-            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
-          )
-        );
-    }
-
     function isNotDisabled() {
-      return isSignedIn()
-        && (
-          !userDocExists()
-          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false
-        );
+      return activeUserDocExists();
     }
 
     function activeUserDocExists() {
       return userDocExists()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false;
-    }
-
-    function isAdmin() {
-      return isNotDisabled()
-        && (
-          isKnownAdminEmail()
-          || (
-            userDocExists()
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["role"])
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
-          )
-        );
     }
 
     function currentUserAppAccessEnabled(workspace) {
@@ -79,6 +39,128 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
     }
 
+    function isPlatformAdmin() {
+      return activeUserDocExists()
+        && currentUserRoleIn([
+          "platformAdmin",
+          "platformadmin",
+          "platform admin",
+          "Platform Admin",
+          "superAdmin",
+          "superadmin",
+          "super admin",
+          "Super Admin"
+        ]);
+    }
+
+    function isAdmin() {
+      return isPlatformAdmin()
+        || (
+          activeUserDocExists()
+          && currentUserRoleIn([
+            "admin",
+            "Admin",
+            "companyAdmin",
+            "companyadmin",
+            "company admin",
+            "Company Admin"
+          ])
+        );
+    }
+
+    function canManageTenantData() {
+      return isAdmin();
+    }
+
+    function currentUserHasCompanyId() {
+      return activeUserDocExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["companyId"])
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId is string
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId != "";
+    }
+
+    function isCurrentUserCompany(companyId) {
+      return companyId is string
+        && currentUserHasCompanyId()
+        && companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
+    }
+
+    function existingDocInCurrentCompany() {
+      return resource.data.keys().hasAny(["companyId"])
+        && isCurrentUserCompany(resource.data.companyId);
+    }
+
+    function incomingDocInCurrentCompany() {
+      return request.resource.data.keys().hasAny(["companyId"])
+        && isCurrentUserCompany(request.resource.data.companyId);
+    }
+
+    function keepsCompanyId() {
+      return resource.data.keys().hasAny(["companyId"])
+        && request.resource.data.keys().hasAny(["companyId"])
+        && request.resource.data.companyId == resource.data.companyId;
+    }
+
+    function canReadUserTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && hasUserAccess());
+    }
+
+    function canCreateUserTenantDoc() {
+      return isPlatformAdmin()
+        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasUserAccess()));
+    }
+
+    function canUpdateUserTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasUserAccess()));
+    }
+
+    function canDeleteUserTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && canManageTenantData());
+    }
+
+    function canReadServiceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && (hasUserAccess() || hasServiceAccess()));
+    }
+
+    function canCreateServiceTenantDoc() {
+      return isPlatformAdmin()
+        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasServiceAccess()));
+    }
+
+    function canUpdateServiceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasServiceAccess()));
+    }
+
+    function canDeleteServiceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && (canManageTenantData() || hasServiceAccess()));
+    }
+
+    function canReadAnyWorkspaceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && (hasUserAccess() || hasServiceAccess()));
+    }
+
+    function canCreateAnyWorkspaceTenantDoc() {
+      return isPlatformAdmin()
+        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasUserAccess() || hasServiceAccess()));
+    }
+
+    function canUpdateAnyWorkspaceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasUserAccess() || hasServiceAccess()));
+    }
+
+    function canDeleteAnyWorkspaceTenantDoc() {
+      return isPlatformAdmin()
+        || (existingDocInCurrentCompany() && canManageTenantData());
+    }
+
     function currentUserIsService() {
       return userDocExists()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["isService"])
@@ -87,30 +169,51 @@ service cloud.firestore {
 
     function hasUserAccess() {
       return isAdmin()
-        || (isNotDisabled()
-          && isCompanyEmail()
+        || (
+          activeUserDocExists()
           && (
-            !userDocExists()
-            || currentUserAppAccessEnabled("user")
+            currentUserAppAccessEnabled("user")
             || currentUserDefaultWorkspaceIs("user")
-            || currentUserRoleIn(["user", "employee", "hybrid"])
-          ));
+            || currentUserRoleIn([
+              "user",
+              "User",
+              "standardUser",
+              "standarduser",
+              "standard user",
+              "Standard User",
+              "readonlyUser",
+              "readonlyuser",
+              "read-only user",
+              "Read-only User",
+              "read only user",
+              "Read Only User",
+              "manager",
+              "Manager",
+              "employee",
+              "Employee"
+            ])
+          )
+        );
     }
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isNotDisabled()
-          && userDocExists()
+        || (activeUserDocExists()
           && (
             currentUserAppAccessEnabled("service")
             || currentUserIsService()
             || currentUserDefaultWorkspaceIs("service")
-            || currentUserRoleIn(["service", "hybrid"])
+            || currentUserRoleIn([
+              "service",
+              "Service",
+              "hybrid",
+              "Hybrid"
+            ])
           ));
     }
 
     function isOwnUserDoc(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+      return activeUserDocExists() && request.auth.uid == uid;
     }
 
     function isOwnEmployeeDoc(employeeId) {
@@ -135,35 +238,6 @@ service cloud.firestore {
       return request.resource.data.uid == resource.data.uid
         && request.resource.data.authUid == resource.data.authUid
         && request.resource.data.email == resource.data.email;
-    }
-
-    function isSafeOwnUserCreate(uid) {
-      return isSignedIn()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly([
-          "appAccess",
-          "createdAt",
-          "defaultWorkspace",
-          "email",
-          "isEnabled",
-          "isService",
-          "name",
-          "phone",
-          "phoneVerified",
-          "role",
-          "uid",
-          "updatedAt"
-        ])
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email is string
-        && matchesAuthEmail(request.resource.data.email)
-        && request.resource.data.role == "user"
-        && request.resource.data.isEnabled == true
-        && request.resource.data.isService == false
-        && request.resource.data.defaultWorkspace == "user"
-        && request.resource.data.appAccess is map
-        && request.resource.data.appAccess["user"] == true
-        && request.resource.data.appAccess["service"] == false;
     }
 
     function matchesAuthEmail(email) {
@@ -286,6 +360,12 @@ service cloud.firestore {
         && request.resource.data.createdByRole == resource.data.createdByRole;
     }
 
+    function timesheetQueryInCurrentCompany(queryId) {
+      return exists(/databases/$(database)/documents/timesheetQueries/$(queryId))
+        && get(/databases/$(database)/documents/timesheetQueries/$(queryId)).data.keys().hasAny(["companyId"])
+        && isCurrentUserCompany(get(/databases/$(database)/documents/timesheetQueries/$(queryId)).data.companyId);
+    }
+
     function userOnlyFieldsChanged() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         "name",
@@ -303,7 +383,7 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwnUserDoc(uid) || isAdmin();
-      allow create: if isAdmin() || isSafeOwnUserCreate(uid);
+      allow create: if isAdmin();
       allow update: if isAdmin() || (isOwnUserDoc(uid) && userOnlyFieldsChanged());
       allow delete: if isAdmin();
     }
@@ -330,30 +410,40 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /setupCodeRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
     match /employees/{employeeId} {
-      allow read: if isAdmin() || hasUserAccess() || hasServiceAccess();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isOwnEmployeeDoc(employeeId) && keepsOwnEmployeeIdentity());
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if isAdmin() || (incomingDocInCurrentCompany() && canManageTenantData());
+      allow delete: if isAdmin() || (existingDocInCurrentCompany() && canManageTenantData());
+      allow update: if isAdmin()
+        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && canManageTenantData())
+        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && isOwnEmployeeDoc(employeeId) && keepsOwnEmployeeIdentity());
     }
 
     match /bookings/{bookingId} {
-      allow read: if hasUserAccess();
-      allow create: if hasUserAccess() && hasBookingAuditFieldsOnCreate();
-      allow update: if hasUserAccess()
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc() && hasBookingAuditFieldsOnCreate();
+      allow update: if canUpdateUserTenantDoc()
         && hasBookingAuditFieldsOnUpdate()
         && keepsBookingAuditIdentity();
-      allow delete: if isAdmin();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /contacts/{contactId} {
-      allow read: if hasUserAccess();
-      allow create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /deletedBookings/{docId} {
-      allow read: if hasUserAccess();
-      allow create, update, delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /appState/{docId} {
@@ -361,19 +451,29 @@ service cloud.firestore {
     }
 
     match /notes/{noteId} {
-      allow read, write: if hasUserAccess();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /recces/{docId} {
-      allow read, write: if hasUserAccess();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /holidays/{holidayId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create: if (hasUserAccess() || hasServiceAccess()) && isHolidayOwnerOnCreate();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc() && (canManageTenantData() || isHolidayOwnerOnCreate());
       allow update: if isAdmin()
         || (
-          (hasUserAccess() || hasServiceAccess())
+          canUpdateAnyWorkspaceTenantDoc()
+          && canManageTenantData()
+        )
+        || (
+          canUpdateAnyWorkspaceTenantDoc()
           && isHolidayOwner()
           && keepsHolidayOwnerIdentity()
           && !isApprovedHolidayRecord()
@@ -381,30 +481,35 @@ service cloud.firestore {
         );
       allow delete: if isAdmin()
         || (
-          (hasUserAccess() || hasServiceAccess())
+          existingDocInCurrentCompany()
+          && canManageTenantData()
+        )
+        || (
+          existingDocInCurrentCompany()
+          && (hasUserAccess() || hasServiceAccess())
           && isHolidayOwner()
           && !isApprovedHolidayRecord()
         );
     }
 
     match /shiftChangeRequests/{requestId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create: if isAdmin()
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if isPlatformAdmin()
         || (
-          (hasUserAccess() || hasServiceAccess())
+          canCreateAnyWorkspaceTenantDoc()
           && isShiftChangeOwnerOnCreate()
           && request.resource.data.status == "requested"
         );
-      allow update: if isAdmin()
+      allow update: if isPlatformAdmin()
         || (
-          (hasUserAccess() || hasServiceAccess())
+          canUpdateAnyWorkspaceTenantDoc()
           && isShiftChangeOwner()
           && keepsShiftChangeOwnerIdentity()
           && resource.data.status == "requested"
           && request.resource.data.status == "cancelled"
           && shiftChangeOwnerCancelOnly()
         );
-      allow delete: if isAdmin();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /hr/{docId} {
@@ -412,128 +517,180 @@ service cloud.firestore {
     }
 
     match /timesheets/{timesheetId} {
-      allow read: if isAdmin() || hasUserAccess();
-      allow create: if isAdmin() || hasUserAccess();
-      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetIdentity();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc() && (canManageTenantData() || keepsTimesheetIdentity());
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId} {
-      allow read: if isAdmin() || hasUserAccess();
-      allow create: if isAdmin() || hasUserAccess();
-      allow update: if (isAdmin() || hasUserAccess()) && keepsTimesheetQueryIdentity();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc() && keepsTimesheetQueryIdentity();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId}/messages/{messageId} {
-      allow read, create: if isAdmin() || hasUserAccess();
-      allow update, delete: if isAdmin();
+      allow read: if isPlatformAdmin()
+        || (hasUserAccess() && timesheetQueryInCurrentCompany(queryId));
+      allow create: if isPlatformAdmin()
+        || (hasUserAccess() && timesheetQueryInCurrentCompany(queryId));
+      allow update, delete: if isPlatformAdmin()
+        || (canManageTenantData() && timesheetQueryInCurrentCompany(queryId));
     }
 
     match /sickLeave/{docId} {
-      allow read, write: if isAdmin() || hasUserAccess();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /uCraneFreelancers/{docId} {
-      allow read, write: if hasUserAccess();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /lorries/{docId} {
-      allow read, write: if hasUserAccess() || hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /invoiceQueue/{docId} {
-      allow read, create, update: if isAdmin() || hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /vehicles/{vehicleId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /equipment/{equipmentId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /maintenance/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /maintenanceJobs/{jobId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /vehicleChecks/{docId} {
-      allow read, create, update: if hasUserAccess() || hasServiceAccess();
-      allow delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /defects/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /workBookings/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /serviceRecords/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /defectReports/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /motPreChecks/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /vehiclePrepRecords/{docId} {
-      allow read: if hasUserAccess() || hasServiceAccess();
-      allow create, update, delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /vehicleIssues/{docId} {
-      allow read, create, update: if hasUserAccess() || hasServiceAccess();
-      allow delete: if hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /vehicleUsageNotes/{docId} {
-      allow read, write: if hasUserAccess() || hasServiceAccess();
+      allow read: if canReadServiceTenantDoc();
+      allow create: if canCreateServiceTenantDoc();
+      allow update: if canUpdateServiceTenantDoc();
+      allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /hsRegister/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /hsCheckRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /ppeIssueRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /employeeTrainingRecords/{docId} {
-      allow read, create, update: if hasUserAccess();
-      allow delete: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /settings/{docId} {
@@ -543,7 +700,8 @@ service cloud.firestore {
     }
 
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isPlatformAdmin();
+      allow write: if false;
     }
   }
 }

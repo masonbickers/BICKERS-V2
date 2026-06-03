@@ -81,6 +81,7 @@ const btn = (bg = "#fff", fg = UI.text, bd = "1px solid #e5e7eb") => ({
 
 const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
 const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
+const NEW_CATEGORY_OPTION = "__new_category__";
 const INITIAL_FORM_DATA = {
   name: "",
   registration: "",
@@ -264,6 +265,8 @@ export default function AddVehiclePage() {
 
   const [saving, setSaving] = useState(false);
   const [existingCategories, setExistingCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
@@ -301,6 +304,19 @@ export default function AddVehiclePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "category") {
+      if (value === NEW_CATEGORY_OPTION) {
+        setIsCreatingCategory(true);
+        setFormData((prev) => ({ ...prev, category: newCategory.trim() }));
+        return;
+      }
+
+      setIsCreatingCategory(false);
+      setNewCategory("");
+      setFormData((prev) => ({ ...prev, category: value }));
+      return;
+    }
 
     // numeric fields
     const numeric = [
@@ -827,7 +843,13 @@ export default function AddVehiclePage() {
 
                 <div style={col(4)}>
                   <label style={label}>Category *</label>
-                  <select name="category" value={formData.category} onChange={handleChange} style={input} required>
+                  <select
+                    name="category"
+                    value={isCreatingCategory ? NEW_CATEGORY_OPTION : formData.category}
+                    onChange={handleChange}
+                    style={input}
+                    required
+                  >
                     <option value="">Select category...</option>
                     {existingCategories.length ? (
                       existingCategories.map((c) => (
@@ -845,7 +867,22 @@ export default function AddVehiclePage() {
                         <option value="HGV Trailers">HGV Trailers</option>
                       </>
                     )}
+                    <option value={NEW_CATEGORY_OPTION}>+ Add new category</option>
                   </select>
+                  {isCreatingCategory ? (
+                    <input
+                      value={newCategory}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setNewCategory(next);
+                        setFormData((prev) => ({ ...prev, category: next }));
+                      }}
+                      style={{ ...input, marginTop: 8 }}
+                      placeholder="Type new category name"
+                      required
+                    />
+                  ) : null}
+                  <div style={helpText}>Categories are used to group vehicles on the Vehicle Overview page.</div>
                 </div>
 
                 <div style={col(3)}>

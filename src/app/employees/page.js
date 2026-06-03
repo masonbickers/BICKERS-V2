@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
 import Papa from "papaparse";
 import {
   ContactRound,
@@ -282,6 +291,17 @@ function getPersonnelStatus(employee = {}) {
 
 export default function EmployeeListPage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
   const [filter, setFilter] = useState("none");
 
@@ -324,15 +344,26 @@ export default function EmployeeListPage() {
   }, [employees]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "read employees" });
+      return;
+    }
+
     const fetchEmployees = async () => {
-      const snapshot = await getDocs(collection(db, "employees"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
       const data = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter(isEmployeeRecord);
       setEmployees(data);
     };
-    fetchEmployees();
-  }, []);
+    fetchEmployees().catch((error) => {
+      if (!handleFirestoreAccessError(error, { collectionName: "employees", operation: "read employees" })) {
+        console.error("[employees] load error:", error);
+      }
+    });
+  }, [accessKey, dataAccessState]);
 
   return (
     <HeaderSidebarLayout>
@@ -376,7 +407,7 @@ export default function EmployeeListPage() {
                   </div>
                 </div>
               </div>
-              <EmployeeCSVImport onImportComplete={() => window.location.reload()} />
+              <EmployeeCSVImport dataAccessState={dataAccessState} onImportComplete={() => window.location.reload()} />
             </div>
           </div>
 
@@ -515,7 +546,7 @@ function MetricCard({ label, value, icon: Icon, tone = "default" }) {
 }
 
 /* CSV Import */
-function EmployeeCSVImport({ onImportComplete }) {
+function EmployeeCSVImport({ onImportComplete, dataAccessState }) {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -531,16 +562,18 @@ function EmployeeCSVImport({ onImportComplete }) {
           if (!isValid) continue;
 
           try {
-            await addDoc(collection(db, "employees"), {
+            await addDoc(collection(db, "employees"), tenantPayload(dataAccessState, {
               name: employee.name,
               dob: employee.dob,
               licenceNumber: employee.licenceNumber,
               jobTitle: employee.jobTitle ? employee.jobTitle.split(",").map((j) => j.trim()) : [],
               email: employee.email || "",
               mobile: employee.mobile || "",
-            });
+            }));
           } catch (err) {
-            console.error("Error importing employee:", err);
+            if (!handleFirestoreAccessError(err, { collectionName: "employees", operation: "import employee" })) {
+              console.error("Error importing employee:", err);
+            }
           }
         }
 

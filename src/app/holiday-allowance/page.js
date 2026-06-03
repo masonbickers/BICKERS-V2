@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
   getDocs,
@@ -348,13 +348,19 @@ export default function EmployeesAdminPage() {
   }, [rows, q]);
 
   /* ---------------- usage getter ---------------- */
-  const usedForYearByName = (yr, name) => usedByYearName?.[yr]?.[name] || 0;
+  const usedForYearByName = useCallback(
+    (yr, name) => usedByYearName?.[yr]?.[name] || 0,
+    [usedByYearName]
+  );
 
   /* ---------------- pattern getter ---------------- */
-  const getPattern = (r) => edits?.[r.id]?.workPattern ?? r.workPattern ?? DEFAULT_PATTERN;
+  const getPattern = useCallback(
+    (r) => edits?.[r.id]?.workPattern ?? r.workPattern ?? DEFAULT_PATTERN,
+    [edits]
+  );
 
   /* ---------------- allowance getter ---------------- */
-  const getAllowanceForYear = (r, yr) => {
+  const getAllowanceForYear = useCallback((r, yr) => {
     const pattern = getPattern(r);
     const fallback = entitlementFor(pattern);
 
@@ -365,10 +371,10 @@ export default function EmployeesAdminPage() {
     if (mapVal !== undefined) return asNum(mapVal, fallback);
 
     return asNum(r.holidayAllowance, fallback);
-  };
+  }, [edits, getPattern]);
 
   /* ---------------- carry getter ---------------- */
-  const getCarryForYear = (r, yr) => {
+  const getCarryForYear = useCallback((r, yr) => {
     const slot = edits?.[r.id]?.byYear?.[yr] || {};
     if (slot.carriedOverDays !== undefined) return asNum(slot.carriedOverDays, 0);
 
@@ -376,7 +382,7 @@ export default function EmployeesAdminPage() {
     if (mapVal !== undefined) return asNum(mapVal, 0);
 
     return asNum(r.carriedOverDays, 0);
-  };
+  }, [edits]);
 
   /* ---------------- balance for a given year ---------------- */
   const balanceForYear = (r, yr) => {
@@ -604,7 +610,7 @@ export default function EmployeesAdminPage() {
       totalUsed: Number(totalUsed.toFixed(0)),
       totalBalance: Number(totalBalance.toFixed(0)),
     };
-  }, [filteredRows, yearView, edits, usedByYearName]);
+  }, [filteredRows, yearView, getAllowanceForYear, getCarryForYear, usedForYearByName]);
 
   /* ---------------- render ---------------- */
   return (
@@ -668,7 +674,7 @@ export default function EmployeesAdminPage() {
               />
 
               <button onClick={addEmployee} disabled={adding} style={btn()}>
-                {adding ? "Adding…" : "Add"}
+                {adding ? "Adding..." : "Add"}
               </button>
             </div>
 
@@ -681,7 +687,7 @@ export default function EmployeesAdminPage() {
           <div style={{ display: "grid", gap: UI.gap }}>
             <div style={{ ...card, ...cardPad }}>
               <div style={{ fontWeight: 950, color: UI.text, marginBottom: 10 }}>Search</div>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees…" style={input} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees..." style={input} />
               <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
                 Showing <b>{filteredRows.length}</b> employee{filteredRows.length === 1 ? "" : "s"}.
               </div>
@@ -731,7 +737,7 @@ export default function EmployeesAdminPage() {
                 {loading ? (
                   <tr>
                     <td style={td} colSpan={8}>
-                      Loading…
+                      Loading...
                     </td>
                   </tr>
                 ) : filteredRows.length === 0 ? (
@@ -833,7 +839,7 @@ export default function EmployeesAdminPage() {
                         <td style={td}>
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                             <button onClick={() => saveRow(r)} disabled={!!saving[r.id]} style={btn()}>
-                              {saving[r.id] ? "Saving…" : `Save (${yearView})`}
+                              {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                             </button>
 
                             <button onClick={() => deleteRow(r)} disabled={!!saving[r.id]} style={btn("danger")}>
@@ -851,7 +857,7 @@ export default function EmployeesAdminPage() {
 
           <div style={{ padding: 14, borderTop: "1px solid #e5e7eb", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
             <div>
-              Tip: “Used” is calculated from the <code>holidays</code> collection (Mon–Fri only). Ensure{" "}
+              Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
               <code>holidays.employee</code> matches the employee <code>name</code> exactly.
             </div>
             <div>
@@ -864,11 +870,11 @@ export default function EmployeesAdminPage() {
         <div style={{ ...card, marginTop: UI.gap, ...cardPad }}>
           <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>What happens when the year changes?</div>
           <div style={{ color: "#374151", fontSize: 13, lineHeight: 1.6 }}>
-            On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the “current year”.
+            On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the &quot;current year&quot;.
             It will read/write:
             <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
               <li>
-                <code>employees.holidayAllowances["{nextYear}"]</code> and <code>employees.carryOverByYear["{nextYear}"]</code>
+                <code>{`employees.holidayAllowances["${nextYear}"]`}</code> and <code>{`employees.carryOverByYear["${nextYear}"]`}</code>
               </li>
               <li>
                 The dropdown becomes <b>{nextYear}</b> (Current) and <b>{nextYear + 1}</b> (Next)
@@ -876,7 +882,7 @@ export default function EmployeesAdminPage() {
             </ul>
             <div style={{ marginTop: 10, color: UI.muted }}>
               Legacy fields (<code>holidayAllowance</code>, <code>carriedOverDays</code>) are only kept in sync when saving the
-              “current year” (for compatibility with older pages).
+              &quot;current year&quot; (for compatibility with older pages).
             </div>
           </div>
         </div>

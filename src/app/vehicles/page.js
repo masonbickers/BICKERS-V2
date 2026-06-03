@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import {
+  clearPagePermissionDenied,
+} from "@/app/utils/pageAccessEvents";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import { auth, db } from "../../../firebaseConfig";
@@ -230,11 +242,37 @@ const isInsuranceExpired = (vehicle) => {
   return Boolean(expiry && daysUntil(expiry) < 0);
 };
 
+const handlePageFirestoreError = (error, { collectionName = "", operation = "Firestore access" } = {}) => {
+  if (handleFirestoreAccessError(error, { collectionName, operation })) {
+    console.warn(`${operation} denied for ${collectionName || "Firestore"}:`, error);
+    return true;
+  }
+  return false;
+};
+
+const reportSettledPermissionFailures = (results, context) => {
+  const denied = results.find(
+    (result) => result.status === "rejected" && isPermissionDeniedError(result.reason)
+  );
+  if (denied) handlePageFirestoreError(denied.reason, context);
+};
+
 /* columns count (IMPORTANT for colSpan) */
 const COLS = 15;
 
 export default function VehicleMaintenancePage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [vehicles, setVehicles] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -257,8 +295,16 @@ export default function VehicleMaintenancePage() {
     setExpandedCategories((prev) => ({ ...prev, [category]: !prev[category] }));
   };
 
-  const fetchVehicles = async () => {
-    const snapshot = await getDocs(collection(db, "vehicles"));
+  const fetchVehicles = useCallback(async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read vehicles" });
+      return;
+    }
+
+    clearPagePermissionDenied();
+    const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
     const list = snapshot.docs.map((d) => normalizeVehicleRecord({ id: d.id, ...d.data() }));
     const normalisedList = list.map((vehicle) => {
       let next = vehicle;
@@ -280,7 +326,18 @@ export default function VehicleMaintenancePage() {
         expiredInsuranceUpdates.map((vehicle) =>
           updateDoc(doc(db, "vehicles", vehicle.id), { insuranceStatus: "Not Insured" })
         )
-      ).catch((err) => console.error("Failed to sync expired insurance statuses:", err));
+      )
+        .then((results) =>
+          reportSettledPermissionFailures(results, {
+            collectionName: "vehicles",
+            operation: "auto-update expired insurance",
+          })
+        )
+        .catch((err) => {
+          if (!handlePageFirestoreError(err, { collectionName: "vehicles", operation: "auto-update expired insurance" })) {
+            console.error("Failed to sync expired insurance statuses:", err);
+          }
+        });
     }
 
     const sornTaxDateUpdates = list.filter((vehicle) => norm(vehicle.taxStatus) === "sorn" && getTaxedUntil(vehicle));
@@ -289,14 +346,25 @@ export default function VehicleMaintenancePage() {
         sornTaxDateUpdates.map((vehicle) =>
           updateDoc(doc(db, "vehicles", vehicle.id), { taxStatus: "Sorn", ...clearTaxDateFields })
         )
-      ).catch((err) => console.error("Failed to clear SORN tax dates:", err));
+      )
+        .then((results) =>
+          reportSettledPermissionFailures(results, {
+            collectionName: "vehicles",
+            operation: "auto-clear SORN tax dates",
+          })
+        )
+        .catch((err) => {
+          if (!handlePageFirestoreError(err, { collectionName: "vehicles", operation: "auto-clear SORN tax dates" })) {
+            console.error("Failed to clear SORN tax dates:", err);
+          }
+        });
     }
 
     const categories = Array.from(new Set(normalisedList.map((v) => v.category).filter(Boolean))).sort(categorySort);
     const initialExpanded = {};
     categories.forEach((cat) => (initialExpanded[cat] = true));
     setExpandedCategories((prev) => (Object.keys(prev).length ? prev : initialExpanded));
-  };
+  }, [dataAccessState]);
 
   const fetchMotSyncMeta = async () => {
     const snap = await getDoc(doc(db, "settings", "motHistorySync"));
@@ -304,9 +372,17 @@ export default function VehicleMaintenancePage() {
   };
 
   useEffect(() => {
-    fetchVehicles().catch((err) => console.error("Failed to fetch vehicles:", err));
-    fetchMotSyncMeta().catch((err) => console.error("Failed to fetch MOT sync metadata:", err));
-  }, []);
+    fetchVehicles().catch((err) => {
+      if (!handlePageFirestoreError(err, { collectionName: "vehicles", operation: "read vehicles" })) {
+        console.error("Failed to fetch vehicles:", err);
+      }
+    });
+    fetchMotSyncMeta().catch((err) => {
+      if (!handlePageFirestoreError(err, { collectionName: "settings/motHistorySync", operation: "read MOT sync metadata" })) {
+        console.error("Failed to fetch MOT sync metadata:", err);
+      }
+    });
+  }, [accessKey, fetchVehicles]);
 
   // Persist dropdown changes
   const handleSelectChange = async (id, field, value, extraUpdates = {}) => {
@@ -318,8 +394,12 @@ export default function VehicleMaintenancePage() {
     try {
       await updateDoc(doc(db, "vehicles", id), updates);
     } catch (err) {
-      console.error("Failed to update vehicle:", err);
-      alert("Could not save. Please try again.");
+      const denied = handlePageFirestoreError(err, {
+        collectionName: "vehicles",
+        operation: `update ${field}`,
+      });
+      if (!denied) console.error("Failed to update vehicle:", err);
+      alert(denied ? "Permission denied. This user cannot update vehicles." : "Could not save. Please try again.");
       // rollback not attempted (optional)
     } finally {
       setSavingKey(null);
@@ -704,6 +784,7 @@ export default function VehicleMaintenancePage() {
           <div style={{ marginTop: 2, display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
             <VehicleCSVImport
               disabled={importing}
+              dataAccessState={dataAccessState}
               onImportStart={() => setImporting(true)}
               onImportComplete={async () => {
                 setImporting(false);
@@ -869,7 +950,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "#000", fontWeight: 900 } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "#000" } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
@@ -1041,7 +1122,7 @@ export default function VehicleMaintenancePage() {
 }
 
 /* CSV import */
-function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
+function VehicleCSVImport({ onImportComplete, onImportStart, disabled, dataAccessState }) {
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1063,7 +1144,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
             const nextMot = vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || "";
             const insuredUntil = vehicle.insuredUntil || vehicle.insuranceExpiry || vehicle.insuranceExpiryDate || vehicle.insuranceUntil || "";
 
-            await addDoc(collection(db, "vehicles"), {
+            await addDoc(collection(db, "vehicles"), tenantPayload(dataAccessState, {
               name: vehicle.name,
               category: vehicle.category,
               registration,
@@ -1090,7 +1171,7 @@ function VehicleCSVImport({ onImportComplete, onImportStart, disabled }) {
               insuranceExpiryDate: insuredUntil,
               insuranceStatus: vehicle.insuranceStatus || (safeDate(insuredUntil) && daysUntil(safeDate(insuredUntil)) < 0 ? "Not Insured" : "Insured"),
               notes: vehicle.notes || "",
-            });
+            }));
           }
 
           alert(" Vehicle data imported successfully!");

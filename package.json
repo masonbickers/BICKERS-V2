@@ -7,9 +7,12 @@
     "dev": "next dev",
     "predev:turbo": "node scripts/prepare-next-dev-cache.mjs",
     "dev:turbo": "next dev --turbopack",
+    "prebuild": "node scripts/write-build-info.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "audit:access": "node scripts/security-access-audit.mjs",
+    "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
     "test:access": "node --test tests/accessControl.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },

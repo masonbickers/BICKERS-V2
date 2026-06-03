@@ -240,7 +240,6 @@ export default function Page() {
 
   useEffect(() => {
     fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const canSave = useMemo(() => {

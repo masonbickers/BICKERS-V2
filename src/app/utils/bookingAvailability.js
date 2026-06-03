@@ -1,13 +1,15 @@
 "use client";
 
-import { collection, doc, getDocs, query, where, writeBatch } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
+import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
-const MAX_IN_VALUES = 10;
 const LEGACY_HOLIDAY_CACHE_KEY = "booking-availability-legacy-holidays:v1";
 const LEGACY_HOLIDAY_TTL_MS = 30 * 60 * 1000;
 
 let legacyHolidayPromise = null;
+let legacyHolidayPromiseKey = "";
 let legacyHolidayCache = null;
+let legacyHolidayCacheKey = "";
 
 const debugBookingLoads = (...args) => {
   if (typeof window === "undefined") return;
@@ -25,10 +27,10 @@ const nowMs = () =>
     ? performance.now()
     : Date.now();
 
-const chunk = (values, size = MAX_IN_VALUES) => {
-  const out = [];
-  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
-  return out;
+const cacheKeyForAccess = (baseKey, accessState) => {
+  const companyId = String(accessState?.userDoc?.companyId || "").trim() || "platform";
+  const uid = String(accessState?.user?.uid || "").trim() || "anonymous";
+  return `${baseKey}:${companyId}:${uid}`;
 };
 
 export const normaliseDateKey = (value) => String(value || "").slice(0, 10);
@@ -92,22 +94,37 @@ export const holidayDateKeysFromRecord = (record = {}) => {
   return holidayDateKeysFromRange(toYmd(record.startDate), toYmd(record.endDate || record.startDate));
 };
 
-const queryByChunks = async (db, collectionName, fieldName, operator, values) => {
+const matchesFieldConstraint = (row, fieldName, operator, values) => {
+  const keys = new Set(uniqueDateKeys(values));
+  if (!keys.size) return false;
+  const value = row?.[fieldName];
+
+  if (operator === "array-contains-any") {
+    return Array.isArray(value) && value.some((item) => keys.has(normaliseDateKey(item)));
+  }
+
+  if (operator === "in") {
+    return keys.has(normaliseDateKey(value));
+  }
+
+  return false;
+};
+
+const queryByChunks = async (db, collectionName, fieldName, operator, values, { accessState } = {}) => {
   const keys = uniqueDateKeys(values);
   if (!keys.length) return [];
 
-  const rows = [];
-  for (const part of chunk(keys)) {
-    const snap = await getDocs(query(collection(db, collectionName), where(fieldName, operator, part)));
-    snap.docs.forEach((docSnap) => rows.push({ id: docSnap.id, ...docSnap.data() }));
-  }
+  const snap = await getDocs(tenantCollectionQuery(db, collectionName, accessState));
+  const rows = snap.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .filter((row) => matchesFieldConstraint(row, fieldName, operator, keys));
   return dedupeDocs(rows);
 };
 
-const readLegacyHolidayCache = () => {
+const readLegacyHolidayCache = (cacheKey) => {
   if (typeof window === "undefined") return null;
   try {
-    const parsed = JSON.parse(window.sessionStorage.getItem(LEGACY_HOLIDAY_CACHE_KEY) || "null");
+    const parsed = JSON.parse(window.sessionStorage.getItem(cacheKey) || "null");
     if (!parsed?.savedAt || Date.now() - parsed.savedAt > LEGACY_HOLIDAY_TTL_MS) return null;
     return parsed.value || null;
   } catch {
@@ -115,11 +132,11 @@ const readLegacyHolidayCache = () => {
   }
 };
 
-const writeLegacyHolidayCache = (value) => {
+const writeLegacyHolidayCache = (cacheKey, value) => {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.setItem(
-      LEGACY_HOLIDAY_CACHE_KEY,
+      cacheKey,
       JSON.stringify({ savedAt: Date.now(), value })
     );
   } catch {
@@ -127,46 +144,31 @@ const writeLegacyHolidayCache = (value) => {
   }
 };
 
-const backfillHolidayDateKeys = async (db, rows = []) => {
-  const missing = (rows || [])
-    .map((row) => ({ id: row.id, holidayDateKeys: holidayDateKeysFromRecord(row) }))
-    .filter((row) => row.id && row.holidayDateKeys.length);
-  if (!missing.length) return;
-
-  for (const part of chunk(missing, 400)) {
-    const batch = writeBatch(db);
-    part.forEach((row) => {
-      batch.update(doc(db, "holidays", row.id), { holidayDateKeys: row.holidayDateKeys });
-    });
-    await batch.commit();
-  }
-
-  debugBookingLoads("legacy holiday date keys backfilled", missing.length);
-};
-
-const loadLegacyHolidays = async (db) => {
-  if (legacyHolidayCache) return legacyHolidayCache;
-  const cached = readLegacyHolidayCache();
+const loadLegacyHolidays = async (db, { accessState } = {}) => {
+  const scopedCacheKey = cacheKeyForAccess(LEGACY_HOLIDAY_CACHE_KEY, accessState);
+  if (legacyHolidayCache && legacyHolidayCacheKey === scopedCacheKey) return legacyHolidayCache;
+  const cached = readLegacyHolidayCache(scopedCacheKey);
   if (cached) {
     legacyHolidayCache = cached;
+    legacyHolidayCacheKey = scopedCacheKey;
     return cached;
   }
-  if (legacyHolidayPromise) return legacyHolidayPromise;
+  if (legacyHolidayPromise && legacyHolidayPromiseKey === scopedCacheKey) return legacyHolidayPromise;
 
-  legacyHolidayPromise = getDocs(collection(db, "holidays"))
+  legacyHolidayPromiseKey = scopedCacheKey;
+  legacyHolidayPromise = getDocs(tenantCollectionQuery(db, "holidays", accessState))
     .then((snap) => {
       const value = snap.docs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         .filter((row) => !Array.isArray(row.holidayDateKeys) || row.holidayDateKeys.length === 0);
       legacyHolidayCache = value;
-      writeLegacyHolidayCache(value);
-      backfillHolidayDateKeys(db, value).catch((err) => {
-        console.warn("[availability] legacy holiday backfill failed:", err);
-      });
+      legacyHolidayCacheKey = scopedCacheKey;
+      writeLegacyHolidayCache(scopedCacheKey, value);
       return value;
     })
     .finally(() => {
       legacyHolidayPromise = null;
+      legacyHolidayPromiseKey = "";
     });
 
   return legacyHolidayPromise;
@@ -175,7 +177,7 @@ const loadLegacyHolidays = async (db) => {
 export const loadBookingAvailabilityForDates = async (
   db,
   selectedDates,
-  { currentBookingId = "" } = {}
+  { accessState, currentBookingId = "" } = {}
 ) => {
   const dateKeys = uniqueDateKeys(selectedDates);
   if (!dateKeys.length) {
@@ -184,14 +186,14 @@ export const loadBookingAvailabilityForDates = async (
 
   const startedAt = nowMs();
   const [bookings, scopedHolidays, notes, maintenanceBookings, legacyHolidays] = await Promise.all([
-    queryByChunks(db, "bookings", "bookingDates", "array-contains-any", dateKeys),
-    queryByChunks(db, "holidays", "holidayDateKeys", "array-contains-any", dateKeys).catch((err) => {
+    queryByChunks(db, "bookings", "bookingDates", "array-contains-any", dateKeys, { accessState }),
+    queryByChunks(db, "holidays", "holidayDateKeys", "array-contains-any", dateKeys, { accessState }).catch((err) => {
       console.warn("[availability] holidayDateKeys query failed:", err);
       return [];
     }),
-    queryByChunks(db, "notes", "date", "in", dateKeys),
-    queryByChunks(db, "maintenanceBookings", "bookingDates", "array-contains-any", dateKeys),
-    loadLegacyHolidays(db).catch((err) => {
+    queryByChunks(db, "notes", "date", "in", dateKeys, { accessState }),
+    queryByChunks(db, "maintenanceBookings", "bookingDates", "array-contains-any", dateKeys, { accessState }),
+    loadLegacyHolidays(db, { accessState }).catch((err) => {
       console.warn("[availability] legacy holiday fallback failed:", err);
       return [];
     }),
@@ -220,14 +222,14 @@ export const loadBookingAvailabilityForDates = async (
   return availability;
 };
 
-export const loadVehicleChecksForVehicles = async (db, vehicleIds = []) => {
+export const loadVehicleChecksForVehicles = async (db, vehicleIds = [], { accessState } = {}) => {
   const ids = Array.from(new Set((vehicleIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
   if (!ids.length) return [];
 
-  const rows = [];
-  for (const part of chunk(ids)) {
-    const snap = await getDocs(query(collection(db, "vehicleChecks"), where("vehicleId", "in", part)));
-    snap.docs.forEach((docSnap) => rows.push({ id: docSnap.id, ...docSnap.data() }));
-  }
+  const allowedIds = new Set(ids);
+  const snap = await getDocs(tenantCollectionQuery(db, "vehicleChecks", accessState));
+  const rows = snap.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .filter((row) => allowedIds.has(String(row.vehicleId || "").trim()));
   return dedupeDocs(rows);
 };

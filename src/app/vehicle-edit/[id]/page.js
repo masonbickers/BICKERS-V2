@@ -21,14 +21,12 @@ import {
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
-  collection,
   getDocs,
   doc as fsDoc,
   getDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  query,
   where,
 } from "firebase/firestore";
 import { db, storage } from "../../../../firebaseConfig";
@@ -36,6 +34,16 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage
 
 import SharedMaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingForm";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
 import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
@@ -544,8 +552,20 @@ const computeNextDueFromCompletion = (completedISO, freqWeeks) => {
 export default function EditVehiclePage() {
   const router = useRouter();
   const { id } = useParams();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [vehicle, setVehicle] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [categories, setCategories] = useState([]);
   const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -571,26 +591,85 @@ export default function EditVehiclePage() {
 
   // categories list
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read vehicle categories" });
+      return;
+    }
+
     const fetchCategories = async () => {
-      const snap = await getDocs(collection(db, "vehicles"));
+      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       const allCats = snap.docs.map((d) => d.data()?.category).filter(Boolean);
       setCategories(Array.from(new Set(allCats)).sort((a, b) => a.localeCompare(b)));
     };
-    fetchCategories().catch(console.error);
-  }, []);
+    fetchCategories().catch((error) => {
+      if (!handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "read vehicle categories" })) {
+        console.error(error);
+      }
+    });
+  }, [accessKey, dataAccessState]);
 
   const reloadVehicle = async () => {
     if (!id) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load vehicle" });
+      setLoadError(gate.reason);
+      setVehicle(null);
+      return;
+    }
+    setLoadError("");
     const refDoc = fsDoc(db, "vehicles", id);
-    const [snap, bookingSnap, serviceRecordSnap] = await Promise.all([
-      getDoc(refDoc),
-      getDocs(query(collection(db, "maintenanceBookings"), where("vehicleId", "==", id))),
-      getDocs(query(collection(db, "serviceRecords"), where("vehicleId", "==", id))),
+
+    let snap;
+    try {
+      snap = await getDoc(refDoc);
+    } catch (error) {
+      const denied = handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "load vehicle" });
+      if (!denied) console.error("Failed to load vehicle:", error);
+      setLoadError(
+        denied
+          ? "You do not have permission to load this vehicle."
+          : "Vehicle could not be loaded."
+      );
+      setVehicle(null);
+      return;
+    }
+
+    if (!snap.exists()) {
+      setLoadError("Vehicle not found.");
+      setVehicle(null);
+      return;
+    }
+
+    const [bookingResult, serviceRecordResult] = await Promise.allSettled([
+      getDocs(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState, [where("vehicleId", "==", id)])),
+      getDocs(tenantCollectionQuery(db, "serviceRecords", dataAccessState, [where("vehicleId", "==", id)])),
     ]);
-    const rows = bookingSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
-    const serviceRows = serviceRecordSnap.docs.map((d) =>
-      normalizeServiceRecord({ id: d.id, ...(d.data() || {}) })
-    );
+
+    if (bookingResult.status === "rejected") {
+      if (!handleFirestoreAccessError(bookingResult.reason, { collectionName: "maintenanceBookings", operation: "load vehicle maintenance bookings" })) {
+        console.warn("Failed to load vehicle maintenance bookings:", bookingResult.reason);
+      }
+    }
+    if (serviceRecordResult.status === "rejected") {
+      if (!handleFirestoreAccessError(serviceRecordResult.reason, { collectionName: "serviceRecords", operation: "load vehicle service records" })) {
+        console.warn("Failed to load vehicle service records:", serviceRecordResult.reason);
+      }
+    }
+
+    const rows =
+      bookingResult.status === "fulfilled"
+        ? bookingResult.value.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))
+        : [];
+    const serviceRows =
+      serviceRecordResult.status === "fulfilled"
+        ? serviceRecordResult.value.docs.map((d) =>
+            normalizeServiceRecord({ id: d.id, ...(d.data() || {}) })
+          )
+        : [];
     const sortedRows = [...rows].sort((a, b) => {
       const ad = toDate(a.appointmentDate || a.startDate || a.createdAt) || new Date(0);
       const bd = toDate(b.appointmentDate || b.startDate || b.createdAt) || new Date(0);
@@ -627,7 +706,7 @@ export default function EditVehiclePage() {
     setLatestServiceBooking(serviceLatest);
     setLatestInspectionBooking(inspectionLatest);
 
-    if (snap.exists()) {
+    {
       const base = normalizeVehicleRecord({ id: snap.id, ...snap.data() });
       const hydrated = { ...base };
 
@@ -723,9 +802,13 @@ export default function EditVehiclePage() {
     if (!id) return;
     setInitialSnapshot("");
     setShownAdditionalMaintenance([]);
-    reloadVehicle().catch(console.error);
+    reloadVehicle().catch((error) => {
+      console.error("Failed to load vehicle:", error);
+      setLoadError("Vehicle could not be loaded.");
+      setVehicle(null);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [accessKey, id]);
 
   useEffect(() => {
     if (!vehicle || initialSnapshot) return;
@@ -1189,7 +1272,7 @@ export default function EditVehiclePage() {
         inspectionBookingNotes: "",
       });
       delete payload.id;
-      await updateDoc(refDoc, { ...payload, updatedAt: serverTimestamp() });
+      await updateDoc(refDoc, tenantPayload(dataAccessState, { ...payload, updatedAt: serverTimestamp() }));
       setVehicle((prev) => ({ ...prev, ...payload, id: vehicle.id }));
       setInitialSnapshot(JSON.stringify({ ...payload, id: vehicle.id }));
       alert("Vehicle updated.");
@@ -1229,17 +1312,20 @@ export default function EditVehiclePage() {
       const uploaded = [];
 
       for (const file of files) {
-        const sRef = storageRef(storage, `vehicles/${id}/${field}/${Date.now()}-${file.name}`);
+        const sRef = storageRef(
+          storage,
+          companyStoragePath(dataAccessState, `vehicles/${id}/${field}/${Date.now()}-${file.name}`)
+        );
         const snap = await uploadBytes(sRef, file);
         const url = await getDownloadURL(snap.ref);
         uploaded.push({ name: file.name, url });
       }
 
       const updatedList = [...existing, ...uploaded];
-      await updateDoc(fsDoc(db, "vehicles", id), {
+      await updateDoc(fsDoc(db, "vehicles", id), tenantPayload(dataAccessState, {
         [field]: updatedList,
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       setVehicle((prev) => ({ ...prev, [field]: updatedList }));
       e.target.value = "";
@@ -1388,7 +1474,9 @@ export default function EditVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <div style={{ ...panel, textAlign: "center", color: UI.muted }}>Loading vehicle...</div>
+          <div style={{ ...panel, textAlign: "center", color: loadError ? "#dc2626" : UI.muted }}>
+            {loadError || "Loading vehicle..."}
+          </div>
         </div>
       </HeaderSidebarLayout>
     );

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../../firebaseConfig";
 import {
@@ -32,15 +33,16 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import { ADMIN_EMAILS } from "@/app/utils/adminAccess";
+import {
+  handleFirestoreAccessError,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
 
 /* -------------------------------------------
    Admin gate
     allow if email is in ADMIN_EMAILS OR users.role === "admin"
 ------------------------------------------- */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
-
 /* -------------------------------------------
    Mini design system (matches your style)
 ------------------------------------------- */
@@ -160,8 +162,160 @@ const daysBetweenInclusive = (startISO, endISO) => {
   return isNaN(days) ? 0 : Math.max(0, days);
 };
 
+const dedupeUsersByEmail = (raw = []) => {
+  const byKey = new Map();
+  const rawCount = raw.length;
+
+  for (const r of raw) {
+    const email = (r.email || "").toLowerCase().trim();
+    const uid = String(r.uid || r.id || "").trim();
+    const key = email || uid;
+    if (!key) continue;
+
+    const existing = byKey.get(key);
+    if (!existing) byKey.set(key, r);
+    else byKey.set(key, bestUserDoc(existing, r));
+  }
+
+  const deduped = Array.from(byKey.values()).sort((a, b) =>
+    (a.email || a.uid || a.id || "").localeCompare(b.email || b.uid || b.id || "")
+  );
+
+  return {
+    users: deduped,
+    meta: {
+      rawCount,
+      dedupedCount: deduped.length,
+      duplicates: Math.max(0, rawCount - deduped.length),
+    },
+  };
+};
+
+const buildAdminActivityRows = (data = {}) => {
+  const rows = [];
+  const pushRow = (row) => {
+    const at = toDateSafe(row.at);
+    if (!at) return;
+    rows.push({
+      id: row.id,
+      at,
+      user: String(row.user || "Unknown").trim() || "Unknown",
+      action: String(row.action || "Updated").trim() || "Updated",
+      area: String(row.area || "").trim(),
+      details: String(row.details || "").trim(),
+    });
+  };
+
+  const addHistoryRows = (items = [], areaLabel) => {
+    items.forEach((item) => {
+      const history = Array.isArray(item.history) ? item.history : [];
+      history.forEach((entry, index) => {
+        pushRow({
+          id: `${areaLabel}-${item.id}-${index}`,
+          at: entry?.timestamp || entry?.updatedAt || item?.updatedAt || item?.createdAt,
+          user: entry?.user || entry?.updatedBy || entry?.by || item?.lastEditedBy || item?.createdBy,
+          action: entry?.action || "Updated",
+          area: areaLabel,
+          details:
+            entry?.details ||
+            (Array.isArray(entry?.changes) ? entry.changes.join(" | ") : "") ||
+            `${areaLabel} ${item.id}`,
+        });
+      });
+
+      if (history.length === 0 && (item?.createdAt || item?.updatedAt)) {
+        pushRow({
+          id: `${areaLabel}-${item.id}-fallback`,
+          at: item?.updatedAt || item?.createdAt,
+          user: item?.lastEditedBy || item?.updatedBy || item?.createdBy,
+          action: item?.updatedAt ? "Updated" : "Created",
+          area: areaLabel,
+          details: `${areaLabel} ${item.id}`,
+        });
+      }
+    });
+  };
+
+  addHistoryRows(data.bookings || [], "Booking");
+  addHistoryRows(data.maintenanceBookings || [], "Maintenance");
+
+  (data.maintenanceJobs || []).forEach((item) => {
+    pushRow({
+      id: `Maintenance Job-${item.id}`,
+      at: item.updatedAtServer || item.updatedAt || item.createdAt,
+      user: item.updatedBy || item.createdBy,
+      action: item.updatedAt ? "Updated" : "Created",
+      area: "Maintenance Job",
+      details: item.title || item.id,
+    });
+  });
+
+  (data.holidays || []).forEach((item) => {
+    pushRow({
+      id: `Holiday-${item.id}`,
+      at: item.updatedAt || item.createdAt || item.startDate,
+      user: item.updatedBy || item.createdByEmail || item.createdByName || item.employee,
+      action: item.updatedAt ? "Updated holiday" : "Created holiday",
+      area: "Holiday",
+      details: `${item.employee || "Unknown"} ${fmtYMD(item.startDate)} -> ${fmtYMD(
+        item.endDate || item.startDate
+      )}`,
+    });
+  });
+
+  (data.sickLeave || []).forEach((item) => {
+    pushRow({
+      id: `Sick-${item.id}`,
+      at: item.updatedAt || item.createdAt || item.startDate,
+      user: item.updatedBy || item.createdBy || "Unknown",
+      action: item.updatedAt ? "Updated sick leave" : "Created sick leave",
+      area: "Sick Leave",
+      details: `${item.employeeName || item.employeeId || "Unknown"} ${fmtYMD(
+        item.startDate
+      )} -> ${fmtYMD(item.endDate || item.startDate)}`,
+    });
+  });
+
+  (data.users || []).forEach((item) => {
+    pushRow({
+      id: `User-${item.id}`,
+      at: item.updatedAt || item.createdAt,
+      user: item.updatedBy || item.email || item.id,
+      action: item.updatedAt ? "Updated user access" : "Created user",
+      area: "Access",
+      details: item.email || item.id,
+    });
+  });
+
+  rows.sort((a, b) => b.at.getTime() - a.at.getTime());
+  return rows.slice(0, 500);
+};
+
+const fetchAdminOverviewDataFromServer = async () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Not signed in.");
+  const idToken = await currentUser.getIdToken();
+  const res = await fetch("/api/admin/overview", {
+    headers: { Authorization: `Bearer ${idToken}` },
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not load admin overview.");
+  return data;
+};
+
 export default function AdminPage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
 
   const [me, setMe] = useState(null);
   const [checking, setChecking] = useState(true);
@@ -270,10 +424,21 @@ export default function AdminPage() {
     }
   };
 
+  const refreshServerAccess = async (currentUser) => {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch("/api/security/bootstrap-access", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` },
+      cache: "no-store",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not refresh admin access.");
+    return data?.access || {};
+  };
+
   /* -------------------------------------------
      Auth + Admin gate
-      allow if email in ADMIN_EMAILS OR Firestore role === "admin"
-      robust lookup: users/{uid} then query by email
+      allow if email in ADMIN_EMAILS OR server-bootstrapped role is admin/platformAdmin
   -------------------------------------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -285,58 +450,21 @@ export default function AdminPage() {
         }
 
         const email = String(u.email || "").trim().toLowerCase();
+        const access = await refreshServerAccess(u);
+        const role = String(access?.role || "").trim().toLowerCase();
+        const isAdminRole = ["admin", "platformadmin"].includes(role);
+        const isAllowListed = ADMIN_EMAILS.includes(email);
 
-        // 1) Allow-list pass
-        if (ADMIN_EMAILS.includes(email)) {
-          setMe(u);
-          await bootstrap();
-          return;
-        }
-
-        // 2) Role pass (Firestore)
-        let role = null;
-
-        // Try users/{uid}
-        try {
-          const uidRef = doc(db, "users", u.uid);
-          const uidSnap = await getDoc(uidRef);
-          if (uidSnap.exists()) role = uidSnap.data()?.role || null;
-        } catch {
-          // ignore
-        }
-
-        // Fallback: query by email (handles users not keyed by uid)
-        if (!role) {
-          try {
-            const q1 = query(
-              collection(db, "users"),
-              where("email", "==", u.email || ""),
-              limit(1)
-            );
-            const r1 = await getDocs(q1);
-            if (!r1.empty) role = r1.docs[0].data()?.role || null;
-
-            if (!role) {
-              const q2 = query(
-                collection(db, "users"),
-                where("email", "==", email),
-                limit(1)
-              );
-              const r2 = await getDocs(q2);
-              if (!r2.empty) role = r2.docs[0].data()?.role || null;
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        if (role !== "admin") {
+        if (!isAllowListed && !isAdminRole) {
           router.push("/home");
           return;
         }
 
         setMe(u);
         await bootstrap();
+      } catch (error) {
+        console.error("Admin bootstrap failed:", error);
+        showToast("error", error?.message || "Could not load admin data.");
       } finally {
         setChecking(false);
       }
@@ -350,186 +478,65 @@ export default function AdminPage() {
      Fetch
   -------------------------------------------- */
   const bootstrap = async () => {
-    await Promise.all([
-      fetchUsers(),
-      fetchEmployees(),
-      fetchAllowances(),
-      fetchSickLeaves(),
-      fetchActivity(),
-      fetchAuditLogs(),
-    ]);
+    setActivityLoading(true);
+    setAuditLoading(true);
+    try {
+      const overview = await fetchAdminOverviewData();
+      hydrateAdminOverview(overview);
+    } finally {
+      setActivityLoading(false);
+      setAuditLoading(false);
+    }
+  };
+
+  const fetchAdminOverviewData = async () => {
+    return fetchAdminOverviewDataFromServer();
+  };
+
+  const hydrateAdminOverview = (overview = {}) => {
+    const deduped = dedupeUsersByEmail(overview.users || []);
+    setUsers(deduped.users);
+    setUsersMeta(deduped.meta);
+    setEmployees(overview.employees || []);
+    setAllowances(overview.holidayAllowances || []);
+    setSickLeaves(overview.sickLeave || []);
+    setActivityRows(buildAdminActivityRows(overview));
+    setAuditRows(
+      (overview.adminAuditLogs || []).slice(0, 200).map((data) => ({
+        id: data.id,
+        ...data,
+        at: toDateSafe(data.createdAt),
+      }))
+    );
   };
 
   const fetchUsers = async () => {
-    const snap = await getDocs(
-      query(collection(db, "users"), orderBy("email", "asc"))
-    );
-    const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    const byEmail = new Map();
-    const rawCount = raw.length;
-
-    for (const r of raw) {
-      const email = (r.email || "").toLowerCase().trim();
-      if (!email) continue;
-
-      const existing = byEmail.get(email);
-      if (!existing) byEmail.set(email, r);
-      else byEmail.set(email, bestUserDoc(existing, r));
-    }
-
-    const deduped = Array.from(byEmail.values()).sort((a, b) =>
-      (a.email || "").localeCompare(b.email || "")
-    );
-
-    setUsers(deduped);
-    setUsersMeta({
-      rawCount,
-      dedupedCount: deduped.length,
-      duplicates: Math.max(0, rawCount - deduped.length),
-    });
+    const overview = await fetchAdminOverviewData();
+    const deduped = dedupeUsersByEmail(overview.users || []);
+    setUsers(deduped.users);
+    setUsersMeta(deduped.meta);
   };
 
   const fetchEmployees = async () => {
-    const snap = await getDocs(
-      query(collection(db, "employees"), orderBy("name", "asc"))
-    );
-    setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const overview = await fetchAdminOverviewData();
+    setEmployees(overview.employees || []);
   };
 
   const fetchAllowances = async () => {
-    const snap = await getDocs(collection(db, "holidayAllowances"));
-    setAllowances(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const overview = await fetchAdminOverviewData();
+    setAllowances(overview.holidayAllowances || []);
   };
 
   const fetchSickLeaves = async () => {
-    const snap = await getDocs(
-      query(collection(db, "sickLeave"), orderBy("createdAt", "desc"))
-    );
-    setSickLeaves(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const overview = await fetchAdminOverviewData();
+    setSickLeaves(overview.sickLeave || []);
   };
 
   const fetchActivity = async () => {
     setActivityLoading(true);
     try {
-      const [
-        bookingsSnap,
-        maintenanceSnap,
-        maintenanceJobsSnap,
-        holidaysSnap,
-        sickSnap,
-        usersSnap,
-      ] = await Promise.all([
-        getDocs(collection(db, "bookings")),
-        getDocs(collection(db, "maintenanceBookings")),
-        getDocs(collection(db, "maintenanceJobs")),
-        getDocs(collection(db, "holidays")),
-        getDocs(collection(db, "sickLeave")),
-        getDocs(collection(db, "users")),
-      ]);
-
-      const rows = [];
-      const pushRow = (row) => {
-        const at = toDateSafe(row.at);
-        if (!at) return;
-        rows.push({
-          id: row.id,
-          at,
-          user: String(row.user || "Unknown").trim() || "Unknown",
-          action: String(row.action || "Updated").trim() || "Updated",
-          area: String(row.area || "").trim(),
-          details: String(row.details || "").trim(),
-        });
-      };
-
-      const addHistoryRows = (snap, areaLabel) => {
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data() || {};
-          const history = Array.isArray(data.history) ? data.history : [];
-          history.forEach((entry, index) => {
-            pushRow({
-              id: `${areaLabel}-${docSnap.id}-${index}`,
-              at: entry?.timestamp || entry?.updatedAt || data?.updatedAt || data?.createdAt,
-              user: entry?.user || entry?.updatedBy || entry?.by || data?.lastEditedBy || data?.createdBy,
-              action: entry?.action || "Updated",
-              area: areaLabel,
-              details:
-                entry?.details ||
-                (Array.isArray(entry?.changes) ? entry.changes.join(" | ") : "") ||
-                `${areaLabel} ${docSnap.id}`,
-            });
-          });
-
-          if (history.length === 0 && (data?.createdAt || data?.updatedAt)) {
-            pushRow({
-              id: `${areaLabel}-${docSnap.id}-fallback`,
-              at: data?.updatedAt || data?.createdAt,
-              user: data?.lastEditedBy || data?.updatedBy || data?.createdBy,
-              action: data?.updatedAt ? "Updated" : "Created",
-              area: areaLabel,
-              details: `${areaLabel} ${docSnap.id}`,
-            });
-          }
-        });
-      };
-
-      addHistoryRows(bookingsSnap, "Booking");
-      addHistoryRows(maintenanceSnap, "Maintenance");
-
-      maintenanceJobsSnap.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        pushRow({
-          id: `Maintenance Job-${docSnap.id}`,
-          at: data.updatedAtServer || data.updatedAt || data.createdAt,
-          user: data.updatedBy || data.createdBy,
-          action: data.updatedAt ? "Updated" : "Created",
-          area: "Maintenance Job",
-          details: data.title || docSnap.id,
-        });
-      });
-
-      holidaysSnap.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        pushRow({
-          id: `Holiday-${docSnap.id}`,
-          at: data.updatedAt || data.createdAt || data.startDate,
-          user: data.updatedBy || data.createdByEmail || data.createdByName || data.employee,
-          action: data.updatedAt ? "Updated holiday" : "Created holiday",
-          area: "Holiday",
-          details: `${data.employee || "Unknown"} ${fmtYMD(data.startDate)} -> ${fmtYMD(
-            data.endDate || data.startDate
-          )}`,
-        });
-      });
-
-      sickSnap.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        pushRow({
-          id: `Sick-${docSnap.id}`,
-          at: data.updatedAt || data.createdAt || data.startDate,
-          user: data.updatedBy || data.createdBy || "Unknown",
-          action: data.updatedAt ? "Updated sick leave" : "Created sick leave",
-          area: "Sick Leave",
-          details: `${data.employeeName || data.employeeId || "Unknown"} ${fmtYMD(
-            data.startDate
-          )} -> ${fmtYMD(data.endDate || data.startDate)}`,
-        });
-      });
-
-      usersSnap.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        pushRow({
-          id: `User-${docSnap.id}`,
-          at: data.updatedAt || data.createdAt,
-          user: data.updatedBy || data.email || docSnap.id,
-          action: data.updatedAt ? "Updated user access" : "Created user",
-          area: "Access",
-          details: data.email || docSnap.id,
-        });
-      });
-
-      rows.sort((a, b) => b.at.getTime() - a.at.getTime());
-      setActivityRows(rows.slice(0, 500));
+      const overview = await fetchAdminOverviewData();
+      setActivityRows(buildAdminActivityRows(overview));
     } catch (err) {
       console.error("Failed to load activity:", err);
       setActivityRows([]);
@@ -541,14 +548,11 @@ export default function AdminPage() {
   const fetchAuditLogs = async () => {
     setAuditLoading(true);
     try {
-      const snap = await getDocs(
-        query(collection(db, "adminAuditLogs"), orderBy("createdAt", "desc"), limit(200))
-      );
+      const overview = await fetchAdminOverviewData();
       setAuditRows(
-        snap.docs.map((docSnap) => {
-          const data = docSnap.data() || {};
+        (overview.adminAuditLogs || []).slice(0, 200).map((data) => {
           return {
-            id: docSnap.id,
+            id: data.id,
             ...data,
             at: toDateSafe(data.createdAt),
           };
@@ -681,16 +685,23 @@ export default function AdminPage() {
     const days = daysBetweenInclusive(startDate, endDate);
     if (days <= 0) return showToast("warn", "Dates look invalid");
 
-    await addDoc(collection(db, "sickLeave"), {
-      employeeId: newSick.employeeId,
-      startDate,
-      endDate,
-      days,
-      reason: newSick.reason || "",
-      notes: newSick.notes || "",
-      createdAt: serverTimestamp(),
-      createdBy: me?.email || "",
-    });
+    try {
+      await addDoc(collection(db, "sickLeave"), tenantPayload(dataAccessState, {
+        employeeId: newSick.employeeId,
+        startDate,
+        endDate,
+        days,
+        reason: newSick.reason || "",
+        notes: newSick.notes || "",
+        createdAt: serverTimestamp(),
+        createdBy: me?.email || "",
+      }));
+    } catch (error) {
+      if (!handleFirestoreAccessError(error, { collectionName: "sickLeave", operation: "create sick leave" })) {
+        console.error("Failed to add sick leave:", error);
+      }
+      return showToast("error", error?.message || "Failed to record sick leave");
+    }
 
     setNewSick({
       employeeId: "",
@@ -1037,7 +1048,7 @@ export default function AdminPage() {
         <div style={{ marginTop: 16, display: "grid", gap: UI.gap }}>
           {/* ACCESS */}
           {activeTab === Tabs.ACCESS && (
-            <Card title="Manage Access" subtitle="One line per user (de-duped by email)">
+            <Card title="Manage Access" subtitle="One line per user (de-duped by email or UID)">
               <div style={{ overflowX: "auto" }}>
                 <table style={tableStyle}>
                   <thead>
@@ -1056,7 +1067,7 @@ export default function AdminPage() {
                         <td colSpan={5} style={emptyTd}>
                           {users.length === 0 ? (
                             <>
-                              No users found in Firestore <code>users</code> collection.
+                              No access users found. Linked employees with authUid will appear here once access records are repaired.
                             </>
                           ) : (
                             "No users match your search."
@@ -1094,8 +1105,8 @@ export default function AdminPage() {
                                 onChange={(e) => updateUserRole(u.id, e.target.value)}
                                 style={selectStyle}
                               >
+                                <option value="platformAdmin">platformAdmin</option>
                                 <option value="user">user</option>
-                                <option value="manager">manager</option>
                                 <option value="admin">admin</option>
                               </select>
                             </Td>
@@ -2151,12 +2162,12 @@ function EmployeesHolidayAllowancesTab() {
     const load = async () => {
       setLoading(true);
       try {
-        const empSnap = await getDocs(collection(db, "employees"));
-        const list = empSnap.docs.map((d) => {
-          const x = d.data() || {};
+        const overview = await fetchAdminOverviewDataFromServer();
+        const list = (overview.employees || []).map((employee) => {
+          const x = employee || {};
           const pattern = x.workPattern || HA_DEFAULT_PATTERN;
           return {
-            id: d.id,
+            id: x.id,
             name: HA_pickName(x),
             workPattern: pattern,
             holidayAllowance: HA_asNum(x.holidayAllowance, HA_entitlementFor(pattern)),
@@ -2166,11 +2177,11 @@ function EmployeesHolidayAllowancesTab() {
           };
         });
 
-        const holSnap = await getDocs(collection(db, "holidays"));
+        const holidays = overview.holidays || [];
         const used = { [HA_thisYear]: {}, [HA_nextYear]: {} };
 
-        holSnap.docs.forEach((d) => {
-          const x = d.data() || {};
+        holidays.forEach((holiday) => {
+          const x = holiday || {};
           const name = x.employee;
           if (!name || !x.startDate || !x.endDate) return;
 
@@ -2433,7 +2444,7 @@ function EmployeesHolidayAllowancesTab() {
 
     setAdding(true);
     try {
-      const docRef = await addDoc(collection(db, "employees"), {
+      const docRef = await addDoc(collection(db, "employees"), tenantPayload(dataAccessState, {
         name,
         fullName: name,
         employeeName: name,
@@ -2442,7 +2453,7 @@ function EmployeesHolidayAllowancesTab() {
         carriedOverDays: carry,
         holidayAllowances: { [String(HA_thisYear)]: allowance },
         carryOverByYear: { [String(HA_thisYear)]: carry },
-      });
+      }));
 
       const newRow = {
         id: docRef.id,
@@ -2473,6 +2484,7 @@ function EmployeesHolidayAllowancesTab() {
 
       alert("Employee added.");
     } catch (err) {
+      handleFirestoreAccessError(err, { collectionName: "employees", operation: "create employee" });
       alert(`Failed to add: ${err?.message || err}`);
     } finally {
       setAdding(false);

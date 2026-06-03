@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import {
   AlertTriangle,
   BriefcaseBusiness,
@@ -344,19 +346,22 @@ const classify = (job, todayMidnight) => {
 
 /* Page */
 export default function JobHomePage() {
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const searchRef = useRef(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    if (!authState?.accessReady) return undefined;
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", authState), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setBookings(list);
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, authState]);
 
   const jobs = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
 

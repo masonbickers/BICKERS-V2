@@ -12,11 +12,11 @@ import {
  * @property {boolean} service
  *
  * @typedef {Object} ResolvedEmployeeAccess
- * @property {"employee"|"service"|"hybrid"} role
+ * @property {"user"} role
  * @property {boolean} isService
  * @property {EmployeeAppAccess} appAccess
  * @property {"user"|"service"} defaultWorkspace
- * @property {"employee"|"service"|"hybrid"} effectiveRole
+ * @property {"user"} effectiveRole
  * @property {boolean} hasUserAccess
  * @property {boolean} hasServiceAccess
  */
@@ -27,6 +27,56 @@ export const WORKSPACE_ROUTES = {
 };
 
 export const ACTIVE_WORKSPACE_KEY = "activeWorkspace";
+
+export const PLATFORM_ROLES = [
+  "platformAdmin",
+  "admin",
+  "user",
+];
+
+export const PLATFORM_MODULES = [
+  ["diary", "Diary"],
+  ["bookings", "Bookings"],
+  ["workshop", "Workshop"],
+  ["hr", "HR"],
+  ["timesheets", "Timesheets"],
+  ["holidays", "Holidays"],
+  ["finance", "Finance"],
+  ["invoices", "Invoices"],
+  ["vehicles", "Vehicles"],
+  ["equipment", "Equipment"],
+  ["settings", "Settings"],
+  ["assistant", "Assistant"],
+];
+
+export const REQUIRED_USER_ACCESS_FIELDS = [
+  "role",
+  "appAccess",
+  "defaultWorkspace",
+  "companyId",
+  "isEnabled",
+];
+
+export const ROLE_DEFINITIONS = {
+  platformAdmin: {
+    label: "Platform Admin",
+    scope: "All companies",
+    defaultWorkspace: "user",
+    description: "Server-verified super admin with platform-wide company, user, security and audit access.",
+  },
+  admin: {
+    label: "Admin",
+    scope: "Application admin",
+    defaultWorkspace: "user",
+    description: "Manages application users, access, MFA resets and admin workflows.",
+  },
+  user: {
+    label: "User",
+    scope: "Application user",
+    defaultWorkspace: "user",
+    description: "Standard access controlled by appAccess and module settings.",
+  },
+};
 
 export const SERVICE_PATH_PREFIXES = [
   "/service",
@@ -53,6 +103,87 @@ export const ADMIN_PATH_PREFIXES = [
   "/edit-employee",
   "/deleted-bookings",
 ];
+
+export const DEFAULT_FEATURE_FLAGS = {
+  diary: true,
+  bookings: true,
+  workshop: true,
+  vehicles: true,
+  equipment: true,
+  hr: true,
+  uCrane: true,
+  jobSheets: true,
+  employees: true,
+  hAndS: true,
+  statistics: true,
+  timesheets: true,
+  holidays: true,
+  finance: true,
+  invoices: true,
+  assistant: true,
+  mobileApp: true,
+  pushNotifications: true,
+  passkeys: true,
+  mfa: true,
+  userCodeLogin: false,
+  settings: true,
+};
+
+export const MODULE_ROUTE_PREFIXES = {
+  diary: ["/dashboard", "/booking-page", "/wall-view"],
+  bookings: ["/bookings", "/create-booking", "/edit-booking", "/booking-drafts", "/book-work", "/deleted-bookings", "/dashboard", "/booking-page", "/wall-view"],
+  workshop: ["/workshop", "/service", "/service-home", "/service-overview", "/maintenance", "/maintenance-jobs", "/mot-overview", "/mot-history-sync", "/defects", "/general", "/immediate", "/usage-overview"],
+  vehicles: ["/vehicle-home", "/vehicles", "/vehicle-edit", "/vehicle-info", "/vehicle-activity", "/vehicle-checks", "/vehicle-checkid", "/equipment", "/add-equipment", "/edit-equipment", "/mot-overview", "/mot-history-sync", "/preplist", "/preplist-dashboard"],
+  equipment: ["/equipment", "/add-equipment", "/edit-equipment"],
+  hr: ["/hr", "/hr-policies", "/holiday-allowance", "/holiday-form", "/holiday-usage", "/sick-leave", "/timesheets", "/timesheet-id"],
+  employees: ["/employees", "/employee-home", "/add-employee", "/edit-employee"],
+  uCrane: ["/u-crane", "/u-crane-booking", "/u-crane-crew", "/u-crane-edit"],
+  jobSheets: ["/job-home", "/job-sheet", "/job-numbers", "/job-summary", "/stunt-prep", "/preplist", "/preplist-dashboard"],
+  hAndS: ["/h-and-s", "/defects"],
+  statistics: ["/statistics"],
+  timesheets: ["/timesheets", "/timesheet-id"],
+  holidays: ["/holiday-allowance", "/holiday-form", "/holiday-usage"],
+  finance: ["/finance-dashboard", "/finance-home", "/finance-queue", "/invoice", "/invoice-view", "/ready-invoice", "/invoiced", "/paid"],
+  invoices: ["/finance-dashboard", "/finance-queue", "/invoice", "/invoice-view", "/ready-invoice", "/invoiced", "/paid"],
+  assistant: ["/assistant"],
+  settings: ["/settings"],
+};
+
+export function normalizeFeatureFlags(...sources) {
+  return sources.reduce(
+    (acc, source) => {
+      const flags = source && typeof source === "object" ? source : {};
+      Object.keys(DEFAULT_FEATURE_FLAGS).forEach((key) => {
+        if (typeof flags[key] === "boolean") acc[key] = flags[key];
+      });
+      return acc;
+    },
+    { ...DEFAULT_FEATURE_FLAGS }
+  );
+}
+
+export function moduleForPath(pathname = "") {
+  const path = String(pathname || "").toLowerCase();
+  const entries = Object.entries(MODULE_ROUTE_PREFIXES).sort((a, b) => {
+    const longestA = Math.max(...a[1].map((prefix) => prefix.length));
+    const longestB = Math.max(...b[1].map((prefix) => prefix.length));
+    return longestB - longestA;
+  });
+
+  for (const [moduleKey, prefixes] of entries) {
+    if (prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+      return moduleKey;
+    }
+  }
+
+  return null;
+}
+
+export function isModuleEnabledForPath(pathname, featureFlags = DEFAULT_FEATURE_FLAGS) {
+  const moduleKey = moduleForPath(pathname);
+  if (!moduleKey) return true;
+  return normalizeFeatureFlags(featureFlags)[moduleKey] !== false;
+}
 
 export function inferAccessFromLegacyFields(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();
@@ -92,10 +223,103 @@ export function normalizeAppAccess(raw = {}) {
   return normalized;
 }
 
+export function normalizePlatformRole(value) {
+  const raw = String(value || "").trim();
+  const key = raw.toLowerCase();
+  const aliases = {
+    platformadmin: "platformAdmin",
+    "platform admin": "platformAdmin",
+    superadmin: "platformAdmin",
+    "super admin": "platformAdmin",
+    companyadmin: "admin",
+    manager: "user",
+    employee: "user",
+    readonlyuser: "user",
+    "read-only user": "user",
+    "read only user": "user",
+    service: "user",
+    hybrid: "user",
+    archived: "user",
+  };
+  return aliases[key] || PLATFORM_ROLES.find((role) => role.toLowerCase() === key) || "user";
+}
+
+export function derivePlatformRoleFromAccess(raw = {}) {
+  const normalizedRole = normalizePlatformRole(raw?.role);
+  return normalizedRole === "platformAdmin" || normalizedRole === "admin" ? normalizedRole : "user";
+}
+
+export function getRoleDefinition(role) {
+  const normalizedRole = normalizePlatformRole(role);
+  return ROLE_DEFINITIONS[normalizedRole] || ROLE_DEFINITIONS.user;
+}
+
+export function roleCanAccessWorkspace(role, workspace, appAccess = {}) {
+  const normalizedRole = normalizePlatformRole(role);
+  if (normalizedRole === "platformAdmin" || normalizedRole === "admin") return true;
+  if (workspace === "service") {
+    return !!appAccess.service;
+  }
+  return normalizedRole === "user" && !!appAccess.user;
+}
+
+export function getRoleModulePermission(role, moduleKey) {
+  const normalizedRole = normalizePlatformRole(role);
+  if (normalizedRole === "platformAdmin") return "All companies";
+  if (normalizedRole === "admin") return "Admin";
+  return "App access";
+}
+
+export function getPermissionMatrixRows(moduleEntries = PLATFORM_MODULES, roles = PLATFORM_ROLES) {
+  return moduleEntries.map(([moduleKey, moduleLabel]) => ({
+    moduleKey,
+    moduleLabel,
+    permissions: roles.reduce((acc, role) => {
+      acc[role] = getRoleModulePermission(role, moduleKey);
+      return acc;
+    }, {}),
+  }));
+}
+
+export function getRequiredAccessFieldStatus(user = {}) {
+  const appAccess = normalizeAppAccess(user);
+  const defaultWorkspace = resolveDefaultWorkspace(user, appAccess);
+  return [
+    {
+      field: "role",
+      value: normalizePlatformRole(user?.role),
+      status: user?.role ? "Configured" : "Defaulted",
+      detail: "Canonical role used by platform permission checks.",
+    },
+    {
+      field: "appAccess",
+      value: `user: ${appAccess.user ? "yes" : "no"}, service: ${appAccess.service ? "yes" : "no"}`,
+      status: appAccess.user || appAccess.service ? "Configured" : "Missing",
+      detail: "Controls user and service workspace entry.",
+    },
+    {
+      field: "defaultWorkspace",
+      value: defaultWorkspace,
+      status: user?.defaultWorkspace ? "Configured" : "Defaulted",
+      detail: "Initial workspace after sign-in.",
+    },
+    {
+      field: "companyId",
+      value: user?.companyId || "-",
+      status: user?.companyId ? "Configured" : "Missing",
+      detail: "Required for company-scoped roles.",
+    },
+    {
+      field: "isEnabled",
+      value: user?.isEnabled === false ? "false" : "true",
+      status: user?.isEnabled === false ? "Disabled" : "Enabled",
+      detail: "Master switch for platform access.",
+    },
+  ];
+}
+
 export function deriveRoleFromAccess(appAccess) {
-  if (appAccess.user && appAccess.service) return "hybrid";
-  if (appAccess.service) return "service";
-  return "employee";
+  return "user";
 }
 
 export function resolveDefaultWorkspace(raw = {}, appAccess = normalizeAppAccess(raw)) {
@@ -110,7 +334,7 @@ export function resolveEmployeeAccess(raw = {}, { isAdmin = false } = {}) {
   const appAccess = isAdmin
     ? { user: true, service: true }
     : normalizeAppAccess(raw);
-  const role = isAdmin ? "hybrid" : deriveRoleFromAccess(appAccess);
+  const role = "user";
   const defaultWorkspace = resolveDefaultWorkspace(raw, appAccess);
 
   return {
@@ -128,7 +352,7 @@ export function hasMirroredAccessRecord(raw = {}) {
   const role = String(raw?.role || "").trim().toLowerCase();
   return (
     raw?.appAccess && typeof raw.appAccess === "object"
-  ) || ["admin", "employee", "service", "hybrid", "archived"].includes(role);
+  ) || ["platformadmin", "admin", "companyadmin", "manager", "user", "employee", "service", "hybrid", "archived"].includes(role);
 }
 
 export function validateEmployeeAccessDraft(draft) {

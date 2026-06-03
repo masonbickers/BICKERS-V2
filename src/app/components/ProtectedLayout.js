@@ -6,12 +6,18 @@ import { useAuth } from "@/app/context/authContext";
 import {
   getStoredActiveWorkspace,
   isAdminPath,
+  isModuleEnabledForPath,
   isPathAllowedForAccess,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import { isMfaVerifiedOnDevice } from "@/app/utils/authSecurity";
 
 const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
+
+const isPlatformControlPath = (pathname = "") => {
+  const path = String(pathname || "").toLowerCase();
+  return path === "/admin" || path.startsWith("/admin/") || path === "/platform-admin" || path.startsWith("/platform-admin/");
+};
 
 export default function ProtectedLayout({ children }) {
   const router = useRouter();
@@ -21,6 +27,7 @@ export default function ProtectedLayout({ children }) {
     loading,
     accessReady,
     employeeAccess,
+    featureFlags,
     isAdmin,
     isEnabled,
     phoneReady,
@@ -78,6 +85,11 @@ export default function ProtectedLayout({ children }) {
             getStoredActiveWorkspace(window.sessionStorage)
           : null;
       router.replace(selectLandingRoute(employeeAccess, preferred));
+      return;
+    }
+
+    if (!isPlatformControlPath(pathname) && !isModuleEnabledForPath(pathname, featureFlags)) {
+      router.replace(selectLandingRoute(employeeAccess));
     }
   }, [
     loading,
@@ -85,6 +97,7 @@ export default function ProtectedLayout({ children }) {
     isPublic,
     accessReady,
     employeeAccess,
+    featureFlags,
     isAdmin,
     isEnabled,
     phoneReady,

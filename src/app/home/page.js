@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
@@ -15,7 +16,14 @@ import interactionPlugin from "@fullcalendar/interaction";
 
 import moment from "moment";
 import { auth, db } from "../../../firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 import { buildAssetLabel } from "../utils/maintenanceSchema";
 import {
   buildBookedMetaByVehicle,
@@ -492,6 +500,17 @@ function Bucket({ title, items }) {
 export default function HomePage() {
   const router = useRouter();
   const pathname = usePathname();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [bookings, setBookings] = useState([]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
@@ -528,22 +547,33 @@ export default function HomePage() {
 
   // Fetch data
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read home data" });
+      return;
+    }
+
     const run = async () => {
-      const snap = await getDocs(collection(db, "bookings"));
+      const snap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setBookings(rows);
 
-      const vSnap = await getDocs(collection(db, "vehicles"));
+      const vSnap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       setVehicles(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-      const mSnap = await getDocs(collection(db, "maintenanceBookings"));
+      const mSnap = await getDocs(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState));
       setMaintenanceBookings(mSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
 
-      const mjSnap = await getDocs(collection(db, "maintenanceJobs"));
+      const mjSnap = await getDocs(tenantCollectionQuery(db, "maintenanceJobs", dataAccessState));
       setMaintenanceJobs(mjSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     };
-    run();
-  }, []);
+    run().catch((error) => {
+      if (!handleFirestoreAccessError(error, { collectionName: "home", operation: "read home data" })) {
+        console.error("[home] data load error:", error);
+      }
+    });
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     syncEightWeekInspectionRollovers({

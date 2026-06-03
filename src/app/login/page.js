@@ -13,7 +13,7 @@ import {
   setPersistence,
 } from "firebase/auth";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import Image from "next/image";
 import {
   clearMfaVerified,
@@ -23,6 +23,8 @@ import {
   markMfaVerified,
 } from "@/app/utils/authSecurity";
 import { sendLoginNotification } from "@/app/utils/loginNotification";
+import { resolveEmployeeAccess, selectLandingRoute } from "@/app/utils/accessControl";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,38 +38,6 @@ export default function LoginPage() {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).get("disabled") === "1";
   });
-
-  const upsertUserDoc = async (user, { name: fullName = "", phone: phoneNumber = "" } = {}) => {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
-
-    const baseIfNew = snap.exists()
-      ? {}
-      : {
-          createdAt: serverTimestamp(),
-          isEnabled: true,
-          role: "user",
-          isService: false,
-          appAccess: { user: true, service: false },
-          defaultWorkspace: "user",
-          phoneVerified: false,
-        };
-
-    await setDoc(
-      ref,
-      {
-        ...baseIfNew,
-        uid: user.uid,
-        email: (user.email || "").toLowerCase(),
-        name: snap.exists() ? (snap.data()?.name || fullName || "") : (fullName || ""),
-        phone: snap.exists() ? (snap.data()?.phone || phoneNumber || "") : (phoneNumber || ""),
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    return ref;
-  };
 
   const refreshServerAccess = async (user) => {
     if (!user?.getIdToken) return null;
@@ -89,6 +59,29 @@ export default function LoginPage() {
     }
   };
 
+  const readUserDataAfterBootstrap = async (user, access = null) => {
+    const ref = doc(db, "users", user.uid);
+    try {
+      const snap = await getDoc(ref);
+      return { ...(snap.exists() ? snap.data() || {} : {}), ...(access || {}) };
+    } catch (error) {
+      console.warn("[login] user doc read failed after bootstrap, retrying repair:", error);
+      const retryAccess = await refreshServerAccess(user);
+      try {
+        const retrySnap = await getDoc(ref);
+        return { ...(retrySnap.exists() ? retrySnap.data() || {} : {}), ...(retryAccess || access || {}) };
+      } catch {
+        return { ...(retryAccess || access || {}) };
+      }
+    }
+  };
+
+  const landingRouteForUserData = (user, userData = {}) => {
+    const role = String(userData?.role || "").trim().toLowerCase();
+    const isAdmin = isAdminEmail(user?.email || userData?.email) || ["admin", "platformadmin"].includes(role);
+    return selectLandingRoute(resolveEmployeeAccess(userData, { isAdmin }));
+  };
+
   const signInWithUserCode = async (cleanEmail, userCode) => {
     const res = await fetch("/api/auth/user-code-login", {
       method: "POST",
@@ -102,6 +95,23 @@ export default function LoginPage() {
       throw err;
     }
     return signInWithCustomToken(auth, data.customToken);
+  };
+
+  const logLoginAttempt = async ({ method = "password", status = "failed", reason = "" } = {}) => {
+    try {
+      await fetch("/api/security/login-attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: (email || "").trim().toLowerCase(),
+          method,
+          status,
+          reason,
+        }),
+      });
+    } catch {
+      // Login logging must not block the user's visible login error.
+    }
   };
 
   //  Handle Login / Signup
@@ -125,19 +135,19 @@ export default function LoginPage() {
       );
 
       let cred;
-      let loginMethod = "user-code";
-      let userCodeError = null;
+      let loginMethod = "password";
+      let passwordError = null;
 
       try {
-        cred = await signInWithUserCode(cleanEmail, password);
+        cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
       } catch (err) {
-        userCodeError = err;
-        loginMethod = "password";
+        passwordError = err;
         try {
-          cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        } catch (passwordErr) {
-          if (userCodeError?.status >= 500) throw userCodeError;
-          throw passwordErr;
+          cred = await signInWithUserCode(cleanEmail, password);
+          loginMethod = "user-code";
+        } catch (userCodeErr) {
+          if (userCodeErr?.status >= 500) throw userCodeErr;
+          throw passwordError;
         }
       }
 
@@ -148,22 +158,21 @@ export default function LoginPage() {
         return;
       }
 
-      const userRef =
-        loginMethod === "user-code"
-          ? doc(db, "users", user.uid)
-          : await upsertUserDoc(user);
+      const refreshedAccess = await refreshServerAccess(user);
+      const userData = await readUserDataAfterBootstrap(user, refreshedAccess);
 
-      const existingSnap = await getDoc(userRef);
-      if (existingSnap.exists() && existingSnap.data()?.isEnabled === false) {
+      if (!userData.uid && !userData.role) {
+        await signOut(auth);
+        setError("No access record found for this account. Ask a platform admin to link the employee/user record.");
+        return;
+      }
+
+      if (userData?.isEnabled === false) {
         await signOut(auth);
         setError("This account has been disabled. Contact an administrator.");
         return;
       }
 
-      const refreshedAccess = await refreshServerAccess(user);
-
-      const snap = await getDoc(userRef);
-      const userData = { ...(snap.data() || {}), ...(refreshedAccess || {}) };
       clearMfaVerified(typeof window !== "undefined" ? window.sessionStorage : null, user.uid);
 
       if (!isPhoneVerified(userData)) {
@@ -182,13 +191,14 @@ export default function LoginPage() {
       );
       if (trustedDeviceVerified) {
         await sendLoginNotification(user, loginMethod === "user-code" ? "user-code" : "trusted-device");
-        router.push("/dashboard");
+        router.push(landingRouteForUserData(user, userData));
         return;
       }
 
       router.push("/verify-mfa");
     } catch (err) {
       if (err?.code === "permission-denied" || String(err?.message || "").includes("permission")) {
+        await logLoginAttempt({ status: "blocked", reason: "Permission denied or disabled account" });
         setError("This account is disabled or does not have access.");
         try {
           await signOut(auth);
@@ -196,9 +206,11 @@ export default function LoginPage() {
         return;
       }
       if (String(err?.code || "").includes("invalid-credential")) {
+        await logLoginAttempt({ status: "failed", reason: "Invalid credentials" });
         setError("Login failed. Check the email and password or setup code.");
         return;
       }
+      await logLoginAttempt({ status: "failed", reason: err?.message || "Login error" });
       setError(err?.message || "Login error");
     }
   };
@@ -272,13 +284,14 @@ export default function LoginPage() {
       if (!verifyRes.ok) throw new Error(verifyData?.error || "Passkey login failed.");
 
       const cred = await signInWithCustomToken(auth, verifyData.customToken);
-      await refreshServerAccess(cred.user);
+      const refreshedAccess = await refreshServerAccess(cred.user);
+      const userData = await readUserDataAfterBootstrap(cred.user, refreshedAccess);
       const storage = rememberDevice
         ? typeof window !== "undefined" ? window.localStorage : null
         : typeof window !== "undefined" ? window.sessionStorage : null;
       markMfaVerified(storage, cred.user.uid, rememberDevice ? { daysValid: 30 } : {});
       await sendLoginNotification(cred.user, "passkey");
-      router.push("/dashboard");
+      router.push(landingRouteForUserData(cred.user, userData));
     } catch (err) {
       setError(err?.message || "Passkey login failed.");
     } finally {

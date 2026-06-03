@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import { auth, db, getFirebaseStorageTools } from "@/app/utils/firebaseClient";
-import { collection, addDoc, getDocs, doc, setDoc, query, orderBy, limit } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import {
   contactIdFromEmail,
   employeesKey,
@@ -28,6 +29,15 @@ import {
   buildInitialStatusHistory,
 } from "@/app/utils/bookingLifecycle";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
   CalendarDays,
   CheckCircle2,
@@ -611,6 +621,17 @@ const toJsDate = (raw) => {
 export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const draftIdFromQuery = searchParams.get("draft") || "";
   const statusFromQuery = searchParams.get("status") === "Enquiry" ? "Enquiry" : initialStatus;
   const hydratedDraftRef = useRef(false);
@@ -975,22 +996,31 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
   useEffect(() => {
     const loadData = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load booking form data" });
+        setReferenceDataLoading(false);
+        return;
+      }
+
       setReferenceDataLoading(true);
       try {
-        const latestBookingPromise = getDocs(
-          query(collection(db, "bookings"), orderBy("jobNumber", "desc"), limit(1))
-        ).catch((err) => {
+        const latestBookingPromise = getDocs(tenantCollectionQuery(db, "bookings", dataAccessState)).catch((err) => {
           console.warn("Failed loading latest booking number:", err);
           return null;
         });
 
         const [latestBookingSnap, referenceData] = await Promise.all([
           latestBookingPromise,
-          loadBookingFormReferenceData(db),
+          loadBookingFormReferenceData(db, { accessState: dataAccessState }),
         ]);
 
-        const latestJobNumber = latestBookingSnap?.docs?.[0]?.data()?.jobNumber;
-        const max = /^\d+$/.test(String(latestJobNumber || "")) ? parseInt(latestJobNumber, 10) : 0;
+        const max = (latestBookingSnap?.docs || []).reduce((currentMax, docSnap) => {
+          const raw = docSnap.data()?.jobNumber;
+          const value = /^\d+$/.test(String(raw || "")) ? parseInt(raw, 10) : 0;
+          return Math.max(currentMax, value);
+        }, 0);
         if (!draftIdFromQuery || !hydratedDraftRef.current) {
           setJobNumber(String(max + 1).padStart(4, "0"));
         }
@@ -1003,14 +1033,16 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         setEquipmentGroups(referenceData.equipmentGroups || {});
         setOpenEquipGroups(referenceData.openEquipGroups || {});
       } catch (err) {
-        console.error("Failed loading booking form reference data:", err);
+        if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "load booking form data" })) {
+          console.error("Failed loading booking form reference data:", err);
+        }
       } finally {
         setReferenceDataLoading(false);
       }
     };
 
     loadData();
-  }, [draftIdFromQuery]);
+  }, [accessKey, dataAccessState, draftIdFromQuery]);
 
   useEffect(() => {
     const dates = availabilityDateKey.split("|").filter(Boolean);
@@ -1021,9 +1053,15 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       setMaintenanceBookings([]);
       return undefined;
     }
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read booking availability" });
+      return undefined;
+    }
 
     let cancelled = false;
-    loadBookingAvailabilityForDates(db, dates)
+    loadBookingAvailabilityForDates(db, dates, { accessState: dataAccessState })
       .then((availability) => {
         if (cancelled) return;
         setAllBookings(availability.bookings || []);
@@ -1032,13 +1070,15 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         setMaintenanceBookings(availability.maintenanceBookings || []);
       })
       .catch((err) => {
-        if (!cancelled) console.error("Failed loading booking availability data:", err);
+        if (!cancelled && !handleFirestoreAccessError(err, { collectionName: "bookings", operation: "read booking availability" })) {
+          console.error("Failed loading booking availability data:", err);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [availabilityDateKey]);
+  }, [accessKey, availabilityDateKey, dataAccessState]);
 
   useEffect(() => {
     const vehicleIds = selectedVehicleKey.split("|").filter(Boolean);
@@ -1046,20 +1086,28 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       setVehicleChecks([]);
       return undefined;
     }
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicleChecks", operation: "read vehicle checks" });
+      return undefined;
+    }
 
     let cancelled = false;
-    loadVehicleChecksForVehicles(db, vehicleIds)
+    loadVehicleChecksForVehicles(db, vehicleIds, { accessState: dataAccessState })
       .then((checks) => {
         if (!cancelled) setVehicleChecks(checks || []);
       })
       .catch((err) => {
-        if (!cancelled) console.error("Failed loading vehicle check data:", err);
+        if (!cancelled && !handleFirestoreAccessError(err, { collectionName: "vehicleChecks", operation: "read vehicle checks" })) {
+          console.error("Failed loading vehicle check data:", err);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedVehicleKey]);
+  }, [accessKey, dataAccessState, selectedVehicleKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1611,11 +1659,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     if (savedContactsLoaded || savedContactsLoading) return;
     setSavedContactsLoading(true);
     try {
-      const contacts = await loadSavedContacts(db);
+      const contacts = await loadSavedContacts(db, { accessState: dataAccessState });
       setSavedContacts(contacts || []);
       setSavedContactsLoaded(true);
     } catch (err) {
-      console.error("Failed loading saved contacts:", err);
+      if (!handleFirestoreAccessError(err, { collectionName: "contacts", operation: "load saved contacts" })) {
+        console.error("Failed loading saved contacts:", err);
+      }
     } finally {
       setSavedContactsLoading(false);
     }
@@ -1713,7 +1763,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     let availabilityForSave = null;
     if (bookingDates.length) {
       try {
-        availabilityForSave = await loadBookingAvailabilityForDates(db, bookingDates);
+        availabilityForSave = await loadBookingAvailabilityForDates(db, bookingDates, {
+          accessState: dataAccessState,
+        });
         setAllBookings(availabilityForSave.bookings || []);
         setHolidayBookings(availabilityForSave.holidays || []);
         setUnavailableNotes(availabilityForSave.unavailableNotes || []);
@@ -1833,7 +1885,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
-        const storageRef = ref(storage, `${folder}/${safeName}`);
+        const storageRef = ref(storage, companyStoragePath(dataAccessState, `${folder}/${safeName}`));
 
         const contentType =
           file.type ||
@@ -2003,21 +2055,21 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     payload.dateISO = payload.date ? String(payload.date).slice(0, 10) : "";
 
     try {
-      await addDoc(collection(db, "bookings"), payload);
+      await addDoc(collection(db, "bookings"), tenantPayload(dataAccessState, payload));
 
       for (const c of additionalContactsToSave) {
         const id = contactIdFromEmail(c.email);
         if (!id) continue;
         await setDoc(
           doc(db, "contacts", id),
-          {
+          tenantPayload(dataAccessState, {
             name: c.name,
             email: c.email,
             phone: c.phone,
             number: c.phone,
             department: c.department,
             updatedAt: new Date().toISOString(),
-          },
+          }),
           { merge: true }
         );
       }

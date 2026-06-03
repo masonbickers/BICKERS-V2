@@ -1,4 +1,4 @@
-import { adminReadDocument } from "../_firebaseAdminRest";
+import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -20,6 +20,38 @@ export function readBearerToken(req) {
   const authHeader = req.headers.get("authorization") || "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) return "";
   return authHeader.slice(7).trim();
+}
+
+function headerValue(headers, name) {
+  return String(headers?.get?.(name) || "").trim();
+}
+
+function clientIp(req) {
+  const forwarded = headerValue(req.headers, "x-forwarded-for");
+  return (
+    headerValue(req.headers, "cf-connecting-ip") ||
+    headerValue(req.headers, "x-real-ip") ||
+    String(forwarded.split(",")[0] || "").trim() ||
+    ""
+  );
+}
+
+async function writeBlockedAccessLog(req, verifiedUser, reason) {
+  try {
+    await adminCreateDocument("loginSecurityLogs", {
+      uid: verifiedUser?.uid || "",
+      email: verifiedUser?.email || "",
+      loginMethod: "protected-api",
+      status: "blocked",
+      outcome: "blocked",
+      reason,
+      ip: req ? clientIp(req) : "",
+      userAgent: req ? headerValue(req.headers, "user-agent") : "",
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Blocked access log failed:", error);
+  }
 }
 
 function decodeJwtPayload(token) {
@@ -192,18 +224,62 @@ export async function createFirestoreDocument(collection, data, idToken) {
 export async function requireAdminFromRequest(req) {
   const idToken = readBearerToken(req);
   const verifiedUser = await verifyFirebaseIdToken(idToken);
-  if (!verifiedUser?.uid) return { error: jsonError("Not signed in.", 401) };
+  if (!verifiedUser?.uid) {
+    await writeBlockedAccessLog(req, null, "Not signed in");
+    return { error: jsonError("Not signed in.", 401) };
+  }
 
   const userData = await adminReadDocument("users", verifiedUser.uid);
-  const role = String(userData?.role || "").trim().toLowerCase();
+  const role = String(userData?.role || "").trim();
+  const normalizedRole = normalizeServerRole(role);
 
   if (userData?.isEnabled === false) {
+    await writeBlockedAccessLog(req, verifiedUser, "Account disabled");
     return { error: jsonError("Account disabled.", 403) };
   }
 
-  if (role !== "admin") {
-    return { error: jsonError("Admin access required.", 403) };
+  if (!["platformAdmin", "admin"].includes(normalizedRole)) {
+    await writeBlockedAccessLog(req, verifiedUser, "Platform admin access required");
+    return { error: jsonError("Platform admin access required.", 403) };
   }
 
-  return { idToken, verifiedUser, userData };
+  return { idToken, verifiedUser, userData: { ...(userData || {}), role: role || userData?.role || "" } };
+}
+
+export async function requirePlatformAdminFromRequest(req) {
+  const admin = await requireAdminFromRequest(req);
+  if (admin.error) return admin;
+  if (!isPlatformAdminAccess(admin.userData)) {
+    await writeBlockedAccessLog(req, admin.verifiedUser, "Platform admin access required");
+    return { error: jsonError("Platform admin access required.", 403) };
+  }
+  return admin;
+}
+
+export function normalizeServerRole(role) {
+  const value = String(role || "").trim().toLowerCase();
+  if (["platformadmin", "platform admin", "superadmin", "super admin"].includes(value)) return "platformAdmin";
+  if (["admin", "companyadmin", "company admin"].includes(value)) return "admin";
+  return "user";
+}
+
+export function isPlatformAdminAccess(userData = {}) {
+  return normalizeServerRole(userData?.role) === "platformAdmin";
+}
+
+export function adminCompanyId(userData = {}) {
+  return String(userData?.companyId || "").trim();
+}
+
+export function canAccessCompany(adminUserData = {}, companyId = "") {
+  if (isPlatformAdminAccess(adminUserData)) return true;
+  const targetCompanyId = String(companyId || "").trim();
+  return !!targetCompanyId && targetCompanyId === adminCompanyId(adminUserData);
+}
+
+export function filterDocsForAdminCompany(docs = [], adminUserData = {}) {
+  if (isPlatformAdminAccess(adminUserData)) return docs;
+  const companyId = adminCompanyId(adminUserData);
+  if (!companyId) return [];
+  return docs.filter(({ data }) => String(data?.companyId || "").trim() === companyId);
 }

@@ -3,9 +3,17 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 14,
@@ -146,6 +154,17 @@ const COLS = 6;
 
 export default function EquipmentPage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [equipmentList, setEquipmentList] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -162,7 +181,14 @@ export default function EquipmentPage() {
     const fetchEquipment = async () => {
       setLoading(true);
       try {
-        const snapshot = await getDocs(collection(db, "equipment"));
+        const gate = resolveDataAccess(dataAccessState);
+        if (gate.checking) return;
+        if (!gate.allowed) {
+          reportDataAccessBlocked(gate, { collectionName: "equipment", operation: "read equipment" });
+          return;
+        }
+
+        const snapshot = await getDocs(tenantCollectionQuery(db, "equipment", dataAccessState));
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setEquipmentList(list);
 
@@ -175,14 +201,16 @@ export default function EquipmentPage() {
         });
         setExpandedCategories((prev) => (Object.keys(prev).length ? prev : initialExpanded));
       } catch (err) {
-        console.error("Failed to fetch equipment:", err);
+        if (!handleFirestoreAccessError(err, { collectionName: "equipment", operation: "read equipment" })) {
+          console.error("Failed to fetch equipment:", err);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchEquipment();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(equipmentList.map((e) => e.category).filter(Boolean)));

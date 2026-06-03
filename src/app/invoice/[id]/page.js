@@ -576,17 +576,19 @@ export default function InvoiceJobPage() {
                               <div style={{ padding: 8, borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <strong style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{first.name}</strong>
                                 <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
-                                  Open ↗
+                                  Open
                                 </a>
                               </div>
                               <div style={{ padding: 8, background: "#fafafa" }}>
                                 {first.kind === "pdf" ? (
                                   <iframe src={first.url} title={first.name} style={{ width: "100%", height: 340, border: 0 }} />
                                 ) : first.kind === "image" ? (
+                                  // Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain.
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img src={first.url} alt={first.name} style={{ maxWidth: "100%", maxHeight: 340, display: "block" }} loading="lazy" />
                                 ) : (
                                   <div style={{ fontSize: 13, color: UI.muted }}>
-                                    File can’t be previewed.{" "}
+                                    File cannot be previewed.{" "}
                                     <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
                                       Download / Open
                                     </a>
@@ -659,7 +661,7 @@ export default function InvoiceJobPage() {
                       rel="noreferrer"
                       style={{ fontWeight: 800, color: UI.brand, textDecoration: "none", fontSize: 13 }}
                     >
-                      Open ↗
+                      Open
                     </a>
                   </div>
 
@@ -679,6 +681,8 @@ export default function InvoiceJobPage() {
                           overflow: "hidden",
                         }}
                       >
+                        {/* Uploaded attachment URLs can come from Firebase Storage and are not constrained to a Next image domain. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={d.url}
                           alt={d.name}

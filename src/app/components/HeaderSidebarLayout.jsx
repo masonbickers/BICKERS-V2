@@ -4,20 +4,30 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Inter } from "next/font/google";
-import {
-  onSnapshot,
-  collection,
-  query,
-  where,
-  limit,
-} from "firebase/firestore";
+import { BUILD_INFO } from "@/app/generated/buildInfo";
+import { limit, onSnapshot } from "firebase/firestore";
 import { db } from "@/app/utils/firebaseClient";
 import {
+  getRoleDefinition,
   getStoredActiveWorkspace,
   getWorkspaceForPath,
+  isAdminPath,
+  isModuleEnabledForPath,
+  isPathAllowedForAccess,
+  normalizePlatformRole,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
+import {
+  PAGE_PERMISSION_CLEAR_EVENT,
+  PAGE_PERMISSION_DENIED_EVENT,
+} from "@/app/utils/pageAccessEvents";
+import {
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 import { useAuth } from "@/app/context/authContext";
 import {
   UNSAVED_CHANGES_EVENT,
@@ -30,6 +40,10 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+
+const APP_VERSION_LABEL = BUILD_INFO.shortCommit
+  ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
+  : BUILD_INFO.version;
 
 const UI = {
   shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
@@ -48,6 +62,17 @@ const UI = {
   success: "#6bb37f",
   text: "#0f172a",
   muted: "#5f6f82",
+};
+
+const topPillBase = {
+  minHeight: 36,
+  boxSizing: "border-box",
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.05)",
+  color: "#f8fbff",
 };
 
 /* -------------------------------------------
@@ -91,6 +116,91 @@ function holidayYearBucket(h) {
   return s.getFullYear();
 }
 
+function displayNameFromAccount(user, userDoc = {}) {
+  return (
+    userDoc?.name ||
+    userDoc?.displayName ||
+    userDoc?.fullName ||
+    user?.displayName ||
+    userDoc?.email ||
+    user?.email ||
+    "User"
+  );
+}
+
+function initialsFromAccount(user, userDoc = {}) {
+  const displayName = displayNameFromAccount(user, userDoc);
+  const email = String(userDoc?.email || user?.email || "").trim();
+  const source = String(displayName || email || "User").trim();
+  const parts = source.includes("@")
+    ? [source.split("@")[0]]
+    : source.split(/\s+/).filter(Boolean);
+
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+  return initials || "U";
+}
+
+function accessLabelForAccount(userDoc = {}, isAdmin) {
+  const fallbackRole = isAdmin ? "admin" : "user";
+  const normalizedRole = normalizePlatformRole(userDoc?.role || fallbackRole);
+  const effectiveRole = isAdmin && normalizedRole === "user" ? "admin" : normalizedRole;
+  return getRoleDefinition(effectiveRole).label;
+}
+
+function resolvePageAccessStatus({
+  accessReady,
+  canSeePlatformAdmin,
+  employeeAccess,
+  featureFlags,
+  isAdmin,
+  pathname,
+  user,
+  userDoc,
+}) {
+  const path = pathname || "/";
+  const platformAdminPath = path === "/platform-admin" || path.startsWith("/platform-admin/");
+
+  if (!user) {
+    return { status: "denied", label: "Denied", detail: "User is not signed in." };
+  }
+
+  if (userDoc?.isEnabled === false) {
+    return { status: "denied", label: "Denied", detail: "User account is disabled." };
+  }
+
+  if (!accessReady || !employeeAccess) {
+    return { status: "checking", label: "Checking", detail: "Checking current user access." };
+  }
+
+  if (platformAdminPath && !canSeePlatformAdmin) {
+    return { status: "denied", label: "Denied", detail: "Platform Admin access is required." };
+  }
+
+  if (isAdminPath(path) && !isAdmin) {
+    return { status: "denied", label: "Denied", detail: "Admin access is required." };
+  }
+
+  if (!isModuleEnabledForPath(path, featureFlags)) {
+    return { status: "denied", label: "Denied", detail: "This module is disabled for the user." };
+  }
+
+  if (!isPathAllowedForAccess(path, employeeAccess)) {
+    const workspace = getWorkspaceForPath(path) === "service" ? "Service" : "User";
+    return {
+      status: "denied",
+      label: "Denied",
+      detail: `${workspace} workspace access is required.`,
+    };
+  }
+
+  return { status: "authorised", label: "Authorised", detail: "This user can access this page." };
+}
+
 export default function HeaderSidebarLayout({
   children,
   showBackButton,
@@ -99,12 +209,13 @@ export default function HeaderSidebarLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, userDoc, employeeAccess, isAdmin, logout } = useAuth() || {};
+  const { user, userDoc, employeeAccess, featureFlags, isAdmin, isEnabled, accessReady, logout } = useAuth() || {};
 
   const [showMenu, setShowMenu] = useState(false); // (kept)
   const [activeWorkspace, setActiveWorkspace] = useState("user");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [permissionIssue, setPermissionIssue] = useState(null);
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
@@ -117,8 +228,8 @@ export default function HeaderSidebarLayout({
 
   //  single source of truth for whether Admin tab should show
   const canSeeAdmin = !!isAdmin;
-  const canSeePlatformAdmin =
-    canSeeAdmin && String(user?.email || "").trim().toLowerCase() === "mason@bickers.co.uk";
+  const currentRole = normalizePlatformRole(userDoc?.role);
+  const canSeePlatformAdmin = canSeeAdmin && currentRole === "platformAdmin";
 
   //  HR badge should show for admins only
   const canSeeHrBadge = !!isAdmin;
@@ -150,12 +261,19 @@ export default function HeaderSidebarLayout({
       return undefined;
     }
 
+    const accessState = { user, userDoc, isEnabled, accessReady };
+    const gate = resolveDataAccess(accessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, {
+        collectionName: "holidays",
+        operation: "listen HR badge",
+      });
+      setHrNotif({ requests: 0, deletes: 0 });
+      return undefined;
+    }
 
-    const hrRequestQuery = query(
-      collection(db, "holidays"),
-      where("status", "in", ["requested", "delete_requested", "delete-requested"]),
-      limit(100)
-    );
+    const hrRequestQuery = tenantCollectionQuery(db, "holidays", accessState, [limit(100)]);
     unsubHrRef.current = onSnapshot(hrRequestQuery, (qs) => {
       let requested = 0;
       let deleteReq = 0;
@@ -165,6 +283,7 @@ export default function HeaderSidebarLayout({
         qs.forEach((d) => {
           const h = d.data() || {};
           const st = String(h.status || "").trim().toLowerCase();
+          if (!["requested", "delete_requested", "delete-requested"].includes(st)) return;
 
           //  match HR logic: only count if start/end are valid and same year
           const y = holidayYearBucket(h);
@@ -176,7 +295,15 @@ export default function HeaderSidebarLayout({
         });
 
         setHrNotif({ requests: requested, deletes: deleteReq });
-      });
+      },
+      (error) => {
+        handleFirestoreAccessError(error, {
+          collectionName: "holidays",
+          operation: "listen HR badge",
+        });
+        setHrNotif({ requests: 0, deletes: 0 });
+      }
+    );
 
     return () => {
       if (unsubHrRef.current) {
@@ -184,17 +311,42 @@ export default function HeaderSidebarLayout({
         unsubHrRef.current = null;
       }
     };
-  }, [canSeeHrBadge]);
+  }, [accessReady, canSeeHrBadge, isEnabled, user, userDoc]);
+
+  useEffect(() => {
+    setPermissionIssue(null);
+
+    const samePage = (detail = {}) => {
+      const detailPath = String(detail.pathname || "").trim();
+      return !detailPath || detailPath === pathname;
+    };
+
+    const handlePermissionDenied = (event) => {
+      const detail = event?.detail || {};
+      if (!samePage(detail)) return;
+      setPermissionIssue(detail);
+    };
+
+    const handlePermissionClear = (event) => {
+      const detail = event?.detail || {};
+      if (!samePage(detail)) return;
+      setPermissionIssue(null);
+    };
+
+    window.addEventListener(PAGE_PERMISSION_DENIED_EVENT, handlePermissionDenied);
+    window.addEventListener(PAGE_PERMISSION_CLEAR_EVENT, handlePermissionClear);
+    return () => {
+      window.removeEventListener(PAGE_PERMISSION_DENIED_EVENT, handlePermissionDenied);
+      window.removeEventListener(PAGE_PERMISSION_CLEAR_EVENT, handlePermissionClear);
+    };
+  }, [pathname]);
 
   /* -------------------------------------------
      NAV DEFINITIONS
   -------------------------------------------- */
+  const featureVisible = (path) => isModuleEnabledForPath(path, featureFlags);
+
   const userHeaderLinks = [
-    { label: "Workshop", path: "/workshop" },
-    { label: "Assistant", path: "/assistant", icon: "AI" },
-    { label: "Wall View", path: "/wall-view" },
-    { label: "Dashboard", path: "/dashboard" },
-    ...(canSeePlatformAdmin ? [{ label: "Platform", path: "/platform-admin" }] : []),
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
   ];
 
@@ -227,9 +379,14 @@ export default function HeaderSidebarLayout({
     },
   ];
 
-  const workspaceNavGroups = userSidebarGroups;
+  const workspaceNavGroups = userSidebarGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => featureVisible(item.path)),
+    }))
+    .filter((group) => group.items.length > 0);
   const workspaceNav = workspaceNavGroups.flatMap((group) => group.items);
-  const headerLinks = userHeaderLinks;
+  const headerLinks = userHeaderLinks.filter((item) => featureVisible(item.path));
 
   /* -------------------------------------------
      LOGOUT
@@ -290,9 +447,102 @@ export default function HeaderSidebarLayout({
         ? "Email, phone, and authenticator are active"
         : [emailReady ? null : "Email", phoneReady ? null : "Phone", mfaReady ? null : "Authenticator"]
             .filter(Boolean)
-            .join(" � "),
+            .join(" / "),
     };
   }, [user?.emailVerified, userDoc]);
+
+  const accountBadge = useMemo(() => {
+    return {
+      initials: initialsFromAccount(user, userDoc || {}),
+      name: displayNameFromAccount(user, userDoc || {}),
+      email: String(userDoc?.email || user?.email || "").trim(),
+      accessLabel: accessLabelForAccount(userDoc || {}, isAdmin),
+    };
+  }, [isAdmin, user, userDoc]);
+
+  const pageAccess = useMemo(
+    () =>
+      resolvePageAccessStatus({
+        accessReady,
+        canSeePlatformAdmin,
+        employeeAccess,
+        featureFlags,
+        isAdmin,
+        pathname,
+        user,
+        userDoc,
+      }),
+    [
+      accessReady,
+      canSeePlatformAdmin,
+      employeeAccess,
+      featureFlags,
+      isAdmin,
+      pathname,
+      user,
+      userDoc,
+    ]
+  );
+
+  const dataAccess = useMemo(() => {
+    if (!permissionIssue) {
+      return {
+        status: "authorised",
+        label: "OK",
+        detail: "No Firestore permission failures detected on this page.",
+      };
+    }
+
+    const target = [permissionIssue.operation, permissionIssue.collectionName]
+      .filter(Boolean)
+      .join(" ");
+    const collectionLabel = permissionIssue.collectionName || "Firestore";
+
+    return {
+      status: "denied",
+      label: collectionLabel.length > 18 ? "Denied" : `Denied: ${collectionLabel}`,
+      detail: target ? `Firestore denied ${target}.` : "Firestore denied data access for this page.",
+    };
+  }, [permissionIssue]);
+
+  const pageAccessTone = {
+    authorised: {
+      background: "rgba(107,179,127,0.14)",
+      border: "1px solid rgba(107,179,127,0.38)",
+      dot: UI.success,
+      text: "#d7f6e0",
+      sub: "#a8e2b9",
+    },
+    denied: {
+      background: "rgba(248,113,113,0.12)",
+      border: "1px solid rgba(248,113,113,0.28)",
+      dot: "#f87171",
+      text: "#ffd6d6",
+      sub: "#f8b4b4",
+    },
+    checking: {
+      background: "rgba(251,191,36,0.12)",
+      border: "1px solid rgba(251,191,36,0.28)",
+      dot: "#fbbf24",
+      text: "#fdecc8",
+      sub: "#f8d98a",
+    },
+  }[pageAccess.status];
+
+  const dataAccessTone = {
+    authorised: {
+      background: "rgba(107,179,127,0.1)",
+      border: "1px solid rgba(107,179,127,0.26)",
+      dot: UI.success,
+      text: "#d7f6e0",
+    },
+    denied: {
+      background: "rgba(248,113,113,0.12)",
+      border: "1px solid rgba(248,113,113,0.28)",
+      dot: "#f87171",
+      text: "#ffd6d6",
+    },
+  }[dataAccess.status];
 
   const currentNavItem = useMemo(() => {
     return (
@@ -603,7 +853,7 @@ export default function HeaderSidebarLayout({
                             fontWeight: 800,
                           }}
                         >
-                          �
+                          {label.slice(0, 2).toUpperCase()}
                         </span>
                       )}
 
@@ -727,7 +977,7 @@ export default function HeaderSidebarLayout({
           <nav
             style={{
               display: "flex",
-              gap: 16,
+              gap: 8,
               alignItems: "center",
               flexWrap: "wrap",
               justifyContent: "flex-end",
@@ -738,8 +988,8 @@ export default function HeaderSidebarLayout({
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 10,
-                padding: accountSetup.complete ? "8px 12px" : "7px 12px",
-                borderRadius: 999,
+                ...topPillBase,
+                padding: "6px 12px",
                 background: accountSetup.complete
                   ? "rgba(107,179,127,0.14)"
                   : "rgba(248,113,113,0.12)",
@@ -773,6 +1023,65 @@ export default function HeaderSidebarLayout({
               </div>
             </div>
 
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 9,
+                ...topPillBase,
+                padding: "4px 12px 4px 6px",
+                maxWidth: 240,
+              }}
+              title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel]
+                .filter(Boolean)
+                .join(" - ")}
+              aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}`}
+            >
+              <span
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#d7f6e0",
+                  color: "#102217",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  flexShrink: 0,
+                }}
+              >
+                {accountBadge.initials}
+              </span>
+              <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    lineHeight: 1.1,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {accountBadge.accessLabel}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    lineHeight: 1.1,
+                    color: "#a8b3c2",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {accountBadge.name}
+                </span>
+              </span>
+            </div>
+
             {headerLinks.map(({ label, path, icon }) => (
               <Link
                 key={label}
@@ -782,15 +1091,16 @@ export default function HeaderSidebarLayout({
                   attemptNavigation(() => router.push(path));
                 }}
                 style={{
-                  color: pathname === path ? UI.activeAccent : "#a8b3c2",
-                  fontSize: "12.5px",
+                  ...topPillBase,
+                  color: pathname === path ? "#d7f6e0" : "#d0dae6",
+                  background: pathname === path ? "rgba(107,179,127,0.14)" : topPillBase.background,
+                  border: pathname === path
+                    ? "1px solid rgba(107,179,127,0.38)"
+                    : topPillBase.border,
+                  fontSize: 11,
                   textDecoration: "none",
-                  fontWeight: pathname === path ? 700 : 600,
-                  paddingBottom: 2,
-                  borderBottom:
-                    pathname === path ? `2px solid ${UI.activeAccent}` : "2px solid transparent",
-                  display: "inline-flex",
-                  alignItems: "center",
+                  fontWeight: 900,
+                  padding: "6px 12px",
                   gap: 7,
                 }}
               >
@@ -929,14 +1239,103 @@ export default function HeaderSidebarLayout({
             minHeight: "26px",
             fontSize: "10px",
             color: "#d0dae6",
-            textAlign: "center",
             borderTop: `1px solid ${UI.topbarBorder}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            position: "relative",
+            padding: "0 18px",
           }}
         >
-          Copyright {new Date().getFullYear()} Bickers Booking System v3.0.5
+          <span>Copyright {new Date().getFullYear()} Bickers Booking System v{APP_VERSION_LABEL}</span>
+          <div
+            style={{
+              position: "absolute",
+              right: 18,
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: pageAccessTone.border,
+                background: pageAccessTone.background,
+                color: pageAccessTone.text,
+                borderRadius: 999,
+                padding: "3px 8px",
+                fontSize: 10,
+                fontWeight: 800,
+                lineHeight: 1,
+              }}
+              title={pageAccess.detail}
+              aria-label={`Page access ${pageAccess.label}: ${pageAccess.detail}`}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: pageAccessTone.dot,
+                  flexShrink: 0,
+                }}
+              />
+              Page: {pageAccess.label}
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: dataAccessTone.border,
+                background: dataAccessTone.background,
+                color: dataAccessTone.text,
+                borderRadius: 999,
+                padding: "3px 8px",
+                fontSize: 10,
+                fontWeight: 800,
+                lineHeight: 1,
+              }}
+              title={dataAccess.detail}
+              aria-label={`Data access ${dataAccess.label}: ${dataAccess.detail}`}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: dataAccessTone.dot,
+                  flexShrink: 0,
+                }}
+              />
+              Data: {dataAccess.label}
+            </span>
+            {canSeePlatformAdmin ? (
+              <button
+                type="button"
+                onClick={() => attemptNavigation(() => router.push("/platform-admin"))}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#d0dae6",
+                  borderRadius: 999,
+                  padding: "3px 9px",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+                title="Open Platform Admin"
+              >
+                Platform
+              </button>
+            ) : null}
+          </div>
         </footer>
       </div>
     </div>

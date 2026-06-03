@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
@@ -258,14 +258,14 @@ export default function ReviewQueuePage() {
     return n;
   }, []);
 
-  const beforeToday = (j) => {
+  const beforeToday = useCallback((j) => {
     const ds = normaliseDates(j).sort((a, b) => a - b);
     if (!ds.length) return false;
     const last = ds[ds.length - 1];
     const lastMid = new Date(last);
     lastMid.setHours(0, 0, 0, 0);
     return lastMid.getTime() < todayMidnight.getTime();
-  };
+  }, [todayMidnight]);
 
   const queue = useMemo(() => {
     return jobs4
@@ -280,7 +280,7 @@ export default function ReviewQueuePage() {
         const db = normaliseDates(b).sort((x, y) => y - x)[0]?.getTime() || 0;
         return db - da;
       });
-  }, [jobs4, todayMidnight]);
+  }, [jobs4, beforeToday]);
 
   const clients = useMemo(
     () => ["all", ...Array.from(new Set(queue.map((j) => j.client).filter(Boolean))).sort()],
@@ -334,7 +334,7 @@ export default function ReviewQueuePage() {
         String(j.notes || "").toLowerCase().includes(s)
       );
     });
-  }, [queue, clientFilter, statusFilter, overdueOnly, fromDate, toDate, search, todayMidnight]);
+  }, [queue, clientFilter, statusFilter, overdueOnly, fromDate, toDate, search, beforeToday]);
 
   const { weekGroups, weekKeys, noDate } = useMemo(() => {
     const groups = {};

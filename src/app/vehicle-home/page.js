@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
 import {
   BarChart,
   Bar,
@@ -45,10 +44,16 @@ import {
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
-  collection,
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
+import {
   getDocs,
-  getDoc,
   doc,
   onSnapshot,
   updateDoc,
@@ -56,12 +61,16 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
-
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
+
+const handlePageFirestoreError = (error, { collectionName = "", operation = "Firestore access" } = {}) => {
+  if (handleFirestoreAccessError(error, { collectionName, operation })) {
+    console.warn(`${operation} denied for ${collectionName || "Firestore"}:`, error);
+    return true;
+  }
+  return false;
+};
 
 // Routes for new tiles
 const GENERAL_DEFECTS_PATH = "/defects/general";
@@ -800,6 +809,17 @@ function VehicleHomeMaintenanceEvent({ event }) {
 /* ----------------- Component ----------------- */
 export default function VehiclesHomePage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   // Calendar state
   const [calView, setCalView] = useState("month");
@@ -841,42 +861,10 @@ export default function VehiclesHomePage() {
   const [pendingDefects, setPendingDefects] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionModal, setActionModal] = useState(null); // {defect, decision, comment, category?}
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const checkingAdmin = !authAccess.accessReady;
+  const isAdmin = !!authAccess.isAdmin;
 
   useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setCheckingAdmin(true);
-
-      if (!user) {
-        setIsAdmin(false);
-        setCheckingAdmin(false);
-        return;
-      }
-
-      const email = String(user.email || "").trim().toLowerCase();
-      if (ADMIN_EMAILS.includes(email)) {
-        setIsAdmin(true);
-        setCheckingAdmin(false);
-        return;
-      }
-
-      try {
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-        setIsAdmin(role === "admin");
-      } catch (e) {
-        console.error("vehicle-home admin check error:", e);
-        setIsAdmin(false);
-      } finally {
-        setCheckingAdmin(false);
-      }
-    });
-
-    return () => unsub();
-  }, []);
 
   const requireAdmin = (message = "Admin access is required for this action.") => {
     if (isAdmin) return true;
@@ -886,8 +874,15 @@ export default function VehiclesHomePage() {
 
   /* --------- Load all vehicles ONCE for name + due date lookups --------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read vehicles" });
+      return;
+    }
+
     const fetchVehicles = async () => {
-      const snap = await getDocs(collection(db, "vehicles"));
+      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       const list = snap.docs.map((d) =>
         normalizeAssetRecord({ id: d.id, ...(d.data() || {}) })
       );
@@ -900,8 +895,12 @@ export default function VehiclesHomePage() {
       setVehiclesRaw(list);
       setVehicleNameMap(map);
     };
-    fetchVehicles();
-  }, []);
+    fetchVehicles().catch((error) => {
+      if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "read vehicles" })) {
+        console.error("[vehicle-home] vehicles load error:", error);
+      }
+    });
+  }, [accessKey, dataAccessState]);
 
   /* --------- MOT + Service counters (uses vehiclesRaw) --------- */
   useEffect(() => {
@@ -937,11 +936,18 @@ export default function VehiclesHomePage() {
 
   /* --------- Usage histogram (vehicle usage from bookings) --------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read booking usage" });
+      return;
+    }
+
     const fetchUsage = async () => {
       const { monthStart, monthEnd } = monthRange(usageMonth);
       const usedByDay = new Map();
 
-      const snapshot = await getDocs(collection(db, "bookings"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const bookingStatus = String(data.status || "").trim();
@@ -1025,13 +1031,24 @@ export default function VehiclesHomePage() {
       setUsageData(usageArray);
     };
 
-    fetchUsage();
-  }, [usageMonth, vehicleNameMap]);
+    fetchUsage().catch((error) => {
+      if (!handlePageFirestoreError(error, { collectionName: "bookings", operation: "read booking usage" })) {
+        console.error("[vehicle-home] usage load error:", error);
+      }
+    });
+  }, [accessKey, dataAccessState, usageMonth, vehicleNameMap]);
 
   /* --------- OPTIONAL: legacy workBookings maintenance blocks --------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "workBookings", operation: "listen work bookings" });
+      return undefined;
+    }
+
     const unsub = onSnapshot(
-      collection(db, "workBookings"),
+      tenantCollectionQuery(db, "workBookings", dataAccessState),
       (snapshot) => {
         const events = snapshot.docs
           .map((docSnap) => {
@@ -1059,46 +1076,65 @@ export default function VehiclesHomePage() {
         setWorkBookings(events);
       },
       (e) => {
+        handlePageFirestoreError(e, { collectionName: "workBookings", operation: "listen work bookings" });
         console.warn("[workBookings] snapshot failed (ok if unused):", e);
         setWorkBookings([]);
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------  REAL BOOKINGS: maintenanceBookings => calendar events --------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "maintenanceBookings", operation: "listen maintenance bookings" });
+      return undefined;
+    }
+
     const unsub = onSnapshot(
-      collection(db, "maintenanceBookings"),
+      tenantCollectionQuery(db, "maintenanceBookings", dataAccessState),
       (snap) => {
         const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
 
         setMaintenanceBookingsRaw(raw);
       },
       (e) => {
-        console.error("[maintenanceBookings] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "maintenanceBookings", operation: "listen maintenance bookings" })) {
+          console.error("[maintenanceBookings] snapshot error:", e);
+        }
         setMaintenanceBookingsRaw([]);
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" });
+      return undefined;
+    }
+
     const unsub = onSnapshot(
-      collection(db, "maintenanceJobs"),
+      tenantCollectionQuery(db, "maintenanceJobs", dataAccessState),
       (snapshot) => {
         setMaintenanceJobs(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
       },
       (e) => {
-        console.error("[maintenanceJobs] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" })) {
+          console.error("[maintenanceJobs] snapshot error:", e);
+        }
         setMaintenanceJobs([]);
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const maintenanceBookingEventsShared = useMemo(
     () =>
@@ -1148,25 +1184,36 @@ export default function VehiclesHomePage() {
 
   // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicleChecks", operation: "listen vehicle checks" });
+      return undefined;
+    }
+
     const unsubChecks = onSnapshot(
-      collection(db, "vehicleChecks"),
+      tenantCollectionQuery(db, "vehicleChecks", dataAccessState),
       (snap) => {
         const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setCheckDocs(docs.filter((c) => c.status === "submitted"));
       },
       (e) => {
-        console.error("[vehicleChecks] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "vehicleChecks", operation: "listen vehicle checks" })) {
+          console.error("[vehicleChecks] snapshot error:", e);
+        }
         setCheckDocs([]);
       }
     );
 
     const unsubIssues = onSnapshot(
-      collection(db, "vehicleIssues"),
+      tenantCollectionQuery(db, "vehicleIssues", dataAccessState),
       (snap) => {
         setVehicleIssueDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
       },
       (e) => {
-        console.error("[vehicleIssues] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "vehicleIssues", operation: "listen vehicle issues" })) {
+          console.error("[vehicleIssues] snapshot error:", e);
+        }
         setVehicleIssueDocs([]);
       }
     );
@@ -1175,41 +1222,56 @@ export default function VehiclesHomePage() {
       unsubChecks();
       unsubIssues();
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "serviceRecords", operation: "listen vehicle activity" });
+      return undefined;
+    }
+
     const unsubServiceRecords = onSnapshot(
-      collection(db, "serviceRecords"),
+      tenantCollectionQuery(db, "serviceRecords", dataAccessState),
       (snap) => setServiceRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
       (e) => {
-        console.error("[serviceRecords] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "serviceRecords", operation: "listen service records" })) {
+          console.error("[serviceRecords] snapshot error:", e);
+        }
         setServiceRecords([]);
       }
     );
 
     const unsubDefectReports = onSnapshot(
-      collection(db, "defectReports"),
+      tenantCollectionQuery(db, "defectReports", dataAccessState),
       (snap) => setDefectReports(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
       (e) => {
-        console.error("[defectReports] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "defectReports", operation: "listen defect reports" })) {
+          console.error("[defectReports] snapshot error:", e);
+        }
         setDefectReports([]);
       }
     );
 
     const unsubMotPreChecks = onSnapshot(
-      collection(db, "motPreChecks"),
+      tenantCollectionQuery(db, "motPreChecks", dataAccessState),
       (snap) => setMotPreChecks(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
       (e) => {
-        console.error("[motPreChecks] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "motPreChecks", operation: "listen MOT pre-checks" })) {
+          console.error("[motPreChecks] snapshot error:", e);
+        }
         setMotPreChecks([]);
       }
     );
 
     const unsubVehiclePrepRecords = onSnapshot(
-      collection(db, "vehiclePrepRecords"),
+      tenantCollectionQuery(db, "vehiclePrepRecords", dataAccessState),
       (snap) => setVehiclePrepRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
       (e) => {
-        console.error("[vehiclePrepRecords] snapshot error:", e);
+        if (!handlePageFirestoreError(e, { collectionName: "vehiclePrepRecords", operation: "listen vehicle prep records" })) {
+          console.error("[vehiclePrepRecords] snapshot error:", e);
+        }
         setVehiclePrepRecords([]);
       }
     );
@@ -1220,7 +1282,7 @@ export default function VehiclesHomePage() {
       unsubMotPreChecks();
       unsubVehiclePrepRecords();
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     setPendingDefects(mergePendingQueue(checkDocs, vehicleIssueDocs));
@@ -1478,8 +1540,12 @@ export default function VehiclesHomePage() {
         router.push(DECLINED_DEFECTS_PATH);
       }
     } catch (e) {
-      console.error("defect review error:", e);
-      alert("Could not update defect. Please try again.");
+      const denied = handlePageFirestoreError(e, {
+        collectionName: defect?.sourceType === "vehicleIssue" ? "vehicleIssues" : "vehicleChecks",
+        operation: "update defect review",
+      });
+      if (!denied) console.error("defect review error:", e);
+      alert(denied ? "Permission denied. This user cannot update defect reviews." : "Could not update defect. Please try again.");
     } finally {
       setActionLoading(false);
     }

@@ -6,16 +6,30 @@ export const DEFAULT_COMPANY_ID = "bickers-action";
 
 export const moduleLabels = [
   ["diary", "Diary"],
+  ["bookings", "Bookings"],
   ["workshop", "Workshop"],
-  ["hr", "HR"],
-  ["finance", "Finance"],
-  ["assistant", "Assistant"],
   ["vehicles", "Vehicles"],
   ["equipment", "Equipment"],
+  ["uCrane", "U-Crane"],
+  ["jobSheets", "Job Sheets"],
+  ["employees", "Employees"],
+  ["hr", "HR"],
+  ["hAndS", "H&S"],
+  ["statistics", "Statistics"],
+  ["timesheets", "Timesheets"],
+  ["holidays", "Holidays"],
+  ["finance", "Finance"],
+  ["invoices", "Invoices"],
+  ["assistant", "Assistant"],
+  ["mobileApp", "Mobile App"],
+  ["pushNotifications", "Push Notifications"],
+  ["passkeys", "Passkeys"],
+  ["mfa", "MFA"],
+  ["userCodeLogin", "Setup-code Login"],
   ["settings", "Settings"],
 ];
 
-export const roleLabels = ["platformAdmin", "companyAdmin", "manager", "user", "service", "hybrid", "archived"];
+export const roleLabels = ["platformAdmin", "admin", "user"];
 
 export function clean(value) {
   return String(value || "").trim();

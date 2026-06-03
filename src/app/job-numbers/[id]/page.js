@@ -815,9 +815,10 @@ export default function JobInfoPage() {
     setExpandedById((p) => ({ ...p, [jobId]: true }));
   }, [jobId]);
 
-  const normalizeVehiclesForList = (jobs) => jobs.map((j) => normalizeVehiclesForJob(j, vehicleMap));
-
-  const allJobs = useMemo(() => normalizeVehiclesForList(relatedJobs), [relatedJobs, vehicleMap]);
+  const allJobs = useMemo(
+    () => relatedJobs.map((j) => normalizeVehiclesForJob(j, vehicleMap)),
+    [relatedJobs, vehicleMap]
+  );
 
   const statusOptions = useMemo(() => {
     const set = new Set(["All"]);

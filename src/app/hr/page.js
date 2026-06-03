@@ -3,9 +3,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
-  collection,
-  getDoc,
   getDocs,
   updateDoc,
   doc,
@@ -14,6 +13,13 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HolidayForm from "@/app/components/holidayform";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 
 import {
   BarChart,
@@ -38,11 +44,6 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-
-/* Admin allow-list */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
 
 /*  Hide specific employees from the holiday usage chart */
 const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
@@ -579,6 +580,17 @@ const isPaidHoliday = (h = {}) => {
 /* Page */
 export default function HRPage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [requestedHolidays, setRequestedHolidays] = useState([]);
   const [deleteRequestedHolidays, setDeleteRequestedHolidays] = useState([]);
@@ -589,7 +601,7 @@ export default function HRPage() {
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
 
   //  admin gating for approve/decline
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = !!authAccess.isAdmin;
 
   //  year view
   const THIS_YEAR = new Date().getFullYear();
@@ -611,33 +623,6 @@ export default function HRPage() {
   );
 
   useEffect(() => {
-    const run = async () => {
-      const user = auth?.currentUser;
-      const email = String(user?.email || "").trim().toLowerCase();
-
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
-
-      if (ADMIN_EMAILS.includes(email)) {
-        setIsAdmin(true);
-        return;
-      }
-
-      try {
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        const role = String(userSnap.data()?.role || "").trim().toLowerCase();
-        setIsAdmin(role === "admin");
-      } catch {
-        setIsAdmin(false);
-      }
-    };
-
-    run();
-  }, []);
-
-  useEffect(() => {
     // load bank holidays first (so usage counting can exclude them)
     const run = async () => {
       try {
@@ -657,12 +642,19 @@ export default function HRPage() {
   useEffect(() => {
     fetchHolidays();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearView, isBankHoliday]);
+  }, [yearView, isBankHoliday, accessKey]);
 
   const fetchHolidays = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(collection(db, "holidays"));
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "holidays", operation: "read HR holidays" });
+        return;
+      }
+
+      const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       //  Requested for selected year (includes Paid + Unpaid + Accrued)
@@ -705,7 +697,7 @@ export default function HRPage() {
         .sort((a, b) => b.used - a.used);
 
       // Load allowances from employees and merge (by name)
-      const empSnap = await getDocs(collection(db, "employees"));
+      const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
       const employees = empSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       const allowByName = new Map();
@@ -756,7 +748,9 @@ export default function HRPage() {
 
       setUsageData(filtered);
     } catch (err) {
-      console.error("Error fetching holidays:", err);
+      if (!handleFirestoreAccessError(err, { collectionName: "holidays", operation: "read HR holidays" })) {
+        console.error("Error fetching holidays:", err);
+      }
     } finally {
       setLoading(false);
     }

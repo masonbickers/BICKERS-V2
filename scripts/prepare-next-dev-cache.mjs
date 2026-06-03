@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { writeBuildInfo } from "./write-build-info.mjs";
 
 const root = process.cwd();
 const devCacheDir = path.join(root, ".next-dev");
@@ -23,5 +24,6 @@ function pinOneDriveFolder() {
   }
 }
 
+writeBuildInfo();
 removeDevCache();
 pinOneDriveFolder();

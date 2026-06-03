@@ -1,9 +1,35 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
 import { verifyFirebaseIdTokenFromRequest } from "../_lib";
-import { adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
+import { adminCreateDocument, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
+
+function headerValue(headers, name) {
+  return String(headers?.get?.(name) || "").trim();
+}
+
+async function writeMfaAudit(req, verifiedUser, action, after = {}) {
+  try {
+    await adminCreateDocument("adminAuditLogs", {
+      actorUid: verifiedUser?.uid || "",
+      actorEmail: verifiedUser?.email || "",
+      actorRole: "user",
+      targetType: "mfa",
+      targetId: verifiedUser?.uid || "",
+      companyId: after?.companyId || "",
+      action,
+      area: "MFA",
+      before: null,
+      after,
+      ip: headerValue(req.headers, "x-forwarded-for").split(",")[0] || "",
+      userAgent: headerValue(req.headers, "user-agent"),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("MFA setup audit failed:", error);
+  }
+}
 
 export async function POST(req) {
   try {
@@ -31,6 +57,12 @@ export async function POST(req) {
           : {}),
       });
 
+      await writeMfaAudit(req, verifiedUser, "Confirmed existing MFA enrollment", {
+        uid: verifiedUser.uid,
+        companyId: userData?.companyId || "",
+        mfaEnabled: true,
+        mfaMethod: "totp",
+      });
       return NextResponse.json({ alreadyEnrolled: true });
     }
 
@@ -46,6 +78,11 @@ export async function POST(req) {
       pendingCreatedAt: nowIso,
       updatedAt: nowIso,
       userEmail: verifiedUser.email || "",
+    });
+    await writeMfaAudit(req, verifiedUser, "Prepared MFA setup", {
+      uid: verifiedUser.uid,
+      companyId: userData?.companyId || "",
+      pendingCreatedAt: nowIso,
     });
 
     return NextResponse.json({

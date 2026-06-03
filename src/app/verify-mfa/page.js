@@ -1,12 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import Image from "next/image";
 import {
-  findEmployeeForUser,
   getStoredActiveWorkspace,
   resolveEmployeeAccess,
   selectLandingRoute,
@@ -28,6 +27,42 @@ export default function VerifyMfaPage() {
   const router = useRouter();
   const { refreshMfaState } = useAuth() || {};
 
+  const refreshServerAccess = useCallback(async (user) => {
+    if (!user?.getIdToken) return null;
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/security/bootstrap-access", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      return res.ok ? data?.access || null : null;
+    } catch (error) {
+      console.warn("[verify-mfa] access refresh skipped:", error);
+      return null;
+    }
+  }, []);
+
+  const readUserData = useCallback(async (user, access = null) => {
+    try {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      return { ...(snap.exists() ? snap.data() || {} : {}), ...(access || {}) };
+    } catch (error) {
+      console.warn("[verify-mfa] user doc read failed after bootstrap:", error);
+      return { ...(access || {}) };
+    }
+  }, []);
+
+  const routeUserToWorkspace = useCallback(async (user, userData = {}) => {
+    const role = String(userData?.role || "").toLowerCase();
+    const isAdmin = ["admin", "platformadmin"].includes(role);
+    const access = resolveEmployeeAccess(userData || {}, { isAdmin });
+    const preferred =
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
+      getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
+    router.replace(selectLandingRoute(access, preferred));
+  }, [router]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -35,8 +70,8 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      const snap = await getDoc(doc(db, "users", user.uid));
-      const userData = snap.data() || {};
+      const refreshedAccess = await refreshServerAccess(user);
+      const userData = await readUserData(user, refreshedAccess);
       if (!isPhoneVerified(userData) || !hasAuthenticatorMfa(userData)) {
         router.replace("/setup-mfa");
         return;
@@ -49,16 +84,7 @@ export default function VerifyMfaPage() {
       );
       if (alreadyTrusted) {
         refreshMfaState?.();
-        const [userSnap, employeeDoc] = await Promise.all([
-          getDoc(doc(db, "users", user.uid)),
-          findEmployeeForUser(db, user),
-        ]);
-        const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-        const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
-        const preferred =
-          getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
-          getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
-        router.replace(selectLandingRoute(access, preferred));
+        await routeUserToWorkspace(user, userData);
         return;
       }
 
@@ -66,7 +92,7 @@ export default function VerifyMfaPage() {
     });
 
     return () => unsubscribe();
-  }, [refreshMfaState, router]);
+  }, [readUserData, refreshMfaState, refreshServerAccess, routeUserToWorkspace, router]);
 
   const handleVerify = async () => {
     try {
@@ -78,15 +104,14 @@ export default function VerifyMfaPage() {
         return;
       }
 
-      const docRef = doc(db, "users", user.uid);
-      const snap = await getDoc(docRef);
+      const refreshedAccess = await refreshServerAccess(user);
+      const userData = await readUserData(user, refreshedAccess);
 
-      if (!snap.exists()) {
+      if (!userData?.uid && !userData?.role) {
         setError("No MFA setup found.");
         return;
       }
 
-      const userData = snap.data() || {};
       if (!isPhoneVerified(userData) || !hasAuthenticatorMfa(userData)) {
         router.replace("/setup-mfa");
         return;
@@ -112,15 +137,6 @@ export default function VerifyMfaPage() {
       const verifyData = await verifyRes.json();
 
       if (verifyRes.ok) {
-        const [userSnap, employeeDoc] = await Promise.all([
-          getDoc(doc(db, "users", user.uid)),
-          findEmployeeForUser(db, user),
-        ]);
-        const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-        const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
-        const preferred =
-          getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
-          getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
         const targetStorage =
           typeof window === "undefined"
             ? null
@@ -130,7 +146,7 @@ export default function VerifyMfaPage() {
         markMfaVerified(targetStorage, user.uid, rememberDevice ? { daysValid: 30 } : {});
         await sendLoginNotification(user, "mfa");
         refreshMfaState?.();
-        router.replace(selectLandingRoute(access, preferred));
+        await routeUserToWorkspace(user, userData);
       } else {
         setError(verifyData?.error || "Invalid code, try again.");
       }

@@ -227,16 +227,16 @@ export default function EditEquipmentPage() {
   };
 
   useEffect(() => {
-    if (!equipment) return;
-    const li = equipment.lastInspection;
-    const fq = equipment.inspectionFrequency;
-    if (li && fq) {
+    setEquipment((prev) => {
+      if (!prev) return prev;
+      const li = prev.lastInspection;
+      const fq = prev.inspectionFrequency;
+      if (!li || !fq) return prev;
       const calc = addWeeksToISO(li, fq);
-      if (calc && equipment.nextInspection !== calc) {
-        setEquipment((p) => ({ ...p, nextInspection: calc }));
-      }
-    }
-  }, [equipment?.lastInspection, equipment?.inspectionFrequency, equipment?.nextInspection]);
+      if (!calc || prev.nextInspection === calc) return prev;
+      return { ...prev, nextInspection: calc };
+    });
+  }, [equipment?.lastInspection, equipment?.inspectionFrequency]);
 
   const canSave = useMemo(() => {
     if (!equipment) return false;

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -19,6 +19,8 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 8,
@@ -329,6 +331,8 @@ function serviceRecordTitle(record) {
 
 export default function ServiceOverviewPage() {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
   const [vehicles, setVehicles] = useState([]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [serviceRecords, setServiceRecords] = useState([]);
@@ -339,13 +343,14 @@ export default function ServiceOverviewPage() {
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("risk");
 
-  const loadVehicles = async () => {
+  const loadVehicles = useCallback(async () => {
+    if (!authState?.accessReady) return;
     setLoading(true);
     try {
       const [vehiclesSnap, bookingsSnap, recordsSnap] = await Promise.all([
-        getDocs(collection(db, "vehicles")),
-        getDocs(collection(db, "maintenanceBookings")),
-        getDocs(collection(db, "serviceRecords")),
+        getDocs(tenantCollectionQuery(db, "vehicles", authState)),
+        getDocs(tenantCollectionQuery(db, "maintenanceBookings", authState)),
+        getDocs(tenantCollectionQuery(db, "serviceRecords", authState)),
       ]);
       const today = new Date();
       setVehicles(
@@ -358,11 +363,11 @@ export default function ServiceOverviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authState]);
 
   useEffect(() => {
     loadVehicles();
-  }, []);
+  }, [accessKey, loadVehicles]);
 
   const activeServiceBookings = useMemo(() => {
     return maintenanceBookings

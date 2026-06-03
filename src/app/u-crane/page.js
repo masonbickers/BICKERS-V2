@@ -38,6 +38,8 @@ import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
@@ -969,6 +971,8 @@ function CalendarEvent({ event }) {
 /* ------------------------------- Page component ----------------------------- */
 export default function DashboardPage({ bookingSaved }) {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
 
   const [authReady, setAuthReady] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
@@ -1028,25 +1032,25 @@ export default function DashboardPage({ bookingSaved }) {
 
   // Vehicles (needed to resolve booking vehicle IDs to names)
   useEffect(() => {
-    if (!authReady) return;
+    if (!authReady || !authState?.accessReady) return;
 
-    const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snap) => {
+    const unsubVehicles = onSnapshot(tenantCollectionQuery(db, "vehicles", authState), (snap) => {
       setVehiclesData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     return () => unsubVehicles();
-  }, [authReady]);
+  }, [accessKey, authReady, authState]);
 
   // Raw bookings
   useEffect(() => {
-    if (!authReady) return;
+    if (!authReady || !authState?.accessReady) return;
 
-    const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
+    const unsubBookings = onSnapshot(tenantCollectionQuery(db, "bookings", authState), (snap) => {
       setAllBookingsRaw(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     return () => unsubBookings();
-  }, [authReady]);
+  }, [accessKey, authReady, authState]);
 
   // Normalise vehicles inside a booking (string ids -> vehicle objects)
   const normalizeVehicles = useCallback(

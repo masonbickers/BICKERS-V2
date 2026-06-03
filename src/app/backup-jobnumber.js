@@ -960,6 +960,8 @@ const timesheetDocId = (employeeCode, weekStart) => `${employeeCode}_${weekStart
     };
 
     if (id) loadJobs();
+    // Legacy backup route: keep the original loader dependency shape unchanged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // ---------- status colours ----------

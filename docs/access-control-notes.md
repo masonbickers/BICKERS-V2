@@ -27,13 +27,106 @@ Client guards are not enough on their own. Firestore rules or backend checks sho
 
 This repo now includes a first-pass [firestore.rules](/abs/path/c:/Users/MasonBickers/OneDrive%20-%20Bickers%20Action/Desktop/Bickers-Booking1/firestore.rules) file and [firebase.json](/abs/path/c:/Users/MasonBickers/OneDrive%20-%20Bickers%20Action/Desktop/Bickers-Booking1/firebase.json) mapping. These rules rely on `users/{uid}` being the server-trusted access record.
 
+For v1.0 the supported application roles are:
+
+- `platformAdmin`: platform-wide control centre, companies, users, security, audit logs
+- `admin`: application admin workflows, user access, MFA resets, admin area
+- `user`: standard application access, with workspace access controlled by `appAccess`
+
 To make that work:
 
-- `users/{uid}.role` should contain `admin`, `employee`, `service`, or `hybrid`
+- `users/{uid}.role` should contain only `platformAdmin`, `admin`, or `user`
+- `users/{uid}.companyId` should be set for every non-platform user
 - `users/{uid}.appAccess.user` and `users/{uid}.appAccess.service` should mirror employee workspace access
 - `users/{uid}.defaultWorkspace` should mirror the default workspace
 
 The employee edit page now mirrors those fields onto `users/{uid}` when the employee record contains a linked `uid` or `authUid`.
+
+## Tenant scoping
+
+Section 13 adds company scoping for business collections. The following collections must carry `companyId` on every document:
+
+- `bookings`
+- `employees`
+- `vehicles`
+- `equipment`
+- `holidays`
+- `notes`
+- `maintenance`
+- `maintenanceBookings`
+- `maintenanceJobs`
+- `serviceRecords`
+- `defectReports`
+- `defects`
+- `vehicleIssues`
+- `motPreChecks`
+- `timesheets`
+- `timesheetQueries`
+- `contacts`
+- `invoiceQueue`
+- `deletedBookings`
+- `sickLeave`
+- `uCraneFreelancers`
+- `lorries`
+- `workBookings`
+- `vehicleChecks`
+- `vehicleUsageNotes`
+- `vehiclePrepRecords`
+- `hsRegister`
+- `hsCheckRecords`
+- `ppeIssueRecords`
+- `employeeTrainingRecords`
+
+Firestore rules now enforce:
+
+- platform admins can read all tenant-scoped business docs
+- admins can access tenant-scoped business docs only for their own `companyId`
+- normal users can access only same-company docs for their allowed workspace/module
+- creates must include `companyId`, and updates must preserve the existing `companyId`
+
+Existing business docs missing `companyId` are surfaced in `/platform-admin/cleanup` and can be backfilled with an explicitly selected company. The backfill writes audit records and only stamps tenant metadata; it does not delete business data.
+
+## Firestore rule hardening
+
+Section 14 removes weak access paths from the rules:
+
+- email-domain fallback access is removed
+- platform admin is based on `users/{uid}.role == "platformAdmin"`, not hard-coded email lists
+- users must have an enabled `users/{uid}` record before app access is granted
+- setup-code login is disabled by default and requires an explicit company security setting
+- `mfaSecrets`, `passkeyCredentials`, `passkeyChallenges`, and `setupCodeRateLimits` are server-only
+- unmatched collections are platform-admin read-only in rules; writes must use explicit collection rules or server APIs
+
+## Server API boundary
+
+Section 15 adds dedicated platform server APIs for sensitive admin operations:
+
+- `/api/platform/users/update`
+- `/api/platform/users/force-mfa-reset`
+- `/api/platform/companies/update`
+- `/api/platform/employee-linking/link`
+- `/api/platform/audit-log`
+
+These routes require a verified Firebase ID token and an enabled `users/{uid}` record with `role == "platformAdmin"`. Sensitive writes use the Admin REST helper rather than client Firestore writes, and each mutation writes to `adminAuditLogs`. MFA setup/verify and setup-code login also write server-side audit/security records without exposing private MFA or passkey data to the client.
+
+## Platform Admin Control Centre
+
+The Platform Admin Control Centre is the master BAS Software control panel. It covers dashboard, companies, company settings, branding, feature control, all users, employee linking, roles, security, MFA, cleanup, audit logs, login logs, and global settings.
+
+Storage model:
+
+- global branding lives in `settings/platformBranding`
+- company branding lives in `platformCompanies/{companyId}.branding`
+- global features live in `settings/platformFeatures`
+- company feature/module switches live in `platformCompanies/{companyId}.modules`
+
+Safety model:
+
+- `platformAdmin` is the highest role
+- MFA secrets remain server-only and are never shown in admin UI
+- sensitive mutations use server APIs and audit logs
+- repair actions are preview-first where they touch business data
+- destructive business-data deletion should be avoided unless explicitly confirmed
 
 After changing rules locally, deploy them with Firebase CLI.
 

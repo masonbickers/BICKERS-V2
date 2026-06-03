@@ -8,6 +8,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
   Activity,
   Building2,
+  Brush,
   ClipboardList,
   Flag,
   Home,
@@ -23,12 +24,11 @@ import {
 } from "lucide-react";
 import { auth } from "../../../../firebaseConfig";
 
-const PLATFORM_ADMIN_EMAILS = new Set(["mason@bickers.co.uk"]);
-
 const navItems = [
   ["/platform-admin", "Dashboard", Home],
   ["/platform-admin/companies", "Companies", Building2],
-  ["/platform-admin/users", "Users", Users],
+  ["/platform-admin/branding", "Branding", Brush],
+  ["/platform-admin/users", "All Users", Users],
   ["/platform-admin/employee-linking", "Employee Linking", Link2],
   ["/platform-admin/security", "Security Centre", ShieldCheck],
   ["/platform-admin/mfa", "MFA", LockKeyhole],
@@ -36,13 +36,9 @@ const navItems = [
   ["/platform-admin/audit-logs", "Audit Logs", ListChecks],
   ["/platform-admin/login-security", "Login Logs", Activity],
   ["/platform-admin/cleanup", "Cleanup", ClipboardList],
-  ["/platform-admin/feature-flags", "Feature Flags", Flag],
-  ["/platform-admin/settings", "Settings", Settings],
+  ["/platform-admin/feature-control", "Feature Control", Flag],
+  ["/platform-admin/settings", "Global Settings", Settings],
 ];
-
-function cleanEmail(value) {
-  return String(value || "").trim().toLowerCase();
-}
 
 export default function PlatformAdminShell({ children, title, subtitle, onRefresh, loading }) {
   const router = useRouter();
@@ -51,19 +47,46 @@ export default function PlatformAdminShell({ children, title, subtitle, onRefres
   const [me, setMe] = useState(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    let cancelled = false;
+
+    const refreshPlatformAccess = async (user) => {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/security/bootstrap-access", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Could not verify platform access.");
+      return data?.access || {};
+    };
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
-      if (!PLATFORM_ADMIN_EMAILS.has(cleanEmail(user.email))) {
+      try {
+        const access = await refreshPlatformAccess(user);
+        const role = String(access.role || "").trim().toLowerCase();
+        if (role !== "platformadmin" || access.isEnabled === false) {
+          router.push("/dashboard");
+          return;
+        }
+      } catch (error) {
+        console.error("[platform-admin] access check failed:", error);
         router.push("/dashboard");
         return;
       }
+      if (cancelled) return;
       setMe(user);
       setChecking(false);
     });
-    return () => unsub();
+
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [router]);
 
   if (checking) {

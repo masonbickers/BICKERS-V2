@@ -2,6 +2,7 @@ import axios from "axios";
 import { collection, doc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../../../../../../firebaseConfig";
 import { adminReadDocument } from "../../../_firebaseAdminRest";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -17,7 +18,6 @@ const FIREBASE_WEB_API_KEY =
   process.env.FIREBASE_API_KEY ||
   "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "bickers-booking";
-const ADMIN_EMAILS = new Set(["mason@bickers.co.uk"]);
 
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
@@ -212,7 +212,7 @@ async function verifyFirebaseIdTokenFromRequest(request) {
 
 async function isAdminUser(user) {
   if (!user?.email) return false;
-  if (ADMIN_EMAILS.has(user.email)) return true;
+  if (isAdminEmail(user.email)) return true;
 
   const employeeQueries = [
     query(collection(db, "employees"), where("uid", "==", user.uid), limit(1)),

@@ -1168,13 +1168,13 @@ export default function EditEmployeePage() {
               disabled={archiving || loading || formData.archived}
               title="Hide employee from active system use and switch off app access"
             >
-              {formData.archived ? "Archived" : archiving ? "Archivingâ€¦" : "Archive Employee"}
+              {formData.archived ? "Archived" : archiving ? "Archiving..." : "Archive Employee"}
             </button>
             <button type="button" onClick={handleDelete} style={btn("danger")} disabled={deleting || loading}>
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? "Deleting..." : "Delete"}
             </button>
             <button type="submit" form="edit-employee-form" style={btn()} disabled={saving || loading}>
-              {saving ? "Saving…" : "Save Changes"}
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
@@ -1387,7 +1387,7 @@ export default function EditEmployeePage() {
                       />
                       {formData.passport?.documentUrl ? (
                         <a href={formData.passport.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                          Open current passport file
+                          Open
                         </a>
                       ) : null}
                     </div>
@@ -1511,7 +1511,7 @@ export default function EditEmployeePage() {
                       />
                       {formData.drivingLicence?.documentUrl ? (
                         <a href={formData.drivingLicence.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                          Open current licence file
+                          Open
                         </a>
                       ) : null}
                     </div>
@@ -1661,7 +1661,7 @@ export default function EditEmployeePage() {
                           <input type="text" value={documentRow.documentUrl || ""} onChange={(e) => updatePersonnelDocument(index, "documentUrl", e.target.value)} style={inputBase} placeholder="https://..." />
                           {documentRow.documentUrl ? (
                             <a href={documentRow.documentUrl} target="_blank" rel="noopener noreferrer" style={helperStyle}>
-                              Open current document
+                              Open
                             </a>
                           ) : null}
                         </div>
@@ -1874,7 +1874,7 @@ export default function EditEmployeePage() {
                     Cancel
                   </button>
                   <button type="submit" style={btn()} disabled={saving}>
-                    {saving ? "Saving…" : "Save Changes"}
+                    {saving ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </form>
@@ -2023,7 +2023,7 @@ export default function EditEmployeePage() {
                       style={btn("danger")}
                       disabled={archiving || loading || formData.archived}
                     >
-                      {formData.archived ? "Archived" : archiving ? "Archivingâ€¦" : "Archive Employee"}
+                      {formData.archived ? "Archived" : archiving ? "Archiving..." : "Archive Employee"}
                     </button>
                     <button
                       type="button"
@@ -2031,7 +2031,7 @@ export default function EditEmployeePage() {
                       style={btn("danger")}
                       disabled={deleting || loading}
                     >
-                      {deleting ? "Deleting…" : "Delete"}
+                      {deleting ? "Deleting..." : "Delete"}
                     </button>
                   </div>
                 </div>

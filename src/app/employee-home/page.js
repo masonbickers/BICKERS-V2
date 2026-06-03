@@ -2,9 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 import {
   BarChart,
   Bar,
@@ -503,6 +505,8 @@ function getNoteForDate(booking, dayKey) {
 /* Page */
 export default function EmployeesHomePage() {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
 
   // timeframe state
   const [mode, setMode] = useState("lastNDays"); // "lastNDays" | "customRange"
@@ -541,15 +545,16 @@ export default function EmployeesHomePage() {
   }, [mode, rangeDays, fromDate, toDate]);
 
   useEffect(() => {
+    if (!authState?.accessReady) return undefined;
     let isMounted = true;
 
     (async () => {
       setLoading(true);
       try {
         const [bookingsSnap, holidaysSnap, employeesSnap, bankHolidayKeys] = await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "holidays")),
-          getDocs(collection(db, "employees")),
+          getDocs(tenantCollectionQuery(db, "bookings", authState)),
+          getDocs(tenantCollectionQuery(db, "holidays", authState)),
+          getDocs(tenantCollectionQuery(db, "employees", authState)),
           fetchBankHolidayKeysInRange(effectiveRange.since, effectiveRange.until),
         ]);
 
@@ -780,7 +785,7 @@ export default function EmployeesHomePage() {
     return () => {
       isMounted = false;
     };
-  }, [effectiveRange]);
+  }, [accessKey, authState, effectiveRange]);
 
   const employeeSections = useMemo(
     () => [

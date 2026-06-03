@@ -13,13 +13,8 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 
-/* ───────────────────────────────────────────
-   Admin allow-list (for UI labels + future gating)
-─────────────────────────────────────────── */
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
 const truthy = (v) =>
@@ -118,7 +113,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         return;
       }
 
-      const allowlisted = ADMIN_EMAILS.map(norm).includes(norm(email));
+      const allowlisted = isAdminEmail(email);
       if (allowlisted) {
         setIsAdmin(true);
         return;

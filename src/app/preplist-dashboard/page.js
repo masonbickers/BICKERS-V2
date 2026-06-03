@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v2";
 const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v1";
@@ -226,6 +228,8 @@ function getEmployeeDisplayName(emp) {
 
 export default function PrepListDashboardPage() {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
 
   const [bookings, setBookings] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -246,13 +250,14 @@ export default function PrepListDashboardPage() {
   const tomorrow = useMemo(() => addDays(today, 1), [today]);
 
   useEffect(() => {
+    if (!authState?.accessReady) return undefined;
     let active = true;
     (async () => {
       try {
         const [bSnap, vSnap, eSnap] = await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "vehicles")),
-          getDocs(collection(db, "employees")),
+          getDocs(tenantCollectionQuery(db, "bookings", authState)),
+          getDocs(tenantCollectionQuery(db, "vehicles", authState)),
+          getDocs(tenantCollectionQuery(db, "employees", authState)),
         ]);
         if (!active) return;
         setBookings(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -268,7 +273,7 @@ export default function PrepListDashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [accessKey, authState]);
 
   useEffect(() => {
     try {

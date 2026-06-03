@@ -76,17 +76,16 @@ function resolveAccess(employee = {}, existingUser = {}) {
 
   const role = normalize(employee.role);
   const isService = employee.isService === true || role === "service";
-  const isHybrid = role === "hybrid";
   const appAccess = {
-    user: isHybrid || !isService,
-    service: isHybrid || isService,
+    user: role === "hybrid" || !isService,
+    service: role === "hybrid" || isService,
   };
 
   return {
     appAccess,
     defaultWorkspace:
       employee.defaultWorkspace === "service" && appAccess.service ? "service" : "user",
-    role: isHybrid ? "hybrid" : isService && !appAccess.user ? "service" : "user",
+    role: "user",
     isService,
   };
 }
@@ -106,6 +105,56 @@ function clientIp(req) {
   return normalize(forwarded.split(",")[0] || req.headers.get("x-real-ip") || "unknown");
 }
 
+function userAgent(req) {
+  return String(req.headers.get("user-agent") || "").trim();
+}
+
+async function writeLoginSecurityLog(row) {
+  try {
+    await adminCreateDocument("loginSecurityLogs", {
+      uid: row.uid || "",
+      email: normalize(row.email),
+      loginMethod: row.loginMethod || "user-code",
+      status: row.status || "",
+      outcome: row.outcome || row.status || "",
+      reason: row.reason || "",
+      employeeId: row.employeeId || "",
+      ip: row.ip || "",
+      userAgent: row.userAgent || "",
+      createdAt: row.createdAt || new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Login security log failed:", error);
+  }
+}
+
+async function writeUserCodeAudit(row) {
+  try {
+    await adminCreateDocument("adminAuditLogs", {
+      actorUid: row.uid || "",
+      actorEmail: row.email || "",
+      actorRole: "user",
+      targetType: "auth",
+      targetId: row.uid || row.email || "",
+      companyId: row.companyId || "",
+      action: "Setup-code login token issued",
+      area: "Login Security",
+      before: null,
+      after: {
+        uid: row.uid || "",
+        email: normalize(row.email),
+        loginMethod: "user-code",
+      },
+      details: row.details || {},
+      ip: row.ip || "",
+      userAgent: row.userAgent || "",
+      createdAt: row.createdAt || new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("User-code audit log failed:", error);
+  }
+}
+
 function rateLimitId(email, ip) {
   return hashKey(`${normalize(email)}|${normalize(ip)}`);
 }
@@ -116,7 +165,7 @@ function codeAttemptId(code) {
 
 async function userCodeLoginAllowed() {
   const company = await adminReadDocument("platformCompanies", DEFAULT_COMPANY_ID);
-  return company?.security?.userCodeLogin !== false;
+  return company?.security?.userCodeLogin === true;
 }
 
 async function readRateLimit(email, ip) {
@@ -197,17 +246,38 @@ function chooseExistingUserForLogin(matchingUsers, employeeUid) {
 }
 
 export async function POST(req) {
+  let cleanEmail = "";
+  let cleanCode = "";
+  let ip = "";
+  let ua = "";
   try {
     const { email, userCode } = await req.json();
-    const cleanEmail = normalize(email);
-    const cleanCode = normalize(userCode);
-    const ip = clientIp(req);
+    cleanEmail = normalize(email);
+    cleanCode = normalize(userCode);
+    ip = clientIp(req);
+    ua = userAgent(req);
 
     if (!cleanEmail.endsWith("@bickers.co.uk") || !cleanCode) {
+      await writeLoginSecurityLog({
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "failed",
+        reason: "Invalid email or missing setup code",
+        ip,
+        userAgent: ua,
+      });
       return NextResponse.json({ error: "Invalid email or setup code." }, { status: 401 });
     }
 
     if (!(await userCodeLoginAllowed())) {
+      await writeLoginSecurityLog({
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "blocked",
+        reason: "Setup-code login disabled",
+        ip,
+        userAgent: ua,
+      });
       return NextResponse.json(
         { error: "Setup-code login is currently disabled. Please use your password or passkey." },
         { status: 403 }
@@ -216,6 +286,14 @@ export async function POST(req) {
 
     const rateLimit = await readRateLimit(cleanEmail, ip);
     if (rateLimit.blocked) {
+      await writeLoginSecurityLog({
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "rate-limited",
+        reason: `Locked until ${rateLimit.lockedUntil || "later"}`,
+        ip,
+        userAgent: ua,
+      });
       return NextResponse.json(
         { error: "Too many setup-code attempts. Try again later." },
         { status: 429 }
@@ -234,14 +312,46 @@ export async function POST(req) {
 
     if (!employee) {
       await recordRateLimitFailure(rateLimit, cleanEmail, ip, cleanCode);
+      await writeLoginSecurityLog({
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "failed",
+        reason: "Invalid setup-code credentials",
+        ip,
+        userAgent: ua,
+      });
       return NextResponse.json({ error: "Invalid email or setup code." }, { status: 401 });
     }
 
     const matchingUsers = users.filter(({ data }) => normalize(data?.email) === cleanEmail);
     const employeeUid = safeUid(employee.data?.authUid) || safeUid(employee.data?.uid);
+    const disabledMatchingUser = matchingUsers.find(({ data }) => isDisabledRecord(data));
+    if (disabledMatchingUser && (!employeeUid || userMatchesUid(disabledMatchingUser, employeeUid))) {
+      await recordRateLimitFailure(rateLimit, cleanEmail, ip, cleanCode);
+      await writeLoginSecurityLog({
+        uid: disabledMatchingUser.id || disabledMatchingUser.data?.uid || "",
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "blocked",
+        reason: "Disabled access account",
+        employeeId: employee.id,
+        ip,
+        userAgent: ua,
+      });
+      return NextResponse.json({ error: "This account is disabled." }, { status: 403 });
+    }
+
     const existingUser = chooseExistingUserForLogin(matchingUsers, employeeUid);
     if (matchingUsers.length > 0 && !existingUser && !employeeUid) {
       await recordRateLimitFailure(rateLimit, cleanEmail, ip, cleanCode);
+      await writeLoginSecurityLog({
+        email: cleanEmail,
+        loginMethod: "user-code",
+        status: "failed",
+        reason: "Disabled access account",
+        ip,
+        userAgent: ua,
+      });
       return NextResponse.json({ error: "This account is disabled." }, { status: 403 });
     }
 
@@ -269,6 +379,7 @@ export async function POST(req) {
       name: existingUser?.data?.name || employee.data?.name || employee.data?.fullName || "",
       employeeId: employee.id,
       employeeCode,
+      companyId: existingUser?.data?.companyId || employee.data?.companyId || DEFAULT_COMPANY_ID,
       isEnabled: true,
       isService: access.isService,
       role: existingUser?.data?.role || access.role,
@@ -285,12 +396,24 @@ export async function POST(req) {
       employeeId: employee.id,
     });
 
-    await adminCreateDocument("loginSecurityLogs", {
+    await writeLoginSecurityLog({
       uid,
       email: cleanEmail,
       loginMethod: "user-code-issued",
+      status: "success",
       employeeId: employee.id,
       createdAt: now,
+      ip,
+      userAgent: ua,
+    });
+    await writeUserCodeAudit({
+      uid,
+      email: cleanEmail,
+      companyId: existingUser?.data?.companyId || employee.data?.companyId || DEFAULT_COMPANY_ID,
+      createdAt: now,
+      ip,
+      userAgent: ua,
+      details: { employeeId: employee.id },
     });
 
     return NextResponse.json({
@@ -322,6 +445,14 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("Setup-code login failed", error);
+    await writeLoginSecurityLog({
+      email: cleanEmail,
+      loginMethod: "user-code",
+      status: "failed",
+      reason: error?.message || "Setup-code login route error",
+      ip,
+      userAgent: ua,
+    });
     return NextResponse.json(
       { error: error?.message || "Could not sign in with setup code." },
       { status: 500 }

@@ -14,48 +14,63 @@ service firebase.storage {
       return userDoc().data;
     }
 
-    function isKnownAdminEmail() {
+    function isNotDisabled() {
       return isSignedIn()
-        && request.auth.token.email is string
-        && request.auth.token.email in [
-          "mason@bickers.co.uk",
-          "paul@bickers.co.uk",
-          "adam@bickers.co.uk"
+        && userData() != null
+        && userData().isEnabled != false;
+    }
+
+    function roleValue() {
+      return userData() != null && userData().keys().hasAny(["role"])
+        ? userData().role
+        : "";
+    }
+
+    function isPlatformAdmin() {
+      return isNotDisabled()
+        && roleValue() in [
+          "platformAdmin",
+          "platformadmin",
+          "platform admin",
+          "Platform Admin",
+          "superAdmin",
+          "superadmin",
+          "super admin",
+          "Super Admin"
         ];
     }
 
-    function isCompanyEmail() {
-      return isSignedIn()
-        && (
-          (
-            request.auth.token.email is string
-            && request.auth.token.email.matches(".*@bickers\\.co\\.uk$")
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && request.auth.token.companyEmail.matches(".*@bickers\\.co\\.uk$")
-          )
-        );
-    }
-
-    function isNotDisabled() {
-      return isSignedIn()
-        && (
-          userData() == null
-          || userData().isEnabled != false
-        );
-    }
-
     function isAdmin() {
-      return isNotDisabled()
-        && (
-          isKnownAdminEmail()
-          || (
-            userData() != null
-            && userData().keys().hasAny(["role"])
-            && userData().role == "admin"
-          )
+      return isPlatformAdmin()
+        || (
+          isNotDisabled()
+          && roleValue() in [
+            "admin",
+            "Admin",
+            "companyAdmin",
+            "companyadmin",
+            "company admin",
+            "Company Admin"
+          ]
         );
+    }
+
+    function hasCompanyId() {
+      return isNotDisabled()
+        && userData() != null
+        && userData().keys().hasAny(["companyId"])
+        && userData().companyId is string
+        && userData().companyId != "";
+    }
+
+    function isCurrentUserCompany(companyId) {
+      return companyId is string
+        && hasCompanyId()
+        && companyId == userData().companyId;
+    }
+
+    function canAccessCompany(companyId) {
+      return isPlatformAdmin() || isCurrentUserCompany(companyId);
     }
 
     function appAccessEnabled(workspace) {
@@ -87,12 +102,29 @@ service firebase.storage {
     function hasUserAccess() {
       return isAdmin()
         || (isNotDisabled()
-          && isCompanyEmail()
           && (
-            userData() == null
-            || appAccessEnabled("user")
+            appAccessEnabled("user")
             || defaultWorkspaceIs("user")
-            || roleIn(["user", "employee", "hybrid"])
+            || roleIn([
+              "user",
+              "User",
+              "standardUser",
+              "standarduser",
+              "standard user",
+              "Standard User",
+              "readonlyUser",
+              "readonlyuser",
+              "read-only user",
+              "Read-only User",
+              "read only user",
+              "Read Only User",
+              "manager",
+              "Manager",
+              "employee",
+              "Employee",
+              "hybrid",
+              "Hybrid"
+            ])
           ));
     }
 
@@ -104,7 +136,7 @@ service firebase.storage {
             appAccessEnabled("service")
             || isServiceUser()
             || defaultWorkspaceIs("service")
-            || roleIn(["service", "hybrid"])
+            || roleIn(["service", "Service", "hybrid", "Hybrid"])
           ));
     }
 
@@ -123,6 +155,61 @@ service firebase.storage {
         && (request.auth.uid == uid || isAdmin())
         && isSafeFileSize(10 * 1024 * 1024)
         && isSafeMimeType('image/.*');
+    }
+
+    match /companies/{companyId}/profilePhotos/{uid}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId);
+      allow write: if canAccessCompany(companyId)
+        && (request.auth.uid == uid || isAdmin())
+        && isSafeFileSize(10 * 1024 * 1024)
+        && isSafeMimeType('image/.*');
+    }
+
+    match /companies/{companyId}/booking_pdfs/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && hasUserAccess();
+      allow write: if canAccessCompany(companyId)
+        && hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf');
+    }
+
+    match /companies/{companyId}/quotes/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && hasUserAccess();
+      allow write: if canAccessCompany(companyId)
+        && hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+    }
+
+    match /companies/{companyId}/job_attachments/{jobId}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && hasUserAccess();
+      allow write: if canAccessCompany(companyId)
+        && hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /companies/{companyId}/maintenance-quotes/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && hasServiceAccess();
+      allow write: if canAccessCompany(companyId)
+        && hasServiceAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /companies/{companyId}/vehicles/{vehicleId}/{field}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && hasServiceAccess();
+      allow write: if canAccessCompany(companyId)
+        && hasServiceAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
+    match /companies/{companyId}/hr/contracts/{employeeRef}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && isAdmin();
+      allow write: if canAccessCompany(companyId)
+        && isAdmin()
+        && isSafeFileSize(25 * 1024 * 1024);
     }
 
     match /recce-photos/{uid}/{bookingId}/{allPaths=**} {

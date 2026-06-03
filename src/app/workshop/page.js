@@ -5,8 +5,16 @@ import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 import {
   buildBookedMetaByVehicle,
   buildMaintenanceBookingEvents,
@@ -52,22 +60,49 @@ const getMaintenanceColor = (type) => {
 
 export default function WorkshopPage() {
   const router = useRouter();
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   useEffect(() => {
-    const unsubMaintenance = onSnapshot(collection(db, "maintenanceBookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "maintenanceBookings", operation: "listen workshop data" });
+      return undefined;
+    }
+
+    const unsubMaintenance = onSnapshot(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState), (snapshot) => {
       setMaintenanceBookings(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "maintenanceBookings", operation: "listen workshop maintenance" });
+      setMaintenanceBookings([]);
     });
 
-    const unsubJobs = onSnapshot(collection(db, "maintenanceJobs"), (snapshot) => {
+    const unsubJobs = onSnapshot(tenantCollectionQuery(db, "maintenanceJobs", dataAccessState), (snapshot) => {
       setMaintenanceJobs(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "maintenanceJobs", operation: "listen workshop jobs" });
+      setMaintenanceJobs([]);
     });
 
-    const unsubVehicles = onSnapshot(collection(db, "vehicles"), (snapshot) => {
+    const unsubVehicles = onSnapshot(tenantCollectionQuery(db, "vehicles", dataAccessState), (snapshot) => {
       setVehicles(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "listen workshop vehicles" });
+      setVehicles([]);
     });
 
     return () => {
@@ -75,7 +110,7 @@ export default function WorkshopPage() {
       unsubJobs();
       unsubVehicles();
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const bookedMetaByVehicle = useMemo(
     () => buildBookedMetaByVehicle(maintenanceBookings),

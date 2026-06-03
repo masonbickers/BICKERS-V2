@@ -2,13 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
-  findEmployeeForUser,
   hasMirroredAccessRecord,
+  normalizeFeatureFlags,
+  normalizePlatformRole,
   resolveEmployeeAccess,
 } from "@/app/utils/accessControl";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   hasAuthenticatorMfa,
   isMfaVerifiedOnDevice,
@@ -17,10 +19,6 @@ import {
 
 const AuthContext = createContext(null);
 const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
-
-const ADMIN_EMAILS = [
-  "mason@bickers.co.uk",
-];
 
 const debugBookingLoads = (...args) => {
   if (typeof window === "undefined") return;
@@ -42,6 +40,7 @@ const emptyAccess = {
   user: null,
   userDoc: null,
   employeeAccess: null,
+  featureFlags: normalizeFeatureFlags(),
   isAdmin: false,
   isEnabled: true,
   phoneReady: false,
@@ -87,28 +86,8 @@ const readStoredMfaPassed = (uid) =>
   );
 
 async function resolveUserDoc(currentUser) {
-  let resolvedRef = doc(db, "users", currentUser.uid);
-  let snap = await getDoc(resolvedRef);
-
-  if (!snap.exists()) {
-    const emailA = String(currentUser.email || "").trim();
-    const emailB = emailA.toLowerCase();
-
-    const q1 = query(collection(db, "users"), where("email", "==", emailA), limit(1));
-    const r1 = await getDocs(q1);
-
-    if (!r1.empty) {
-      resolvedRef = doc(db, "users", r1.docs[0].id);
-      snap = r1.docs[0];
-    } else {
-      const q2 = query(collection(db, "users"), where("email", "==", emailB), limit(1));
-      const r2 = await getDocs(q2);
-      if (!r2.empty) {
-        resolvedRef = doc(db, "users", r2.docs[0].id);
-        snap = r2.docs[0];
-      }
-    }
-  }
+  const resolvedRef = doc(db, "users", currentUser.uid);
+  const snap = await getDoc(resolvedRef);
 
   return {
     resolvedRef,
@@ -117,7 +96,7 @@ async function resolveUserDoc(currentUser) {
 }
 
 async function refreshServerAccess(currentUser) {
-  if (!currentUser?.getIdToken || typeof fetch !== "function") return false;
+  if (!currentUser?.getIdToken || typeof fetch !== "function") return null;
 
   try {
     const token = await currentUser.getIdToken();
@@ -125,28 +104,35 @@ async function refreshServerAccess(currentUser) {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-    return res.ok;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return null;
+    return data?.access || null;
   } catch (error) {
     console.warn("[authContext] access bootstrap failed:", error);
-    return false;
+    return null;
   }
+}
+
+async function resolveFeatureFlags(userDoc = {}) {
+  return normalizeFeatureFlags(userDoc?.featureFlags || userDoc?.features || {});
 }
 
 const resolveAccessState = async (currentUser, userDoc) => {
   const email = String(currentUser?.email || "").trim().toLowerCase();
   const isEnabled = userDoc?.isEnabled !== false;
-  const isAdmin = ADMIN_EMAILS.includes(email) || userDoc?.role === "admin";
-  const accessSource = hasMirroredAccessRecord(userDoc || {})
-    ? userDoc || {}
-    : (await findEmployeeForUser(db, currentUser)) || {};
+  const role = normalizePlatformRole(userDoc?.role);
+  const isAdmin = isAdminEmail(email) || role === "admin" || role === "platformAdmin";
+  const accessSource = hasMirroredAccessRecord(userDoc || {}) ? userDoc || {} : {};
   const employeeAccess = resolveEmployeeAccess(accessSource, { isAdmin });
   const phoneReady = isPhoneVerified(userDoc || {});
   const mfaReady = hasAuthenticatorMfa(userDoc || {});
   const mfaPassed = readStoredMfaPassed(currentUser.uid);
+  const featureFlags = await resolveFeatureFlags(userDoc || {});
 
   return {
     userDoc: userDoc || {},
     employeeAccess,
+    featureFlags,
     isAdmin,
     isEnabled,
     phoneReady,
@@ -185,22 +171,22 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      const cached = readAccessCache(firebaseUser.uid);
-      const canUseCachedSecurityState = cached?.phoneReady === true && cached?.mfaReady === true;
-      if (cached && canUseCachedSecurityState) {
-        setAccessState({
-          ...cached,
-          mfaPassed: readStoredMfaPassed(firebaseUser.uid),
-          accessReady: true,
-        });
-        debugBookingLoads("auth/access cache ready", Math.round(nowMs() - startedAt), "ms");
-      } else {
-        setAccessState({ ...emptyAccess, user: firebaseUser, accessReady: false });
-      }
+      setAccessState({ ...emptyAccess, user: firebaseUser, accessReady: false });
       setLoading(false);
 
       try {
-        let { resolvedRef, userDoc } = await resolveUserDoc(firebaseUser);
+        clearAccessCache();
+        const refreshedAccess = await refreshServerAccess(firebaseUser);
+        let resolvedRef = doc(db, "users", firebaseUser.uid);
+        let userDoc = refreshedAccess || {};
+
+        try {
+          const resolved = await resolveUserDoc(firebaseUser);
+          resolvedRef = resolved.resolvedRef;
+          userDoc = { ...resolved.userDoc, ...(refreshedAccess || {}) };
+        } catch (error) {
+          console.warn("[authContext] user doc read failed after bootstrap:", error);
+        }
         if (token !== resolvingRef.current) return;
 
         if (userDoc?.isEnabled === false) {
@@ -209,14 +195,6 @@ export const AuthProvider = ({ children }) => {
           await signOut(auth);
           return;
         }
-
-        const refreshed = await refreshServerAccess(firebaseUser);
-        if (refreshed) {
-          const fresh = await resolveUserDoc(firebaseUser);
-          resolvedRef = fresh.resolvedRef;
-          userDoc = fresh.userDoc;
-        }
-        if (token !== resolvingRef.current) return;
 
         const nextAccess = await resolveAccessState(firebaseUser, userDoc);
         if (token !== resolvingRef.current) return;
@@ -268,6 +246,7 @@ export const AuthProvider = ({ children }) => {
       logout: () => signOut(auth),
       userDoc: accessState.userDoc,
       employeeAccess: accessState.employeeAccess,
+      featureFlags: accessState.featureFlags,
       isAdmin: accessState.isAdmin,
       isEnabled: accessState.isEnabled,
       phoneReady: accessState.phoneReady,

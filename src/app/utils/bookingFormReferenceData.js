@@ -1,15 +1,26 @@
 "use client";
 
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
+import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const CACHE_KEY = "booking-form-reference-data:v1";
 const CONTACTS_CACHE_KEY = "booking-form-saved-contacts:v1";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 let referenceCache = null;
+let referenceCacheKey = "";
 let referencePromise = null;
+let referencePromiseKey = "";
 let contactsCache = null;
+let contactsCacheKey = "";
 let contactsPromise = null;
+let contactsPromiseKey = "";
+
+const cacheKeyForAccess = (baseKey, accessState) => {
+  const companyId = String(accessState?.userDoc?.companyId || "").trim() || "platform";
+  const uid = String(accessState?.user?.uid || "").trim() || "anonymous";
+  return `${baseKey}:${companyId}:${uid}`;
+};
 
 const debugBookingLoads = (...args) => {
   if (typeof window === "undefined") return;
@@ -163,67 +174,75 @@ const buildReferenceData = ({ empSnap, vehicleSnap, equipSnap }) => {
   };
 };
 
-export const loadBookingFormReferenceData = async (db, { force = false } = {}) => {
-  if (!force && referenceCache) {
+export const loadBookingFormReferenceData = async (db, { accessState, force = false } = {}) => {
+  const scopedCacheKey = cacheKeyForAccess(CACHE_KEY, accessState);
+  if (!force && referenceCache && referenceCacheKey === scopedCacheKey) {
     debugBookingLoads("reference data cache hit");
     return referenceCache;
   }
   if (!force) {
-    const sessionValue = readSessionCache(CACHE_KEY);
+    const sessionValue = readSessionCache(scopedCacheKey);
     if (sessionValue) {
       referenceCache = sessionValue;
       debugBookingLoads("reference data session cache hit");
       return sessionValue;
     }
-    if (referencePromise) return referencePromise;
+    if (referencePromise && referencePromiseKey === scopedCacheKey) return referencePromise;
   }
 
   const startedAt = nowMs();
+  referencePromiseKey = scopedCacheKey;
   referencePromise = Promise.all([
-    getDocs(collection(db, "employees")),
-    getDocs(collection(db, "vehicles")),
-    getDocs(collection(db, "equipment")),
+    getDocs(tenantCollectionQuery(db, "employees", accessState)),
+    getDocs(tenantCollectionQuery(db, "vehicles", accessState)),
+    getDocs(tenantCollectionQuery(db, "equipment", accessState)),
   ])
     .then(([empSnap, vehicleSnap, equipSnap]) => {
       const value = buildReferenceData({ empSnap, vehicleSnap, equipSnap });
       referenceCache = value;
-      writeSessionCache(CACHE_KEY, value);
+      referenceCacheKey = scopedCacheKey;
+      writeSessionCache(scopedCacheKey, value);
       debugBookingLoads("reference data loaded", Math.round(nowMs() - startedAt), "ms");
       return value;
     })
     .finally(() => {
       referencePromise = null;
+      referencePromiseKey = "";
     });
 
   return referencePromise;
 };
 
-export const loadSavedContacts = async (db, { force = false } = {}) => {
-  if (!force && contactsCache) {
+export const loadSavedContacts = async (db, { accessState, force = false } = {}) => {
+  const scopedCacheKey = cacheKeyForAccess(CONTACTS_CACHE_KEY, accessState);
+  if (!force && contactsCache && contactsCacheKey === scopedCacheKey) {
     debugBookingLoads("saved contacts cache hit");
     return contactsCache;
   }
   if (!force) {
-    const sessionValue = readSessionCache(CONTACTS_CACHE_KEY);
+    const sessionValue = readSessionCache(scopedCacheKey);
     if (sessionValue) {
       contactsCache = sessionValue;
       debugBookingLoads("saved contacts session cache hit");
       return sessionValue;
     }
-    if (contactsPromise) return contactsPromise;
+    if (contactsPromise && contactsPromiseKey === scopedCacheKey) return contactsPromise;
   }
 
   const startedAt = nowMs();
-  contactsPromise = getDocs(collection(db, "contacts"))
+  contactsPromiseKey = scopedCacheKey;
+  contactsPromise = getDocs(tenantCollectionQuery(db, "contacts", accessState))
     .then((snap) => {
       const value = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       contactsCache = value;
-      writeSessionCache(CONTACTS_CACHE_KEY, value);
+      contactsCacheKey = scopedCacheKey;
+      writeSessionCache(scopedCacheKey, value);
       debugBookingLoads("saved contacts loaded", Math.round(nowMs() - startedAt), "ms");
       return value;
     })
     .finally(() => {
       contactsPromise = null;
+      contactsPromiseKey = "";
     });
 
   return contactsPromise;

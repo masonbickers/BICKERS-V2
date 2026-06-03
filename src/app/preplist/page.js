@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import PrepItemPicker from "@/app/components/PrepItemPicker";
 import { db, auth } from "../../../firebaseConfig";
-import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const UI = {
   bg: "#f8fafc",
@@ -202,6 +204,8 @@ function groupSectionsByJob(list) {
 export default function PrepListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
 
   const [bookings, setBookings] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -236,13 +240,14 @@ export default function PrepListPage() {
   const todayYmd = useMemo(() => ymd(today), [today]);
 
   useEffect(() => {
+    if (!authState?.accessReady) return undefined;
     let active = true;
 
     (async () => {
       try {
         const [bSnap, vSnap] = await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "vehicles")),
+          getDocs(tenantCollectionQuery(db, "bookings", authState)),
+          getDocs(tenantCollectionQuery(db, "vehicles", authState)),
         ]);
 
         if (!active) return;
@@ -259,7 +264,7 @@ export default function PrepListPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [accessKey, authState]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {

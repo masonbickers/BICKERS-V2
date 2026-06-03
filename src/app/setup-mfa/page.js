@@ -14,7 +14,6 @@ import {
 } from "firebase/auth";
 import QRCode from "qrcode";
 import {
-  findEmployeeForUser,
   getStoredActiveWorkspace,
   resolveEmployeeAccess,
   selectLandingRoute,
@@ -43,14 +42,19 @@ export default function SetupMFA() {
   const recaptchaRef = useRef(null);
   const smsCodeInputRef = useRef(null);
 
-  const routeUserToWorkspace = useCallback(async (user) => {
-    const [userSnap, employeeDoc] = await Promise.all([
-      getDoc(doc(db, "users", user.uid)),
-      findEmployeeForUser(db, user),
-    ]);
-
-    const isAdmin = String(userSnap.data()?.role || "").toLowerCase() === "admin";
-    const access = resolveEmployeeAccess(employeeDoc || {}, { isAdmin });
+  const routeUserToWorkspace = useCallback(async (user, accessData = null) => {
+    let userData = accessData || {};
+    if (!accessData) {
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        userData = userSnap.data() || {};
+      } catch {
+        userData = {};
+      }
+    }
+    const role = String(userData?.role || "").toLowerCase();
+    const isAdmin = ["admin", "platformadmin"].includes(role);
+    const access = resolveEmployeeAccess(userData || {}, { isAdmin });
     const preferred =
       getStoredActiveWorkspace(typeof window !== "undefined" ? window.localStorage : null) ||
       getStoredActiveWorkspace(typeof window !== "undefined" ? window.sessionStorage : null);
@@ -88,9 +92,14 @@ export default function SetupMFA() {
         return;
       }
       const refreshedAccess = await refreshServerAccess(user);
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        const nextUserData = { ...(snap.data() || {}), ...(refreshedAccess || {}) };
+      let nextUserData = refreshedAccess || {};
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        nextUserData = { ...(snap.exists() ? snap.data() || {} : {}), ...(refreshedAccess || {}) };
+      } catch (error) {
+        console.warn("[setup-mfa] user doc read failed after bootstrap:", error);
+      }
+      if (nextUserData?.uid || nextUserData?.role) {
         setUserData(nextUserData);
         setPhoneNumber(String(nextUserData?.phone || nextUserData?.mfaPhoneNumber || ""));
         if (isPhoneVerified(nextUserData) && hasAuthenticatorMfa(nextUserData)) {
@@ -100,7 +109,7 @@ export default function SetupMFA() {
             user.uid
           );
           if (alreadyVerified) {
-            await routeUserToWorkspace(user);
+            await routeUserToWorkspace(user, nextUserData);
           } else {
             router.replace("/verify-mfa");
           }
@@ -300,7 +309,15 @@ export default function SetupMFA() {
         { daysValid: 30 }
       );
       await sendLoginNotification(user, "mfa-enrollment");
-      await routeUserToWorkspace(user);
+      const refreshedAccess = await refreshServerAccess(user);
+      await routeUserToWorkspace(user, {
+        ...(userData || {}),
+        ...(refreshedAccess || {}),
+        mfaMethod: "totp",
+        mfaEnabled: true,
+        mfaEnrolledAt: nowIso,
+        mfaResetRequired: false,
+      });
     } catch (err) {
       setError("Error enabling authenticator: " + err.message);
     } finally {

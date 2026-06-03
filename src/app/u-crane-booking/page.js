@@ -9,6 +9,8 @@ import DatePicker from "react-multi-date-picker";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../../firebaseConfig"; //  use this
 import { auth } from "../../../firebaseConfig";
+import { useAuth } from "@/app/context/authContext";
+import { dataAccessKey, tenantCollectionQuery, tenantPayload } from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    U-Crane roles (must match Crew Manager page)
@@ -34,6 +36,8 @@ const getDisplayName = (row) =>
 
 export default function CreateBookingPage() {
   const router = useRouter();
+  const authState = useAuth();
+  const accessKey = dataAccessKey(authState);
   const [equipment, setEquipment] = useState([]);
 
   const [jobNumber, setJobNumber] = useState("");
@@ -173,9 +177,10 @@ export default function CreateBookingPage() {
   const [employeeList, setEmployeeList] = useState([]);
 
   useEffect(() => {
+    if (!authState?.accessReady) return undefined;
     const loadData = async () => {
       // - 1. Load all bookings
-      const bookingSnap = await getDocs(collection(db, "bookings"));
+      const bookingSnap = await getDocs(tenantCollectionQuery(db, "bookings", authState));
       const bookings = bookingSnap.docs.map((doc) => doc.data());
       setAllBookings(bookings);
 
@@ -190,7 +195,7 @@ export default function CreateBookingPage() {
       setJobNumber(nextJobNumber);
 
       // - 3. Load equipment
-      const equipmentSnap = await getDocs(collection(db, "equipment"));
+      const equipmentSnap = await getDocs(tenantCollectionQuery(db, "equipment", authState));
       const groupedEquip = {
         "A-Frame": [],
         Trailer: [],
@@ -223,10 +228,10 @@ export default function CreateBookingPage() {
       setOpenEquipmentGroups(openEquip);
 
       // - 4. Load holidays
-      const holidaySnap = await getDocs(collection(db, "holidays"));
+      const holidaySnap = await getDocs(tenantCollectionQuery(db, "holidays", authState));
       setHolidayBookings(holidaySnap.docs.map((doc) => doc.data()));
 
-      const noteSnap = await getDocs(collection(db, "notes"));
+      const noteSnap = await getDocs(tenantCollectionQuery(db, "notes", authState));
       setUnavailableNotes(
         noteSnap.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }))
@@ -234,7 +239,7 @@ export default function CreateBookingPage() {
       );
 
       // - 5. Load employees (HR)
-      const empSnap = await getDocs(collection(db, "employees"));
+      const empSnap = await getDocs(tenantCollectionQuery(db, "employees", authState));
       const allEmployees = empSnap.docs.map((doc) => ({
         id: doc.id,
         __collection: "employees",
@@ -243,7 +248,7 @@ export default function CreateBookingPage() {
       setEmployeeList(allEmployees);
 
       // - 6. Load U-Crane freelancers
-      const freeSnap = await getDocs(collection(db, "uCraneFreelancers"));
+      const freeSnap = await getDocs(tenantCollectionQuery(db, "uCraneFreelancers", authState));
       const allFreelancers = freeSnap.docs.map((doc) => ({
         id: doc.id,
         __collection: "uCraneFreelancers",
@@ -258,12 +263,12 @@ export default function CreateBookingPage() {
       setCrewPool(combined);
 
       // - 7. Load maintenance bookings
-      const workSnap = await getDocs(collection(db, "workBookings"));
+      const workSnap = await getDocs(tenantCollectionQuery(db, "workBookings", authState));
       const maintenanceData = workSnap.docs.map((doc) => doc.data());
       setMaintenanceBookings(maintenanceData);
 
       // - 8. Load and group vehicles (unchanged)
-      const vehicleSnap = await getDocs(collection(db, "vehicles"));
+      const vehicleSnap = await getDocs(tenantCollectionQuery(db, "vehicles", authState));
       const grouped = {
         "U-Crane": [],
         "Transport Lorry": [],
@@ -289,7 +294,7 @@ export default function CreateBookingPage() {
     };
 
     loadData();
-  }, []);
+  }, [accessKey, authState]);
 
   const isEmployeeOnHoliday = (employeeName) => {
     const selectedStart = new Date(startDate);
@@ -538,7 +543,7 @@ export default function CreateBookingPage() {
     };
 
     try {
-      await addDoc(collection(db, "bookings"), booking);
+      await addDoc(collection(db, "bookings"), tenantPayload(authState, booking));
       alert("Booking Saved ");
       router.push("/u-crane?saved=true");
     } catch (err) {
