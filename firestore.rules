@@ -568,14 +568,14 @@ service cloud.firestore {
     }
 
     match /vehicles/{vehicleId} {
-      allow read: if canReadServiceTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateServiceTenantDoc();
       allow update: if canUpdateServiceTenantDoc();
       allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /equipment/{equipmentId} {
-      allow read: if canReadServiceTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateServiceTenantDoc();
       allow update: if canUpdateServiceTenantDoc();
       allow delete: if canDeleteServiceTenantDoc();
@@ -596,14 +596,14 @@ service cloud.firestore {
     }
 
     match /maintenanceBookings/{bookingId} {
-      allow read: if canReadServiceTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateServiceTenantDoc();
       allow update: if canUpdateServiceTenantDoc();
       allow delete: if canDeleteServiceTenantDoc();
     }
 
     match /vehicleChecks/{docId} {
-      allow read: if canReadServiceTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
       allow create: if canCreateServiceTenantDoc();
       allow update: if canUpdateServiceTenantDoc();
       allow delete: if canDeleteServiceTenantDoc();
