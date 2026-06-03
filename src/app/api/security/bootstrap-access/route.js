@@ -239,6 +239,16 @@ export async function POST(req) {
       }
     }
 
+    const hasPrivateMfaSecret = String(mfaSecretDoc?.secret || "").trim().length > 0;
+    if (hasPrivateMfaSecret && currentUserDoc?.mfaResetRequired !== true) {
+      patch.mfaEnabled = true;
+      patch.mfaMethod = "totp";
+      patch.mfaResetRequired = false;
+      if (mfaSecretDoc.enrolledAt && !currentUserDoc?.mfaEnrolledAt) {
+        patch.mfaEnrolledAt = mfaSecretDoc.enrolledAt;
+      }
+    }
+
     const displayName = employee?.name || employee?.fullName || employee?.employeeName;
     if (displayName && !currentUserDoc?.name) patch.name = displayName;
     if (employee?.id || employee?.employeeId) patch.employeeId = employee.id || employee.employeeId;

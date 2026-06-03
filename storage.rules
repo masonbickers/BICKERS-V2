@@ -130,7 +130,7 @@ service firebase.storage {
 
     function hasServiceAccess() {
       return isAdmin()
-        || (isNotDisabled()
+        || (isSignedIn()
           && userData() != null
           && (
             appAccessEnabled("service")

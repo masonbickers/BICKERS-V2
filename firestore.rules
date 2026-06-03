@@ -5,9 +5,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userDocExists() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    function hasLegacyMobileAccess() {
+      return isSignedIn();
     }
 
     function isNotDisabled() {
@@ -216,21 +215,21 @@ service cloud.firestore {
       return activeUserDocExists() && request.auth.uid == uid;
     }
 
-    function isOwnEmployeeDoc(employeeId) {
-      return activeUserDocExists()
+    function isOwnEmployeeDoc() {
+      return isSignedIn()
         && (
           resource.data.uid == request.auth.uid
           || resource.data.authUid == request.auth.uid
-          || employeeId == request.auth.uid
+          || resource.id == request.auth.uid
         );
     }
 
-    function isOwnEmployeeDocAfterWrite(employeeId) {
-      return activeUserDocExists()
+    function isOwnEmployeeDocAfterWrite() {
+      return isSignedIn()
         && (
           request.resource.data.uid == request.auth.uid
           || request.resource.data.authUid == request.auth.uid
-          || employeeId == request.auth.uid
+          || resource.id == request.auth.uid
         );
     }
 
@@ -243,16 +242,8 @@ service cloud.firestore {
     function matchesAuthEmail(email) {
       return isSignedIn()
         && email is string
-        && (
-          (
-            request.auth.token.email is string
-            && email == request.auth.token.email
-          )
-          || (
-            request.auth.token.companyEmail is string
-            && email == request.auth.token.companyEmail
-          )
-        );
+        && request.auth.token.email is string
+        && email == request.auth.token.email;
     }
 
     function isHolidayOwner() {
@@ -323,27 +314,16 @@ service cloud.firestore {
     }
 
     function hasBookingAuditFieldsOnCreate() {
-      return isNotDisabled()
+      return isSignedIn()
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.lastEditedByUid == request.auth.uid;
     }
 
-    function hasBookingAuditFieldsOnUpdate() {
-      return isNotDisabled()
-        && request.resource.data.lastEditedByUid == request.auth.uid;
-    }
-
     function keepsBookingAuditIdentity() {
-      return (
-          !resource.data.keys().hasAny(["createdBy"])
-          || request.resource.data.createdBy == resource.data.createdBy
-        )
+      return request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
         && (
-          !resource.data.keys().hasAny(["createdAt"])
-          || request.resource.data.createdAt == resource.data.createdAt
-        )
-        && (
-          !resource.data.keys().hasAny(["createdByUid"])
+          resource.data.createdByUid == null
           || request.resource.data.createdByUid == resource.data.createdByUid
         );
     }
@@ -376,6 +356,7 @@ service cloud.firestore {
         "mfaMethod",
         "mfaEnabled",
         "mfaPhoneNumber",
+        "mfaSecret",
         "mfaEnrolledAt",
         "mfaResetRequired"
       ]);
@@ -430,6 +411,10 @@ service cloud.firestore {
         && hasBookingAuditFieldsOnUpdate()
         && keepsBookingAuditIdentity();
       allow delete: if canDeleteUserTenantDoc();
+    }
+
+    match /notes/{noteId} {
+      allow read, write: if hasUserAccess() || hasLegacyMobileAccess();
     }
 
     match /contacts/{contactId} {
@@ -694,8 +679,7 @@ service cloud.firestore {
     }
 
     match /settings/{docId} {
-      allow read: if isAdmin()
-        || (docId == "motHistorySync" && (hasUserAccess() || hasServiceAccess()));
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
