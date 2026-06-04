@@ -16,7 +16,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  collection,
   getDocs,
   updateDoc,
   doc,
@@ -24,6 +23,14 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* Route */
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -245,6 +252,8 @@ function mapDeclined(checkDocs) {
 
 /* Page */
 export default function DeclinedDefectsPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
@@ -254,10 +263,19 @@ export default function DeclinedDefectsPage() {
   const [confirmModal, setConfirmModal] = useState(null); // { row }
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicleChecks", operation: "load declined defects" });
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     const run = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(collection(db, "vehicleChecks"));
+        const snap = await getDocs(tenantCollectionQuery(db, "vehicleChecks", dataAccessState));
         const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRows(mapDeclined(docs));
       } catch (e) {
@@ -268,7 +286,7 @@ export default function DeclinedDefectsPage() {
       }
     };
     run();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const filtered = useMemo(() => {
     if (!query) return rows;
@@ -289,12 +307,12 @@ export default function DeclinedDefectsPage() {
     setReopeningId(key);
 
     try {
-      await updateDoc(doc(db, "vehicleChecks", checkId), {
+      await updateDoc(doc(db, "vehicleChecks", checkId), tenantPayload(dataAccessState, {
         [`items.${defectIndex}.review`]: deleteField(),
         updatedAt: serverTimestamp(),
         reopenedBy: auth?.currentUser?.email || auth?.currentUser?.displayName || "Supervisor",
         reopenedAt: serverTimestamp(),
-      });
+      }));
 
       setRows((prev) =>
         prev.filter((r) => !(r.checkId === checkId && r.defectIndex === defectIndex))

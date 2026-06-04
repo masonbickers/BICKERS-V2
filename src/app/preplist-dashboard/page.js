@@ -250,7 +250,7 @@ export default function PrepListDashboardPage() {
   const tomorrow = useMemo(() => addDays(today, 1), [today]);
 
   useEffect(() => {
-    if (!authState?.accessReady) return undefined;
+    if (!authState?.user) return undefined;
     let active = true;
     (async () => {
       try {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { DEFAULT_COMPANY_ID, cleanAccessEmail } from "@/app/utils/appAccessRecords";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -192,11 +193,23 @@ export default function AddEmployeePage() {
     try {
       setSaving(true);
       const name = String(formData.name || "").trim();
+      const email = cleanAccessEmail(formData.email);
+      const phoneNumber = String(formData.mobile || "").trim();
       await addDoc(collection(db, "employees"), {
         ...formData,
         name,
         fullName: name,
         employeeName: name,
+        email,
+        emails: [email].filter(Boolean),
+        companyId: DEFAULT_COMPANY_ID,
+        isEnabled: true,
+        active: true,
+        appAccess: { user: true, service: false },
+        defaultWorkspace: "user",
+        role: "user",
+        isService: false,
+        phoneNumber,
         createdAt: serverTimestamp(),
       });
       alert("Employee added");

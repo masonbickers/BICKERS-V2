@@ -8,6 +8,14 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Plus, Save, Search, ShieldCheck, Upload } from "lucide-react";
 import { auth, db, storage } from "../../../../firebaseConfig";
 import { getHsRegisterTemplate, PPE_ISSUE_ITEMS } from "@/app/utils/hsRegister";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 8,
@@ -299,6 +307,8 @@ function toneStyle(tone) {
 
 function PpeIssueRegisterPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
   const [records, setRecords] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -310,9 +320,16 @@ function PpeIssueRegisterPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (reportDataAccessBlocked(gate, { collectionName: "ppeIssueRecords", operation: "Load PPE issue register" })) {
+      setLoading(false);
+      return undefined;
+    }
+
     const loadEmployees = async () => {
       try {
-        const employeeSnap = await getDocs(collection(db, "employees"));
+        const employeeSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const employeeList = employeeSnap.docs
           .map((employeeDoc) => ({ id: employeeDoc.id, ...employeeDoc.data() }))
           .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
@@ -330,7 +347,7 @@ function PpeIssueRegisterPage() {
     loadEmployees();
 
     const unsubscribe = onSnapshot(
-      collection(db, "ppeIssueRecords"),
+      tenantCollectionQuery(db, "ppeIssueRecords", dataAccessState),
       (snap) => {
         setRecords(snap.docs.map((recordDoc) => ({ id: recordDoc.id, ...recordDoc.data() })));
       },
@@ -341,7 +358,7 @@ function PpeIssueRegisterPage() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -389,14 +406,14 @@ function PpeIssueRegisterPage() {
     setIssuingItem(itemName);
     try {
       const user = auth.currentUser;
-      await addDoc(collection(db, "ppeIssueRecords"), {
+      await addDoc(collection(db, "ppeIssueRecords"), tenantPayload(dataAccessState, {
         employeeId: selectedEmployee.id,
         employeeName: employeeDisplayName(selectedEmployee),
         itemName,
         issuedAt: Timestamp.fromDate(new Date()),
         issuedBy: user?.displayName || user?.email || "Unknown user",
         createdAt: serverTimestamp(),
-      });
+      }));
       setToast(`${itemName} issued to ${employeeDisplayName(selectedEmployee)}`);
     } catch (error) {
       console.error("Failed to issue PPE:", error);
@@ -710,6 +727,8 @@ function LegacyHsRegisterDetailPage() {
   const params = useParams();
   const id = String(params?.id || "");
   const template = useMemo(() => getHsRegisterTemplate(id), [id]);
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [record, setRecord] = useState(null);
   const [form, setForm] = useState({});
@@ -755,11 +774,18 @@ function LegacyHsRegisterDetailPage() {
 
   useEffect(() => {
     const run = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (reportDataAccessBlocked(gate, { collectionName: "hsRegister", operation: "Load H&S register item" })) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
         const [snap, employeeSnap] = await Promise.all([
           getDoc(doc(db, "hsRegister", id)),
-          getDocs(collection(db, "employees")),
+          getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
         ]);
         const data = snap.exists() ? snap.data() : {};
         const employeeList = employeeSnap.docs
@@ -798,13 +824,18 @@ function LegacyHsRegisterDetailPage() {
       }
     };
     if (id) run();
-  }, [id, template?.frequency, template?.frequencyWeeks, template?.notes, template?.owner]);
+  }, [accessKey, dataAccessState, id, template?.frequency, template?.frequencyWeeks, template?.notes, template?.owner]);
 
   useEffect(() => {
     if (!isManagedCheck) return undefined;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (reportDataAccessBlocked(gate, { collectionName: "hsCheckRecords", operation: "Load H&S check history" })) {
+      return undefined;
+    }
 
     const unsubscribe = onSnapshot(
-      collection(db, "hsCheckRecords"),
+      tenantCollectionQuery(db, "hsCheckRecords", dataAccessState),
       (snap) => {
         const rows = snap.docs
           .map((recordDoc) => ({ id: recordDoc.id, ...recordDoc.data() }))
@@ -819,7 +850,7 @@ function LegacyHsRegisterDetailPage() {
     );
 
     return () => unsubscribe();
-  }, [id, isManagedCheck]);
+  }, [accessKey, dataAccessState, id, isManagedCheck]);
 
   useEffect(() => {
     if (!isManagedCheck || !form.lastCompleted) return;
@@ -917,10 +948,10 @@ function LegacyHsRegisterDetailPage() {
     try {
       await setDoc(
         doc(db, "hsRegister", id),
-        {
+        tenantPayload(dataAccessState, {
           ...patch,
           updatedAt: serverTimestamp(),
-        },
+        }),
         { merge: true }
       );
       setRecord((prev) => ({ ...(prev || {}), ...patch }));
@@ -966,7 +997,7 @@ function LegacyHsRegisterDetailPage() {
         };
       }
 
-      await addDoc(collection(db, "hsCheckRecords"), {
+      await addDoc(collection(db, "hsCheckRecords"), tenantPayload(dataAccessState, {
         registerId: id,
         itemName: item.item || (isPatTestingCheck ? "PAT testing" : isFireSafetyCheck ? "Fire safety inspection" : isFireAlarmServiceCheck ? "Fire alarm service" : isMaskFittingCheck ? "Mask fitting" : isHealthScreeningCheck ? "Health screening" : isGasCheck ? "Gas regulator" : isEicrPatCheck ? "EICR / PAT test" : isPolicyReviewCheck ? "Policy review" : isWelfarePolicyCheck ? "Welfare policy" : isWorkshopRiskAssessmentCheck ? "Workshop risk assessment" : isTrackingRiskAssessmentCheck ? "Tracking risk assessment" : isFireRiskAssessmentCheck ? "Fire RA" : isCoshhCheck ? "COSHH" : "Cutting fluid pH check"),
         checkedAt,
@@ -977,7 +1008,7 @@ function LegacyHsRegisterDetailPage() {
         completedBy,
         ...certificatePatch,
         createdAt: serverTimestamp(),
-      });
+      }));
 
       const patch = {
         lastCompleted,
@@ -1103,7 +1134,7 @@ function LegacyHsRegisterDetailPage() {
         certificateUploadedAt: new Date().toISOString(),
       };
 
-      await updateDoc(doc(db, "hsCheckRecords", entry.id), patch);
+      await updateDoc(doc(db, "hsCheckRecords", entry.id), tenantPayload(dataAccessState, patch));
 
       setCheckHistory((prev) =>
         prev.map((row) => (row.id === entry.id ? { ...row, ...patch } : row))

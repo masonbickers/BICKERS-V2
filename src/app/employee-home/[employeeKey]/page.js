@@ -2,9 +2,16 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 18,
@@ -294,6 +301,8 @@ const summaryCard = {
 };
 
 export default function EmployeeWorkBreakdownPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -334,13 +343,21 @@ export default function EmployeeWorkBreakdownPage() {
 
   useEffect(() => {
     let live = true;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load employee work breakdown" });
+      setRows([]);
+      setLoading(false);
+      return undefined;
+    }
 
     (async () => {
       setLoading(true);
       try {
         const [bookingsSnap, holidaysSnap] = await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "holidays")),
+          getDocs(tenantCollectionQuery(db, "bookings", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "holidays", dataAccessState)),
         ]);
 
         const byDate = new Map();
@@ -560,7 +577,7 @@ export default function EmployeeWorkBreakdownPage() {
     return () => {
       live = false;
     };
-  }, [employeeKey, employeeName, effectiveRange]);
+  }, [accessKey, dataAccessState, employeeKey, employeeName, effectiveRange]);
 
   const summary = useMemo(() => {
     const totals = Object.fromEntries(BREAKDOWN_COLUMNS.map((col) => [col.key, 0]));

@@ -1,5 +1,6 @@
 import { adminPatchDocument, adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { jsonError } from "@/app/api/admin/_lib";
+import { buildEmployeeAccessPatch, buildUserAccessPatch } from "@/app/utils/appAccessRecords";
 import { cleanId, jsonOk, requirePlatformAdmin, validateEmployeeUserLink, writePlatformAudit } from "../../_lib";
 
 export const runtime = "nodejs";
@@ -28,18 +29,28 @@ export async function POST(req) {
     if (!employeeBefore) return jsonError("Employee not found.", 404);
 
     const nowIso = new Date().toISOString();
+    const employeeAccessPatch = buildEmployeeAccessPatch({
+      uid,
+      employeeId,
+      employee: employeeBefore,
+      user: userBefore,
+    });
+    const userAccessPatch = buildUserAccessPatch({
+      uid,
+      employeeId,
+      employee: employeeBefore,
+      user: userBefore,
+    });
     const employeeAfter = {
       ...employeeBefore,
-      authUid: uid,
-      uid,
+      ...employeeAccessPatch,
       updatedAt: nowIso,
       updatedBy: admin.verifiedUser.email || "platform-admin",
       updatedByUid: admin.verifiedUser.uid,
     };
     const userAfter = {
       ...userBefore,
-      employeeId,
-      companyId: userBefore.companyId || employeeBefore.companyId || "",
+      ...userAccessPatch,
       updatedAt: nowIso,
       updatedBy: admin.verifiedUser.email || "platform-admin",
       updatedByUid: admin.verifiedUser.uid,
@@ -47,15 +58,13 @@ export async function POST(req) {
 
     await Promise.all([
       adminPatchDocument("employees", employeeId, {
-        authUid: uid,
-        uid,
+        ...employeeAccessPatch,
         updatedAt: nowIso,
         updatedBy: admin.verifiedUser.email || "platform-admin",
         updatedByUid: admin.verifiedUser.uid,
       }),
       adminPatchDocument("users", uid, {
-        employeeId,
-        companyId: userAfter.companyId,
+        ...userAccessPatch,
         updatedAt: nowIso,
         updatedBy: admin.verifiedUser.email || "platform-admin",
         updatedByUid: admin.verifiedUser.uid,

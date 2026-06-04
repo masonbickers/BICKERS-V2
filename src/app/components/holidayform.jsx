@@ -6,10 +6,21 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 import { CalendarPlus, Check, X } from "lucide-react";
 
 export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [employee, setEmployee] = useState("");
 
@@ -237,9 +248,16 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
   /* ---------------- Fetch employees ---------------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "read holiday form employees" });
+      setEmployees([]);
+      return;
+    }
     const fetchEmployees = async () => {
       try {
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => {
             const data = d.data() || {};
@@ -254,41 +272,61 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           .filter((x) => x.name);
         setEmployees(list);
       } catch (e) {
-        console.error("Failed to fetch employees:", e);
+        if (!handleFirestoreAccessError(e, { collectionName: "employees", operation: "read holiday form employees" })) {
+          console.error("Failed to fetch employees:", e);
+        }
       }
     };
     fetchEmployees();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------------- Fetch existing holidays (for conflict + allowance) ---------------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "holidays", operation: "read holiday form holidays" });
+      setExistingHolidays([]);
+      return;
+    }
     const fetchExisting = async () => {
       try {
-        const snap = await getDocs(collection(db, "holidays"));
+        const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setExistingHolidays(list);
       } catch (e) {
-        console.error("Failed to fetch holidays:", e);
+        if (!handleFirestoreAccessError(e, { collectionName: "holidays", operation: "read holiday form holidays" })) {
+          console.error("Failed to fetch holidays:", e);
+        }
         setExistingHolidays([]);
       }
     };
     fetchExisting();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------------- Fetch bookings/jobs (for crew conflict) ---------------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "read holiday form bookings" });
+      setExistingBookings([]);
+      return;
+    }
     const fetchBookings = async () => {
       try {
-        const snap = await getDocs(collection(db, "bookings"));
+        const snap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setExistingBookings(list);
       } catch (e) {
-        console.warn("No bookings collection or failed to fetch bookings:", e);
+        if (!handleFirestoreAccessError(e, { collectionName: "bookings", operation: "read holiday form bookings" })) {
+          console.warn("No bookings collection or failed to fetch bookings:", e);
+        }
         setExistingBookings([]);
       }
     };
     fetchBookings();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const handleBack = () => {
     if (typeof onClose === "function") return onClose();
@@ -794,11 +832,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "holidays"), payload);
+      await addDoc(collection(db, "holidays"), tenantPayload(dataAccessState, payload));
 
       // refresh local cache so immediate subsequent bookings block correctly
       try {
-        const snap = await getDocs(collection(db, "holidays"));
+        const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         setExistingHolidays(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch {}
 

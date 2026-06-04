@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  collection,
   doc,
   getDoc,
   getDocs,
@@ -28,6 +27,14 @@ import {
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db, auth } from "../../../firebaseConfig";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 8,
@@ -331,6 +338,8 @@ function percent(part, total) {
 
 export default function UsageOverviewPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const today = startOfTodayLocal();
   const defaultTo = toISODateLocal(today);
   const defaultFrom = toISODateLocal(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 13));
@@ -352,13 +361,20 @@ export default function UsageOverviewPage() {
   const [editModal, setEditModal] = useState(null);
   const [savingKey, setSavingKey] = useState(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "vehicleUsageNotes", operation: "Load usage overview" })) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [vehicleSnap, usageSnap, bookingSnap] = await Promise.all([
-        getDocs(collection(db, "vehicles")),
-        getDocs(collection(db, USAGE_COLLECTION)),
-        getDocs(collection(db, "bookings")),
+        getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, USAGE_COLLECTION, dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "bookings", dataAccessState)),
       ]);
 
       const vehicleRows = vehicleSnap.docs
@@ -397,11 +413,11 @@ export default function UsageOverviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataAccessState]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [accessKey, loadData]);
 
   const dayKeys = useMemo(() => {
     return daysBetweenInclusive(fromDate, toDate);
@@ -617,7 +633,7 @@ export default function UsageOverviewPage() {
       };
 
       const ref = doc(db, USAGE_COLLECTION, key);
-      await setDoc(ref, payload, { merge: true });
+      await setDoc(ref, tenantPayload(dataAccessState, payload), { merge: true });
       const fresh = await getDoc(ref);
       const data = fresh.exists() ? fresh.data() : payload;
 

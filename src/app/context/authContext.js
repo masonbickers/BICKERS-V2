@@ -19,6 +19,9 @@ import {
 
 const AuthContext = createContext(null);
 const ACCESS_CACHE_KEY = "bickers-auth-access-cache:v2";
+const ADMIN_VIEW_MODE_KEY = "bickers-admin-view-mode:v1";
+const ADMIN_VIEW_USER_KEY = "bickers-admin-view-user:v1";
+const ADMIN_VIEW_EMAILS = new Set(["mason@bickers.co.uk"]);
 
 const debugBookingLoads = (...args) => {
   if (typeof window === "undefined") return;
@@ -75,6 +78,50 @@ const clearAccessCache = () => {
     window.sessionStorage.removeItem(ACCESS_CACHE_KEY);
   } catch {
     // Cache is optional.
+  }
+};
+
+const readAdminViewMode = (email) => {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return "admin";
+  if (typeof window === "undefined") return "admin";
+  try {
+    return window.localStorage.getItem(ADMIN_VIEW_MODE_KEY) === "user" ? "user" : "admin";
+  } catch {
+    return "admin";
+  }
+};
+
+const writeAdminViewMode = (mode) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ADMIN_VIEW_MODE_KEY, mode === "user" ? "user" : "admin");
+  } catch {
+    // View mode is optional.
+  }
+};
+
+const readAdminViewUser = (email) => {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return null;
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(ADMIN_VIEW_USER_KEY) || "null");
+  } catch {
+    return null;
+  }
+};
+
+const writeAdminViewUser = (userDoc) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (!userDoc) {
+      window.localStorage.removeItem(ADMIN_VIEW_USER_KEY);
+      return;
+    }
+    window.localStorage.setItem(ADMIN_VIEW_USER_KEY, JSON.stringify(userDoc));
+  } catch {
+    // View-as selection is optional.
   }
 };
 
@@ -148,6 +195,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [accessState, setAccessState] = useState(emptyAccess);
+  const [adminViewMode, setAdminViewModeState] = useState("admin");
+  const [adminViewUser, setAdminViewUserState] = useState(null);
   const userDocUnsubRef = useRef(null);
   const resolvingRef = useRef(0);
 
@@ -163,6 +212,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       setUser(firebaseUser);
+      setAdminViewModeState(readAdminViewMode(firebaseUser?.email));
+      setAdminViewUserState(readAdminViewUser(firebaseUser?.email));
 
       if (!firebaseUser) {
         clearAccessCache();
@@ -203,19 +254,25 @@ export const AuthProvider = ({ children }) => {
         writeAccessCache(firebaseUser.uid, nextAccess);
         debugBookingLoads("auth/access ready", Math.round(nowMs() - startedAt), "ms");
 
-        userDocUnsubRef.current = onSnapshot(resolvedRef, async (docSnap) => {
-          const liveUserDoc = docSnap.data() || {};
-          if (liveUserDoc?.isEnabled === false) {
-            clearAccessCache();
-            setAccessState(emptyAccess);
-            await signOut(auth);
-            return;
-          }
+        userDocUnsubRef.current = onSnapshot(
+          resolvedRef,
+          async (docSnap) => {
+            const liveUserDoc = docSnap.data() || {};
+            if (liveUserDoc?.isEnabled === false) {
+              clearAccessCache();
+              setAccessState(emptyAccess);
+              await signOut(auth);
+              return;
+            }
 
-          const liveAccess = await resolveAccessState(firebaseUser, liveUserDoc);
-          setAccessState(liveAccess);
-          writeAccessCache(firebaseUser.uid, liveAccess);
-        });
+            const liveAccess = await resolveAccessState(firebaseUser, liveUserDoc);
+            setAccessState(liveAccess);
+            writeAccessCache(firebaseUser.uid, liveAccess);
+          },
+          (error) => {
+            console.warn("[authContext] live user doc listener failed:", error);
+          }
+        );
       } catch (error) {
         console.error("[authContext] access resolution failed:", error);
         setAccessState((prev) => ({ ...prev, accessReady: Boolean(prev.employeeAccess) }));
@@ -239,15 +296,76 @@ export const AuthProvider = ({ children }) => {
     return nextMfaPassed;
   }, [user?.uid]);
 
+  const setAdminViewMode = useCallback(
+    (mode) => {
+      const cleanEmail = String(user?.email || "").trim().toLowerCase();
+      if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return;
+      const nextMode = mode === "user" ? "user" : "admin";
+      writeAdminViewMode(nextMode);
+      setAdminViewModeState(nextMode);
+    },
+    [user?.email]
+  );
+
+  const setAdminViewUser = useCallback(
+    (userDoc) => {
+      const cleanEmail = String(user?.email || "").trim().toLowerCase();
+      if (!ADMIN_VIEW_EMAILS.has(cleanEmail)) return;
+      const nextUserDoc = userDoc ? { ...userDoc } : null;
+      writeAdminViewUser(nextUserDoc);
+      setAdminViewUserState(nextUserDoc);
+      if (nextUserDoc) {
+        writeAdminViewMode("user");
+        setAdminViewModeState("user");
+      }
+    },
+    [user?.email]
+  );
+
+  const canUseAdminViewSwitch = ADMIN_VIEW_EMAILS.has(String(user?.email || "").trim().toLowerCase());
+  const effectiveIsAdmin = accessState.isAdmin && (!canUseAdminViewSwitch || adminViewMode !== "user");
+  const effectiveUserDoc = useMemo(() => {
+    if (!canUseAdminViewSwitch || adminViewMode !== "user") return accessState.userDoc;
+    return {
+      ...(accessState.userDoc || {}),
+      ...(adminViewUser || {}),
+      role: "user",
+      appAccess:
+        adminViewUser?.appAccess && typeof adminViewUser.appAccess === "object"
+          ? adminViewUser.appAccess
+          : { user: true, service: false },
+      defaultWorkspace: adminViewUser?.defaultWorkspace || "user",
+    };
+  }, [accessState.userDoc, adminViewMode, adminViewUser, canUseAdminViewSwitch]);
+  const effectiveEmployeeAccess = useMemo(
+    () =>
+      adminViewMode === "user" && canUseAdminViewSwitch
+        ? resolveEmployeeAccess(effectiveUserDoc, { isAdmin: false })
+        : accessState.employeeAccess,
+    [accessState.employeeAccess, adminViewMode, canUseAdminViewSwitch, effectiveUserDoc]
+  );
+  const effectiveUser = useMemo(() => {
+    if (!user || !canUseAdminViewSwitch || adminViewMode !== "user" || !adminViewUser) return user;
+    return {
+      ...user,
+      uid: adminViewUser.uid || adminViewUser.id || user.uid,
+      email: adminViewUser.email || user.email,
+      displayName: adminViewUser.name || adminViewUser.displayName || user.displayName,
+      getIdToken: (...args) => user.getIdToken(...args),
+      getIdTokenResult: (...args) => user.getIdTokenResult(...args),
+    };
+  }, [adminViewMode, adminViewUser, canUseAdminViewSwitch, user]);
+
   const value = useMemo(
     () => ({
-      user,
+      user: effectiveUser,
+      realUser: user,
       loading,
       logout: () => signOut(auth),
-      userDoc: accessState.userDoc,
-      employeeAccess: accessState.employeeAccess,
+      userDoc: effectiveUserDoc,
+      employeeAccess: effectiveEmployeeAccess,
       featureFlags: accessState.featureFlags,
-      isAdmin: accessState.isAdmin,
+      isAdmin: effectiveIsAdmin,
       isEnabled: accessState.isEnabled,
       phoneReady: accessState.phoneReady,
       mfaReady: accessState.mfaReady,
@@ -255,8 +373,28 @@ export const AuthProvider = ({ children }) => {
       refreshMfaState,
       accessReady: accessState.accessReady,
       accessLoading: !!user && !accessState.accessReady,
+      canUseAdminViewSwitch,
+      adminViewMode: canUseAdminViewSwitch ? adminViewMode : "admin",
+      setAdminViewMode,
+      adminViewUser: canUseAdminViewSwitch ? adminViewUser : null,
+      adminViewUserId: canUseAdminViewSwitch ? String(adminViewUser?.uid || adminViewUser?.id || "") : "",
+      setAdminViewUser,
     }),
-    [user, loading, accessState, refreshMfaState]
+    [
+      user,
+      effectiveUser,
+      loading,
+      accessState,
+      effectiveUserDoc,
+      effectiveEmployeeAccess,
+      effectiveIsAdmin,
+      refreshMfaState,
+      canUseAdminViewSwitch,
+      adminViewMode,
+      setAdminViewMode,
+      adminViewUser,
+      setAdminViewUser,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

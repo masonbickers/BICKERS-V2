@@ -2,9 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { collection, doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 import {
   AlertTriangle,
   BarChart3,
@@ -496,6 +504,8 @@ export default function TimesheetListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
@@ -555,11 +565,11 @@ export default function TimesheetListPage() {
     setError("");
 
     try {
-      await updateDoc(doc(db, "timesheets", ts.id), {
+      await updateDoc(doc(db, "timesheets", ts.id), tenantPayload(dataAccessState, {
         status: "approved",
         approved: true,
         approvedAt: serverTimestamp(),
-      });
+      }));
 
       setGrouped((prev) => {
         const next = {};
@@ -604,14 +614,21 @@ export default function TimesheetListPage() {
   );
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "timesheets", operation: "Load timesheets page" })) {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       setLoading(true);
       setError("");
 
       try {
         const [empSnap, tsSnap] = await Promise.all([
-          getDocs(collection(db, "employees")),
-          getDocs(collection(db, "timesheets")),
+          getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState)),
         ]);
 
         const employees = empSnap.docs.map((doc) => ({
@@ -700,7 +717,7 @@ export default function TimesheetListPage() {
     };
 
     loadData();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     const q = searchParams?.get("q") || "";

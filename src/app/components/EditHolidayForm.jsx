@@ -14,6 +14,14 @@ import {
 } from "firebase/firestore";
 import { holidayDateKeysFromRange } from "@/app/utils/bookingAvailability";
 import { isAdminEmail } from "@/app/utils/adminAccess";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 
 const norm = (v) => String(v ?? "").trim().toLowerCase();
@@ -42,6 +50,8 @@ function isApprovedHoliday(rec) {
 
 export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,9 +142,17 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
   /* ---------------- Fetch employees ---------------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load holiday employees" });
+      setEmployees([]);
+      return;
+    }
+
     const fetchEmployees = async () => {
       try {
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, name: d.data()?.name }))
           .filter((x) => x.name);
@@ -144,7 +162,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       }
     };
     fetchEmployees();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------------- Load holiday ---------------- */
   useEffect(() => {
@@ -343,7 +361,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         updatedBy: userEmail || "",
       };
 
-      await updateDoc(doc(db, "holidays", String(holidayId)), payload);
+      await updateDoc(doc(db, "holidays", String(holidayId)), tenantPayload(dataAccessState, payload));
 
       if (typeof onSaved === "function") onSaved();
       if (typeof onClose === "function") onClose();
@@ -383,14 +401,14 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
       const prev =
         String(existingStatus || holidayRec?.status || "approved").trim() || "approved";
 
-      await updateDoc(ref, {
+      await updateDoc(ref, tenantPayload(dataAccessState, {
         status: "delete_requested",
         deleteRequestedAt: serverTimestamp(),
         deleteRequestedBy: userEmail || "",
         deleteFromStatus: prev, //  used by HR "Decline delete" to restore
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",
-      });
+      }));
 
       if (typeof onSaved === "function") onSaved();
       if (typeof onClose === "function") onClose();

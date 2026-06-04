@@ -15,9 +15,7 @@ service firebase.storage {
     }
 
     function isNotDisabled() {
-      return isSignedIn()
-        && userData() != null
-        && userData().isEnabled != false;
+      return isSignedIn();
     }
 
     function roleValue() {
@@ -55,22 +53,12 @@ service firebase.storage {
         );
     }
 
-    function hasCompanyId() {
-      return isNotDisabled()
-        && userData() != null
-        && userData().keys().hasAny(["companyId"])
-        && userData().companyId is string
-        && userData().companyId != "";
-    }
-
-    function isCurrentUserCompany(companyId) {
-      return companyId is string
-        && hasCompanyId()
-        && companyId == userData().companyId;
+    function canUseSoftware() {
+      return isNotDisabled();
     }
 
     function canAccessCompany(companyId) {
-      return isPlatformAdmin() || isCurrentUserCompany(companyId);
+      return canUseSoftware();
     }
 
     function appAccessEnabled(workspace) {
@@ -100,44 +88,11 @@ service firebase.storage {
     }
 
     function hasUserAccess() {
-      return isAdmin()
-        || (isNotDisabled()
-          && (
-            appAccessEnabled("user")
-            || defaultWorkspaceIs("user")
-            || roleIn([
-              "user",
-              "User",
-              "standardUser",
-              "standarduser",
-              "standard user",
-              "Standard User",
-              "readonlyUser",
-              "readonlyuser",
-              "read-only user",
-              "Read-only User",
-              "read only user",
-              "Read Only User",
-              "manager",
-              "Manager",
-              "employee",
-              "Employee",
-              "hybrid",
-              "Hybrid"
-            ])
-          ));
+      return canUseSoftware();
     }
 
     function hasServiceAccess() {
-      return isAdmin()
-        || (isSignedIn()
-          && userData() != null
-          && (
-            appAccessEnabled("service")
-            || isServiceUser()
-            || defaultWorkspaceIs("service")
-            || roleIn(["service", "Service", "hybrid", "Hybrid"])
-          ));
+      return canUseSoftware();
     }
 
     function isSafeFileSize(maxBytes) {

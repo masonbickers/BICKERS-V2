@@ -4,7 +4,7 @@ import { getDocs } from "firebase/firestore";
 import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const CACHE_KEY = "booking-form-reference-data:v1";
-const CONTACTS_CACHE_KEY = "booking-form-saved-contacts:v1";
+const CONTACTS_CACHE_KEY = "booking-form-saved-contacts:v2";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 let referenceCache = null;
@@ -97,7 +97,10 @@ const buildReferenceData = ({ empSnap, vehicleSnap, equipSnap }) => {
   const employeeList = allEmployees
     .filter((emp) => {
       const titles = Array.isArray(emp.jobTitle) ? emp.jobTitle : [emp.jobTitle];
-      return titles.some((t) => String(t || "").toLowerCase() === "driver");
+      return titles.some((t) => {
+        const title = String(t || "").trim().toLowerCase();
+        return title === "driver" || title === "precision driver" || title.includes("driver");
+      });
     })
     .map((emp) => ({ id: emp.id, name: emp.name || emp.fullName || emp.id }));
 
@@ -214,7 +217,7 @@ export const loadBookingFormReferenceData = async (db, { accessState, force = fa
 };
 
 export const loadSavedContacts = async (db, { accessState, force = false } = {}) => {
-  const scopedCacheKey = cacheKeyForAccess(CONTACTS_CACHE_KEY, accessState);
+  const scopedCacheKey = CONTACTS_CACHE_KEY;
   if (!force && contactsCache && contactsCacheKey === scopedCacheKey) {
     debugBookingLoads("saved contacts cache hit");
     return contactsCache;
@@ -237,7 +240,7 @@ export const loadSavedContacts = async (db, { accessState, force = false } = {})
       contactsCache = value;
       contactsCacheKey = scopedCacheKey;
       writeSessionCache(scopedCacheKey, value);
-      debugBookingLoads("saved contacts loaded", Math.round(nowMs() - startedAt), "ms");
+      debugBookingLoads("saved contacts loaded", value.length, "contacts", Math.round(nowMs() - startedAt), "ms");
       return value;
     })
     .finally(() => {

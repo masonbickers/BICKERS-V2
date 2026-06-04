@@ -21,13 +21,19 @@ import {
   updateMaintenanceBooking,
 } from "../utils/maintenanceBookingService";
 import {
-  collection,
   doc,
   getDoc,
   getDocs,
-  query,
   where,
 } from "firebase/firestore";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /**
  * Props:
@@ -42,6 +48,8 @@ export default function EditMaintenanceBookingForm({
   onClose,
   onSaved,
 }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehicleId, setVehicleId] = useState(vehicleIdProp || "");
   const [vehicle, setVehicle] = useState(null);
   const [booking, setBooking] = useState(null);
@@ -272,6 +280,19 @@ export default function EditMaintenanceBookingForm({
 
   /* ───────────────── load booking + vehicle + existing bookings ───────────────── */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, {
+        collectionName: "maintenanceBookings",
+        operation: "load edit maintenance booking form data",
+      });
+      setLoading(false);
+      setExisting([]);
+      setLoadError("Could not load booking access.");
+      return;
+    }
+
     const run = async () => {
       if (!bookingId) return;
 
@@ -280,7 +301,7 @@ export default function EditMaintenanceBookingForm({
 
       const [bSnap, equipmentSnap] = await Promise.all([
         getDoc(doc(db, "maintenanceBookings", bookingId)),
-        getDocs(collection(db, "equipment")),
+        getDocs(tenantCollectionQuery(db, "equipment", dataAccessState)),
       ]);
       if (!bSnap.exists()) {
         setLoading(false);
@@ -369,8 +390,11 @@ export default function EditMaintenanceBookingForm({
 
       // existing bookings
       if (resolvedVehicleId) {
-        const qy = query(collection(db, "maintenanceBookings"), where("vehicleId", "==", resolvedVehicleId));
-        const snap = await getDocs(qy);
+        const snap = await getDocs(
+          tenantCollectionQuery(db, "maintenanceBookings", dataAccessState, [
+            where("vehicleId", "==", resolvedVehicleId),
+          ])
+        );
         setExisting(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } else {
         setExisting([]);
@@ -380,12 +404,19 @@ export default function EditMaintenanceBookingForm({
     };
 
     run().catch((e) => {
-      console.error("[EditMaintenanceBookingForm] load error:", e);
+      if (
+        !handleFirestoreAccessError(e, {
+          collectionName: "maintenanceBookings",
+          operation: "load edit maintenance booking form data",
+        })
+      ) {
+        console.error("[EditMaintenanceBookingForm] load error:", e);
+      }
       setLoading(false);
       setExisting([]);
       setLoadError("Could not load booking. Please refresh.");
     });
-  }, [bookingId, vehicleIdProp]);
+  }, [accessKey, bookingId, dataAccessState, vehicleIdProp]);
 
   // keep date fields in sync when toggling modes
   useEffect(() => {
@@ -478,6 +509,7 @@ export default function EditMaintenanceBookingForm({
         cost,
         notes,
         equipment: selectedEquipment,
+        authState: dataAccessState,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);
@@ -502,6 +534,7 @@ export default function EditMaintenanceBookingForm({
         booking,
         vehicleId,
         vehicle,
+        authState: dataAccessState,
       });
 
       setBooking((prev) =>

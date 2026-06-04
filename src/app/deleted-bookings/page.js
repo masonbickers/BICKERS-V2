@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
-  collection,
   onSnapshot,
   doc,
   getDoc,
@@ -15,6 +14,15 @@ import {
 import { db, auth } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ViewBookingModal from "../components/ViewBookingModal";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 import {
   ArrowLeft,
   ArchiveRestore,
@@ -443,6 +451,8 @@ function DeletedStat({ icon, label, value, detail }) {
 
 export default function DeletedBookingsPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -501,19 +511,36 @@ export default function DeletedBookingsPage() {
   /* Only subscribe if admin */
   useEffect(() => {
     if (checkingAccess || !isAdmin) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "deletedBookings", operation: "listen deleted bookings page" });
+      setRows([]);
+      return;
+    }
 
-    const unsub = onSnapshot(collection(db, "deletedBookings"), (snap) => {
+    const unsub = onSnapshot(tenantCollectionQuery(db, "deletedBookings", dataAccessState), (snap) => {
       const list = snap.docs.map((d) => normaliseDeleted(d.id, d.data()));
       setRows(list);
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "deletedBookings", operation: "listen deleted bookings page" });
+      setRows([]);
     });
 
     return () => unsub();
-  }, [checkingAccess, isAdmin]);
+  }, [accessKey, checkingAccess, dataAccessState, isAdmin]);
 
   useEffect(() => {
     if (checkingAccess || !isAdmin) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "listen deleted booking vehicles" });
+      setVehiclesIndex({ byId: {}, byReg: {}, byName: {} });
+      return;
+    }
 
-    const unsub = onSnapshot(collection(db, "vehicles"), (snap) => {
+    const unsub = onSnapshot(tenantCollectionQuery(db, "vehicles", dataAccessState), (snap) => {
       const byId = {};
       const byReg = {};
       const byName = {};
@@ -530,10 +557,13 @@ export default function DeletedBookingsPage() {
       });
 
       setVehiclesIndex({ byId, byReg, byName });
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "listen deleted booking vehicles" });
+      setVehiclesIndex({ byId: {}, byReg: {}, byName: {} });
     });
 
     return () => unsub();
-  }, [checkingAccess, isAdmin]);
+  }, [accessKey, checkingAccess, dataAccessState, isAdmin]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -592,11 +622,11 @@ export default function DeletedBookingsPage() {
     try {
       await setDoc(
         doc(db, "bookings", String(row.originalId || row.id)),
-        {
+        tenantPayload(dataAccessState, {
           ...(row.payload || {}),
           restoredAt: serverTimestamp(),
           restoredBy: auth?.currentUser?.email || "",
-        },
+        }),
         { merge: true }
       );
 

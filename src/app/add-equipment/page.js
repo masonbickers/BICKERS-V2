@@ -7,6 +7,15 @@ import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
 const UI = {
@@ -100,6 +109,8 @@ const NEW_CATEGORY_OPTION = "__new_category__";
 
 export default function AddEquipmentPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [saving, setSaving] = useState(false);
 
   const [existingCategories, setExistingCategories] = useState([]);
@@ -121,18 +132,27 @@ export default function AddEquipmentPage() {
 
   // Pull existing categories so it stays consistent with your overview grouping
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "equipment", operation: "load equipment categories" });
+      setExistingCategories([]);
+      return;
+    }
     const loadCats = async () => {
       try {
-        const snap = await getDocs(collection(db, "equipment"));
+        const snap = await getDocs(tenantCollectionQuery(db, "equipment", dataAccessState));
         const cats = snap.docs.map((d) => d.data()?.category).filter(Boolean);
         const unique = Array.from(new Set(cats)).sort((a, b) => String(a).localeCompare(String(b)));
         setExistingCategories(unique);
       } catch (e) {
-        console.error("Load equipment categories failed:", e);
+        if (!handleFirestoreAccessError(e, { collectionName: "equipment", operation: "load equipment categories" })) {
+          console.error("Load equipment categories failed:", e);
+        }
       }
     };
     loadCats();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -197,7 +217,7 @@ export default function AddEquipmentPage() {
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "equipment"), payload);
+      await addDoc(collection(db, "equipment"), tenantPayload(dataAccessState, payload));
       alert(" Equipment added.");
       if (navigateOnSuccess) {
         router.push("/equipment");

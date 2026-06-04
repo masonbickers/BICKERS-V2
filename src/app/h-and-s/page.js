@@ -6,6 +6,14 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
+import {
   AlertTriangle,
   ArrowUpRight,
   Ban,
@@ -979,6 +987,8 @@ function RingLegend({ color, label, value }) {
 
 export default function HealthSafetyPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [checksCount, setChecksCount] = useState(0);
@@ -1001,13 +1011,23 @@ export default function HealthSafetyPage() {
   });
 
   const loadData = async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "hsRegister", operation: "load H&S overview" });
+      setRows([]);
+      setRegisterRecords({});
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [checksSnap, issuesSnap, defectsSnap, registerSnap] = await Promise.all([
-        getDocs(collection(db, "vehicleChecks")),
-        getDocs(collection(db, "vehicleIssues")),
-        getDocs(collection(db, "defectReports")),
-        getDocs(collection(db, "hsRegister")),
+        getDocs(tenantCollectionQuery(db, "vehicleChecks", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "vehicleIssues", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "defectReports", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "hsRegister", dataAccessState)),
       ]);
 
       const checkDocs = checksSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
@@ -1031,7 +1051,8 @@ export default function HealthSafetyPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessKey, dataAccessState]);
 
   const registerItems = useMemo(
     () => {
@@ -1071,8 +1092,9 @@ export default function HealthSafetyPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-      const ref = await addDoc(collection(db, "hsRegister"), payload);
-      setRegisterRecords((prev) => ({ ...prev, [ref.id]: { id: ref.id, ...payload } }));
+      const scopedPayload = tenantPayload(dataAccessState, payload);
+      const ref = await addDoc(collection(db, "hsRegister"), scopedPayload);
+      setRegisterRecords((prev) => ({ ...prev, [ref.id]: { id: ref.id, ...scopedPayload } }));
       setShowAddRegister(false);
       setNewRegisterItem((prev) => ({ ...prev, item: "", notes: "" }));
       router.push(`/h-and-s/${ref.id}`);

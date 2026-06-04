@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  collection,
   doc,
   getDocs,
   onSnapshot,
@@ -14,6 +13,14 @@ import {
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { format } from "date-fns";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    Mini design system (same look & feel)
@@ -328,6 +335,8 @@ export default function JobSummaryWithTimesheetsPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params?.id;
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -346,9 +355,13 @@ export default function JobSummaryWithTimesheetsPage() {
 
   // fetch + filter timesheets
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "timesheets", operation: "Load job summary timesheets" })) return;
+
     const run = async () => {
       try {
-        const tsSnap = await getDocs(collection(db, "timesheets"));
+        const tsSnap = await getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState));
         const all = tsSnap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
 
         const filtered = all.filter((ts) => {
@@ -371,7 +384,7 @@ export default function JobSummaryWithTimesheetsPage() {
       }
     };
     if (jobId) run();
-  }, [jobId]);
+  }, [accessKey, dataAccessState, jobId]);
 
   const prettyStatus = useMemo(() => prettifyStatus(job?.status), [job]);
   const dateLabel = useMemo(() => dateRangeLabel(job || {}), [job]);
@@ -387,10 +400,10 @@ export default function JobSummaryWithTimesheetsPage() {
     if (!jobId) return;
     try {
       setSaving(true);
-      await updateDoc(doc(db, "bookings", jobId), {
+      await updateDoc(doc(db, "bookings", jobId), tenantPayload(dataAccessState, {
         ...updates,
         updatedAt: serverTimestamp(),
-      });
+      }));
       alert(successMessage);
     } catch (e) {
       console.error(e);

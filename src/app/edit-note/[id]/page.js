@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "../../../../firebaseConfig";
 import { signOut } from "firebase/auth";
 import {
-  collection,
   getDocs,
   doc,
   getDoc,
@@ -13,11 +12,21 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ----------------------------- Page Component ----------------------------- */
 export default function EditNotePage() {
   const router = useRouter();
   const { id } = useParams(); // note id from URL
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,9 +44,17 @@ export default function EditNotePage() {
 
   /* --------------------------- fetch employees list --------------------------- */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load edit note employees" });
+      setEmployees([]);
+      return;
+    }
+
     (async () => {
       try {
-        const snapshot = await getDocs(collection(db, "employees"));
+        const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const data = snapshot.docs.map((d) => ({
           id: d.id,
           name: d.data()?.name || "",
@@ -47,7 +64,7 @@ export default function EditNotePage() {
         console.error("Failed to fetch employees:", e);
       }
     })();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ------------------------------- fetch the note ------------------------------ */
   useEffect(() => {
@@ -89,13 +106,13 @@ export default function EditNotePage() {
     try {
       setSaving(true);
       const ref = doc(db, "notes", id);
-      await updateDoc(ref, {
+      await updateDoc(ref, tenantPayload(dataAccessState, {
         employee,
         blocksEmployeeBooking,
         date: noteDate,
         text: noteText,
         updatedAt: serverTimestamp(),
-      });
+      }));
       alert("Note updated!");
       router.push("/dashboard");
     } catch (e) {

@@ -6,6 +6,14 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { addDoc, collection, getDocs, onSnapshot, serverTimestamp, Timestamp } from "firebase/firestore";
 import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Save, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 import { auth, db } from "../../../../firebaseConfig";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 8,
@@ -176,6 +184,8 @@ const toneStyle = (tone) => {
 
 export default function TrainingPolicyPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
   const [records, setRecords] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -188,9 +198,16 @@ export default function TrainingPolicyPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (reportDataAccessBlocked(gate, { collectionName: "employees", operation: "Load training policy records" })) {
+      setLoading(false);
+      return undefined;
+    }
+
     const loadEmployees = async () => {
       try {
-        const employeeSnap = await getDocs(collection(db, "employees"));
+        const employeeSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const employeeList = employeeSnap.docs
           .map((employeeDoc) => ({ id: employeeDoc.id, ...employeeDoc.data() }))
           .sort((a, b) => employeeDisplayName(a).localeCompare(employeeDisplayName(b)));
@@ -208,7 +225,7 @@ export default function TrainingPolicyPage() {
     loadEmployees();
 
     const unsubscribe = onSnapshot(
-      collection(db, "employeeTrainingRecords"),
+      tenantCollectionQuery(db, "employeeTrainingRecords", dataAccessState),
       (snap) => setRecords(snap.docs.map((recordDoc) => ({ id: recordDoc.id, ...recordDoc.data() }))),
       (error) => {
         console.warn("Failed to load employee training records:", error);
@@ -217,7 +234,7 @@ export default function TrainingPolicyPage() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -293,7 +310,7 @@ export default function TrainingPolicyPage() {
     setSavingItem(item.label);
     try {
       const user = auth.currentUser;
-      await addDoc(collection(db, "employeeTrainingRecords"), {
+      await addDoc(collection(db, "employeeTrainingRecords"), tenantPayload(dataAccessState, {
         employeeId: selectedEmployee.id,
         employeeName: employeeDisplayName(selectedEmployee),
         itemId: item.id,
@@ -304,7 +321,7 @@ export default function TrainingPolicyPage() {
         notes: String(draft.notes || "").trim(),
         recordedBy: user?.displayName || user?.email || "Unknown user",
         createdAt: serverTimestamp(),
-      });
+      }));
       setDrafts((prev) => ({ ...prev, [item.label]: {} }));
       setToast(`${item.label} saved for ${employeeDisplayName(selectedEmployee)}`);
     } catch (error) {

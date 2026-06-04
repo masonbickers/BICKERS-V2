@@ -7,6 +7,14 @@ import { db, storage } from "../../../firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
+import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
@@ -191,6 +199,8 @@ function safeStr(v) {
 
 export default function UploadContractPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
@@ -217,10 +227,19 @@ export default function UploadContractPage() {
 
   useEffect(() => {
     let mounted = true;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load contract upload employees" });
+      setEmployees([]);
+      setLoadingEmployees(false);
+      return undefined;
+    }
+
     (async () => {
       setLoadingEmployees(true);
       try {
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => safeStr(a.name).localeCompare(safeStr(b.name)));
@@ -235,7 +254,7 @@ export default function UploadContractPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     if (selectedEmployee?.name) setEmployeeName(selectedEmployee.name);
@@ -297,7 +316,7 @@ export default function UploadContractPage() {
 
       const url = await getDownloadURL(task.snapshot.ref);
 
-      await addDoc(collection(db, "hrDocuments"), {
+      await addDoc(collection(db, "hrDocuments"), tenantPayload(dataAccessState, {
         employeeId: empId,
         employeeName: empName,
         docType: cleanType,
@@ -309,7 +328,7 @@ export default function UploadContractPage() {
         storagePath,
         url,
         createdAt: serverTimestamp(),
-      });
+      }));
 
       alert("Uploaded successfully");
       resetForm();

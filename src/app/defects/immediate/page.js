@@ -16,8 +16,16 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { collection, getDocs, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import { getDocs, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* UI tokens */
 const UI = {
@@ -404,6 +412,8 @@ function sameRow(a, b) {
 /* Page */
 export default function ImmediateDefectsPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -415,13 +425,22 @@ export default function ImmediateDefectsPage() {
   const [notesModal, setNotesModal] = useState(null); // {row, newStatus, note}
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicleChecks", operation: "load immediate defects" });
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
       try {
         const [checksSnap, issuesSnap, defectsSnap] = await Promise.all([
-          getDocs(collection(db, "vehicleChecks")),
-          getDocs(collection(db, "vehicleIssues")),
-          getDocs(collection(db, "defectReports")),
+          getDocs(tenantCollectionQuery(db, "vehicleChecks", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "vehicleIssues", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "defectReports", dataAccessState)),
         ]);
         const checkDocs = checksSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const issueDocs = issuesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -434,7 +453,7 @@ export default function ImmediateDefectsPage() {
       }
     };
     load();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const filtered = useMemo(() => {
     let data = rows;
@@ -475,23 +494,23 @@ export default function ImmediateDefectsPage() {
       };
 
       if (row.sourceType === "vehicleIssue") {
-        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), tenantPayload(dataAccessState, {
           maintenance: maintenancePayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else if (row.sourceType === "defectReport") {
-        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), tenantPayload(dataAccessState, {
           status: newStatus === "resolved" ? "resolved" : "open",
           notes: (note || row.note || "").trim(),
           updatedAt: serverTimestamp(),
           ...(newStatus === "resolved" ? { completedAt: serverTimestamp() } : {}),
-        });
+        }));
       } else {
         const path = `items.${row.defectIndex}.maintenance`;
-        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
           [path]: maintenancePayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       setRows((prev) =>
@@ -528,23 +547,23 @@ export default function ImmediateDefectsPage() {
 
     try {
       if (row.sourceType === "vehicleIssue") {
-        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), tenantPayload(dataAccessState, {
           "review.category": "general",
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else if (row.sourceType === "defectReport") {
-        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), tenantPayload(dataAccessState, {
           severity: "General",
           priority: "medium",
           offRoad: false,
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else {
         const path = `items.${row.defectIndex}.review.category`;
-        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
           [path]: "general",
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       setRows((prev) =>

@@ -67,9 +67,10 @@ test("maps service paths to service workspace", () => {
 
 test("identifies admin-only routes", () => {
   assert.equal(isAdminPath("/admin"), true);
-  assert.equal(isAdminPath("/employees"), true);
-  assert.equal(isAdminPath("/edit-employee/abc123"), true);
-  assert.equal(isAdminPath("/deleted-bookings"), true);
+  assert.equal(isAdminPath("/settings"), true);
+  assert.equal(isAdminPath("/employees"), false);
+  assert.equal(isAdminPath("/edit-employee/abc123"), false);
+  assert.equal(isAdminPath("/deleted-bookings"), false);
   assert.equal(isAdminPath("/dashboard"), false);
 });
 
@@ -101,7 +102,7 @@ test("blocks disabled or archived employees from both workspaces", () => {
   assert.equal(access.hasServiceAccess, false);
 });
 
-test("allows service-only users only on service workspace routes", () => {
+test("allows service-only users on service routes and the shared diary", () => {
   const access = resolveEmployeeAccess({
     appAccess: { user: false, service: true },
     defaultWorkspace: "service",
@@ -109,5 +110,7 @@ test("allows service-only users only on service workspace routes", () => {
 
   assert.equal(selectLandingRoute(access), "/service/home");
   assert.equal(isPathAllowedForAccess("/service-overview", access), true);
-  assert.equal(isPathAllowedForAccess("/dashboard", access), false);
+  assert.equal(isPathAllowedForAccess("/dashboard", access), true);
+  assert.equal(isPathAllowedForAccess("/create-booking", access), true);
+  assert.equal(isPathAllowedForAccess("/edit-booking/abc123", access), true);
 });

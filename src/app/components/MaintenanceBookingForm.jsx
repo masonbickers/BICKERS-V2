@@ -16,7 +16,15 @@ import {
   createMaintenanceBooking,
   normalizeMaintenanceType,
 } from "../utils/maintenanceBookingService";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, getDocs, where } from "firebase/firestore";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /**
  * Props:
@@ -37,6 +45,8 @@ export default function MaintenanceBookingForm({
   onClose,
   onSaved,
 }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehicle, setVehicle] = useState(null);
 
   // form fields
@@ -213,11 +223,27 @@ export default function MaintenanceBookingForm({
 
   /* ───────────────── load vehicle + existing bookings ───────────────── */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, {
+        collectionName: "maintenanceBookings",
+        operation: "load maintenance booking form data",
+      });
+      setEquipmentGroups({});
+      setExisting([]);
+      return;
+    }
+
     const run = async () => {
-      const equipmentSnapPromise = getDocs(collection(db, "equipment"));
+      const equipmentSnapPromise = getDocs(tenantCollectionQuery(db, "equipment", dataAccessState));
       const vehicleSnapPromise = vehicleId ? getDoc(doc(db, "vehicles", vehicleId)) : Promise.resolve(null);
       const existingSnapPromise = vehicleId
-        ? getDocs(query(collection(db, "maintenanceBookings"), where("vehicleId", "==", vehicleId)))
+        ? getDocs(
+            tenantCollectionQuery(db, "maintenanceBookings", dataAccessState, [
+              where("vehicleId", "==", vehicleId),
+            ])
+          )
         : Promise.resolve(null);
 
       const [vSnap, equipmentSnap, existingSnap] = await Promise.all([
@@ -251,10 +277,17 @@ export default function MaintenanceBookingForm({
     };
 
     run().catch((e) => {
-      console.error("[MaintenanceBookingForm] load error:", e);
+      if (
+        !handleFirestoreAccessError(e, {
+          collectionName: "maintenanceBookings",
+          operation: "load maintenance booking form data",
+        })
+      ) {
+        console.error("[MaintenanceBookingForm] load error:", e);
+      }
       setExisting([]);
     });
-  }, [vehicleId]);
+  }, [accessKey, dataAccessState, vehicleId]);
 
   useEffect(() => {
     setSelectedEquipment(Array.isArray(initialEquipment) ? initialEquipment.filter(Boolean) : []);
@@ -357,6 +390,7 @@ export default function MaintenanceBookingForm({
         sourceDueDate,
         sourceDueIsoWeek,
         sourceDueKey,
+        authState: dataAccessState,
       });
 
       if (typeof onSaved === "function") onSaved(savedBooking);

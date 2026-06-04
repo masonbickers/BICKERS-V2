@@ -1032,7 +1032,7 @@ export default function DashboardPage({ bookingSaved }) {
 
   // Vehicles (needed to resolve booking vehicle IDs to names)
   useEffect(() => {
-    if (!authReady || !authState?.accessReady) return;
+    if (!authReady || !authState?.user) return;
 
     const unsubVehicles = onSnapshot(tenantCollectionQuery(db, "vehicles", authState), (snap) => {
       setVehiclesData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -1043,7 +1043,7 @@ export default function DashboardPage({ bookingSaved }) {
 
   // Raw bookings
   useEffect(() => {
-    if (!authReady || !authState?.accessReady) return;
+    if (!authReady || !authState?.user) return;
 
     const unsubBookings = onSnapshot(tenantCollectionQuery(db, "bookings", authState), (snap) => {
       setAllBookingsRaw(snap.docs.map((d) => ({ id: d.id, ...d.data() })));

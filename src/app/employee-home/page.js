@@ -545,7 +545,7 @@ export default function EmployeesHomePage() {
   }, [mode, rangeDays, fromDate, toDate]);
 
   useEffect(() => {
-    if (!authState?.accessReady) return undefined;
+    if (!authState?.user) return undefined;
     let isMounted = true;
 
     (async () => {

@@ -25,6 +25,12 @@ import {
   getWorkspaceRoute,
   validateEmployeeAccessDraft,
 } from "@/app/utils/accessControl";
+import {
+  DEFAULT_COMPANY_ID,
+  buildEmployeeAccessPatch,
+  buildUserAccessPatch,
+  cleanAccessEmail,
+} from "@/app/utils/appAccessRecords";
 
 const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
@@ -384,6 +390,7 @@ export default function EditEmployeePage() {
     code: "",
     uid: "",
     authUid: "",
+    companyId: DEFAULT_COMPANY_ID,
     archived: false,
     active: true,
     appDisabled: false,
@@ -563,6 +570,7 @@ export default function EditEmployeePage() {
           code: asStr(data.code || data.userCode || data.employeeCode || ""),
           uid: asStr(data.uid || ""),
           authUid: asStr(data.authUid || ""),
+          companyId: asStr(data.companyId || DEFAULT_COMPANY_ID),
           archived: data.archived === true || data.isArchived === true || data.active === false,
           active: data.active !== false && data.archived !== true && data.isArchived !== true,
           appDisabled: data.appDisabled === true,
@@ -853,6 +861,7 @@ export default function EditEmployeePage() {
         auth?.currentUser?.uid ||
         "";
       const employeeName = String(formData.name || formData.fullName || formData.employeeName || "").trim();
+      const employeeEmail = cleanAccessEmail(formData.email);
       const employeeCode = String(formData.employeeCode || formData.userCode || formData.code || "").trim();
       let passport = {
         ...EMPTY_PASSPORT,
@@ -931,10 +940,53 @@ export default function EditEmployeePage() {
         emergencyContacts,
         documents: personnelDocuments,
       };
+      const accessEmployeeDraft = {
+        ...formData,
+        name: employeeName,
+        fullName: employeeName,
+        employeeName,
+        email: employeeEmail,
+        mobile: formData.mobile || "",
+        phoneNumber: formData.phoneNumber || formData.mobile || "",
+        companyId: formData.companyId || DEFAULT_COMPANY_ID,
+        uid: linkedUserId,
+        authUid: linkedUserId,
+        active: formData.archived ? false : formData.active !== false,
+        archived: !!formData.archived,
+        appDisabled: !!formData.appDisabled,
+        appAccess: normalizedAppAccess,
+        defaultWorkspace: normalizedDefaultWorkspace,
+        role: effectiveRole,
+      };
+      const employeeAccessPatch = linkedUserId
+        ? buildEmployeeAccessPatch({
+            uid: linkedUserId,
+            employeeId,
+            employee: accessEmployeeDraft,
+          })
+        : {
+            companyId: formData.companyId || DEFAULT_COMPANY_ID,
+            email: employeeEmail,
+            emails: [employeeEmail].filter(Boolean),
+            isEnabled: formData.archived ? false : formData.active !== false && !formData.appDisabled,
+            appAccess: normalizedAppAccess,
+            defaultWorkspace: normalizedDefaultWorkspace,
+            role: "user",
+            isService: !!normalizedAppAccess.service,
+          };
+      const userAccessPatch = linkedUserId
+        ? buildUserAccessPatch({
+            uid: linkedUserId,
+            employeeId,
+            employee: accessEmployeeDraft,
+            user: { role: effectiveRole },
+          })
+        : null;
 
       await Promise.all([
         setDoc(docRef, {
         ...formData,
+        ...employeeAccessPatch,
         name: employeeName,
         fullName: employeeName,
         employeeName,
@@ -983,18 +1035,11 @@ export default function EditEmployeePage() {
               setDoc(
                 userRef,
                 {
-                  role: effectiveRole,
-                  isService: !!normalizedAppAccess.service,
+                  ...userAccessPatch,
                   active: formData.archived ? false : formData.active !== false,
                   archived: !!formData.archived,
                   isArchived: !!formData.archived,
                   appDisabled: !!formData.appDisabled,
-                  appAccess: normalizedAppAccess,
-                  defaultWorkspace: normalizedDefaultWorkspace,
-                  email: String(formData.email || "").trim().toLowerCase(),
-                  name: employeeName,
-                  fullName: employeeName,
-                  phone: formData.mobile || "",
                   updatedAt: serverTimestamp(),
                   updatedBy,
                 },

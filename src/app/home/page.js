@@ -603,24 +603,51 @@ export default function HomePage() {
 
     const run = async () => {
       setDataState({ status: "loading", message: "Loading home data..." });
-      const snap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
-      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setBookings(rows);
+      const loadCollection = async (collectionName, mapDocs) => {
+        try {
+          const snap = await getDocs(tenantCollectionQuery(db, collectionName, dataAccessState));
+          console.log("[home] loaded", { collectionName, count: snap.size });
+          return { ok: true, rows: mapDocs(snap) };
+        } catch (error) {
+          handleFirestoreAccessError(error, { collectionName, operation: "read home data" });
+          console.error("[home] collection failed", { collectionName, code: error?.code, message: error?.message });
+          return { ok: false, rows: [] };
+        }
+      };
 
-      const vSnap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
-      setVehicles(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const [bookingResult, vehicleResult, maintenanceBookingResult, maintenanceJobResult, holidayResult, noteResult] =
+        await Promise.all([
+          loadCollection("bookings", (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+          loadCollection("vehicles", (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+          loadCollection("maintenanceBookings", (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))),
+          loadCollection("maintenanceJobs", (snap) => snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))),
+          loadCollection("holidays", (snap) => snap.docs.map(asHolidayEvent).filter(Boolean)),
+          loadCollection("notes", (snap) => snap.docs.map(asNoteEvent).filter(Boolean)),
+        ]);
 
-      const mSnap = await getDocs(tenantCollectionQuery(db, "maintenanceBookings", dataAccessState));
-      setMaintenanceBookings(mSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setBookings(bookingResult.rows);
+      setVehicles(vehicleResult.rows);
+      setMaintenanceBookings(maintenanceBookingResult.rows);
+      setMaintenanceJobs(maintenanceJobResult.rows);
+      setHolidays(holidayResult.rows);
+      setNotes(noteResult.rows);
 
-      const mjSnap = await getDocs(tenantCollectionQuery(db, "maintenanceJobs", dataAccessState));
-      setMaintenanceJobs(mjSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const failed = [
+        ["bookings", bookingResult],
+        ["vehicles", vehicleResult],
+        ["maintenanceBookings", maintenanceBookingResult],
+        ["maintenanceJobs", maintenanceJobResult],
+        ["holidays", holidayResult],
+        ["notes", noteResult],
+      ].filter(([, result]) => !result.ok);
 
-      const hSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
-      setHolidays(hSnap.docs.map(asHolidayEvent).filter(Boolean));
-
-      const nSnap = await getDocs(tenantCollectionQuery(db, "notes", dataAccessState));
-      setNotes(nSnap.docs.map(asNoteEvent).filter(Boolean));
+      if (failed.length) {
+        setDataState({
+          status: "error",
+          message: `Some home data could not be loaded: ${failed.map(([name]) => name).join(", ")}.`,
+        });
+        return;
+      }
 
       setDataState({ status: "ready", message: "" });
     };

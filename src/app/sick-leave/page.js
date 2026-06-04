@@ -13,6 +13,14 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -169,6 +177,8 @@ function yearOf(d) {
 /*  IMPORTANT: default export MUST be a component */
 export default function Page() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
@@ -200,9 +210,18 @@ export default function Page() {
   }, [selectedEmployee]);
 
   const fetchAll = async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "sickLeave", operation: "load sick leave" });
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const snap = await getDocs(collection(db, "sickLeave"));
+      const snap = await getDocs(tenantCollectionQuery(db, "sickLeave", dataAccessState));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       all.sort((a, b) => (+toDate(b.createdAt) || 0) - (+toDate(a.createdAt) || 0));
       setRecords(all);
@@ -216,11 +235,19 @@ export default function Page() {
 
   useEffect(() => {
     let mounted = true;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load sick leave employees" });
+      setEmployees([]);
+      setLoadingEmployees(false);
+      return undefined;
+    }
 
     (async () => {
       setLoadingEmployees(true);
       try {
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
@@ -236,11 +263,12 @@ export default function Page() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     fetchAll();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessKey, dataAccessState]);
 
   const canSave = useMemo(() => {
     if (saving) return false;
@@ -282,7 +310,7 @@ export default function Page() {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "sickLeave"), payload);
+      await addDoc(collection(db, "sickLeave"), tenantPayload(dataAccessState, payload));
 
       alert(" Sick leave recorded");
       setEmployeeId("");
@@ -306,7 +334,7 @@ export default function Page() {
 
   const setRecordStatus = async (id, next) => {
     try {
-      await updateDoc(doc(db, "sickLeave", id), { status: next });
+      await updateDoc(doc(db, "sickLeave", id), tenantPayload(dataAccessState, { status: next }));
       await fetchAll();
     } catch (e) {
       console.error(e);

@@ -20,6 +20,14 @@ import {
   Timer,
   XCircle,
 } from "lucide-react";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const ADMIN_EMAILS = new Set([
   "mason@bickers.co.uk",
@@ -58,6 +66,8 @@ const employeeName = (employee = {}) =>
   String(employee.name || employee.employeeName || employee.fullName || employee.displayName || "").trim();
 
 export default function ShiftChangePage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employees, setEmployees] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,11 +99,21 @@ export default function ShiftChangePage() {
   }, [requests]);
 
   const loadData = async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "shiftChangeRequests", operation: "load shift changes" });
+      setEmployees([]);
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [employeeSnap, shiftSnap] = await Promise.all([
-        getDocs(collection(db, "employees")),
-        getDocs(collection(db, "shiftChangeRequests")),
+        getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
+        getDocs(tenantCollectionQuery(db, "shiftChangeRequests", dataAccessState)),
       ]);
 
       const employeeRows = employeeSnap.docs
@@ -130,7 +150,7 @@ export default function ShiftChangePage() {
       setLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const saveRequest = async (event) => {
     event.preventDefault();
@@ -146,7 +166,7 @@ export default function ShiftChangePage() {
         email: userEmail(),
         name: userName(),
       };
-      await addDoc(collection(db, "shiftChangeRequests"), {
+      await addDoc(collection(db, "shiftChangeRequests"), tenantPayload(dataAccessState, {
         employeeId: selectedEmployee.id,
         employeeName: employeeName(selectedEmployee),
         employeeEmail: String(selectedEmployee.email || "").trim().toLowerCase(),
@@ -168,7 +188,7 @@ export default function ShiftChangePage() {
               approvedAt: serverTimestamp(),
             }
           : {}),
-      });
+      }));
 
       setForm((current) => ({
         ...current,
@@ -209,7 +229,7 @@ export default function ShiftChangePage() {
         patch.declinedByName = userName();
         patch.declinedAt = serverTimestamp();
       }
-      await updateDoc(doc(db, "shiftChangeRequests", row.id), patch);
+      await updateDoc(doc(db, "shiftChangeRequests", row.id), tenantPayload(dataAccessState, patch));
       setToast(status === "approved" ? "Shift change approved." : "Shift change declined.");
       await loadData();
     } catch (error) {

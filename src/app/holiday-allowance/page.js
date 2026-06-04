@@ -11,6 +11,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ────────────────────────────────────────────────────────────────
    CONFIG
@@ -218,6 +226,8 @@ function balanceTone(bal) {
    PAGE
 ──────────────────────────────────────────────────────────────── */
 export default function EmployeesAdminPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [loading, setLoading] = useState(true);
 
   // Year being viewed/edited
@@ -245,9 +255,19 @@ export default function EmployeesAdminPage() {
   /* ---------------- load employees + holidays usage ---------------- */
   useEffect(() => {
     const load = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load holiday allowance data" });
+        setRows([]);
+        setUsedByYearName({ [thisYear]: {}, [nextYear]: {} });
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const empSnap = await getDocs(collection(db, "employees"));
+        const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = empSnap.docs.map((d) => {
           const x = d.data() || {};
           const pattern = x.workPattern || DEFAULT_PATTERN;
@@ -266,7 +286,7 @@ export default function EmployeesAdminPage() {
           };
         });
 
-        const holSnap = await getDocs(collection(db, "holidays"));
+        const holSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const used = { [thisYear]: {}, [nextYear]: {} };
 
         holSnap.docs.forEach((d) => {
@@ -338,7 +358,7 @@ export default function EmployeesAdminPage() {
     };
 
     load();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------------- derived: filtered rows ---------------- */
   const filteredRows = useMemo(() => {
@@ -474,13 +494,13 @@ export default function EmployeesAdminPage() {
 
       const legacyPatch = yearView === thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {};
 
-      await updateDoc(fsDoc(db, "employees", r.id), {
+      await updateDoc(fsDoc(db, "employees", r.id), tenantPayload(dataAccessState, {
         name,
         workPattern: pattern,
         holidayAllowances: nextAllowances,
         carryOverByYear: nextCarry,
         ...legacyPatch,
-      });
+      }));
 
       setRows((list) =>
         list.map((row) =>
@@ -539,7 +559,7 @@ export default function EmployeesAdminPage() {
 
     setAdding(true);
     try {
-      const docRef = await addDoc(collection(db, "employees"), {
+      const docRef = await addDoc(collection(db, "employees"), tenantPayload(dataAccessState, {
         name,
         workPattern: pattern,
 
@@ -550,7 +570,7 @@ export default function EmployeesAdminPage() {
         // per-year
         holidayAllowances: { [String(thisYear)]: allowance },
         carryOverByYear: { [String(thisYear)]: carry },
-      });
+      }));
 
       const newRow = {
         id: docRef.id,

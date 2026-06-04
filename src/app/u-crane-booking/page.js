@@ -177,7 +177,7 @@ export default function CreateBookingPage() {
   const [employeeList, setEmployeeList] = useState([]);
 
   useEffect(() => {
-    if (!authState?.accessReady) return undefined;
+    if (!authState?.user) return undefined;
     const loadData = async () => {
       // - 1. Load all bookings
       const bookingSnap = await getDocs(tenantCollectionQuery(db, "bookings", authState));

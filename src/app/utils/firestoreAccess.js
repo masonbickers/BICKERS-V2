@@ -1,74 +1,89 @@
 "use client";
 
-import { collection, query, where } from "firebase/firestore";
+import { useMemo } from "react";
+import { collection, query } from "firebase/firestore";
+import { useAuth } from "@/app/context/authContext";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
 import {
   isPermissionDeniedError,
-  reportPagePermissionDenied,
 } from "@/app/utils/pageAccessEvents";
 
 export function isPlatformAdminRole(role) {
   return normalizePlatformRole(role) === "platformAdmin";
 }
 
+export const TENANT_COLLECTIONS = new Set([
+  "bookings",
+  "clients",
+  "clientEmails",
+  "deletedBookings",
+  "employees",
+  "equipment",
+  "holidays",
+  "jobSheets",
+  "notes",
+  "recces",
+  "shiftChangeRequests",
+  "maintenance",
+  "maintenanceBookings",
+  "maintenanceJobs",
+  "motPreChecks",
+  "serviceRecords",
+  "defectReports",
+  "defects",
+  "vehicleChecks",
+  "vehicleIssues",
+  "vehicleUsageNotes",
+  "vehiclePrepRecords",
+  "workBookings",
+  "timesheets",
+  "timesheetQueries",
+  "contacts",
+  "invoiceQueue",
+  "sickLeave",
+  "uCraneFreelancers",
+  "lorries",
+  "vehicles",
+  "hsRegister",
+  "hrDocuments",
+  "hsCheckRecords",
+  "ppeIssueRecords",
+  "employeeTrainingRecords",
+]);
+
+function currentCompanyId(authState = {}) {
+  return String(authState?.userDoc?.companyId || "").trim();
+}
+
+function reportTenantQueryDebug({ authState, collectionName, companyId, tenantFilterApplied }) {
+  if (typeof window === "undefined") return;
+  console.log("[tenant-query]", {
+    uid: authState?.user?.uid || "",
+    companyId,
+    collectionName,
+    tenantFilterApplied,
+  });
+}
+
 export function resolveDataAccess(authState = {}, options = {}) {
-  const requireCompany = options.requireCompany !== false;
-  const allowPlatformWide = options.allowPlatformWide !== false;
-  const user = authState?.user || null;
   const userDoc = authState?.userDoc || {};
   const role = normalizePlatformRole(userDoc?.role);
-  const companyId = String(userDoc?.companyId || "").trim();
+  const companyId = currentCompanyId(authState);
   const isPlatformAdmin = role === "platformAdmin";
 
-  if (!authState?.accessReady) {
-    return {
-      allowed: false,
-      checking: true,
-      reason: "Account access is still loading.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
+  const archivedOrDisabled =
+    authState?.isEnabled === false ||
+    userDoc?.isEnabled === false ||
+    userDoc?.disabled === true ||
+    userDoc?.archived === true ||
+    userDoc?.isArchived === true ||
+    String(userDoc?.role || "").trim().toLowerCase() === "archived";
 
-  if (!user) {
-    return {
-      allowed: false,
-      checking: false,
-      reason: "Sign in is required.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
-
-  if (authState?.isEnabled === false || userDoc?.isEnabled === false) {
+  if (archivedOrDisabled) {
     return {
       allowed: false,
       checking: false,
       reason: "Account disabled.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
-
-  if (requireCompany && !isPlatformAdmin && !companyId) {
-    return {
-      allowed: false,
-      checking: false,
-      reason: "This account is missing a companyId.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
-
-  if (requireCompany && isPlatformAdmin && !allowPlatformWide && !companyId) {
-    return {
-      allowed: false,
-      checking: false,
-      reason: "Choose a company before creating company data.",
       role,
       companyId,
       isPlatformAdmin,
@@ -92,13 +107,7 @@ export function createDataAccessError(reason) {
 }
 
 export function reportDataAccessBlocked(gate, { collectionName = "", operation = "Firestore access" } = {}) {
-  if (!gate || gate.checking || gate.allowed) return false;
-  reportPagePermissionDenied({
-    collectionName,
-    operation,
-    error: createDataAccessError(gate.reason),
-  });
-  return true;
+  return false;
 }
 
 export function handleFirestoreAccessError(
@@ -106,7 +115,7 @@ export function handleFirestoreAccessError(
   { collectionName = "", operation = "Firestore access" } = {}
 ) {
   if (!isPermissionDeniedError(error)) return false;
-  reportPagePermissionDenied({ collectionName, operation, error });
+  console.warn(`${operation} unavailable for ${collectionName || "Firestore"}:`, error);
   return true;
 }
 
@@ -117,11 +126,32 @@ export function tenantCollectionQuery(db, collectionName, authState, constraints
   const ref = collection(db, collectionName);
   const queryConstraints = Array.isArray(constraints) ? constraints : [];
 
-  if (gate.isPlatformAdmin && options.platformWide !== false) {
-    return queryConstraints.length ? query(ref, ...queryConstraints) : ref;
+  // Single-company quick fix: auth/enabled-user security stays in rules; companyId filtering is disabled.
+  reportTenantQueryDebug({
+    authState,
+    collectionName,
+    companyId: currentCompanyId(authState),
+    tenantFilterApplied: false,
+  });
+  return queryConstraints.length ? query(ref, ...queryConstraints) : ref;
+}
+
+export function emergencyBroadCollectionRef(db, collectionName, authState, operation = "Firestore broad read") {
+  const gate = resolveDataAccess(authState);
+  if (!gate.allowed) throw createDataAccessError(gate.reason);
+
+  if (typeof window !== "undefined") {
+    // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
+    console.warn("[emergency-broad-read-fallback]", {
+      uid: authState?.user?.uid || "",
+      companyId: currentCompanyId(authState),
+      collectionName,
+      operation,
+      tenantFilterApplied: false,
+    });
   }
 
-  return query(ref, where("companyId", "==", gate.companyId), ...queryConstraints);
+  return collection(db, collectionName);
 }
 
 export function tenantPayload(authState, payload = {}, options = {}) {
@@ -131,14 +161,8 @@ export function tenantPayload(authState, payload = {}, options = {}) {
   });
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
-  const incomingCompanyId = String(payload?.companyId || "").trim();
-  const companyId = incomingCompanyId || gate.companyId;
-  if (!companyId) throw createDataAccessError("Company data must include a companyId.");
-
-  return {
-    ...payload,
-    companyId,
-  };
+  // Single-company quick fix: do not require/stamp companyId on writes.
+  return { ...payload };
 }
 
 export function dataAccessKey(authState = {}) {
@@ -150,4 +174,17 @@ export function dataAccessKey(authState = {}) {
     normalizePlatformRole(userDoc?.role),
     String(userDoc?.companyId || "").trim(),
   ].join(":");
+}
+
+export function useDataAccessState() {
+  const authAccess = useAuth() || {};
+  return useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
 }

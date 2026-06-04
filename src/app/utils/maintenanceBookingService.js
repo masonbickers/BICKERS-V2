@@ -8,6 +8,7 @@ import {
   buildMaintenanceHistoryEntry,
   getMaintenanceAuditIdentity,
 } from "./maintenanceAudit";
+import { tenantPayload } from "./firestoreAccess";
 import { mergeInspectionHistory, mergeMaintenanceHistory } from "./inspectionHistory";
 
 export const normalizeMaintenanceType = (type) => {
@@ -498,6 +499,7 @@ export const createMaintenanceBooking = async ({
   sourceDueKey = "",
   vehicle = null,
   vehicleLabel = "",
+  authState = null,
 }) => {
   const dateInfo = normalizeBookingDateInput({
     useCustomDates,
@@ -523,7 +525,7 @@ export const createMaintenanceBooking = async ({
     vehicleId ||
     "";
   const bookingRefDoc = doc(collection(db, "maintenanceBookings"));
-  const payload = {
+  const payload = tenantPayload(authState, {
     ...buildBookingPayload({
       type: safeType,
       vehicleId,
@@ -550,7 +552,7 @@ export const createMaintenanceBooking = async ({
         timestamp: nowAuditIso,
       }),
     ],
-  };
+  });
 
   const completedISO = payload.completedAtISO || "";
   const batch = writeBatch(db);
@@ -559,7 +561,7 @@ export const createMaintenanceBooking = async ({
   if (vehicleId && vehicleSnapshot) {
     batch.update(
       doc(db, "vehicles", vehicleId),
-      buildVehicleMaintenanceSummaryUpdates({
+      tenantPayload(authState, buildVehicleMaintenanceSummaryUpdates({
         type: safeType,
         vehicle: vehicleSnapshot,
         bookingId: bookingRefDoc.id,
@@ -574,7 +576,7 @@ export const createMaintenanceBooking = async ({
         notes,
         completedISO,
         sourceDueDate,
-      })
+      }))
     );
   }
 
@@ -603,6 +605,7 @@ export const updateMaintenanceBooking = async ({
   equipment = [],
   vehicle = null,
   vehicleLabel = "",
+  authState = null,
 }) => {
   const existingBooking = await resolveBookingSnapshot(bookingId, booking);
   if (!existingBooking) throw new Error("Maintenance booking not found.");
@@ -657,13 +660,14 @@ export const updateMaintenanceBooking = async ({
     }),
   ];
 
+  const scopedPayload = tenantPayload(authState, payload);
   const batch = writeBatch(db);
-  batch.update(doc(db, "maintenanceBookings", bookingId), payload);
+  batch.update(doc(db, "maintenanceBookings", bookingId), scopedPayload);
 
   if (resolvedVehicleId && vehicleSnapshot) {
     batch.update(
       doc(db, "vehicles", resolvedVehicleId),
-      buildVehicleMaintenanceSummaryUpdates({
+      tenantPayload(authState, buildVehicleMaintenanceSummaryUpdates({
         type: safeType,
         vehicle: vehicleSnapshot,
         bookingId,
@@ -678,15 +682,15 @@ export const updateMaintenanceBooking = async ({
         notes,
         completedISO: payload.completedAtISO || "",
         sourceDueDate: payload.sourceDueDateISO || existingBooking.sourceDueDateISO || "",
-      })
+      }))
     );
   }
 
   await batch.commit();
-  return { id: bookingId, ...payload };
+  return { id: bookingId, ...scopedPayload };
 };
 
-export const cancelMaintenanceBooking = async ({ bookingId, booking = null, vehicleId = "", vehicle = null }) => {
+export const cancelMaintenanceBooking = async ({ bookingId, booking = null, vehicleId = "", vehicle = null, authState = null }) => {
   const existingBooking = await resolveBookingSnapshot(bookingId, booking);
   if (!existingBooking) throw new Error("Maintenance booking not found.");
 
@@ -705,17 +709,17 @@ export const cancelMaintenanceBooking = async ({ bookingId, booking = null, vehi
   ];
 
   const batch = writeBatch(db);
-  batch.update(doc(db, "maintenanceBookings", bookingId), {
+  batch.update(doc(db, "maintenanceBookings", bookingId), tenantPayload(authState, {
     status: "Cancelled",
     lastEditedBy: auditUser.email,
     lastEditedByUid: auditUser.uid,
     history,
     updatedAt: serverTimestamp(),
-  });
+  }));
 
   const clears = buildClearVehicleMaintenanceSummaryUpdates({ vehicle: vehicleSnapshot, bookingId });
   if (resolvedVehicleId && Object.keys(clears).length) {
-    batch.update(doc(db, "vehicles", resolvedVehicleId), clears);
+    batch.update(doc(db, "vehicles", resolvedVehicleId), tenantPayload(authState, clears));
   }
 
   await batch.commit();
@@ -745,6 +749,7 @@ export const completeMaintenanceBooking = async ({
   vehicleId = "",
   vehicle = null,
   completedISO = "",
+  authState = null,
 }) => {
   const existingBooking = await resolveBookingSnapshot(bookingId, booking);
   if (!existingBooking) throw new Error("Maintenance booking not found.");
@@ -784,14 +789,14 @@ export const completeMaintenanceBooking = async ({
   ];
 
   const batch = writeBatch(db);
-  batch.update(doc(db, "maintenanceBookings", bookingId), {
+  batch.update(doc(db, "maintenanceBookings", bookingId), tenantPayload(authState, {
     status: "Completed",
     completedAtISO: resolvedCompletedISO,
     lastEditedBy: auditUser.email,
     lastEditedByUid: auditUser.uid,
     history,
     updatedAt: serverTimestamp(),
-  });
+  }));
 
   let vehiclePatch = null;
   if (resolvedVehicleId && vehicleSnapshot) {
@@ -810,7 +815,7 @@ export const completeMaintenanceBooking = async ({
       completedISO: resolvedCompletedISO,
       sourceDueDate: existingBooking.sourceDueDateISO || "",
     });
-    batch.update(doc(db, "vehicles", resolvedVehicleId), vehiclePatch);
+    batch.update(doc(db, "vehicles", resolvedVehicleId), tenantPayload(authState, vehiclePatch));
   }
 
   await batch.commit();

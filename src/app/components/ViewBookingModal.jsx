@@ -8,13 +8,20 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
-  collection,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -244,6 +251,8 @@ export default function ViewBookingModal({
   initialVehicles = [],
   onEdit = null,
 }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [booking, setBooking] = useState(initialBooking);
   const [allVehicles, setAllVehicles] = useState(initialVehicles);
   const [deleteReasons, setDeleteReasons] = useState([]);
@@ -310,8 +319,15 @@ export default function ViewBookingModal({
 
     (async () => {
       try {
-        if (!fromDeleted && initialBooking?.id === id) {
+        if (!fromDeleted && String(initialBooking?.id || "") === String(id || "")) {
           setBooking(initialBooking);
+          return;
+        }
+
+        const gate = resolveDataAccess(dataAccessState);
+        if (gate.checking) return;
+        if (!gate.allowed) {
+          reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load booking modal" });
           return;
         }
 
@@ -354,27 +370,34 @@ export default function ViewBookingModal({
         else alert("Booking not found");
       } catch (e) {
         console.error("Load booking failed:", e);
-        alert("Failed to load booking. Check console.");
+        alert(`Failed to load booking${e?.code ? ` (${e.code})` : ""}. Check console.`);
       }
     })();
 
     return () => (mounted = false);
-  }, [id, fromDeleted, deletedId, initialBooking, onClose]);
+  }, [accessKey, dataAccessState, id, fromDeleted, deletedId, initialBooking, onClose]);
 
   useEffect(() => {
     if (initialVehicles.length) {
       setAllVehicles(initialVehicles);
       return undefined;
     }
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load booking modal vehicles" });
+      setAllVehicles([]);
+      return undefined;
+    }
 
     let mounted = true;
     (async () => {
-      const snapshot = await getDocs(collection(db, "vehicles"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       if (!mounted) return;
       setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     })();
     return () => (mounted = false);
-  }, [initialVehicles]);
+  }, [accessKey, dataAccessState, initialVehicles]);
 
   const normalizedVehicles = useMemo(() => {
     const list = Array.isArray(booking?.vehicles) ? booking.vehicles : [];
@@ -459,7 +482,7 @@ export default function ViewBookingModal({
 
       const data = snap.data();
 
-      await setDoc(doc(db, "deletedBookings", String(id)), {
+      await setDoc(doc(db, "deletedBookings", String(id)), tenantPayload(dataAccessState, {
         originalCollection: "bookings",
         originalId: String(id),
         deletedAt: serverTimestamp(),
@@ -469,7 +492,7 @@ export default function ViewBookingModal({
           ? deleteReasonOther.trim()
           : "",
         data,
-      });
+      }));
 
       await deleteDoc(bookingRef);
 
@@ -494,11 +517,11 @@ export default function ViewBookingModal({
 
       await setDoc(
         doc(db, "bookings", String(originalId)),
-        {
+        tenantPayload(dataAccessState, {
           ...clean,
           restoredAt: serverTimestamp(),
           restoredBy: auth?.currentUser?.email || "",
-        },
+        }),
         { merge: true }
       );
 

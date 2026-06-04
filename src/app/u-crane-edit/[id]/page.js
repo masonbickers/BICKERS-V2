@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 import { db, auth, storage } from "../../../../firebaseConfig";
 import {
@@ -168,6 +175,8 @@ const summaryCard = {
 export default function EditBookingPage() {
   const router = useRouter();
   const { id } = useParams();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   // record state
   const [jobNumber, setJobNumber] = useState("");
@@ -292,6 +301,14 @@ export default function EditBookingPage() {
      Load lists + record
   ──────────────────────────────────────────── */
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load U-Crane edit data" });
+      setLoading(false);
+      return;
+    }
+
     const loadAll = async () => {
       try {
         const [
@@ -303,13 +320,13 @@ export default function EditBookingPage() {
           empSnap,
           freeSnap,
         ] = await Promise.all([
-          getDocs(collection(db, "bookings")),
-          getDocs(collection(db, "holidays")),
-          getDocs(collection(db, "notes")),
-          getDocs(collection(db, "workBookings")),
-          getDocs(collection(db, "vehicles")),
-          getDocs(collection(db, "employees")),
-          getDocs(collection(db, "uCraneFreelancers")),
+          getDocs(tenantCollectionQuery(db, "bookings", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "holidays", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "notes", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "workBookings", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
+          getDocs(tenantCollectionQuery(db, "uCraneFreelancers", dataAccessState)),
         ]);
 
         const bookings = bookingSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -409,7 +426,7 @@ export default function EditBookingPage() {
     };
 
     loadAll();
-  }, [id, router]);
+  }, [accessKey, dataAccessState, id, router]);
 
   /* ───────────────────────────────────────────
      Availability checks (match Create page)

@@ -1,6 +1,7 @@
 import { adminListDocuments, adminPatchDocument, adminReadDocument } from "@/app/api/_firebaseAdminRest";
 import { jsonError } from "@/app/api/admin/_lib";
 import { cleanId, jsonOk, requirePlatformAdmin, writePlatformAudit } from "../../_lib";
+import { buildUserAccessPatch } from "@/app/utils/appAccessRecords";
 
 export const runtime = "nodejs";
 
@@ -21,18 +22,8 @@ async function findEmployeeForUid(uid) {
 function seedUserFromEmployee(uid, employeeDoc) {
   const employee = employeeDoc?.data || {};
   const employeeId = employeeDoc?.id || employee.employeeId || "";
-  const role = String(employee.role || "").trim().toLowerCase();
-  const isService = employee.isService === true || role === "service";
   return {
-    uid,
-    email: cleanEmail(employee.email || employee.workEmail || employee.personalEmail || employee.emailAddress),
-    name: employee.name || employee.fullName || employee.employeeName || "",
-    role: "user",
-    isEnabled: employee.isEnabled !== false && employee.disabled !== true && employee.archived !== true,
-    appAccess: { user: !isService, service: isService },
-    defaultWorkspace: isService ? "service" : "user",
-    companyId: employee.companyId || "bickers-action",
-    employeeId,
+    ...buildUserAccessPatch({ uid, employeeId, employee, user: { role: "user" } }),
     createdAt: new Date().toISOString(),
     accessCreatedFrom: "employee-link",
   };

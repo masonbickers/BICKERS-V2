@@ -6,9 +6,19 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 import { Check, StickyNote, X } from "lucide-react";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -21,9 +31,17 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load note employees" });
+      setEmployees([]);
+      return;
+    }
+
     const fetchEmployees = async () => {
       try {
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const list = snap.docs
           .map((d) => ({ id: d.id, name: d.data()?.name }))
           .filter((x) => x.name);
@@ -33,7 +51,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
       }
     };
     fetchEmployees();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const getDateRange = (start, end) => {
     const arr = [];
@@ -91,7 +109,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
         const range = getDateRange(startDate, endDate);
 
         for (const date of range) {
-          await addDoc(collection(db, "notes"), {
+          await addDoc(collection(db, "notes"), tenantPayload(dataAccessState, {
             employee: employee || "",
             blocksEmployeeBooking,
             date,
@@ -100,7 +118,7 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
             endDate,
             isMultiDay: true,
             createdAt: new Date(),
-          });
+          }));
         }
       } else {
         if (!noteDate) {
@@ -109,14 +127,14 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
           return;
         }
 
-        await addDoc(collection(db, "notes"), {
+        await addDoc(collection(db, "notes"), tenantPayload(dataAccessState, {
           employee: employee || "",
           blocksEmployeeBooking,
           date: noteDate,
           text: noteText.trim(),
           isMultiDay: false,
           createdAt: new Date(),
-        });
+        }));
       }
 
       if (typeof onSaved === "function") onSaved();

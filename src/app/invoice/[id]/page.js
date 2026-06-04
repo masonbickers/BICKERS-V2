@@ -4,10 +4,18 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   doc, getDoc, updateDoc, setDoc,
-  collection, getDocs, query, where
+  collection, getDocs, where
 } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -187,6 +195,8 @@ function collectTimesheetDocs(ts) {
 export default function InvoiceJobPage() {
   const { id } = useParams();
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -211,6 +221,10 @@ export default function InvoiceJobPage() {
 
   // Load timesheets (multi-strategy)
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "timesheets", operation: "Load invoice timesheets" })) return;
+
     const fetchTimesheets = async () => {
       if (!id) return;
       setTsLoading(true);
@@ -219,14 +233,14 @@ export default function InvoiceJobPage() {
 
       // 1) top-level timesheets by bookingId
       try {
-        const q1 = query(collection(db, "timesheets"), where("bookingId", "==", id));
+        const q1 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("bookingId", "==", id)]);
         const s1 = await getDocs(q1);
         s1.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
       } catch {}
 
       // 2) by jobId
       try {
-        const q2 = query(collection(db, "timesheets"), where("jobId", "==", id));
+        const q2 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("jobId", "==", id)]);
         const s2 = await getDocs(q2);
         s2.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
       } catch {}
@@ -234,7 +248,7 @@ export default function InvoiceJobPage() {
       // 3) by jobNumber (requires job loaded)
       try {
         if (job?.jobNumber) {
-          const q3 = query(collection(db, "timesheets"), where("jobNumber", "==", job.jobNumber));
+          const q3 = tenantCollectionQuery(db, "timesheets", dataAccessState, [where("jobNumber", "==", job.jobNumber)]);
           const s3 = await getDocs(q3);
           s3.forEach((d) => results.push({ id: d.id, ...(d.data() || {}) }));
         }
@@ -265,7 +279,7 @@ export default function InvoiceJobPage() {
 
     fetchTimesheets();
     // re-run when jobNumber resolves
-  }, [id, job?.jobNumber]);
+  }, [accessKey, dataAccessState, id, job?.jobNumber]);
 
   // Render helpers
   const renderDates = useMemo(() => {
@@ -321,10 +335,10 @@ export default function InvoiceJobPage() {
       setSaving(true);
 
       const bookingRef = doc(db, "bookings", id);
-      await updateDoc(bookingRef, {
+      await updateDoc(bookingRef, tenantPayload(dataAccessState, {
         status: "invoiced",
         invoicedAt: new Date().toISOString(),
-      });
+      }));
 
       const now = new Date();
       const dueISO = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -332,7 +346,7 @@ export default function InvoiceJobPage() {
 
       await setDoc(
         invoiceRef,
-        {
+        tenantPayload(dataAccessState, {
           bookingId: id,
           jobNumber: job?.jobNumber || id,
           client: job?.client || "",
@@ -343,7 +357,7 @@ export default function InvoiceJobPage() {
           invoiceDate: now.toISOString(),
           dueDate: dueISO,
           updatedAt: now.toISOString(),
-        },
+        }),
         { merge: true }
       );
 

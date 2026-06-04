@@ -1587,6 +1587,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         contact?.department,
         contact?.email,
         contact?.phone,
+        contact?.number,
       ]
         .map((value) => String(value || "").trim().toLowerCase())
         .join(" ");
@@ -1659,7 +1660,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     if (savedContactsLoaded || savedContactsLoading) return;
     setSavedContactsLoading(true);
     try {
-      const contacts = await loadSavedContacts(db, { accessState: dataAccessState });
+      const contacts = await loadSavedContacts(db, { accessState: dataAccessState, force: true });
       setSavedContacts(contacts || []);
       setSavedContactsLoaded(true);
     } catch (err) {

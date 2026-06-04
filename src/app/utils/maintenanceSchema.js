@@ -30,6 +30,12 @@ const OUT_OF_USE_STATUS_VALUES = new Set([
   "off_road",
 ]);
 
+export const isMotNotApplicable = (asset = {}) =>
+  asset?.motNotApplicable === true ||
+  asset?.motApplicable === false ||
+  String(asset?.motStatus || "").trim().toLowerCase() === "n/a" ||
+  String(asset?.motStatus || "").trim().toLowerCase() === "not applicable";
+
 export const isVehicleOutOfUse = (asset = {}) => {
   const candidates = [
     asset.operationalStatus,
@@ -90,6 +96,7 @@ export const buildAssetLabel = (asset) => {
 };
 
 export const getCanonicalDueDate = (asset, type) => {
+  if (type === "mot" && isMotNotApplicable(asset)) return null;
   const fields = DUE_FIELD_CANDIDATES[type] || [];
   for (const key of fields) {
     const value = toDateSafe(asset?.[key]);

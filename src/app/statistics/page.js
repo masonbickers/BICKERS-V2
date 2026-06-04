@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { collection, onSnapshot, getDocs } from "firebase/firestore";
+import { onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { buildBookingAnalytics, normaliseBookingForAnalytics } from "@/app/utils/bookingAnalytics";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -1068,6 +1076,8 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
 }
 
 export default function StatisticsPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [deletedBookings, setDeletedBookings] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -1094,39 +1104,71 @@ export default function StatisticsPage() {
 
   // Live bookings
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "listen statistics bookings" });
+      setBookings([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setBookings(list);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "bookings", operation: "listen statistics bookings" });
+      setBookings([]);
+      setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   // Live deletedBookings (optional but useful for analytics)
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "deletedBookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "deletedBookings", operation: "listen statistics deleted bookings" });
+      setDeletedBookings([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "deletedBookings", dataAccessState), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setDeletedBookings(list);
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "deletedBookings", operation: "listen statistics deleted bookings" });
+      setDeletedBookings([]);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   // Load vehicles once (for ID->name/reg resolution)
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read statistics vehicles" });
+      setVehicles([]);
+      return undefined;
+    }
     let mounted = true;
     (async () => {
       try {
-        const snap = await getDocs(collection(db, "vehicles"));
+        const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
         if (!mounted) return;
         setVehicles(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
-      } catch {
-        // ignore
+      } catch (error) {
+        handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "read statistics vehicles" });
+        if (mounted) setVehicles([]);
       }
     })();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const todayMidnight = useMemo(() => {
     const d = new Date();

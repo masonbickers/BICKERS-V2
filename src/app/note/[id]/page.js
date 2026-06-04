@@ -1,16 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { auth, db } from "../../../../firebaseConfig";
 import { signOut } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, updateDoc, deleteDoc} from "firebase/firestore";
+import { doc, getDoc, getDocs, updateDoc, deleteDoc} from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 export default function EditNoteForm() {
   const router = useRouter();
   const params = useParams();
   const noteId = params?.id;
   const today = new Date().toISOString().split("T")[0];
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [employee, setEmployee] = useState("");
   const [noteDate, setNoteDate] = useState("");
@@ -21,6 +31,14 @@ export default function EditNoteForm() {
   
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load note employees" });
+      setEmployees([]);
+      return;
+    }
+
     const fetchNote = async () => {
       try {
         const docRef = doc(db, "notes", noteId);
@@ -39,7 +57,7 @@ export default function EditNoteForm() {
 
     const fetchEmployees = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "employees"));
+        const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const data = snapshot.docs.map(doc => ({
           id: doc.id,
           name: doc.data().name,
@@ -54,7 +72,7 @@ export default function EditNoteForm() {
       fetchNote();
       fetchEmployees();
     }
-  }, [noteId]);
+  }, [accessKey, dataAccessState, noteId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,13 +82,13 @@ export default function EditNoteForm() {
     }
 
     try {
-      await updateDoc(doc(db, "notes", noteId), {
+      await updateDoc(doc(db, "notes", noteId), tenantPayload(dataAccessState, {
         employee,
         blocksEmployeeBooking,
         date: noteDate,
         text: noteText,
         updatedAt: new Date(),
-      });
+      }));
       alert("Note updated successfully!");
       router.push("/dashboard");
     } catch (err) {

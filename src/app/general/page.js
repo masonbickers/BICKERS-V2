@@ -4,13 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
-  collection,
   getDocs,
   updateDoc,
   doc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────── Visual tokens ──────────────── */
 const UI = {
@@ -134,6 +141,8 @@ function extractApprovedGeneral(checkDocs) {
 /* ───────────────── Page ──────────────── */
 export default function GeneralDefectsPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
@@ -142,16 +151,25 @@ export default function GeneralDefectsPage() {
   const [notesModal, setNotesModal] = useState(null); // {row, newStatus, note}
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicleChecks", operation: "load general defects" });
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
-      const snap = await getDocs(collection(db, "vehicleChecks"));
+      const snap = await getDocs(tenantCollectionQuery(db, "vehicleChecks", dataAccessState));
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const list = extractApprovedGeneral(docs);
       setRows(list);
       setLoading(false);
     };
     load();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const filtered = useMemo(() => {
     let data = rows;
@@ -193,7 +211,7 @@ export default function GeneralDefectsPage() {
         "Supervisor";
 
       const path = `items.${row.defectIndex}.maintenance`;
-      await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+      await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
         [path]: {
           status: newStatus, // 'scheduled' | 'resolved'
           note: (note || "").trim(),
@@ -201,7 +219,7 @@ export default function GeneralDefectsPage() {
           updatedBy: who,
         },
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       // update local
       setRows((prev) =>
@@ -238,10 +256,10 @@ export default function GeneralDefectsPage() {
     setSavingId(key);
     try {
       const path = `items.${row.defectIndex}.review.category`;
-      await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+      await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
         [path]: "immediate",
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       // remove from local list (no longer general)
       setRows((prev) =>

@@ -3,9 +3,16 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { collection, doc, getDocs, onSnapshot } from "firebase/firestore";
+import { doc, getDocs, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
@@ -614,6 +621,8 @@ const drawerBody = { padding: 12, overflow: "auto" };
 /* Page */
 export default function HolidayUsagePage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const DEFAULT_ALLOWANCE = 11;
 
@@ -769,13 +778,26 @@ export default function HolidayUsagePage() {
   //  Load data whenever yearView changes (and after save)
   useEffect(() => {
     const run = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "holidays", operation: "load holiday usage data" });
+        setEmpAllowance({});
+        setEmpCarryOver({});
+        setPaidDaysByName({});
+        setUnpaidDaysByName({});
+        setByEmployee({});
+        setCalendarEvents([]);
+        return;
+      }
+
       const yearKey = String(yearView);
 
       // Employees (allowances + carry for the selected year)
       const allowMap = {};
       const carryMap = {};
       try {
-        const empSnap = await getDocs(collection(db, "employees"));
+        const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         empSnap.docs.forEach((d) => {
           const x = d.data() || {};
           const name =
@@ -800,7 +822,7 @@ export default function HolidayUsagePage() {
       const colourByEmp = {};
       const preAprilEnd = new Date(yearView, 2, 31);
 
-      const holSnap = await getDocs(collection(db, "holidays"));
+      const holSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
       holSnap.docs.forEach((docSnap) => {
         const rec = docSnap.data() || {};
         const employee = rec.employee;
@@ -920,7 +942,7 @@ export default function HolidayUsagePage() {
 
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearView, reloadKey, isBankHoliday]);
+  }, [accessKey, dataAccessState, yearView, reloadKey, isBankHoliday]);
 
   const eventStyleGetter = useCallback((event) => {
     //  Bank holiday style

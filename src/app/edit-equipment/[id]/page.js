@@ -15,6 +15,15 @@ import {
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 14,
@@ -154,6 +163,8 @@ const NEW_CATEGORY_OPTION = "__new_category__";
 export default function EditEquipmentPage() {
   const router = useRouter();
   const { id } = useParams();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -166,18 +177,27 @@ export default function EditEquipmentPage() {
   const [initialSnapshot, setInitialSnapshot] = useState("");
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "equipment", operation: "load equipment categories" });
+      setExistingCategories([]);
+      return;
+    }
     const loadCats = async () => {
       try {
-        const snap = await getDocs(collection(db, "equipment"));
+        const snap = await getDocs(tenantCollectionQuery(db, "equipment", dataAccessState));
         const cats = snap.docs.map((d) => d.data()?.category).filter(Boolean);
         const unique = Array.from(new Set(cats)).sort((a, b) => String(a).localeCompare(String(b)));
         setExistingCategories(unique);
       } catch (e) {
-        console.error("Load equipment categories failed:", e);
+        if (!handleFirestoreAccessError(e, { collectionName: "equipment", operation: "load equipment categories" })) {
+          console.error("Load equipment categories failed:", e);
+        }
       }
     };
     loadCats();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     const fetchEquipment = async () => {
@@ -273,7 +293,7 @@ export default function EditEquipmentPage() {
         updatedAt: serverTimestamp(),
       };
 
-      await updateDoc(refDoc, payload);
+      await updateDoc(refDoc, tenantPayload(dataAccessState, payload));
       alert("Equipment updated.");
       setInitialSnapshot(JSON.stringify({ ...equipment, ...payload }));
       if (navigateOnSuccess) {

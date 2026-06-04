@@ -9,12 +9,21 @@ import {
   doc,
   getDoc,
   getDocs,
-  query,
   updateDoc,
   where,
 } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 export default function EditNoteModal({ id, onClose }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [employee, setEmployee] = useState("");
   const [noteText, setNoteText] = useState("");
   const [blocksEmployeeBooking, setBlocksEmployeeBooking] = useState(false);
@@ -29,11 +38,18 @@ export default function EditNoteModal({ id, onClose }) {
 
   useEffect(() => {
     if (!id) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "notes", operation: "load edit note" });
+      onClose?.();
+      return;
+    }
 
     const load = async () => {
       const [noteSnap, employeeSnap] = await Promise.all([
         getDoc(doc(db, "notes", id)),
-        getDocs(collection(db, "employees")),
+        getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
       ]);
 
       if (noteSnap.exists()) {
@@ -68,7 +84,7 @@ export default function EditNoteModal({ id, onClose }) {
       alert("Failed to load note.");
       onClose?.();
     });
-  }, [id, onClose]);
+  }, [accessKey, dataAccessState, id, onClose]);
 
   const getDateRange = (start, end) => {
     const out = [];
@@ -90,7 +106,9 @@ export default function EditNoteModal({ id, onClose }) {
     let noteDocs = [];
 
     for (const date of range) {
-      const snap = await getDocs(query(collection(db, "notes"), where("date", "==", date)));
+      const snap = await getDocs(
+        tenantCollectionQuery(db, "notes", dataAccessState, [where("date", "==", date)])
+      );
       noteDocs = noteDocs.concat(snap.docs);
     }
 
@@ -135,7 +153,7 @@ export default function EditNoteModal({ id, onClose }) {
         const existingDates = new Set(existing.map((noteDoc) => noteDoc.data()?.date).filter(Boolean));
 
         for (const noteDoc of existing) {
-          await updateDoc(doc(db, "notes", noteDoc.id), {
+          await updateDoc(doc(db, "notes", noteDoc.id), tenantPayload(dataAccessState, {
             employee: employee || "",
             blocksEmployeeBooking,
             date: noteDoc.data()?.date || "",
@@ -144,12 +162,12 @@ export default function EditNoteModal({ id, onClose }) {
             endDate,
             isMultiDay: true,
             updatedAt: new Date(),
-          });
+          }));
         }
 
         for (const date of range) {
           if (existingDates.has(date)) continue;
-          await addDoc(collection(db, "notes"), {
+          await addDoc(collection(db, "notes"), tenantPayload(dataAccessState, {
             employee: employee || "",
             blocksEmployeeBooking,
             date,
@@ -158,7 +176,7 @@ export default function EditNoteModal({ id, onClose }) {
             endDate,
             isMultiDay: true,
             createdAt: new Date(),
-          });
+          }));
         }
       } else {
         if (!noteDate) {
@@ -167,7 +185,7 @@ export default function EditNoteModal({ id, onClose }) {
           return;
         }
 
-        await updateDoc(doc(db, "notes", id), {
+        await updateDoc(doc(db, "notes", id), tenantPayload(dataAccessState, {
           employee: employee || "",
           blocksEmployeeBooking,
           date: noteDate,
@@ -176,7 +194,7 @@ export default function EditNoteModal({ id, onClose }) {
           startDate: "",
           endDate: "",
           updatedAt: new Date(),
-        });
+        }));
       }
 
       onClose?.();

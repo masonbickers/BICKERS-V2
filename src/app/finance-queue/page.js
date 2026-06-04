@@ -2,9 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    Mini design system (matching your page)
@@ -211,6 +218,8 @@ function formatWeekRange(monday) {
    Page
 ─────────────────────────────────────────── */
 export default function ReadyToInvoiceTablePage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -220,13 +229,22 @@ export default function ReadyToInvoiceTablePage() {
 
   // Live data
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load finance queue bookings" });
+      setBookings([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       const list = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() || {}) }));
       setBookings(list);
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   // 4-digit
   const jobs = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);

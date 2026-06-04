@@ -354,7 +354,7 @@ export default function JobHomePage() {
   const searchRef = useRef(null);
 
   useEffect(() => {
-    if (!authState?.accessReady) return undefined;
+    if (!authState?.user) return undefined;
     const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", authState), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setBookings(list);

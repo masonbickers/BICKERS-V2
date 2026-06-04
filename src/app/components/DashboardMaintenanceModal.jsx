@@ -17,6 +17,7 @@ import {
   normalizeMaintenanceStage,
   validateMaintenanceStageRequirements,
 } from "@/app/utils/maintenanceWorkflowSpec";
+import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
 
 const EMPTY_VALUE = "-";
 
@@ -83,6 +84,7 @@ const prettyField = (field) =>
 
 export default function DashboardMaintenanceModal({ event, onClose }) {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
   const [vehicle, setVehicle] = useState(null);
   const [booking, setBooking] = useState(null);
   const [job, setJob] = useState(null);
@@ -324,6 +326,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         booking: booking || event,
         vehicleId,
         vehicle,
+        authState: dataAccessState,
       });
       if (completedBooking.vehiclePatch) {
         setVehicle((prev) => (prev ? { ...prev, ...completedBooking.vehiclePatch } : prev));
@@ -388,7 +391,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         return;
       }
 
-      await updateDoc(doc(db, "maintenanceJobs", bookingId), patch);
+      await updateDoc(doc(db, "maintenanceJobs", bookingId), tenantPayload(dataAccessState, patch));
       setJob((prev) => ({ ...(prev || {}), ...patch }));
       setJobEditorMessage(`Job updated. Stage: ${MAINTENANCE_STAGE_LABELS[normalizedStatus] || normalizedStatus}.`);
     } catch (error) {
@@ -439,7 +442,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         return;
       }
 
-      await updateDoc(doc(db, "maintenanceJobs", bookingId), patch);
+      await updateDoc(doc(db, "maintenanceJobs", bookingId), tenantPayload(dataAccessState, patch));
       setJob((prev) => ({ ...(prev || {}), ...patch }));
       setJobStatus("completed");
       setJobEditorMessage("Job marked as completed.");

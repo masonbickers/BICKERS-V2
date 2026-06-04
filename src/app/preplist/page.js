@@ -240,7 +240,7 @@ export default function PrepListPage() {
   const todayYmd = useMemo(() => ymd(today), [today]);
 
   useEffect(() => {
-    if (!authState?.accessReady) return undefined;
+    if (!authState?.user) return undefined;
     let active = true;
 
     (async () => {

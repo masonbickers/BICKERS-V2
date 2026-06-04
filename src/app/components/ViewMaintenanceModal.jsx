@@ -2,8 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
-import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
+import { doc, getDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ---------- helpers ---------- */
 const toJsDate = (value) => {
@@ -101,6 +108,8 @@ export default function ViewMaintenanceModal({
   collectionName = "maintenanceBookings", //  default, but dashboard can override
   onClose,
 }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allVehicles, setAllVehicles] = useState([]);
@@ -141,14 +150,22 @@ export default function ViewMaintenanceModal({
 
   // load vehicles
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load maintenance modal vehicles" });
+      setAllVehicles([]);
+      return undefined;
+    }
+
     let mounted = true;
     (async () => {
-      const snapshot = await getDocs(collection(db, "vehicles"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       if (!mounted) return;
       setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     })();
     return () => (mounted = false);
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   // normalise vehicles
   const normalizedVehicles = useMemo(() => {

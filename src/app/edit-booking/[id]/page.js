@@ -743,6 +743,61 @@ const buildEditBookingPrefillState = (bookingData) => {
     bookingData?.id && Object.keys(booking).some((key) => key !== "id")
   );
 
+const vehicleInfoFromRaw = (raw) => {
+  if (!raw) return null;
+  if (typeof raw === "object") {
+    const id = String(raw.id || raw.vehicleId || raw.registration || raw.name || "").trim();
+    if (!id) return null;
+    return {
+      id,
+      name: String(raw.name || raw.vehicleName || raw.registration || id).trim(),
+      registration: String(raw.registration || raw.reg || "").trim(),
+      group: String(raw.group || raw.category || "Selected").trim() || "Selected",
+      ...raw,
+    };
+  }
+  const id = String(raw || "").trim();
+  return id ? { id, name: id, registration: "", group: "Selected" } : null;
+};
+
+const mergeSelectedVehiclesIntoGroups = (groups = {}, rawVehicles = []) => {
+  const next = { ...(groups || {}) };
+  const existingIds = new Set(
+    Object.values(next)
+      .flat()
+      .map((vehicle) => String(vehicle?.id || "").trim())
+      .filter(Boolean)
+  );
+
+  rawVehicles.map(vehicleInfoFromRaw).filter(Boolean).forEach((vehicle) => {
+    if (existingIds.has(vehicle.id)) return;
+    const group = vehicle.group || "Selected";
+    next[group] = [...(next[group] || []), vehicle];
+    existingIds.add(vehicle.id);
+  });
+
+  return next;
+};
+
+const mergeSelectedEquipmentIntoGroups = (groups = {}, selectedEquipment = []) => {
+  const next = { ...(groups || {}) };
+  const existingNames = new Set(
+    Object.values(next)
+      .flat()
+      .map((name) => String(name || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  selectedEquipment.forEach((rawName) => {
+    const name = String(rawName || "").trim();
+    if (!name || existingNames.has(name.toLowerCase())) return;
+    next.Selected = [...(next.Selected || []), name];
+    existingNames.add(name.toLowerCase());
+  });
+
+  return next;
+};
+
   return {
     hasBooking: hasUsefulBooking,
     jobNumber: booking.jobNumber || "",
@@ -1250,6 +1305,7 @@ export default function EditBookingPage() {
         contact?.department,
         contact?.email,
         contact?.phone,
+        contact?.number,
       ]
         .map((value) => String(value || "").trim().toLowerCase())
         .join(" ");
@@ -1516,6 +1572,7 @@ export default function EditBookingPage() {
         : [];
       const vehicleIds = fallbackVehicleKeys(rawVehicles);
       setVehicles(vehicleIds);
+      setVehicleGroups((prev) => mergeSelectedVehiclesIntoGroups(prev, rawVehicles));
 
       const vs =
         bookingData.vehicleStatus && typeof bookingData.vehicleStatus === "object"
@@ -1537,6 +1594,7 @@ export default function EditBookingPage() {
         .map((s) => String(s || "").trim())
         .filter(Boolean);
       setEquipment(Array.from(new Set(equipNames)));
+      setEquipmentGroups((prev) => mergeSelectedEquipmentIntoGroups(prev, equipNames));
 
       // contacts
       const rawContacts = Array.isArray(bookingData.additionalContacts)
@@ -1632,9 +1690,9 @@ export default function EditBookingPage() {
         setEmployeeList(referenceData.employeeList || []);
         setFreelancerList(referenceData.freelancerList || []);
         setNameToCode(referenceData.nameToCode || {});
-        setVehicleGroups(referenceData.vehicleGroups || {});
+        setVehicleGroups(mergeSelectedVehiclesIntoGroups(referenceData.vehicleGroups || {}, rawVehicles));
         setVehicleLookup(referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} });
-        setEquipmentGroups(referenceData.equipmentGroups || {});
+        setEquipmentGroups(mergeSelectedEquipmentIntoGroups(referenceData.equipmentGroups || {}, equipNames));
         setOpenEquipGroups(referenceData.openEquipGroups || {});
 
         const nextVehicleLookup = referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} };
@@ -1659,10 +1717,20 @@ export default function EditBookingPage() {
     };
 
     loadAll().catch((err) => {
+      if (prefill.hasBooking) {
+        console.warn("Edit booking re-read failed; using dashboard cached booking:", {
+          code: err?.code || "",
+          message: err?.message || String(err || ""),
+          bookingId,
+        });
+        setLoading(false);
+        setSupportingDataLoading(false);
+        return;
+      }
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "load edit booking" })) {
         console.error("Failed loading edit page:", err);
       }
-      alert("Failed to load booking.");
+      alert(`Failed to load booking${err?.code ? ` (${err.code})` : ""}.`);
       router.push("/dashboard");
     });
   }, [accessKey, bookingId, dataAccessState, prefill.hasBooking, router]);
@@ -2114,7 +2182,7 @@ export default function EditBookingPage() {
     if (savedContactsLoaded || savedContactsLoading) return;
     setSavedContactsLoading(true);
     try {
-      const contacts = await loadSavedContacts(db, { accessState: dataAccessState });
+      const contacts = await loadSavedContacts(db, { accessState: dataAccessState, force: true });
       setSavedContacts(contacts || []);
       setSavedContactsLoaded(true);
     } catch (err) {

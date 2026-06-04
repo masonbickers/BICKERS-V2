@@ -170,7 +170,7 @@ const summaryGrid = {
 
 const opsGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 10,
 };
 
@@ -1598,6 +1598,27 @@ export default function VehiclesHomePage() {
   const vehicleSections = useMemo(
     () => [
       {
+        title: "Vehicle List",
+        description: "View, edit or delete vehicles currently in the system.",
+        link: "/vehicles",
+        icon: Car,
+        rightBadges: [],
+      },
+      {
+        title: "Equipment List",
+        description: "View, edit or delete equipment currently in the system.",
+        link: "/equipment",
+        icon: ClipboardCheck,
+        rightBadges: [],
+      },
+      {
+        title: "Add Vehicle / Equipment",
+        description: "Add new vehicles and equipment in the system.",
+        link: "/add-vehicle",
+        icon: Plus,
+        rightBadges: [],
+      },
+      {
         title: "General Maintenance",
         description: "Approved, non-urgent defects to plan and schedule.",
         link: GENERAL_DEFECTS_PATH,
@@ -1659,27 +1680,6 @@ export default function VehiclesHomePage() {
         description: "Monitor vehicle usage across bookings and trips.",
         link: "/usage-overview",
         icon: Activity,
-        rightBadges: [],
-      },
-      {
-        title: "Vehicle List",
-        description: "View, edit or delete vehicles currently in the system.",
-        link: "/vehicles",
-        icon: Car,
-        rightBadges: [],
-      },
-      {
-        title: "Equipment List",
-        description: "View, edit or delete equipment currently in the system.",
-        link: "/equipment",
-        icon: ClipboardCheck,
-        rightBadges: [],
-      },
-      {
-        title: "Add Vehicle / Equipment",
-        description: "Add new vehicles and equipment in the system.",
-        link: "/add-vehicle",
-        icon: Plus,
         rightBadges: [],
       },
     ],
@@ -1838,7 +1838,6 @@ export default function VehiclesHomePage() {
             </div>
 
             <div className="vehicle-home-ops-grid" style={opsGrid}>
-              <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
               {vehicleSections.map((section, idx) => (
                 <Tile
                   key={idx}
@@ -1849,6 +1848,7 @@ export default function VehiclesHomePage() {
                   onClick={() => router.push(section.link)}
                 />
               ))}
+              <VehicleCheckTile onClick={() => router.push(VEHICLE_CHECK_PATH)} />
             </div>
           </div>
 

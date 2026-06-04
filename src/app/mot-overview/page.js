@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
-import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -17,6 +17,13 @@ import {
   RotateCcw,
   Search,
 } from "lucide-react";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* UI tokens */
 const UI = {
@@ -182,6 +189,8 @@ function statusPill(status) {
 
 export default function MOTOverviewPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingVehicle, setBookingVehicle] = useState(null);
@@ -193,14 +202,23 @@ export default function MOTOverviewPage() {
 
   useEffect(() => {
     const fetchVehicles = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load MOT overview vehicles" });
+        setVehicles([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const snapshot = await getDocs(collection(db, "vehicles"));
+        const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
         const today = new Date();
 
         const data = snapshot.docs.map((d) => {
           const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
-          if (isVehicleOutOfUse(vehicle)) return null;
+          if (isVehicleOutOfUse(vehicle) || isMotNotApplicable(vehicle)) return null;
 
           const next = parseDateAny(vehicle.nextMOT);
           const diffDays = next ? daysDiff(next, today) : null;
@@ -228,16 +246,22 @@ export default function MOTOverviewPage() {
     };
 
     fetchVehicles();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const refreshVehicles = async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "refresh MOT overview vehicles" });
+      return;
+    }
+
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "vehicles"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       const today = new Date();
       const data = snapshot.docs.map((d) => {
         const vehicle = normalizeVehicleRecord({ id: d.id, ...d.data() });
-        if (isVehicleOutOfUse(vehicle)) return null;
+        if (isVehicleOutOfUse(vehicle) || isMotNotApplicable(vehicle)) return null;
 
         const next = parseDateAny(vehicle.nextMOT);
         const diffDays = next ? daysDiff(next, today) : null;

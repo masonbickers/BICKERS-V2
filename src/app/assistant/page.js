@@ -1,9 +1,16 @@
 "use client";
 
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { auth, db } from "../../../firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   bg: "#edf3f8",
@@ -115,6 +122,8 @@ function buildScopedContext(fullContext, prompt) {
 }
 
 export default function AssistantPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
@@ -131,6 +140,13 @@ export default function AssistantPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load assistant context" });
+      setDataContext(null);
+      return undefined;
+    }
 
     const loadContext = async () => {
       const collectionsToRead = [
@@ -149,7 +165,7 @@ export default function AssistantPage() {
       const results = await Promise.all(
         collectionsToRead.map(async (name) => {
           try {
-            const snap = await getDocs(collection(db, name));
+            const snap = await getDocs(tenantCollectionQuery(db, name, dataAccessState));
             return {
               name,
               rows: snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
@@ -206,7 +222,7 @@ export default function AssistantPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     const el = listRef.current;

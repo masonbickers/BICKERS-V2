@@ -12,6 +12,14 @@ import {
   addDoc,
   deleteDoc,
 } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ───────────────────────────────────────────
    UI tokens
@@ -218,6 +226,8 @@ const getDisplayName = (row) =>
   "Unknown";
 
 export default function UCrewManagePage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   // employees collection
   const [employees, setEmployees] = useState([]);
   // freelancers collection
@@ -242,7 +252,16 @@ export default function UCrewManagePage() {
   });
 
   useEffect(() => {
-    const unsubEmp = onSnapshot(collection(db, "employees"), (snap) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "uCraneFreelancers", operation: "load U-Crane crew" });
+      setEmployees([]);
+      setFreelancers([]);
+      return undefined;
+    }
+
+    const unsubEmp = onSnapshot(tenantCollectionQuery(db, "employees", dataAccessState), (snap) => {
       const rows = snap.docs.map((d) => ({
         id: d.id,
         __collection: "employees",
@@ -253,7 +272,7 @@ export default function UCrewManagePage() {
     });
 
     //  freelancers live collection
-    const unsubFree = onSnapshot(collection(db, "uCraneFreelancers"), (snap) => {
+    const unsubFree = onSnapshot(tenantCollectionQuery(db, "uCraneFreelancers", dataAccessState), (snap) => {
       const rows = snap.docs.map((d) => ({
         id: d.id,
         __collection: "uCraneFreelancers",
@@ -267,7 +286,7 @@ export default function UCrewManagePage() {
       unsubEmp();
       unsubFree();
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   // combined list
   const combined = useMemo(() => {
@@ -319,10 +338,10 @@ export default function UCrewManagePage() {
     const key = `${row.__collection}:${row.id}`;
     try {
       setSavingKey(key);
-      await updateDoc(doc(db, row.__collection, row.id), {
+      await updateDoc(doc(db, row.__collection, row.id), tenantPayload(dataAccessState, {
         ...patch,
         uCraneUpdatedAt: new Date().toISOString(),
-      });
+      }));
       pulseSaved();
     } catch (e) {
       console.error("Failed to update:", e);
@@ -330,7 +349,7 @@ export default function UCrewManagePage() {
     } finally {
       setSavingKey(null);
     }
-  }, []);
+  }, [dataAccessState]);
 
   const toggleVisible = useCallback(
     (row) => updateRow(row, { uCraneVisible: !row.uCraneVisible }),
@@ -367,7 +386,7 @@ export default function UCrewManagePage() {
 
     try {
       setSavingKey("addFreelancer");
-      await addDoc(collection(db, "uCraneFreelancers"), {
+      await addDoc(collection(db, "uCraneFreelancers"), tenantPayload(dataAccessState, {
         name: newF.name.trim(),
         email: newF.email.trim(),
         phone: newF.phone.trim(),
@@ -377,7 +396,7 @@ export default function UCrewManagePage() {
         type: "Freelancer",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      }));
 
       pulseSaved();
       setAddOpen(false);
@@ -395,7 +414,7 @@ export default function UCrewManagePage() {
     } finally {
       setSavingKey(null);
     }
-  }, [newF]);
+  }, [dataAccessState, newF]);
 
   const deleteFreelancer = useCallback(async (row) => {
     if (row.__collection !== "uCraneFreelancers") return;

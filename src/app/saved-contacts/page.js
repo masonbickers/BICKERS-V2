@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  collection,
   deleteDoc,
   doc,
   onSnapshot,
@@ -12,6 +11,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 14,
@@ -49,6 +56,8 @@ const emptyDraft = {
 const norm = (value = "") => String(value || "").trim().toLowerCase();
 
 export default function SavedContactsPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState("");
@@ -56,11 +65,19 @@ export default function SavedContactsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "contacts"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "contacts", operation: "load saved contacts" });
+      setContacts([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "contacts", dataAccessState), (snapshot) => {
       setContacts(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) })));
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const filteredContacts = useMemo(() => {
     const q = norm(search);
@@ -105,14 +122,14 @@ export default function SavedContactsPage() {
     if (!draft.id || saving) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "contacts", draft.id), {
+      await updateDoc(doc(db, "contacts", draft.id), tenantPayload(dataAccessState, {
         name: draft.name.trim(),
         email: draft.email.trim(),
         phone: draft.phone.trim(),
         number: draft.phone.trim(),
         department: draft.department.trim(),
         updatedAt: serverTimestamp(),
-      });
+      }));
       cancelEdit();
     } finally {
       setSaving(false);

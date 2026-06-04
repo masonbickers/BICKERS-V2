@@ -1,4 +1,5 @@
 import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
+import { isAdminEmail, isPlatformAdminEmail } from "@/app/utils/adminAccess";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -231,7 +232,12 @@ export async function requireAdminFromRequest(req) {
 
   const userData = await adminReadDocument("users", verifiedUser.uid);
   const role = String(userData?.role || "").trim();
-  const normalizedRole = normalizeServerRole(role);
+  const emailAdminRole = isPlatformAdminEmail(verifiedUser.email)
+    ? "platformAdmin"
+    : isAdminEmail(verifiedUser.email)
+      ? "admin"
+      : "";
+  const normalizedRole = emailAdminRole || normalizeServerRole(role);
 
   if (userData?.isEnabled === false) {
     await writeBlockedAccessLog(req, verifiedUser, "Account disabled");
@@ -243,7 +249,7 @@ export async function requireAdminFromRequest(req) {
     return { error: jsonError("Platform admin access required.", 403) };
   }
 
-  return { idToken, verifiedUser, userData: { ...(userData || {}), role: role || userData?.role || "" } };
+  return { idToken, verifiedUser, userData: { ...(userData || {}), role: normalizedRole || role || userData?.role || "" } };
 }
 
 export async function requirePlatformAdminFromRequest(req) {

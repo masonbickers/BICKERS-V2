@@ -11,5 +11,5 @@ export function companyStoragePath(authState, legacyPath) {
     .replace(/^\/+/, "");
   if (!cleanPath) throw createDataAccessError("Storage path is required.");
 
-  return `companies/${gate.companyId}/${cleanPath}`;
+  return cleanPath;
 }

@@ -7,12 +7,19 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
-  collection,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ---------- helpers ---------- */
 const toDateSafe = (v) => {
@@ -182,6 +189,8 @@ export default function ViewUCraneBookingModal({
   initialBooking = null,
   initialVehicles = [],
 }) {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [booking, setBooking] = useState(() => initialBooking);
   const [allVehicles, setAllVehicles] = useState(() =>
     Array.isArray(initialVehicles) ? initialVehicles : []
@@ -278,15 +287,22 @@ export default function ViewUCraneBookingModal({
       setAllVehicles(initialVehicles);
       return undefined;
     }
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load U-Crane booking vehicles" });
+      setAllVehicles([]);
+      return undefined;
+    }
 
     let mounted = true;
     (async () => {
-      const snapshot = await getDocs(collection(db, "vehicles"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       if (!mounted) return;
       setAllVehicles(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     })();
     return () => (mounted = false);
-  }, [initialVehicles]);
+  }, [accessKey, dataAccessState, initialVehicles]);
 
   // normalize vehicles stored as strings/ids/objects
   const normalizedVehicles = useMemo(() => {
@@ -357,13 +373,13 @@ export default function ViewUCraneBookingModal({
 
       const data = snap.data();
 
-      await setDoc(doc(db, "deletedBookings", String(id)), {
+      await setDoc(doc(db, "deletedBookings", String(id)), tenantPayload(dataAccessState, {
         originalCollection: "bookings",
         originalId: String(id),
         deletedAt: serverTimestamp(),
         deletedBy: auth?.currentUser?.email || "",
         data,
-      });
+      }));
 
       await deleteDoc(bookingRef);
 
@@ -389,11 +405,11 @@ export default function ViewUCraneBookingModal({
 
       await setDoc(
         doc(db, "bookings", String(originalId)),
-        {
+        tenantPayload(dataAccessState, {
           ...clean,
           restoredAt: serverTimestamp(),
           restoredBy: auth?.currentUser?.email || "",
-        },
+        }),
         { merge: true }
       );
 

@@ -6,9 +6,19 @@ import { auth, db } from "../../../firebaseConfig";
 import { signOut } from "firebase/auth";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 import { Check, StickyNote } from "lucide-react";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 export default function NoteForm() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const today = new Date().toISOString().split("T")[0];
 
   const [employee, setEmployee] = useState("");
@@ -22,9 +32,17 @@ export default function NoteForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load note form employees" });
+      setEmployees([]);
+      return;
+    }
+
     const fetchEmployees = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "employees"));
+        const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         setEmployees(
           snapshot.docs
             .map((d) => ({ id: d.id, name: d.data().name }))
@@ -35,7 +53,7 @@ export default function NoteForm() {
       }
     };
     fetchEmployees();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const canSubmit = useMemo(() => {
     if (saving) return false;
@@ -87,7 +105,7 @@ export default function NoteForm() {
         const range = getDateRange(startDate, endDate);
 
         for (const date of range) {
-          await addDoc(collection(db, "notes"), {
+          await addDoc(collection(db, "notes"), tenantPayload(dataAccessState, {
             employee: employee || "",
             blocksEmployeeBooking,
             date,
@@ -96,7 +114,7 @@ export default function NoteForm() {
             endDate,
             isMultiDay: true,
             createdAt: new Date(),
-          });
+          }));
         }
       } else {
         if (!noteDate) {
@@ -105,14 +123,14 @@ export default function NoteForm() {
           return;
         }
 
-        await addDoc(collection(db, "notes"), {
+        await addDoc(collection(db, "notes"), tenantPayload(dataAccessState, {
           employee: employee || "",
           blocksEmployeeBooking,
           date: noteDate,
           text: noteText.trim(),
           isMultiDay: false,
           createdAt: new Date(),
-        });
+        }));
       }
 
       alert("Note saved!");

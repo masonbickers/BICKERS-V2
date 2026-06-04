@@ -344,7 +344,7 @@ export default function ServiceOverviewPage() {
   const [sort, setSort] = useState("risk");
 
   const loadVehicles = useCallback(async () => {
-    if (!authState?.accessReady) return;
+    if (!authState?.user) return;
     setLoading(true);
     try {
       const [vehiclesSnap, bookingsSnap, recordsSnap] = await Promise.all([

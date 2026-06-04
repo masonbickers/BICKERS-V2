@@ -17,6 +17,14 @@ import {
 import { auth, db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
+import {
   ArrowLeft,
   CheckCircle2,
   MessageSquare,
@@ -590,22 +598,26 @@ function getBlockNote(block) {
   return String(block?.note || block?.notes || block?.description || "").trim();
 }
 
-async function loadTimesheetQueries(timesheet) {
+async function loadTimesheetQueries(timesheet, dataAccessState) {
   if (!timesheet?.id) return [];
 
   const bySchema = [];
   if (timesheet.employeeCode && timesheet.weekStart) {
-    const q = fsQuery(
-      collection(db, "timesheetQueries"),
+    const q = tenantCollectionQuery(
+      db,
+      "timesheetQueries",
+      dataAccessState,
+      [
       where("employeeCode", "==", timesheet.employeeCode),
       where("weekStart", "==", timesheet.weekStart)
+      ]
     );
     const snap = await getDocs(q);
     snap.docs.forEach((d) => bySchema.push({ id: d.id, ...d.data() }));
   }
 
   const byLegacyId = [];
-  const legacyQ = fsQuery(collection(db, "timesheetQueries"), where("timesheetId", "==", timesheet.id));
+  const legacyQ = tenantCollectionQuery(db, "timesheetQueries", dataAccessState, [where("timesheetId", "==", timesheet.id)]);
   const legacySnap = await getDocs(legacyQ);
   legacySnap.docs.forEach((d) => byLegacyId.push({ id: d.id, ...d.data() }));
 
@@ -914,6 +926,8 @@ function eachDateYMD(startRaw, endRaw) {
 export default function TimesheetDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [timesheet, setTimesheet] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1019,10 +1033,13 @@ export default function TimesheetDetailPage() {
       setWeekNav({ previous: null, next: null });
       return;
     }
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "timesheets", operation: "Load adjacent timesheets" })) return;
 
     (async () => {
       try {
-        const snap = await getDocs(collection(db, "timesheets"));
+        const snap = await getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState));
         const targetCode = String(timesheet.employeeCode || "").trim().toLowerCase();
         const targetName = String(timesheet.employeeName || "").trim().toLowerCase();
 
@@ -1056,7 +1073,7 @@ export default function TimesheetDetailPage() {
         setWeekNav({ previous: null, next: null });
       }
     })();
-  }, [timesheet?.id, timesheet?.employeeCode, timesheet?.employeeName]);
+  }, [accessKey, dataAccessState, timesheet?.id, timesheet?.employeeCode, timesheet?.employeeName]);
 
   /* ----------------------- Derived flag: approved? ----------------------- */
   const isApproved =
@@ -1093,10 +1110,13 @@ export default function TimesheetDetailPage() {
   /* ----------------------- Load holidays for this timesheet ----------------------- */
   useEffect(() => {
     if (!timesheet) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "holidays", operation: "Load holidays for timesheet" })) return;
 
     (async () => {
       try {
-        const snap = await getDocs(collection(db, "holidays"));
+        const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const map = {};
 
         snap.docs.forEach((d) => {
@@ -1124,11 +1144,14 @@ export default function TimesheetDetailPage() {
         setHolidaysByDate({});
       }
     })();
-  }, [timesheet]);
+  }, [accessKey, dataAccessState, timesheet]);
 
   /* ----------------------- Load jobs + vehicles based on snapshot ----------------------- */
   useEffect(() => {
     if (!timesheet) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "Load timesheet job vehicles" })) return;
 
     (async () => {
       try {
@@ -1181,7 +1204,7 @@ export default function TimesheetDetailPage() {
 
         const lookup = {};
         if (usedVehicleKeys.size > 0) {
-          const vs = await getDocs(collection(db, "vehicles"));
+          const vs = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
           vs.docs.forEach((d) => {
             const v = d.data() || {};
             const name = String(v.name || "").trim();
@@ -1234,22 +1257,25 @@ export default function TimesheetDetailPage() {
         setVehicleLookup({});
       }
     })();
-  }, [timesheet]);
+  }, [accessKey, dataAccessState, timesheet]);
 
   /* ----------------------- Load existing queries for this timesheet ----------------------- */
   useEffect(() => {
     if (!timesheet?.id) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "timesheetQueries", operation: "Load timesheet queries" })) return;
 
     (async () => {
       try {
-        const rows = await loadTimesheetQueries(timesheet);
+        const rows = await loadTimesheetQueries(timesheet, dataAccessState);
         setQueries(rows);
       } catch (err) {
         console.error("Error loading timesheet queries:", err);
         setQueries([]);
       }
     })();
-  }, [timesheet]);
+  }, [accessKey, dataAccessState, timesheet]);
 
   /* ------------------------------ PRINT ----------------------------------- */
   const handlePrint = () => {
@@ -1277,10 +1303,10 @@ export default function TimesheetDetailPage() {
       };
       const nextSchemaDays = toSchemaDays(nextDays);
 
-      await updateDoc(doc(db, "timesheets", timesheet.id), {
+      await updateDoc(doc(db, "timesheets", timesheet.id), tenantPayload(dataAccessState, {
         days: nextSchemaDays,
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       setTimesheet((prev) =>
         prev
@@ -1311,13 +1337,16 @@ export default function TimesheetDetailPage() {
 
   useEffect(() => {
     if (!timesheet) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "employees", operation: "Load employee payroll rates" })) return;
 
     (async () => {
       try {
         const settingsSnap = await getDoc(doc(db, "settings", "payrollRates"));
         setGlobalPayrollRates(settingsSnap.exists() ? settingsSnap.data() || {} : null);
 
-        const snap = await getDocs(collection(db, "employees"));
+        const snap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         const employees = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const match = employees.find((emp) => {
           const code = String(emp.userCode || emp.employeeCode || emp.code || "").trim().toLowerCase();
@@ -1336,7 +1365,7 @@ export default function TimesheetDetailPage() {
         setEmployeeYardAutofill(getEmployeeYardAutofill(null));
       }
     })();
-  }, [timesheet]);
+  }, [accessKey, dataAccessState, timesheet]);
 
   /* ------------------------------ APPROVE --------------------------------- */
   const handleApprove = async () => {
@@ -1346,10 +1375,10 @@ export default function TimesheetDetailPage() {
 
     try {
       const ref = doc(db, "timesheets", timesheet.id);
-      await updateDoc(ref, {
+      await updateDoc(ref, tenantPayload(dataAccessState, {
         status: "approved",
         approvedAt: serverTimestamp(),
-      });
+      }));
 
       setTimesheet((prev) =>
         prev
@@ -1362,18 +1391,20 @@ export default function TimesheetDetailPage() {
       );
 
       try {
-        const rows = await loadTimesheetQueries(timesheet);
+        const rows = await loadTimesheetQueries(timesheet, dataAccessState);
 
         await Promise.all(
           rows.map((row) =>
             updateDoc(doc(db, "timesheetQueries", row.id), {
+              ...tenantPayload(dataAccessState, {
               status: "closed",
               closedAt: serverTimestamp(),
+              }),
             })
           )
         );
 
-        const rowsAfterClose = await loadTimesheetQueries(timesheet);
+        const rowsAfterClose = await loadTimesheetQueries(timesheet, dataAccessState);
         setQueries(rowsAfterClose);
       } catch (qErr) {
         console.error("Error closing timesheet queries on approve:", qErr);
@@ -1410,7 +1441,7 @@ export default function TimesheetDetailPage() {
 
     setQuerySubmitting(true);
     try {
-      await addDoc(collection(db, "timesheetQueries"), {
+      await addDoc(collection(db, "timesheetQueries"), tenantPayload(dataAccessState, {
         timesheetId: timesheet.id,
         employeeName: timesheet.employeeName || "",
         employeeCode: timesheet.employeeCode || "",
@@ -1422,9 +1453,9 @@ export default function TimesheetDetailPage() {
         status: "open",
         createdAt: serverTimestamp(),
         createdByRole: "manager",
-      });
+      }));
 
-      const rows = await loadTimesheetQueries(timesheet);
+      const rows = await loadTimesheetQueries(timesheet, dataAccessState);
       setQueries(rows);
 
       setQuerySuccess("Query sent to employee.");
@@ -1822,10 +1853,10 @@ export default function TimesheetDetailPage() {
       updatedAt: new Date().toISOString(),
     };
     try {
-      await updateDoc(doc(db, "timesheets", timesheet.id), {
+      await updateDoc(doc(db, "timesheets", timesheet.id), tenantPayload(dataAccessState, {
         payAdviceOverrides: payload,
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       lastSavedPayAdviceRef.current = JSON.stringify({
         rows: payload.rows,
@@ -1847,7 +1878,7 @@ export default function TimesheetDetailPage() {
     } finally {
       setPayAdviceSaving(false);
     }
-  }, [timesheet?.id]);
+  }, [dataAccessState, timesheet?.id]);
 
   const handleSavePayAdvice = async () => {
     await savePayAdviceState(payAdviceEdits, payAdviceRateEdits, "Pay advice saved.");

@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
-import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const toDateValue = (value) => {
   if (!value) return "";
@@ -31,6 +39,8 @@ export default function EditHolidayPage() {
   const router = useRouter();
   const params = useParams();
   const holidayId = params.id;
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   
 
   const [employee, setEmployee] = useState("");
@@ -41,6 +51,14 @@ export default function EditHolidayPage() {
   const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "employees", operation: "load edit holiday employees" });
+      setEmployees([]);
+      return;
+    }
+
     const fetchHoliday = async () => {
       if (!holidayId) return;
       const docRef = doc(db, "holidays", holidayId);
@@ -56,14 +74,14 @@ export default function EditHolidayPage() {
     };
 
     const fetchEmployees = async () => {
-      const snapshot = await getDocs(collection(db, "employees"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
       const employeeData = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
       setEmployees(employeeData);
     };
 
     fetchHoliday();
     fetchEmployees();
-  }, [holidayId]);
+  }, [accessKey, dataAccessState, holidayId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,13 +103,13 @@ export default function EditHolidayPage() {
       }
 
       const docRef = doc(db, "holidays", holidayId);
-      await updateDoc(docRef, {
+      await updateDoc(docRef, tenantPayload(dataAccessState, {
         employee,
         startDate: startAsDate,
         endDate: endAsDate,
         holidayReason: holidayReason.trim(),
         paidStatus,
-      });
+      }));
       alert("Holiday updated successfully!");
       router.push("/dashboard");
     } catch (error) {

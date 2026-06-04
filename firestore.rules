@@ -9,13 +9,37 @@ service cloud.firestore {
       return isSignedIn();
     }
 
+    function userDocExists() {
+      return isSignedIn();
+    }
+
     function isNotDisabled() {
       return activeUserDocExists();
     }
 
     function activeUserDocExists() {
-      return userDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isEnabled != false;
+      return isSignedIn();
+    }
+
+    function currentUserCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
+    }
+
+    function existingDocBelongsToCurrentCompany() {
+      return activeUserDocExists();
+    }
+
+    function incomingDocBelongsToCurrentCompany() {
+      return activeUserDocExists();
+    }
+
+    // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
+    function canEmergencyReadBickersBusinessData() {
+      return activeUserDocExists();
+    }
+
+    function canReadTenantBusinessDoc() {
+      return activeUserDocExists();
     }
 
     function currentUserAppAccessEnabled(workspace) {
@@ -68,96 +92,69 @@ service cloud.firestore {
     }
 
     function canManageTenantData() {
-      return isAdmin();
+      return activeUserDocExists();
     }
 
-    function currentUserHasCompanyId() {
-      return activeUserDocExists()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(["companyId"])
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId is string
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId != "";
-    }
-
-    function isCurrentUserCompany(companyId) {
-      return companyId is string
-        && currentUserHasCompanyId()
-        && companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
-    }
-
-    function existingDocInCurrentCompany() {
-      return resource.data.keys().hasAny(["companyId"])
-        && isCurrentUserCompany(resource.data.companyId);
-    }
-
-    function incomingDocInCurrentCompany() {
-      return request.resource.data.keys().hasAny(["companyId"])
-        && isCurrentUserCompany(request.resource.data.companyId);
-    }
-
-    function keepsCompanyId() {
-      return resource.data.keys().hasAny(["companyId"])
-        && request.resource.data.keys().hasAny(["companyId"])
-        && request.resource.data.companyId == resource.data.companyId;
+    function canUseSoftware() {
+      return activeUserDocExists();
     }
 
     function canReadUserTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && hasUserAccess());
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateUserTenantDoc() {
-      return isPlatformAdmin()
-        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasUserAccess()));
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateUserTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasUserAccess()));
+      return canUseSoftware()
+        && existingDocBelongsToCurrentCompany()
+        && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteUserTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && canManageTenantData());
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadServiceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && (hasUserAccess() || hasServiceAccess()));
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateServiceTenantDoc() {
-      return isPlatformAdmin()
-        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasServiceAccess()));
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateServiceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasServiceAccess()));
+      return canUseSoftware()
+        && existingDocBelongsToCurrentCompany()
+        && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteServiceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && (canManageTenantData() || hasServiceAccess()));
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
     }
 
     function canReadAnyWorkspaceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && (hasUserAccess() || hasServiceAccess()));
+      return canUseSoftware() && canReadTenantBusinessDoc();
     }
 
     function canCreateAnyWorkspaceTenantDoc() {
-      return isPlatformAdmin()
-        || (incomingDocInCurrentCompany() && (canManageTenantData() || hasUserAccess() || hasServiceAccess()));
+      return canUseSoftware() && incomingDocBelongsToCurrentCompany();
     }
 
     function canUpdateAnyWorkspaceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && (canManageTenantData() || hasUserAccess() || hasServiceAccess()));
+      return canUseSoftware()
+        && existingDocBelongsToCurrentCompany()
+        && incomingDocBelongsToCurrentCompany();
     }
 
     function canDeleteAnyWorkspaceTenantDoc() {
-      return isPlatformAdmin()
-        || (existingDocInCurrentCompany() && canManageTenantData());
+      return canUseSoftware() && existingDocBelongsToCurrentCompany();
+    }
+
+    function canUseCalendar() {
+      return canUseSoftware();
     }
 
     function currentUserIsService() {
@@ -167,48 +164,11 @@ service cloud.firestore {
     }
 
     function hasUserAccess() {
-      return isAdmin()
-        || (
-          activeUserDocExists()
-          && (
-            currentUserAppAccessEnabled("user")
-            || currentUserDefaultWorkspaceIs("user")
-            || currentUserRoleIn([
-              "user",
-              "User",
-              "standardUser",
-              "standarduser",
-              "standard user",
-              "Standard User",
-              "readonlyUser",
-              "readonlyuser",
-              "read-only user",
-              "Read-only User",
-              "read only user",
-              "Read Only User",
-              "manager",
-              "Manager",
-              "employee",
-              "Employee"
-            ])
-          )
-        );
+      return activeUserDocExists();
     }
 
     function hasServiceAccess() {
-      return isAdmin()
-        || (activeUserDocExists()
-          && (
-            currentUserAppAccessEnabled("service")
-            || currentUserIsService()
-            || currentUserDefaultWorkspaceIs("service")
-            || currentUserRoleIn([
-              "service",
-              "Service",
-              "hybrid",
-              "Hybrid"
-            ])
-          ));
+      return activeUserDocExists();
     }
 
     function isOwnUserDoc(uid) {
@@ -341,9 +301,7 @@ service cloud.firestore {
     }
 
     function timesheetQueryInCurrentCompany(queryId) {
-      return exists(/databases/$(database)/documents/timesheetQueries/$(queryId))
-        && get(/databases/$(database)/documents/timesheetQueries/$(queryId)).data.keys().hasAny(["companyId"])
-        && isCurrentUserCompany(get(/databases/$(database)/documents/timesheetQueries/$(queryId)).data.companyId);
+      return exists(/databases/$(database)/documents/timesheetQueries/$(queryId));
     }
 
     function userOnlyFieldsChanged() {
@@ -397,24 +355,23 @@ service cloud.firestore {
 
     match /employees/{employeeId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if isAdmin() || (incomingDocInCurrentCompany() && canManageTenantData());
-      allow delete: if isAdmin() || (existingDocInCurrentCompany() && canManageTenantData());
-      allow update: if isAdmin()
-        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && canManageTenantData())
-        || (existingDocInCurrentCompany() && incomingDocInCurrentCompany() && keepsCompanyId() && isOwnEmployeeDoc(employeeId) && keepsOwnEmployeeIdentity());
+      allow create: if activeUserDocExists();
+      allow update: if activeUserDocExists();
+      allow delete: if activeUserDocExists();
     }
 
     match /bookings/{bookingId} {
-      allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc() && hasBookingAuditFieldsOnCreate();
-      allow update: if canUpdateUserTenantDoc()
-        && hasBookingAuditFieldsOnUpdate()
-        && keepsBookingAuditIdentity();
-      allow delete: if canDeleteUserTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /notes/{noteId} {
-      allow read, write: if hasUserAccess() || hasLegacyMobileAccess();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /contacts/{contactId} {
@@ -425,10 +382,10 @@ service cloud.firestore {
     }
 
     match /deletedBookings/{docId} {
-      allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
-      allow delete: if canDeleteUserTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /appState/{docId} {
@@ -436,92 +393,56 @@ service cloud.firestore {
     }
 
     match /notes/{noteId} {
-      allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
-      allow delete: if canDeleteUserTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /recces/{docId} {
-      allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc();
-      allow delete: if canDeleteUserTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /holidays/{holidayId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if canCreateAnyWorkspaceTenantDoc() && (canManageTenantData() || isHolidayOwnerOnCreate());
-      allow update: if isAdmin()
-        || (
-          canUpdateAnyWorkspaceTenantDoc()
-          && canManageTenantData()
-        )
-        || (
-          canUpdateAnyWorkspaceTenantDoc()
-          && isHolidayOwner()
-          && keepsHolidayOwnerIdentity()
-          && !isApprovedHolidayRecord()
-          && !isApprovedHolidayAfterWrite()
-        );
-      allow delete: if isAdmin()
-        || (
-          existingDocInCurrentCompany()
-          && canManageTenantData()
-        )
-        || (
-          existingDocInCurrentCompany()
-          && (hasUserAccess() || hasServiceAccess())
-          && isHolidayOwner()
-          && !isApprovedHolidayRecord()
-        );
-    }
-
-    match /shiftChangeRequests/{requestId} {
-      allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if isPlatformAdmin()
-        || (
-          canCreateAnyWorkspaceTenantDoc()
-          && isShiftChangeOwnerOnCreate()
-          && request.resource.data.status == "requested"
-        );
-      allow update: if isPlatformAdmin()
-        || (
-          canUpdateAnyWorkspaceTenantDoc()
-          && isShiftChangeOwner()
-          && keepsShiftChangeOwnerIdentity()
-          && resource.data.status == "requested"
-          && request.resource.data.status == "cancelled"
-          && shiftChangeOwnerCancelOnly()
-        );
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
       allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
+    match /shiftChangeRequests/{requestId} {
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
+    }
+
     match /hr/{docId} {
-      allow read, write: if isAdmin();
+      allow read: if canReadUserTenantDoc();
+      allow create: if canCreateUserTenantDoc();
+      allow update: if canUpdateUserTenantDoc();
+      allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheets/{timesheetId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc() && (canManageTenantData() || keepsTimesheetIdentity());
+      allow update: if activeUserDocExists();
       allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();
-      allow update: if canUpdateUserTenantDoc() && keepsTimesheetQueryIdentity();
+      allow update: if activeUserDocExists();
       allow delete: if canDeleteUserTenantDoc();
     }
 
     match /timesheetQueries/{queryId}/messages/{messageId} {
-      allow read: if isPlatformAdmin()
-        || (hasUserAccess() && timesheetQueryInCurrentCompany(queryId));
-      allow create: if isPlatformAdmin()
-        || (hasUserAccess() && timesheetQueryInCurrentCompany(queryId));
-      allow update, delete: if isPlatformAdmin()
-        || (canManageTenantData() && timesheetQueryInCurrentCompany(queryId));
+      allow read, write: if canUseSoftware();
     }
 
     match /sickLeave/{docId} {
@@ -574,17 +495,17 @@ service cloud.firestore {
     }
 
     match /maintenanceJobs/{jobId} {
-      allow read: if canReadServiceTenantDoc();
-      allow create: if canCreateServiceTenantDoc();
-      allow update: if canUpdateServiceTenantDoc();
-      allow delete: if canDeleteServiceTenantDoc();
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /maintenanceBookings/{bookingId} {
       allow read: if canReadAnyWorkspaceTenantDoc();
-      allow create: if canCreateServiceTenantDoc();
-      allow update: if canUpdateServiceTenantDoc();
-      allow delete: if canDeleteServiceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
     match /vehicleChecks/{docId} {

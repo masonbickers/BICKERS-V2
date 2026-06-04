@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, onSnapshot } from "firebase/firestore";
+import { getDocs, onSnapshot } from "firebase/firestore";
 import {
   Activity,
   AlertTriangle,
@@ -16,6 +16,14 @@ import {
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
 import { normalizeAssetRecord } from "../utils/maintenanceSchema";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const GENERAL_DEFECTS_PATH = "/defects/general";
 const IMMEDIATE_DEFECTS_PATH = "/defects/immediate";
@@ -369,6 +377,8 @@ const buildActivityFromLegacyHistory = (vehicle) => {
 
 export default function VehicleActivityPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [vehiclesRaw, setVehiclesRaw] = useState([]);
   const [serviceRecords, setServiceRecords] = useState([]);
   const [defectReports, setDefectReports] = useState([]);
@@ -381,30 +391,53 @@ export default function VehicleActivityPage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read vehicle activity vehicles" });
+      setVehiclesRaw([]);
+      return;
+    }
+
     const fetchVehicles = async () => {
-      const snap = await getDocs(collection(db, "vehicles"));
+      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       setVehiclesRaw(snap.docs.map((d) => normalizeAssetRecord({ id: d.id, ...(d.data() || {}) })));
     };
     fetchVehicles().catch((err) => {
-      console.error("[vehicle-activity] vehicle fetch error:", err);
+      if (!handleFirestoreAccessError(err, { collectionName: "vehicles", operation: "read vehicle activity vehicles" })) {
+        console.error("[vehicle-activity] vehicle fetch error:", err);
+      }
       setVehiclesRaw([]);
     });
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "serviceRecords", operation: "listen vehicle activity data" });
+      setServiceRecords([]);
+      setDefectReports([]);
+      setMotPreChecks([]);
+      setVehiclePrepRecords([]);
+      setCheckDocs([]);
+      setVehicleIssueDocs([]);
+      return undefined;
+    }
+
     const unsubscribers = [
-      onSnapshot(collection(db, "serviceRecords"), (snap) => setServiceRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
-      onSnapshot(collection(db, "defectReports"), (snap) => setDefectReports(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
-      onSnapshot(collection(db, "motPreChecks"), (snap) => setMotPreChecks(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
-      onSnapshot(collection(db, "vehiclePrepRecords"), (snap) => setVehiclePrepRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
-      onSnapshot(collection(db, "vehicleChecks"), (snap) => setCheckDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
-      onSnapshot(collection(db, "vehicleIssues"), (snap) => setVehicleIssueDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })))),
+      onSnapshot(tenantCollectionQuery(db, "serviceRecords", dataAccessState), (snap) => setServiceRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "serviceRecords", operation: "listen vehicle activity service records" })),
+      onSnapshot(tenantCollectionQuery(db, "defectReports", dataAccessState), (snap) => setDefectReports(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "defectReports", operation: "listen vehicle activity defect reports" })),
+      onSnapshot(tenantCollectionQuery(db, "motPreChecks", dataAccessState), (snap) => setMotPreChecks(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "motPreChecks", operation: "listen vehicle activity MOT pre-checks" })),
+      onSnapshot(tenantCollectionQuery(db, "vehiclePrepRecords", dataAccessState), (snap) => setVehiclePrepRecords(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "vehiclePrepRecords", operation: "listen vehicle activity prep records" })),
+      onSnapshot(tenantCollectionQuery(db, "vehicleChecks", dataAccessState), (snap) => setCheckDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "vehicleChecks", operation: "listen vehicle activity checks" })),
+      onSnapshot(tenantCollectionQuery(db, "vehicleIssues", dataAccessState), (snap) => setVehicleIssueDocs(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))), (error) => handleFirestoreAccessError(error, { collectionName: "vehicleIssues", operation: "listen vehicle activity issues" })),
     ];
 
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const activity = useMemo(() => {
     const collectionActivities = [

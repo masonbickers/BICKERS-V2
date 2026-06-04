@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const getOdometerValue = (vehicle) => {
   const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
@@ -16,12 +23,22 @@ const getOdometerValue = (vehicle) => {
 
 export default function LorryDashboardPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [lorries, setLorries] = useState([]);
   const [filter, setFilter] = useState("none");
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "lorries", operation: "load lorries" });
+      setLorries([]);
+      return;
+    }
+
     const fetchLorries = async () => {
-      const snapshot = await getDocs(collection(db, "lorries"));
+      const snapshot = await getDocs(tenantCollectionQuery(db, "lorries", dataAccessState));
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -30,7 +47,7 @@ export default function LorryDashboardPage() {
     };
 
     fetchLorries();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const applyFilter = (list) => {
     switch (filter) {

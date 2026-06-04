@@ -1,21 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 export default function ReadyToInvoicePage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load ready invoice bookings" });
+      setBookings([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       const jobList = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setBookings(jobList);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   /* ---------- date helpers ---------- */
   const parseDate = (raw) => {

@@ -2,11 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { LayoutDashboard, Plus, Search, FileText, PencilLine } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import ViewBookingModal from "../components/ViewBookingModal";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   bg: "#f3f6f9",
@@ -135,16 +142,26 @@ const enquiryDateText = (booking) => {
 
 export default function EnquiryPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedBookingId, setSelectedBookingId] = useState(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snap) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load enquiry bookings" });
+      setBookings([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snap) => {
       setBookings(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const enquiries = useMemo(() => {
     const q = search.trim().toLowerCase();

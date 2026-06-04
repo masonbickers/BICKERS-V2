@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  collection,
   onSnapshot,
   updateDoc,
   doc,
@@ -11,6 +10,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -363,6 +370,8 @@ const td = { padding: "9px 12px", borderBottom: "1px solid #edf2f7", verticalAli
 
 /* Page */
 export default function JobSheetPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -399,20 +408,44 @@ export default function JobSheetPage() {
 
   /* ---------- Realtime listener ---------- */
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "listen job sheet bookings" });
+      setBookings([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       const jobList = snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() || {}) }));
       setBookings(jobList);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "bookings", operation: "listen job sheet bookings" });
+      setBookings([]);
+      setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "vehicles"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "listen job sheet vehicles" });
+      setVehiclesData([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "vehicles", dataAccessState), (snapshot) => {
       setVehiclesData(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "listen job sheet vehicles" });
+      setVehiclesData([]);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const vehicleLookup = useMemo(() => {
     const byId = new Map();

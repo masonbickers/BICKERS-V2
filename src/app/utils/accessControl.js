@@ -98,10 +98,7 @@ export const SERVICE_PATH_PREFIXES = [
 export const ADMIN_PATH_PREFIXES = [
   "/admin",
   "/platform-admin",
-  "/employees",
-  "/add-employee",
-  "/edit-employee",
-  "/deleted-bookings",
+  "/settings",
 ];
 
 export const DEFAULT_FEATURE_FLAGS = {
@@ -415,7 +412,28 @@ export function isWorkspaceAllowed(access, workspace) {
   return !!access.hasUserAccess;
 }
 
+export function isCalendarPath(pathname = "") {
+  const path = String(pathname || "").toLowerCase();
+  const calendarPrefixes = [
+    "/dashboard",
+    "/booking-page",
+    "/bookings",
+    "/create-booking",
+    "/edit-booking",
+    "/booking-drafts",
+    "/deleted-bookings",
+    "/holiday-form",
+    "/edit-holiday",
+    "/note-form",
+    "/edit-note",
+    "/note-edit",
+    "/note",
+  ];
+  return calendarPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
 export function isPathAllowedForAccess(pathname, access) {
+  if (isCalendarPath(pathname)) return true;
   return isWorkspaceAllowed(access, getWorkspaceForPath(pathname));
 }
 

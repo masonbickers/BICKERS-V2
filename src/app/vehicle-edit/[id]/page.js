@@ -45,7 +45,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
-import { getIsoWeekLabel } from "@/app/utils/maintenanceSchema";
+import { getIsoWeekLabel, isMotNotApplicable } from "@/app/utils/maintenanceSchema";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
@@ -826,19 +826,31 @@ export default function EditVehiclePage() {
 
     // MOT expiry due. DVSA-fetched expiry dates are the source of truth;
     // frequency is only a fallback for records without fetched MOT data.
-    const hasFetchedMotData =
-      Boolean(vehicle.dvsaMotHistoryFetchedAt || vehicle.dvsaLatestMot) ||
-      safeArr(vehicle.dvsaMotTests).length > 0;
-    if (!hasFetchedMotData || !vehicle.nextMOT) {
-      const nextMOT = calcNextFromWeeks(
-        vehicle.lastMOT,
-        resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
-      );
-      if (nextMOT && vehicle.nextMOT !== nextMOT) {
-        updates.nextMOT = nextMOT;
-        updates.nextMot = nextMOT;
-        updates.nextMotDate = nextMOT;
-        updates.motDueDate = nextMOT;
+    if (isMotNotApplicable(vehicle)) {
+      if (vehicle.lastMOT || vehicle.lastMot || vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate) {
+        updates.lastMOT = "";
+        updates.lastMot = "";
+        updates.nextMOT = "";
+        updates.nextMot = "";
+        updates.nextMotDate = "";
+        updates.motDueDate = "";
+        updates.motISOWeek = "";
+      }
+    } else {
+      const hasFetchedMotData =
+        Boolean(vehicle.dvsaMotHistoryFetchedAt || vehicle.dvsaLatestMot) ||
+        safeArr(vehicle.dvsaMotTests).length > 0;
+      if (!hasFetchedMotData || !vehicle.nextMOT) {
+        const nextMOT = calcNextFromWeeks(
+          vehicle.lastMOT,
+          resolveFreqWeeks(vehicle.motFreq, vehicle.lastMOT, vehicle.nextMOT)
+        );
+        if (nextMOT && vehicle.nextMOT !== nextMOT) {
+          updates.nextMOT = nextMOT;
+          updates.nextMot = nextMOT;
+          updates.nextMotDate = nextMOT;
+          updates.motDueDate = nextMOT;
+        }
       }
     }
 
@@ -957,9 +969,23 @@ export default function EditVehiclePage() {
   ]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setVehicle((prev) => {
-      const next = { ...prev, [name]: value };
+      const fieldValue = type === "checkbox" ? checked : value;
+      const next = { ...prev, [name]: fieldValue };
+      if (name === "motNotApplicable") {
+        next.motApplicable = !checked;
+        next.motStatus = checked ? "N/A" : "";
+        if (checked) {
+          next.lastMOT = "";
+          next.lastMot = "";
+          next.nextMOT = "";
+          next.nextMot = "";
+          next.nextMotDate = "";
+          next.motDueDate = "";
+          next.motISOWeek = "";
+        }
+      }
       if (name === "registration" || name === "reg" || name === "registrationNumber") {
         next.registration = value;
         next.reg = value;
@@ -1216,8 +1242,9 @@ export default function EditVehiclePage() {
       }
       const registration = String(payload.registration || payload.reg || payload.registrationNumber || "").trim();
       const manufacturer = String(payload.manufacturer || payload.make || "").trim();
-      const nextMot = dateOnly(payload.nextMOT ?? payload.nextMot ?? payload.nextMotDate ?? "");
-      const lastMot = dateOnly(payload.lastMOT ?? payload.lastMot ?? "");
+      const motDisabled = isMotNotApplicable(payload);
+      const nextMot = motDisabled ? "" : dateOnly(payload.nextMOT ?? payload.nextMot ?? payload.nextMotDate ?? "");
+      const lastMot = motDisabled ? "" : dateOnly(payload.lastMOT ?? payload.lastMot ?? "");
       const insuredUntil = getInsuredUntil(payload);
       const nextService = String(payload.nextService || payload.nextServiceDate || "").trim();
       if (registration) {
@@ -1235,6 +1262,10 @@ export default function EditVehiclePage() {
       payload.nextMot = nextMot;
       payload.nextMotDate = nextMot;
       payload.motDueDate = nextMot;
+      payload.motNotApplicable = motDisabled;
+      payload.motApplicable = !motDisabled;
+      payload.motStatus = motDisabled ? "N/A" : String(payload.motStatus || "").trim();
+      if (motDisabled) payload.motISOWeek = "";
       payload.insuredUntil = insuredUntil;
       payload.insuranceExpiry = insuredUntil;
       payload.insuranceExpiryDate = insuredUntil;
@@ -1696,9 +1727,14 @@ export default function EditVehiclePage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <button onClick={() => setShowMotBooking(true)} style={btn("success")}>
+            <button
+              onClick={() => setShowMotBooking(true)}
+              style={btn(isMotNotApplicable(vehicle) ? "ghost" : "success")}
+              disabled={isMotNotApplicable(vehicle)}
+              title={isMotNotApplicable(vehicle) ? "MOT is not applicable for this vehicle." : "Book MOT"}
+            >
               <CalendarPlus size={15} />
-              Book MOT
+              {isMotNotApplicable(vehicle) ? "MOT N/A" : "Book MOT"}
             </button>
             {hasMotBooking ? (
               <button
@@ -1760,7 +1796,7 @@ export default function EditVehiclePage() {
           <div style={metricGrid}>
             <MetricCard label="Registration" value={vehicle.registration || vehicle.reg || "-"} />
             <MetricCard label="Category" value={vehicle.category || "-"} />
-            <MetricCard label="Next MOT" value={formatDisplayDate(vehicle.nextMOT)} />
+            <MetricCard label="Next MOT" value={isMotNotApplicable(vehicle) ? "N/A" : formatDisplayDate(vehicle.nextMOT)} />
             <MetricCard label="Next Service" value={formatDisplayDate(vehicle.nextService)} />
             <MetricCard label="Open Bookings" value={String(activeVehicleBookings.length)} />
           </div>
@@ -1941,10 +1977,30 @@ export default function EditVehiclePage() {
               </div>
 
               <div className="vehicle-edit-core-grid" style={coreDueGrid}>
-                <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} meta={dvsaMotMeta} />
-                <Field label="MOT Freq (fallback weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} meta="Manual fallback only; DVSA expiry is used when fetched." />
-                <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} meta={dvsaMotMeta} />
-                <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} />
+                <label
+                  style={{
+                    gridColumn: "1 / -1",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: UI.text,
+                    fontSize: 13,
+                    fontWeight: 850,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="motNotApplicable"
+                    checked={isMotNotApplicable(vehicle)}
+                    onChange={handleChange}
+                  />
+                  MOT not applicable for this vehicle
+                </label>
+                <DateField label="Last MOT" name="lastMOT" value={vehicle.lastMOT} onChange={handleChange} meta={dvsaMotMeta} disabled={isMotNotApplicable(vehicle)} />
+                <Field label="MOT Freq (fallback weeks)" name="motFreq" value={vehicle.motFreq} onChange={handleChange} meta="Manual fallback only; DVSA expiry is used when fetched." disabled={isMotNotApplicable(vehicle)} />
+                <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} meta={dvsaMotMeta} disabled={isMotNotApplicable(vehicle)} />
+                <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} />
 
                 <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} />
                 <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} />
@@ -2571,21 +2627,21 @@ export default function EditVehiclePage() {
 }
 
 /* small components */
-function Field({ label, name, value, onChange, meta }) {
+function Field({ label, name, value, onChange, meta, disabled = false }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
-      <input type="text" name={name} value={value || ""} onChange={onChange} style={inputField} />
+      <input type="text" name={name} value={value || ""} onChange={onChange} style={inputField} disabled={disabled} />
       {meta ? <FieldMeta>{meta}</FieldMeta> : null}
     </div>
   );
 }
 
-function DateField({ label, name, value, onChange, meta }) {
+function DateField({ label, name, value, onChange, meta, disabled = false }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
-      <input type="date" name={name} value={value || ""} onChange={onChange} style={inputField} />
+      <input type="date" name={name} value={value || ""} onChange={onChange} style={inputField} disabled={disabled} />
       {meta ? <FieldMeta>{meta}</FieldMeta> : null}
     </div>
   );

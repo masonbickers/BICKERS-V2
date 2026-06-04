@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  query,
   where,
   updateDoc,
   deleteDoc,
@@ -17,6 +16,14 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebas
 import { db, storage } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "../../components/HeaderSidebarLayout";
 import { format, parseISO } from "date-fns";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
@@ -495,6 +502,8 @@ export default function JobInfoPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params?.id;
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [timesheetsByJob, setTimesheetsByJob] = useState({});
@@ -538,6 +547,9 @@ export default function JobInfoPage() {
 
   useEffect(() => {
     if (!jobId) return;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "Load job number detail" })) return;
 
     const fetchAll = async () => {
       try {
@@ -546,10 +558,14 @@ export default function JobInfoPage() {
 
         if (isJobNumber) {
           const prefix = splitJobNumber(jobId).prefix;
-          qJobs = query(
-            collection(db, "bookings"),
+          qJobs = tenantCollectionQuery(
+            db,
+            "bookings",
+            dataAccessState,
+            [
             where("jobNumber", ">=", prefix),
             where("jobNumber", "<", prefix + "\uf8ff")
+            ]
           );
           const snap = await getDocs(qJobs);
           const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -564,10 +580,14 @@ export default function JobInfoPage() {
           mainJob = { id: docSnap.id, ...docSnap.data() };
 
           const prefix = splitJobNumber(mainJob.jobNumber).prefix;
-          qJobs = query(
-            collection(db, "bookings"),
+          qJobs = tenantCollectionQuery(
+            db,
+            "bookings",
+            dataAccessState,
+            [
             where("jobNumber", ">=", prefix),
             where("jobNumber", "<", prefix + "\uf8ff")
+            ]
           );
           const snap = await getDocs(qJobs);
           const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -601,7 +621,7 @@ export default function JobInfoPage() {
           return next;
         });
 
-        const tsSnap = await getDocs(collection(db, "timesheets"));
+        const tsSnap = await getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState));
         const allTs = tsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         const jobsToIndex = (await getDocs(qJobs)).docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -625,7 +645,7 @@ export default function JobInfoPage() {
         });
         setTimesheetsByJob(map);
 
-        const vSnap = await getDocs(collection(db, "vehicles"));
+        const vSnap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
         const vMap = vSnap.docs.reduce((acc, d) => {
           const v = { id: d.id, ...d.data() };
           const keys = [v.id, v.name, v.registration].filter(Boolean);
@@ -640,7 +660,7 @@ export default function JobInfoPage() {
 
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, isJobNumber]);
+  }, [accessKey, dataAccessState, jobId, isJobNumber]);
 
   const computeIsPaid = (job) =>
     job.status === "Paid" || (job.invoiceStatus && job.invoiceStatus.toLowerCase().includes("paid"));
@@ -654,7 +674,7 @@ export default function JobInfoPage() {
         Object.assign(updates, buildVehicleNameStatusUpdates(job, "Complete"));
       }
 
-      await updateDoc(doc(db, "bookings", id), updates);
+      await updateDoc(doc(db, "bookings", id), tenantPayload(dataAccessState, updates));
 
       setStatusByJob((p) => ({ ...p, [id]: status }));
       setSelectedStatusByJob((p) => ({ ...p, [id]: status }));
@@ -668,7 +688,7 @@ export default function JobInfoPage() {
   const saveJobSummary = async (id) => {
     const notes = dayNotes[id]?.general || "";
     try {
-      await updateDoc(doc(db, "bookings", id), { generalNotes: notes });
+      await updateDoc(doc(db, "bookings", id), tenantPayload(dataAccessState, { generalNotes: notes }));
       alert("Summary saved.");
     } catch (e) {
       console.error(e);
@@ -732,10 +752,10 @@ export default function JobInfoPage() {
             uploadedAt: new Date().toISOString(),
           };
 
-          await updateDoc(doc(db, "bookings", jid), {
+          await updateDoc(doc(db, "bookings", jid), tenantPayload(dataAccessState, {
             attachments: arrayUnion(attachment),
             pdfUrl: url,
-          });
+          }));
 
           setRelatedJobs((prev) =>
             prev.map((j) =>
@@ -1461,7 +1481,7 @@ export default function JobInfoPage() {
                                 disabled={locked}
                                 onBlur={(e) => {
                                   if (locked) return;
-                                  updateDoc(doc(db, "bookings", job.id), { po: e.target.value });
+                                  updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { po: e.target.value }));
                                 }}
                                 placeholder={locked ? "Locked job" : "Enter PO reference…"}
                                 style={{

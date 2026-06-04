@@ -12,13 +12,12 @@ import {
   getStoredActiveWorkspace,
   getWorkspaceForPath,
   isAdminPath,
-  isModuleEnabledForPath,
-  isPathAllowedForAccess,
   normalizePlatformRole,
   selectLandingRoute,
 } from "@/app/utils/accessControl";
 import { hasAuthenticatorMfa, isPhoneVerified } from "@/app/utils/authSecurity";
 import {
+  clearPagePermissionDenied,
   PAGE_PERMISSION_CLEAR_EVENT,
   PAGE_PERMISSION_DENIED_EVENT,
 } from "@/app/utils/pageAccessEvents";
@@ -44,6 +43,7 @@ const inter = Inter({
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
   : BUILD_INFO.version;
+const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 
 const UI = {
   shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
@@ -153,10 +153,7 @@ function accessLabelForAccount(userDoc = {}, isAdmin) {
 }
 
 function resolvePageAccessStatus({
-  accessReady,
   canSeePlatformAdmin,
-  employeeAccess,
-  featureFlags,
   isAdmin,
   pathname,
   user,
@@ -173,29 +170,12 @@ function resolvePageAccessStatus({
     return { status: "denied", label: "Denied", detail: "User account is disabled." };
   }
 
-  if (!accessReady || !employeeAccess) {
-    return { status: "checking", label: "Checking", detail: "Checking current user access." };
-  }
-
   if (platformAdminPath && !canSeePlatformAdmin) {
     return { status: "denied", label: "Denied", detail: "Platform Admin access is required." };
   }
 
   if (isAdminPath(path) && !isAdmin) {
     return { status: "denied", label: "Denied", detail: "Admin access is required." };
-  }
-
-  if (!isModuleEnabledForPath(path, featureFlags)) {
-    return { status: "denied", label: "Denied", detail: "This module is disabled for the user." };
-  }
-
-  if (!isPathAllowedForAccess(path, employeeAccess)) {
-    const workspace = getWorkspaceForPath(path) === "service" ? "Service" : "User";
-    return {
-      status: "denied",
-      label: "Denied",
-      detail: `${workspace} workspace access is required.`,
-    };
   }
 
   return { status: "authorised", label: "Authorised", detail: "This user can access this page." };
@@ -209,13 +189,28 @@ export default function HeaderSidebarLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, userDoc, employeeAccess, featureFlags, isAdmin, isEnabled, accessReady, logout } = useAuth() || {};
+  const {
+    user,
+    userDoc,
+    employeeAccess,
+    isAdmin,
+    isEnabled,
+    accessReady,
+    logout,
+    canUseAdminViewSwitch,
+    adminViewMode,
+    setAdminViewMode,
+    adminViewUserId,
+    setAdminViewUser,
+  } = useAuth() || {};
 
   const [showMenu, setShowMenu] = useState(false); // (kept)
   const [activeWorkspace, setActiveWorkspace] = useState("user");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [permissionIssue, setPermissionIssue] = useState(null);
+  const [viewAsUsers, setViewAsUsers] = useState([]);
+  const [viewAsLoading, setViewAsLoading] = useState(false);
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
@@ -233,6 +228,41 @@ export default function HeaderSidebarLayout({
 
   //  HR badge should show for admins only
   const canSeeHrBadge = !!isAdmin;
+
+  useEffect(() => {
+    if (!canUseAdminViewSwitch || viewAsUsers.length || viewAsLoading) return;
+    let cancelled = false;
+    const loadUsers = async () => {
+      setViewAsLoading(true);
+      try {
+        const token = await user?.getIdToken?.();
+        if (!token) return;
+        const res = await fetch("/api/admin/overview", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || "Could not load users.");
+        if (cancelled) return;
+        const rows = Array.isArray(data.users) ? data.users : [];
+        setViewAsUsers(
+          rows
+            .filter((row) => row?.isEnabled !== false)
+            .sort((a, b) =>
+              String(a?.name || a?.email || "").localeCompare(String(b?.name || b?.email || ""))
+            )
+        );
+      } catch (error) {
+        console.warn("[view-as] user list unavailable:", error);
+      } finally {
+        if (!cancelled) setViewAsLoading(false);
+      }
+    };
+    loadUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, [canUseAdminViewSwitch, user, viewAsLoading, viewAsUsers.length]);
 
   useEffect(() => {
     if (!employeeAccess) return;
@@ -262,7 +292,7 @@ export default function HeaderSidebarLayout({
     }
 
     const accessState = { user, userDoc, isEnabled, accessReady };
-    const gate = resolveDataAccess(accessState);
+    const gate = resolveDataAccess(accessState, CALENDAR_ACCESS_OPTIONS);
     if (gate.checking) return undefined;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, {
@@ -273,8 +303,9 @@ export default function HeaderSidebarLayout({
       return undefined;
     }
 
-    const hrRequestQuery = tenantCollectionQuery(db, "holidays", accessState, [limit(100)]);
+    const hrRequestQuery = tenantCollectionQuery(db, "holidays", accessState, [limit(100)], CALENDAR_ACCESS_OPTIONS);
     unsubHrRef.current = onSnapshot(hrRequestQuery, (qs) => {
+      clearPagePermissionDenied();
       let requested = 0;
       let deleteReq = 0;
 
@@ -344,7 +375,7 @@ export default function HeaderSidebarLayout({
   /* -------------------------------------------
      NAV DEFINITIONS
   -------------------------------------------- */
-  const featureVisible = (path) => isModuleEnabledForPath(path, featureFlags);
+  const featureVisible = (path) => (path === "/settings" ? canSeeAdmin : true);
 
   const userHeaderLinks = [
     ...(canSeeAdmin ? [{ label: "Admin", path: "/admin" }] : []),
@@ -463,20 +494,14 @@ export default function HeaderSidebarLayout({
   const pageAccess = useMemo(
     () =>
       resolvePageAccessStatus({
-        accessReady,
         canSeePlatformAdmin,
-        employeeAccess,
-        featureFlags,
         isAdmin,
         pathname,
         user,
         userDoc,
       }),
     [
-      accessReady,
       canSeePlatformAdmin,
-      employeeAccess,
-      featureFlags,
       isAdmin,
       pathname,
       user,
@@ -1081,6 +1106,117 @@ export default function HeaderSidebarLayout({
                 </span>
               </span>
             </div>
+
+            {canUseAdminViewSwitch && (
+              <button
+                type="button"
+                onClick={() => setAdminViewMode?.(adminViewMode === "user" ? "admin" : "user")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  ...topPillBase,
+                  padding: "5px 8px",
+                  cursor: "pointer",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: adminViewMode === "user" ? "rgba(59,130,246,0.18)" : "rgba(107,179,127,0.14)",
+                }}
+                title="Switch between your real admin view and a normal user view."
+                aria-label={`Testing view: ${adminViewMode === "user" ? "User" : "Admin"}`}
+              >
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 900,
+                    color: adminViewMode === "user" ? "#bfdbfe" : "#d7f6e0",
+                    minWidth: 34,
+                    textAlign: "center",
+                  }}
+                >
+                  User
+                </span>
+                <span
+                  style={{
+                    width: 38,
+                    height: 20,
+                    borderRadius: 999,
+                    padding: 2,
+                    boxSizing: "border-box",
+                    background: "rgba(255,255,255,0.14)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      width: 14,
+                      height: 14,
+                      borderRadius: 999,
+                      background: "#f8fbff",
+                      transform: adminViewMode === "user" ? "translateX(0)" : "translateX(18px)",
+                      transition: "transform 0.18s ease",
+                    }}
+                  />
+                </span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 900,
+                    color: adminViewMode === "admin" ? "#d7f6e0" : "#a8b3c2",
+                    minWidth: 38,
+                    textAlign: "center",
+                  }}
+                >
+                  Admin
+                </span>
+              </button>
+            )}
+
+            {canUseAdminViewSwitch && (
+              <select
+                value={adminViewUserId || ""}
+                onChange={(event) => {
+                  const selectedId = event.target.value;
+                  if (!selectedId) {
+                    setAdminViewUser?.(null);
+                    return;
+                  }
+                  const selected = viewAsUsers.find(
+                    (row) => String(row?.uid || row?.id || "") === selectedId
+                  );
+                  if (selected) setAdminViewUser?.(selected);
+                }}
+                style={{
+                  ...topPillBase,
+                  minHeight: 36,
+                  padding: "0 12px",
+                  color: "#f8fbff",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  outline: "none",
+                  maxWidth: 230,
+                  cursor: "pointer",
+                }}
+                title="View the app as another enabled user."
+              >
+                <option value="" style={{ color: "#0f172a" }}>
+                  {viewAsLoading ? "Loading users..." : "View as current user"}
+                </option>
+                {viewAsUsers.map((row) => {
+                  const id = String(row?.uid || row?.id || "");
+                  const label = row?.name || row?.email || id;
+                  const suffix = row?.email && row?.name ? ` - ${row.email}` : "";
+                  return (
+                    <option key={id} value={id} style={{ color: "#0f172a" }}>
+                      {label}
+                      {suffix}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
 
             {headerLinks.map(({ label, path, icon }) => (
               <Link

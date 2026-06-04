@@ -2,9 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* Mini design */
 const UI = {
@@ -226,6 +234,8 @@ const endOfDay = (d) => {
 };
 
 export default function ReviewQueuePage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState("");
@@ -242,13 +252,22 @@ export default function ReviewQueuePage() {
   const [overdueOnly, setOverdueOnly] = useState(false);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "load review queue bookings" });
+      setBookings([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       setBookings(list);
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const jobs4 = useMemo(() => bookings.filter(isFourDigitJob), [bookings]);
 
@@ -411,11 +430,11 @@ export default function ReviewQueuePage() {
     requestAnimationFrame(() => restoreScroll());
 
     try {
-      await updateDoc(doc(db, "bookings", job.id), {
+      await updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, {
         status: nextStatus,
         updatedAt: serverTimestamp(),
         readyToInvoice: nextStatus === "Ready to Invoice",
-      });
+      }));
     } catch (error) {
       console.error("Failed to update review queue status:", error);
       setBookings(previousBookings);

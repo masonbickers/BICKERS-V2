@@ -1,5 +1,5 @@
 import { dateOnlyString, toDateLike } from "./serviceRecordCompat";
-import { isVehicleOutOfUse } from "./maintenanceSchema";
+import { isMotNotApplicable, isVehicleOutOfUse } from "./maintenanceSchema";
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -71,9 +71,12 @@ export function normalizeVehicleRecord(raw = {}) {
   const serviceDate = dateOnlyString(
     firstNonEmpty(raw.nextService, raw.nextServiceDate, raw.serviceDueDate, raw.nextSvc)
   );
-  const motDate = dateOnlyString(
-    firstNonEmpty(raw.nextMOT, raw.nextMot, raw.nextMotDate, raw.motDueDate, raw.motExpiryDate)
-  );
+  const motDisabled = isMotNotApplicable(raw);
+  const motDate = motDisabled
+    ? ""
+    : dateOnlyString(
+        firstNonEmpty(raw.nextMOT, raw.nextMot, raw.nextMotDate, raw.motDueDate, raw.motExpiryDate)
+      );
   const lastService = dateOnlyString(firstNonEmpty(raw.lastService, raw.lastServiceDate));
   const lastMot = dateOnlyString(firstNonEmpty(raw.lastMOT, raw.lastMot, raw.lastMotDate));
   const insuredUntil = dateOnlyString(
@@ -97,6 +100,8 @@ export function normalizeVehicleRecord(raw = {}) {
     registrationNumber: String(firstNonEmpty(raw.registrationNumber, registration) || "").trim(),
     operationalStatus: String(firstNonEmpty(raw.operationalStatus, raw.fleetStatus, raw.vehicleStatus) || "Active").trim(),
     outOfUse: isVehicleOutOfUse(raw),
+    motNotApplicable: motDisabled,
+    motApplicable: !motDisabled,
     lastService,
     nextService: serviceDate,
     nextServiceDate: serviceDate,

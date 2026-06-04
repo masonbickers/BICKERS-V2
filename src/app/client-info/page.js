@@ -2,9 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { collection, onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 14,
@@ -160,24 +168,48 @@ const contactTitle = (contact = {}) =>
   "Contact";
 
 export default function ClientInfoPage() {
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
   const [bookings, setBookings] = useState([]);
   const [deletedBookings, setDeletedBookings] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedClientKey, setSelectedClientKey] = useState("");
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "listen client info bookings" });
+      setBookings([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snapshot) => {
       setBookings(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "bookings", operation: "listen client info bookings" });
+      setBookings([]);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "deletedBookings"), (snapshot) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "deletedBookings", operation: "listen client info deleted bookings" });
+      setDeletedBookings([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "deletedBookings", dataAccessState), (snapshot) => {
       setDeletedBookings(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) })));
+    }, (error) => {
+      handleFirestoreAccessError(error, { collectionName: "deletedBookings", operation: "listen client info deleted bookings" });
+      setDeletedBookings([]);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   const deletedJobs = useMemo(
     () =>

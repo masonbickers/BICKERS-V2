@@ -81,6 +81,7 @@ import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
 import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
+import { isAdminEmail } from "@/app/utils/adminAccess";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -89,6 +90,7 @@ import {
   tenantCollectionQuery,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
+import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
 
 /*
    New styling tokens (match your HR page)
@@ -547,6 +549,7 @@ const DELETED_ON_CALENDAR_EMAILS = new Set(["mason@bickers.co.uk", "paul@bickers
 const HIDEABLE_STATUSES = new Set(["dnh", "postponed", "cancelled", "lost"]);
 const DASHBOARD_HIDE_PREFS_KEY = "dashboard:hide-prefs";
 const INACTIVE_MAINTENANCE_STATUSES = ["cancelled", "canceled", "declined"];
+const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 
 /* ------------------------------- helpers ------------------------------- */
 const parseLocalDate = (d) => {
@@ -2109,6 +2112,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const router = useRouter();
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
+  const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
+  const useAdminDashboardData = !!authAccess.isAdmin || isAdminEmail(authEmail);
   const dataAccessState = useMemo(
     () => ({
       user: authAccess.user,
@@ -2181,6 +2186,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [userEmail, setUserEmail] = useState(null);
   const [userUid, setUserUid] = useState(null);
   const rolloverSyncRef = useRef({ key: "", inFlight: false });
+  const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
 
   useEffect(() => {
     const nextDate = parseLocalDate(initialDate);
@@ -2195,6 +2201,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       return prev === nextView ? prev : nextView;
     });
   }, [initialView]);
+
+  useEffect(() => {
+    adminDashboardFallbackRef.current = { inFlight: false, loaded: false };
+  }, [accessKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2318,18 +2328,106 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [isRestricted]
   );
 
+  const applyHolidayRows = useCallback((rows = []) => {
+    const holidayEvents = rows
+      .map((data) => {
+        const s0 = toJsDate(data.startDate);
+        const e0 = toJsDate(data.endDate || data.startDate);
+        if (!s0) return null;
+
+        const startBase = startOfLocalDay(s0);
+        const endBase = e0 ? startOfLocalDay(e0) : startBase;
+        const safeEnd = endBase >= startBase ? endBase : startBase;
+        const employee = (data.employee || data.employeeCode || "Unknown").toString();
+
+        return {
+          ...data,
+          title: `${employee} - Holiday`,
+          start: startBase,
+          end: startOfLocalDay(addDays(safeEnd, 1)),
+          allDay: true,
+          status: "Holiday",
+          employee,
+        };
+      })
+      .filter(Boolean);
+
+    setHolidays(holidayEvents);
+  }, []);
+
+  const loadAdminDashboardData = useCallback(async (reason = "Firestore listener denied") => {
+    if (adminDashboardFallbackRef.current.inFlight || adminDashboardFallbackRef.current.loaded) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser?.getIdToken) return;
+
+    adminDashboardFallbackRef.current.inFlight = true;
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/dashboard-data", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Dashboard admin data failed: ${res.status}`);
+
+      const collections = data.collections || {};
+      setBookings(Array.isArray(collections.bookings) ? collections.bookings : []);
+      applyHolidayRows(Array.isArray(collections.holidays) ? collections.holidays : []);
+      setNotes(
+        mapNoteDocsToCalendarEvents(
+          (Array.isArray(collections.notes) ? collections.notes : []).map((row) => ({
+            id: row.id,
+            data: () => row,
+          }))
+        )
+      );
+      setMaintenanceBookings(Array.isArray(collections.maintenanceBookings) ? collections.maintenanceBookings : []);
+      setMaintenanceJobs(Array.isArray(collections.maintenanceJobs) ? collections.maintenanceJobs : []);
+      setVehiclesData(Array.isArray(collections.vehicles) ? collections.vehicles : []);
+      setEquipmentOptions(
+        (Array.isArray(collections.equipment) ? collections.equipment : [])
+          .map((row) => String(row.name || row.label || row.id || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+      );
+      setDeletedBookings(
+        (Array.isArray(collections.deletedBookings) ? collections.deletedBookings : []).map((raw) => {
+          const payload = raw.data || raw.payload || raw.booking || {};
+          return {
+            id: raw.originalId || raw.id,
+            __collection: "deletedBookings",
+            __deletedDocId: raw.id,
+            ...payload,
+            status: "Deleted",
+          };
+        })
+      );
+      adminDashboardFallbackRef.current.loaded = true;
+      clearPagePermissionDenied();
+      console.warn(`[dashboard] loaded via admin fallback after ${reason}`);
+    } catch (error) {
+      console.error("[dashboard] admin fallback failed:", error);
+    } finally {
+      adminDashboardFallbackRef.current.inFlight = false;
+    }
+  }, [applyHolidayRows]);
+
   // NEW: hold latest recce per booking
   const [reccesByBooking, setReccesByBooking] = useState({});
 
   useEffect(() => {
-    const gate = resolveDataAccess(dataAccessState);
+    if (useAdminDashboardData) {
+      loadAdminDashboardData("admin account");
+      return undefined;
+    }
+    const gate = resolveDataAccess(dataAccessState, CALENDAR_ACCESS_OPTIONS);
     if (gate.checking) return undefined;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "recces", operation: "listen recces" });
       return undefined;
     }
 
-    const unsubRecces = onSnapshot(tenantCollectionQuery(db, "recces", dataAccessState), (snap) => {
+    const unsubRecces = onSnapshot(tenantCollectionQuery(db, "recces", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
       const map = {};
       snap.docs.forEach((d) => {
         const r = { id: d.id, ...d.data() };
@@ -2356,11 +2454,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setReccesByBooking(map);
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "recces", operation: "listen recces" });
+      loadAdminDashboardData("recces denied");
       setReccesByBooking({});
     });
 
     return () => unsubRecces();
-  }, [accessKey, dataAccessState]);
+  }, [accessKey, dataAccessState, loadAdminDashboardData, useAdminDashboardData]);
 
   //  NEW: fetch UK bank holidays from GOV.UK
   useEffect(() => {
@@ -2469,67 +2568,47 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   // listeners
   useEffect(() => {
     if (!authReady) return;
-    const gate = resolveDataAccess(dataAccessState);
+    if (useAdminDashboardData) {
+      loadAdminDashboardData("admin account");
+      return undefined;
+    }
+    const gate = resolveDataAccess(dataAccessState, CALENDAR_ACCESS_OPTIONS);
     if (gate.checking) return;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "bookings", operation: "listen dashboard data" });
       return;
     }
 
-    const unsubBookings = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState), (snap) => {
+    const unsubBookings = onSnapshot(tenantCollectionQuery(db, "bookings", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
+      clearPagePermissionDenied();
       setBookings(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "bookings", operation: "listen bookings" });
+      loadAdminDashboardData("bookings denied");
       setBookings([]);
     });
 
     //  FIX: holidays show properly (Timestamp/Date/string safe)
-    const unsubHolidays = onSnapshot(tenantCollectionQuery(db, "holidays", dataAccessState), (snap) => {
-      const holidayEvents = snap.docs
-        .map((docSnap) => {
-          const data = docSnap.data();
-
-          const s0 = toJsDate(data.startDate);
-          const e0 = toJsDate(data.endDate || data.startDate);
-
-          if (!s0) return null;
-
-          const startBase = startOfLocalDay(s0);
-          const endBase = e0 ? startOfLocalDay(e0) : startBase;
-          const safeEnd = endBase >= startBase ? endBase : startBase;
-
-          const employee = (data.employee || data.employeeCode || "Unknown").toString();
-
-          return {
-            id: docSnap.id,
-            title: `${employee} - Holiday`,
-            start: startBase,
-            end: startOfLocalDay(addDays(safeEnd, 1)), // exclusive end
-            allDay: true,
-            status: "Holiday",
-            employee,
-            // keep original data if you need it later
-            ...data,
-          };
-        })
-        .filter(Boolean);
-
-      setHolidays(holidayEvents);
+    const unsubHolidays = onSnapshot(tenantCollectionQuery(db, "holidays", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
+      clearPagePermissionDenied();
+      applyHolidayRows(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "holidays", operation: "listen holidays" });
+      loadAdminDashboardData("holidays denied");
       setHolidays([]);
     });
 
-    const unsubNotes = onSnapshot(tenantCollectionQuery(db, "notes", dataAccessState), (snap) => {
+    const unsubNotes = onSnapshot(tenantCollectionQuery(db, "notes", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
       const noteEvents = mapNoteDocsToCalendarEvents(snap.docs);
       setNotes(noteEvents);
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "notes", operation: "listen notes" });
+      loadAdminDashboardData("notes denied");
       setNotes([]);
     });
 
     const unsubMaintenance = onSnapshot(
-      tenantCollectionQuery(db, "maintenanceBookings", dataAccessState),
+      tenantCollectionQuery(db, "maintenanceBookings", dataAccessState, [], CALENDAR_ACCESS_OPTIONS),
       (snap) => {
         const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setMaintenanceBookings(raw);
@@ -2538,11 +2617,12 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         if (!handleFirestoreAccessError(error, { collectionName: "maintenanceBookings", operation: "listen maintenance bookings" })) {
           console.error("[maintenance] onSnapshot error:", error);
         }
+        loadAdminDashboardData("maintenanceBookings denied");
         setMaintenanceBookings([]);
       }
     );
     const unsubMaintenanceJobs = onSnapshot(
-      tenantCollectionQuery(db, "maintenanceJobs", dataAccessState),
+      tenantCollectionQuery(db, "maintenanceJobs", dataAccessState, [], CALENDAR_ACCESS_OPTIONS),
       (snap) => {
         const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setMaintenanceJobs(raw);
@@ -2551,15 +2631,17 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         if (!handleFirestoreAccessError(error, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" })) {
           console.error("[maintenanceJobs] onSnapshot error:", error);
         }
+        loadAdminDashboardData("maintenanceJobs denied");
         setMaintenanceJobs([]);
       }
     );
 
-    const unsubVehicles = onSnapshot(tenantCollectionQuery(db, "vehicles", dataAccessState), (snap) => {
+    const unsubVehicles = onSnapshot(tenantCollectionQuery(db, "vehicles", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
       const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
       setVehiclesData((prev) => (sameVehicleSnapshotRows(prev, rows) ? prev : rows));
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "listen vehicles" });
+      loadAdminDashboardData("vehicles denied");
       setVehiclesData([]);
     });
 
@@ -2571,14 +2653,19 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       unsubMaintenance();
       unsubMaintenanceJobs();
     };
-  }, [accessKey, authReady, dataAccessState]);
+  }, [accessKey, applyHolidayRows, authReady, dataAccessState, loadAdminDashboardData, useAdminDashboardData]);
 
   useEffect(() => {
+    if (useAdminDashboardData) {
+      if (!authReady) return undefined;
+      loadAdminDashboardData("admin account");
+      return undefined;
+    }
     if (!authReady || !canSeeDeletedOnCalendar) {
       setDeletedBookings([]);
       return;
     }
-    const gate = resolveDataAccess(dataAccessState);
+    const gate = resolveDataAccess(dataAccessState, CALENDAR_ACCESS_OPTIONS);
     if (gate.checking) return;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "deletedBookings", operation: "listen deleted bookings" });
@@ -2586,7 +2673,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       return;
     }
 
-    const unsubDeleted = onSnapshot(tenantCollectionQuery(db, "deletedBookings", dataAccessState), (snap) => {
+    const unsubDeleted = onSnapshot(tenantCollectionQuery(db, "deletedBookings", dataAccessState, [], CALENDAR_ACCESS_OPTIONS), (snap) => {
       const list = snap.docs.map((d) => {
         const raw = d.data() || {};
         const payload = raw.data || raw.payload || raw.booking || {};
@@ -2601,66 +2688,44 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setDeletedBookings(list);
     }, (error) => {
       handleFirestoreAccessError(error, { collectionName: "deletedBookings", operation: "listen deleted bookings" });
+      loadAdminDashboardData("deletedBookings denied");
       setDeletedBookings([]);
     });
 
     return () => unsubDeleted();
-  }, [accessKey, authReady, canSeeDeletedOnCalendar, dataAccessState]);
+  }, [accessKey, authReady, canSeeDeletedOnCalendar, dataAccessState, loadAdminDashboardData, useAdminDashboardData]);
 
   const fetchBookings = async () => {
-    const snapshot = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
+    const snapshot = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState, [], CALENDAR_ACCESS_OPTIONS));
     const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
     setBookings(data);
   };
 
   const fetchHolidays = async () => {
-    const snapshot = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
-    const holidayEvents = snapshot.docs
-      .map((docSnap) => {
-        const data = docSnap.data();
-
-        const s0 = toJsDate(data.startDate);
-        const e0 = toJsDate(data.endDate || data.startDate);
-        if (!s0) return null;
-
-        const startBase = startOfLocalDay(s0);
-        const endBase = e0 ? startOfLocalDay(e0) : startBase;
-        const safeEnd = endBase >= startBase ? endBase : startBase;
-
-        const employee = (data.employee || data.employeeCode || "Unknown").toString();
-
-        return {
-          id: docSnap.id,
-          title: `${employee} - Holiday`,
-          start: startBase,
-          end: startOfLocalDay(addDays(safeEnd, 1)),
-          allDay: true,
-          status: "Holiday",
-          employee,
-          ...data,
-        };
-      })
-      .filter(Boolean);
-
-    setHolidays(holidayEvents);
+    const snapshot = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState, [], CALENDAR_ACCESS_OPTIONS));
+    applyHolidayRows(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
   };
 
   const fetchNotes = async () => {
-    const snapshot = await getDocs(tenantCollectionQuery(db, "notes", dataAccessState));
+    const snapshot = await getDocs(tenantCollectionQuery(db, "notes", dataAccessState, [], CALENDAR_ACCESS_OPTIONS));
     const noteEvents = mapNoteDocsToCalendarEvents(snapshot.docs);
     setNotes(noteEvents);
   };
 
   useEffect(() => {
     if (!authReady) return;
-    const gate = resolveDataAccess(dataAccessState);
+    if (useAdminDashboardData) {
+      loadAdminDashboardData("admin account");
+      return;
+    }
+    const gate = resolveDataAccess(dataAccessState, CALENDAR_ACCESS_OPTIONS);
     if (gate.checking) return;
     if (!gate.allowed) {
       reportDataAccessBlocked(gate, { collectionName: "equipment", operation: "read equipment options" });
       setEquipmentOptions([]);
       return;
     }
-    getDocs(tenantCollectionQuery(db, "equipment", dataAccessState))
+    getDocs(tenantCollectionQuery(db, "equipment", dataAccessState, [], CALENDAR_ACCESS_OPTIONS))
       .then((snap) => {
         setEquipmentOptions(
           snap.docs
@@ -2676,9 +2741,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         if (!handleFirestoreAccessError(error, { collectionName: "equipment", operation: "read equipment options" })) {
           console.error("[equipment] load error:", error);
         }
+        loadAdminDashboardData("equipment denied");
         setEquipmentOptions([]);
       });
-  }, [accessKey, authReady, dataAccessState]);
+  }, [accessKey, authReady, dataAccessState, loadAdminDashboardData, useAdminDashboardData]);
 
   //  minimal saveBooking so the existing modal doesn't crash if used
   const saveBooking = async (payload) => {
@@ -2688,7 +2754,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         createdByUid: payload?.createdByUid || userUid || "",
         lastEditedByUid: payload?.lastEditedByUid || userUid || "",
         createdAt: new Date(),
-      }));
+      }, CALENDAR_ACCESS_OPTIONS));
       setShowModal(false);
       fetchBookings();
     } catch (err) {

@@ -6,6 +6,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import {
   clearPagePermissionDenied,
+  isPermissionDeniedError,
 } from "@/app/utils/pageAccessEvents";
 import {
   dataAccessKey,
@@ -16,7 +17,7 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
-import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import { auth, db } from "../../../firebaseConfig";
 import {
   collection,
@@ -296,13 +297,6 @@ export default function VehicleMaintenancePage() {
   };
 
   const fetchVehicles = useCallback(async () => {
-    const gate = resolveDataAccess(dataAccessState);
-    if (gate.checking) return;
-    if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read vehicles" });
-      return;
-    }
-
     clearPagePermissionDenied();
     const snapshot = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
     const list = snapshot.docs.map((d) => normalizeVehicleRecord({ id: d.id, ...d.data() }));
@@ -372,15 +366,15 @@ export default function VehicleMaintenancePage() {
   };
 
   useEffect(() => {
+    clearPagePermissionDenied();
     fetchVehicles().catch((err) => {
       if (!handlePageFirestoreError(err, { collectionName: "vehicles", operation: "read vehicles" })) {
         console.error("Failed to fetch vehicles:", err);
       }
     });
     fetchMotSyncMeta().catch((err) => {
-      if (!handlePageFirestoreError(err, { collectionName: "settings/motHistorySync", operation: "read MOT sync metadata" })) {
-        console.error("Failed to fetch MOT sync metadata:", err);
-      }
+      console.warn("MOT sync metadata unavailable:", err);
+      setMotSyncMeta(null);
     });
   }, [accessKey, fetchVehicles]);
 
@@ -605,7 +599,6 @@ export default function VehicleMaintenancePage() {
 
     const fields = [
       "inspectionDate",
-      "nextMOT",
       "nextRFL",
       "nextService",
       "nextTacho",
@@ -630,6 +623,15 @@ export default function VehicleMaintenancePage() {
         const diff = daysUntil(d);
         if (diff < 0) overdue++;
         else if (diff <= 21) soon++;
+      }
+
+      if (!isMotNotApplicable(v)) {
+        const motDate = safeDate(v.nextMOT);
+        if (motDate) {
+          const diff = daysUntil(motDate);
+          if (diff < 0) overdue++;
+          else if (diff <= 21) soon++;
+        }
       }
     }
 
@@ -964,7 +966,7 @@ export default function VehicleMaintenancePage() {
 
                             {/* Dates with colour-coded status */}
                             {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7, suppressStatus: outOfUse })}
-                            {renderDateCell(v.nextMOT, rowTd, dateOptions)}
+                            {isMotNotApplicable(v) ? <td style={rowTd}>N/A</td> : renderDateCell(v.nextMOT, rowTd, dateOptions)}
                             {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
                               soonDays: retentionPlate ? (isTradePlate(v) ? 31 : 365) : 21,
                               suppressStatus: outOfUse,

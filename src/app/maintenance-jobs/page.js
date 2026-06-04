@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+} from "@/app/utils/firestoreAccess";
 import { auth, db } from "../../../firebaseConfig";
 import {
   ArrowLeft,
@@ -164,6 +173,17 @@ export default function MaintenanceJobsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rowRefs = useRef({});
+  const authAccess = useAuth() || {};
+  const dataAccessState = useMemo(
+    () => ({
+      user: authAccess.user,
+      userDoc: authAccess.userDoc,
+      isEnabled: authAccess.isEnabled,
+      accessReady: authAccess.accessReady,
+    }),
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+  );
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [vehicles, setVehicles] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -202,17 +222,38 @@ export default function MaintenanceJobsPage() {
       .replace(/\b\w/g, (m) => m.toUpperCase());
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "read maintenance job vehicles" });
+      setVehicles([]);
+      return;
+    }
+
     const loadVehicles = async () => {
-      const snap = await getDocs(collection(db, "vehicles"));
+      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
       const rows = snap.docs.map((d) => normalizeAssetRecord({ id: d.id, ...(d.data() || {}) }));
       rows.sort((a, b) => String(a.assetLabel || a.id).localeCompare(String(b.assetLabel || b.id)));
       setVehicles(rows);
     };
-    loadVehicles();
-  }, []);
+    loadVehicles().catch((error) => {
+      if (!handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "read maintenance job vehicles" })) {
+        console.error("Failed loading maintenance job vehicles:", error);
+      }
+      setVehicles([]);
+    });
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "maintenanceJobs"), (snap) => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" });
+      setJobs([]);
+      return undefined;
+    }
+
+    const unsub = onSnapshot(tenantCollectionQuery(db, "maintenanceJobs", dataAccessState), (snap) => {
       const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
       rows.sort((a, b) => {
         const at = new Date(a.updatedAt || 0).getTime();
@@ -235,9 +276,14 @@ export default function MaintenanceJobsPage() {
 
         return next;
       });
+    }, (error) => {
+      if (!handleFirestoreAccessError(error, { collectionName: "maintenanceJobs", operation: "listen maintenance jobs" })) {
+        console.error("Failed loading maintenance jobs:", error);
+      }
+      setJobs([]);
     });
     return () => unsub();
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     const vehicleId = String(searchParams.get("vehicleId") || "").trim();
@@ -371,7 +417,7 @@ export default function MaintenanceJobsPage() {
         setSaving(false);
         return;
       }
-      const docRef = await addDoc(collection(db, "maintenanceJobs"), nextPayload);
+      const docRef = await addDoc(collection(db, "maintenanceJobs"), tenantPayload(dataAccessState, nextPayload));
       setForm((prev) => ({ ...prev, title: "", notes: "" }));
       setFocusedJobId(docRef.id);
       setCreateMessage(`Job card created for ${createdTitle || "this asset"}. The new row is highlighted below.`);
@@ -418,7 +464,7 @@ export default function MaintenanceJobsPage() {
 
     setSavingJobId(job.id);
     try {
-      await updateDoc(doc(db, "maintenanceJobs", job.id), patch);
+      await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
       setJobErrors((prev) => {
         const next = { ...prev };
         delete next[job.id];
@@ -473,7 +519,7 @@ export default function MaintenanceJobsPage() {
       }
 
       setSavingJobId(job.id);
-      await updateDoc(doc(db, "maintenanceJobs", job.id), patch);
+      await updateDoc(doc(db, "maintenanceJobs", job.id), tenantPayload(dataAccessState, patch));
       setJobErrors((prev) => {
         const next = { ...prev };
         delete next[job.id];

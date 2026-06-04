@@ -4,9 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import PrepItemPicker from "@/app/components/PrepItemPicker";
 import { db, auth } from "../../../firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   bg: "#f8fafc",
@@ -231,6 +238,8 @@ function groupSectionsByJob(list) {
 
 export default function StuntPrepPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -266,10 +275,18 @@ export default function StuntPrepPage() {
 
   useEffect(() => {
     let active = true;
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load stunt prep vehicles" });
+      setVehicles([]);
+      setLoading(false);
+      return undefined;
+    }
 
     (async () => {
       try {
-        const vSnap = await getDocs(collection(db, "vehicles"));
+        const vSnap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
 
         if (!active) return;
 
@@ -284,7 +301,7 @@ export default function StuntPrepPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {

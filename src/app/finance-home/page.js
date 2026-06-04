@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useRouter } from "next/navigation";
+import {
+  dataAccessKey,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* ---------- Small helpers ---------- */
 const fmtDate = (d) => {
@@ -177,6 +185,8 @@ const Toast = ({ msg, onClose }) => {
 
 export default function FinanceDashboard() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
+  const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   const [invoiceJobs, setInvoiceJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,9 +198,18 @@ export default function FinanceDashboard() {
   const [savingIds, setSavingIds] = useState(new Set());
   const [toast, setToast] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "invoiceQueue", operation: "load invoice queue" });
+      setInvoiceJobs([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    const snapshot = await getDocs(collection(db, "invoiceQueue"));
+    const snapshot = await getDocs(tenantCollectionQuery(db, "invoiceQueue", dataAccessState));
     const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     const withSafe = data.map((j) => ({
       ...j,
@@ -200,11 +219,11 @@ export default function FinanceDashboard() {
     const deduped = dedupeRows(withSafe);
     setInvoiceJobs(deduped);
     setLoading(false);
-  };
+  }, [dataAccessState]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [accessKey, load]);
 
   const totals = useMemo(() => {
     const t = { pending: 0, ready: 0, invoiced: 0, paid: 0 };
@@ -277,13 +296,13 @@ export default function FinanceDashboard() {
         ? null
         : new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000).toISOString();
 
-      await updateDoc(doc(db, "invoiceQueue", row.id), {
+      await updateDoc(doc(db, "invoiceQueue", row.id), tenantPayload(dataAccessState, {
         status: "invoiced",
         invoiceNumber: invoiceNumber || row.invoiceNumber || "",
         invoiceDate: new Date().toISOString(),
         dueDate: dueDate || row.dueDate || null,
         updatedAt: new Date().toISOString(),
-      });
+      }));
 
       setToast("Invoice marked as Invoiced");
       await load();
@@ -301,19 +320,19 @@ export default function FinanceDashboard() {
     const paidISO = toISODate(todayInputValue());
     setSavingIds((s) => new Set(s).add(row.id));
     try {
-      await updateDoc(doc(db, "invoiceQueue", row.id), {
+      await updateDoc(doc(db, "invoiceQueue", row.id), tenantPayload(dataAccessState, {
         status: "paid",
         paidDate: paidISO,
         updatedAt: new Date().toISOString(),
-      });
+      }));
 
       if (row.bookingId) {
         try {
-          await updateDoc(doc(db, "bookings", row.bookingId), {
+          await updateDoc(doc(db, "bookings", row.bookingId), tenantPayload(dataAccessState, {
             status: "Paid",
             paidDate: paidISO,
             statusUpdatedAt: new Date().toISOString(),
-          });
+          }));
         } catch (e) {
           console.warn("Booking status update failed:", e?.message || e);
           alert("Paid in invoiceQueue, but failed to update booking record.");
