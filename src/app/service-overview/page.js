@@ -20,7 +20,13 @@ import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
 import { useAuth } from "@/app/context/authContext";
-import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import {
+  dataAccessKey,
+  handleFirestoreAccessError,
+  reportDataAccessBlocked,
+  resolveDataAccess,
+  tenantCollectionQuery,
+} from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 8,
@@ -344,7 +350,16 @@ export default function ServiceOverviewPage() {
   const [sort, setSort] = useState("risk");
 
   const loadVehicles = useCallback(async () => {
-    if (!authState?.user) return;
+    const gate = resolveDataAccess(authState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load service overview data" });
+      setVehicles([]);
+      setMaintenanceBookings([]);
+      setServiceRecords([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [vehiclesSnap, bookingsSnap, recordsSnap] = await Promise.all([
@@ -360,6 +375,13 @@ export default function ServiceOverviewPage() {
       );
       setMaintenanceBookings(bookingsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
       setServiceRecords(recordsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+    } catch (error) {
+      if (!handleFirestoreAccessError(error, { collectionName: "serviceOverview", operation: "load service overview data" })) {
+        console.error("[ServiceOverview] load error:", error);
+      }
+      setVehicles([]);
+      setMaintenanceBookings([]);
+      setServiceRecords([]);
     } finally {
       setLoading(false);
     }

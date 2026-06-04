@@ -624,6 +624,61 @@ const fallbackVehicleKeys = (list) =>
     )
   );
 
+const vehicleInfoFromRaw = (raw) => {
+  if (!raw) return null;
+  if (typeof raw === "object") {
+    const id = String(raw.id || raw.vehicleId || raw.registration || raw.name || "").trim();
+    if (!id) return null;
+    return {
+      id,
+      name: String(raw.name || raw.vehicleName || raw.registration || id).trim(),
+      registration: String(raw.registration || raw.reg || "").trim(),
+      group: String(raw.group || raw.category || "Selected").trim() || "Selected",
+      ...raw,
+    };
+  }
+  const id = String(raw || "").trim();
+  return id ? { id, name: id, registration: "", group: "Selected" } : null;
+};
+
+const mergeSelectedVehiclesIntoGroups = (groups = {}, rawVehicles = []) => {
+  const next = { ...(groups || {}) };
+  const existingIds = new Set(
+    Object.values(next)
+      .flat()
+      .map((vehicle) => String(vehicle?.id || "").trim())
+      .filter(Boolean)
+  );
+
+  rawVehicles.map(vehicleInfoFromRaw).filter(Boolean).forEach((vehicle) => {
+    if (existingIds.has(vehicle.id)) return;
+    const group = vehicle.group || "Selected";
+    next[group] = [...(next[group] || []), vehicle];
+    existingIds.add(vehicle.id);
+  });
+
+  return next;
+};
+
+const mergeSelectedEquipmentIntoGroups = (groups = {}, selectedEquipment = []) => {
+  const next = { ...(groups || {}) };
+  const existingNames = new Set(
+    Object.values(next)
+      .flat()
+      .map((name) => String(name || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  selectedEquipment.forEach((rawName) => {
+    const name = String(rawName || "").trim();
+    if (!name || existingNames.has(name.toLowerCase())) return;
+    next.Selected = [...(next.Selected || []), name];
+    existingNames.add(name.toLowerCase());
+  });
+
+  return next;
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
    Money helpers
 ──────────────────────────────────────────────────────────────────────────── */
@@ -742,61 +797,6 @@ const buildEditBookingPrefillState = (bookingData) => {
   const hasUsefulBooking = Boolean(
     bookingData?.id && Object.keys(booking).some((key) => key !== "id")
   );
-
-const vehicleInfoFromRaw = (raw) => {
-  if (!raw) return null;
-  if (typeof raw === "object") {
-    const id = String(raw.id || raw.vehicleId || raw.registration || raw.name || "").trim();
-    if (!id) return null;
-    return {
-      id,
-      name: String(raw.name || raw.vehicleName || raw.registration || id).trim(),
-      registration: String(raw.registration || raw.reg || "").trim(),
-      group: String(raw.group || raw.category || "Selected").trim() || "Selected",
-      ...raw,
-    };
-  }
-  const id = String(raw || "").trim();
-  return id ? { id, name: id, registration: "", group: "Selected" } : null;
-};
-
-const mergeSelectedVehiclesIntoGroups = (groups = {}, rawVehicles = []) => {
-  const next = { ...(groups || {}) };
-  const existingIds = new Set(
-    Object.values(next)
-      .flat()
-      .map((vehicle) => String(vehicle?.id || "").trim())
-      .filter(Boolean)
-  );
-
-  rawVehicles.map(vehicleInfoFromRaw).filter(Boolean).forEach((vehicle) => {
-    if (existingIds.has(vehicle.id)) return;
-    const group = vehicle.group || "Selected";
-    next[group] = [...(next[group] || []), vehicle];
-    existingIds.add(vehicle.id);
-  });
-
-  return next;
-};
-
-const mergeSelectedEquipmentIntoGroups = (groups = {}, selectedEquipment = []) => {
-  const next = { ...(groups || {}) };
-  const existingNames = new Set(
-    Object.values(next)
-      .flat()
-      .map((name) => String(name || "").trim().toLowerCase())
-      .filter(Boolean)
-  );
-
-  selectedEquipment.forEach((rawName) => {
-    const name = String(rawName || "").trim();
-    if (!name || existingNames.has(name.toLowerCase())) return;
-    next.Selected = [...(next.Selected || []), name];
-    existingNames.add(name.toLowerCase());
-  });
-
-  return next;
-};
 
   return {
     hasBooking: hasUsefulBooking,

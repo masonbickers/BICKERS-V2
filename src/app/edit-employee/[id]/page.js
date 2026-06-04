@@ -36,6 +36,21 @@ const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
 ];
 
+const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
+
+const clearBookingReferenceCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    Object.keys(window.sessionStorage || {}).forEach((key) => {
+      if (key.startsWith(BOOKING_REFERENCE_CACHE_PREFIX)) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // Cache invalidation is best-effort.
+  }
+};
+
 const EMPTY_PAYROLL_RATES = {
   workshopRate: "",
   overtimeRate: "",
@@ -1056,6 +1071,7 @@ export default function EditEmployeePage() {
           updatedBy,
         }, { merge: true }),
       ]);
+      clearBookingReferenceCache();
       setSaveMessage("Employee access and profile updated.");
       setPassportFile(null);
       setDrivingLicenceFile(null);

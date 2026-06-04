@@ -2119,9 +2119,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       user: authAccess.user,
       userDoc: authAccess.userDoc,
       isEnabled: authAccess.isEnabled,
+      loading: authAccess.loading,
       accessReady: authAccess.accessReady,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
   );
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 

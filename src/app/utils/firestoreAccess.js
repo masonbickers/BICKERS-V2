@@ -71,6 +71,39 @@ export function resolveDataAccess(authState = {}, options = {}) {
   const companyId = currentCompanyId(authState);
   const isPlatformAdmin = role === "platformAdmin";
 
+  if (authState?.loading === true) {
+    return {
+      allowed: false,
+      checking: true,
+      reason: "Loading account access.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
+  if (!authState?.user) {
+    return {
+      allowed: false,
+      checking: false,
+      reason: "Sign in required.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
+  if (authState?.accessReady !== true) {
+    return {
+      allowed: false,
+      checking: true,
+      reason: "Loading account access.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
   const archivedOrDisabled =
     authState?.isEnabled === false ||
     userDoc?.isEnabled === false ||
@@ -183,8 +216,9 @@ export function useDataAccessState() {
       user: authAccess.user,
       userDoc: authAccess.userDoc,
       isEnabled: authAccess.isEnabled,
+      loading: authAccess.loading,
       accessReady: authAccess.accessReady,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.user, authAccess.userDoc]
+    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
   );
 }

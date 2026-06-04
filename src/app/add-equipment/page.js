@@ -17,6 +17,21 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 
+const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
+
+const clearBookingReferenceCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    Object.keys(window.sessionStorage || {}).forEach((key) => {
+      if (key.startsWith(BOOKING_REFERENCE_CACHE_PREFIX)) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // Cache invalidation is best-effort.
+  }
+};
+
 /* ───────────────── Mini design system (match your newer pages) ───────────────── */
 const UI = {
   radius: 14,
@@ -218,6 +233,7 @@ export default function AddEquipmentPage() {
       };
 
       await addDoc(collection(db, "equipment"), tenantPayload(dataAccessState, payload));
+      clearBookingReferenceCache();
       alert(" Equipment added.");
       if (navigateOnSuccess) {
         router.push("/equipment");

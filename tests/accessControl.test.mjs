@@ -114,3 +114,28 @@ test("allows service-only users on service routes and the shared diary", () => {
   assert.equal(isPathAllowedForAccess("/create-booking", access), true);
   assert.equal(isPathAllowedForAccess("/edit-booking/abc123", access), true);
 });
+
+test("allows user-workspace accounts to open fleet hub pages", () => {
+  const access = resolveEmployeeAccess({
+    appAccess: { user: true, service: false },
+    defaultWorkspace: "user",
+  });
+
+  [
+    "/vehicle-home",
+    "/vehicles",
+    "/equipment",
+    "/add-vehicle",
+    "/general",
+    "/immediate",
+    "/defects/declined",
+    "/maintenance-jobs",
+    "/mot-overview",
+    "/service-overview",
+    "/vehicle-activity",
+    "/usage-overview",
+    "/vehicle-checks",
+  ].forEach((path) => {
+    assert.equal(isPathAllowedForAccess(path, access), true, path);
+  });
+});

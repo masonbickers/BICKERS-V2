@@ -95,6 +95,28 @@ export const SERVICE_PATH_PREFIXES = [
   "/workshop",
 ];
 
+export const SHARED_FLEET_PATH_PREFIXES = [
+  "/vehicle-home",
+  "/vehicles",
+  "/vehicle-edit",
+  "/vehicle-info",
+  "/vehicle-activity",
+  "/vehicle-checks",
+  "/vehicle-checkid",
+  "/equipment",
+  "/add-vehicle",
+  "/add-equipment",
+  "/edit-equipment",
+  "/mot-overview",
+  "/mot-history-sync",
+  "/maintenance-jobs",
+  "/service-overview",
+  "/usage-overview",
+  "/general",
+  "/immediate",
+  "/defects",
+];
+
 export const ADMIN_PATH_PREFIXES = [
   "/admin",
   "/platform-admin",
@@ -401,6 +423,11 @@ export function getWorkspaceForPath(pathname = "") {
     : "user";
 }
 
+export function isSharedFleetPath(pathname = "") {
+  const path = String(pathname || "").toLowerCase();
+  return SHARED_FLEET_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
 export function isAdminPath(pathname = "") {
   const path = String(pathname || "").toLowerCase();
   return ADMIN_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -434,6 +461,9 @@ export function isCalendarPath(pathname = "") {
 
 export function isPathAllowedForAccess(pathname, access) {
   if (isCalendarPath(pathname)) return true;
+  if (isSharedFleetPath(pathname)) {
+    return isWorkspaceAllowed(access, "user") || isWorkspaceAllowed(access, "service");
+  }
   return isWorkspaceAllowed(access, getWorkspaceForPath(pathname));
 }
 

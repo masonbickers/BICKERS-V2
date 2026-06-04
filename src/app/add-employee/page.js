@@ -18,6 +18,21 @@ import {
   UserPlus,
 } from "lucide-react";
 
+const BOOKING_REFERENCE_CACHE_PREFIX = "booking-form-reference-data:v1";
+
+const clearBookingReferenceCache = () => {
+  if (typeof window === "undefined") return;
+  try {
+    Object.keys(window.sessionStorage || {}).forEach((key) => {
+      if (key.startsWith(BOOKING_REFERENCE_CACHE_PREFIX)) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // Cache invalidation is best-effort.
+  }
+};
+
 /* Mini design system */
 const UI = {
   radius: 8,
@@ -212,6 +227,7 @@ export default function AddEmployeePage() {
         phoneNumber,
         createdAt: serverTimestamp(),
       });
+      clearBookingReferenceCache();
       alert("Employee added");
       router.push("/employees");
     } catch (err) {
