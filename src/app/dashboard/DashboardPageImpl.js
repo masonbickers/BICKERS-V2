@@ -1684,7 +1684,15 @@ function CalendarEvent({ event }) {
 
                 {!isBickersJob && (
                   <span
+                    title={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
+                    aria-label={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      minHeight: 20,
+                      minWidth: 34,
                       fontSize: "0.72rem",
                       fontWeight: 400,
                       padding: "2px 6px",
@@ -1692,9 +1700,11 @@ function CalendarEvent({ event }) {
                       backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
                       color: "#fff",
                       border: "1px solid rgba(0,0,0,0.8)",
+                      lineHeight: 1,
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    RA {event.hasRiskAssessment ? "OK" : "No"}
+                    RA {event.hasRiskAssessment ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
                   </span>
                 )}
 
@@ -1715,10 +1725,6 @@ function CalendarEvent({ event }) {
                     }
                   />
                 )}
-
-                <EventMetaBadge Icon={Clock3} good={hasAnyCallTime} title={callTimeTitle}>
-                  {hasAnyCallTime && callTimeForThisEvent ? callTimeForThisEvent : null}
-                </EventMetaBadge>
               </div>
             );
           })()}

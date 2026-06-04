@@ -37,7 +37,18 @@ import { collection, onSnapshot } from "firebase/firestore";
 import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import {
+  BedDouble,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  MapPinned,
+  Plus,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
@@ -298,6 +309,26 @@ const startOfLocalDay = (d) => {
   return x;
 };
 
+const ymd = (d) => {
+  const x = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(x.getTime())) return "";
+  const yy = x.getFullYear();
+  const mm = String(x.getMonth() + 1).padStart(2, "0");
+  const dd = String(x.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+};
+
+const normaliseCallTime = (value) => String(value ?? "").trim();
+
+const callTimeForEventDay = (event) => {
+  const map = event?.callTimesByDate || {};
+  const dayKey = event?.__eventDate || ymd(event?.start);
+
+  if (dayKey && map[dayKey]) return normaliseCallTime(map[dayKey]);
+  if (event?.callTime) return normaliseCallTime(event.callTime);
+  return "";
+};
+
 const addDays = (d, n) => {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
@@ -469,6 +500,35 @@ const formatShortRange = (start, endExclusive) => {
 
 const STATUS_SORT = { Confirmed: 1, "First Pencil": 2, "Second Pencil": 3 };
 
+function EventMetaBadge({ Icon, good, title, children }) {
+  return (
+    <span
+      title={title}
+      aria-label={title}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        minHeight: 20,
+        minWidth: children ? 34 : 24,
+        padding: children ? "2px 6px" : "2px 5px",
+        borderRadius: 6,
+        backgroundColor: good ? "#4caf50" : "#f44336",
+        color: "#fff",
+        border: "1px solid rgba(0,0,0,0.8)",
+        fontSize: "0.72rem",
+        fontWeight: 800,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <Icon size={12} strokeWidth={3} />
+      {children ? children : good ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
+    </span>
+  );
+}
+
 /* --------------------- CalendarEvent (EXACT style from main diary) ----------------- */
 function CalendarEvent({ event }) {
   const router = useRouter();
@@ -489,6 +549,18 @@ function CalendarEvent({ event }) {
 
   const hasPerDayCallTimes =
     event.callTimesByDate && Object.keys(event.callTimesByDate).length > 0;
+  const callTimeForThisEvent = useMemo(() => callTimeForEventDay(event), [event]);
+  const hasAnyCallTime =
+    !!callTimeForThisEvent ||
+    !!event.callTime ||
+    (hasPerDayCallTimes && Object.values(event.callTimesByDate || {}).some(Boolean));
+  const callTimeTitle = hasAnyCallTime
+    ? callTimeForThisEvent
+      ? `Call time set: ${callTimeForThisEvent}`
+      : event.callTime
+      ? `Call time set: ${event.callTime}`
+      : "Call time set per day"
+    : "No call time set";
 
   const bookingStatusLC = String(event.status || "").toLowerCase();
   const hideDayNotes = ["cancelled", "canceled", "postponed", "dnh"].includes(bookingStatusLC);
@@ -595,6 +667,22 @@ function CalendarEvent({ event }) {
         </div>
 
         <span>{event.client}</span>
+
+        {/*  Call Time line (shows correctly for single day + multi-day) */}
+        {callTimeForThisEvent && (
+          <span
+            title={callTimeTitle}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: "0.78rem",
+              fontWeight: 900,
+            }}
+          >
+            <Clock3 size={12} strokeWidth={3} /> {callTimeForThisEvent}
+          </span>
+        )}
 
         {/* Vehicles */}
         {Array.isArray(event.vehicles) &&
@@ -833,10 +921,10 @@ function CalendarEvent({ event }) {
           </div>
         )}
 
-        {/* Badge row (keep, identical behaviour) */}
+        {/* Badge row */}
         {(() => {
           const status = (event.status || "").toLowerCase();
-          const hideForStatus = ["cancelled", "dnh", "lost", "postponed"].includes(status);
+          const hideForStatus = ["cancelled", "dnh", "lost", "postponed", "deleted"].includes(status);
           if (hideForStatus) return null;
 
           return (
@@ -846,27 +934,27 @@ function CalendarEvent({ event }) {
                 gap: 6,
                 alignItems: "center",
                 justifyContent: "flex-start",
-                marginTop: 4,
+                marginTop: 6,
                 width: "100%",
                 flexWrap: "wrap",
               }}
             >
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 400,
-                  padding: "2px 6px",
-                  borderRadius: 6,
-                  backgroundColor: event.hasHS ? "#4caf50" : "#f44336",
-                  color: "#fff",
-                  border: "1px solid rgba(0,0,0,0.8)",
-                }}
-              >
-                HS {event.hasHS ? "Yes" : "No"}
-              </span>
+              <EventMetaBadge
+                Icon={ShieldCheck}
+                good={!!event.hasHS}
+                title={event.hasHS ? "Health and safety present" : "No health and safety"}
+              />
 
               <span
+                title={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
+                aria-label={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  minHeight: 20,
+                  minWidth: 34,
                   fontSize: "0.72rem",
                   fontWeight: 400,
                   padding: "2px 6px",
@@ -874,10 +962,24 @@ function CalendarEvent({ event }) {
                   backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
                   color: "#fff",
                   border: "1px solid rgba(0,0,0,0.8)",
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
                 }}
               >
-                RA {event.hasRiskAssessment ? "Yes" : "No"}
+                RA {event.hasRiskAssessment ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
               </span>
+
+              <EventMetaBadge
+                Icon={BedDouble}
+                good={!!event.hasHotel}
+                title={event.hasHotel ? "Hotel required" : "No hotel"}
+              />
+
+              <EventMetaBadge
+                Icon={MapPinned}
+                good={!!event.hasRiggingAddress}
+                title={event.hasRiggingAddress ? event.riggingAddress || "Unit base set" : "No unit base"}
+              />
             </div>
           );
         })()}
