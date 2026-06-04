@@ -487,6 +487,7 @@ const STATUS_COLORS = {
   Postponed: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
   Deleted: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
   "Bank Holiday": { bg: "#dbeafe", text: "#111", border: "#0b0b0b" },
+  Note: { bg: "#ccfbf1", text: "#111", border: "#0f766e" },
 };
 
 const normalizeStatusLabel = (raw = "") => {
@@ -504,6 +505,7 @@ const normalizeStatusLabel = (raw = "") => {
   if (s === "postponed") return "Postponed";
   if (s === "deleted") return "Deleted";
   if (s === "bank holiday") return "Bank Holiday";
+  if (s === "note") return "Note";
   return String(raw || "").trim();
 };
 
@@ -524,6 +526,7 @@ const WORK_DIARY_BORDERS = {
   Postponed: "#8f8f8f",
   Deleted: "#8f8f8f",
   "Bank Holiday": "#7ca0d6",
+  Note: "#0f766e",
 };
 
 const getWorkDiaryBorder = (status, fallback) =>
@@ -1193,6 +1196,7 @@ function CalendarEvent({ event }) {
   }, []);
 
   const isMaintenance = event.status === "Maintenance";
+  const isNote = event.status === "Note";
   const isBickersJob = String(event.status || "").trim().toLowerCase() === "bickers";
 
   //  robust per-day call time detection + display
@@ -1228,6 +1232,33 @@ function CalendarEvent({ event }) {
 
   //  NEW: "Crewed" handling (no crew-needed counts once crewed)
   const isCrewed = !isMaintenance && !!event.isCrewed;
+
+  if (isNote) {
+    return (
+      <div
+        title={event.title || "Note"}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: "5px 6px",
+          color: "#0b0b0b",
+          fontFamily: "Inter, system-ui, Arial, sans-serif",
+          fontSize: "0.82rem",
+          lineHeight: 1.15,
+          fontWeight: 800,
+          textAlign: "left",
+          whiteSpace: "normal",
+          wordBreak: "break-word",
+          letterSpacing: 0,
+        }}
+      >
+        <span style={{ fontSize: "0.68rem", fontWeight: 900, color: "#0f766e" }}>NOTE</span>
+        <span>{event.title || "Note"}</span>
+        {event.employee ? <span style={{ fontSize: "0.72rem", fontWeight: 700 }}>{event.employee}</span> : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -2173,7 +2204,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   );
 
   const [maintenanceView, setMaintenanceView] = useState("week");
-  const [maintenanceDate, setMaintenanceDate] = useState(new Date());
+  const [maintenanceDate, setMaintenanceDate] = useState(() => getDashboardInitialDate(initialDate));
   const [showDeletedInView, setShowDeletedInView] = useState(true);
   const [showInactiveInView, setShowInactiveInView] = useState(true);
   const shiftByDays = (date, days) => {
@@ -2194,6 +2225,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     const nextDate = parseLocalDate(initialDate);
     if (nextDate) {
       setCurrentDate((prev) => (sameCalendarDate(prev, nextDate) ? prev : nextDate));
+      setMaintenanceDate((prev) => (sameCalendarDate(prev, nextDate) ? prev : nextDate));
     }
   }, [initialDate]);
 
@@ -3405,7 +3437,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </div>
               <button
                 style={btn("ghost")}
-                onClick={() => setCurrentDate(new Date())}
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentDate(today);
+                  setMaintenanceDate(today);
+                }}
                 type="button"
               >
                 <CalendarDays size={14} />
@@ -3484,7 +3520,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               onSelectSlot={({ start }) => {
                 setEditingNoteId(null);
                 const d = start instanceof Date ? start : new Date(start);
-                setCreateNoteDate(d.toISOString().split("T")[0]);
+                setCreateNoteDate(ymd(d));
                 setNoteModalOpen(true);
               }}
               selectable
@@ -3975,7 +4011,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             }}
           >
             <CreateNote
-              defaultDate={new Date().toISOString().split("T")[0]}
+              defaultDate={ymd(new Date())}
               onClose={() => setCreateNoteOpen(false)}
               onSaved={() => {
                 setCreateNoteOpen(false);
