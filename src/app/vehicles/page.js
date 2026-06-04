@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
+import VehicleCategorySettingsModal from "@/app/components/VehicleCategorySettingsModal";
 import {
   clearPagePermissionDenied,
   isPermissionDeniedError,
@@ -18,6 +19,11 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import {
+  DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+  loadVehicleFleetSettings,
+  uniqueVehicleCategoryNames,
+} from "@/app/utils/vehicleCategorySettings";
 import { auth, db } from "../../../firebaseConfig";
 import {
   collection,
@@ -28,7 +34,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import Papa from "papaparse";
-import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search } from "lucide-react";
+import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search, Settings } from "lucide-react";
 
 /* UI tokens */
 const UI = {
@@ -277,6 +283,12 @@ export default function VehicleMaintenancePage() {
 
   const [vehicles, setVehicles] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [vehicleFleetSettings, setVehicleFleetSettings] = useState({
+    categories: [],
+    categoryMeta: {},
+    compliance: DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+  });
+  const [categorySettingsOpen, setCategorySettingsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("none"); // none | service | mot | mileage | az
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -365,6 +377,22 @@ export default function VehicleMaintenancePage() {
     setMotSyncMeta(snap.exists() ? snap.data() : null);
   };
 
+  const fetchVehicleCategorySettings = useCallback(async () => {
+    try {
+      const settings = await loadVehicleFleetSettings(db);
+      setVehicleFleetSettings(settings);
+    } catch (err) {
+      if (!handlePageFirestoreError(err, { collectionName: "settings/vehicleCategories", operation: "read vehicle category settings" })) {
+        console.warn("Vehicle category settings unavailable:", err);
+      }
+      setVehicleFleetSettings({
+        categories: [],
+        categoryMeta: {},
+        compliance: DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     clearPagePermissionDenied();
     fetchVehicles().catch((err) => {
@@ -376,7 +404,8 @@ export default function VehicleMaintenancePage() {
       console.warn("MOT sync metadata unavailable:", err);
       setMotSyncMeta(null);
     });
-  }, [accessKey, fetchVehicles]);
+    fetchVehicleCategorySettings();
+  }, [accessKey, fetchVehicleCategorySettings, fetchVehicles]);
 
   // Persist dropdown changes
   const handleSelectChange = async (id, field, value, extraUpdates = {}) => {
@@ -518,10 +547,39 @@ export default function VehicleMaintenancePage() {
     }
   };
 
+  const categoryMeta = useMemo(
+    () => vehicleFleetSettings.categoryMeta || {},
+    [vehicleFleetSettings.categoryMeta]
+  );
+  const complianceSettings = useMemo(
+    () => ({
+      ...DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+      ...(vehicleFleetSettings.compliance || {}),
+    }),
+    [vehicleFleetSettings.compliance]
+  );
+  const compareVehicleCategories = useCallback(
+    (a, b) => {
+      const aOrder = Number(categoryMeta[a]?.order);
+      const bOrder = Number(categoryMeta[b]?.order);
+      const aHasOrder = Number.isFinite(aOrder);
+      const bHasOrder = Number.isFinite(bOrder);
+      if (aHasOrder && bHasOrder && aOrder !== bOrder) return aOrder - bOrder;
+      if (aHasOrder && !bHasOrder) return -1;
+      if (!aHasOrder && bHasOrder) return 1;
+      return categorySort(a, b);
+    },
+    [categoryMeta]
+  );
+
   // Category list for filter UI
   const categories = useMemo(() => {
-    return Array.from(new Set([...vehicles.map((v) => v.category).filter(Boolean), RETENTION_PLATE_CATEGORY])).sort(categorySort);
-  }, [vehicles]);
+    return uniqueVehicleCategoryNames([
+      ...(vehicleFleetSettings.categories || []),
+      ...vehicles.map((v) => v.category).filter(Boolean),
+      RETENTION_PLATE_CATEGORY,
+    ]).sort(compareVehicleCategories);
+  }, [compareVehicleCategories, vehicleFleetSettings.categories, vehicles]);
 
   // Filter + sort
   const filteredVehicles = useMemo(() => {
@@ -598,13 +656,12 @@ export default function VehicleMaintenancePage() {
     let soon = 0;
 
     const fields = [
-      "inspectionDate",
-      "nextRFL",
-      "nextService",
-      "nextTacho",
-      "nextBrakeTest",
-      "nextPMI",
-      "nextTachoDownload",
+      ["inspectionDate", 21],
+      ["nextRFL", complianceSettings.taxRflWarningDays],
+      ["nextTacho", 21],
+      ["nextBrakeTest", 21],
+      ["nextPMI", 21],
+      ["nextTachoDownload", 21],
     ];
 
     for (const v of filteredVehicles) {
@@ -614,15 +671,27 @@ export default function VehicleMaintenancePage() {
       if (insuredUntil) {
         const diff = daysUntil(insuredUntil);
         if (diff < 0) overdue++;
-        else if (diff <= 7) soon++;
+        else if (diff <= complianceSettings.insuranceWarningDays) soon++;
       }
 
-      for (const f of fields) {
+      const serviceDate = safeDate(isRetentionPlate(v) ? v.retentionExpiry : v.nextService);
+      if (serviceDate) {
+        const soonDays = isRetentionPlate(v)
+          ? isTradePlate(v)
+            ? complianceSettings.tradePlateWarningDays
+            : complianceSettings.retentionPlateWarningDays
+          : 21;
+        const diff = daysUntil(serviceDate);
+        if (diff < 0) overdue++;
+        else if (diff <= soonDays) soon++;
+      }
+
+      for (const [f, soonDays] of fields) {
         const d = safeDate(v[f]);
         if (!d) continue;
         const diff = daysUntil(d);
         if (diff < 0) overdue++;
-        else if (diff <= 21) soon++;
+        else if (diff <= soonDays) soon++;
       }
 
       if (!isMotNotApplicable(v)) {
@@ -636,7 +705,7 @@ export default function VehicleMaintenancePage() {
     }
 
     return { count: filteredVehicles.length, overdue, soon };
-  }, [filteredVehicles]);
+  }, [complianceSettings, filteredVehicles]);
 
   return (
     <HeaderSidebarLayout>
@@ -721,6 +790,16 @@ export default function VehicleMaintenancePage() {
             <button type="button" className="vehicles-action" onClick={() => router.push("/add-vehicle?type=number-plate")} style={btn("ghost")}>
               <FilePlus2 size={15} />
               Add Retention Plate
+            </button>
+            <button
+              type="button"
+              className="vehicles-action"
+              onClick={() => setCategorySettingsOpen(true)}
+              style={{ ...btn("ghost"), width: 32, padding: 0 }}
+              title="Fleet Settings"
+              aria-label="Fleet Settings"
+            >
+              <Settings size={15} />
             </button>
           </div>
         </div>
@@ -846,16 +925,20 @@ export default function VehicleMaintenancePage() {
                   </tr>
                 </thead>
 
-                {Object.entries(groupedByCategory).sort(([a], [b]) => categorySort(a, b)).map(([category, list]) => (
+                {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
+                  const categoryColor = categoryMeta[category]?.color || "";
+                  const categoryBackground = categoryColor ? `${categoryColor}18` : "#edf3f8";
+                  return (
                   <tbody key={category}>
                     <tr
                       onClick={() => toggleCategory(category)}
                       className="catRow"
                       style={{
-                        background: "#edf3f8",
+                        background: categoryBackground,
                         cursor: "pointer",
                         borderTop: UI.border,
                         borderBottom: UI.border,
+                        ...(categoryColor ? { borderLeft: `6px solid ${categoryColor}` } : {}),
                       }}
                       title="Click to expand/collapse"
                     >
@@ -870,7 +953,21 @@ export default function VehicleMaintenancePage() {
                           verticalAlign: "middle",
                         }}
                       >
-                        {expandedCategories[category] ? "v" : ">"} {category}{" "}
+                        {expandedCategories[category] ? "v" : ">"}{" "}
+                        {categoryColor ? (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 10,
+                              height: 10,
+                              borderRadius: 3,
+                              background: categoryColor,
+                              margin: "0 6px 0 2px",
+                              verticalAlign: "middle",
+                            }}
+                          />
+                        ) : null}
+                        {category}{" "}
                         <span style={{ color: UI.muted, fontWeight: 800 }}>({list.length})</span>
                       </td>
                     </tr>
@@ -909,6 +1006,19 @@ export default function VehicleMaintenancePage() {
                         const insuranceCell = { ...rowTd, width: 118, maxWidth: 118 };
                         const insuranceStatus = outOfUse ? v.insuranceStatus || "N/A" : getInsuranceStatus(v);
                         const dateOptions = outOfUse ? { suppressStatus: true } : undefined;
+                        const taxDateOptions = outOfUse ? { suppressStatus: true } : { soonDays: complianceSettings.taxRflWarningDays };
+                        const insuranceDateOptions = {
+                          soonDays: complianceSettings.insuranceWarningDays,
+                          suppressStatus: outOfUse,
+                        };
+                        const serviceDateOptions = {
+                          soonDays: retentionPlate
+                            ? isTradePlate(v)
+                              ? complianceSettings.tradePlateWarningDays
+                              : complianceSettings.retentionPlateWarningDays
+                            : 21,
+                          suppressStatus: outOfUse,
+                        };
                         const rowBackground = outOfUse ? "#f1f5f9" : zebra;
 
                         return (
@@ -945,7 +1055,7 @@ export default function VehicleMaintenancePage() {
                               </select>
                             </td>
 
-                            {renderDateCell(v.nextRFL, rowTd, dateOptions)}
+                            {renderDateCell(v.nextRFL, rowTd, taxDateOptions)}
 
                             {/* Insurance Status */}
                             <td style={insuranceCell} onClick={(e) => e.stopPropagation()}>
@@ -965,12 +1075,9 @@ export default function VehicleMaintenancePage() {
                             </td>
 
                             {/* Dates with colour-coded status */}
-                            {renderDateCell(getInsuredUntil(v), rowTd, { soonDays: 7, suppressStatus: outOfUse })}
+                            {renderDateCell(getInsuredUntil(v), rowTd, insuranceDateOptions)}
                             {isMotNotApplicable(v) ? <td style={rowTd}>N/A</td> : renderDateCell(v.nextMOT, rowTd, dateOptions)}
-                            {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, {
-                              soonDays: retentionPlate ? (isTradePlate(v) ? 31 : 365) : 21,
-                              suppressStatus: outOfUse,
-                            })}
+                            {renderDateCell(retentionPlate ? v.retentionExpiry : v.nextService, rowTd, serviceDateOptions)}
                             {renderDateCell(v.nextPMI, rowTd, dateOptions)}
                             {renderDateCell(v.nextBrakeTest, rowTd, dateOptions)}
                             {renderDateCell(v.nextTacho, rowTd, dateOptions)}
@@ -980,7 +1087,8 @@ export default function VehicleMaintenancePage() {
                         );
                       })}
                   </tbody>
-                ))}
+                  );
+                })}
 
                 {Object.keys(groupedByCategory).length === 0 && (
                   <tbody>
@@ -997,9 +1105,26 @@ export default function VehicleMaintenancePage() {
         </div>
 
         <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
-          Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within 21 days,{" "}
-          insurance = due within 7 days, <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
+          Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
+          <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
         </div>
+
+        {categorySettingsOpen ? (
+          <VehicleCategorySettingsModal
+            categories={categories}
+            settings={vehicleFleetSettings}
+            vehicles={vehicles}
+            onClose={() => setCategorySettingsOpen(false)}
+            onSaved={async (nextSettings) => {
+              setVehicleFleetSettings(nextSettings);
+              const nextCategories = nextSettings.categories || [];
+              if (categoryFilter !== "All" && !nextCategories.some((category) => norm(category) === norm(categoryFilter))) {
+                setCategoryFilter("All");
+              }
+              await fetchVehicles();
+            }}
+          />
+        ) : null}
 
         {insuranceDatePrompt ? (
           <div

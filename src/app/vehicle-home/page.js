@@ -52,6 +52,7 @@ import {
   resolveDataAccess,
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
+import { loadVehicleFleetSettings } from "@/app/utils/vehicleCategorySettings";
 import {
   getDocs,
   doc,
@@ -840,6 +841,7 @@ export default function VehiclesHomePage() {
   // Vehicles (for due-date events + labels + counts)
   const [vehiclesRaw, setVehiclesRaw] = useState([]);
   const [vehicleNameMap, setVehicleNameMap] = useState({});
+  const [vehicleCategoryMeta, setVehicleCategoryMeta] = useState({});
 
   // Counters
   const [motCounts, setMotCounts] = useState({ overdue: 0, soon: 0, ok: 0, total: 0 });
@@ -900,6 +902,24 @@ export default function VehiclesHomePage() {
         console.error("[vehicle-home] vehicles load error:", error);
       }
     });
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "settings/vehicleCategories", operation: "read vehicle category settings" });
+      return;
+    }
+
+    loadVehicleFleetSettings(db)
+      .then((settings) => setVehicleCategoryMeta(settings.categoryMeta || {}))
+      .catch((error) => {
+        if (!handlePageFirestoreError(error, { collectionName: "settings/vehicleCategories", operation: "read vehicle category settings" })) {
+          console.warn("[vehicle-home] vehicle category settings unavailable:", error);
+        }
+        setVehicleCategoryMeta({});
+      });
   }, [accessKey, dataAccessState]);
 
   /* --------- MOT + Service counters (uses vehiclesRaw) --------- */
@@ -1686,8 +1706,23 @@ export default function VehiclesHomePage() {
     [motCounts, serviceCounts, recentActivity.length]
   );
 
+  const vehicleCategoryColorById = useMemo(() => {
+    const lowerMeta = Object.entries(vehicleCategoryMeta || {}).reduce((acc, [key, value]) => {
+      acc[normStatus(key)] = value || {};
+      return acc;
+    }, {});
+
+    return vehiclesRaw.reduce((acc, vehicle) => {
+      const category = String(vehicle?.category || "").trim();
+      const color = vehicleCategoryMeta[category]?.color || lowerMeta[normStatus(category)]?.color || "";
+      if (vehicle?.id && color) acc[vehicle.id] = color;
+      return acc;
+    }, {});
+  }, [vehicleCategoryMeta, vehiclesRaw]);
+
   const eventPropGetter = (event) => {
     const kind = event?.kind || "MAINTENANCE";
+    const categoryColor = event?.vehicleId ? vehicleCategoryColorById[event.vehicleId] : "";
 
     // Base palettes per kind
     let baseBg = UI.brandSoft;
@@ -1771,6 +1806,7 @@ export default function VehiclesHomePage() {
       style: {
         borderRadius: 10,
         border: `1px solid ${baseBorder}`,
+        ...(categoryColor ? { borderLeft: `5px solid ${categoryColor}` } : {}),
         background: baseBg,
         color: baseText,
         padding: 0,
@@ -1787,8 +1823,8 @@ export default function VehiclesHomePage() {
         input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .vehicle-home-calendar--month .rbc-calendar { height: auto !important; }
-        .vehicle-home-calendar--month .rbc-month-view { min-height: 1320px; height: auto; overflow: visible; }
-        .vehicle-home-calendar--month .rbc-month-row { min-height: 195px; overflow: visible; flex: 1 0 auto; }
+        .vehicle-home-calendar--month .rbc-month-view { min-height: 860px; height: auto; overflow: visible; }
+        .vehicle-home-calendar--month .rbc-month-row { min-height: 125px; overflow: visible; flex: 1 0 auto; }
         .vehicle-home-calendar--month .rbc-row-content { max-height: none; min-height: 100%; }
         .vehicle-home-calendar--month .rbc-event-content { white-space: normal; }
         @media (max-width: 1180px) {
@@ -1821,10 +1857,10 @@ export default function VehiclesHomePage() {
             </div>
 
             <div className="vehicle-home-summary-grid" style={summaryGrid}>
-              <SummaryCard title="Pending Defects" value={kpiPending} icon={AlertTriangle} tone={kpiPending ? "danger" : "ok"} footer={`${pendingDefects.length} waiting review`} />
-              <SummaryCard title="MOT Overdue" value={motCounts.overdue} icon={CalendarCheck} tone={motCounts.overdue ? "danger" : "ok"} footer={`${motCounts.soon} due soon`} />
-              <SummaryCard title="Service Overdue" value={serviceCounts.overdue} icon={Wrench} tone={serviceCounts.overdue ? "danger" : "ok"} footer={`${serviceCounts.soon} due soon`} />
-              <SummaryCard title="Usage Days" value={totalUsageDays} icon={Activity} tone="brand" footer={`${totalUsageBookings} bookings`} />
+              <SummaryCard title="Pending Defects" value={kpiPending} icon={AlertTriangle} tone={kpiPending ? "danger" : "ok"} footer={`${pendingDefects.length} waiting review`} onClick={() => router.push(VEHICLE_CHECK_PATH)} />
+              <SummaryCard title="MOT Overdue" value={motCounts.overdue} icon={CalendarCheck} tone={motCounts.overdue ? "danger" : "ok"} footer={`${motCounts.soon} due soon`} onClick={() => router.push("/mot-overview")} />
+              <SummaryCard title="Service Overdue" value={serviceCounts.overdue} icon={Wrench} tone={serviceCounts.overdue ? "danger" : "ok"} footer={`${serviceCounts.soon} due soon`} onClick={() => router.push("/service-overview")} />
+              <SummaryCard title="Usage Days" value={totalUsageDays} icon={Activity} tone="brand" footer={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
             </div>
 
             <div style={{ ...sectionHeader, marginTop: 14, marginBottom: 8 }}>
@@ -2029,78 +2065,6 @@ export default function VehiclesHomePage() {
           </div>
         </section>
 
-        {/* Usage chart */}
-        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "visible" }}>
-          <div style={sectionHeader}>
-            <div>
-              <h2 style={titleMd}>Vehicle usage</h2>
-              <div style={hint}>
-                Counts active booking days where the booking note contains <b>On Set</b> or <b>Shoot day</b>.
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-                alignItems: "center",
-              }}
-            >
-              <span style={sectionTag}>Usage analysis</span>
-              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
-                {"<- Prev"}
-              </button>
-
-              <input
-                type="month"
-                value={usageMonthLabel}
-                onChange={(e) => {
-                  const [y, m] = e.target.value.split("-").map(Number);
-                  if (y && m) setUsageMonth(new Date(y, m - 1, 1));
-                }}
-                style={{ ...inputBase, width: 170, cursor: "pointer" }}
-              />
-
-              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
-                {"Next ->"}
-              </button>
-
-              <span style={chipSoft}>{usageData.length} vehicles</span>
-              <span style={chipSoft}>{totalUsageDays} days</span>
-              <span style={chipSoft}>{totalUsageBookings} bookings</span>
-            </div>
-          </div>
-
-          <div style={{ height: 320, marginTop: 10 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
-                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
-                <Tooltip
-                  cursor={{ fill: "rgba(148,163,184,0.12)" }}
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                    fontSize: 12,
-                    color: UI.text,
-                  }}
-                  formatter={(value, name, item) => {
-                    const bookings = Number(item?.payload?.bookingCount || 0);
-                    return [`${Number(value || 0)} days from ${bookings} bookings`, "Usage"];
-                  }}
-                />
-                <Bar dataKey="usage" fill={UI.brand} radius={[8, 8, 0, 0]}>
-                  <LabelList dataKey="usage" position="top" content={renderUsageLabel} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
         {/* Calendar */}
         <section style={{ ...premiumSection, marginTop: UI.gap }}>
           <div style={sectionHeader}>
@@ -2129,11 +2093,11 @@ export default function VehiclesHomePage() {
               ...surface,
               boxShadow: "none",
               padding: 12,
-              paddingBottom: calView === "month" ? 120 : 12,
+              paddingBottom: 12,
               borderRadius: 12,
               overflow: "visible",
               height: calView === "month" ? "auto" : "calc(100vh - 340px)",
-              minHeight: calView === "month" ? 1320 : undefined,
+              minHeight: calView === "month" ? 860 : undefined,
             }}
           >
             {mounted && (
@@ -2265,6 +2229,78 @@ export default function VehiclesHomePage() {
                 onSelectEvent={handleSelectEvent}
               />
             )}
+          </div>
+        </section>
+
+        {/* Usage chart */}
+        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "visible" }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Vehicle usage</h2>
+              <div style={hint}>
+                Counts active booking days where the booking note contains <b>On Set</b> or <b>Shoot day</b>.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                alignItems: "center",
+              }}
+            >
+              <span style={sectionTag}>Usage analysis</span>
+              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>
+                {"<- Prev"}
+              </button>
+
+              <input
+                type="month"
+                value={usageMonthLabel}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split("-").map(Number);
+                  if (y && m) setUsageMonth(new Date(y, m - 1, 1));
+                }}
+                style={{ ...inputBase, width: 170, cursor: "pointer" }}
+              />
+
+              <button type="button" style={btn("pill")} onClick={() => setUsageMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>
+                {"Next ->"}
+              </button>
+
+              <span style={chipSoft}>{usageData.length} vehicles</span>
+              <span style={chipSoft}>{totalUsageDays} days</span>
+              <span style={chipSoft}>{totalUsageBookings} bookings</span>
+            </div>
+          </div>
+
+          <div style={{ height: 320, marginTop: 10 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
+                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
+                <Tooltip
+                  cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                    fontSize: 12,
+                    color: UI.text,
+                  }}
+                  formatter={(value, name, item) => {
+                    const bookings = Number(item?.payload?.bookingCount || 0);
+                    return [`${Number(value || 0)} days from ${bookings} bookings`, "Usage"];
+                  }}
+                />
+                <Bar dataKey="usage" fill={UI.brand} radius={[8, 8, 0, 0]}>
+                  <LabelList dataKey="usage" position="top" content={renderUsageLabel} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </section>
 
@@ -2471,16 +2507,29 @@ export default function VehiclesHomePage() {
 }
 
 /* --------- toolbar + tiles --------- */
-function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
+function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick }) {
   const colors =
     tone === "danger"
       ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
       : tone === "ok"
       ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
+  const clickable = typeof onClick === "function";
 
   return (
-    <div style={{ ...metricCard, minHeight: 92 }}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!clickable}
+      style={{
+        ...metricCard,
+        minHeight: 92,
+        width: "100%",
+        textAlign: "left",
+        fontFamily: "inherit",
+        cursor: clickable ? "pointer" : "default",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div>
           <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
@@ -2504,7 +2553,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
         </span>
       </div>
       <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{footer}</div>
-    </div>
+    </button>
   );
 }
 

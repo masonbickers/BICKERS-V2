@@ -43,6 +43,11 @@ import {
   tenantCollectionQuery,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
+import {
+  DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+  loadVehicleFleetSettings,
+  uniqueVehicleCategoryNames,
+} from "@/app/utils/vehicleCategorySettings";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
 import { getIsoWeekLabel, isMotNotApplicable } from "@/app/utils/maintenanceSchema";
@@ -567,6 +572,7 @@ export default function EditVehiclePage() {
   const [vehicle, setVehicle] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [categories, setCategories] = useState([]);
+  const [vehicleComplianceSettings, setVehicleComplianceSettings] = useState(DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
   const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
   const [fetchingMotHistory, setFetchingMotHistory] = useState(false);
@@ -588,6 +594,9 @@ export default function EditVehiclePage() {
   const [serviceRecords, setServiceRecords] = useState([]);
   const [initialSnapshot, setInitialSnapshot] = useState("");
   const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
+  const tradePlateExpiryWeeks = String(
+    vehicleComplianceSettings.tradePlateExpiryWeeks || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS.tradePlateExpiryWeeks
+  );
 
   // categories list
   useEffect(() => {
@@ -599,9 +608,16 @@ export default function EditVehiclePage() {
     }
 
     const fetchCategories = async () => {
-      const snap = await getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState));
+      const [snap, fleetSettings] = await Promise.all([
+        getDocs(tenantCollectionQuery(db, "vehicles", dataAccessState)),
+        loadVehicleFleetSettings(db).catch((error) => {
+          console.warn("Vehicle category settings unavailable:", error);
+          return { categories: [], compliance: DEFAULT_VEHICLE_COMPLIANCE_SETTINGS };
+        }),
+      ]);
       const allCats = snap.docs.map((d) => d.data()?.category).filter(Boolean);
-      setCategories(Array.from(new Set(allCats)).sort((a, b) => a.localeCompare(b)));
+      setVehicleComplianceSettings(fleetSettings.compliance || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
+      setCategories(uniqueVehicleCategoryNames([...(fleetSettings.categories || []), ...allCats, RETENTION_PLATE_CATEGORY]));
     };
     fetchCategories().catch((error) => {
       if (!handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "read vehicle categories" })) {
@@ -1016,7 +1032,7 @@ export default function EditVehiclePage() {
         next.insuranceExpiryDate = value;
       }
       if (name === "plateType" && value === "trade") {
-        next.plateExpiryFreq = "52";
+        next.plateExpiryFreq = tradePlateExpiryWeeks;
       }
       return syncStatusDateFields(next);
     });
@@ -1282,7 +1298,7 @@ export default function EditVehiclePage() {
         payload.taxStatus = "N/A";
         payload.insuranceStatus = "N/A";
         if (payload.plateType === "trade") {
-          payload.plateExpiryFreq = "52";
+          payload.plateExpiryFreq = tradePlateExpiryWeeks;
         }
       }
       Object.assign(payload, {
@@ -1559,7 +1575,7 @@ export default function EditVehiclePage() {
               <MetricCard label="Category" value={RETENTION_PLATE_CATEGORY} />
               <MetricCard label="Plate Type" value={isTradePlate ? "Trade plate" : "Retention plate"} />
             <MetricCard label={isTradePlate ? "Trade Plate Expiry" : "Retention Expiry"} value={formatDisplayDate(vehicle.retentionExpiry)} />
-              {isTradePlate ? <MetricCard label="Frequency" value="52 weeks" /> : null}
+              {isTradePlate ? <MetricCard label="Frequency" value={`${tradePlateExpiryWeeks} weeks`} /> : null}
             </div>
           </div>
 
@@ -1580,7 +1596,7 @@ export default function EditVehiclePage() {
               <Field
                 label="Expiry Freq (weeks)"
                 name="plateExpiryFreq"
-                value={isTradePlate ? "52" : vehicle.plateExpiryFreq || ""}
+                value={isTradePlate ? tradePlateExpiryWeeks : vehicle.plateExpiryFreq || ""}
                 onChange={handleChange}
               />
 

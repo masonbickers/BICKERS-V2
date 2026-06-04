@@ -17,6 +17,11 @@ import {
   tenantCollectionQuery,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
+import {
+  DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
+  loadVehicleFleetSettings,
+  uniqueVehicleCategoryNames,
+} from "@/app/utils/vehicleCategorySettings";
 import { ArrowLeft, Save } from "lucide-react";
 
 /* UI tokens */
@@ -276,11 +281,15 @@ export default function AddVehiclePage() {
 
   const [saving, setSaving] = useState(false);
   const [existingCategories, setExistingCategories] = useState([]);
+  const [vehicleComplianceSettings, setVehicleComplianceSettings] = useState(DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
   const [newCategory, setNewCategory] = useState("");
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [shownAdditionalMaintenance, setShownAdditionalMaintenance] = useState([]);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
+  const tradePlateExpiryWeeks = String(
+    vehicleComplianceSettings.tradePlateExpiryWeeks || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS.tradePlateExpiryWeeks
+  );
 
   useEffect(() => {
     setIsNumberPlateMode(new URLSearchParams(window.location.search).get("type") === "number-plate");
@@ -307,11 +316,18 @@ export default function AddVehiclePage() {
       }
 
       try {
-        const snap = await getDocs(tenantCollectionQuery(db, "vehicles", authState));
+        const [snap, fleetSettings] = await Promise.all([
+          getDocs(tenantCollectionQuery(db, "vehicles", authState)),
+          loadVehicleFleetSettings(db).catch((error) => {
+            console.warn("Vehicle category settings unavailable:", error);
+            return { categories: [], compliance: DEFAULT_VEHICLE_COMPLIANCE_SETTINGS };
+          }),
+        ]);
         const cats = snap.docs
           .map((d) => d.data()?.category)
           .filter(Boolean);
-        const unique = Array.from(new Set([...cats, RETENTION_PLATE_CATEGORY])).sort((a, b) => String(a).localeCompare(String(b)));
+        setVehicleComplianceSettings(fleetSettings.compliance || DEFAULT_VEHICLE_COMPLIANCE_SETTINGS);
+        const unique = uniqueVehicleCategoryNames([...(fleetSettings.categories || []), ...cats, RETENTION_PLATE_CATEGORY]);
         setExistingCategories(unique);
       } catch (e) {
         console.error("Load categories failed:", e);
@@ -357,7 +373,7 @@ export default function AddVehiclePage() {
     setFormData((prev) => ({
       ...prev,
       [name]: v,
-      ...(name === "plateType" && value === "trade" ? { plateExpiryFreq: "52" } : {}),
+      ...(name === "plateType" && value === "trade" ? { plateExpiryFreq: tradePlateExpiryWeeks } : {}),
     }));
   };
 
@@ -554,7 +570,7 @@ export default function AddVehiclePage() {
         fleetStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
         vehicleStatus: isNumberPlateMode ? "Active" : formData.operationalStatus || "Active",
         plateType: isNumberPlateMode ? formData.plateType || "retention" : "",
-        plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? "52" : formData.plateExpiryFreq || "",
+        plateExpiryFreq: isNumberPlateMode && formData.plateType === "trade" ? tradePlateExpiryWeeks : formData.plateExpiryFreq || "",
 
         manufacturer,
         make: manufacturer,
@@ -760,7 +776,7 @@ export default function AddVehiclePage() {
                     <label style={label}>Expiry Frequency (weeks)</label>
                     <input
                       name="plateExpiryFreq"
-                      value={formData.plateType === "trade" ? "52" : formData.plateExpiryFreq}
+                      value={formData.plateType === "trade" ? tradePlateExpiryWeeks : formData.plateExpiryFreq}
                       onChange={handleChange}
                       style={input}
                       inputMode="numeric"

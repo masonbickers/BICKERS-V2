@@ -333,6 +333,7 @@ const compactCalendarFrame = {
   ...calendarFrame,
   minHeight: 0,
   height: "auto",
+  overflow: "visible",
 };
 
 const monthCalendarFrame = {
@@ -3497,7 +3498,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               nowIndicator={false}
               getNow={getCalendarNow}
               formats={dashboardCalendarFormats}
-              className={calendarView === "week" ? "dashboard-compact-calendar dashboard-month-calendar" : "dashboard-month-calendar"}
+              className={calendarView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
               dayPropGetter={(date) => {
                 const todayD = new Date();
                 const isToday =
@@ -3523,7 +3524,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   },
                 };
               }}
-              style={monthCalendarFrame}
+              style={calendarView === "week" ? compactCalendarFrame : monthCalendarFrame}
               onSelectEvent={(e) => {
                 if (!e) return;
 
