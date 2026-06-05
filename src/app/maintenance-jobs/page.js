@@ -14,6 +14,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { auth, db } from "../../../firebaseConfig";
 import {
+  AlertTriangle,
   ArrowLeft,
   CalendarCheck2,
   CheckCircle2,
@@ -34,6 +35,10 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  isInactiveMaintenanceBooking,
+  toDateLike,
+} from "../utils/maintenanceCalendar";
 import {
   buildAssetLabel,
   createMaintenanceJobPayload,
@@ -159,6 +164,181 @@ const fmtDate = (value) => {
   return d.toLocaleDateString("en-GB");
 };
 
+const getTimeValue = (value) => {
+  const d = toDateLike(value);
+  return d ? d.getTime() : 0;
+};
+
+const prettyStatus = (value) => {
+  const clean = String(value || "").trim();
+  if (!clean) return "Logged";
+  return clean.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
+};
+
+const firstText = (...values) => values.map((value) => String(value || "").trim()).find(Boolean) || "";
+
+const toActivitySummary = (...values) => firstText(...values) || "No summary provided.";
+
+const classifyServiceRecord = (record) => {
+  const type = String(record?.serviceType || "").toLowerCase();
+  if (record?.recordType === "repair" || type.includes("repair")) return "repair";
+  if (type.includes("minor") || type.includes("interim")) return "minor_service";
+  return "service";
+};
+
+const activityTypeConfig = {
+  service: { label: "Service", bg: "#ecfdf5", fg: "#065f46" },
+  minor_service: { label: "Minor service", bg: "#eff6ff", fg: "#1d4ed8" },
+  repair: { label: "Repair", bg: "#fff7ed", fg: "#9a3412" },
+  defect: { label: "Defect", bg: "#fef2f2", fg: "#991b1b" },
+  mot_precheck: { label: "MOT pre-check", bg: "#f5f3ff", fg: "#6d28d9" },
+  vehicle_prep: { label: "Vehicle prep", bg: "#eef2ff", fg: "#3730a3" },
+  vehicle_check: { label: "Vehicle check", bg: "#edf3f8", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "#f5ede6", fg: "#8b5e3c" },
+  booking: { label: "Booking", bg: "#f8fafc", fg: UI.text },
+  job: { label: "Job card", bg: UI.brandSoft, fg: UI.brand },
+};
+
+const activityTypeLabel = (type) => activityTypeConfig[type]?.label || prettyStatus(type || "Activity");
+const isServiceLike = (item) => {
+  const kind = String(item?.maintenanceKind || "").toLowerCase();
+  return ["service", "minor_service"].includes(item.type) || kind.includes("service");
+};
+const isRepairLike = (item) => {
+  const kind = String(item?.maintenanceKind || "").toLowerCase();
+  return item.type === "repair" || kind.includes("repair");
+};
+const isDefectLike = (item) => item.type === "defect" || item.type === "vehicle_issue";
+const isMotLike = (item) => {
+  const kind = String(item?.maintenanceKind || "").toLowerCase();
+  return item.type === "mot_precheck" || kind.includes("mot") || String(item.title || "").toLowerCase().includes("mot");
+};
+
+const activityGroups = [
+  {
+    key: "mot",
+    label: "MOT",
+    note: "MOT pre-checks, MOT bookings and MOT job-card activity",
+    matches: isMotLike,
+    icon: ClipboardList,
+  },
+  {
+    key: "services",
+    label: "Services",
+    note: "Full, minor and legacy service records",
+    matches: isServiceLike,
+    icon: Wrench,
+  },
+  {
+    key: "repairs",
+    label: "Repairs",
+    note: "Repair records and repair job-card activity",
+    matches: (item) => isRepairLike(item) || (item.type === "job" && String(item.title || item.summary || "").toLowerCase().includes("repair")),
+    icon: Wrench,
+  },
+  {
+    key: "defects",
+    label: "Defects & Issues",
+    note: "Open and completed defects, reported issues and failed checks",
+    matches: isDefectLike,
+    icon: AlertTriangle,
+  },
+  {
+    key: "checks",
+    label: "Checks & Prep",
+    note: "Vehicle checks, prep records and inspection activity",
+    matches: (item) => item.type === "vehicle_check" || item.type === "vehicle_prep" || String(item.title || "").toLowerCase().includes("inspection"),
+    icon: FileCheck2,
+  },
+  {
+    key: "bookings",
+    label: "Bookings",
+    note: "Active maintenance booking records",
+    matches: (item) => item.type === "booking",
+    icon: CalendarCheck2,
+  },
+  {
+    key: "jobs",
+    label: "Job Cards",
+    note: "Maintenance workflow updates and assigned work",
+    matches: (item) => item.type === "job",
+    icon: ClipboardList,
+  },
+];
+
+const buildVehicleLabelFromObject = (v) => {
+  if (!v) return "";
+  const base = v.name ?? v.vehicleName ?? v.assetLabel ?? v.label ?? v.title ?? v.model ?? "";
+  const reg = v.registration ?? v.reg ?? v.regNumber ?? v.regNo ?? v.plate ?? "";
+  const baseClean = String(base || "").trim();
+  const regClean = String(reg || "").trim().toUpperCase();
+  if (baseClean && regClean && !baseClean.toUpperCase().includes(regClean)) return `${baseClean} (${regClean})`;
+  return baseClean || regClean || "";
+};
+
+const buildActivityFromLegacyHistory = (vehicle) => {
+  const vehicleId = vehicle?.id || null;
+  const vehicleName = buildAssetLabel(vehicle) || vehicle?.assetLabel || "Vehicle";
+  const registration = vehicle?.registration || vehicle?.reg || "";
+  const asArray = (value) => (Array.isArray(value) ? value : []);
+  const mapBase = (entry, index, sourceCollection, type, title, summary, person, status, activityDate) => ({
+    activityId: `${sourceCollection}:${vehicleId || "vehicle"}:${entry?.serviceRecordId || entry?.repairRecordId || index}`,
+    sourceCollection,
+    sourceId: entry?.serviceRecordId || entry?.repairRecordId || String(index),
+    type,
+    title,
+    summary,
+    vehicleId,
+    vehicleName,
+    registration,
+    person,
+    status,
+    activityDate,
+  });
+
+  return [
+    ...asArray(vehicle?.serviceHistory).map((entry, index) =>
+      mapBase(
+        entry,
+        index,
+        "vehicles.serviceHistory",
+        "service",
+        entry?.bookingRef || entry?.serviceType || "Service history entry",
+        toActivitySummary(entry?.notes, entry?.partsUsed),
+        entry?.completedBy || entry?.signedBy || "",
+        "history",
+        entry?.completedDate || entry?.date || entry?.createdAt
+      )
+    ),
+    ...asArray(vehicle?.repairHistory).map((entry, index) =>
+      mapBase(
+        entry,
+        index,
+        "vehicles.repairHistory",
+        "repair",
+        entry?.summary || "Repair history entry",
+        toActivitySummary(entry?.reason, entry?.partsUsed),
+        entry?.completedBy || "",
+        "history",
+        entry?.completedDate || entry?.date || entry?.createdAt
+      )
+    ),
+    ...asArray(vehicle?.defectHistory).map((entry, index) =>
+      mapBase(
+        entry,
+        index,
+        "vehicles.defectHistory",
+        "defect",
+        entry?.description || "Defect history entry",
+        toActivitySummary(entry?.notes, entry?.location),
+        entry?.reportedBy || "",
+        entry?.status || "open",
+        entry?.updatedAt || entry?.createdAt
+      )
+    ),
+  ];
+};
+
 const buildJobDraft = (job = {}) => ({
   provider: String(job.provider || "").trim(),
   bookedDate: String(job.bookedDate || "").trim(),
@@ -187,6 +367,13 @@ export default function MaintenanceJobsPage() {
 
   const [vehicles, setVehicles] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [maintenanceBookings, setMaintenanceBookings] = useState([]);
+  const [serviceRecords, setServiceRecords] = useState([]);
+  const [defectReports, setDefectReports] = useState([]);
+  const [motPreChecks, setMotPreChecks] = useState([]);
+  const [vehiclePrepRecords, setVehiclePrepRecords] = useState([]);
+  const [checkDocs, setCheckDocs] = useState([]);
+  const [vehicleIssueDocs, setVehicleIssueDocs] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savingJobId, setSavingJobId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -286,6 +473,46 @@ export default function MaintenanceJobsPage() {
   }, [accessKey, dataAccessState]);
 
   useEffect(() => {
+    const gate = resolveDataAccess(dataAccessState);
+    if (gate.checking) return undefined;
+    if (!gate.allowed) {
+      reportDataAccessBlocked(gate, { collectionName: "serviceRecords", operation: "listen maintenance overview activity" });
+      setMaintenanceBookings([]);
+      setServiceRecords([]);
+      setDefectReports([]);
+      setMotPreChecks([]);
+      setVehiclePrepRecords([]);
+      setCheckDocs([]);
+      setVehicleIssueDocs([]);
+      return undefined;
+    }
+
+    const listen = (collectionName, setter, operation) =>
+      onSnapshot(
+        tenantCollectionQuery(db, collectionName, dataAccessState),
+        (snap) => setter(snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }))),
+        (error) => {
+          if (!handleFirestoreAccessError(error, { collectionName, operation })) {
+            console.error(`[maintenance-jobs] ${collectionName} snapshot error:`, error);
+          }
+          setter([]);
+        }
+      );
+
+    const unsubscribers = [
+      listen("maintenanceBookings", setMaintenanceBookings, "listen maintenance booking overview"),
+      listen("serviceRecords", setServiceRecords, "listen maintenance service activity"),
+      listen("defectReports", setDefectReports, "listen maintenance defect activity"),
+      listen("motPreChecks", setMotPreChecks, "listen maintenance MOT activity"),
+      listen("vehiclePrepRecords", setVehiclePrepRecords, "listen maintenance prep activity"),
+      listen("vehicleChecks", setCheckDocs, "listen maintenance check activity"),
+      listen("vehicleIssues", setVehicleIssueDocs, "listen maintenance issue activity"),
+    ];
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
     const vehicleId = String(searchParams.get("vehicleId") || "").trim();
     const kind = String(searchParams.get("kind") || "").trim().toLowerCase();
     const dueDate = String(searchParams.get("dueDate") || "").trim();
@@ -317,10 +544,16 @@ export default function MaintenanceJobsPage() {
       const blob = [
         j.title,
         j.assetLabel,
+        j.assetId,
         j.type,
         j.status,
         j.priority,
         j.notes,
+        j.provider,
+        j.assignedToName,
+        j.completionNotes,
+        j.poNumber,
+        j.invoiceRef,
       ]
         .filter(Boolean)
         .join(" ")
@@ -374,6 +607,184 @@ export default function MaintenanceJobsPage() {
 
     return counts;
   }, [jobs]);
+
+  const activity = useMemo(() => {
+    const vehicleById = new Map(vehicles.map((v) => [String(v.id), v]));
+    const serviceRecordIds = new Set(serviceRecords.map((record) => String(record.id)));
+    const labelForVehicle = (vehicleId, fallback = "Unknown vehicle") => {
+      const vehicle = vehicleById.get(String(vehicleId || ""));
+      return vehicle ? buildAssetLabel(vehicle) || fallback : fallback;
+    };
+    const registrationForVehicle = (vehicleId, fallback = "") => {
+      const vehicle = vehicleById.get(String(vehicleId || ""));
+      return vehicle?.registration || vehicle?.reg || fallback || "";
+    };
+
+    const rows = [
+      ...serviceRecords.map((record) => {
+        const type = classifyServiceRecord(record);
+        const vehicleName = record.vehicleName || labelForVehicle(record.vehicleId);
+        return {
+          activityId: `serviceRecords:${record.id}`,
+          sourceCollection: "serviceRecords",
+          sourceId: record.id,
+          type,
+          title: type === "repair" ? record.repairSummary || record.workSummary || "General repair" : record.serviceType || "Service record",
+          summary: toActivitySummary(record.workSummary, record.repairSummary, record.repairReason, record.partsUsed, record.extraNotes),
+          vehicleId: record.vehicleId || null,
+          vehicleName,
+          registration: record.registration || registrationForVehicle(record.vehicleId),
+          person: record.signedBy || record.completedBy || "",
+          status: type === "repair" ? "completed" : "logged",
+          activityDate: record.completedAt || record.updatedAt || record.createdAt || record.serviceDateOnly || record.serviceDate || record.completedDate,
+        };
+      }),
+      ...defectReports.map((record) => ({
+        activityId: `defectReports:${record.id}`,
+        sourceCollection: "defectReports",
+        sourceId: record.id,
+        type: "defect",
+        title: record.description || "Workshop defect report",
+        summary: toActivitySummary(record.notes, record.location, record.severity),
+        vehicleId: record.vehicleId || null,
+        vehicleName: record.vehicleName || labelForVehicle(record.vehicleId),
+        registration: record.registration || registrationForVehicle(record.vehicleId),
+        person: record.reportedBy || "",
+        status: record.status || "open",
+        activityDate: record.updatedAt || record.createdAt,
+      })),
+      ...motPreChecks.map((record) => ({
+        activityId: `motPreChecks:${record.id}`,
+        sourceCollection: "motPreChecks",
+        sourceId: record.id,
+        type: "mot_precheck",
+        title: record.status || "MOT pre-check",
+        summary: toActivitySummary(record.summary, record.faultsFound, record.workRecommended),
+        vehicleId: record.vehicleId || null,
+        vehicleName: record.vehicleName || labelForVehicle(record.vehicleId),
+        registration: record.registration || registrationForVehicle(record.vehicleId),
+        person: record.signedBy || "",
+        status: record.status || "completed",
+        activityDate: record.completedAt || record.updatedAt || record.createdAt || record.precheckDateOnly || record.precheckDateTime,
+      })),
+      ...vehiclePrepRecords.map((record) => ({
+        activityId: `vehiclePrepRecords:${record.id}`,
+        sourceCollection: "vehiclePrepRecords",
+        sourceId: record.id,
+        type: "vehicle_prep",
+        title: record.completed ? "Vehicle prep completed" : "Vehicle prep logged",
+        summary: toActivitySummary(record.notes),
+        vehicleId: record.vehicleId || null,
+        vehicleName: record.vehicleName || labelForVehicle(record.vehicleId),
+        registration: record.registration || registrationForVehicle(record.vehicleId),
+        person: record.completedBy || "",
+        status: record.completed ? "completed" : "draft",
+        activityDate: record.completedAt || record.updatedAt || record.createdAt || record.prepDate,
+      })),
+      ...checkDocs.map((record) => {
+        const defectCount = Array.isArray(record.items) ? record.items.filter((item) => item?.status === "defect").length : 0;
+        return {
+          activityId: `vehicleChecks:${record.id}`,
+          sourceCollection: "vehicleChecks",
+          sourceId: record.id,
+          type: "vehicle_check",
+          title: defectCount > 0 ? `${defectCount} defects found` : "Vehicle check submitted",
+          summary: toActivitySummary(record.notes, defectCount > 0 ? `${defectCount} defect items logged.` : ""),
+          vehicleId: record.vehicleId || null,
+          vehicleName: buildVehicleLabelFromObject(record.vehicle) || record.vehicleName || labelForVehicle(record.vehicleId),
+          registration: typeof record.vehicle === "object" ? record.vehicle?.registration || record.vehicle?.reg || "" : record.registration || registrationForVehicle(record.vehicleId),
+          person: record.driverName || record.driverCode || "",
+          status: record.status || "submitted",
+          activityDate: record.updatedAt || record.createdAt || record.dateISO,
+        };
+      }),
+      ...vehicleIssueDocs.map((record) => ({
+        activityId: `vehicleIssues:${record.id}`,
+        sourceCollection: "vehicleIssues",
+        sourceId: record.id,
+        type: "vehicle_issue",
+        title: record.category || "Vehicle issue",
+        summary: toActivitySummary(record.description),
+        vehicleId: record.vehicleId || null,
+        vehicleName: record.vehicleName || labelForVehicle(record.vehicleId),
+        registration: record.registration || registrationForVehicle(record.vehicleId),
+        person: record.reporterName || record.reporterCode || "",
+        status: record.status || "open",
+        activityDate: record.updatedAt || record.createdAt,
+      })),
+      ...maintenanceBookings
+        .filter((booking) => !isInactiveMaintenanceBooking(booking.status))
+        .map((booking) => ({
+          activityId: `maintenanceBookings:${booking.id}`,
+          sourceCollection: "maintenanceBookings",
+          sourceId: booking.id,
+          type: "booking",
+          maintenanceKind: String(booking.type || booking.maintenanceType || "").toLowerCase(),
+          title: `${String(booking.type || booking.maintenanceType || "Maintenance").toUpperCase()} booking`,
+          summary: toActivitySummary(booking.provider, booking.location, booking.notes, booking.motBookingNotes, booking.serviceBookingNotes),
+          vehicleId: booking.vehicleId || null,
+          vehicleName: booking.vehicleLabel || booking.vehicleName || labelForVehicle(booking.vehicleId),
+          registration: booking.registration || registrationForVehicle(booking.vehicleId),
+          person: booking.bookedBy || booking.createdBy || "",
+          status: booking.status || "booked",
+          activityDate: booking.appointmentDate || booking.startDateISO || booking.startDate || booking.updatedAt || booking.createdAt,
+        })),
+      ...jobs.map((job) => ({
+        activityId: `maintenanceJobs:${job.id}`,
+        sourceCollection: "maintenanceJobs",
+        sourceId: job.id,
+        type: "job",
+        maintenanceKind: String(job.type || "").toLowerCase(),
+        title: job.title || "Maintenance job card",
+        summary: toActivitySummary(job.notes, job.completionNotes, job.provider),
+        vehicleId: job.assetId || null,
+        vehicleName: job.assetLabel || labelForVehicle(job.assetId),
+        registration: registrationForVehicle(job.assetId),
+        person: job.assignedToName || job.updatedBy || job.createdBy || "",
+        status: job.status || "planned",
+        activityDate: job.updatedAt || job.updatedAtServer || job.plannedDate || job.dueDate || job.createdAt,
+      })),
+    ];
+
+    const legacyRows = vehicles
+      .flatMap((vehicle) => buildActivityFromLegacyHistory(vehicle))
+      .filter((row) => !row.sourceId || !serviceRecordIds.has(String(row.sourceId)));
+
+    return [...rows, ...legacyRows].sort((a, b) => getTimeValue(b.activityDate) - getTimeValue(a.activityDate));
+  }, [checkDocs, defectReports, jobs, maintenanceBookings, motPreChecks, serviceRecords, vehicleIssueDocs, vehiclePrepRecords, vehicles]);
+
+  const overviewStats = useMemo(() => {
+    const openDefects = activity.filter((item) => isDefectLike(item) && String(item.status || "").toLowerCase() === "open").length;
+    return {
+      activity: activity.length,
+      services: activity.filter(isServiceLike).length,
+      mot: activity.filter(isMotLike).length,
+      repairs: activity.filter(isRepairLike).length,
+      defects: activity.filter(isDefectLike).length,
+      openDefects,
+      bookings: maintenanceBookings.filter((booking) => !isInactiveMaintenanceBooking(booking.status)).length,
+    };
+  }, [activity, maintenanceBookings]);
+
+  const groupedActivity = useMemo(
+    () => {
+      const assigned = new Set();
+      return activityGroups
+        .map((group) => {
+          const items = activity.filter((item) => {
+            if (assigned.has(item.activityId) || !group.matches(item)) return false;
+            assigned.add(item.activityId);
+            return true;
+          });
+          return {
+            ...group,
+            count: items.length,
+            items: items.slice(0, 8),
+          };
+        })
+    },
+    [activity]
+  );
 
   const createJob = async () => {
     if (!form.assetId) {
@@ -563,12 +974,21 @@ export default function MaintenanceJobsPage() {
           gap: 10px;
           align-items: center;
         }
+        .maintenance-activity-groups {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-bottom: 14px;
+        }
         @media (max-width: 1180px) {
           .maintenance-jobs-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           .maintenance-jobs-filter-grid { grid-template-columns: 1fr 1fr !important; }
+          .maintenance-activity-groups { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 720px) {
           .maintenance-jobs-kpi-grid, .maintenance-jobs-filter-grid { grid-template-columns: 1fr !important; }
+          .maintenance-activity-row { grid-template-columns: 1fr !important; }
+          .maintenance-activity-status { border-left: 0 !important; justify-content: flex-start !important; }
         }
       `}</style>
       <div style={pageWrap}>
@@ -594,6 +1014,26 @@ export default function MaintenanceJobsPage() {
           <SummaryCard label="Commercial" value={jobStats.commercial} sub="Completed or invoice-ready" icon={FileCheck2} tone="ok" />
           <SummaryCard label="Closed" value={jobStats.closed} sub="Finished workflow" icon={CheckCircle2} tone="default" />
         </div>
+
+        <section style={{ marginBottom: 14 }}>
+          <div style={sectionHeader}>
+            <div>
+              <h2 style={titleMd}>Transport Manager Overview</h2>
+              <div style={hint}>Maintenance activity grouped into queue cards for a quick transport-manager scan.</div>
+            </div>
+            <OverviewChip label="Activity" value={overviewStats.activity} />
+          </div>
+
+          <div className="maintenance-activity-groups">
+            {groupedActivity.length === 0 ? (
+              <div style={{ color: UI.muted, fontSize: 13, padding: 12, textAlign: "center" }}>No vehicle activity found yet.</div>
+            ) : (
+              groupedActivity.map((group) => (
+                <ActivityGroup key={group.key} group={group} router={router} />
+              ))
+            )}
+          </div>
+        </section>
 
         <div style={{ ...card, marginBottom: 14 }}>
           <div style={sectionHeader}>
@@ -854,6 +1294,175 @@ export default function MaintenanceJobsPage() {
         </div>
       </div>
     </HeaderSidebarLayout>
+  );
+}
+
+function OverviewChip({ label, value, tone = "default" }) {
+  const colors =
+    tone === "danger"
+      ? { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" }
+      : tone === "ok"
+      ? { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" }
+      : { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder };
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        minHeight: 30,
+        padding: "5px 9px",
+        borderRadius: 999,
+        border: `1px solid ${colors.border}`,
+        background: colors.bg,
+        color: colors.fg,
+        fontSize: 12,
+        fontWeight: 850,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+      <strong style={{ fontSize: 13 }}>{value}</strong>
+    </span>
+  );
+}
+
+const groupRoute = (groupKey) => {
+  if (groupKey === "mot") return "/mot-overview";
+  if (groupKey === "services") return "/service-overview";
+  if (groupKey === "defects") return "/defects/immediate";
+  if (groupKey === "checks") return "/vehicle-activity";
+  return "/maintenance-jobs";
+};
+
+function ActivityGroup({ group, router }) {
+  const Icon = group.icon || ClipboardList;
+  const route = groupRoute(group.key);
+  return (
+    <section
+      style={{
+        border: UI.border,
+        borderRadius: UI.radius,
+        background: "#fff",
+        overflow: "hidden",
+        minWidth: 0,
+        minHeight: 236,
+        boxShadow: UI.shadowSm,
+      }}
+    >
+      <div style={{ padding: "12px 12px 10px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+          <span
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: UI.radiusSm,
+              border: `1px solid ${UI.brandBorder}`,
+              background: UI.brandSoft,
+              color: UI.brand,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "0 0 auto",
+            }}
+          >
+            <Icon size={16} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: UI.text, fontSize: 18, lineHeight: 1.1, fontWeight: 950 }}>{group.label}</div>
+            <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.35, marginTop: 4 }}>{group.note}</div>
+          </div>
+        </div>
+        <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push(route)}>
+          Open queue
+          <span aria-hidden="true">&gt;</span>
+        </button>
+      </div>
+
+      <div>
+        {group.items.length === 0 ? (
+          <div
+            style={{
+              margin: "0 12px 12px",
+              border: "1px solid #d7dee8",
+              borderRadius: UI.radius,
+              padding: "11px 12px",
+              color: UI.muted,
+              fontSize: 13,
+              background: "#fff",
+            }}
+          >
+            Nothing in this queue.
+          </div>
+        ) : (
+          group.items.map((item) => <ActivityRow key={item.activityId} item={item} />)
+        )}
+      </div>
+      {group.count > group.items.length ? (
+        <div style={{ padding: "8px 12px 10px", color: UI.muted, fontSize: 11.5, fontWeight: 750 }}>
+          {group.count - group.items.length} more in this group
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ActivityRow({ item }) {
+  const status = prettyStatus(item.status);
+  const statusLower = status.toLowerCase();
+  const statusStyle =
+    statusLower.includes("open") || statusLower.includes("defect")
+      ? { bg: "#fff36b", fg: "#0f172a" }
+      : statusLower.includes("complete") || statusLower.includes("closed") || statusLower.includes("logged") || statusLower.includes("history")
+      ? { bg: "#8fca88", fg: "#07130a" }
+      : { bg: "#d7e9f7", fg: UI.text };
+  return (
+    <div
+      className="maintenance-activity-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(120px, .7fr) minmax(110px, 110px)",
+        alignItems: "stretch",
+        borderTop: "1px solid #e6edf5",
+        minHeight: 35,
+      }}
+    >
+      <div style={{ padding: "8px 10px", minWidth: 0 }}>
+        <div style={{ color: UI.text, fontSize: 16, lineHeight: 1.22, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.title || activityTypeLabel(item.type)}
+        </div>
+      </div>
+      <div style={{ padding: "8px 10px", color: UI.muted, fontSize: 12.5, lineHeight: 1.35, minWidth: 0 }}>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.vehicleName || "Unknown vehicle"}
+        </div>
+        {item.registration ? (
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(item.registration).toUpperCase()}</div>
+        ) : null}
+      </div>
+      <div style={{ padding: "8px 10px", color: UI.text, fontSize: 12.5, lineHeight: 1.35, whiteSpace: "nowrap" }}>
+        {fmtDate(item.activityDate)}
+      </div>
+      <div
+        className="maintenance-activity-status"
+        style={{
+          background: statusStyle.bg,
+          color: statusStyle.fg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "8px 10px",
+          fontSize: 12.5,
+          lineHeight: 1.2,
+          fontWeight: 950,
+          textAlign: "center",
+          borderLeft: "1px solid #1f2937",
+        }}
+      >
+        {status}
+      </div>
+    </div>
   );
 }
 

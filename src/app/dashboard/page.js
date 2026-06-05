@@ -1,17 +1,10 @@
-import DashboardPage from "./DashboardPageImpl";
+import { Suspense } from "react";
+import DashboardClientWrapper from "./DashboardClientWrapper";
 
-export default async function Page({ searchParams }) {
-  const params = await searchParams;
-  const bookingSaved =
-    params?.success === "true" || params?.saved === "true";
-  const initialDate = typeof params?.date === "string" ? params.date : "";
-  const initialView = typeof params?.view === "string" ? params.view : "week";
-
+export default function Page() {
   return (
-    <DashboardPage
-      bookingSaved={bookingSaved}
-      initialDate={initialDate}
-      initialView={initialView}
-    />
+    <Suspense fallback={null}>
+      <DashboardClientWrapper />
+    </Suspense>
   );
 }

@@ -93,17 +93,6 @@ export function resolveDataAccess(authState = {}, options = {}) {
     };
   }
 
-  if (authState?.accessReady !== true) {
-    return {
-      allowed: false,
-      checking: true,
-      reason: "Loading account access.",
-      role,
-      companyId,
-      isPlatformAdmin,
-    };
-  }
-
   const archivedOrDisabled =
     authState?.isEnabled === false ||
     userDoc?.isEnabled === false ||

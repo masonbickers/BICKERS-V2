@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  Home,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
@@ -13,95 +22,176 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
-/* Mini design */
 const UI = {
-  radius: 14,
-  radiusSm: 10,
-  gap: 18,
-  shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
+  radius: 8,
+  radiusSm: 8,
+  gap: 12,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  border: "1px solid #d7dee8",
+  bg: "#f3f6f9",
   card: "#ffffff",
   text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  muted: "#5f6f82",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
+  purple: "#7c3aed",
+  purpleSoft: "#f5f3ff",
+  purpleBorder: "#ddd6fe",
 };
 
-const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "10px 12px 24px", background: UI.bg, minHeight: "100vh" };
+const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const headerBar = {
   display: "flex",
-  alignItems: "baseline",
+  alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 16,
+  gap: 8,
+  marginBottom: 8,
+  flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const select = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  fontSize: 13,
-  minWidth: 150,
+const h1 = { color: UI.text, fontSize: 20, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
+const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
+const sectionHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  margin: "8px 0 5px",
+  flexWrap: "wrap",
 };
-const chip = {
-  padding: "6px 10px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
-  color: UI.text,
-  fontSize: 12,
-  fontWeight: 700,
+const toolbar = {
+  ...surface,
+  padding: 6,
+  display: "grid",
+  gridTemplateColumns: "minmax(240px, 1fr) minmax(150px, 1fr) 130px 122px 122px auto auto",
+  gap: 5,
+  alignItems: "center",
+  marginBottom: 8,
 };
-
-const tableWrap = { ...surface, overflow: "auto" };
-const tableEl = {
+const inputStyle = {
   width: "100%",
-  borderCollapse: "separate",
-  borderSpacing: 0,
-  fontSize: 13.5,
-  tableLayout: "fixed", //  keeps columns aligned across all tables
+  height: 28,
+  padding: "3px 7px",
+  borderRadius: UI.radiusSm,
+  border: UI.border,
+  fontSize: 12,
+  outline: "none",
+  background: "#fff",
+  color: UI.text,
+  boxSizing: "border-box",
 };
+const btn = (kind = "ghost") => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  minHeight: 28,
+  padding: "4px 8px",
+  borderRadius: UI.radiusSm,
+  border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+  background: kind === "primary" ? UI.brand : "#fff",
+  color: kind === "primary" ? "#fff" : UI.text,
+  fontWeight: 850,
+  fontSize: 12,
+  textDecoration: "none",
+  boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadowSm,
+  whiteSpace: "nowrap",
+  cursor: "pointer",
+});
+const chip = (kind = "neutral") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    padding: "3px 8px",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: UI.brandBorder,
+    background: UI.brandSoft,
+    color: UI.text,
+    fontSize: 11.5,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  };
+  if (kind === "green") return { ...base, borderColor: UI.greenBorder, background: UI.greenSoft, color: UI.green };
+  if (kind === "amber") return { ...base, borderColor: UI.amberBorder, background: UI.amberSoft, color: UI.amber };
+  if (kind === "red") return { ...base, borderColor: UI.redBorder, background: UI.redSoft, color: UI.red };
+  if (kind === "purple") return { ...base, borderColor: UI.purpleBorder, background: UI.purpleSoft, color: UI.purple };
+  return base;
+};
+const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: bg,
+  color,
+  border: `1px solid ${border}`,
+  flex: "0 0 auto",
+});
+const tableWrap = { ...surface, overflow: "auto" };
+const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 12.5, tableLayout: "fixed" };
 const th = {
   textAlign: "left",
-  padding: "10px 12px",
+  padding: "5px 8px",
   borderBottom: "1px solid #e5e7eb",
   position: "sticky",
   top: 0,
   background: "#f8fafc",
   zIndex: 1,
+  color: UI.muted,
+  fontSize: 10.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
   whiteSpace: "nowrap",
 };
 const td = {
-  padding: "10px 12px",
+  padding: "5px 8px",
   borderBottom: "1px solid #f1f5f9",
-  verticalAlign: "top",
+  verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
 };
-const tdNoWrap = { ...td, whiteSpace: "nowrap" };
-const tdWrap = { ...td, whiteSpace: "normal", overflowWrap: "anywhere" };
+const nowrap = { whiteSpace: "nowrap" };
+const focusCss = `
+  input:focus, select:focus, button:focus, a:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
+    border-color: #bfdbfe !important;
+  }
+  @media (max-width: 1180px) {
+    .review-toolbar { grid-template-columns: 1fr 1fr !important; }
+    .review-search { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    .review-toolbar { grid-template-columns: 1fr !important; }
+  }
+`;
 
-const sectionHeader = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  margin: "22px 2px 10px",
-};
-const weekTitle = { fontSize: 15, fontWeight: 900, color: UI.text, letterSpacing: "-0.01em" };
-const tinyHint = { color: UI.muted, fontSize: 12 };
-
-/* Helpers */
 const parseDate = (raw) => {
   if (!raw) return null;
   try {
     if (typeof raw?.toDate === "function") return raw.toDate();
     const d = new Date(raw);
-    return isNaN(d.getTime()) ? null : d;
+    return Number.isNaN(d.getTime()) ? null : d;
   } catch {
     return null;
   }
@@ -122,7 +212,7 @@ const normaliseDates = (job) => {
 };
 
 const isFourDigitJob = (job) => /^\d{4}(?:\.\d+)?$/.test(String(job.jobNumber ?? "").trim());
-const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—");
+const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "-");
 
 const isPaid = (job) => {
   const s = String(job.status || "").toLowerCase();
@@ -131,14 +221,16 @@ const isPaid = (job) => {
 };
 
 const prettifyStatus = (raw) => {
-  const s = (raw || "").toLowerCase().trim();
+  const s = String(raw || "").toLowerCase().trim();
   if (/ready\s*[-_\s]*to\s*[-_\s]*invoice/.test(s)) return "Ready to Invoice";
   if (s === "invoiced") return "Invoiced";
   if (s === "paid" || s === "settled") return "Paid";
   if (s === "complete" || s === "completed") return "Complete";
   if (s.includes("action")) return "Action Required";
   if (s === "confirmed") return "Confirmed";
-  return s ? s[0].toUpperCase() + s.slice(1) : "TBC";
+  if (s === "first pencil") return "First Pencil";
+  if (s === "second pencil") return "Second Pencil";
+  return s.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, (m) => m.toUpperCase()) || "TBC";
 };
 
 const statusColors = (label) => {
@@ -150,44 +242,29 @@ const statusColors = (label) => {
     case "Paid":
       return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
     case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+      return { bg: "#FF973B", border: "#0b0b0b", text: "#111" };
     case "Complete":
-      return { bg: "#97f59bff", border: "#419e50ff", text: "#10301aff" };
+      return { bg: "#92d18cff", border: "#0b0b0b", text: "#111" };
     case "Confirmed":
-      return { bg: "#fffd98ff", border: "#c7d134ff", text: "#504c1aff" };
+      return { bg: "#f3f970", border: "#0b0b0b", text: "#111" };
     case "First Pencil":
-      return { bg: "#78b8ecff", border: "#2c28ffff", text: "#001affff" };
+      return { bg: "#89caf5", border: "#0b0b0b", text: "#111" };
     case "Second Pencil":
-      return { bg: "#fd9a9aff", border: "#f33131ff", text: "#8b1212ff" };
+      return { bg: "#f73939", border: "#0b0b0b", text: "#fff" };
     case "TBC":
       return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
     default:
-      return { bg: "#acacacff", border: "#3f3f3fff", text: "#000000ff" };
+      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
   }
 };
-
-const getCheckBadgeState = (isComplete) =>
-  isComplete
-    ? {
-        label: "Yes",
-        bg: "#dcfce7",
-        border: "#86efac",
-        text: "#166534",
-      }
-    : {
-        label: "No",
-        bg: "#fee2e2",
-        border: "#fecaca",
-        text: "#991b1b",
-      };
 
 const StatusBadge = ({ value }) => {
   const c = statusColors(value);
   return (
     <span
       style={{
-        padding: "6px 10px",
-        fontSize: 11,
+        padding: "5px 9px",
+        fontSize: 11.5,
         borderRadius: 999,
         border: `1px solid ${c.border}`,
         background: c.bg,
@@ -203,25 +280,29 @@ const StatusBadge = ({ value }) => {
   );
 };
 
-/* Week helpers (Mon–Sun) */
+const getCheckBadgeState = (isComplete) =>
+  isComplete
+    ? { label: "Yes", tone: "green" }
+    : { label: "No", tone: "red" };
+
 function getMonday(d) {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = (day === 0 ? -6 : 1) - day; // Monday start
+  const diff = (day === 0 ? -6 : 1) - day;
   date.setDate(date.getDate() + diff);
   date.setHours(0, 0, 0, 0);
   return date;
 }
+
 function formatWeekRange(monday) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${sunday.toLocaleDateString(
+  return `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} to ${sunday.toLocaleDateString(
     "en-GB",
     { day: "2-digit", month: "short", year: "numeric" }
   )}`;
 }
 
-// date helpers for filters
 const startOfDay = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -239,17 +320,14 @@ export default function ReviewQueuePage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingJobId, setSavingJobId] = useState("");
-
-  // existing filters
-  const [clientFilter, setClientFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useSessionState("review-queue:clientFilter", "all");
+  const [search, setSearch] = useSessionState("review-queue:search", "");
+  const [statusFilter, setStatusFilter] = useSessionState("review-queue:statusFilter", "all");
+  const [fromDate, setFromDate] = useSessionState("review-queue:fromDate", "");
+  const [toDate, setToDate] = useSessionState("review-queue:toDate", "");
+  const [overdueOnly, setOverdueOnly] = useSessionState("review-queue:overdueOnly", false);
   const searchRef = useRef(null);
-
-  //  NEW filters
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [overdueOnly, setOverdueOnly] = useState(false);
+  useSessionScroll("review-queue");
 
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -277,14 +355,16 @@ export default function ReviewQueuePage() {
     return n;
   }, []);
 
-  const beforeToday = useCallback((j) => {
-    const ds = normaliseDates(j).sort((a, b) => a - b);
-    if (!ds.length) return false;
-    const last = ds[ds.length - 1];
-    const lastMid = new Date(last);
-    lastMid.setHours(0, 0, 0, 0);
-    return lastMid.getTime() < todayMidnight.getTime();
-  }, [todayMidnight]);
+  const beforeToday = useCallback(
+    (j) => {
+      const ds = normaliseDates(j).sort((a, b) => a - b);
+      if (!ds.length) return false;
+      const lastMid = new Date(ds[ds.length - 1]);
+      lastMid.setHours(0, 0, 0, 0);
+      return lastMid.getTime() < todayMidnight.getTime();
+    },
+    [todayMidnight]
+  );
 
   const queue = useMemo(() => {
     return jobs4
@@ -306,45 +386,30 @@ export default function ReviewQueuePage() {
     [queue]
   );
 
-  //  NEW: statuses list for dropdown (only those you care about)
   const statusOptions = useMemo(
     () => ["all", "Ready to Invoice", "Confirmed", "Complete", "Action Required"],
     []
   );
 
-  //  UPDATED filtered with more filters
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
-
     const from = fromDate ? startOfDay(new Date(fromDate)) : null;
     const to = toDate ? endOfDay(new Date(toDate)) : null;
 
     return queue.filter((j) => {
-      // client
       if (clientFilter !== "all" && (j.client || "") !== clientFilter) return false;
-
-      // status
-      if (statusFilter !== "all") {
-        const pretty = prettifyStatus(j.status);
-        if (pretty !== statusFilter) return false;
-      }
-
-      // overdue only
+      if (statusFilter !== "all" && prettifyStatus(j.status) !== statusFilter) return false;
       if (overdueOnly && !beforeToday(j)) return false;
 
-      // date range
       if (from || to) {
         const ds = normaliseDates(j);
         if (!ds.length) return false;
-
         const minT = Math.min(...ds.map((d) => d.getTime()));
         const maxT = Math.max(...ds.map((d) => d.getTime()));
-
         if (from && maxT < from.getTime()) return false;
         if (to && minT > to.getTime()) return false;
       }
 
-      // search
       if (!s) return true;
       return (
         String(j.jobNumber || "").toLowerCase().includes(s) ||
@@ -376,46 +441,18 @@ export default function ReviewQueuePage() {
 
   const captureScrollPositions = () => {
     if (typeof window === "undefined") return () => {};
-
-    const targets = [];
-    const seen = new Set();
-
-    const addTarget = (node) => {
-      if (!node || seen.has(node)) return;
-      seen.add(node);
-      targets.push(node);
-    };
-
-    addTarget(document.scrollingElement || document.documentElement);
-
-    let node = document.activeElement;
-    while (node && node instanceof HTMLElement) {
-      const style = window.getComputedStyle(node);
-      const canScrollY = /(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight;
-      const canScrollX = /(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth;
-      if (canScrollY || canScrollX) addTarget(node);
-      node = node.parentElement;
-    }
-
-    const saved = targets.map((target) => ({
-      target,
-      left: target.scrollLeft || 0,
-      top: target.scrollTop || 0,
-    }));
-
+    const target = document.scrollingElement || document.documentElement;
+    const left = target.scrollLeft || 0;
+    const top = target.scrollTop || 0;
     return () => {
-      for (const item of saved) {
-        if (!item?.target) continue;
-        item.target.scrollLeft = item.left;
-        item.target.scrollTop = item.top;
-      }
+      target.scrollLeft = left;
+      target.scrollTop = top;
     };
   };
 
   const setQuickStatus = async (job, nextStatus) => {
     if (!job?.id || savingJobId) return;
     const restoreScroll = captureScrollPositions();
-
     const previousBookings = bookings;
     const optimisticPatch = {
       status: nextStatus,
@@ -424,17 +461,18 @@ export default function ReviewQueuePage() {
     };
 
     setSavingJobId(job.id);
-    setBookings((current) =>
-      current.map((item) => (item.id === job.id ? { ...item, ...optimisticPatch } : item))
-    );
+    setBookings((current) => current.map((item) => (item.id === job.id ? { ...item, ...optimisticPatch } : item)));
     requestAnimationFrame(() => restoreScroll());
 
     try {
-      await updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, {
-        status: nextStatus,
-        updatedAt: serverTimestamp(),
-        readyToInvoice: nextStatus === "Ready to Invoice",
-      }));
+      await updateDoc(
+        doc(db, "bookings", job.id),
+        tenantPayload(dataAccessState, {
+          status: nextStatus,
+          updatedAt: serverTimestamp(),
+          readyToInvoice: nextStatus === "Ready to Invoice",
+        })
+      );
     } catch (error) {
       console.error("Failed to update review queue status:", error);
       setBookings(previousBookings);
@@ -445,61 +483,65 @@ export default function ReviewQueuePage() {
     }
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setClientFilter("all");
+    setStatusFilter("all");
+    setFromDate("");
+    setToDate("");
+    setOverdueOnly(false);
+    if (searchRef.current) searchRef.current.focus();
+  };
+
   const DatesCell = ({ job }) => {
     const ds = normaliseDates(job).sort((a, b) => a - b);
     const first = ds[0] ?? null;
     const last = ds[ds.length - 1] ?? null;
-    const label = first && last ? `${fmtShort(first)} – ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
+    const label = first && last ? `${fmtShort(first)} to ${fmtShort(last)}` : first ? fmtShort(first) : "TBC";
     return <>{label}</>;
   };
 
-  const SectionTable = ({ jobs, title, sub }) => (
-    <section style={{ marginBottom: 28 }}>
+  const SectionTable = ({ jobs, title }) => (
+    <section style={{ marginBottom: 12 }}>
       <div style={sectionHeader}>
-        <h2 style={weekTitle}>
-          {title}{" "}
-          {sub ? <span style={{ color: UI.muted, fontWeight: 600 }}>({sub})</span> : null}
-        </h2>
-        <span style={tinyHint}>
+        <div>
+          <h2 style={titleMd}>{title}</h2>
+        </div>
+        <span style={chip()}>
           {jobs.length} job{jobs.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       <div style={tableWrap}>
         <table style={tableEl} aria-label={title}>
-          {/*  fixed column widths so every table aligns */}
           <colgroup>
-            <col style={{ width: 120 }} />
-            <col style={{ width: 220 }} />
+            <col style={{ width: 84 }} />
+            <col style={{ width: 180 }} />
             <col />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 160 }} />
-            <col style={{ width: 170 }} />
-            <col style={{ width: 320 }} />
+            <col style={{ width: 72 }} />
+            <col style={{ width: 64 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 126 }} />
+            <col style={{ width: 118 }} />
+            <col style={{ width: 368 }} />
           </colgroup>
-
           <thead>
             <tr>
               <th style={th}>Job #</th>
               <th style={th}>Client</th>
               <th style={th}>Location</th>
-              <th style={th}>General Notes</th>
+              <th style={th}>Notes</th>
               <th style={th}>PO</th>
-              <th style={th}>Quote Attached</th>
+              <th style={th}>Quote</th>
               <th style={th}>Dates</th>
               <th style={th}>Status</th>
               <th style={th}>Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {jobs.map((j) => {
               const pretty = prettifyStatus(j.status);
-              const notesState = getCheckBadgeState(
-                String(j?.generalNotes || "").trim().length > 0
-              );
+              const notesState = getCheckBadgeState(String(j?.generalNotes || "").trim().length > 0);
               const poState = getCheckBadgeState(String(j?.po || "").trim().length > 0);
               const quoteState = getCheckBadgeState(
                 String(j?.pdfUrl || "").trim().length > 0 ||
@@ -509,81 +551,20 @@ export default function ReviewQueuePage() {
 
               return (
                 <tr key={j.id}>
-                  <td style={tdNoWrap}>
-                    <Link href={href} style={{ textDecoration: "none", color: UI.text, fontWeight: 800 }}>
+                  <td style={{ ...td, ...nowrap }}>
+                    <Link href={href} style={{ textDecoration: "none", color: UI.text, fontWeight: 900 }}>
                       #{j.jobNumber || j.id}
                     </Link>
                   </td>
-                  <td style={tdWrap}>{j.client || "—"}</td>
-                  <td style={tdWrap}>{j.location || "—"}</td>
-                  <td style={tdNoWrap}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 56,
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: `1px solid ${notesState.border}`,
-                        background: notesState.bg,
-                        color: notesState.text,
-                        fontSize: 11,
-                        fontWeight: 900,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {notesState.label}
-                    </span>
-                  </td>
-                  <td style={tdNoWrap}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 56,
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: `1px solid ${poState.border}`,
-                        background: poState.bg,
-                        color: poState.text,
-                        fontSize: 11,
-                        fontWeight: 900,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {poState.label}
-                    </span>
-                  </td>
-                  <td style={tdNoWrap}>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minWidth: 56,
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: `1px solid ${quoteState.border}`,
-                        background: quoteState.bg,
-                        color: quoteState.text,
-                        fontSize: 11,
-                        fontWeight: 900,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {quoteState.label}
-                    </span>
-                  </td>
-                  <td style={tdNoWrap}>
-                    <DatesCell job={j} />
-                  </td>
-                  <td style={tdNoWrap}>
-                    <StatusBadge value={pretty} />
-                  </td>
-                  <td style={tdNoWrap}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                  <td style={td} title={j.client || ""}>{j.client || "-"}</td>
+                  <td style={td} title={j.location || ""}>{j.location || "-"}</td>
+                  <td style={{ ...td, ...nowrap }}><span style={chip(notesState.tone)}>{notesState.label}</span></td>
+                  <td style={{ ...td, ...nowrap }}><span style={chip(poState.tone)}>{poState.label}</span></td>
+                  <td style={{ ...td, ...nowrap }}><span style={chip(quoteState.tone)}>{quoteState.label}</span></td>
+                  <td style={{ ...td, ...nowrap }}><DatesCell job={j} /></td>
+                  <td style={{ ...td, ...nowrap }}><StatusBadge value={pretty} /></td>
+                  <td style={{ ...td, ...nowrap }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
                       {["Ready to Invoice", "Needs Action", "Complete"].map((option) => {
                         const nextStatus = option === "Needs Action" ? "Action Required" : option;
                         const currentStatus = prettifyStatus(j.status);
@@ -596,26 +577,22 @@ export default function ReviewQueuePage() {
                             onClick={() => setQuickStatus(j, nextStatus)}
                             disabled={savingJobId === j.id}
                             style={{
-                              padding: "6px 9px",
-                              borderRadius: 999,
-                              border: `1px solid ${isActive ? UI.brand : "#d1d5db"}`,
-                              background: isActive ? "#dbeafe" : "#ffffff",
-                              color: isActive ? UI.brand : UI.text,
+                              ...btn(isActive ? "primary" : "ghost"),
+                              minHeight: 24,
+                              padding: "3px 7px",
                               fontSize: 11,
-                              fontWeight: 800,
-                              cursor: savingJobId === j.id ? "not-allowed" : "pointer",
+                              boxShadow: "none",
                               opacity: savingJobId === j.id ? 0.6 : 1,
-                              whiteSpace: "nowrap",
                             }}
                           >
                             {option}
                           </button>
                         );
                       })}
+                      <Link href={href} style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}>
+                        Details <ChevronRight size={12} />
+                      </Link>
                     </div>
-                    <Link href={href} style={{ textDecoration: "none", fontWeight: 800, color: UI.brand }}>
-                      Fill details →
-                    </Link>
                   </td>
                 </tr>
               );
@@ -626,59 +603,40 @@ export default function ReviewQueuePage() {
     </section>
   );
 
-  const resetFilters = () => {
-    setSearch("");
-    setClientFilter("all");
-    setStatusFilter("all");
-    setFromDate("");
-    setToDate("");
-    setOverdueOnly(false);
-    if (searchRef.current) searchRef.current.focus();
-  };
-
   return (
     <HeaderSidebarLayout>
+      <style>{focusCss}</style>
       <div style={pageWrap}>
         <div style={headerBar}>
           <div>
             <h1 style={h1}>Review Queue</h1>
-            <div style={sub}>
-              Jobs that just finished or marked <b>Ready to Invoice</b>, not yet paid. Grouped by week.
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Link href="/job-home" style={btn()}>
+              <Home size={14} />
+              Jobs Home
+            </Link>
+            <div style={chip()}>
+              <ClipboardList size={13} /> {loading ? "Loading..." : `${filtered.length} jobs`}
             </div>
           </div>
-          <div style={{ ...chip }}>{loading ? "Loading…" : `${filtered.length} jobs`}</div>
         </div>
 
-        {/*  Filters (expanded) */}
-        <div
-          style={{
-            ...surface,
-            padding: 12,
-            display: "grid",
-            gridTemplateColumns: "1fr auto auto auto auto auto auto",
-            gap: 10,
-            alignItems: "center",
-            marginBottom: 14,
-          }}
-        >
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="Search by job #, client, location, or notes…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #d1d5db",
-              fontSize: 14,
-              outline: "none",
-              background: "#fff",
-            }}
-          />
+        <div className="review-toolbar" style={toolbar}>
+          <div className="review-search" style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 9, top: 7, color: UI.muted }} aria-hidden />
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search by job #, client, location or notes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: 29 }}
+              aria-label="Search review queue"
+            />
+          </div>
 
-          <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={select}>
+          <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={inputStyle}>
             {clients.map((c) => (
               <option key={c} value={c}>
                 {c === "all" ? "Client: All" : c}
@@ -686,7 +644,7 @@ export default function ReviewQueuePage() {
             ))}
           </select>
 
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={select}>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={inputStyle}>
             {statusOptions.map((s) => (
               <option key={s} value={s}>
                 {s === "all" ? "Status: All" : s}
@@ -694,75 +652,42 @@ export default function ReviewQueuePage() {
             ))}
           </select>
 
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            style={select}
-            aria-label="From date"
-            title="From date"
-          />
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={inputStyle} aria-label="From date" />
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle} aria-label="To date" />
 
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            style={select}
-            aria-label="To date"
-            title="To date"
-          />
-
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: UI.text, whiteSpace: "nowrap" }}>
-            <input
-              type="checkbox"
-              checked={overdueOnly}
-              onChange={(e) => setOverdueOnly(e.target.checked)}
-            />
-            Overdue only
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: UI.text, whiteSpace: "nowrap", fontWeight: 800 }}>
+            <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
+            Overdue
           </label>
 
-          <button
-            onClick={resetFilters}
-            style={{
-              border: "1px solid #d1d5db",
-              borderRadius: 10,
-              padding: "8px 12px",
-              background: "#fff",
-              fontWeight: 800,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <button type="button" onClick={resetFilters} style={btn()}>
+            <RotateCcw size={13} />
             Reset
           </button>
-
-          <Link href="/job-home" style={{ textDecoration: "none", fontWeight: 800, color: UI.brand, whiteSpace: "nowrap" }}>
-            Home →
-          </Link>
         </div>
 
-        {/* Content grouped by week */}
         {loading ? (
-          <div style={{ ...surface, padding: 16 }}>Loading…</div>
+          <div style={{ ...surface, padding: 14, color: UI.muted }}>Loading jobs...</div>
         ) : filtered.length === 0 ? (
-          <div style={{ ...surface, padding: 16 }}>Nothing to review.</div>
+          <div style={{ ...surface, padding: 14, color: UI.muted }}>Nothing to review.</div>
         ) : (
           <>
             {weekKeys.map((mondayTS) => {
               const monday = new Date(Number(mondayTS));
               const jobs = weekGroups[mondayTS] || [];
-              const title = `${formatWeekRange(monday)}`;
-              const subSpan = `${monday.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} – ${new Date(
-                monday.getTime() + 6 * 86400000
-              ).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`;
-              return <SectionTable key={mondayTS} jobs={jobs} title={title} sub={subSpan} />;
+              return (
+                <SectionTable
+                  key={mondayTS}
+                  jobs={jobs}
+                  title={formatWeekRange(monday)}
+                />
+              );
             })}
 
-            {noDate.length > 0 && <SectionTable jobs={noDate} title="No Dates" sub="Jobs without booking dates" />}
+            {noDate.length > 0 && <SectionTable jobs={noDate} title="No Dates" />}
           </>
         )}
       </div>
     </HeaderSidebarLayout>
   );
 }
-

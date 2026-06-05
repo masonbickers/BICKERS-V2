@@ -194,7 +194,7 @@ export default function EnquiryPage() {
             <div style={pageSub}>Saved enquiry jobs that are not shown on the calendar.</div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" style={btn("primary")} onClick={() => router.push("/create-booking?status=Enquiry")}>
+            <button type="button" style={btn("primary")} onClick={() => router.push("/create-enquiry")}>
               <Plus size={14} />
               New Enquiry
             </button>

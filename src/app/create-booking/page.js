@@ -637,6 +637,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   const hydratedDraftRef = useRef(false);
 
   // Core fields
+  const [quoteNumber, setQuoteNumber] = useState("");
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
   const [location, setLocation] = useState("");
@@ -776,6 +777,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
   const draftData = useMemo(
     () => ({
+      quoteNumber,
       jobNumber,
       client,
       location,
@@ -813,6 +815,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       additionalContacts,
     }),
     [
+      quoteNumber,
       jobNumber,
       client,
       location,
@@ -1124,6 +1127,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
     const saved = draft.data;
     setActiveDraftId(draftIdFromQuery);
+    setQuoteNumber(saved.quoteNumber || "");
     setJobNumber(saved.jobNumber || "");
     setClient(saved.client || "");
     setLocation(saved.location || "");
@@ -1968,6 +1972,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     });
 
     const payload = {
+      quoteNumber,
       jobNumber,
       client,
       location,
@@ -2172,8 +2177,17 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <h3 style={cardTitle}>Job Info</h3>
                 </div>
 
-                <label style={field.label}>Job Number</label>
-                <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
+                <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <label style={field.label}>Job Number</label>
+                    <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
+                  </div>
+
+                  <div>
+                    <label style={field.label}>Quote Number</label>
+                    <input value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} style={field.input} />
+                  </div>
+                </div>
 
                 <label style={field.label}>Status</label>
                 <select
@@ -3054,6 +3068,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 <div style={summaryGrid}>
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Job</h4>
+                    <SummaryRow label="Quote">{quoteNumber || "-"}</SummaryRow>
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>

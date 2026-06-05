@@ -800,6 +800,7 @@ const buildEditBookingPrefillState = (bookingData) => {
 
   return {
     hasBooking: hasUsefulBooking,
+    quoteNumber: booking.quoteNumber || "",
     jobNumber: booking.jobNumber || "",
     client: booking.client || "",
     location: booking.location || "",
@@ -887,6 +888,7 @@ const formatAuditDate = (raw) => {
 };
 
 const AUDIT_FIELDS = [
+  "quoteNumber",
   "jobNumber",
   "client",
   "location",
@@ -923,6 +925,7 @@ const AUDIT_FIELDS = [
 ];
 
 const AUDIT_LABELS = {
+  quoteNumber: "Quote number",
   jobNumber: "Job number",
   client: "Production",
   location: "Location",
@@ -1149,6 +1152,7 @@ export default function EditBookingPage() {
   const [saving, setSaving] = useState(false);
 
   // Core fields
+  const [quoteNumber, setQuoteNumber] = useState(prefill.quoteNumber);
   const [jobNumber, setJobNumber] = useState(prefill.jobNumber);
   const [client, setClient] = useState(prefill.client);
   const [location, setLocation] = useState(prefill.location);
@@ -1470,6 +1474,7 @@ export default function EditBookingPage() {
       setOriginalBookingData(bookingDocSnap.data() || {});
 
       // ---- Prefill booking fields ----
+      setQuoteNumber(bookingData.quoteNumber || "");
       setJobNumber(bookingData.jobNumber || "");
       setClient(bookingData.client || "");
       setLocation(bookingData.location || "");
@@ -2531,6 +2536,7 @@ export default function EditBookingPage() {
     });
 
     const payload = {
+      quoteNumber,
       jobNumber,
       client,
       location,
@@ -2774,13 +2780,26 @@ export default function EditBookingPage() {
                   <h3 style={cardTitle}>Job Info</h3>
                 </div>
 
-                <label style={field.label}>Job Number</label>
-                <input
-                  value={jobNumber}
-                  onChange={(e) => setJobNumber(e.target.value)}
-                  required
-                  style={field.input}
-                />
+                <div className="edit-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <label style={field.label}>Job Number</label>
+                    <input
+                      value={jobNumber}
+                      onChange={(e) => setJobNumber(e.target.value)}
+                      required
+                      style={field.input}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={field.label}>Quote Number</label>
+                    <input
+                      value={quoteNumber}
+                      onChange={(e) => setQuoteNumber(e.target.value)}
+                      style={field.input}
+                    />
+                  </div>
+                </div>
 
                 <label style={field.label}>Status</label>
                 <select
@@ -4078,6 +4097,7 @@ export default function EditBookingPage() {
                 <div style={summaryGrid}>
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Job</h4>
+                    <SummaryRow label="Quote">{quoteNumber || "-"}</SummaryRow>
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>

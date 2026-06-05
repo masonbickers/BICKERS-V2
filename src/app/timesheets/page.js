@@ -684,17 +684,20 @@ export default function TimesheetListPage() {
         deduped.forEach((ts) => {
           const storedCode = String(ts.employeeCode || "").trim();
           const storedName = String(ts.employeeName || "").trim();
+          const hasTimesheetIdentity = storedCode || storedName;
+          if (!hasTimesheetIdentity && !ts.weekStart) return;
           const matchedEmployee =
             employeeByCode[storedCode.toLowerCase()] ||
             employeeByName[storedName.toLowerCase()] ||
             null;
+          if (!matchedEmployee) return;
           const code = matchedEmployee?.code || storedCode || "unknown";
 
           if (!groupedByEmp[code]) {
             groupedByEmp[code] = {
-              name: ts.employeeName || "Unknown employee",
+              name: ts.employeeName || matchedEmployee.name || "Unnamed employee",
               code,
-              employeeId: null,
+              employeeId: matchedEmployee.employeeId || null,
               timesheets: [],
             };
           }

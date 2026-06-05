@@ -24,28 +24,31 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
 ─────────────────────────────────────────────────────────────*/
 const UI = {
-  radius: 12,
-  radiusSm: 10,
-  border: "1px solid #e5e7eb",
+  radius: 8,
+  radiusSm: 8,
+  border: "1px solid #d7dee8",
   text: "#0f172a",
-  muted: "#6b7280",
-  bg: "#ffffff",
-  bgAlt: "#f9fafb",
-  brand: "#2563eb",
-  chipBg: "#f1f5f9",
-  shadow: "0 4px 14px rgba(0,0,0,0.06)",
-  shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
+  muted: "#5f6f82",
+  bg: "#f3f6f9",
+  bgAlt: "#fbfdff",
+  brand: "#1f4b7a",
+  brandSoft: "#edf3f8",
+  brandBorder: "#c8d6e3",
+  chipBg: "#edf3f8",
+  shadow: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
 };
 
 const LAYOUT = {
-  HEADER_H: 64,
+  HEADER_H: 54,
   PAGE_PAD_X: 16,
-  STICKY_GAP: 12,
+  STICKY_GAP: 8,
 };
 
 const mono = {
@@ -79,10 +82,94 @@ const splitJobNumber = (jobNumber) => {
 const renderEmployees = (employees) =>
   Array.isArray(employees) && employees.length
     ? employees
-        .map((e) => e.name || e.displayName || e.email || "")
+        .map((e) => (typeof e === "string" ? e : e?.name || e?.displayName || e?.email || ""))
         .filter(Boolean)
         .join(", ")
     : null;
+
+const renderCrewNames = (job) => {
+  const direct = renderEmployees(job?.employees);
+  if (direct) return direct;
+  if (Array.isArray(job?.employeeNames) && job.employeeNames.length) {
+    return job.employeeNames.filter(Boolean).join(", ");
+  }
+  if (job?.employeesByDate && typeof job.employeesByDate === "object") {
+    const names = Object.values(job.employeesByDate)
+      .flat()
+      .map((e) => (typeof e === "string" ? e : e?.name || e?.displayName || e?.email || ""))
+      .filter(Boolean);
+    return names.length ? Array.from(new Set(names)).join(", ") : null;
+  }
+  return null;
+};
+
+const renderNames = (items, fallbacks = ["name", "displayName", "registration"]) => {
+  if (!Array.isArray(items) || !items.length) return null;
+  const names = items
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (!item || typeof item !== "object") return "";
+      return fallbacks.map((key) => item[key]).find(Boolean) || "";
+    })
+    .filter(Boolean);
+  return names.length ? Array.from(new Set(names)).join(", ") : null;
+};
+
+const renderVehicleNames = (vehicles) => {
+  if (!Array.isArray(vehicles) || !vehicles.length) return null;
+  const names = vehicles
+    .map((vehicle) => {
+      if (typeof vehicle === "string") return vehicle;
+      if (!vehicle || typeof vehicle !== "object") return "";
+      const name = vehicle.name || vehicle.vehicleName || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ");
+      const registration = String(vehicle.registration || "").trim().toUpperCase();
+      if (!name && registration) return registration;
+      return registration ? `${name || "Vehicle"} (${registration})` : name || "";
+    })
+    .filter(Boolean);
+  return names.length ? Array.from(new Set(names)).join(", ") : null;
+};
+
+const renderContacts = (contacts) => {
+  if (!Array.isArray(contacts) || !contacts.length) return null;
+  const rows = contacts
+    .map((contact) =>
+      [
+        contact.department,
+        contact.name,
+        contact.email,
+        contact.phone || contact.number,
+      ]
+        .filter(Boolean)
+        .join(" - ")
+    )
+    .filter(Boolean);
+  return rows.length ? rows.join("\n") : null;
+};
+
+const renderJobContacts = (job) => {
+  const contacts = [];
+  if (Array.isArray(job?.additionalContacts)) contacts.push(...job.additionalContacts);
+
+  const primaryContact = {
+    department: job?.contactDepartment || job?.department || "",
+    name: job?.contactName || "",
+    email: job?.contactEmail || "",
+    phone: job?.contactPhone || job?.contactNumber || "",
+  };
+  if (primaryContact.name || primaryContact.email || primaryContact.phone || primaryContact.department) {
+    contacts.unshift(primaryContact);
+  }
+
+  return renderContacts(contacts);
+};
+
+const yesNo = (value) => (value ? "Yes" : "No");
+
+const formatDateTime = (value) => {
+  const d = parseDateFlexible(value);
+  return d ? format(d, "dd/MM/yyyy HH:mm") : null;
+};
 
 const renderDateBlock = (job) => {
   if (!Array.isArray(job.bookingDates) || job.bookingDates.length === 0) return "No dates scheduled.";
@@ -131,11 +218,12 @@ const Badge = ({ text, bg, fg, border, title }) => (
       backgroundColor: bg,
       color: fg,
       border: `1px solid ${border}`,
-      padding: "2px 8px",
+      padding: "3px 8px",
       borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
+      fontSize: 11.5,
+      fontWeight: 900,
       whiteSpace: "nowrap",
+      lineHeight: 1,
     }}
   >
     {text}
@@ -143,17 +231,24 @@ const Badge = ({ text, bg, fg, border, title }) => (
 );
 
 const statusColor = (status) => {
-  if (status === "Ready to Invoice") return "#059669";
-  if (status === "Needs Action") return "#f59e0b";
-  if (status === "Complete") return "#2563eb";
-  return "#6b7280";
+  const label = String(status || "").toLowerCase();
+  if (label === "ready to invoice") return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+  if (label === "needs action" || label === "action required") return { bg: "#FF973B", border: "#111111", text: "#0b0b0b" };
+  if (label === "complete" || label === "completed") return { bg: "#92d18c", border: "#111111", text: "#0b0b0b" };
+  if (label === "confirmed") return { bg: "#f3f970", border: "#111111", text: "#0b0b0b" };
+  if (label === "first pencil") return { bg: "#89caf5", border: "#111111", text: "#0b0b0b" };
+  if (label === "second pencil") return { bg: "#f73939", border: "#111111", text: "#ffffff" };
+  if (label === "dnh") return { bg: "#d0d0d0", border: "#d0d0d0", text: "#0b0b0b" };
+  if (label === "cancelled" || label === "canceled") return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+  if (label === "paid") return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
+  return { bg: "#eef3f8", border: "#d7dee8", text: UI.brand };
 };
 
 const StatusPill = ({ value }) => {
   const color = statusColor(value);
-  return <Badge text={value} bg={`${color}20`} fg={color} border={color} />;
+  return <Badge text={value} bg={color.bg} fg={color.text} border={color.border} />;
 };
-const PaidPill = () => <Badge text="Paid" bg="#bfdbfe" fg="#1d4ed8" border="#60a5fa" />;
+const PaidPill = () => <Badge text="Paid" bg="#dcfce7" fg="#166534" border="#86efac" />;
 
 /* ────────────────────────────────────────────────────────────
    Status auto-complete helpers (UNCHANGED)
@@ -243,44 +338,47 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
 
   const wrap = {
-    border: "1px solid #d1d5db",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: ts.submitted ? "#f9fafb" : "#fff7ed",
+    border: UI.border,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    backgroundColor: ts.submitted ? "#fbfdff" : "#fffbeb",
     minWidth: 0,
   };
   const header = {
     display: "flex",
-    gap: 12,
+    gap: 8,
     alignItems: "center",
-    marginBottom: 8,
-    borderBottom: "1px solid #e5e7eb",
-    paddingBottom: 8,
+    marginBottom: 6,
+    borderBottom: UI.border,
+    paddingBottom: 6,
     minWidth: 0,
     flexWrap: "wrap",
   };
-  const tableWrap = { overflowX: "auto", marginTop: 8, minWidth: 0 };
+  const tableWrap = { overflowX: "auto", marginTop: 6, minWidth: 0 };
   const table = {
     width: "100%",
-    borderCollapse: "separate",
-    borderSpacing: 0,
-    fontSize: 13,
+    borderCollapse: "collapse",
+    fontSize: 11.5,
     tableLayout: "fixed",
   };
   const th = {
     textAlign: "left",
-    padding: "0px 0px",
-    borderBottom: "1px solid #e5e7eb",
-    background: "#f8fafc",
+    padding: "5px 6px",
+    borderBottom: UI.border,
+    background: "#fff",
+    color: UI.muted,
+    fontSize: 10.5,
+    fontWeight: 900,
+    textTransform: "uppercase",
     position: "sticky",
     top: 0,
     zIndex: 1,
     whiteSpace: "nowrap",
   };
   const td = {
-    padding: "8px 10px",
-    borderBottom: "1px solid #f1f5f9",
+    padding: "5px 6px",
+    borderBottom: "1px solid #edf2f7",
     verticalAlign: "top",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -293,13 +391,13 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   return (
     <div style={wrap}>
       <div style={header}>
-        <div style={{ fontSize: 14, fontWeight: 900, color: "#1f2937" }}>
+        <div style={{ fontSize: 13, fontWeight: 900, color: UI.text }}>
           Week of {ws ? format(ws, "dd/MM/yyyy") : "—"}
         </div>
-        <div style={{ fontSize: 14, color: "#4b5563" }}>
+        <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
           <strong>Emp:</strong> {ts.employeeName || ts.employeeCode || "—"}
         </div>
-        <div style={{ fontSize: 12, color: "#6b7280" }}>
+        <div style={{ fontSize: 11.5, color: UI.muted }}>
           Showing {rows.length} day{rows.length !== 1 ? "s" : ""} for this job
         </div>
         <div style={{ marginLeft: "auto" }}>
@@ -316,11 +414,12 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
           style={{
             padding: "4px 8px",
             borderRadius: 8,
-            border: "1px solid #d1d5db",
+            border: UI.border,
             background: "#fff",
-            fontSize: 12,
+            fontSize: 11.5,
             textDecoration: "none",
-            color: "#374151",
+            color: UI.brand,
+            fontWeight: 900,
             whiteSpace: "nowrap",
           }}
         >
@@ -422,11 +521,12 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: "8px 14px",
-    borderRadius: 10,
-    border: "1px solid #e5e7eb",
-    fontSize: 14,
+    gap: 6,
+    minHeight: 30,
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: UI.border,
+    fontSize: 12.5,
     fontWeight: 900,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.5 : 1,
@@ -441,7 +541,7 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
       ? { ...base, background: "#ef4444", color: "#fff", border: "1px solid #ef4444" }
       : variant === "dark"
       ? { ...base, background: "#111827", color: "#fff", border: "1px solid #111827" }
-      : { ...base, background: UI.chipBg, color: UI.text };
+      : { ...base, background: "#fff", color: UI.text };
 
   return (
     <button disabled={disabled} onClick={disabled ? undefined : onClick} style={styles} title={title}>
@@ -457,7 +557,7 @@ const Card = ({ children, id, tone = "white", style }) => (
       background: tone === "alt" ? UI.bgAlt : "#fff",
       border: UI.border,
       borderRadius: UI.radius,
-      padding: 14,
+      padding: 10,
       minWidth: 0,
       boxShadow: "0 1px 0 rgba(15,23,42,0.02)",
       ...style,
@@ -468,8 +568,8 @@ const Card = ({ children, id, tone = "white", style }) => (
 );
 
 const SectionTitle = ({ title, right }) => (
-  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-    <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
+  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+    <div style={{ fontWeight: 900, fontSize: 14.5 }}>{title}</div>
     {right}
   </div>
 );
@@ -495,6 +595,92 @@ const matchText = (job, term) => {
   return hay.includes(t);
 };
 
+const firstJobDateMs = (job) => {
+  const candidates = [
+    ...(Array.isArray(job?.bookingDates) ? job.bookingDates : []),
+    job?.date,
+    job?.startDate,
+    job?.endDate,
+    job?.appointmentDateISO,
+    job?.appointmentDate,
+  ];
+  const times = candidates
+    .map((value) => parseDateFlexible(value))
+    .filter(Boolean)
+    .map((date) => date.getTime())
+    .filter((time) => Number.isFinite(time));
+  return times.length ? Math.min(...times) : Number.MAX_SAFE_INTEGER;
+};
+
+const compareJobsByDate = (a, b) => {
+  const dateDiff = firstJobDateMs(b) - firstJobDateMs(a);
+  if (dateDiff) return dateDiff;
+  return String(a?.jobNumber || "").localeCompare(String(b?.jobNumber || ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+};
+
+const getSortedJobDates = (job) => {
+  const dates = Array.isArray(job?.bookingDates) ? job.bookingDates : [];
+  return dates
+    .map((value) => parseDateFlexible(value))
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime());
+};
+
+const formatShortDate = (date) => format(date, "d MMM yyyy");
+
+const formatCompactDateRange = (job) => {
+  const dates = getSortedJobDates(job);
+  if (!dates.length) return "No dates";
+  const first = dates[0];
+  const last = dates.at(-1);
+  if (first.getTime() === last.getTime()) return formatShortDate(first);
+  if (format(first, "MMM yyyy") === format(last, "MMM yyyy")) {
+    return `${format(first, "d")}-${format(last, "d MMM yyyy")}`;
+  }
+  return `${format(first, "d MMM")}-${format(last, "d MMM yyyy")}`;
+};
+
+const getBookingDayCount = (job) => getSortedJobDates(job).length || Number(job?.bookingLengthDays) || 0;
+
+const getCrewCount = (job) => {
+  const allocated = Number(
+    job?.allocatedCrewCount ?? (Array.isArray(job?.employees) ? job.employees.length : 0)
+  );
+  const required = Number(job?.requiredCrewCount || 0);
+  return {
+    allocated: Number.isFinite(allocated) ? allocated : 0,
+    required: Number.isFinite(required) ? required : 0,
+  };
+};
+
+const getInvoiceReadiness = (job, timesheets = [], status = "") => {
+  const missing = [];
+  const crew = getCrewCount(job);
+  const statusNorm = norm(status || job?.status);
+
+  if (!["complete", "ready to invoice", "paid"].includes(statusNorm)) missing.push("status");
+  if (!String(job?.po || "").trim()) missing.push("PO");
+  if (!timesheets.length) missing.push("timesheets");
+  if (!renderNames(job?.vehicles, ["name", "registration", "vehicleName"])) missing.push("vehicle");
+  if (crew.required > 0 && crew.allocated < crew.required) missing.push("crew");
+
+  return {
+    ready: missing.length === 0,
+    missing,
+    label: missing.length ? "Not ready" : "Ready",
+  };
+};
+
+const countByStatus = (jobs, statusByJob = {}) =>
+  jobs.reduce((acc, job) => {
+    const status = String(statusByJob[job.id] || job.status || "Pending");
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+
 /* ────────────────────────────────────────────────────────────
    Page
 ─────────────────────────────────────────────────────────────*/
@@ -518,14 +704,16 @@ export default function JobInfoPage() {
   const [errorByJob, setErrorByJob] = useState({});
 
   // NEW: search + filter + collapse
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [expandedById, setExpandedById] = useState({}); // { [jobId]: true/false }
+  const sessionKey = `job-numbers:${jobId || "unknown"}`;
+  const [search, setSearch] = useSessionState(`${sessionKey}:search`, "");
+  const [statusFilter, setStatusFilter] = useSessionState(`${sessionKey}:statusFilter`, "All");
+  const [expandedById, setExpandedById] = useSessionState(`${sessionKey}:expandedById`, {}); // { [jobId]: true/false }
   const searchRef = useRef(null);
+  useSessionScroll(sessionKey);
 
   const isJobNumber = useMemo(() => {
     if (!jobId) return false;
-    return typeof jobId === "string" && jobId.length > 5 && jobId.includes("-");
+    return typeof jobId === "string" && (/^\d{4}/.test(jobId) || (jobId.length > 5 && jobId.includes("-")));
   }, [jobId]);
 
   const normalizeVehiclesForJob = (job, vmap) => {
@@ -568,7 +756,7 @@ export default function JobInfoPage() {
             ]
           );
           const snap = await getDocs(qJobs);
-          const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(compareJobsByDate);
           mainJob = jobs[0] || null;
           setRelatedJobs(jobs);
         } else {
@@ -590,9 +778,9 @@ export default function JobInfoPage() {
             ]
           );
           const snap = await getDocs(qJobs);
-          const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const jobs = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(compareJobsByDate);
           if (!jobs.find((j) => j.id === mainJob.id)) jobs.unshift(mainJob);
-          setRelatedJobs(jobs);
+          setRelatedJobs(jobs.sort(compareJobsByDate));
         }
 
         if (!mainJob) return;
@@ -624,7 +812,7 @@ export default function JobInfoPage() {
         const tsSnap = await getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState));
         const allTs = tsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        const jobsToIndex = (await getDocs(qJobs)).docs.map((d) => ({ id: d.id, ...d.data() }));
+        const jobsToIndex = (await getDocs(qJobs)).docs.map((d) => ({ id: d.id, ...d.data() })).sort(compareJobsByDate);
         const ids = new Set(jobsToIndex.map((j) => j.id));
 
         const map = {};
@@ -827,13 +1015,13 @@ export default function JobInfoPage() {
     window.addEventListener("hashchange", onHashChange);
 
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [relatedJobs]);
+  }, [relatedJobs, setExpandedById]);
 
   // Ensure the current route job is expanded
   useEffect(() => {
     if (!jobId) return;
     setExpandedById((p) => ({ ...p, [jobId]: true }));
-  }, [jobId]);
+  }, [jobId, setExpandedById]);
 
   const allJobs = useMemo(
     () => relatedJobs.map((j) => normalizeVehiclesForJob(j, vehicleMap)),
@@ -873,6 +1061,29 @@ export default function JobInfoPage() {
 
   const mainJob = relatedJobs.find((j) => j.id === jobId) || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
+  const groupDates = allJobs.flatMap(getSortedJobDates).sort((a, b) => a.getTime() - b.getTime());
+  const groupDateLabel =
+    groupDates.length > 1
+      ? `${formatShortDate(groupDates[0])} - ${formatShortDate(groupDates.at(-1))}`
+      : groupDates.length
+      ? formatShortDate(groupDates[0])
+      : "No dates";
+  const statusCounts = countByStatus(allJobs, statusByJob);
+  const statusSummary = Object.entries(statusCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([status, count]) => `${count} ${status}`)
+    .join(" - ");
+  const notReadyCount = allJobs.reduce((total, job) => {
+    const status = statusByJob[job.id] || job.status || "Pending";
+    return total + (getInvoiceReadiness(job, timesheetsByJob[job.id] || [], status).ready ? 0 : 1);
+  }, 0);
+  const parentVehicle = renderVehicleNames(mainJob.vehicles);
+  const parentSubtitle = [
+    mainJob.location,
+    `${allJobs.length} booking${allJobs.length === 1 ? "" : "s"}`,
+    groupDateLabel,
+    parentVehicle,
+  ].filter(Boolean).join(" - ");
 
   const toggleAll = (open) => {
     const next = {};
@@ -892,27 +1103,29 @@ export default function JobInfoPage() {
             position: "sticky",
             top: 0,
             zIndex: 8,
-            background: "#ffffffcc",
+            background: "rgba(243, 246, 249, 0.96)",
             backdropFilter: "saturate(180%) blur(6px)",
             borderBottom: UI.border,
           }}
         >
           <div
             style={{
-              height: LAYOUT.HEADER_H,
+              minHeight: LAYOUT.HEADER_H,
               display: "flex",
               alignItems: "center",
             }}
           >
             <div
               style={{
-                width: "min(1600px, 100%)",
+                width: "100%",
                 margin: "0 auto",
                 padding: `0 ${LAYOUT.PAGE_PAD_X}px`,
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                gap: 8,
                 minWidth: 0,
+                paddingTop: 6,
+                paddingBottom: 6,
               }}
             >
               <Btn onClick={() => router.back()} variant="base">
@@ -920,11 +1133,11 @@ export default function JobInfoPage() {
               </Btn>
 
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 900, fontSize: 18, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  Job Group: {prefix}
+                <div style={{ fontWeight: 900, fontSize: 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  Job #{prefix} - {mainJob.client || "Booking"}
                 </div>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700 }}>
-                  Search + filter • Collapsible sections • Deep links still expand & highlight
+                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {parentSubtitle}
                 </div>
               </div>
 
@@ -942,12 +1155,12 @@ export default function JobInfoPage() {
           {/* Search Row */}
           <div
             style={{
-              width: "min(1600px, 100%)",
+              width: "100%",
               margin: "0 auto",
-              padding: `0 ${LAYOUT.PAGE_PAD_X}px 12px`,
+              padding: `0 ${LAYOUT.PAGE_PAD_X}px 8px`,
               display: "grid",
-              gridTemplateColumns: "1fr 220px 140px",
-              gap: 10,
+              gridTemplateColumns: "minmax(260px, 1fr) minmax(170px, 220px) auto",
+              gap: 8,
               alignItems: "center",
             }}
           >
@@ -955,7 +1168,7 @@ export default function JobInfoPage() {
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                style={{ position: "absolute", left: 10, top: 10, width: 18, height: 18, opacity: 0.55 }}
+                style={{ position: "absolute", left: 10, top: 9, width: 16, height: 16, opacity: 0.55 }}
                 aria-hidden
               >
                 <path
@@ -972,15 +1185,17 @@ export default function JobInfoPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by job #, client, location, notes, vehicles, employees…"
+                placeholder="Search bookings"
                 style={{
                   width: "100%",
-                  padding: "10px 12px 10px 36px",
-                  borderRadius: 12,
-                  border: "1px solid #d1d5db",
-                  fontSize: 14,
+                  height: 34,
+                  padding: "0 12px 0 34px",
+                  borderRadius: 8,
+                  border: UI.border,
+                  fontSize: 13,
                   outline: "none",
                   background: "#fff",
+                  fontWeight: 700,
                 }}
               />
             </div>
@@ -990,10 +1205,11 @@ export default function JobInfoPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{
                 width: "100%",
-                padding: "10px 10px",
-                borderRadius: 12,
-                border: "1px solid #d1d5db",
-                fontSize: 14,
+                height: 34,
+                padding: "0 10px",
+                borderRadius: 8,
+                border: UI.border,
+                fontSize: 13,
                 outline: "none",
                 background: "#fff",
                 fontWeight: 800,
@@ -1011,9 +1227,9 @@ export default function JobInfoPage() {
               style={{
                 border: UI.border,
                 background: "#fff",
-                borderRadius: 12,
-                padding: "10px 12px",
-                fontSize: 13,
+                borderRadius: 8,
+                padding: "8px 10px",
+                fontSize: 12.5,
                 fontWeight: 900,
                 textAlign: "center",
               }}
@@ -1027,20 +1243,65 @@ export default function JobInfoPage() {
         {/* Page content */}
         <div
           style={{
-            width: "min(1600px, 100%)",
+            width: "100%",
             margin: "0 auto",
-            padding: `16px ${LAYOUT.PAGE_PAD_X}px 48px`,
-            paddingTop: 12,
+            padding: `10px ${LAYOUT.PAGE_PAD_X}px 32px`,
+            paddingTop: 10,
             minWidth: 0,
           }}
         >
+          <div
+            style={{
+              border: `1px solid ${UI.brandBorder}`,
+              background: "#fff",
+              borderRadius: 8,
+              padding: 14,
+              marginBottom: 12,
+              boxShadow: UI.shadow,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, overflowWrap: "anywhere" }}>
+                  Job #{prefix} - {mainJob.client || "Booking"}
+                </div>
+                <div style={{ marginTop: 5, color: UI.muted, fontWeight: 800, fontSize: 13 }}>
+                  {parentSubtitle}
+                </div>
+                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
+                  <Badge
+                    text={`${notReadyCount} not ready for invoice`}
+                    bg={notReadyCount ? "#fffbeb" : "#dcfce7"}
+                    fg={notReadyCount ? "#92400e" : "#166534"}
+                    border={notReadyCount ? "#fde68a" : "#86efac"}
+                  />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(86px, 1fr))", gap: 8, minWidth: 280 }}>
+                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
+                  <div style={{ fontSize: 20, fontWeight: 900 }}>{allJobs.length}</div>
+                </div>
+                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
+                  <div style={{ fontSize: 20, fontWeight: 900 }}>{filteredJobs.length}</div>
+                </div>
+                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
+                  <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {!filteredJobs.length ? (
             <div
               style={{
                 border: "1px dashed #cbd5e1",
                 background: "#f8fafc",
-                borderRadius: 14,
-                padding: 16,
+                borderRadius: 8,
+                padding: 12,
                 color: "#64748b",
                 fontWeight: 800,
               }}
@@ -1072,12 +1333,38 @@ export default function JobInfoPage() {
 
               const uploadError = errorByJob[job.id];
               const fileSelected = pdfFileByJob[job.id];
+              const currentPdfUrl = job.pdfURL || job.pdfUrl || "";
 
               const cards = timesheets.map((ts) => renderTimesheet(ts, job, vehicleMap, true)).filter(Boolean);
 
               const jobNotesText = [job.jobNotes, job.notes, job.generalNotes].filter(Boolean).join("\n\n");
+              const quoteNumberDisplay = String(job.quoteNumber || "").trim();
+              const vehicleSummary = renderVehicleNames(job.vehicles);
+              const crewCount = getCrewCount(job);
+              const dayCount = getBookingDayCount(job);
+              const dateSummary = formatCompactDateRange(job);
+              const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
+              const poStatus = String(job.po || "").trim() ? `PO ${job.po}` : "PO missing";
+              const timesheetStatus = `${timesheets.length} timesheet${timesheets.length === 1 ? "" : "s"}`;
               const hasNotesByDate =
                 job.notesByDate && typeof job.notesByDate === "object" && Object.keys(job.notesByDate).length > 0;
+              const overviewRows = [
+                ["Job Number", job.jobNumber || job.id],
+                ["Quote Number", quoteNumberDisplay],
+                ["Status", currentDbStatus],
+                ["Production", job.client],
+                ["Shoot Type", job.shootType],
+                ["Location", job.location],
+                ["Dates", renderDateBlock(job)],
+                ["Call Time", job.callTime || renderNames(Object.values(job.callTimesByDate || {}))],
+                ["Crew", renderCrewNames(job)],
+                ["Crew Count", `${job.allocatedCrewCount ?? (Array.isArray(job.employees) ? job.employees.length : 0)} / ${job.requiredCrewCount || 0}`],
+                ["Vehicles", vehicleSummary],
+                ["Equipment", renderNames(job.equipment, ["name", "equipmentName"])],
+                ["Contacts", renderJobContacts(job)],
+                ["PO", job.po],
+                ["Hotel", job.hasHotel ? `${yesNo(job.hasHotel)}${job.hotelNights ? ` - ${job.hotelNights} nights` : ""}${job.hotelPaidBy ? ` - ${job.hotelPaidBy}` : ""}` : "No"],
+              ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "");
 
               return (
                 <section
@@ -1085,9 +1372,9 @@ export default function JobInfoPage() {
                   id={JOB_SECTION_ID}
                   style={{
                     border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
-                    borderRadius: 16,
-                    padding: 16,
-                    marginBottom: 18,
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 10,
                     boxShadow: UI.shadow,
                     background: locked ? "#f8fafc" : job.id === jobId ? "#f8fbff" : "#fff",
                     minWidth: 0,
@@ -1101,11 +1388,11 @@ export default function JobInfoPage() {
                     onClick={() => setExpandedById((p) => ({ ...p, [job.id]: !isExpanded }))}
                     style={{
                       display: "flex",
-                      gap: 12,
+                      gap: 8,
                       alignItems: "center",
-                      padding: 12,
-                      borderRadius: 12,
-                      background: UI.bgAlt,
+                      padding: 8,
+                      borderRadius: 8,
+                      background: "#fff",
                       border: UI.border,
                       cursor: "pointer",
                       userSelect: "none",
@@ -1114,10 +1401,10 @@ export default function JobInfoPage() {
                   >
                     <div
                       style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
+                        width: 26,
+                        height: 26,
+                        borderRadius: 8,
+                        border: UI.border,
                         background: "#fff",
                         display: "grid",
                         placeItems: "center",
@@ -1134,14 +1421,14 @@ export default function JobInfoPage() {
                         alignItems: "center",
                         justifyContent: "center",
                         minWidth: 34,
-                        height: 26,
+                        height: 24,
                         padding: "0 8px",
-                        borderRadius: 10,
-                        background: "#eef2ff",
-                        border: "1px solid #e5e7eb",
+                        borderRadius: 999,
+                        background: UI.brandSoft,
+                        border: `1px solid ${UI.brandBorder}`,
                         fontWeight: 900,
                         fontSize: 12,
-                        color: "#3730a3",
+                        color: UI.brand,
                       }}
                       title="Job prefix"
                     >
@@ -1149,22 +1436,16 @@ export default function JobInfoPage() {
                     </span>
 
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          fontSize: 16,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                        title={`${job.client || "Booking"} — #${job.jobNumber || job.id}`}
-                      >
-                        {job.client || "Booking"} — #{job.jobNumber || job.id}
-                      </div>
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <StatusPill value={currentDbStatus} />
                         {isPaid && <PaidPill />}
+                        <Badge
+                          text={invoiceReadiness.label}
+                          bg={invoiceReadiness.ready ? "#dcfce7" : "#fffbeb"}
+                          fg={invoiceReadiness.ready ? "#166534" : "#92400e"}
+                          border={invoiceReadiness.ready ? "#86efac" : "#fde68a"}
+                          title={invoiceReadiness.missing.length ? `Missing: ${invoiceReadiness.missing.join(", ")}` : "Ready to invoice"}
+                        />
                         {locked && (
                           <Badge
                             text="Locked"
@@ -1174,16 +1455,41 @@ export default function JobInfoPage() {
                             title="Cancelled/DNH/Postponed/Lost jobs are view-only"
                           />
                         )}
-                        <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
-                          {job.location ? ` ${job.location}` : " —"} • {renderDateBlock(job)}
-                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontWeight: 900,
+                          fontSize: 15,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={`${job.client || "Booking"} - #${job.jobNumber || job.id}${quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}`}
+                      >
+                        {job.client || "Booking"} - #{job.jobNumber || job.id}
+                        {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
+                      </div>
+
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere" }}>
+                        {dateSummary}
+                        {dayCount ? ` - ${dayCount} day${dayCount === 1 ? "" : "s"}` : ""}
+                        {job.location ? ` - ${job.location}` : ""}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7, alignItems: "center" }}>
+                        <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "#fffbeb"} fg={vehicleSummary ? UI.brand : "#92400e"} border={vehicleSummary ? UI.brandBorder : "#fde68a"} />
+                        <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "#fffbeb" : "#f8fafc"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "#92400e" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "#fde68a" : "#d7dee8"} />
+                        <Badge text={poStatus} bg={job.po ? "#f8fafc" : "#fffbeb"} fg={job.po ? UI.text : "#92400e"} border={job.po ? "#d7dee8" : "#fde68a"} />
+                        <Badge text={timesheetStatus} bg={timesheets.length ? "#f8fafc" : "#fffbeb"} fg={timesheets.length ? UI.text : "#92400e"} border={timesheets.length ? "#d7dee8" : "#fde68a"} />
                       </div>
                     </div>
 
-                    {/* Quick actions (don’t toggle collapse when clicked) */}
+                    {/* Quick actions do not toggle collapse when clicked */}
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
+                      style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
                     >
                       <Btn
                         variant="primary"
@@ -1194,14 +1500,59 @@ export default function JobInfoPage() {
                         Edit
                       </Btn>
 
-                      <Btn
-                        variant="danger"
-                        disabled={locked}
-                        title={locked ? `Deletion disabled: ${lockReason}` : "Delete booking"}
-                        onClick={() => deleteJob(job.id)}
-                      >
-                        Delete
-                      </Btn>
+                      <details style={{ position: "relative" }}>
+                        <summary
+                          style={{
+                            listStyle: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minHeight: 30,
+                            minWidth: 34,
+                            border: UI.border,
+                            borderRadius: 8,
+                            background: "#fff",
+                            fontWeight: 900,
+                            cursor: "pointer",
+                          }}
+                          title="More actions"
+                        >
+                          ...
+                        </summary>
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 34,
+                            zIndex: 4,
+                            minWidth: 150,
+                            border: UI.border,
+                            borderRadius: 8,
+                            background: "#fff",
+                            boxShadow: UI.shadowHover,
+                            padding: 6,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() => deleteJob(job.id)}
+                            style={{
+                              width: "100%",
+                              border: "none",
+                              background: "transparent",
+                              color: locked ? UI.muted : "#b91c1c",
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              borderRadius: 6,
+                              fontWeight: 900,
+                              cursor: locked ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            Delete booking
+                          </button>
+                        </div>
+                      </details>
                     </div>
                   </div>
 
@@ -1209,19 +1560,19 @@ export default function JobInfoPage() {
 
                   {/* Collapsed body */}
                   {!isExpanded ? null : (
-                    <div style={{ marginTop: 12 }}>
+                    <div style={{ marginTop: 8 }}>
                       {/* Two-column layout */}
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "minmax(0, 2fr) minmax(320px, 1fr)",
-                          gap: 16,
+                          gridTemplateColumns: "minmax(0, 2fr) minmax(300px, 0.86fr)",
+                          gap: 10,
                           alignItems: "start",
                           minWidth: 0,
                         }}
                       >
                         {/* LEFT */}
-                        <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+                        <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                           {/* Overview */}
                           <Card id={OVERVIEW_ID} style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
                             <SectionTitle title="Overview" />
@@ -1229,76 +1580,55 @@ export default function JobInfoPage() {
                             <div
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "160px minmax(0,1fr)",
-                                rowGap: 10,
-                                columnGap: 12,
-                                fontSize: 14,
+                                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                                columnGap: 18,
+                                rowGap: 7,
+                                fontSize: 13,
                                 minWidth: 0,
                               }}
                             >
-                              <div style={{ color: UI.muted, fontWeight: 900, textTransform: "uppercase", fontSize: 12 }}>
-                                Location
-                              </div>
-                              <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>{job.location || "—"}</div>
-
-                              <div style={{ color: UI.muted, fontWeight: 900, textTransform: "uppercase", fontSize: 12 }}>
-                                Team
-                              </div>
-                              <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>{renderEmployees(job.employees) || "—"}</div>
-
-                              <div style={{ color: UI.muted, fontWeight: 900, textTransform: "uppercase", fontSize: 12 }}>
-                                Dates
-                              </div>
-                              <div style={{ minWidth: 0 }}>{renderDateBlock(job)}</div>
-                            </div>
-
-                            {/* Vehicles */}
-                            {Array.isArray(job.vehicles) && job.vehicles.length > 0 && (
-                              <div style={{ marginTop: 14, minWidth: 0 }}>
-                                <SectionTitle title="Vehicles" />
-                                <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-                                  {job.vehicles.map((v, i) => {
-                                    const reg = (v.registration || "").toString().toUpperCase();
-                                    const title = v.name || [v.manufacturer, v.model].filter(Boolean).join(" ") || "Vehicle";
-                                    const subBits = [reg && `Reg: ${reg}`].filter(Boolean);
-                                    return (
-                                      <div
-                                        key={i}
-                                        style={{
-                                          border: UI.border,
-                                          borderRadius: 10,
-                                          padding: 10,
-                                          background: UI.bgAlt,
-                                          minWidth: 0,
-                                        }}
-                                      >
-                                        <div style={{ fontWeight: 900, color: UI.text, overflowWrap: "anywhere" }}>{title}</div>
-                                        {subBits.length > 0 && (
-                                          <div style={{ color: "#374151", fontSize: 13, marginTop: 6, overflowWrap: "anywhere" }}>
-                                            {subBits.join(" • ")}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
+                              {overviewRows.map(([label, value]) => (
+                                <div
+                                  key={label}
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "104px minmax(0, 1fr)",
+                                    gap: 8,
+                                    alignItems: "start",
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      color: UI.muted,
+                                      fontWeight: 900,
+                                      textTransform: "uppercase",
+                                      fontSize: 10.5,
+                                    }}
+                                  >
+                                    {label}
+                                  </div>
+                                  <div style={{ minWidth: 0, overflowWrap: "anywhere", whiteSpace: "pre-line", fontWeight: 800 }}>
+                                    {value || "-"}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              ))}
+                            </div>
 
                             {/* Read-only Notes */}
                             {(jobNotesText || hasNotesByDate) && (
-                              <div style={{ marginTop: 16, minWidth: 0 }}>
+                              <div style={{ marginTop: 10, minWidth: 0 }}>
                                 <SectionTitle title="Job Notes" />
                                 {jobNotesText && (
                                   <div
                                     style={{
                                       whiteSpace: "pre-wrap",
                                       color: UI.text,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       background: UI.bgAlt,
                                       border: UI.border,
-                                      borderRadius: 10,
-                                      padding: 12,
+                                      borderRadius: 8,
+                                      padding: 8,
                                       minWidth: 0,
                                       overflowWrap: "anywhere",
                                     }}
@@ -1336,21 +1666,21 @@ export default function JobInfoPage() {
                             <SectionTitle
                               title="Linked Timesheets"
                               right={
-                                <span style={{ color: UI.muted, fontSize: 13, fontWeight: 900 }}>
+                                <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
                                   {(timesheetsByJob[job.id] || []).length} found
                                 </span>
                               }
                             />
 
                             {cards.length ? (
-                              <div style={{ display: "grid", gap: 12, minWidth: 0 }}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
+                              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
                             ) : (
                               <div
                                 style={{
                                   color: UI.muted,
-                                  padding: 12,
+                                  padding: 10,
                                   border: "1px dashed #d1d5db",
-                                  borderRadius: 10,
+                                  borderRadius: 8,
                                   background: "#fff",
                                 }}
                               >
@@ -1364,7 +1694,7 @@ export default function JobInfoPage() {
                         <div
                           style={{
                             display: "grid",
-                            gap: 12,
+                            gap: 10,
                             alignSelf: "start",
                             position: "sticky",
                             top: LAYOUT.HEADER_H + 68, // below the search row
@@ -1376,14 +1706,14 @@ export default function JobInfoPage() {
                             id={STATUS_ID}
                             tone="alt"
                             style={{
-                              border: "1px solid #c7d2fe",
-                              background: "#eef2ff",
+                              border: UI.border,
+                              background: "#fff",
                               scrollMarginTop: LAYOUT.HEADER_H + 80,
                             }}
                           >
-                            <SectionTitle title="Job Actions" />
+                            <SectionTitle title="Status & Invoice" />
 
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginBottom: 8 }}>
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
                                 const active = selected === opt;
                                 const color = statusColor(opt);
@@ -1397,15 +1727,17 @@ export default function JobInfoPage() {
                                     }}
                                     disabled={disabled}
                                     style={{
-                                      padding: "8px 10px",
-                                      borderRadius: 10,
-                                      border: active ? `2px solid ${color}` : "1px solid #c7d2fe",
-                                      background: active ? `${color}20` : "#eef2ff",
-                                      color: active ? color : "#1f2937",
+                                      minHeight: 30,
+                                      padding: "6px 8px",
+                                      borderRadius: 8,
+                                      border: active ? `2px solid ${color.border}` : UI.border,
+                                      background: active ? color.bg : "#fff",
+                                      color: active ? color.text : "#1f2937",
                                       fontWeight: 900,
                                       cursor: disabled ? "not-allowed" : "pointer",
                                       opacity: disabled ? 0.55 : 1,
-                                      fontSize: 13,
+                                      fontSize: 11.5,
+                                      whiteSpace: "nowrap",
                                     }}
                                     title={locked ? `Locked: ${lockReason}` : isPaid ? "Paid jobs are locked" : ""}
                                   >
@@ -1426,25 +1758,58 @@ export default function JobInfoPage() {
                             >
                               Save Status Change
                             </Btn>
+
+                            <div
+                              style={{
+                                marginTop: 10,
+                                padding: 10,
+                                border: invoiceReadiness.ready ? "1px solid #86efac" : "1px solid #fde68a",
+                                borderRadius: 8,
+                                background: invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                                <div style={{ fontWeight: 900, fontSize: 12.5 }}>Invoice checklist</div>
+                                <Badge
+                                  text={invoiceReadiness.label}
+                                  bg={invoiceReadiness.ready ? "#dcfce7" : "#fef3c7"}
+                                  fg={invoiceReadiness.ready ? "#166534" : "#92400e"}
+                                  border={invoiceReadiness.ready ? "#86efac" : "#fde68a"}
+                                />
+                              </div>
+                              {[
+                                ["Status complete", !invoiceReadiness.missing.includes("status")],
+                                ["PO reference", !invoiceReadiness.missing.includes("PO")],
+                                ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
+                                ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
+                                ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
+                              ].map(([label, ok]) => (
+                                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0", fontSize: 12, fontWeight: 800 }}>
+                                  <span>{label}</span>
+                                  <span style={{ color: ok ? "#166534" : "#92400e" }}>{ok ? "OK" : "Missing"}</span>
+                                </div>
+                              ))}
+                            </div>
+
                             <div
                               id={NOTES_PO_ID}
                               style={{
-                                marginTop: 12,
-                                paddingTop: 12,
-                                borderTop: "1px solid #c7d2fe",
+                                marginTop: 8,
+                                paddingTop: 8,
+                                borderTop: UI.border,
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
-                              <div style={{ fontWeight: 900, marginBottom: 8, fontSize: 12, color: UI.muted }}>
+                              <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
                                 Notes & PO
                               </div>
 
-                            <label style={{ fontWeight: 900, display: "block", marginBottom: 6, fontSize: 12, color: UI.muted }}>
+                            <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
                               General Summary
                             </label>
 
                             <textarea
-                              rows={4}
+                              rows={2}
                               value={dayNotes?.[job.id]?.general || ""}
                               onChange={(e) =>
                                 setDayNotes((prev) => ({
@@ -1456,13 +1821,13 @@ export default function JobInfoPage() {
                               placeholder={locked ? "Locked job (view-only)" : "Add general summary…"}
                               style={{
                                 width: "100%",
-                                border: "1px solid #d1d5db",
-                                borderRadius: 10,
-                                padding: 10,
-                                fontSize: 13,
+                                border: UI.border,
+                                borderRadius: 8,
+                                padding: "6px 8px",
+                                fontSize: 12,
                                 resize: "vertical",
                                 background: locked ? "#f1f5f9" : "#fff",
-                                marginBottom: 10,
+                                marginBottom: 7,
                                 opacity: locked ? 0.8 : 1,
                               }}
                             />
@@ -1471,8 +1836,8 @@ export default function JobInfoPage() {
                               Save Summary
                             </Btn>
 
-                            <div style={{ marginTop: 12 }}>
-                              <label style={{ fontWeight: 900, display: "block", marginBottom: 6, fontSize: 12, color: UI.muted }}>
+                            <div style={{ marginTop: 8 }}>
+                              <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
                                 Purchase Order (PO)
                               </label>
                               <input
@@ -1486,10 +1851,10 @@ export default function JobInfoPage() {
                                 placeholder={locked ? "Locked job" : "Enter PO reference…"}
                                 style={{
                                   width: "100%",
-                                  border: "1px solid #d1d5db",
-                                  borderRadius: 10,
-                                  padding: 10,
-                                  fontSize: 13,
+                                  border: UI.border,
+                                  borderRadius: 8,
+                                  padding: "6px 8px",
+                                  fontSize: 12,
                                   background: locked ? "#f1f5f9" : "#fff",
                                   opacity: locked ? 0.8 : 1,
                                 }}
@@ -1500,20 +1865,20 @@ export default function JobInfoPage() {
                             <div
                               id={ATTACHMENTS_ID}
                               style={{
-                                marginTop: 12,
-                                paddingTop: 12,
-                                borderTop: "1px solid #c7d2fe",
+                                marginTop: 8,
+                                paddingTop: 8,
+                                borderTop: UI.border,
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
-                              <div style={{ fontWeight: 900, marginBottom: 8, fontSize: 12, color: UI.muted }}>
-                                {job.pdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"}
+                              <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 11, color: UI.muted, textTransform: "uppercase" }}>
+                                {currentPdfUrl ? "Job Attachment (PDF)" : "Upload Job Attachment"}
                               </div>
 
-                            {job.pdfUrl && (
+                            {currentPdfUrl && (
                               <div style={{ marginBottom: 10 }}>
                                 <a
-                                  href={job.pdfUrl}
+                                  href={currentPdfUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   style={{ color: UI.brand, textDecoration: "underline", fontSize: 14, fontWeight: 900 }}
@@ -1524,11 +1889,11 @@ export default function JobInfoPage() {
                             )}
 
                             {Array.isArray(job.attachments) && job.attachments.length > 0 && (
-                              <div style={{ marginBottom: 12 }}>
-                                <div style={{ fontWeight: 900, marginBottom: 8 }}>Attachments</div>
+                              <div style={{ marginBottom: 8 }}>
+                                <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 12 }}>Attachments</div>
                                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                                   {job.attachments.map((att, i) => (
-                                    <li key={i} style={{ fontSize: 13, marginBottom: 6 }}>
+                                    <li key={i} style={{ fontSize: 12, marginBottom: 4 }}>
                                       <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900 }}>
                                         {att.name}
                                       </a>
@@ -1545,8 +1910,8 @@ export default function JobInfoPage() {
                               disabled={locked}
                               onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
                               style={{
-                                marginBottom: 10,
-                                fontSize: 14,
+                                marginBottom: 5,
+                                fontSize: 12,
                                 width: "100%",
                                 opacity: locked ? 0.6 : 1,
                                 cursor: locked ? "not-allowed" : "pointer",
@@ -1563,7 +1928,7 @@ export default function JobInfoPage() {
                               {uploadingByJob[job.id]
                                 ? `Uploading… ${progressByJob[job.id] ?? 0}%`
                                 : fileSelected
-                                ? job.pdfUrl
+                                ? currentPdfUrl
                                   ? "Replace / Add PDF"
                                   : "Upload PDF"
                                 : "Select file"}

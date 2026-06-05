@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, db } from "@/app/utils/firebaseClient";
-import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -2151,7 +2150,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const workDiarySectionRef = useRef(null);
   const authAccess = useAuth() || {};
   const authEmail = String(authAccess.userDoc?.email || authAccess.user?.email || "").trim().toLowerCase();
-  const useAdminDashboardData = !!authAccess.isAdmin || isAdminEmail(authEmail);
+  const canUseAdminDashboardFallback = !!authAccess.isAdmin || isAdminEmail(authEmail);
+  const useAdminDashboardData = false;
   const dataAccessState = useMemo(
     () => ({
       user: authAccess.user,
@@ -2178,7 +2178,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [selectedDeletedId, setSelectedDeletedId] = useState(null);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingHolidayId, setEditingHolidayId] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
@@ -2222,8 +2221,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   //  NEW: UK Bank Holidays (GOV.UK)
   const [bankHolidays, setBankHolidays] = useState([]);
 
-  const [userEmail, setUserEmail] = useState(null);
-  const [userUid, setUserUid] = useState(null);
+  const authReady = !authAccess.loading && !!authAccess.user;
+  const userEmail = authEmail || null;
+  const userUid = authAccess.user?.uid || null;
   const rolloverSyncRef = useRef({ key: "", inFlight: false });
   const adminDashboardFallbackRef = useRef({ inFlight: false, loaded: false });
 
@@ -2261,15 +2261,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       window.history.replaceState(window.history.state, "", nextUrl);
     }
   }, [calendarView, currentDate]);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUserEmail(u?.email?.toLowerCase() || null);
-      setUserUid(u?.uid || null);
-      setAuthReady(true);
-    });
-    return () => unsub();
-  }, []);
 
   const isRestricted = userEmail ? RESTRICTED_EMAILS.has(userEmail) : false;
   const canSeeDeletedOnCalendar = userEmail
@@ -2396,6 +2387,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, []);
 
   const loadAdminDashboardData = useCallback(async (reason = "Firestore listener denied") => {
+    if (!canUseAdminDashboardFallback) return;
     if (adminDashboardFallbackRef.current.inFlight || adminDashboardFallbackRef.current.loaded) return;
     const currentUser = auth.currentUser;
     if (!currentUser?.getIdToken) return;
@@ -2450,7 +2442,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     } finally {
       adminDashboardFallbackRef.current.inFlight = false;
     }
-  }, [applyHolidayRows]);
+  }, [applyHolidayRows, canUseAdminDashboardFallback]);
 
   // NEW: hold latest recce per booking
   const [reccesByBooking, setReccesByBooking] = useState({});
