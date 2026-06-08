@@ -309,6 +309,8 @@ const statusColors = (label) => {
       return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
     case "Paid":
       return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+    case "Missing":
+      return { bg: "#fff1f2", border: "#fecdd3", text: "#b91c1c" };
     case "TBC":
       return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
     default:
@@ -689,7 +691,7 @@ export default function JobHomePage() {
       map.get(jobNumber).push(job);
     });
 
-    return Array.from(map.entries())
+    const rows = Array.from(map.entries())
       .map(([jobNumber, groupedJobs]) => {
         const sortedJobs = groupedJobs.slice().sort((a, b) => {
           const aDate = normaliseDates(a).sort((x, y) => +y - +x)[0]?.getTime() || 0;
@@ -730,7 +732,27 @@ export default function JobHomePage() {
         };
       })
       .sort((a, b) => Number(a.jobNumber || 0) - Number(b.jobNumber || 0));
-  }, [selectedGroupJobs]);
+
+    if (searchTerm || !/^\d{3}$/.test(String(selectedJobGroup))) return rows;
+
+    const rowsByJobNumber = new Map(rows.map((row) => [String(row.jobNumber), row]));
+    return Array.from({ length: 10 }, (_, index) => {
+      const jobNumber = `${selectedJobGroup}${index}`;
+      return (
+        rowsByJobNumber.get(jobNumber) || {
+          id: `missing-${jobNumber}`,
+          jobNumber,
+          client: "",
+          location: "",
+          dates: [],
+          status: "Missing",
+          count: 0,
+          bookingCounts: { firstPencil: 0, secondPencil: 0, confirmed: 0, complete: 0, notHappening: 0 },
+          isMissingJobNumber: true,
+        }
+      );
+    });
+  }, [searchTerm, selectedGroupJobs, selectedJobGroup]);
 
   const actionCard = (href, title, subtitle, pillText, Icon, color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder, compact = false) => (
     <Link
@@ -768,6 +790,72 @@ export default function JobHomePage() {
   );
 
   const jobNumberRow = (j, rowIndex = 0, rowCount = 1) => {
+    if (j.isMissingJobNumber) {
+      return (
+        <div
+          key={j.id}
+          className="job-home-row"
+          style={{
+            ...jobNumberRowShell,
+            color: UI.text,
+          }}
+        >
+          <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minWidth: 52,
+                fontWeight: 900,
+                color: UI.text,
+                whiteSpace: "nowrap",
+              }}
+            >
+              #{j.jobNumber}
+            </span>
+            <span aria-hidden="true" />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+            <Link
+              href={`/create-enquiry?jobNumber=${encodeURIComponent(j.jobNumber)}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                height: 24,
+                padding: "0 8px",
+                borderRadius: 6,
+                border: UI.border,
+                background: "#fff",
+                color: UI.brand,
+                fontSize: 12,
+                fontWeight: 900,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+              title={`Add enquiry for job #${j.jobNumber}`}
+            >
+              <Plus size={13} />
+              Add enquiry
+            </Link>
+          </div>
+          <div aria-hidden="true" />
+          <div
+            className="job-home-row-status"
+            style={{
+              justifySelf: "stretch",
+              alignSelf: "stretch",
+              display: "flex",
+              alignItems: "stretch",
+              width: "100%",
+            }}
+          >
+            <StatusBadge value="Missing" rowIndex={rowIndex} rowCount={rowCount} />
+          </div>
+        </div>
+      );
+    }
+
     const ds = Array.isArray(j.dates) ? j.dates : normaliseDates(j).sort((a, b) => a.getTime() - b.getTime());
     const first = ds[0] ?? null;
     const last = ds[ds.length - 1] ?? null;

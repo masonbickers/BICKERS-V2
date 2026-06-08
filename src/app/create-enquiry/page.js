@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { addDoc, collection, doc, getDocs, setDoc } from "firebase/firestore";
 import {
   CalendarDays,
@@ -288,6 +288,8 @@ const nextJobNumberFromSnapshot = (snap) => {
 
 export default function CreateEnquiryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillJobNumber = String(searchParams.get("jobNumber") || "").trim();
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
@@ -321,6 +323,10 @@ export default function CreateEnquiryPage() {
 
   useEffect(() => {
     const loadNextNumber = async () => {
+      if (prefillJobNumber) {
+        setJobNumber(prefillJobNumber);
+        return;
+      }
       const gate = resolveDataAccess(dataAccessState);
       if (gate.checking) return;
       if (!gate.allowed) {
@@ -331,7 +337,7 @@ export default function CreateEnquiryPage() {
       setJobNumber(nextJobNumberFromSnapshot(snap));
     };
     loadNextNumber().catch((err) => console.error("Failed loading next enquiry job number:", err));
-  }, [accessKey, dataAccessState]);
+  }, [accessKey, dataAccessState, prefillJobNumber]);
 
   useEffect(() => {
     const loadReferenceData = async () => {
@@ -854,6 +860,15 @@ export default function CreateEnquiryPage() {
                       No dates recorded yet.
                     </div>
                   )}
+
+                  <div style={divider} />
+
+                  <div style={{ ...sectionTitleRow, marginBottom: 8 }}>
+                    <span style={iconBox()}><FileText size={17} /></span>
+                    <h3 style={cardTitle}>Notes</h3>
+                  </div>
+                  <label style={{ ...label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...textarea, minHeight: 92 }} placeholder="Anything known at enquiry stage..." />
                 </div>
 
                 <div style={card}>
@@ -968,26 +983,14 @@ export default function CreateEnquiryPage() {
                 </div>
               </div>
 
-              <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
-                <div aria-hidden="true" />
-                <div style={{ ...card, display: "grid", gap: 8 }}>
-                  <div style={{ ...sectionTitleRow, marginBottom: 4 }}>
-                    <span style={iconBox()}><FileText size={17} /></span>
-                    <h3 style={cardTitle}>Notes</h3>
-                  </div>
-                  <label style={{ ...label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...textarea, minHeight: 92 }} placeholder="Anything known at enquiry stage..." />
-
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
-                    <button type="submit" disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
-                      <Save size={14} />
-                      {saving ? "Saving..." : "Save Enquiry"}
-                    </button>
-                    <button type="button" onClick={() => router.push("/job-home")} style={btn()}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button type="submit" disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
+                  <Save size={14} />
+                  {saving ? "Saving..." : "Save Enquiry"}
+                </button>
+                <button type="button" onClick={() => router.push("/job-home")} style={btn()}>
+                  Cancel
+                </button>
               </div>
             </div>
           </form>

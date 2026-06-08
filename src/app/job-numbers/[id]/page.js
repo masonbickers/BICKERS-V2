@@ -164,6 +164,103 @@ const renderJobContacts = (job) => {
   return renderContacts(contacts);
 };
 
+const uniqueCleanList = (items) =>
+  Array.from(
+    new Set(
+      (items || [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+const getVehicleLabels = (job) => {
+  if (!Array.isArray(job?.vehicles)) return [];
+  return job.vehicles
+    .map((vehicle) => {
+      if (typeof vehicle === "string") return vehicle;
+      if (!vehicle || typeof vehicle !== "object") return "";
+      const name = vehicle.name || vehicle.vehicleName || [vehicle.manufacturer, vehicle.model].filter(Boolean).join(" ");
+      const registration = String(vehicle.registration || vehicle.reg || "").trim().toUpperCase();
+      if (!name && registration) return registration;
+      return registration ? `${name || "Vehicle"} (${registration})` : name || "";
+    })
+    .filter(Boolean);
+};
+
+const getCrewLabels = (job) => {
+  const names = [];
+  if (Array.isArray(job?.employees)) {
+    names.push(
+      ...job.employees.map((employee) =>
+        typeof employee === "string"
+          ? employee
+          : employee?.name || employee?.displayName || employee?.email || ""
+      )
+    );
+  }
+  if (Array.isArray(job?.employeeNames)) names.push(...job.employeeNames);
+  if (job?.employeesByDate && typeof job.employeesByDate === "object") {
+    names.push(
+      ...Object.values(job.employeesByDate)
+        .flat()
+        .map((employee) =>
+          typeof employee === "string"
+            ? employee
+            : employee?.name || employee?.displayName || employee?.email || ""
+        )
+    );
+  }
+  return names.filter(Boolean);
+};
+
+const getLocationLabels = (job) => {
+  const locations = [
+    job?.location,
+    job?.shootLocation,
+    job?.siteLocation,
+    job?.venue,
+  ];
+  return locations.filter(Boolean);
+};
+
+const getContactLabels = (job) => {
+  const contacts = [];
+  if (Array.isArray(job?.additionalContacts)) contacts.push(...job.additionalContacts);
+
+  const primaryContact = {
+    department: job?.contactDepartment || job?.department || "",
+    name: job?.contactName || "",
+    email: job?.contactEmail || "",
+    phone: job?.contactPhone || job?.contactNumber || "",
+  };
+  if (primaryContact.name || primaryContact.email || primaryContact.phone || primaryContact.department) {
+    contacts.unshift(primaryContact);
+  }
+
+  return contacts
+    .map((contact) =>
+      [
+        contact?.department,
+        contact?.name,
+        contact?.email,
+        contact?.phone || contact?.number,
+      ]
+        .filter(Boolean)
+        .join(" - ")
+    )
+    .filter(Boolean);
+};
+
+const buildConnectedBookingSummary = (jobs, statusByJob = {}) => {
+  const activeJobs = (jobs || []).filter((job) => !isLockedStatus(statusByJob[job.id] || job.status));
+  return {
+    contacts: uniqueCleanList((jobs || []).flatMap(getContactLabels)),
+    vehicles: uniqueCleanList(activeJobs.flatMap(getVehicleLabels)),
+    crew: uniqueCleanList(activeJobs.flatMap(getCrewLabels)),
+    locations: uniqueCleanList(activeJobs.flatMap(getLocationLabels)),
+  };
+};
+
 const yesNo = (value) => (value ? "Yes" : "No");
 
 const formatDateTime = (value) => {
@@ -229,6 +326,80 @@ const Badge = ({ text, bg, fg, border, title }) => (
     {text}
   </span>
 );
+
+const ConnectedSummaryPanel = ({ title, values }) => {
+  const count = values.length;
+  return (
+    <div
+      style={{
+        border: UI.border,
+        borderRadius: 8,
+        background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+        minWidth: 0,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "7px 9px",
+          borderBottom: UI.border,
+          background: "#f8fafc",
+        }}
+      >
+        <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>
+          {title}
+        </div>
+        <Badge
+          text={String(count)}
+          bg={count ? UI.brandSoft : "#f1f5f9"}
+          fg={count ? UI.brand : UI.muted}
+          border={count ? UI.brandBorder : "#d7dee8"}
+          title={`${count} ${title.toLowerCase()}`}
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignContent: "flex-start",
+          gap: 6,
+          padding: 9,
+          maxHeight: 104,
+          overflowY: "auto",
+        }}
+      >
+        {count ? (
+          values.map((value) => (
+            <span
+              key={value}
+              title={value}
+              style={{
+                border: "1px solid #d7dee8",
+                borderRadius: 999,
+                background: "#fff",
+                color: UI.text,
+                padding: "4px 8px",
+                fontSize: 12,
+                fontWeight: 850,
+                lineHeight: 1.2,
+                maxWidth: "100%",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {value}
+            </span>
+          ))
+        ) : (
+          <span style={{ color: UI.muted, fontSize: 12.5, fontWeight: 800 }}>None added</span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const statusColor = (status) => {
   const label = String(status || "").toLowerCase();
@@ -1090,6 +1261,7 @@ export default function JobInfoPage() {
     groupDateLabel,
     parentVehicle,
   ].filter(Boolean).join(" - ");
+  const connectedSummary = buildConnectedBookingSummary(allJobs, statusByJob);
 
   const toggleAll = (open) => {
     const next = {};
@@ -1267,7 +1439,7 @@ export default function JobInfoPage() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: "1 1 0" }}>
                 <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, overflowWrap: "anywhere" }}>
                   Job #{prefix} - {mainJob.client || "Booking"}
                 </div>
@@ -1284,6 +1456,50 @@ export default function JobInfoPage() {
                       border="#fde68a"
                     />
                   )}
+                </div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 8,
+                    width: "100%",
+                    alignItems: "start",
+                  }}
+                >
+                  {[
+                    ["Contacts", connectedSummary.contacts],
+                    ["Vehicles Used", connectedSummary.vehicles],
+                    ["Crew Used", connectedSummary.crew],
+                    ["Previous Locations", connectedSummary.locations],
+                  ].map(([title, values]) => (
+                    <div
+                      key={title}
+                      style={{
+                        border: UI.border,
+                        borderRadius: 8,
+                        padding: 9,
+                        background: UI.bgAlt,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", marginBottom: 5 }}>
+                        {title}
+                      </div>
+                      <div
+                        style={{
+                          color: values.length ? UI.text : UI.muted,
+                          fontSize: 12.5,
+                          lineHeight: 1.35,
+                          fontWeight: 800,
+                          whiteSpace: "pre-line",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {values.length ? values.join("\n") : "-"}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(86px, 1fr))", gap: 8, minWidth: 280 }}>
