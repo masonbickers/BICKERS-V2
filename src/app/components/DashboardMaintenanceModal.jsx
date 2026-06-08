@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { arrayUnion, deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
@@ -37,6 +37,48 @@ const fmtDate = (value) => {
 const fmtText = (value) => {
   if (value === null || value === undefined || value === "") return EMPTY_VALUE;
   return String(value);
+};
+
+const ymd = (value) => {
+  const d = toJsDate(value);
+  if (!d) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addWeeksToYmd = (value, weeks) => {
+  const start = toJsDate(value);
+  const numericWeeks = Number(weeks || 0);
+  if (!start || !Number.isFinite(numericWeeks) || numericWeeks <= 0) return "";
+  const next = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  next.setDate(next.getDate() + Math.round(numericWeeks) * 7);
+  return ymd(next);
+};
+
+const getIsoWeekLabel = (value) => {
+  const date = toJsDate(value);
+  if (!date) return "";
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+  return `${utc.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+};
+
+const resolveFreqWeeks = (explicitFreq, lastDate, nextDate) => {
+  const explicit = Number(explicitFreq || 0);
+  if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit);
+
+  const last = toJsDate(lastDate);
+  const next = toJsDate(nextDate);
+  if (!last || !next) return 0;
+
+  const diffDays = Math.round((next.getTime() - last.getTime()) / 86400000);
+  if (diffDays <= 0) return 0;
+  return Math.max(1, Math.round(diffDays / 7));
 };
 
 const hasDisplayValue = (value) =>
@@ -94,6 +136,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [deleting, setDeleting] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [completingBooking, setCompletingBooking] = useState(false);
+  const [completingAppointment, setCompletingAppointment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobType, setJobType] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -121,7 +164,9 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     event?.__collection === "vehicleDueDates" ||
     event?.kind === "MOT" ||
     event?.kind === "SERVICE" ||
-    event?.kind === "INSPECTION";
+    event?.kind === "INSPECTION" ||
+    event?.kind === "MAINTENANCE_APPOINTMENT";
+  const isGeneratedMaintenanceAppointment = event?.kind === "MAINTENANCE_APPOINTMENT";
   const isMaintenanceJob = event?.__collection === "maintenanceJobs";
   const isBookingLikeEvent = !isDueEvent && !isMaintenanceJob && !!bookingId;
   const canBook =
@@ -130,6 +175,10 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const canDeleteBooking = isBookingLikeEvent;
   const canEditBooking = isBookingLikeEvent;
   const canManageJob = isMaintenanceJob && !!bookingId;
+  const canCompleteGeneratedAppointment =
+    isGeneratedMaintenanceAppointment &&
+    !!vehicleId &&
+    !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase());
 
   useEffect(() => {
     let active = true;
@@ -270,6 +319,114 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   }, [canEditBooking, eventType, booking?.status, event?.status]);
 
   if (!event || loading) return null;
+
+  const buildGeneratedAppointmentCompletionPatch = () => {
+    const completedDate = ymd(event?.appointmentDateISO || event?.start);
+    if (!completedDate) return null;
+
+    const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
+      ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+      : [];
+    const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
+    const shouldCompleteBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
+    const shouldCompletePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
+    const patch = {
+      updatedAt: new Date().toISOString(),
+      updatedAtServer: serverTimestamp(),
+    };
+    const localPatch = {
+      updatedAt: patch.updatedAt,
+    };
+    const completedAt = new Date().toISOString();
+
+    if (shouldCompleteBrake) {
+      const freqWeeks = resolveFreqWeeks(vehicle?.brakeTestFreq, vehicle?.lastBrakeTest, vehicle?.nextBrakeTest);
+      const nextBrakeTest = addWeeksToYmd(completedDate, freqWeeks);
+      patch.lastBrakeTest = completedDate;
+      localPatch.lastBrakeTest = completedDate;
+      if (nextBrakeTest) {
+        patch.nextBrakeTest = nextBrakeTest;
+        patch.brakeISOWeek = getIsoWeekLabel(nextBrakeTest);
+        localPatch.nextBrakeTest = nextBrakeTest;
+        localPatch.brakeISOWeek = patch.brakeISOWeek;
+      }
+      patch.brakeTestHistory = arrayUnion({
+        type: "brake_test",
+        label: "Brake test",
+        completedDate,
+        nextDueDate: nextBrakeTest || "",
+        completedAt,
+      });
+      localPatch.brakeTestHistory = [
+        ...(Array.isArray(vehicle?.brakeTestHistory) ? vehicle.brakeTestHistory : []),
+        {
+          type: "brake_test",
+          label: "Brake test",
+          completedDate,
+          nextDueDate: nextBrakeTest || "",
+          completedAt,
+        },
+      ];
+    }
+
+    if (shouldCompletePmi) {
+      const freqWeeks = resolveFreqWeeks(vehicle?.pmiFreq, vehicle?.lastPMI, vehicle?.nextPMI);
+      const nextPMI = addWeeksToYmd(completedDate, freqWeeks);
+      patch.lastPMI = completedDate;
+      localPatch.lastPMI = completedDate;
+      if (nextPMI) {
+        patch.nextPMI = nextPMI;
+        patch.pmiISOWeek = getIsoWeekLabel(nextPMI);
+        localPatch.nextPMI = nextPMI;
+        localPatch.pmiISOWeek = patch.pmiISOWeek;
+      }
+      patch.pmiHistory = arrayUnion({
+        type: "pmi",
+        label: "PMI inspection",
+        completedDate,
+        nextDueDate: nextPMI || "",
+        completedAt,
+      });
+      localPatch.pmiHistory = [
+        ...(Array.isArray(vehicle?.pmiHistory) ? vehicle.pmiHistory : []),
+        {
+          type: "pmi",
+          label: "PMI inspection",
+          completedDate,
+          nextDueDate: nextPMI || "",
+          completedAt,
+        },
+      ];
+    }
+
+    if (!shouldCompleteBrake && !shouldCompletePmi) return null;
+    return { patch, localPatch };
+  };
+
+  const handleMarkGeneratedAppointmentComplete = async () => {
+    if (!canCompleteGeneratedAppointment || completingAppointment) return;
+
+    const completionPatch = buildGeneratedAppointmentCompletionPatch();
+    if (!completionPatch?.patch) {
+      setBookingActionError("Could not calculate the next maintenance date.");
+      setBookingActionMessage("");
+      return;
+    }
+
+    setCompletingAppointment(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
+    try {
+      await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, completionPatch.patch));
+      setVehicle((prev) => (prev ? { ...prev, ...completionPatch.localPatch } : prev));
+      setBookingActionMessage("Appointment marked complete and next date calculated.");
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] generated appointment complete failed:", error);
+      setBookingActionError("Could not mark appointment as complete.");
+    } finally {
+      setCompletingAppointment(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!canDeleteBooking || deleting) return;
@@ -455,10 +612,16 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   };
 
   const displayType = eventType === "MAINTENANCE" ? "Maintenance" : eventType;
-  const modalTitle = isDueEvent ? `${displayType} Due` : isMaintenanceJob ? "Maintenance Job" : `${displayType} Booking`;
+  const modalTitle = isGeneratedMaintenanceAppointment
+    ? "Maintenance Appointment"
+    : isDueEvent
+    ? `${displayType} Due`
+    : isMaintenanceJob
+    ? "Maintenance Job"
+    : `${displayType} Booking`;
   const statusText = isDueEvent ? event?.bookingStatus || "Due" : bookingDetails.status;
-  const dateLabel = isDueEvent ? "Due Date" : "Date(s)";
-  const dateValue = isDueEvent ? fmtDate(event?.dueDate || event?.start) : rangeText;
+  const dateLabel = isGeneratedMaintenanceAppointment ? "Appointment Date" : isDueEvent ? "Due Date" : "Date(s)";
+  const dateValue = isDueEvent ? fmtDate(event?.appointmentDateISO || event?.dueDate || event?.start) : rangeText;
   const nextDueLabel =
     eventType === "MOT" ? "Next MOT Due" : eventType === "SERVICE" ? "Next Service Due" : "";
   const summaryCards = [
@@ -570,6 +733,17 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
               disabled={completingBooking}
             >
               {completingBooking ? "Saving..." : "Mark Complete"}
+            </button>
+          )}
+
+          {canCompleteGeneratedAppointment && (
+            <button
+              type="button"
+              style={successBtn}
+              onClick={handleMarkGeneratedAppointmentComplete}
+              disabled={completingAppointment}
+            >
+              {completingAppointment ? "Saving..." : "Mark Complete"}
             </button>
           )}
 

@@ -289,11 +289,15 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
     const bookedMeta = bookedMetaByVehicle[vehicleId] || null;
     const motDue = getCanonicalDueDate(vehicle, "mot");
     const serviceDue = getCanonicalDueDate(vehicle, "service");
+    const brakeTestDue = getCanonicalDueDate(vehicle, "brakeTest");
+    const pmiDue = getCanonicalDueDate(vehicle, "pmi");
 
     const items = [
       {
         kind: "MOT",
         due: motDue,
+        titleLabel: "MOT Due",
+        maintenanceTypeLabel: "MOT",
         booked: !!bookedMeta?.mot?.has,
         bookingStatus:
           bookedMeta?.mot?.has && isApptAfterExpiry(bookedMeta?.mot?.earliestAppt, motDue)
@@ -305,12 +309,14 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
       {
         kind: "SERVICE",
         due: serviceDue,
+        titleLabel: "Service Due",
+        maintenanceTypeLabel: "SERVICE",
         booked: !!bookedMeta?.service?.has,
         bookingStatus: bookedMeta?.service?.has ? "Booked" : "",
       },
     ];
 
-    return items
+    const dueEvents = items
       .map((item) => {
         const start = startOfLocalDay(item.due);
         if (!start) return null;
@@ -319,12 +325,13 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           id: `due:${vehicleId}:${item.kind}:${toYmdDate(start)}`,
           __collection: "vehicleDueDates",
           vehicleId,
-          title: `${label} - ${item.kind === "MOT" ? "MOT Due" : "Service Due"}`,
+          title: `${label} - ${item.titleLabel}`,
           kind: item.kind,
           dueDate: start,
           appointmentDateISO: toYmdDate(start),
           booked: item.booked,
           bookingStatus: item.bookingStatus,
+          maintenanceTypeLabel: item.maintenanceTypeLabel,
           start,
           end: addDaysToDate(start, 1),
           allDay: true,
@@ -336,5 +343,101 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
         if (!item.booked) return true;
         return item.kind === "MOT" && item.bookingStatus.includes("After Expiry");
       });
+
+    const additionalAppointmentsByDate = [
+      { key: "brake_test", due: brakeTestDue, label: "Brake test" },
+      { key: "pmi", due: pmiDue, label: "PMI inspection" },
+    ].reduce((acc, item) => {
+      const dateKey = toYmdDate(item.due);
+      if (!dateKey) return acc;
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(item);
+      return acc;
+    }, {});
+
+    const appointmentEvents = Object.entries(additionalAppointmentsByDate)
+      .map(([dateKey, appointmentItems]) => {
+        const start = startOfLocalDay(dateKey);
+        if (!start || !appointmentItems.length) return null;
+        const appointmentLabel = `${appointmentItems.map((item) => item.label).join(" / ")} appointment`;
+        return {
+          id: `appointment:${vehicleId}:${dateKey}:${appointmentItems.map((item) => item.key).join("_")}`,
+          __collection: "vehicleDueDates",
+          vehicleId,
+          title: `${label} - ${appointmentLabel}`,
+          kind: "MAINTENANCE_APPOINTMENT",
+          appointmentDateISO: dateKey,
+          booked: false,
+          bookingStatus: "Appointment",
+          maintenanceTypeLabel: appointmentLabel,
+          maintenanceTypes: appointmentItems.map((item) => item.label),
+          start,
+          end: addDaysToDate(start, 1),
+          allDay: true,
+          status: "Due",
+        };
+      })
+      .filter(Boolean);
+
+    const completedAppointmentsByDate = [
+      {
+        key: "brake_test",
+        date: vehicle.lastBrakeTest,
+        label: "Brake test",
+        completedAt: "",
+      },
+      {
+        key: "pmi",
+        date: vehicle.lastPMI,
+        label: "PMI inspection",
+        completedAt: "",
+      },
+      ...(Array.isArray(vehicle.brakeTestHistory) ? vehicle.brakeTestHistory : []).map((item) => ({
+        key: "brake_test",
+        date: item?.completedDate,
+        label: "Brake test",
+        completedAt: item?.completedAt || "",
+      })),
+      ...(Array.isArray(vehicle.pmiHistory) ? vehicle.pmiHistory : []).map((item) => ({
+        key: "pmi",
+        date: item?.completedDate,
+        label: "PMI inspection",
+        completedAt: item?.completedAt || "",
+      })),
+    ].reduce((acc, item) => {
+      const dateKey = toYmdDate(item.date);
+      if (!dateKey) return acc;
+      if (!acc[dateKey]) acc[dateKey] = [];
+      if (acc[dateKey].some((existing) => existing.key === item.key)) return acc;
+      acc[dateKey].push(item);
+      return acc;
+    }, {});
+
+    const completedAppointmentEvents = Object.entries(completedAppointmentsByDate)
+      .map(([dateKey, appointmentItems]) => {
+        const start = startOfLocalDay(dateKey);
+        if (!start || !appointmentItems.length) return null;
+        const appointmentLabel = `${appointmentItems.map((item) => item.label).join(" / ")} appointment`;
+        return {
+          id: `completed-appointment:${vehicleId}:${dateKey}:${appointmentItems.map((item) => item.key).join("_")}`,
+          __collection: "vehicleDueDates",
+          vehicleId,
+          title: `${label} - ${appointmentLabel}`,
+          kind: "MAINTENANCE_APPOINTMENT",
+          appointmentDateISO: dateKey,
+          booked: false,
+          bookingStatus: "Completed",
+          maintenanceTypeLabel: appointmentLabel,
+          maintenanceTypes: appointmentItems.map((item) => item.label),
+          completedAt: appointmentItems.map((item) => item.completedAt).filter(Boolean).sort().at(-1) || dateKey,
+          start,
+          end: addDaysToDate(start, 1),
+          allDay: true,
+          status: "Due",
+        };
+      })
+      .filter(Boolean);
+
+    return [...dueEvents, ...appointmentEvents, ...completedAppointmentEvents];
   });
 };

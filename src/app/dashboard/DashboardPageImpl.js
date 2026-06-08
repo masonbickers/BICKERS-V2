@@ -1028,6 +1028,34 @@ const buildMaintenanceBookingDropUpdates = (booking, event, nextStart) => {
   return { updates, movedDateKeys, movedNextDateKeys };
 };
 
+const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
+  const targetStart = startOfLocalDay(nextStart);
+  if (!targetStart || Number.isNaN(targetStart.getTime())) return null;
+
+  const dateKey = ymd(targetStart);
+  if (!dateKey) return null;
+
+  const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
+    ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+    : [];
+  const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
+  const shouldMoveBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
+  const shouldMovePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
+
+  const updates = { updatedAt: serverTimestamp() };
+  if (shouldMoveBrake) {
+    updates.nextBrakeTest = dateKey;
+    updates.brakeISOWeek = getIsoWeekLabel(dateKey);
+  }
+  if (shouldMovePmi) {
+    updates.nextPMI = dateKey;
+    updates.pmiISOWeek = getIsoWeekLabel(dateKey);
+  }
+
+  if (!shouldMoveBrake && !shouldMovePmi) return null;
+  return { updates, movedDateKeys: new Set([event?.appointmentDateISO || ymd(event?.start)]), movedNextDateKeys: [dateKey] };
+};
+
 //  Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
 const ensureCallTimesByDate = (booking) => {
   const map = {};
@@ -1970,8 +1998,14 @@ function maintenanceEventPropGetter(event) {
     kind === "MOT_BOOKING" ||
     kind === "SERVICE_BOOKING" ||
     kind === "INSPECTION_BOOKING" ||
+    kind === "MAINTENANCE_APPOINTMENT" ||
     kind === "MAINTENANCE_BOOKING";
-  const isDueBlock = kind === "MOT" || kind === "SERVICE" || kind === "INSPECTION";
+  const isDueBlock =
+    kind === "MOT" ||
+    kind === "SERVICE" ||
+    kind === "INSPECTION" ||
+    kind === "BRAKE_TEST" ||
+    kind === "PMI";
   const hasRail = isBookingBlock || isDueBlock || kind === "MAINTENANCE";
   const isCompleted =
     bookingStatus === "completed" ||
@@ -2027,6 +2061,10 @@ function maintenanceEventPropGetter(event) {
     bg = "#ede9fe";
     border = "#7c3aed";
     text = "#321064";
+  } else if (kind === "MAINTENANCE_APPOINTMENT") {
+    bg = "#f0fdfa";
+    border = "#14b8a6";
+    text = "#134e4a";
   } else if (kind === "MAINTENANCE_BOOKING") {
     bg = "#ccfbf1";
     border = "#0d9488";
@@ -2118,8 +2156,14 @@ function MaintenanceCalendarEvent({ event }) {
       ? "Service appointment"
       : kind === "INSPECTION"
       ? "8 week inspection due"
+      : kind === "BRAKE_TEST"
+      ? "Brake test due"
+      : kind === "PMI"
+      ? "PMI inspection due"
       : kind === "INSPECTION_BOOKING"
       ? "Inspection appointment"
+      : kind === "MAINTENANCE_APPOINTMENT"
+      ? event?.maintenanceTypeLabel || `${displayType} appointment`
       : kind === "MAINTENANCE_BOOKING"
       ? `${displayType} appointment`
       : kind === "MAINTENANCE"
@@ -2131,8 +2175,14 @@ function MaintenanceCalendarEvent({ event }) {
     kind === "MOT_BOOKING" ||
     kind === "SERVICE_BOOKING" ||
     kind === "INSPECTION_BOOKING" ||
+    kind === "MAINTENANCE_APPOINTMENT" ||
     kind === "MAINTENANCE_BOOKING";
-  const isDueBlock = kind === "MOT" || kind === "SERVICE" || kind === "INSPECTION";
+  const isDueBlock =
+    kind === "MOT" ||
+    kind === "SERVICE" ||
+    kind === "INSPECTION" ||
+    kind === "BRAKE_TEST" ||
+    kind === "PMI";
   const showTone = !isBookingBlock && !(isDueBlock && event?.booked);
   const tone = showTone && dd ? dueTone(dd) : "soft";
   const toneText =
@@ -2146,14 +2196,24 @@ function MaintenanceCalendarEvent({ event }) {
       ? "MOT in date"
       : tone === "ok" && kind === "INSPECTION"
       ? "Inspection in cycle"
+      : tone === "ok" && kind === "BRAKE_TEST"
+      ? "Brake test in date"
+      : tone === "ok" && kind === "PMI"
+      ? "PMI in date"
       : "";
   const cleanTitle = (() => {
     const title = String(event?.title || "Maintenance").trim();
+    if (kind === "MAINTENANCE_APPOINTMENT") {
+      const suffix = ` - ${String(event?.maintenanceTypeLabel || "").trim()}`;
+      return suffix.trim() && title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
+    }
     if (!isDueBlock) return title;
     return title
       .replace(/\s+-\s+MOT due(?:\s+\(Booked\))?$/i, "")
       .replace(/\s+-\s+Service due(?:\s+\(Booked\))?$/i, "")
-      .replace(/\s+-\s+8 week inspection due(?:\s+\(Booked(?:\s+-\s+Outside ISO Week)?\))?$/i, "");
+      .replace(/\s+-\s+8 week inspection due(?:\s+\(Booked(?:\s+-\s+Outside ISO Week)?\))?$/i, "")
+      .replace(/\s+-\s+Brake test due$/i, "")
+      .replace(/\s+-\s+PMI inspection due$/i, "");
   })();
   const dueLabelColor =
     tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
@@ -2166,6 +2226,10 @@ function MaintenanceCalendarEvent({ event }) {
       ? "#047857"
       : kind === "INSPECTION"
       ? "#7c3aed"
+      : kind === "BRAKE_TEST"
+      ? "#4f46e5"
+      : kind === "PMI"
+      ? "#0f766e"
       : isBookingBlock
       ? "#1d4ed8"
       : kind === "MAINTENANCE"
@@ -3127,6 +3191,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const label = buildAssetLabel(v) || vehicleId;
       const motDue = getCanonicalDueDate(v, "mot");
       const serviceDue = getCanonicalDueDate(v, "service");
+      const brakeTestDue = getCanonicalDueDate(v, "brakeTest");
+      const pmiDue = getCanonicalDueDate(v, "pmi");
       const bookedMeta = maintenanceBookedMetaByVehicle[vehicleId] || null;
 
       if (motDue) {
@@ -3173,6 +3239,100 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           maintenanceTypeLabel: "SERVICE",
         });
       }
+
+      const additionalAppointmentsByDate = [
+        { key: "brake_test", due: brakeTestDue, label: "Brake test" },
+        { key: "pmi", due: pmiDue, label: "PMI inspection" },
+      ].reduce((acc, item) => {
+        const dateKey = ymd(item.due);
+        if (!dateKey) return acc;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(item);
+        return acc;
+      }, {});
+
+      Object.entries(additionalAppointmentsByDate).forEach(([dateKey, items]) => {
+        const date = startOfLocalDay(dateKey);
+        if (!date || !items.length) return;
+        const appointmentLabel = `${items.map((item) => item.label).join(" / ")} appointment`;
+        out.push({
+          id: `additional_maintenance_appointment__${vehicleId}__${dateKey}__${items
+            .map((item) => item.key)
+            .join("_")}`,
+          __collection: "vehicleDueDates",
+          title: `${label} - ${appointmentLabel}`,
+          start: date,
+          end: startOfLocalDay(addDays(date, 1)),
+          allDay: true,
+          status: "Maintenance",
+          kind: "MAINTENANCE_APPOINTMENT",
+          vehicleId,
+          appointmentDateISO: dateKey,
+          booked: false,
+          bookingStatus: "Appointment",
+          maintenanceTypeLabel: appointmentLabel,
+          maintenanceTypes: items.map((item) => item.label),
+        });
+      });
+
+      const completedAppointmentsByDate = [
+        {
+          key: "brake_test",
+          date: v.lastBrakeTest,
+          label: "Brake test",
+          completedAt: "",
+        },
+        {
+          key: "pmi",
+          date: v.lastPMI,
+          label: "PMI inspection",
+          completedAt: "",
+        },
+        ...(Array.isArray(v.brakeTestHistory) ? v.brakeTestHistory : []).map((item) => ({
+          key: "brake_test",
+          date: item?.completedDate,
+          label: "Brake test",
+          completedAt: item?.completedAt || "",
+        })),
+        ...(Array.isArray(v.pmiHistory) ? v.pmiHistory : []).map((item) => ({
+          key: "pmi",
+          date: item?.completedDate,
+          label: "PMI inspection",
+          completedAt: item?.completedAt || "",
+        })),
+      ].reduce((acc, item) => {
+        const dateKey = ymd(item.date);
+        if (!dateKey) return acc;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        if (acc[dateKey].some((existing) => existing.key === item.key)) return acc;
+        acc[dateKey].push(item);
+        return acc;
+      }, {});
+
+      Object.entries(completedAppointmentsByDate).forEach(([dateKey, items]) => {
+        const date = startOfLocalDay(dateKey);
+        if (!date || !items.length) return;
+        const appointmentLabel = `${items.map((item) => item.label).join(" / ")} appointment`;
+        out.push({
+          id: `completed_additional_maintenance_appointment__${vehicleId}__${dateKey}__${items
+            .map((item) => item.key)
+            .join("_")}`,
+          __collection: "vehicleDueDates",
+          title: `${label} - ${appointmentLabel}`,
+          start: date,
+          end: startOfLocalDay(addDays(date, 1)),
+          allDay: true,
+          status: "Maintenance",
+          kind: "MAINTENANCE_APPOINTMENT",
+          vehicleId,
+          appointmentDateISO: dateKey,
+          booked: false,
+          bookingStatus: "Completed",
+          maintenanceTypeLabel: appointmentLabel,
+          maintenanceTypes: items.map((item) => item.label),
+          completedAt: items.map((item) => item.completedAt).filter(Boolean).sort().at(-1) || dateKey,
+        });
+      });
 
       const inspectionAnchor =
         parseLocalDate(v.eightWeekInspectionStart) || parseLocalDate(v.nextEightWeekInspection);
@@ -3373,12 +3533,35 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [allEvents, motServiceDueEvents, vehiclesData]);
 
   const maintenanceDraggableAccessor = useCallback(
-    (event) => event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id),
+    (event) =>
+      (event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id)) ||
+      (event?.kind === "MAINTENANCE_APPOINTMENT" &&
+        event?.vehicleId &&
+        !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase())),
     []
   );
 
   const handleMaintenanceEventDrop = useCallback(
     async ({ event, start }) => {
+      if (event?.kind === "MAINTENANCE_APPOINTMENT") {
+        const vehicleId = String(event?.vehicleId || "").trim();
+        const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
+        if (!vehicleId || !dropChange?.updates) {
+          alert("Could not identify this vehicle appointment to move.");
+          return;
+        }
+
+        setPendingMaintenanceDrop({
+          targetCollection: "vehicles",
+          vehicleId,
+          title: String(event?.title || event?.maintenanceTypeLabel || "this appointment").trim(),
+          fromLabel: formatDropConfirmRange([...dropChange.movedDateKeys].filter(Boolean)),
+          toLabel: formatDropConfirmRange(dropChange.movedNextDateKeys || [ymd(start)].filter(Boolean)),
+          updates: dropChange.updates,
+        });
+        return;
+      }
+
       if (event?.__collection !== "maintenanceBookings") {
         alert("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
         return;
@@ -3403,6 +3586,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         ? dropChange.movedNextDateKeys
         : [ymd(start)].filter(Boolean);
       setPendingMaintenanceDrop({
+        targetCollection: "maintenanceBookings",
         bookingId,
         title,
         fromLabel: formatDropConfirmRange(fromDates),
@@ -3418,7 +3602,34 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, []);
 
   const confirmPendingMaintenanceDrop = useCallback(async () => {
-    if (!pendingMaintenanceDrop?.bookingId || !pendingMaintenanceDrop?.updates) return;
+    if (!pendingMaintenanceDrop?.updates) return;
+
+    if (pendingMaintenanceDrop.targetCollection === "vehicles") {
+      const vehicleId = String(pendingMaintenanceDrop.vehicleId || "").trim();
+      if (!vehicleId) return;
+
+      const previousVehicles = vehiclesData;
+      const optimisticUpdates = { ...pendingMaintenanceDrop.updates, updatedAt: new Date().toISOString() };
+      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
+      setVehiclesData((current) =>
+        (current || []).map((vehicle) =>
+          String(vehicle?.id || "") === vehicleId ? { ...vehicle, ...optimisticUpdates } : vehicle
+        )
+      );
+
+      try {
+        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
+        setPendingMaintenanceDrop(null);
+      } catch (error) {
+        console.error("Failed to move vehicle maintenance appointment:", error);
+        setVehiclesData(previousVehicles);
+        setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
+        alert(error?.message || "Could not move this vehicle maintenance appointment.");
+      }
+      return;
+    }
+
+    if (!pendingMaintenanceDrop?.bookingId) return;
 
     const { bookingId, updates } = pendingMaintenanceDrop;
     const previousBookings = maintenanceBookings;
@@ -3439,7 +3650,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
       alert(error?.message || "Could not move this maintenance booking.");
     }
-  }, [maintenanceBookings, pendingMaintenanceDrop]);
+  }, [maintenanceBookings, pendingMaintenanceDrop, vehiclesData]);
 
   const formatSearchBookingDates = (booking) => {
     const formatDate = (value) => {
