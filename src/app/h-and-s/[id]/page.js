@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Plus, Save, Search, ShieldCheck, Upload } from "lucide-react";
+import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Plus, Save, Search, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { auth, db, storage } from "../../../../firebaseConfig";
 import { getHsRegisterTemplate, PPE_ISSUE_ITEMS } from "@/app/utils/hsRegister";
 import {
@@ -1156,6 +1156,38 @@ function LegacyHsRegisterDetailPage() {
     }
   };
 
+  const deleteCheckHistoryEntry = async (entry) => {
+    if (!entry?.id) return;
+    const label = fmtDate(entry.checkedAt);
+    if (!window.confirm(`Delete this completed check${label ? ` from ${label}` : ""}?`)) return;
+
+    try {
+      await deleteDoc(doc(db, "hsCheckRecords", entry.id));
+
+      const remaining = checkHistory
+        .filter((row) => row.id !== entry.id)
+        .sort((a, b) => (toDate(b.checkedAt)?.getTime() || 0) - (toDate(a.checkedAt)?.getTime() || 0));
+
+      const latest = remaining[0];
+      const frequencyWeeks = Math.max(1, Number(form.frequencyWeeks || latest?.frequencyWeeks || template?.frequencyWeeks || 1) || 1);
+      const lastCompleted = latest ? dateInputValue(latest.checkedAt) : "";
+      const nextDue = latest ? nextDueFromLastCompleted(lastCompleted, frequencyWeeks) : "";
+
+      await save({
+        lastCompleted,
+        nextDue,
+        frequencyWeeks,
+        frequency: frequencyLabelFromWeeks(frequencyWeeks),
+        status: latest ? "complete" : "",
+      });
+
+      setCheckHistory(remaining);
+    } catch (error) {
+      console.error("Failed to delete H&S check:", error);
+      alert("Could not delete this check.");
+    }
+  };
+
   if (!template && !record && !loading) {
     return (
       <HeaderSidebarLayout>
@@ -1527,9 +1559,27 @@ function LegacyHsRegisterDetailPage() {
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           <span style={{ color: UI.text, fontWeight: 900 }}>{fmtDate(entry.checkedAt)}</span>
-                          <span style={{ ...toneStyle("brand"), borderRadius: 999, padding: "3px 7px", fontSize: 12, fontWeight: 900 }}>
-                            {entry.reading ? `pH ${entry.reading}` : certificateDocuments(entry).length ? `${certificateDocuments(entry).length} document${certificateDocuments(entry).length === 1 ? "" : "s"}` : entry.workshopResults ? `${Object.values(entry.workshopResults).filter((value) => value === "issue").length} issues` : "Completed"}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ ...toneStyle("brand"), borderRadius: 999, padding: "3px 7px", fontSize: 12, fontWeight: 900 }}>
+                              {entry.reading ? `pH ${entry.reading}` : certificateDocuments(entry).length ? `${certificateDocuments(entry).length} document${certificateDocuments(entry).length === 1 ? "" : "s"}` : entry.workshopResults ? `${Object.values(entry.workshopResults).filter((value) => value === "issue").length} issues` : "Completed"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => deleteCheckHistoryEntry(entry)}
+                              style={{
+                                ...btn("ghost"),
+                                minHeight: 26,
+                                padding: "3px 7px",
+                                color: "#b91c1c",
+                                borderColor: "#fecdd3",
+                                boxShadow: "none",
+                              }}
+                              title="Delete this check"
+                            >
+                              <Trash2 size={13} />
+                              Delete
+                            </button>
+                          </div>
                         </div>
                         {entry.workshopResults ? (
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>

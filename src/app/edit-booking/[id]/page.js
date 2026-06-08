@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
@@ -1117,9 +1117,35 @@ const buildDashboardHref = ({ returnDate = "", returnView = "week", updated = fa
   return `/dashboard${query ? `?${query}` : ""}`;
 };
 
+const normalizeAppReturnTo = (value = "") => {
+  const clean = String(value || "").trim();
+  if (!clean || !clean.startsWith("/") || clean.startsWith("//")) return "";
+
+  try {
+    const url = new URL(clean, "https://bickers.local");
+    if (url.origin !== "https://bickers.local") return "";
+    const href = `${url.pathname}${url.search}${url.hash}`;
+    if (!href || href.startsWith("/edit-booking/")) return "";
+    return href;
+  } catch {
+    return "";
+  }
+};
+
+const withUpdatedFlag = (href = "") => {
+  const fallback = "/dashboard?updated=true";
+  const clean = normalizeAppReturnTo(href);
+  if (!clean) return fallback;
+
+  const url = new URL(clean, "https://bickers.local");
+  url.searchParams.set("updated", "true");
+  return `${url.pathname}${url.search}${url.hash}`;
+};
+
 export default function EditBookingPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const authAccess = useAuth() || {};
   const dataAccessState = useMemo(
     () => ({
@@ -1134,17 +1160,24 @@ export default function EditBookingPage() {
   const bookingId = params?.id;
   const cachedBooking = useMemo(() => readCachedBookingForEdit(bookingId), [bookingId]);
   const prefill = useMemo(() => buildEditBookingPrefillState(cachedBooking), [cachedBooking]);
-  const [dashboardReturnContext, setDashboardReturnContext] = useState({
-    returnDate: "",
-    returnView: "week",
-  });
+  const dashboardReturnContext = useMemo(
+    () => ({
+      returnDate: searchParams.get("returnDate") || "",
+      returnView: normalizeDashboardView(searchParams.get("returnView") || "week"),
+    }),
+    [searchParams]
+  );
   const dashboardReturnHref = useMemo(
     () => buildDashboardHref(dashboardReturnContext),
     [dashboardReturnContext]
   );
-  const dashboardUpdatedHref = useMemo(
-    () => buildDashboardHref({ ...dashboardReturnContext, updated: true }),
-    [dashboardReturnContext]
+  const returnHref = useMemo(
+    () => normalizeAppReturnTo(searchParams.get("returnTo")) || dashboardReturnHref,
+    [dashboardReturnHref, searchParams]
+  );
+  const updatedReturnHref = useMemo(
+    () => withUpdatedFlag(returnHref),
+    [returnHref]
   );
 
   const [loading, setLoading] = useState(!prefill.hasBooking);
@@ -1271,15 +1304,6 @@ export default function EditBookingPage() {
     });
     return out;
   }, [vehicleGroups, assetSearchLower]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const query = new URLSearchParams(window.location.search);
-    setDashboardReturnContext({
-      returnDate: query.get("returnDate") || "",
-      returnView: normalizeDashboardView(query.get("returnView") || "week"),
-    });
-  }, []);
 
   const filteredEquipmentGroups = useMemo(() => {
     if (!assetSearchLower) return equipmentGroups;
@@ -1455,7 +1479,7 @@ export default function EditBookingPage() {
 
       if (!bookingDocSnap.exists()) {
         alert("Booking not found.");
-        router.push("/dashboard");
+        router.push(returnHref);
         return;
       }
 
@@ -1736,9 +1760,9 @@ export default function EditBookingPage() {
         console.error("Failed loading edit page:", err);
       }
       alert(`Failed to load booking${err?.code ? ` (${err.code})` : ""}.`);
-      router.push("/dashboard");
+      router.push(returnHref);
     });
-  }, [accessKey, bookingId, dataAccessState, prefill.hasBooking, router]);
+  }, [accessKey, bookingId, dataAccessState, prefill.hasBooking, returnHref, router]);
 
   useEffect(() => {
     const dates = availabilityDateKey.split("|").filter(Boolean);
@@ -2665,7 +2689,7 @@ export default function EditBookingPage() {
       setPdfProgress(0);
       setNewFiles([]);
       alert("Booking Updated ");
-      router.push(dashboardUpdatedHref);
+      router.push(updatedReturnHref);
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "update booking" })) {
         console.error(" Error updating booking:", err);
@@ -4081,7 +4105,7 @@ export default function EditBookingPage() {
                   {saving ? "Updating..." : "Update Booking"}
                 </button>
 
-                <button type="button" onClick={() => router.push(dashboardReturnHref)} style={btnGhost}>
+                <button type="button" onClick={() => router.push(returnHref)} style={btnGhost}>
                   Cancel
                 </button>
               </div>

@@ -6,9 +6,37 @@ import { auth, db } from "@/app/utils/firebaseClient";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
 const BigCalendar = dynamic(
   () => import("react-big-calendar").then((m) => m.Calendar),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          ...calendarFrame,
+          minHeight: 620,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: UI.muted,
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Loading calendar...
+      </div>
+    ),
+  }
+);
+
+const DraggableBigCalendar = dynamic(
+  () =>
+    Promise.all([
+      import("react-big-calendar"),
+      import("react-big-calendar/lib/addons/dragAndDrop"),
+    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
   {
     ssr: false,
     loading: () => (
@@ -47,6 +75,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
 import ViewBookingModal from "../components/ViewBookingModal";
@@ -192,6 +221,14 @@ const sectionHeader = {
 
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
+const labelTiny = {
+  marginBottom: 4,
+  fontSize: 11,
+  fontWeight: 900,
+  color: UI.muted,
+  textTransform: "uppercase",
+  letterSpacing: ".04em",
+};
 
 const sectionTitleWrap = {
   display: "flex",
@@ -694,7 +731,12 @@ const buildEditBookingUrl = (bookingId, calendarDate, calendarView) => {
   const params = new URLSearchParams();
   const returnDate = ymd(calendarDate);
   if (returnDate) params.set("returnDate", returnDate);
-  params.set("returnView", normalizeCalendarView(calendarView));
+  const returnView = normalizeCalendarView(calendarView);
+  params.set("returnView", returnView);
+  const dashboardParams = new URLSearchParams();
+  if (returnDate) dashboardParams.set("date", returnDate);
+  dashboardParams.set("view", returnView);
+  params.set("returnTo", `/dashboard?${dashboardParams.toString()}`);
   const query = params.toString();
   return `/edit-booking/${encodeURIComponent(bookingId)}${query ? `?${query}` : ""}`;
 };
@@ -879,6 +921,111 @@ const ymdKey = (d) => {
   } catch {
     return "";
   }
+};
+
+const diffCalendarDays = (from, to) => {
+  const fromDay = startOfLocalDay(from);
+  const toDay = startOfLocalDay(to);
+  if (Number.isNaN(fromDay.getTime()) || Number.isNaN(toDay.getTime())) return 0;
+  return Math.round((toDay.getTime() - fromDay.getTime()) / 86400000);
+};
+
+const shiftYmd = (value, deltaDays) => {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  return ymd(addDays(date, deltaDays));
+};
+
+const sortedYmdList = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").slice(0, 10))
+        .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    )
+  ).sort();
+
+const shiftDateKeyedMap = (value, deltaDays, keysToShift = null) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.entries(value).reduce((acc, [key, entry]) => {
+    const shouldShift = /^\d{4}-\d{2}-\d{2}$/.test(key) && (!keysToShift || keysToShift.has(key));
+    const shiftedKey = shouldShift ? shiftYmd(key, deltaDays) : key;
+    if (shiftedKey) acc[shiftedKey] = entry;
+    return acc;
+  }, {});
+};
+
+const formatDropConfirmDate = (value) => {
+  const date = parseLocalDate(value);
+  return date ? date.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : "";
+};
+
+const formatDropConfirmRange = (dates) => {
+  const safeDates = sortedYmdList(dates);
+  if (!safeDates.length) return "";
+  if (safeDates.length === 1) return formatDropConfirmDate(safeDates[0]);
+  return `${formatDropConfirmDate(safeDates[0])} - ${formatDropConfirmDate(safeDates[safeDates.length - 1])}`;
+};
+
+const buildMaintenanceBookingDropUpdates = (booking, event, nextStart) => {
+  const currentStart = startOfLocalDay(event?.start);
+  const targetStart = startOfLocalDay(nextStart);
+  if (Number.isNaN(currentStart.getTime()) || Number.isNaN(targetStart.getTime())) return null;
+
+  const deltaDays = diffCalendarDays(currentStart, targetStart);
+  if (!deltaDays) return null;
+
+  const existingDates = sortedYmdList(booking?.bookingDates);
+  const updates = { updatedAt: serverTimestamp() };
+  let movedDateKeys = null;
+  let movedNextDateKeys = null;
+
+  if (existingDates.length) {
+    const eventDates = sortedYmdList(
+      Array.isArray(event?.__occurrences) && event.__occurrences.length
+        ? event.__occurrences
+        : [event?.__occurrence || ymd(currentStart)]
+    );
+    movedDateKeys = new Set(eventDates.length ? eventDates : [ymd(currentStart)]);
+    movedNextDateKeys = sortedYmdList([...movedDateKeys].map((dateKey) => shiftYmd(dateKey, deltaDays)));
+
+    const unmovedDates = existingDates.filter((dateKey) => !movedDateKeys.has(dateKey));
+    const nextDates = sortedYmdList([...unmovedDates, ...movedNextDateKeys]);
+    const first = nextDates[0] || "";
+    const last = nextDates[nextDates.length - 1] || first;
+    const isMultiDate = nextDates.length > 1;
+
+    updates.bookingDates = nextDates;
+    updates.date = first;
+    updates.appointmentDate = isMultiDate ? "" : first;
+    updates.appointmentDateISO = isMultiDate ? "" : first;
+    updates.startDate = isMultiDate ? first : "";
+    updates.startDateISO = isMultiDate ? first : "";
+    updates.endDate = isMultiDate ? last : "";
+    updates.endDateISO = isMultiDate ? last : "";
+  } else {
+    const exclusiveEnd = startOfLocalDay(event?.end || event?.start);
+    const durationDays = Math.max(1, diffCalendarDays(currentStart, exclusiveEnd));
+    const first = ymd(targetStart);
+    const last = ymd(addDays(targetStart, durationDays - 1));
+    const isRangeBooking =
+      durationDays > 1 ||
+      Boolean(booking?.startDateISO || booking?.endDateISO || booking?.startDate || booking?.endDate);
+
+    updates.date = first;
+    updates.appointmentDate = isRangeBooking ? "" : first;
+    updates.appointmentDateISO = isRangeBooking ? "" : first;
+    updates.startDate = isRangeBooking ? first : "";
+    updates.startDateISO = isRangeBooking ? first : "";
+    updates.endDate = isRangeBooking ? last : "";
+    updates.endDateISO = isRangeBooking ? last : "";
+  }
+
+  if (booking?.callTimesByDate && typeof booking.callTimesByDate === "object") {
+    updates.callTimesByDate = shiftDateKeyedMap(booking.callTimesByDate, deltaDays, movedDateKeys);
+  }
+
+  return { updates, movedDateKeys, movedNextDateKeys };
 };
 
 //  Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)
@@ -1923,7 +2070,7 @@ function maintenanceEventPropGetter(event) {
         ? "0 4px 10px rgba(37,99,235,0.12)"
         : "0 2px 6px rgba(15,23,42,0.08)",
       overflow: "hidden",
-      cursor: "pointer",
+      cursor: event?.__collection === "maintenanceBookings" ? "grab" : "pointer",
     },
   };
 }
@@ -2181,12 +2328,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [dashboardSearch, setDashboardSearch] = useState("");
   const [createBookingOpening, setCreateBookingOpening] = useState(false);
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
+  const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
+  const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
   const [vehiclesData, setVehiclesData] = useState([]);
   const [equipmentOptions, setEquipmentOptions] = useState([]);
   const [selectedMaintenanceEvent, setSelectedMaintenanceEvent] = useState(null);
+  const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
   const [showCreateMaintenancePicker, setShowCreateMaintenancePicker] = useState(false);
   const [createMaintenanceVehicleId, setCreateMaintenanceVehicleId] = useState("");
   const [createMaintenanceType, setCreateMaintenanceType] = useState("WORK");
@@ -2282,6 +2432,20 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [createBookingOpening]);
 
   useEffect(() => {
+    if (!createEnquiryOpening) return undefined;
+
+    const timer = setInterval(() => {
+      setCreateEnquiryProgress((current) => {
+        if (current >= 95) return current;
+        const step = current < 45 ? 9 : current < 75 ? 5 : 2;
+        return Math.min(95, current + step);
+      });
+    }, 320);
+
+    return () => clearInterval(timer);
+  }, [createEnquiryOpening]);
+
+  useEffect(() => {
     if (!authReady || !userEmail) return;
     try {
       const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
@@ -2317,7 +2481,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [authReady, userEmail, showInactiveInView, showDeletedInView]);
 
   const goToCreateBooking = useCallback(() => {
-    if (isRestricted || createBookingOpening) return;
+    if (isRestricted || createBookingOpening || createEnquiryOpening) return;
     setCreateBookingOpening(true);
     setCreateBookingProgress(8);
 
@@ -2331,7 +2495,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         alert("Failed to open create booking. Please try again.");
       }
     }, 80);
-  }, [createBookingOpening, isRestricted, router]);
+  }, [createBookingOpening, createEnquiryOpening, isRestricted, router]);
+
+  const goToCreateEnquiry = useCallback(() => {
+    if (isRestricted || createBookingOpening || createEnquiryOpening) return;
+    setCreateEnquiryOpening(true);
+    setCreateEnquiryProgress(8);
+
+    setTimeout(() => {
+      try {
+        router.push("/create-enquiry");
+      } catch (error) {
+        console.error("Open create enquiry failed:", error);
+        setCreateEnquiryOpening(false);
+        setCreateEnquiryProgress(0);
+        alert("Failed to open create enquiry. Please try again.");
+      }
+    }, 80);
+  }, [createBookingOpening, createEnquiryOpening, isRestricted, router]);
 
   const goToEditBooking = useCallback(
     (bookingOrId) => {
@@ -3190,6 +3371,76 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
     return [...enrichedMaintenance, ...motServiceDueEvents];
   }, [allEvents, motServiceDueEvents, vehiclesData]);
+
+  const maintenanceDraggableAccessor = useCallback(
+    (event) => event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id),
+    []
+  );
+
+  const handleMaintenanceEventDrop = useCallback(
+    async ({ event, start }) => {
+      if (event?.__collection !== "maintenanceBookings") {
+        alert("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
+        return;
+      }
+
+      const bookingId = String(event.__parentId || event.id || "").trim();
+      if (!bookingId) {
+        alert("Could not identify the maintenance booking to move.");
+        return;
+      }
+
+      const existingBooking =
+        (maintenanceBookings || []).find((booking) => String(booking?.id || "") === bookingId) || event;
+      const dropChange = buildMaintenanceBookingDropUpdates(existingBooking, event, start);
+      if (!dropChange?.updates) return;
+
+      const title = String(event?.title || existingBooking?.title || existingBooking?.jobNumber || "this booking").trim();
+      const fromDates = dropChange.movedDateKeys
+        ? [...dropChange.movedDateKeys]
+        : [ymd(event?.start)].filter(Boolean);
+      const toDates = dropChange.movedNextDateKeys?.length
+        ? dropChange.movedNextDateKeys
+        : [ymd(start)].filter(Boolean);
+      setPendingMaintenanceDrop({
+        bookingId,
+        title,
+        fromLabel: formatDropConfirmRange(fromDates),
+        toLabel: formatDropConfirmRange(toDates),
+        updates: dropChange.updates,
+      });
+    },
+    [maintenanceBookings]
+  );
+
+  const cancelPendingMaintenanceDrop = useCallback(() => {
+    setPendingMaintenanceDrop(null);
+  }, []);
+
+  const confirmPendingMaintenanceDrop = useCallback(async () => {
+    if (!pendingMaintenanceDrop?.bookingId || !pendingMaintenanceDrop?.updates) return;
+
+    const { bookingId, updates } = pendingMaintenanceDrop;
+    const previousBookings = maintenanceBookings;
+    const optimisticUpdates = { ...updates, updatedAt: new Date().toISOString() };
+    setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
+    setMaintenanceBookings((current) =>
+      (current || []).map((booking) =>
+        String(booking?.id || "") === bookingId ? { ...booking, ...optimisticUpdates } : booking
+      )
+    );
+
+    try {
+      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      setPendingMaintenanceDrop(null);
+    } catch (error) {
+      console.error("Failed to move maintenance booking:", error);
+      setMaintenanceBookings(previousBookings);
+      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
+      alert(error?.message || "Could not move this maintenance booking.");
+    }
+  }, [maintenanceBookings, pendingMaintenanceDrop]);
+
   const formatSearchBookingDates = (booking) => {
     const formatDate = (value) => {
       const date = toJsDate(value);
@@ -3480,13 +3731,31 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                       : btn()
                 }
                 onClick={goToCreateBooking}
-                disabled={isRestricted || createBookingOpening}
-                aria-disabled={isRestricted || createBookingOpening}
+                disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
                 title={isRestricted ? "Your account is not allowed to create bookings" : ""}
                 type="button"
               >
                 <Plus size={14} />
                 {createBookingOpening ? `Opening ${createBookingProgress}%` : "Add Booking"}
+              </button>
+
+              <button
+                style={
+                  isRestricted
+                    ? btnDisabled(btn())
+                    : createEnquiryOpening
+                      ? { ...btn(), opacity: 0.82, cursor: "wait" }
+                      : btn()
+                }
+                onClick={goToCreateEnquiry}
+                disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
+                title={isRestricted ? "Your account is not allowed to create enquiries" : ""}
+                type="button"
+              >
+                <Plus size={14} />
+                {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
               </button>
 
               <button
@@ -3703,7 +3972,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
-          <BigCalendar
+          <DraggableBigCalendar
             localizer={localizer}
             events={maintenanceEvents}
             view={maintenanceView}
@@ -3716,6 +3985,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             allDayAccessor={allDayTrue}
             allDaySlot
             selectable={false}
+            resizable={false}
+            draggableAccessor={maintenanceDraggableAccessor}
+            onEventDrop={handleMaintenanceEventDrop}
             popup
             showAllEvents
             toolbar={false}
@@ -3754,6 +4026,144 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               event={selectedMaintenanceEvent}
               onClose={() => setSelectedMaintenanceEvent(null)}
             />
+          )}
+
+          {pendingMaintenanceDrop && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(2,6,23,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 120,
+                padding: 18,
+              }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget && !pendingMaintenanceDrop.saving) {
+                  cancelPendingMaintenanceDrop();
+                }
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="maintenance-drop-confirm-title"
+                style={{
+                  ...surface,
+                  width: 520,
+                  maxWidth: "94vw",
+                  padding: 0,
+                  overflow: "hidden",
+                  boxShadow: "0 24px 70px rgba(2,6,23,0.28)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "14px 16px",
+                    borderBottom: UI.border,
+                    background: "#f8fafc",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={iconBox("#8b5e3c", UI.accentSoft)}>
+                      <Wrench size={17} />
+                    </div>
+                    <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: 16, fontWeight: 950, color: UI.text }}>
+                      Confirm Date Change
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelPendingMaintenanceDrop}
+                    disabled={pendingMaintenanceDrop.saving}
+                    aria-label="Cancel date change"
+                    style={{
+                      ...btn("ghost"),
+                      width: 34,
+                      height: 34,
+                      padding: 0,
+                      opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div style={{ padding: 16 }}>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.45, color: UI.text, fontWeight: 750 }}>
+                    You changed the date of this occurrence of{" "}
+                    <span style={{ fontWeight: 950 }}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: 10,
+                      marginTop: 14,
+                    }}
+                  >
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+                      <div style={labelTiny}>From</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
+                    </div>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fbfe" }}>
+                      <div style={labelTiny}>To</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 14, fontSize: 12.5, lineHeight: 1.45, color: UI.muted, fontWeight: 700 }}>
+                    To change all dates, open the series.
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
+                    Do you want to change just this one?
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 10,
+                    padding: "12px 16px",
+                    borderTop: UI.border,
+                    background: "#f8fafc",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={cancelPendingMaintenanceDrop}
+                    disabled={pendingMaintenanceDrop.saving}
+                    style={{
+                      ...btn("ghost"),
+                      opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
+                      cursor: pendingMaintenanceDrop.saving ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmPendingMaintenanceDrop}
+                    disabled={pendingMaintenanceDrop.saving}
+                    style={{
+                      ...btn(),
+                      opacity: pendingMaintenanceDrop.saving ? 0.82 : 1,
+                      cursor: pendingMaintenanceDrop.saving ? "wait" : "pointer",
+                    }}
+                  >
+                    {pendingMaintenanceDrop.saving ? "Saving..." : "Yes"}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
@@ -4104,6 +4514,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           progress={createBookingProgress}
           title="Opening create booking"
           hint="Preparing booking form..."
+        />
+      )}
+      {createEnquiryOpening && (
+        <RouteLoadingOverlay
+          progress={createEnquiryProgress}
+          title="Opening create enquiry"
+          hint="Preparing enquiry form..."
         />
       )}
     </HeaderSidebarLayout>

@@ -11,7 +11,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
 import {
@@ -261,6 +261,7 @@ export default function ViewBookingModal({
   const [editLoading, setEditLoading] = useState(false);
   const [editProgress, setEditProgress] = useState(0);
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleEdit = () => {
     if (editLoading) return;
@@ -278,7 +279,11 @@ export default function ViewBookingModal({
             onEdit(bookingForCache);
             return;
           }
-          router.push(`/edit-booking/${id}`);
+          const returnTo =
+            typeof window !== "undefined"
+              ? `${pathname || "/dashboard"}${window.location.search || ""}`
+              : pathname || "/dashboard";
+          router.push(`/edit-booking/${id}?returnTo=${encodeURIComponent(returnTo)}`);
         } catch (error) {
           console.error("Open edit booking failed:", error);
           setEditLoading(false);
@@ -628,6 +633,7 @@ export default function ViewBookingModal({
             <h3 style={sectionTitle}>Overview</h3>
             <div style={sectionCard}>
               <Field label="Production" value={booking.client || "-"} />
+              <Field label="Quote Number" value={String(booking.quoteNumber || "").trim() || "-"} />
               <Field label="Location" value={booking.location || "-"} />
               <Field label="Date(s)" value={fmtDateRange(booking)} />
 

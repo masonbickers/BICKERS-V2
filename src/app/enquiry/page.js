@@ -255,7 +255,11 @@ export default function EnquiryPage() {
                       <FileText size={14} />
                       View
                     </button>
-                    <button type="button" style={btn("primary")} onClick={() => router.push(`/edit-booking/${booking.id}`)}>
+                    <button
+                      type="button"
+                      style={btn("primary")}
+                      onClick={() => router.push(`/edit-booking/${booking.id}?returnTo=${encodeURIComponent("/enquiry")}`)}
+                    >
                       <PencilLine size={14} />
                       Edit
                     </button>

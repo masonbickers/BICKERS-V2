@@ -1217,12 +1217,6 @@ export default function EditVehiclePage() {
           next.serviceOdometer = odometerNumeric;
         }
 
-        if (data?.make) {
-          next.manufacturer = data.make;
-          next.make = data.make;
-        }
-        if (data?.model) next.model = data.model;
-
         return next;
       });
 

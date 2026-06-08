@@ -499,6 +499,11 @@ const isLockedStatus = (status = "") => {
   return s === "cancelled" || s === "canceled" || s === "dnh" || s === "postponed" || s === "lost";
 };
 
+const isCompleteStatus = (status = "") => {
+  const s = String(status || "").toLowerCase().trim();
+  return s === "complete" || s === "completed";
+};
+
 const DisabledOverlayNote = ({ reason }) => (
   <div
     style={{
@@ -1059,7 +1064,7 @@ export default function JobInfoPage() {
     );
   }
 
-  const mainJob = relatedJobs.find((j) => j.id === jobId) || relatedJobs[0];
+  const mainJob = allJobs.find((j) => j.id === jobId) || allJobs[0] || relatedJobs[0];
   const prefix = splitJobNumber(mainJob.jobNumber).prefix;
   const groupDates = allJobs.flatMap(getSortedJobDates).sort((a, b) => a.getTime() - b.getTime());
   const groupDateLabel =
@@ -1075,6 +1080,7 @@ export default function JobInfoPage() {
     .join(" - ");
   const notReadyCount = allJobs.reduce((total, job) => {
     const status = statusByJob[job.id] || job.status || "Pending";
+    if (isLockedStatus(status) || isCompleteStatus(status)) return total;
     return total + (getInvoiceReadiness(job, timesheetsByJob[job.id] || [], status).ready ? 0 : 1);
   }, 0);
   const parentVehicle = renderVehicleNames(mainJob.vehicles);
@@ -1270,12 +1276,14 @@ export default function JobInfoPage() {
                 </div>
                 <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
-                  <Badge
-                    text={`${notReadyCount} not ready for invoice`}
-                    bg={notReadyCount ? "#fffbeb" : "#dcfce7"}
-                    fg={notReadyCount ? "#92400e" : "#166534"}
-                    border={notReadyCount ? "#fde68a" : "#86efac"}
-                  />
+                  {notReadyCount > 0 && (
+                    <Badge
+                      text={`${notReadyCount} not ready for invoice`}
+                      bg="#fffbeb"
+                      fg="#92400e"
+                      border="#fde68a"
+                    />
+                  )}
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(86px, 1fr))", gap: 8, minWidth: 280 }}>
@@ -1287,10 +1295,12 @@ export default function JobInfoPage() {
                   <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
                   <div style={{ fontSize: 20, fontWeight: 900 }}>{filteredJobs.length}</div>
                 </div>
-                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
-                  <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
-                </div>
+                {notReadyCount > 0 && (
+                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
+                    <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1322,6 +1332,8 @@ export default function JobInfoPage() {
               const isPaid = computeIsPaid(job);
 
               const locked = isLockedStatus(currentDbStatus);
+              const complete = isCompleteStatus(currentDbStatus);
+              const suppressMissingWarnings = locked || isCompleteStatus(currentDbStatus);
               const lockReason = currentDbStatus || "Locked";
 
               const isExpanded = expandedById[job.id] ?? (job.id === jobId); // default current open
@@ -1344,6 +1356,13 @@ export default function JobInfoPage() {
               const dayCount = getBookingDayCount(job);
               const dateSummary = formatCompactDateRange(job);
               const invoiceReadiness = getInvoiceReadiness(job, timesheets, currentDbStatus);
+              const invoiceBadge = locked
+                ? { label: "Not applicable", ready: false, missing: [] }
+                : complete
+                ? { label: "", ready: true, missing: [] }
+                : suppressMissingWarnings
+                ? { label: "Complete", ready: true, missing: [] }
+                : invoiceReadiness;
               const poStatus = String(job.po || "").trim() ? `PO ${job.po}` : "PO missing";
               const timesheetStatus = `${timesheets.length} timesheet${timesheets.length === 1 ? "" : "s"}`;
               const hasNotesByDate =
@@ -1439,13 +1458,23 @@ export default function JobInfoPage() {
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <StatusPill value={currentDbStatus} />
                         {isPaid && <PaidPill />}
-                        <Badge
-                          text={invoiceReadiness.label}
-                          bg={invoiceReadiness.ready ? "#dcfce7" : "#fffbeb"}
-                          fg={invoiceReadiness.ready ? "#166534" : "#92400e"}
-                          border={invoiceReadiness.ready ? "#86efac" : "#fde68a"}
-                          title={invoiceReadiness.missing.length ? `Missing: ${invoiceReadiness.missing.join(", ")}` : "Ready to invoice"}
-                        />
+                        {invoiceBadge.label && (
+                          <Badge
+                            text={invoiceBadge.label}
+                            bg={locked ? "#f1f5f9" : invoiceBadge.ready ? "#dcfce7" : "#fffbeb"}
+                            fg={locked ? "#64748b" : invoiceBadge.ready ? "#166534" : "#92400e"}
+                            border={locked ? "#cbd5e1" : invoiceBadge.ready ? "#86efac" : "#fde68a"}
+                            title={
+                              locked
+                                ? "This job did not happen, so invoice readiness does not apply"
+                                : suppressMissingWarnings
+                                ? "Complete jobs do not show missing-item warnings"
+                                : invoiceBadge.missing.length
+                                ? `Missing: ${invoiceBadge.missing.join(", ")}`
+                                : "Ready to invoice"
+                            }
+                          />
+                        )}
                         {locked && (
                           <Badge
                             text="Locked"
@@ -1478,12 +1507,14 @@ export default function JobInfoPage() {
                         {job.location ? ` - ${job.location}` : ""}
                       </div>
 
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7, alignItems: "center" }}>
-                        <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "#fffbeb"} fg={vehicleSummary ? UI.brand : "#92400e"} border={vehicleSummary ? UI.brandBorder : "#fde68a"} />
-                        <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "#fffbeb" : "#f8fafc"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "#92400e" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "#fde68a" : "#d7dee8"} />
-                        <Badge text={poStatus} bg={job.po ? "#f8fafc" : "#fffbeb"} fg={job.po ? UI.text : "#92400e"} border={job.po ? "#d7dee8" : "#fde68a"} />
-                        <Badge text={timesheetStatus} bg={timesheets.length ? "#f8fafc" : "#fffbeb"} fg={timesheets.length ? UI.text : "#92400e"} border={timesheets.length ? "#d7dee8" : "#fde68a"} />
-                      </div>
+                      {!suppressMissingWarnings && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7, alignItems: "center" }}>
+                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "#fffbeb"} fg={vehicleSummary ? UI.brand : "#92400e"} border={vehicleSummary ? UI.brandBorder : "#fde68a"} />
+                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "#fffbeb" : "#f8fafc"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "#92400e" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "#fde68a" : "#d7dee8"} />
+                          <Badge text={poStatus} bg={job.po ? "#f8fafc" : "#fffbeb"} fg={job.po ? UI.text : "#92400e"} border={job.po ? "#d7dee8" : "#fde68a"} />
+                          <Badge text={timesheetStatus} bg={timesheets.length ? "#f8fafc" : "#fffbeb"} fg={timesheets.length ? UI.text : "#92400e"} border={timesheets.length ? "#d7dee8" : "#fde68a"} />
+                        </div>
+                      )}
                     </div>
 
                     {/* Quick actions do not toggle collapse when clicked */}
@@ -1495,7 +1526,13 @@ export default function JobInfoPage() {
                         variant="primary"
                         disabled={locked}
                         title={locked ? `Editing disabled: ${lockReason}` : "Edit booking"}
-                        onClick={() => router.push(`/edit-booking/${job.id}`)}
+                        onClick={() =>
+                          router.push(
+                            `/edit-booking/${job.id}?returnTo=${encodeURIComponent(
+                              `/job-numbers/${encodeURIComponent(jobId)}`
+                            )}`
+                          )
+                        }
                       >
                         Edit
                       </Btn>
@@ -1763,32 +1800,40 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 10,
                                 padding: 10,
-                                border: invoiceReadiness.ready ? "1px solid #86efac" : "1px solid #fde68a",
+                                border: suppressMissingWarnings ? "1px solid #cbd5e1" : invoiceReadiness.ready ? "1px solid #86efac" : "1px solid #fde68a",
                                 borderRadius: 8,
-                                background: invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
+                                background: suppressMissingWarnings ? "#f8fafc" : invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
                               }}
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
                                 <div style={{ fontWeight: 900, fontSize: 12.5 }}>Invoice checklist</div>
                                 <Badge
-                                  text={invoiceReadiness.label}
-                                  bg={invoiceReadiness.ready ? "#dcfce7" : "#fef3c7"}
-                                  fg={invoiceReadiness.ready ? "#166534" : "#92400e"}
-                                  border={invoiceReadiness.ready ? "#86efac" : "#fde68a"}
+                                  text={locked ? "Not applicable" : suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
+                                  bg={suppressMissingWarnings ? "#f1f5f9" : invoiceReadiness.ready ? "#dcfce7" : "#fef3c7"}
+                                  fg={suppressMissingWarnings ? "#64748b" : invoiceReadiness.ready ? "#166534" : "#92400e"}
+                                  border={suppressMissingWarnings ? "#cbd5e1" : invoiceReadiness.ready ? "#86efac" : "#fde68a"}
                                 />
                               </div>
-                              {[
-                                ["Status complete", !invoiceReadiness.missing.includes("status")],
-                                ["PO reference", !invoiceReadiness.missing.includes("PO")],
-                                ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
-                                ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
-                                ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
-                              ].map(([label, ok]) => (
-                                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0", fontSize: 12, fontWeight: 800 }}>
-                                  <span>{label}</span>
-                                  <span style={{ color: ok ? "#166534" : "#92400e" }}>{ok ? "OK" : "Missing"}</span>
+                              {suppressMissingWarnings ? (
+                                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
+                                  {locked
+                                    ? "This job did not happen, so invoice checks are not required."
+                                    : "This job is complete, so missing-item warnings are hidden."}
                                 </div>
-                              ))}
+                              ) : (
+                                [
+                                  ["Status complete", !invoiceReadiness.missing.includes("status")],
+                                  ["PO reference", !invoiceReadiness.missing.includes("PO")],
+                                  ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
+                                  ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
+                                  ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
+                                ].map(([label, ok]) => (
+                                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0", fontSize: 12, fontWeight: 800 }}>
+                                    <span>{label}</span>
+                                    <span style={{ color: ok ? "#166534" : "#92400e" }}>{ok ? "OK" : "Missing"}</span>
+                                  </div>
+                                ))
+                              )}
                             </div>
 
                             <div

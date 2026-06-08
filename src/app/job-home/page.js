@@ -703,13 +703,20 @@ export default function JobHomePage() {
           (acc, job) => {
             const status = prettifyStatus(job.status || "");
             if (status === "First Pencil") acc.firstPencil += 1;
+            if (status === "Second Pencil") acc.secondPencil += 1;
             if (status === "Confirmed") acc.confirmed += 1;
             if (status === "Complete") acc.complete += 1;
             if (status === "DNH" || status === "Cancelled" || status === "Postponed") acc.notHappening += 1;
             return acc;
           },
-          { firstPencil: 0, confirmed: 0, complete: 0, notHappening: 0 }
+          { firstPencil: 0, secondPencil: 0, confirmed: 0, complete: 0, notHappening: 0 }
         );
+        const completeOrInactiveOnly =
+          bookingCounts.complete > 0 &&
+          bookingCounts.firstPencil === 0 &&
+          bookingCounts.secondPencil === 0 &&
+          bookingCounts.confirmed === 0 &&
+          bookingCounts.complete + bookingCounts.notHappening === groupedJobs.length;
         return {
           id: jobNumber,
           jobNumber,
@@ -717,7 +724,7 @@ export default function JobHomePage() {
           client: primary?.client || "-",
           location: primary?.location || "-",
           dates: allDates,
-          status: statuses.length === 1 ? statuses[0] : `${groupedJobs.length} bookings`,
+          status: completeOrInactiveOnly ? "Complete" : statuses.length === 1 ? statuses[0] : `${groupedJobs.length} bookings`,
           count: groupedJobs.length,
           bookingCounts,
         };
