@@ -509,9 +509,9 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
 
   const wrap = {
-    border: UI.border,
-    borderRadius: 8,
-    padding: 8,
+    borderLeft: `3px solid ${ts.submitted ? "#86efac" : "#fde047"}`,
+    borderRadius: 6,
+    padding: "8px 10px",
     marginBottom: 8,
     backgroundColor: ts.submitted ? "#fbfdff" : "#fffbeb",
     minWidth: 0,
@@ -521,7 +521,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     gap: 8,
     alignItems: "center",
     marginBottom: 6,
-    borderBottom: UI.border,
+    borderBottom: "1px solid #e5eaf1",
     paddingBottom: 6,
     minWidth: 0,
     flexWrap: "wrap",
@@ -731,11 +731,11 @@ const Card = ({ children, id, tone = "white", style }) => (
     id={id}
     style={{
       background: tone === "alt" ? UI.bgAlt : "#fff",
-      border: UI.border,
+      border: tone === "plain" ? "none" : UI.border,
       borderRadius: UI.radius,
-      padding: 10,
+      padding: tone === "plain" ? 0 : 10,
       minWidth: 0,
-      boxShadow: "0 1px 0 rgba(15,23,42,0.02)",
+      boxShadow: tone === "plain" ? "none" : "0 1px 0 rgba(15,23,42,0.02)",
       ...style,
     }}
   >
@@ -1306,16 +1306,13 @@ export default function JobInfoPage() {
                 paddingBottom: 6,
               }}
             >
-              <Btn onClick={() => router.back()} variant="base">
+              <Btn onClick={() => router.push("/job-home")} variant="base">
                 ← Back
               </Btn>
 
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 900, fontSize: 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   Job #{prefix} - {mainJob.client || "Booking"}
-                </div>
-                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {parentSubtitle}
                 </div>
               </div>
 
@@ -1438,15 +1435,58 @@ export default function JobInfoPage() {
               boxShadow: UI.shadow,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div style={{ minWidth: 0, flex: "1 1 0" }}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, overflowWrap: "anywhere" }}>
-                  Job #{prefix} - {mainJob.client || "Booking"}
-                </div>
-                <div style={{ marginTop: 5, color: UI.muted, fontWeight: 800, fontSize: 13 }}>
-                  {parentSubtitle}
-                </div>
-                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `minmax(0, 1fr) minmax(${notReadyCount > 0 ? 280 : 188}px, ${notReadyCount > 0 ? 340 : 240}px)`,
+                gap: 10,
+                alignItems: "start",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                  gap: 8,
+                  width: "100%",
+                  alignItems: "start",
+                }}
+              >
+                {[
+                  ["Contacts", connectedSummary.contacts],
+                  ["Vehicles Used", connectedSummary.vehicles],
+                  ["Crew Used", connectedSummary.crew],
+                  ["Previous Locations", connectedSummary.locations],
+                ].map(([title, values]) => (
+                  <div
+                    key={title}
+                    style={{
+                      padding: "4px 10px 4px 0",
+                      borderRight: title === "Previous Locations" ? "none" : "1px solid #e5eaf1",
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", marginBottom: 5 }}>
+                      {title}
+                    </div>
+                    <div
+                      style={{
+                        color: values.length ? UI.text : UI.muted,
+                        fontSize: 12.5,
+                        lineHeight: 1.35,
+                        fontWeight: 800,
+                        whiteSpace: "pre-line",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {values.length ? values.join("\n") : "-"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
                   {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
                   {notReadyCount > 0 && (
                     <Badge
@@ -1457,66 +1497,22 @@ export default function JobInfoPage() {
                     />
                   )}
                 </div>
-                <div
-                  style={{
-                    marginTop: 12,
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 8,
-                    width: "100%",
-                    alignItems: "start",
-                  }}
-                >
-                  {[
-                    ["Contacts", connectedSummary.contacts],
-                    ["Vehicles Used", connectedSummary.vehicles],
-                    ["Crew Used", connectedSummary.crew],
-                    ["Previous Locations", connectedSummary.locations],
-                  ].map(([title, values]) => (
-                    <div
-                      key={title}
-                      style={{
-                        border: UI.border,
-                        borderRadius: 8,
-                        padding: 9,
-                        background: UI.bgAlt,
-                        minWidth: 0,
-                      }}
-                    >
-                      <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase", marginBottom: 5 }}>
-                        {title}
-                      </div>
-                      <div
-                        style={{
-                          color: values.length ? UI.text : UI.muted,
-                          fontSize: 12.5,
-                          lineHeight: 1.35,
-                          fontWeight: 800,
-                          whiteSpace: "pre-line",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {values.length ? values.join("\n") : "-"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(86px, 1fr))", gap: 8, minWidth: 280 }}>
-                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
-                  <div style={{ fontSize: 20, fontWeight: 900 }}>{allJobs.length}</div>
-                </div>
-                <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                  <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
-                  <div style={{ fontSize: 20, fontWeight: 900 }}>{filteredJobs.length}</div>
-                </div>
-                {notReadyCount > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${notReadyCount > 0 ? 3 : 2}, minmax(0, 1fr))`, gap: 8 }}>
                   <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
-                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
-                    <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
+                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
+                    <div style={{ fontSize: 20, fontWeight: 900 }}>{allJobs.length}</div>
                   </div>
-                )}
+                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                    <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
+                    <div style={{ fontSize: 20, fontWeight: 900 }}>{filteredJobs.length}</div>
+                  </div>
+                  {notReadyCount > 0 && (
+                    <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                      <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
+                      <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1827,7 +1823,7 @@ export default function JobInfoPage() {
                         {/* LEFT */}
                         <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                           {/* Overview */}
-                          <Card id={OVERVIEW_ID} style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+                          <Card id={OVERVIEW_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
                             <SectionTitle title="Overview" />
 
                             <div
@@ -1878,10 +1874,9 @@ export default function JobInfoPage() {
                                       whiteSpace: "pre-wrap",
                                       color: UI.text,
                                       fontSize: 13,
-                                      background: UI.bgAlt,
-                                      border: UI.border,
-                                      borderRadius: 8,
-                                      padding: 8,
+                                      background: "#f8fafc",
+                                      borderRadius: 6,
+                                      padding: "8px 10px",
                                       minWidth: 0,
                                       overflowWrap: "anywhere",
                                     }}
@@ -1915,7 +1910,7 @@ export default function JobInfoPage() {
                           </Card>
 
                           {/* Timesheets */}
-                          <Card id={TIMESHEETS_ID} style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
+                          <Card id={TIMESHEETS_ID} tone="plain" style={{ scrollMarginTop: LAYOUT.HEADER_H + 80 }}>
                             <SectionTitle
                               title="Linked Timesheets"
                               right={
@@ -1957,10 +1952,8 @@ export default function JobInfoPage() {
                           {/* Status */}
                           <Card
                             id={STATUS_ID}
-                            tone="alt"
+                            tone="white"
                             style={{
-                              border: UI.border,
-                              background: "#fff",
                               scrollMarginTop: LAYOUT.HEADER_H + 80,
                             }}
                           >
@@ -2016,8 +2009,8 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 10,
                                 padding: 10,
-                                border: suppressMissingWarnings ? "1px solid #cbd5e1" : invoiceReadiness.ready ? "1px solid #86efac" : "1px solid #fde68a",
-                                borderRadius: 8,
+                                borderLeft: suppressMissingWarnings ? "3px solid #cbd5e1" : invoiceReadiness.ready ? "3px solid #86efac" : "3px solid #fde68a",
+                                borderRadius: 6,
                                 background: suppressMissingWarnings ? "#f8fafc" : invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
                               }}
                             >
@@ -2057,7 +2050,7 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 8,
                                 paddingTop: 8,
-                                borderTop: UI.border,
+                                borderTop: "1px solid #e5eaf1",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
@@ -2128,7 +2121,7 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 8,
                                 paddingTop: 8,
-                                borderTop: UI.border,
+                                borderTop: "1px solid #e5eaf1",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >

@@ -551,6 +551,18 @@ export default function VehicleMaintenancePage() {
     () => vehicleFleetSettings.categoryMeta || {},
     [vehicleFleetSettings.categoryMeta]
   );
+  const categoryMetaByKey = useMemo(
+    () =>
+      Object.entries(categoryMeta || {}).reduce((acc, [category, meta]) => {
+        acc[norm(category)] = meta || {};
+        return acc;
+      }, {}),
+    [categoryMeta]
+  );
+  const getCategoryColor = useCallback(
+    (category) => categoryMeta[category]?.color || categoryMetaByKey[norm(category)]?.color || "",
+    [categoryMeta, categoryMetaByKey]
+  );
   const complianceSettings = useMemo(
     () => ({
       ...DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
@@ -560,8 +572,8 @@ export default function VehicleMaintenancePage() {
   );
   const compareVehicleCategories = useCallback(
     (a, b) => {
-      const aOrder = Number(categoryMeta[a]?.order);
-      const bOrder = Number(categoryMeta[b]?.order);
+      const aOrder = Number(categoryMeta[a]?.order ?? categoryMetaByKey[norm(a)]?.order);
+      const bOrder = Number(categoryMeta[b]?.order ?? categoryMetaByKey[norm(b)]?.order);
       const aHasOrder = Number.isFinite(aOrder);
       const bHasOrder = Number.isFinite(bOrder);
       if (aHasOrder && bHasOrder && aOrder !== bOrder) return aOrder - bOrder;
@@ -569,7 +581,7 @@ export default function VehicleMaintenancePage() {
       if (!aHasOrder && bHasOrder) return 1;
       return categorySort(a, b);
     },
-    [categoryMeta]
+    [categoryMeta, categoryMetaByKey]
   );
 
   // Category list for filter UI
@@ -654,6 +666,8 @@ export default function VehicleMaintenancePage() {
   const kpis = useMemo(() => {
     let overdue = 0;
     let soon = 0;
+    let insured = 0;
+    let taxed = 0;
 
     const fields = [
       ["inspectionDate", 21],
@@ -665,6 +679,9 @@ export default function VehicleMaintenancePage() {
     ];
 
     for (const v of filteredVehicles) {
+      if (getInsuranceStatus(v) === "Insured") insured++;
+      if ((normalizeTaxStatusValue(v.taxStatus) || "Taxed") === "Taxed") taxed++;
+
       if (isVehicleOutOfUse(v)) continue;
 
       const insuredUntil = safeDate(getInsuredUntil(v));
@@ -704,7 +721,7 @@ export default function VehicleMaintenancePage() {
       }
     }
 
-    return { count: filteredVehicles.length, overdue, soon };
+    return { count: filteredVehicles.length, overdue, soon, insured, taxed };
   }, [complianceSettings, filteredVehicles]);
 
   return (
@@ -874,6 +891,57 @@ export default function VehicleMaintenancePage() {
             />
             {importing ? <span style={{ fontSize: 12, color: UI.muted }}>Importing...</span> : null}
           </div>
+
+          {categories.some((category) => getCategoryColor(category)) ? (
+            <div
+              style={{
+                marginTop: 6,
+                display: "flex",
+                gap: 5,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ fontSize: 11, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
+                Fleet colours
+              </span>
+              {categories
+                .filter((category) => getCategoryColor(category))
+                .map((category) => {
+                  const color = getCategoryColor(category);
+                  return (
+                    <span
+                      key={category}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "3px 7px",
+                        borderRadius: 999,
+                        border: UI.border,
+                        background: "#fff",
+                        color: UI.text,
+                        fontSize: 11.5,
+                        fontWeight: 850,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 3,
+                          background: color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      {category}
+                    </span>
+                  );
+                })}
+            </div>
+          ) : null}
         </div>
 
         {/* Table */}
@@ -884,24 +952,24 @@ export default function VehicleMaintenancePage() {
                 <thead>
                   <tr>
                     {[
-                      "Registration",
-                      "Vehicle",
-                      "Manufacturer",
-                      "Model",
-                      "Tax Status",
-                      "Taxed Until",
-                      "Insurance Status",
-                      "Insured Until",
-                      "MOT",
-                      "Service",
-                      "PMI",
-                      "Brake Test",
-                      "Tacho Insp.",
-                      "Tacho DL",
-                      "Odometer",
-                    ].map((h) => (
+                      { label: "Registration" },
+                      { label: "Vehicle" },
+                      { label: "Manufacturer" },
+                      { label: "Model" },
+                      { label: "Tax Status", count: `${kpis.taxed} taxed` },
+                      { label: "Taxed Until" },
+                      { label: "Insurance Status", count: `${kpis.insured} insured` },
+                      { label: "Insured Until" },
+                      { label: "MOT" },
+                      { label: "Service" },
+                      { label: "PMI" },
+                      { label: "Brake Test" },
+                      { label: "Tacho Insp." },
+                      { label: "Tacho DL" },
+                      { label: "Odometer" },
+                    ].map((header) => (
                       <th
-                        key={h}
+                        key={header.label}
                         style={{
                           padding: "5px 10px",
                           background: UI.brand,
@@ -912,21 +980,28 @@ export default function VehicleMaintenancePage() {
                           fontWeight: 900,
                           fontSize: 11.5,
                           letterSpacing: 0,
-                          ...(h === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
-                          ...(h === "Model" ? { width: 150, maxWidth: 150 } : {}),
-                          ...(h === "Taxed Until" ? { width: 118 } : {}),
-                          ...(h === "Insurance Status" ? { width: 118 } : {}),
-                          ...(h === "Insured Until" ? { width: 118 } : {}),
+                          ...(header.label === "Vehicle" ? { width: 168, maxWidth: 168 } : {}),
+                          ...(header.label === "Model" ? { width: 150, maxWidth: 150 } : {}),
+                          ...(header.label === "Taxed Until" ? { width: 118 } : {}),
+                          ...(header.label === "Insurance Status" ? { width: 132 } : {}),
+                          ...(header.label === "Insured Until" ? { width: 118 } : {}),
                         }}
                       >
-                        {h}
+                        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, lineHeight: 1.1 }}>
+                          <span>{header.label}</span>
+                          {header.count ? (
+                            <span style={{ color: "#dbeafe", fontSize: 10.5, fontWeight: 850 }}>
+                              {header.count}
+                            </span>
+                          ) : null}
+                        </span>
                       </th>
                     ))}
                   </tr>
                 </thead>
 
                 {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
-                  const categoryColor = categoryMeta[category]?.color || "";
+                  const categoryColor = getCategoryColor(category);
                   const categoryBackground = categoryColor ? `${categoryColor}18` : "#edf3f8";
                   return (
                   <tbody key={category}>

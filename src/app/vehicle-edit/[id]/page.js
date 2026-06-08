@@ -50,7 +50,7 @@ import {
 } from "@/app/utils/vehicleCategorySettings";
 import { companyStoragePath } from "@/app/utils/storageAccess";
 import { deleteMaintenanceBooking as deleteMaintenanceBookingRecord } from "@/app/utils/maintenanceBookingService";
-import { getIsoWeekLabel, isMotNotApplicable } from "@/app/utils/maintenanceSchema";
+import { getIsoWeekLabel, isMotNotApplicable, isServiceNotApplicable } from "@/app/utils/maintenanceSchema";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
@@ -871,11 +871,29 @@ export default function EditVehiclePage() {
     }
 
     // Service
-    const nextService = calcNextFromWeeks(
-      dateOnly(vehicle.lastService),
-      resolveFreqWeeks(vehicle.serviceFreq, dateOnly(vehicle.lastService), vehicle.nextService)
-    );
-    if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
+    if (isServiceNotApplicable(vehicle)) {
+      if (
+        vehicle.lastService ||
+        vehicle.lastServiceDate ||
+        vehicle.nextService ||
+        vehicle.nextServiceDate ||
+        vehicle.serviceDueDate ||
+        vehicle.serviceISOWeek
+      ) {
+        updates.lastService = "";
+        updates.lastServiceDate = "";
+        updates.nextService = "";
+        updates.nextServiceDate = "";
+        updates.serviceDueDate = "";
+        updates.serviceISOWeek = "";
+      }
+    } else {
+      const nextService = calcNextFromWeeks(
+        dateOnly(vehicle.lastService),
+        resolveFreqWeeks(vehicle.serviceFreq, dateOnly(vehicle.lastService), vehicle.nextService)
+      );
+      if (nextService && vehicle.nextService !== nextService) updates.nextService = nextService;
+    }
 
     const nextEightWeekInspection = calcNextEightWeekFromCycle(
       vehicle.eightWeekInspectionStart,
@@ -959,6 +977,9 @@ export default function EditVehiclePage() {
     vehicle?.motFreq,
     vehicle?.lastService,
     vehicle?.serviceFreq,
+    vehicle?.serviceNotApplicable,
+    vehicle?.serviceApplicable,
+    vehicle?.serviceStatus,
     vehicle?.eightWeekInspectionStart,
     vehicle?.nextEightWeekInspection,
     vehicle?.lastTacho,
@@ -1000,6 +1021,18 @@ export default function EditVehiclePage() {
           next.nextMotDate = "";
           next.motDueDate = "";
           next.motISOWeek = "";
+        }
+      }
+      if (name === "serviceNotApplicable") {
+        next.serviceApplicable = !checked;
+        next.serviceStatus = checked ? "N/A" : "";
+        if (checked) {
+          next.lastService = "";
+          next.lastServiceDate = "";
+          next.nextService = "";
+          next.nextServiceDate = "";
+          next.serviceDueDate = "";
+          next.serviceISOWeek = "";
         }
       }
       if (name === "registration" || name === "reg" || name === "registrationNumber") {
@@ -1253,10 +1286,14 @@ export default function EditVehiclePage() {
       const registration = String(payload.registration || payload.reg || payload.registrationNumber || "").trim();
       const manufacturer = String(payload.manufacturer || payload.make || "").trim();
       const motDisabled = isMotNotApplicable(payload);
+      const serviceDisabled = isServiceNotApplicable(payload);
       const nextMot = motDisabled ? "" : dateOnly(payload.nextMOT ?? payload.nextMot ?? payload.nextMotDate ?? "");
       const lastMot = motDisabled ? "" : dateOnly(payload.lastMOT ?? payload.lastMot ?? "");
       const insuredUntil = getInsuredUntil(payload);
-      const nextService = String(payload.nextService || payload.nextServiceDate || "").trim();
+      const nextService = serviceDisabled
+        ? ""
+        : dateOnly(payload.nextService ?? payload.nextServiceDate ?? payload.serviceDueDate ?? "");
+      const lastService = serviceDisabled ? "" : dateOnly(payload.lastService ?? payload.lastServiceDate ?? "");
       if (registration) {
         payload.registration = registration;
         payload.reg = registration;
@@ -1276,15 +1313,19 @@ export default function EditVehiclePage() {
       payload.motApplicable = !motDisabled;
       payload.motStatus = motDisabled ? "N/A" : String(payload.motStatus || "").trim();
       if (motDisabled) payload.motISOWeek = "";
+      payload.lastService = lastService;
+      payload.lastServiceDate = lastService;
+      payload.nextService = nextService;
+      payload.nextServiceDate = nextService;
+      payload.serviceDueDate = nextService;
+      payload.serviceNotApplicable = serviceDisabled;
+      payload.serviceApplicable = !serviceDisabled;
+      payload.serviceStatus = serviceDisabled ? "N/A" : String(payload.serviceStatus || "").trim();
+      if (serviceDisabled) payload.serviceISOWeek = "";
       payload.insuredUntil = insuredUntil;
       payload.insuranceExpiry = insuredUntil;
       payload.insuranceExpiryDate = insuredUntil;
       Object.assign(payload, syncStatusDateFields(payload));
-      if (nextService) {
-        payload.nextService = nextService;
-        payload.nextServiceDate = nextService;
-        payload.serviceDueDate = nextService;
-      }
       if (isRetentionPlateRecord(payload)) {
         payload.category = RETENTION_PLATE_CATEGORY;
         payload.recordType = "numberPlateRetention";
@@ -2012,10 +2053,30 @@ export default function EditVehiclePage() {
                 <DateField label="Next MOT (Expiry)" name="nextMOT" value={vehicle.nextMOT} onChange={handleChange} meta={dvsaMotMeta} disabled={isMotNotApplicable(vehicle)} />
                 <Field label="MOT ISO Week" name="motISOWeek" value={vehicle.motISOWeek} onChange={handleChange} disabled={isMotNotApplicable(vehicle)} />
 
-                <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} />
-                <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} />
-                <DateField label="Next Service" name="nextService" value={vehicle.nextService} onChange={handleChange} />
-                <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} />
+                <label
+                  style={{
+                    gridColumn: "1 / -1",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: UI.text,
+                    fontSize: 13,
+                    fontWeight: 850,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="serviceNotApplicable"
+                    checked={isServiceNotApplicable(vehicle)}
+                    onChange={handleChange}
+                  />
+                  Service not required for this vehicle
+                </label>
+                <DateField label="Last Service" name="lastService" value={dateOnly(vehicle.lastService)} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
+                <Field label="Service Freq (weeks)" name="serviceFreq" value={vehicle.serviceFreq} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
+                <DateField label="Next Service" name="nextService" value={vehicle.nextService} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
+                <Field label="Service ISO Week" name="serviceISOWeek" value={vehicle.serviceISOWeek} onChange={handleChange} disabled={isServiceNotApplicable(vehicle)} />
 
                 {showEightWeekInspection ? (
                   <>

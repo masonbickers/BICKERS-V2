@@ -1,5 +1,5 @@
 import { dateOnlyString, toDateLike } from "./serviceRecordCompat";
-import { isMotNotApplicable, isVehicleOutOfUse } from "./maintenanceSchema";
+import { isMotNotApplicable, isServiceNotApplicable, isVehicleOutOfUse } from "./maintenanceSchema";
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -68,9 +68,12 @@ function normalizeDefects(defects) {
 }
 
 export function normalizeVehicleRecord(raw = {}) {
-  const serviceDate = dateOnlyString(
-    firstNonEmpty(raw.nextService, raw.nextServiceDate, raw.serviceDueDate, raw.nextSvc)
-  );
+  const serviceDisabled = isServiceNotApplicable(raw);
+  const serviceDate = serviceDisabled
+    ? ""
+    : dateOnlyString(
+        firstNonEmpty(raw.nextService, raw.nextServiceDate, raw.serviceDueDate, raw.nextSvc)
+      );
   const motDisabled = isMotNotApplicable(raw);
   const motDate = motDisabled
     ? ""
@@ -102,6 +105,8 @@ export function normalizeVehicleRecord(raw = {}) {
     outOfUse: isVehicleOutOfUse(raw),
     motNotApplicable: motDisabled,
     motApplicable: !motDisabled,
+    serviceNotApplicable: serviceDisabled,
+    serviceApplicable: !serviceDisabled,
     lastService,
     nextService: serviceDate,
     nextServiceDate: serviceDate,

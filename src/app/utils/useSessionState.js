@@ -39,10 +39,11 @@ export function useSessionState(key, fallback) {
   return [value, setValue];
 }
 
-export function useSessionScroll(key) {
+export function useSessionScroll(key, restoreWhen = true) {
   const restoreAttempted = useRef(false);
 
   useEffect(() => {
+    if (!restoreWhen) return undefined;
     if (restoreAttempted.current) return undefined;
     restoreAttempted.current = true;
 
@@ -51,10 +52,11 @@ export function useSessionScroll(key) {
     if (y > 0) {
       requestAnimationFrame(() => window.scrollTo({ top: y, left: 0 }));
       window.setTimeout(() => window.scrollTo({ top: y, left: 0 }), 250);
+      window.setTimeout(() => window.scrollTo({ top: y, left: 0 }), 750);
     }
 
     return undefined;
-  }, [key]);
+  }, [key, restoreWhen]);
 
   useEffect(() => {
     return () => {

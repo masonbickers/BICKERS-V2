@@ -467,7 +467,7 @@ export default function JobHomePage() {
   const [selectedJobGroup, setSelectedJobGroup] = useSessionState("job-home:selectedJobGroup", "All");
   const [expandedJobGroups, setExpandedJobGroups] = useSessionState("job-home:expandedJobGroups", {});
   const searchRef = useRef(null);
-  useSessionScroll("job-home");
+  useSessionScroll("job-home", !loading);
 
   useEffect(() => {
     if (!authState?.user) return undefined;
@@ -663,12 +663,13 @@ export default function JobHomePage() {
   }, [searchResultJobs, searchTerm, setExpandedJobGroups]);
 
   useEffect(() => {
+    if (loading) return;
     if (selectedJobGroup === "All") return;
     const hasGroup = jobNumberGroups.some(
       (item) => item.group === selectedJobGroup || item.subgroups.some((sub) => sub.subgroup === selectedJobGroup)
     );
     if (!hasGroup) setSelectedJobGroup("All");
-  }, [jobNumberGroups, selectedJobGroup, setSelectedJobGroup]);
+  }, [jobNumberGroups, loading, selectedJobGroup, setSelectedJobGroup]);
 
   const selectedGroupJobs = useMemo(() => {
     if (searchTerm) return searchResultJobs;

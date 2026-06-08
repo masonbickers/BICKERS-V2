@@ -36,6 +36,12 @@ export const isMotNotApplicable = (asset = {}) =>
   String(asset?.motStatus || "").trim().toLowerCase() === "n/a" ||
   String(asset?.motStatus || "").trim().toLowerCase() === "not applicable";
 
+export const isServiceNotApplicable = (asset = {}) =>
+  asset?.serviceNotApplicable === true ||
+  asset?.serviceApplicable === false ||
+  String(asset?.serviceStatus || "").trim().toLowerCase() === "n/a" ||
+  String(asset?.serviceStatus || "").trim().toLowerCase() === "not applicable";
+
 export const isVehicleOutOfUse = (asset = {}) => {
   const candidates = [
     asset.operationalStatus,
@@ -97,6 +103,7 @@ export const buildAssetLabel = (asset) => {
 
 export const getCanonicalDueDate = (asset, type) => {
   if (type === "mot" && isMotNotApplicable(asset)) return null;
+  if (type === "service" && isServiceNotApplicable(asset)) return null;
   const fields = DUE_FIELD_CANDIDATES[type] || [];
   for (const key of fields) {
     const value = toDateSafe(asset?.[key]);
