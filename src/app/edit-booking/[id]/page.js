@@ -878,6 +878,9 @@ const buildEditBookingPrefillState = (bookingData) => {
     ),
     attachments: Array.isArray(booking.attachments) ? booking.attachments : [],
     quote: booking.quote && typeof booking.quote === "object" ? booking.quote : null,
+    quoteVersions: Array.isArray(booking.quoteVersions)
+      ? booking.quoteVersions.filter((entry) => entry && typeof entry === "object")
+      : [],
     existingHistory: Array.isArray(booking.history) ? booking.history : [],
     existingStatusHistory: Array.isArray(booking.statusHistory) ? booking.statusHistory : [],
     existingLifecycle:
@@ -1282,6 +1285,7 @@ export default function EditBookingPage() {
   const [newFiles, setNewFiles] = useState([]);
   const [pdfProgress, setPdfProgress] = useState(0);
   const [quoteDraft, setQuoteDraft] = useState(prefill.quote);
+  const [quoteDrafts, setQuoteDrafts] = useState(prefill.quoteVersions);
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
@@ -1525,6 +1529,11 @@ export default function EditBookingPage() {
       setClient(bookingData.client || "");
       setLocation(bookingData.location || "");
       setQuoteDraft(bookingData.quote && typeof bookingData.quote === "object" ? bookingData.quote : null);
+      setQuoteDrafts(
+        Array.isArray(bookingData.quoteVersions)
+          ? bookingData.quoteVersions.filter((entry) => entry && typeof entry === "object")
+          : []
+      );
       setStatus(bookingData.status || "Confirmed");
       setShootType(bookingData.shootType || "Day");
 
@@ -3951,7 +3960,9 @@ export default function EditBookingPage() {
                   <div>
                     <h3 style={cardTitle}>Quote</h3>
                     <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
-                      {quoteDraft?.lineItems?.length
+                      {quoteDrafts.length
+                        ? `${quoteDrafts.length} saved quote${quoteDrafts.length === 1 ? "" : "s"}${quoteDrafts.length > 1 ? " available" : ""}`
+                        : quoteDraft?.lineItems?.length
                         ? `${quoteDraft.lineItems.length} quote line${quoteDraft.lineItems.length === 1 ? "" : "s"} saved${quoteDraft.subtotal ? ` - GBP ${Number(quoteDraft.subtotal).toFixed(2)}` : ""}`
                         : "Create or edit the quote on its own page in the Bickers quote format."}
                     </div>
@@ -3963,7 +3974,7 @@ export default function EditBookingPage() {
                   style={btnPrimary}
                 >
                   <FileText size={14} />
-                  {quoteDraft?.lineItems?.length ? "Open Quote" : "Create Quote"}
+                  {quoteDrafts.length || quoteDraft?.lineItems?.length ? "Open Quotes" : "Create Quote"}
                 </button>
               </div>
             </div>
