@@ -861,6 +861,7 @@ const buildEditBookingPrefillState = (bookingData) => {
       })
     ),
     attachments: Array.isArray(booking.attachments) ? booking.attachments : [],
+    quote: booking.quote && typeof booking.quote === "object" ? booking.quote : null,
     existingHistory: Array.isArray(booking.history) ? booking.history : [],
     existingStatusHistory: Array.isArray(booking.statusHistory) ? booking.statusHistory : [],
     existingLifecycle:
@@ -1260,6 +1261,7 @@ export default function EditBookingPage() {
   const [attachments, setAttachments] = useState(prefill.attachments); // existing
   const [newFiles, setNewFiles] = useState([]);
   const [pdfProgress, setPdfProgress] = useState(0);
+  const [quoteDraft, setQuoteDraft] = useState(prefill.quote);
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
@@ -1502,6 +1504,7 @@ export default function EditBookingPage() {
       setJobNumber(bookingData.jobNumber || "");
       setClient(bookingData.client || "");
       setLocation(bookingData.location || "");
+      setQuoteDraft(bookingData.quote && typeof bookingData.quote === "object" ? bookingData.quote : null);
       setStatus(bookingData.status || "Confirmed");
       setShootType(bookingData.shootType || "Day");
 
@@ -3900,6 +3903,30 @@ export default function EditBookingPage() {
                 {Object.entries(filteredEquipmentGroups).length === 0 && (
                   <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
                 )}
+              </div>
+            </div>
+
+            <div style={card}>
+              <div style={{ ...sectionTitleRow, justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={iconBox()}><FileText size={17} /></span>
+                  <div>
+                    <h3 style={cardTitle}>Quote</h3>
+                    <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
+                      {quoteDraft?.lineItems?.length
+                        ? `${quoteDraft.lineItems.length} quote line${quoteDraft.lineItems.length === 1 ? "" : "s"} saved${quoteDraft.subtotal ? ` - GBP ${Number(quoteDraft.subtotal).toFixed(2)}` : ""}`
+                        : "Create or edit the quote on its own page in the Bickers quote format."}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/quote/${bookingId}`)}
+                  style={btnPrimary}
+                >
+                  <FileText size={14} />
+                  {quoteDraft?.lineItems?.length ? "Open Quote" : "Create Quote"}
+                </button>
               </div>
             </div>
 

@@ -1731,7 +1731,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         return `${label} (${existingStatus})`;
       });
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ openQuote = false } = {}) => {
     if (status !== "Enquiry") {
       if (useCustomDates) {
         if (!customDates.length) return alert("Please select at least one date.");
@@ -2061,7 +2061,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     payload.dateISO = payload.date ? String(payload.date).slice(0, 10) : "";
 
     try {
-      await addDoc(collection(db, "bookings"), tenantPayload(dataAccessState, payload));
+      const bookingRef = await addDoc(collection(db, "bookings"), tenantPayload(dataAccessState, payload));
 
       for (const c of additionalContactsToSave) {
         const id = contactIdFromEmail(c.email);
@@ -2087,7 +2087,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         setActiveDraftId("");
       }
       alert("Booking Saved");
-      router.push("/dashboard?saved=true");
+      router.push(openQuote ? `/quote/${bookingRef.id}` : "/dashboard?saved=true");
     } catch (err) {
       console.error(" Error saving booking:", err);
       alert("Failed to save booking \n\n" + err.message);
@@ -2949,6 +2949,35 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
               </div>
             </div>
 
+            <div style={seamlessSection}>
+              <div style={{ ...sectionTitleRow, justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={iconBox()}><FileText size={17} /></span>
+                  <div>
+                    <h3 style={cardTitle}>Quote</h3>
+                    <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
+                      Save this booking first, then build the quote in the Bickers quote format.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!coreFilled}
+                  title={saveTooltip || "Save booking and open quote page"}
+                  onClick={() => handleSubmit({ openQuote: true })}
+                  style={{
+                    ...btnPrimary,
+                    background: UI.green,
+                    opacity: coreFilled ? 1 : 0.5,
+                    cursor: coreFilled ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <FileText size={14} />
+                  Save & Open Quote
+                </button>
+              </div>
+            </div>
+
             {/* Files & Notes */}
             <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
                 <div style={seamlessSection}>
@@ -3048,6 +3077,22 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     >
                       <Save size={14} />
                       Save Booking
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={!coreFilled}
+                      title={saveTooltip || "Save booking and open quote page"}
+                      onClick={() => handleSubmit({ openQuote: true })}
+                      style={{
+                        ...btnPrimary,
+                        background: UI.green,
+                        opacity: coreFilled ? 1 : 0.5,
+                        cursor: coreFilled ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      <FileText size={14} />
+                      Save & Open Quote
                     </button>
 
                     <button type="button" onClick={() => router.push("/dashboard")} style={btnGhost}>
