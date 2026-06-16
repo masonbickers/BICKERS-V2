@@ -595,6 +595,21 @@ const FILM_DEPARTMENTS = [
 ──────────────────────────────────────────────────────────────────────────── */
 const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 
+const normalizeQuoteNumbers = (value) =>
+  Array.from(
+    new Set(
+      (Array.isArray(value) ? value : String(value || "").split(/[\n,]+/))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+const quoteNumberInputValue = (booking = {}) => {
+  const quoteNumbers = normalizeQuoteNumbers(booking.quoteNumbers);
+  if (quoteNumbers.length) return quoteNumbers.join("\n");
+  return String(booking.quoteNumber || "");
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
    Vehicle lookup: id / reg / name
 ──────────────────────────────────────────────────────────────────────────── */
@@ -800,7 +815,8 @@ const buildEditBookingPrefillState = (bookingData) => {
 
   return {
     hasBooking: hasUsefulBooking,
-    quoteNumber: booking.quoteNumber || "",
+    quoteNumber: quoteNumberInputValue(booking),
+    quoteNumbers: normalizeQuoteNumbers(booking.quoteNumbers),
     jobNumber: booking.jobNumber || "",
     client: booking.client || "",
     location: booking.location || "",
@@ -890,6 +906,7 @@ const formatAuditDate = (raw) => {
 
 const AUDIT_FIELDS = [
   "quoteNumber",
+  "quoteNumbers",
   "jobNumber",
   "client",
   "location",
@@ -927,6 +944,7 @@ const AUDIT_FIELDS = [
 
 const AUDIT_LABELS = {
   quoteNumber: "Quote number",
+  quoteNumbers: "Quote numbers",
   jobNumber: "Job number",
   client: "Production",
   location: "Location",
@@ -993,6 +1011,7 @@ function normalizeAuditValue(key, value) {
     case "equipment":
     case "bookingDates":
     case "statusReasons":
+    case "quoteNumbers":
       return (Array.isArray(value) ? value : []).map(String).sort();
     case "vehicleStatus":
     case "callTimesByDate":
@@ -1050,6 +1069,7 @@ function summarizeAuditValue(key, value) {
     case "equipment":
     case "bookingDates":
     case "statusReasons":
+    case "quoteNumbers":
       return (Array.isArray(value) ? value : [])
         .map((item) =>
           key === "bookingDates" ? formatAuditDate(item) : String(item)
@@ -1500,7 +1520,7 @@ export default function EditBookingPage() {
       setOriginalBookingData(bookingDocSnap.data() || {});
 
       // ---- Prefill booking fields ----
-      setQuoteNumber(bookingData.quoteNumber || "");
+      setQuoteNumber(quoteNumberInputValue(bookingData));
       setJobNumber(bookingData.jobNumber || "");
       setClient(bookingData.client || "");
       setLocation(bookingData.location || "");
@@ -2562,8 +2582,12 @@ export default function EditBookingPage() {
       allocatedCrewCount: allocatedAtSave,
     });
 
+    const quoteNumbersForSave = normalizeQuoteNumbers(quoteNumber);
+    const primaryQuoteNumber = quoteNumbersForSave[0] || "";
+
     const payload = {
-      quoteNumber,
+      quoteNumber: primaryQuoteNumber,
+      quoteNumbers: quoteNumbersForSave,
       jobNumber,
       client,
       location,
@@ -2727,6 +2751,9 @@ export default function EditBookingPage() {
     Number.isFinite(Number(hotelPricePerNight))
       ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
       : 0;
+  const quoteNumbers = normalizeQuoteNumbers(quoteNumber);
+  const quoteNumberFieldIsMulti = vehicles.length > 1 || quoteNumbers.length > 1;
+  const quoteNumberSummary = quoteNumbers.length ? quoteNumbers.join(", ") : "-";
 
   return (
     <HeaderSidebarLayout>
@@ -2819,12 +2846,23 @@ export default function EditBookingPage() {
                   </div>
 
                   <div>
-                    <label style={field.label}>Quote Number</label>
-                    <input
-                      value={quoteNumber}
-                      onChange={(e) => setQuoteNumber(e.target.value)}
-                      style={field.input}
-                    />
+                    <label style={field.label}>{quoteNumberFieldIsMulti ? "Quote Numbers" : "Quote Number"}</label>
+                    {quoteNumberFieldIsMulti ? (
+                      <textarea
+                        value={quoteNumber}
+                        onChange={(e) => setQuoteNumber(e.target.value)}
+                        rows={Math.max(2, Math.min(5, Math.max(vehicles.length, quoteNumbers.length)))}
+                        placeholder="One quote number per line"
+                        style={{ ...field.textarea, minHeight: 36, height: "auto", resize: "vertical" }}
+                      />
+                    ) : (
+                      <input
+                        value={quoteNumber}
+                        onChange={(e) => setQuoteNumber(e.target.value)}
+                        placeholder={vehicles.length > 1 ? "One quote number per line" : ""}
+                        style={field.input}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -4148,7 +4186,7 @@ export default function EditBookingPage() {
                 <div style={summaryGrid}>
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Job</h4>
-                    <SummaryRow label="Quote">{quoteNumber || "-"}</SummaryRow>
+                    <SummaryRow label={quoteNumbers.length > 1 ? "Quotes" : "Quote"}>{quoteNumberSummary}</SummaryRow>
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>

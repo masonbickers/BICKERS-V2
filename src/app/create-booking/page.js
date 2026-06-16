@@ -604,6 +604,21 @@ const FILM_DEPARTMENTS = [
 ──────────────────────────────────────────────────────────────────────────── */
 const uniq = (arr) => Array.from(new Set((arr || []).filter(Boolean)));
 
+const normalizeQuoteNumbers = (value) =>
+  Array.from(
+    new Set(
+      (Array.isArray(value) ? value : String(value || "").split(/[\n,]+/))
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+
+const quoteNumberInputValue = (booking = {}) => {
+  const quoteNumbers = normalizeQuoteNumbers(booking.quoteNumbers);
+  if (quoteNumbers.length) return quoteNumbers.join("\n");
+  return String(booking.quoteNumber || "");
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
    Vehicle lookup: id / reg / name
 ──────────────────────────────────────────────────────────────────────────── */
@@ -774,10 +789,14 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     hasHotel && Number.isFinite(Number(hotelNights)) && Number.isFinite(Number(hotelPricePerNight))
       ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
       : 0;
+  const quoteNumbers = useMemo(() => normalizeQuoteNumbers(quoteNumber), [quoteNumber]);
+  const quoteNumberFieldIsMulti = vehicles.length > 1 || quoteNumbers.length > 1;
+  const quoteNumberSummary = quoteNumbers.length ? quoteNumbers.join(", ") : "-";
 
   const draftData = useMemo(
     () => ({
       quoteNumber,
+      quoteNumbers,
       jobNumber,
       client,
       location,
@@ -816,6 +835,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     }),
     [
       quoteNumber,
+      quoteNumbers,
       jobNumber,
       client,
       location,
@@ -1127,7 +1147,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
     const saved = draft.data;
     setActiveDraftId(draftIdFromQuery);
-    setQuoteNumber(saved.quoteNumber || "");
+    setQuoteNumber(quoteNumberInputValue(saved));
     setJobNumber(saved.jobNumber || "");
     setClient(saved.client || "");
     setLocation(saved.location || "");
@@ -1971,8 +1991,12 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       allocatedCrewCount: allocatedAtSave,
     });
 
+    const quoteNumbersForSave = normalizeQuoteNumbers(quoteNumber);
+    const primaryQuoteNumber = quoteNumbersForSave[0] || "";
+
     const payload = {
-      quoteNumber,
+      quoteNumber: primaryQuoteNumber,
+      quoteNumbers: quoteNumbersForSave,
       jobNumber,
       client,
       location,
@@ -2184,8 +2208,23 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   </div>
 
                   <div>
-                    <label style={field.label}>Quote Number</label>
-                    <input value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} style={field.input} />
+                    <label style={field.label}>{quoteNumberFieldIsMulti ? "Quote Numbers" : "Quote Number"}</label>
+                    {quoteNumberFieldIsMulti ? (
+                      <textarea
+                        value={quoteNumber}
+                        onChange={(e) => setQuoteNumber(e.target.value)}
+                        rows={Math.max(2, Math.min(5, Math.max(vehicles.length, quoteNumbers.length)))}
+                        placeholder="One quote number per line"
+                        style={{ ...field.textarea, minHeight: 36, height: "auto", resize: "vertical" }}
+                      />
+                    ) : (
+                      <input
+                        value={quoteNumber}
+                        onChange={(e) => setQuoteNumber(e.target.value)}
+                        placeholder={vehicles.length > 1 ? "One quote number per line" : ""}
+                        style={field.input}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -3113,7 +3152,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 <div style={summaryGrid}>
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Job</h4>
-                    <SummaryRow label="Quote">{quoteNumber || "-"}</SummaryRow>
+                    <SummaryRow label={quoteNumbers.length > 1 ? "Quotes" : "Quote"}>{quoteNumberSummary}</SummaryRow>
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>
