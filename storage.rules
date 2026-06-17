@@ -216,6 +216,12 @@ service firebase.storage {
         && isSafeFileSize(25 * 1024 * 1024);
     }
 
+    match /h-and-s/training-policy/{employeeRef}/{itemId}/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024);
+    }
+
     match /images/{allPaths=**} {
       allow read: if isAdmin();
       allow write: if isAdmin()

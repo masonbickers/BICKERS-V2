@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { addDoc, collection, getDocs, onSnapshot, serverTimestamp, Timestamp } from "firebase/firestore";
-import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Save, Search, ShieldAlert, ShieldCheck } from "lucide-react";
-import { auth, db } from "../../../../firebaseConfig";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { ArrowLeft, CalendarCheck2, CheckCircle2, FileCheck2, History, Paperclip, Save, Search, ShieldAlert, ShieldCheck, Upload, X } from "lucide-react";
+import { auth, db, storage } from "../../../../firebaseConfig";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -158,6 +159,13 @@ const timestampFromDateInput = (value) => {
   return Timestamp.fromDate(new Date(yyyy, mm - 1, dd));
 };
 
+const safeFileName = (name) =>
+  String(name || "document")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 100) || "document";
+
 const daysUntil = (value) => {
   const date = toDate(value);
   if (!date) return null;
@@ -296,20 +304,63 @@ export default function TrainingPolicyPage() {
     }));
   };
 
+  const updateDraftDocuments = (itemName, fileList) => {
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    setDrafts((prev) => {
+      const current = prev[itemName]?.documents || [];
+      return {
+        ...prev,
+        [itemName]: {
+          ...(prev[itemName] || {}),
+          documents: [...current, ...incoming],
+        },
+      };
+    });
+  };
+
+  const removeDraftDocument = (itemName, index) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [itemName]: {
+        ...(prev[itemName] || {}),
+        documents: (prev[itemName]?.documents || []).filter((_, fileIndex) => fileIndex !== index),
+      },
+    }));
+  };
+
   const saveRecord = async (item) => {
     if (!selectedEmployee) return;
     const draft = drafts[item.label] || {};
     const completedAt = timestampFromDateInput(draft.completedAt);
     const expiresAt = timestampFromDateInput(draft.expiresAt);
+    const documentsToUpload = Array.isArray(draft.documents) ? draft.documents : [];
 
-    if (!completedAt && !expiresAt && !String(draft.notes || "").trim()) {
-      alert("Add a completed date, expiry date, or note before saving.");
+    if (!completedAt && !expiresAt && !String(draft.notes || "").trim() && !documentsToUpload.length) {
+      alert("Add a completed date, expiry date, note, or document before saving.");
       return;
     }
 
     setSavingItem(item.label);
     try {
       const user = auth.currentUser;
+      const uploadedDocuments = [];
+
+      for (const file of documentsToUpload) {
+        const path = `h-and-s/training-policy/${selectedEmployee.id}/${item.id}/${Date.now()}-${safeFileName(file.name)}`;
+        const ref = storageRef(storage, path);
+        const snapshot = await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
+        const url = await getDownloadURL(snapshot.ref);
+        uploadedDocuments.push({
+          name: file.name || "Document",
+          path,
+          url,
+          type: file.type || "",
+          size: file.size || 0,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+
       await addDoc(collection(db, "employeeTrainingRecords"), tenantPayload(dataAccessState, {
         employeeId: selectedEmployee.id,
         employeeName: employeeDisplayName(selectedEmployee),
@@ -319,6 +370,7 @@ export default function TrainingPolicyPage() {
         completedAt,
         expiresAt,
         notes: String(draft.notes || "").trim(),
+        documents: uploadedDocuments,
         recordedBy: user?.displayName || user?.email || "Unknown user",
         createdAt: serverTimestamp(),
       }));
@@ -459,6 +511,7 @@ export default function TrainingPolicyPage() {
                     <div style={{ display: "grid", gap: 4, marginBottom: 12, color: UI.muted, fontSize: 13, fontWeight: 750 }}>
                       <div>Completed: {latest ? fmtDate(latest.completedAt) : "-"}</div>
                       <div>Expires: {latest ? fmtDate(latest.expiresAt) : "-"}</div>
+                      <div>Documents: {latest?.documents?.length ? latest.documents.length : "-"}</div>
                     </div>
 
                     <div className="training-form-grid">
@@ -482,6 +535,50 @@ export default function TrainingPolicyPage() {
                         style={{ ...input, resize: "vertical", lineHeight: 1.35 }}
                       />
                     </label>
+
+                    <div style={{ marginTop: 10 }}>
+                      <p style={smallLabel}>Documents</p>
+                      <label style={{ ...btn("ghost"), width: "100%", minHeight: 40, marginTop: 6 }}>
+                        <Upload size={15} />
+                        Add Documents
+                        <input
+                          type="file"
+                          multiple
+                          onChange={(event) => {
+                            updateDraftDocuments(item.label, event.target.files);
+                            event.target.value = "";
+                          }}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+
+                      {draft.documents?.length ? (
+                        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                          {draft.documents.map((file, index) => (
+                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "#f8fbfe", padding: "7px 8px" }}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, color: UI.text, fontSize: 12.5, fontWeight: 850 }}>
+                                <Paperclip size={13} style={{ flex: "0 0 auto" }} />
+                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+                              </span>
+                              <button type="button" onClick={() => removeDraftDocument(item.label, index)} aria-label={`Remove ${file.name}`} style={{ border: 0, background: "transparent", color: UI.danger, cursor: "pointer", padding: 2, display: "inline-flex" }}>
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {latest?.documents?.length ? (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                          {latest.documents.map((document, index) => (
+                            <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ ...toneStyle("brand"), display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "5px 8px", fontSize: 12, fontWeight: 900, textDecoration: "none" }}>
+                              <Paperclip size={12} />
+                              {document.name || "Document"}
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
 
                     <button type="button" onClick={() => saveRecord(item)} disabled={!selectedEmployee || savingItem === item.label} style={{ ...btn("primary"), width: "100%", minHeight: 42, marginTop: 12 }}>
                       <Save size={15} />
@@ -507,6 +604,16 @@ export default function TrainingPolicyPage() {
                                 <span>Expires {fmtDate(record.expiresAt)}</span>
                               </div>
                               {record.notes ? <div style={{ marginTop: 5, color: UI.muted }}>{record.notes}</div> : null}
+                              {record.documents?.length ? (
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                                  {record.documents.map((document, index) => (
+                                    <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: UI.brand, textDecoration: "none", fontSize: 12, fontWeight: 900 }}>
+                                      <Paperclip size={12} />
+                                      {document.name || "Document"}
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : null}
                               <div style={{ marginTop: 5, color: UI.muted }}>Recorded by {record.recordedBy || "-"}</div>
                             </div>
                           ))
