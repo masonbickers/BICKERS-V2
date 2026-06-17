@@ -171,6 +171,49 @@ const toAttachmentList = (b = {}) => {
   });
 };
 
+const hasSavedQuote = (quote = {}) =>
+  Boolean(
+    quote &&
+      typeof quote === "object" &&
+      (quote.savedAt ||
+        quote.updatedAt ||
+        quote.quoteNumber ||
+        quote.templateId ||
+        quote.templateName ||
+        (Array.isArray(quote.lineItems) && quote.lineItems.length))
+  );
+
+const quoteSavedTime = (quote = {}) =>
+  toDateSafe(quote.savedAt || quote.updatedAt || quote.createdAt)?.getTime?.() || 0;
+
+const latestQuoteEntry = (b = {}) => {
+  const versions = Array.isArray(b.quoteVersions)
+    ? b.quoteVersions.filter((entry) => entry && typeof entry === "object")
+    : [];
+  const entries = versions.length ? versions : hasSavedQuote(b.quote) ? [b.quote] : [];
+  return entries.reduce((latest, entry) => {
+    if (!latest) return entry;
+    return quoteSavedTime(entry) >= quoteSavedTime(latest) ? entry : latest;
+  }, null);
+};
+
+const quoteStatusSummary = (b = {}) => {
+  const quote = latestQuoteEntry(b);
+  const quoteNumber = String(quote?.quoteNumber || b.quoteNumber || "").trim();
+  const hasNumber = Boolean(quoteNumber || (Array.isArray(b.quoteNumbers) && b.quoteNumbers.length));
+  const hasQuoteFile = Boolean(b.quoteUrl || b.pdfURL || b.pdfUrl);
+  const saved = Boolean(quote);
+  const rawStatus = String(quote?.status || "").trim();
+  const status = rawStatus || (saved ? "Draft" : hasQuoteFile ? "Attached" : "Not started");
+  const done = status.toLowerCase() === "accepted";
+
+  if (done) return { label: "Done", detail: "Accepted", tone: "green" };
+  if (saved) return { label: status, detail: quoteNumber || "Saved quote", tone: status === "Sent" ? "blue" : "amber" };
+  if (hasQuoteFile) return { label: "Attached", detail: "File uploaded", tone: "blue" };
+  if (hasNumber) return { label: "Not done", detail: "Quote number only", tone: "red" };
+  return { label: "Not started", detail: "No quote yet", tone: "red" };
+};
+
 /* ---------- employees helpers ---------- */
 const prettyEmployees = (list) =>
   (Array.isArray(list) ? list : [])
@@ -544,6 +587,7 @@ export default function ViewBookingModal({
   if (!booking) return null;
 
   const employeesPrettyText = prettyEmployees(booking.employees || []);
+  const quoteStatus = quoteStatusSummary(booking);
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
   const reasonsText =
@@ -634,6 +678,7 @@ export default function ViewBookingModal({
             <div style={sectionCard}>
               <Field label="Production" value={booking.client || "-"} />
               <Field label="Quote Number" value={String(booking.quoteNumber || "").trim() || "-"} />
+              <Field label="Quote Status" value={<QuoteStatusPill summary={quoteStatus} />} />
               <Field label="Location" value={booking.location || "-"} />
               <Field label="Date(s)" value={fmtDateRange(booking)} />
 
@@ -1082,6 +1127,16 @@ function Field({ label, value }) {
   );
 }
 
+function QuoteStatusPill({ summary }) {
+  const tone = quoteStatusTone(summary?.tone);
+  return (
+    <span style={{ ...quoteStatusPill, ...tone }}>
+      <span>{summary?.label || "Not started"}</span>
+      {summary?.detail ? <span style={quoteStatusDetail}>{summary.detail}</span> : null}
+    </span>
+  );
+}
+
 const Chip = ({ good, label, title }) => (
   <span
     title={title}
@@ -1213,6 +1268,31 @@ const fieldRow = {
 };
 const fieldLabel = { color: "#64748b", fontSize: 11.5, fontWeight: 700 };
 const fieldValue = { color: "#0f172a", fontSize: 12.5, fontWeight: 600 };
+const quoteStatusPill = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  maxWidth: "100%",
+  borderRadius: 999,
+  padding: "2px 7px",
+  border: "1px solid",
+  fontSize: 11.5,
+  fontWeight: 900,
+  lineHeight: 1.25,
+};
+const quoteStatusDetail = {
+  opacity: 0.78,
+  fontWeight: 800,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+const quoteStatusTone = (tone) => {
+  if (tone === "green") return { background: "#dcfce7", color: "#166534", borderColor: "#86efac" };
+  if (tone === "blue") return { background: "#e0f2fe", color: "#075985", borderColor: "#7dd3fc" };
+  if (tone === "amber") return { background: "#fef3c7", color: "#92400e", borderColor: "#fcd34d" };
+  return { background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" };
+};
 
 const notesGrid = {
   display: "grid",
