@@ -222,6 +222,13 @@ service firebase.storage {
         && isSafeFileSize(25 * 1024 * 1024);
     }
 
+    match /h-and-s/certificates/{checkId}/{allPaths=**} {
+      allow read: if hasUserAccess();
+      allow write: if hasUserAccess()
+        && isSafeFileSize(25 * 1024 * 1024)
+        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    }
+
     match /images/{allPaths=**} {
       allow read: if isAdmin();
       allow write: if isAdmin()
