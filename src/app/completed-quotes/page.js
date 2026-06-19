@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onSnapshot } from "firebase/firestore";
-import { ChevronRight, FileText, Home, Search } from "lucide-react";
+import { ChevronRight, FileText, Home, Search, Settings2 } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
@@ -179,6 +179,10 @@ export default function CompletedQuotesPage() {
             <Link href="/job-home" style={btn}>
               <Home size={14} />
               Jobs Home
+            </Link>
+            <Link href="/quote-templates" style={btn}>
+              <Settings2 size={14} />
+              Quote Templates
             </Link>
             <span style={chip("green")}>
               <FileText size={14} />

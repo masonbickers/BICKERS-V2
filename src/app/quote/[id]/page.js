@@ -16,7 +16,7 @@ import {
   resolveDataAccess,
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
-import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES, quoteTemplateOptions } from "@/app/utils/quoteTemplates";
+import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 
 const UI = {
   page: "#ffffff",
@@ -424,7 +424,7 @@ const hydrateQuote = (booking = {}, quote = {}) => ({
   lineItems: Array.isArray(quote?.lineItems) ? quote.lineItems : [],
 });
 
-const findSuggestedTemplate = (booking = {}) => {
+const findSuggestedTemplate = (booking = {}, templates = FULL_SIZE_TRACKING_QUOTE_TEMPLATES) => {
   const vehicleText = [
     ...(Array.isArray(booking.vehicles) ? booking.vehicles : []),
     ...(Array.isArray(booking.equipment) ? booking.equipment : []),
@@ -501,7 +501,7 @@ const findSuggestedTemplate = (booking = {}) => {
   const match = aliases.find(([needle]) => haystack.includes(needle));
   if (!match) return null;
   return (
-    FULL_SIZE_TRACKING_QUOTE_TEMPLATES.find((template) =>
+    templates.find((template) =>
       compact(`${template.file} ${template.serviceDescription}`).includes(match[1])
     ) || null
   );
@@ -582,6 +582,8 @@ export default function QuotePage() {
   const bookingId = params?.id;
   const requestedQuoteNumber = searchParams.get("quote") || "";
   const requestedAction = searchParams.get("action") || "";
+  const returnTo = searchParams.get("returnTo") || "";
+  const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "";
   const isViewMode = pathname?.startsWith("/quote-view") || searchParams.get("view") === "1";
   const isEmbedded = searchParams.get("embed") === "1";
   const authAccess = useAuth() || {};
@@ -602,6 +604,7 @@ export default function QuotePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [templateSearch, setTemplateSearch] = useState("");
+  const [quoteTemplates, setQuoteTemplates] = useState(FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
   const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
   const pageRef = useRef(null);
   const handledActionRef = useRef("");
@@ -636,6 +639,26 @@ export default function QuotePage() {
       alive = false;
     };
   }, [accessKey, bookingId, dataAccessState, requestedQuoteNumber]);
+
+  useEffect(() => {
+    let alive = true;
+    const loadTemplates = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking || !gate.allowed) return;
+      try {
+        const snap = await getDoc(doc(db, "settings", "quoteTemplates"));
+        const customTemplates = snap.exists() && Array.isArray(snap.data()?.templates) ? snap.data().templates : null;
+        if (alive) setQuoteTemplates(customTemplates?.length ? customTemplates : FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
+      } catch (err) {
+        console.warn("Failed loading quote templates; using generated defaults:", err);
+        if (alive) setQuoteTemplates(FULL_SIZE_TRACKING_QUOTE_TEMPLATES);
+      }
+    };
+    loadTemplates();
+    return () => {
+      alive = false;
+    };
+  }, [accessKey, dataAccessState]);
 
   useEffect(() => {
     let alive = true;
@@ -681,7 +704,11 @@ export default function QuotePage() {
     };
   }, [booking, loading, quote.quoteNumber, requestedAction]);
 
-  const suggestedTemplate = useMemo(() => findSuggestedTemplate(booking || {}), [booking]);
+  const quoteTemplateOptionList = useMemo(
+    () => quoteTemplates.map((template) => ({ id: template.id, label: template.serviceDescription || template.file, file: template.file })),
+    [quoteTemplates]
+  );
+  const suggestedTemplate = useMemo(() => findSuggestedTemplate(booking || {}, quoteTemplates), [booking, quoteTemplates]);
   const subtotal = useMemo(() => calculateSubtotal(quote.lineItems), [quote.lineItems]);
   const hasDiscountLine = useMemo(() => quote.lineItems.some((item) => isDiscountLine(item)), [quote.lineItems]);
   const savedQuotes = useMemo(() => normalizeQuoteVersions(booking || {}), [booking]);
@@ -729,12 +756,12 @@ export default function QuotePage() {
   const filteredQuoteTemplateOptions = useMemo(() => {
     const needle = compact(templateSearch);
     const filtered = needle
-      ? quoteTemplateOptions.filter((option) => compact(option.label).includes(needle))
-      : quoteTemplateOptions;
+      ? quoteTemplateOptionList.filter((option) => compact(option.label).includes(needle))
+      : quoteTemplateOptionList;
     if (!quote.templateId || filtered.some((option) => option.id === quote.templateId)) return filtered;
-    const selected = quoteTemplateOptions.find((option) => option.id === quote.templateId);
+    const selected = quoteTemplateOptionList.find((option) => option.id === quote.templateId);
     return selected ? [selected, ...filtered] : filtered;
-  }, [quote.templateId, templateSearch]);
+  }, [quote.templateId, quoteTemplateOptionList, templateSearch]);
 
   const updateQuote = (patch) => {
     const nextLineItems = patch.lineItems || quote.lineItems;
@@ -747,7 +774,7 @@ export default function QuotePage() {
   };
 
   const loadTemplate = (templateId) => {
-    const template = FULL_SIZE_TRACKING_QUOTE_TEMPLATES.find((item) => item.id === templateId);
+    const template = quoteTemplates.find((item) => item.id === templateId);
     if (!template) {
       updateQuote({ templateId: "", templateFile: "", templateName: "", lineItems: [] });
       setTemplateSearch("");
@@ -1013,6 +1040,7 @@ export default function QuotePage() {
         ...acceptedQuotePatch,
       }));
       alert(`${nextQuoteNumber} saved.`);
+      if (safeReturnTo) router.push(safeReturnTo);
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "save quote" })) {
         console.error("Failed saving quote:", err);
@@ -1031,7 +1059,7 @@ export default function QuotePage() {
     );
     if (!confirmed) return;
     alert("Draft quote cancelled.");
-    router.push("/completed-quotes");
+    router.push(safeReturnTo || "/completed-quotes");
   };
 
   const deleteCurrentQuote = async () => {
@@ -1139,9 +1167,25 @@ export default function QuotePage() {
   const visibleQuoteNumber = displayQuoteNumber(quote.quoteNumber || booking.quoteNumber, booking);
   const versionBadgeText = visibleQuoteNumber ? `Version ${visibleQuoteNumber}` : "Version";
   const currentQuoteName = quoteDisplayName(quote);
-  const quoteEditHref = `/quote/${booking.id || bookingId}${
-    quote.quoteNumber || requestedQuoteNumber ? `?quote=${encodeURIComponent(quote.quoteNumber || requestedQuoteNumber)}` : ""
-  }`;
+  const quoteEditParams = new URLSearchParams();
+  const editQuoteNumber = quote.quoteNumber || requestedQuoteNumber;
+  if (editQuoteNumber) quoteEditParams.set("quote", editQuoteNumber);
+  if (safeReturnTo) quoteEditParams.set("returnTo", safeReturnTo);
+  const quoteEditQuery = quoteEditParams.toString();
+  const quoteEditHref = `/quote/${booking.id || bookingId}${quoteEditQuery ? `?${quoteEditQuery}` : ""}`;
+  const openQuoteEditor = () => {
+    if (isEmbedded && typeof window !== "undefined" && window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: "bickers:quote-edit",
+          href: quoteEditHref,
+        },
+        window.location.origin
+      );
+      return;
+    }
+    router.push(quoteEditHref);
+  };
   const quoteSummaryHeader = (
     <>
       <div style={summaryHeader}>
@@ -1183,7 +1227,7 @@ export default function QuotePage() {
                   <Trash2 size={16} />
                   {deleting ? "Deleting..." : "Delete Quote"}
                 </button>
-                <button type="button" onClick={() => router.push(quoteEditHref)} style={primaryButton}>
+                <button type="button" onClick={openQuoteEditor} style={primaryButton}>
                   <Pencil size={16} />
                   Edit quote
                 </button>

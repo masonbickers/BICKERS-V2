@@ -2611,13 +2611,28 @@ function holidayNotesEventPropGetter(event) {
 }
 
 function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
+  const router = useRouter();
   if (!viewer?.bookingId || !Array.isArray(viewer.quoteOptions) || !viewer.quoteOptions.length) return null;
 
   const currentIndex = Math.max(0, Math.min(Number(viewer.index) || 0, viewer.quoteOptions.length - 1));
   const currentQuote = viewer.quoteOptions[currentIndex];
-  const quoteSrc = `/quote-view/${encodeURIComponent(viewer.bookingId)}?quote=${encodeURIComponent(currentQuote.quoteNumber)}&embed=1`;
-  const editHref = `/quote/${encodeURIComponent(viewer.bookingId)}?quote=${encodeURIComponent(currentQuote.quoteNumber)}`;
+  const returnTo =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search || ""}`
+      : "/dashboard";
+  const quoteSrcParams = new URLSearchParams({
+    quote: currentQuote.quoteNumber,
+    embed: "1",
+    returnTo,
+  });
+  const editBookingParams = new URLSearchParams({ returnTo });
+  const quoteSrc = `/quote-view/${encodeURIComponent(viewer.bookingId)}?${quoteSrcParams.toString()}`;
+  const editBookingHref = `/edit-booking/${encodeURIComponent(viewer.bookingId)}?${editBookingParams.toString()}`;
   const hasMany = viewer.quoteOptions.length > 1;
+  const handleEditBooking = () => {
+    onClose?.();
+    router.push(editBookingHref);
+  };
 
   return (
     <div
@@ -2652,8 +2667,8 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
                 </button>
               </>
             ) : null}
-            <button type="button" style={quoteOverlayPrimaryButton} onClick={() => window.open(editHref, "_blank", "noopener,noreferrer")}>
-              Edit
+            <button type="button" style={quoteOverlayPrimaryButton} onClick={handleEditBooking}>
+              Edit Booking
             </button>
             <button type="button" style={quoteOverlayCloseButton} onClick={onClose} aria-label="Close quote viewer">
               <X size={18} />
@@ -2755,6 +2770,20 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       };
     });
   }, []);
+
+  useEffect(() => {
+    const handleQuoteViewMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "bickers:quote-edit") return;
+      const href = String(event.data?.href || "");
+      if (!href.startsWith("/quote/")) return;
+      setQuoteViewer(null);
+      router.push(href);
+    };
+
+    window.addEventListener("message", handleQuoteViewMessage);
+    return () => window.removeEventListener("message", handleQuoteViewMessage);
+  }, [router]);
 
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === selectedBookingId) || null,
