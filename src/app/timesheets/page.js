@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { doc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -26,6 +27,7 @@ import {
   PencilLine,
   RefreshCcw,
   Search,
+  Settings2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -41,6 +43,8 @@ const DAYS = [
 ];
 
 const LUNCH_DEDUCT_HRS = 0.5;
+const DEFAULT_YARD_START = "08:00";
+const DEFAULT_YARD_END = "16:30";
 
 function getMonday(d) {
   d = new Date(d);
@@ -109,6 +113,79 @@ function diffHours(start, end) {
   return Math.max(0, d);
 }
 
+function normaliseTimeValue(value) {
+  const mins = toMinutes(value);
+  if (mins == null) return null;
+  const hours = Math.floor(mins / 60);
+  const minutes = mins % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getPrecallInfo(entry) {
+  const raw = entry?.precallDuration;
+  const timeValue = normaliseTimeValue(raw);
+  if (timeValue) {
+    const callMinutes = toMinutes(entry?.callTime);
+    const preCallMinutes = toMinutes(timeValue);
+    return {
+      hours:
+        callMinutes != null && preCallMinutes != null
+          ? Math.max(0, diffHours(timeValue, entry?.callTime))
+          : 0,
+    };
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return { hours: 0 };
+  return { hours: value / 60 };
+}
+
+function getEmployeeYardAutofill(employee) {
+  const defaults = employee?.timesheetDefaults || {};
+  const start =
+    normaliseTimeValue(
+      defaults.yardStart ||
+        defaults.startTime ||
+        defaults.start ||
+        defaults.defaultStart ||
+        defaults.workStart ||
+        defaults.holidayStart ||
+        defaults.paidHolidayStart ||
+        employee?.yardStartTime ||
+        employee?.yardStart ||
+        employee?.startTime
+    ) || DEFAULT_YARD_START;
+  const end =
+    normaliseTimeValue(
+      defaults.yardEnd ||
+        defaults.endTime ||
+        defaults.end ||
+        defaults.defaultEnd ||
+        defaults.workEnd ||
+        defaults.holidayEnd ||
+        defaults.paidHolidayEnd ||
+        employee?.yardEndTime ||
+        employee?.yardEnd ||
+        employee?.endTime
+    ) || DEFAULT_YARD_END;
+  const deductLunch =
+    defaults.holidayLunchDeduct ??
+    defaults.paidHolidayLunchDeduct ??
+    defaults.yardLunchDeduct ??
+    defaults.lunchDeduct ??
+    defaults.deductLunch ??
+    employee?.holidayLunchDeduct ??
+    employee?.paidHolidayLunchDeduct ??
+    employee?.yardLunchDeduct ??
+    employee?.lunchDeduct ??
+    true;
+
+  return {
+    rawHours: diffHours(start, end),
+    deductLunch: deductLunch !== false,
+  };
+}
+
 function extractYardSegments(entry) {
   if (Array.isArray(entry?.yardSegments)) return entry.yardSegments;
   if (entry?.leaveTime && entry?.arriveBack) return [{ start: entry.leaveTime, end: entry.arriveBack }];
@@ -134,6 +211,9 @@ function computeYardHours(entry) {
   segs.forEach((s) => {
     total += diffHours(s.start, s.end);
   });
+  if (entry?.yardTravelEnabled) {
+    total += diffHours(entry?.yardTravelLeaveTime, entry?.yardTravelArriveTime);
+  }
   if (total > 0 && shouldDeductYardLunch(entry)) total -= LUNCH_DEDUCT_HRS;
   return Math.max(0, total);
 }
@@ -142,10 +222,12 @@ function computeTravelHours(entry) {
   return diffHours(entry?.leaveTime, entry?.arriveTime);
 }
 
+function computeOfficeHours(entry) {
+  return diffHours(entry?.startTime, entry?.endTime);
+}
+
 function getPrecallHours(entry) {
-  const value = Number(entry?.precallDuration);
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  return value / 60;
+  return getPrecallInfo(entry).hours;
 }
 
 function computeOnSetBreakdown(entry) {
@@ -205,9 +287,11 @@ function detectMode(entry, isWeekend) {
   if (rawMode === "holiday") return "holiday";
   if (rawMode === "bankholiday") return "bankholiday";
   if (rawMode === "off") return "off";
+  if (rawMode === "unpaid") return "unpaid";
   if (rawMode === "yard" && isTurnaroundDay(entry)) return "turnaround";
   if (rawMode === "travel") return "travel";
   if (rawMode === "onset") return "onset";
+  if (rawMode === "office") return "office";
   if (rawMode === "yard") return "yard";
   return "yard";
 }
@@ -215,16 +299,50 @@ function detectMode(entry, isWeekend) {
 function normaliseDays(daysObj) {
   const out = {};
   DAYS.forEach((day) => {
-    out[day] = daysObj?.[day] ?? null;
+    out[day] = daysObj?.[day.toLowerCase()] ?? daysObj?.[day] ?? null;
   });
   return out;
 }
 
-function getTimesheetWeekHours(ts) {
-  const explicitTotal = Number(ts?.weeklyTotal ?? ts?.totalHours ?? ts?.totalHrs);
-  if (Number.isFinite(explicitTotal) && explicitTotal > 0) return explicitTotal;
+function isReviewableTimesheetEmployee(employee = {}) {
+  const role = String(employee.role || "").trim().toLowerCase();
+  const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
+    .trim()
+    .toLowerCase();
+  const jobTitleBlob = Array.isArray(employee.jobTitle)
+    ? employee.jobTitle.join(" ").toLowerCase()
+    : String(employee.jobTitle || "").toLowerCase();
+  const nameBlob = [employee.name, employee.fullName, employee.employeeName]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean)
+    .join(" ");
 
+  if (
+    employee.deleted === true ||
+    employee.isDeleted === true ||
+    employee.archived === true ||
+    employee.isArchived === true ||
+    employee.active === false ||
+    employee.appDisabled === true
+  ) return false;
+  const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
+  const serviceOnly = employee.isService === true && appAccess.user !== true;
+  if (serviceOnly) return false;
+  if (employee.preview === true || employee.isPreview === true || employee.test === true || employee.isTest === true) {
+    return false;
+  }
+  if (role === "service") return false;
+  if (role === "freelancer" || role === "freelance") return false;
+  if (employmentType.includes("freelance")) return false;
+  if (jobTitleBlob.includes("freelance")) return false;
+  if (/\b(preview lane|test employee|demo employee)\b/.test(nameBlob)) return false;
+  return true;
+}
+
+function getTimesheetWeekHours(ts, employee) {
   const dayMap = normaliseDays(ts?.days);
+  const employeeYardAutofill = getEmployeeYardAutofill(employee);
+
   return DAYS.reduce((total, day) => {
     const entry = dayMap[day];
     if (!entry) return total;
@@ -232,7 +350,20 @@ function getTimesheetWeekHours(ts) {
     if (mode === "yard") return total + computeYardHours(entry);
     if (mode === "travel") return total + computeTravelHours(entry);
     if (mode === "onset") return total + computeOnSetHours(entry);
+    if (mode === "office") return total + computeOfficeHours(entry);
     if (mode === "turnaround") return total + computeTurnaroundHours(entry);
+    if (mode === "holiday" || mode === "bankholiday") {
+      const shouldDeduct =
+        entry?.managerLunchDeduct === true
+          ? true
+          : entry?.managerLunchDeduct === false
+          ? false
+          : employeeYardAutofill.deductLunch;
+      return (
+        total +
+        Math.max(0, employeeYardAutofill.rawHours - (shouldDeduct ? LUNCH_DEDUCT_HRS : 0))
+      );
+    }
     return total;
   }, 0);
 }
@@ -500,14 +631,91 @@ function countStatuses(timesheets, weeks) {
   return summary;
 }
 
+const cleanIdentityValue = (value) => String(value || "").trim().toLowerCase();
+
+function buildTimesheetUserIdentity(user, userDoc = {}) {
+  const codeValues = [
+    userDoc.userCode,
+    userDoc.employeeCode,
+    userDoc.code,
+    userDoc.staffCode,
+    userDoc.timesheetCode,
+  ]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const nameValues = [
+    userDoc.name,
+    userDoc.fullName,
+    userDoc.employeeName,
+    userDoc.displayName,
+    user?.displayName,
+  ]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const emailValues = [userDoc.email, user?.email]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const idValues = [userDoc.employeeId, userDoc.id, user?.uid]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+
+  return {
+    codes: new Set(codeValues),
+    names: new Set(nameValues),
+    emails: new Set(emailValues),
+    ids: new Set(idValues),
+  };
+}
+
+function employeeMatchesTimesheetUser(employee = {}, identity) {
+  if (!identity) return false;
+  const employeeCodes = [employee.userCode, employee.employeeCode, employee.code, employee.staffCode, employee.timesheetCode]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const employeeNames = [employee.name, employee.fullName, employee.employeeName, employee.displayName]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const employeeEmails = [employee.email, employee.contactEmail, employee.workEmail]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const employeeIds = [employee.id, employee.employeeId, employee.uid, employee.userId]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+
+  return (
+    employeeCodes.some((value) => identity.codes.has(value)) ||
+    employeeNames.some((value) => identity.names.has(value)) ||
+    employeeEmails.some((value) => identity.emails.has(value)) ||
+    employeeIds.some((value) => identity.ids.has(value))
+  );
+}
+
+function getTimesheetEmployeeHideKey(employee = {}) {
+  return (
+    cleanIdentityValue(employee.userCode || employee.employeeCode || employee.code || employee.staffCode || employee.timesheetCode) ||
+    cleanIdentityValue(employee.id || employee.employeeId || employee.uid || employee.userId) ||
+    cleanIdentityValue(employee.name || employee.fullName || employee.employeeName)
+  );
+}
+
 export default function TimesheetListPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const authState = useAuth() || {};
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
+  const isAdmin = Boolean(authState.isAdmin);
+  const currentTimesheetIdentity = useMemo(
+    () => buildTimesheetUserIdentity(authState.user, authState.userDoc || {}),
+    [authState.user, authState.userDoc]
+  );
 
   const [grouped, setGrouped] = useState({});
+  const [allReviewableEmployees, setAllReviewableEmployees] = useState([]);
+  const [hiddenEmployeeKeys, setHiddenEmployeeKeys] = useState([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [approvingId, setApprovingId] = useState("");
@@ -598,6 +806,31 @@ export default function TimesheetListPage() {
     }
   };
 
+  const saveTimesheetDisplaySettings = async () => {
+    if (!isAdmin || settingsSaving) return;
+    setSettingsSaving(true);
+    setError("");
+    try {
+      const cleanHiddenKeys = Array.from(new Set(hiddenEmployeeKeys.map(cleanIdentityValue).filter(Boolean)));
+      await setDoc(
+        doc(db, "settings", "timesheetsPage"),
+        tenantPayload(dataAccessState, {
+          hiddenEmployeeKeys: cleanHiddenKeys,
+          updatedAt: serverTimestamp(),
+          updatedBy: authState.user?.email || "",
+        }),
+        { merge: true }
+      );
+      setHiddenEmployeeKeys(cleanHiddenKeys);
+      setSettingsOpen(false);
+    } catch (err) {
+      console.error("Error saving timesheet display settings:", err);
+      setError("Unable to save timesheet display settings.");
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const weekOptions = useMemo(
     () =>
       [...Array(26)].map((_, i) => {
@@ -626,15 +859,28 @@ export default function TimesheetListPage() {
       setError("");
 
       try {
-        const [empSnap, tsSnap] = await Promise.all([
+        const [empSnap, tsSnap, settingsSnap] = await Promise.all([
           getDocs(tenantCollectionQuery(db, "employees", dataAccessState)),
           getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState)),
+          isAdmin ? getDoc(doc(db, "settings", "timesheetsPage")) : Promise.resolve(null),
         ]);
+        const savedHiddenEmployeeKeys = Array.isArray(settingsSnap?.data?.()?.hiddenEmployeeKeys)
+          ? settingsSnap.data().hiddenEmployeeKeys.map(cleanIdentityValue).filter(Boolean)
+          : [];
+        if (isAdmin) setHiddenEmployeeKeys(savedHiddenEmployeeKeys);
 
-        const employees = empSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const allEmployees = empSnap.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter(isReviewableTimesheetEmployee);
+        setAllReviewableEmployees(allEmployees);
+        const employees = isAdmin
+          ? allEmployees
+          : allEmployees.filter((employee) =>
+              employeeMatchesTimesheetUser(employee, currentTimesheetIdentity)
+            );
 
         const timesheets = tsSnap.docs.map((doc) => ({
           id: doc.id,
@@ -663,6 +909,7 @@ export default function TimesheetListPage() {
             name: emp.name || "Unnamed employee",
             code,
             employeeId: emp.id,
+            employee: emp,
             timesheets: [],
           };
 
@@ -698,6 +945,7 @@ export default function TimesheetListPage() {
               name: ts.employeeName || matchedEmployee.name || "Unnamed employee",
               code,
               employeeId: matchedEmployee.employeeId || null,
+              employee: matchedEmployee.employee || null,
               timesheets: [],
             };
           }
@@ -720,7 +968,7 @@ export default function TimesheetListPage() {
     };
 
     loadData();
-  }, [accessKey, dataAccessState]);
+  }, [accessKey, currentTimesheetIdentity, dataAccessState, isAdmin]);
 
   useEffect(() => {
     const q = searchParams?.get("q") || "";
@@ -742,7 +990,22 @@ export default function TimesheetListPage() {
     () => (weekFilter === "all" ? windowWeeks : [weekFilter]),
     [weekFilter, windowWeeks]
   );
-  const employees = useMemo(() => Object.values(grouped), [grouped]);
+  const settingsEmployees = useMemo(
+    () =>
+      [...allReviewableEmployees].sort((a, b) =>
+        String(a.name || a.fullName || a.employeeName || "").localeCompare(
+          String(b.name || b.fullName || b.employeeName || "")
+        )
+      ),
+    [allReviewableEmployees]
+  );
+  const employees = useMemo(() => {
+    const hidden = new Set(hiddenEmployeeKeys.map(cleanIdentityValue));
+    return Object.values(grouped).filter((employeeGroup) => {
+      if (!isAdmin) return true;
+      return !hidden.has(getTimesheetEmployeeHideKey(employeeGroup.employee || employeeGroup));
+    });
+  }, [grouped, hiddenEmployeeKeys, isAdmin]);
 
   useEffect(() => {
     if (weekFilter === "all") return;
@@ -835,7 +1098,7 @@ export default function TimesheetListPage() {
     { label: "Draft", value: overview.draft, icon: PencilLine, color: UI.amber, bg: UI.amberSoft, border: UI.amberBorder },
     { label: "Missing", value: overview.missing, icon: AlertTriangle, color: UI.red, bg: UI.redSoft, border: UI.redBorder },
   ];
-  const compactReviewView = !!searchTerm.trim() || statusFilter !== "all" || sortBy === "name";
+  const compactReviewView = true;
 
   const canGoToNewerWindow = weekFilter === "all" ? weekWindowOffset > 0 : weekOptions.indexOf(weekFilter) > 0;
   const canGoToOlderWindow =
@@ -1108,27 +1371,123 @@ export default function TimesheetListPage() {
               </select>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-                setWeekFilter("all");
-                setWeekWindowOffset(0);
-                setSortBy("attention");
-                updateFiltersInUrl({
-                  q: "",
-                  status: "all",
-                  week: "all",
-                  wo: 0,
-                  sort: "attention",
-                }, { history: "push" });
-              }}
-              style={{ ...btn("ghost"), minHeight: 36 }}
-            >
-              <RefreshCcw size={14} /> Reset
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setWeekFilter("all");
+                  setWeekWindowOffset(0);
+                  setSortBy("attention");
+                  updateFiltersInUrl({
+                    q: "",
+                    status: "all",
+                    week: "all",
+                    wo: 0,
+                    sort: "attention",
+                  }, { history: "push" });
+                }}
+                style={{ ...btn("ghost"), minHeight: 36 }}
+              >
+                <RefreshCcw size={14} /> Reset
+              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((current) => !current)}
+                  style={{ ...btn("ghost"), minHeight: 36 }}
+                  title="Hide people from this timesheet overview"
+                >
+                  <Settings2 size={14} /> Settings
+                  {hiddenEmployeeKeys.length ? ` (${hiddenEmployeeKeys.length})` : ""}
+                </button>
+              ) : null}
+            </div>
           </div>
+
+          {isAdmin && settingsOpen ? (
+            <section style={{ ...cardStyle, marginBottom: UI.gap, padding: 14 }}>
+              <div style={{ ...sectionHeader, marginBottom: 10 }}>
+                <div>
+                  <h2 style={titleMd}>Timesheet Display Settings</h2>
+                  <div style={hint}>Tick people who should be hidden from this overview.</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setHiddenEmployeeKeys([])}
+                    style={{ ...btn("ghost"), minHeight: 34 }}
+                  >
+                    Show all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveTimesheetDisplaySettings}
+                    disabled={settingsSaving}
+                    style={{ ...btn("primary"), minHeight: 34, cursor: settingsSaving ? "not-allowed" : "pointer" }}
+                  >
+                    {settingsSaving ? "Saving..." : "Save settings"}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 8,
+                  maxHeight: 320,
+                  overflowY: "auto",
+                  paddingRight: 4,
+                }}
+              >
+                {settingsEmployees.map((employee) => {
+                  const hideKey = getTimesheetEmployeeHideKey(employee);
+                  if (!hideKey) return null;
+                  const checked = hiddenEmployeeKeys.map(cleanIdentityValue).includes(hideKey);
+                  const label = employee.name || employee.fullName || employee.employeeName || "Unnamed employee";
+                  const code = employee.userCode || employee.employeeCode || employee.code || "";
+                  return (
+                    <label
+                      key={hideKey}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 9px",
+                        border: UI.border,
+                        borderRadius: UI.radiusSm,
+                        background: checked ? "#fff7ed" : "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          setHiddenEmployeeKeys((current) => {
+                            const set = new Set(current.map(cleanIdentityValue).filter(Boolean));
+                            if (event.target.checked) set.add(hideKey);
+                            else set.delete(hideKey);
+                            return Array.from(set);
+                          });
+                        }}
+                      />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 800, color: UI.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {label}
+                        </span>
+                        <span style={{ display: "block", fontSize: 11, color: UI.muted }}>
+                          {code || "No code"}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
 
           {loading ? (
             <div
@@ -1308,9 +1667,9 @@ export default function TimesheetListPage() {
                       const ts = emp.timesheets.find((t) => t.weekStart === weekStart);
                       const status = getTimesheetStatus(ts);
                       const lastUpdateMs = ts ? getTimesheetUpdatedMs(ts) : 0;
-                      const weeklyHours = ts ? getTimesheetWeekHours(ts) : 0;
+                      const weeklyHours = ts ? getTimesheetWeekHours(ts, emp.employee) : 0;
                       const showWeeklyHours = !!ts && (ts.submitted || status.key === "approved");
-                      const canApprove = !!ts && status.key === "submitted";
+                      const canApprove = isAdmin && !!ts && status.key === "submitted";
                       const isApproving = approvingId === ts?.id;
                       const lastUpdateText =
                         lastUpdateMs > 0

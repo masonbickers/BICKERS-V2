@@ -655,7 +655,14 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   const [quoteNumber, setQuoteNumber] = useState("");
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
+  const [production, setProduction] = useState("");
   const [location, setLocation] = useState("");
+  const [showInvoicingDetails, setShowInvoicingDetails] = useState(false);
+  const [po, setPo] = useState("");
+  const [invoiceContactName, setInvoiceContactName] = useState("");
+  const [invoiceContactEmail, setInvoiceContactEmail] = useState("");
+  const [invoiceContactPhone, setInvoiceContactPhone] = useState("");
+  const [invoiceDocumentFile, setInvoiceDocumentFile] = useState(null);
 
   const [status, setStatus] = useState(statusFromQuery);
   const [shootType, setShootType] = useState("Day");
@@ -779,10 +786,10 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production to save"
+      ? "Fill Production Company to save"
       : ""
     : !coreFilled
-    ? "Fill Production and Location to save"
+    ? "Fill Production Company and Location to save"
     : "";
 
   const hotelTotal =
@@ -799,7 +806,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       quoteNumbers,
       jobNumber,
       client,
+      production,
       location,
+      showInvoicingDetails,
+      po,
+      invoiceContactName,
+      invoiceContactEmail,
+      invoiceContactPhone,
       status,
       shootType,
       statusReasons,
@@ -838,7 +851,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       quoteNumbers,
       jobNumber,
       client,
+      production,
       location,
+      showInvoicingDetails,
+      po,
+      invoiceContactName,
+      invoiceContactEmail,
+      invoiceContactPhone,
       status,
       shootType,
       statusReasons,
@@ -877,6 +896,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   const hasMeaningfulDraft = useMemo(() => {
     return Boolean(
       (client || "").trim() ||
+        (production || "").trim() ||
         (location || "").trim() ||
         (notes || "").trim() ||
         (statusReasonOther || "").trim() ||
@@ -916,6 +936,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     callTime,
     callTimesByDate,
     client,
+    production,
     customDates,
     customEmployee,
     employees,
@@ -970,7 +991,21 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       };
     }
 
+    const eligible = selectedVehicleDetails.filter((v) => isOffRoadAllowedGroup(v.group));
     const ineligible = selectedVehicleDetails.filter((v) => !isOffRoadAllowedGroup(v.group));
+
+    if (!eligible.length) {
+      const names = ineligible
+        .map((v) => v.name || v.registration || "Vehicle")
+        .slice(0, 3)
+        .join(", ");
+      return {
+        eligible: false,
+        reason: `Select a Bike / Electric Tracking Vehicle / Small Tracking Vehicle first. Selected: ${names}`,
+        eligibleVehicles: [],
+        ineligible,
+      };
+    }
 
     if (ineligible.length) {
       const names = ineligible
@@ -978,13 +1013,14 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
         .slice(0, 3)
         .join(", ");
       return {
-        eligible: false,
-        reason: `Only Bike / Electric Tracking Vehicles / Small Tracking Vehicles are allowed. Ineligible: ${names}`,
+        eligible: true,
+        reason: `Applies to eligible off-road vehicles only. Still checking road legality for: ${names}`,
+        eligibleVehicles: eligible,
         ineligible,
       };
     }
 
-    return { eligible: true, reason: "", ineligible: [] };
+    return { eligible: true, reason: "", eligibleVehicles: eligible, ineligible: [] };
   }, [selectedVehicleDetails, vehicles]);
 
   /* ────────────────────────────────────────────────────────────
@@ -1150,7 +1186,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     setQuoteNumber(quoteNumberInputValue(saved));
     setJobNumber(saved.jobNumber || "");
     setClient(saved.client || "");
+    setProduction(saved.production || "");
     setLocation(saved.location || "");
+    setShowInvoicingDetails(Boolean(saved.showInvoicingDetails || saved.po || saved.invoiceContactName || saved.invoiceContactEmail || saved.invoiceContactPhone));
+    setPo(saved.po || "");
+    setInvoiceContactName(saved.invoiceContactName || "");
+    setInvoiceContactEmail(saved.invoiceContactEmail || "");
+    setInvoiceContactPhone(saved.invoiceContactPhone || "");
     setStatus(saved.status || "Confirmed");
     setShootType(saved.shootType || "Day");
     setStatusReasons(Array.isArray(saved.statusReasons) ? saved.statusReasons : []);
@@ -1763,7 +1805,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(client || "").trim()) missing.push("Production");
+      if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return alert("Please provide: " + missing.join(", ") + ".");
     }
@@ -1902,8 +1944,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     }
 
     let nextAttachments = [...(attachments || [])];
+    let nextInvoiceDocument = null;
 
-    if (newFiles.length > 0) {
+    if (newFiles.length > 0 || invoiceDocumentFile) {
       const uploaded = [];
       const { storage, ref, uploadBytesResumable, getDownloadURL } =
         await getFirebaseStorageTools();
@@ -1949,6 +1992,54 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       }
 
       nextAttachments = [...nextAttachments, ...uploaded];
+
+      if (invoiceDocumentFile) {
+        const safeName = `${jobNumber || "nojob"}_invoice_${invoiceDocumentFile.name}`.replace(/\s+/g, "_");
+        const storagePath = companyStoragePath(dataAccessState, `invoice_documents/${safeName}`);
+        const storageRef = ref(storage, storagePath);
+        const contentType =
+          invoiceDocumentFile.type ||
+          (safeName.toLowerCase().endsWith(".pdf")
+            ? "application/pdf"
+            : safeName.toLowerCase().endsWith(".docx")
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : safeName.toLowerCase().endsWith(".doc")
+            ? "application/msword"
+            : safeName.toLowerCase().endsWith(".xlsx")
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : safeName.toLowerCase().endsWith(".xls")
+            ? "application/vnd.ms-excel"
+            : safeName.toLowerCase().endsWith(".csv")
+            ? "text/csv"
+            : safeName.toLowerCase().endsWith(".jpg") || safeName.toLowerCase().endsWith(".jpeg")
+            ? "image/jpeg"
+            : safeName.toLowerCase().endsWith(".png")
+            ? "image/png"
+            : "application/octet-stream");
+
+        const task = uploadBytesResumable(storageRef, invoiceDocumentFile, { contentType });
+
+        await new Promise((resolve, reject) => {
+          task.on(
+            "state_changed",
+            (snap) => setPdfProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+            (err) => reject(err),
+            async () => {
+              const url = await getDownloadURL(task.snapshot.ref);
+              nextInvoiceDocument = {
+                url,
+                name: invoiceDocumentFile.name,
+                contentType,
+                size: invoiceDocumentFile.size,
+                storagePath,
+                uploadedAt: new Date().toISOString(),
+                purpose: "invoice-details",
+              };
+              resolve();
+            }
+          );
+        });
+      }
     }
 
     const firstUrl = nextAttachments[0]?.url || null;
@@ -1999,7 +2090,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       quoteNumbers: quoteNumbersForSave,
       jobNumber,
       client,
+      production,
       location,
+      po: String(po || "").trim(),
+      invoiceContactName: String(invoiceContactName || "").trim(),
+      invoiceContactEmail: String(invoiceContactEmail || "").trim(),
+      invoiceContactPhone: String(invoiceContactPhone || "").trim(),
+      invoiceDocument: nextInvoiceDocument,
 
       employees: cleanedEmployees,
       employeesByDate: employeesByDatePayload,
@@ -2106,6 +2203,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
       setPdfProgress(0);
       setNewFiles([]);
+      setInvoiceDocumentFile(null);
       if (activeDraftId) {
         removeDraftEntry(activeDraftId);
         setActiveDraftId("");
@@ -2175,13 +2273,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   />
                   Off Road Tracking
                 </label>
-                {!offRoadEligibility.eligible ? (
-                  <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
-                ) : (
-                  <div style={{ fontSize: 12, color: UI.muted }}>
-                    Skips tax/SORN compliance only. Insurance is still required.
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: UI.muted }}>
+                  {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
+                </div>
               </div>
             </div>
           </div>
@@ -2302,8 +2396,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <option value="Night">Night</option>
                 </select>
 
-                <label style={field.label}>Production</label>
+                <label style={field.label}>Production Company</label>
                 <input value={client} onChange={(e) => setClient(e.target.value)} style={field.input} required={!isMaintenance} />
+
+                <label style={field.label}>Production</label>
+                <input value={production} onChange={(e) => setProduction(e.target.value)} style={field.input} />
 
                 {/* Contacts block only */}
                 <div
@@ -2450,6 +2547,48 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   style={field.input}
                   required
                 />
+                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
+                    Add invoicing details
+                  </label>
+                  {showInvoicingDetails && (
+                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Purchase Order (PO)</label>
+                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                        <div>
+                          <label style={{ ...field.label, marginTop: 0 }}>Invoicing contact</label>
+                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Name" />
+                        </div>
+                        <div>
+                          <label style={{ ...field.label, marginTop: 0 }}>Email</label>
+                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="accounts@example.com" />
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Phone</label>
+                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Optional phone number" />
+                      </div>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Invoice details document</label>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
+                          onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
+                          style={{ ...field.input, height: "auto", padding: 10, background: "#fff" }}
+                        />
+                        {invoiceDocumentFile && (
+                          <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
+                            {invoiceDocumentFile.name} selected - it will upload on Save.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
                   <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                     <input type="checkbox" checked={hasRiggingAddress} onChange={(e) => setHasRiggingAddress(e.target.checked)} />
@@ -3156,7 +3295,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>
-                    <SummaryRow label="Client">{client || "-"}</SummaryRow>
+                    <SummaryRow label="Production Company">{client || "-"}</SummaryRow>
+                    <SummaryRow label="Production">{production || "-"}</SummaryRow>
                   </div>
 
                   <div style={summarySection}>

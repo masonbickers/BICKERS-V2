@@ -371,6 +371,9 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           bookingStatus: "Appointment",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: appointmentItems.map((item) => item.label),
+          requiresMaintenanceDocuments: true,
+          requiresBrakeTestDocument: appointmentItems.some((item) => item.key === "brake_test"),
+          requiresPmiDocument: appointmentItems.some((item) => item.key === "pmi"),
           start,
           end: addDaysToDate(start, 1),
           allDay: true,
@@ -397,18 +400,28 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
         date: item?.completedDate,
         label: "Brake test",
         completedAt: item?.completedAt || "",
+        documents: Array.isArray(item?.documents) ? item.documents : [],
       })),
       ...(Array.isArray(vehicle.pmiHistory) ? vehicle.pmiHistory : []).map((item) => ({
         key: "pmi",
         date: item?.completedDate,
         label: "PMI inspection",
         completedAt: item?.completedAt || "",
+        documents: Array.isArray(item?.documents) ? item.documents : [],
       })),
     ].reduce((acc, item) => {
       const dateKey = toYmdDate(item.date);
       if (!dateKey) return acc;
       if (!acc[dateKey]) acc[dateKey] = [];
-      if (acc[dateKey].some((existing) => existing.key === item.key)) return acc;
+      const existing = acc[dateKey].find((row) => row.key === item.key);
+      if (existing) {
+        existing.documents = [
+          ...(Array.isArray(existing.documents) ? existing.documents : []),
+          ...(Array.isArray(item.documents) ? item.documents : []),
+        ];
+        existing.completedAt = [existing.completedAt, item.completedAt].filter(Boolean).sort().at(-1) || "";
+        return acc;
+      }
       acc[dateKey].push(item);
       return acc;
     }, {});
@@ -418,6 +431,13 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
         const start = startOfLocalDay(dateKey);
         if (!start || !appointmentItems.length) return null;
         const appointmentLabel = `${appointmentItems.map((item) => item.label).join(" / ")} appointment`;
+        const documents = appointmentItems.flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
+        const brakeDocuments = appointmentItems
+          .filter((item) => item.key === "brake_test")
+          .flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
+        const pmiDocuments = appointmentItems
+          .filter((item) => item.key === "pmi")
+          .flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
         return {
           id: `completed-appointment:${vehicleId}:${dateKey}:${appointmentItems.map((item) => item.key).join("_")}`,
           __collection: "vehicleDueDates",
@@ -429,6 +449,13 @@ export const buildVehicleDueEvents = (vehicles, options = {}) => {
           bookingStatus: "Completed",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: appointmentItems.map((item) => item.label),
+          documents,
+          hasMaintenanceDocuments: documents.length > 0,
+          requiresMaintenanceDocuments: true,
+          requiresBrakeTestDocument: appointmentItems.some((item) => item.key === "brake_test"),
+          requiresPmiDocument: appointmentItems.some((item) => item.key === "pmi"),
+          hasBrakeTestDocument: brakeDocuments.length > 0,
+          hasPmiDocument: pmiDocuments.length > 0,
           completedAt: appointmentItems.map((item) => item.completedAt).filter(Boolean).sort().at(-1) || dateKey,
           start,
           end: addDaysToDate(start, 1),

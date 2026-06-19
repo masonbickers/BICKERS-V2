@@ -1,0 +1,46 @@
+﻿[
+    {
+        "file":  "Pod Car Hire 2026.xls",
+        "path":  "C:\\Users\\MasonBickers\\Bickers Action\\Bickers Action - Documents\\ALL WORKING DOCs\\Tracking Quotes 2026 TV, Film, Commercial\\POD Car\\Pod Car Hire 2026.xls",
+        "sheet":  "Bickers Action Quote",
+        "rows":  429,
+        "columns":  7,
+        "header":  {
+                       "quoteDate":  "15/06/2026",
+                       "jobNo":  "2026",
+                       "quoteNo":  "",
+                       "productionCompany":  "",
+                       "production":  "",
+                       "productionContact":  "",
+                       "location":  "",
+                       "shootDates":  "",
+                       "bickersContact":  "",
+                       "serviceDescription":  "Pod Car  / Top Driver Car"
+                   },
+        "totals":  [
+
+                   ]
+    },
+    {
+        "file":  "Pod Car Build 2026.xls",
+        "path":  "C:\\Users\\MasonBickers\\Bickers Action\\Bickers Action - Documents\\ALL WORKING DOCs\\Tracking Quotes 2026 TV, Film, Commercial\\POD Car\\Pod Car Build 2026.xls",
+        "sheet":  "Bickers Action Quote",
+        "rows":  430,
+        "columns":  7,
+        "header":  {
+                       "quoteDate":  "15/06/2026",
+                       "jobNo":  "",
+                       "quoteNo":  "",
+                       "productionCompany":  "",
+                       "production":  "",
+                       "productionContact":  "",
+                       "location":  "",
+                       "shootDates":  "",
+                       "bickersContact":  "",
+                       "serviceDescription":  "Pod Car  Build"
+                   },
+        "totals":  [
+
+                   ]
+    }
+]

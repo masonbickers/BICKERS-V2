@@ -120,6 +120,14 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
 
+const OFF_ROAD_ALLOWED_GROUPS = new Set([
+  "bike",
+  "electric tracking vehicles",
+  "small tracking vehicles",
+]);
+const isOffRoadAllowedGroup = (group) =>
+  OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
+
 /*
    New styling tokens (match your HR page)
 */
@@ -148,6 +156,107 @@ const pageWrap = {
   padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
+};
+
+const quoteOverlayBackdrop = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 140,
+  background: "rgba(2,6,23,0.66)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 4,
+};
+
+const quoteOverlayPanel = {
+  width: "min(900px, 99vw)",
+  height: "min(760px, calc(100vh - 8px))",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  background: "#fff",
+  border: "1px solid #cbd5e1",
+  borderRadius: 10,
+  boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
+  overflow: "hidden",
+};
+
+const quoteOverlayHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "7px 10px",
+  borderBottom: "1px solid #dbe4ef",
+  background: "#f8fafc",
+};
+
+const quoteOverlayEyebrow = {
+  color: UI.muted,
+  fontSize: 10.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+};
+
+const quoteOverlayTitle = {
+  color: UI.text,
+  fontSize: 15,
+  lineHeight: 1.2,
+  fontWeight: 900,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const quoteOverlayMeta = {
+  marginTop: 2,
+  color: UI.muted,
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const quoteOverlayActions = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const quoteOverlayButton = {
+  minHeight: 34,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  border: "1px solid #cbd5e1",
+  borderRadius: 8,
+  background: "#fff",
+  color: UI.text,
+  padding: "6px 10px",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const quoteOverlayPrimaryButton = {
+  ...quoteOverlayButton,
+  background: UI.brand,
+  borderColor: UI.brand,
+  color: "#fff",
+};
+
+const quoteOverlayCloseButton = {
+  ...quoteOverlayButton,
+  width: 34,
+  padding: 0,
+};
+
+const quoteOverlayFrame = {
+  width: "100%",
+  height: "100%",
+  border: 0,
+  background: "#fff",
 };
 
 const headerBar = {
@@ -626,6 +735,14 @@ const startOfLocalDay = (d) => {
   return x;
 };
 
+const startOfIsoWeek = (value) => {
+  const x = startOfLocalDay(value);
+  if (Number.isNaN(x.getTime())) return x;
+  const day = x.getDay() || 7;
+  x.setDate(x.getDate() + 1 - day);
+  return x;
+};
+
 const addWeeksToLocalDate = (value, weeks) => {
   const base = parseLocalDate(value);
   if (!base) return "";
@@ -1032,8 +1149,15 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const targetStart = startOfLocalDay(nextStart);
   if (!targetStart || Number.isNaN(targetStart.getTime())) return null;
 
-  const dateKey = ymd(targetStart);
-  if (!dateKey) return null;
+  const currentStart = startOfLocalDay(event?.appointmentDateISO || event?.start);
+  if (!currentStart || Number.isNaN(currentStart.getTime())) return null;
+
+  const currentWeekStart = startOfIsoWeek(currentStart);
+  const targetWeekStart = startOfIsoWeek(targetStart);
+  const weekDelta = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000));
+  const effectiveDate = addDays(currentStart, weekDelta * 7);
+  const dateKey = ymd(effectiveDate);
+  if (!dateKey || !weekDelta) return null;
 
   const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
     ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
@@ -1275,6 +1399,79 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
   return all;
 };
 
+const getEventQuoteNumber = (event = {}) => {
+  const latestQuote = Array.isArray(event.quoteVersions) && event.quoteVersions.length
+    ? event.quoteVersions
+        .filter((entry) => entry && typeof entry === "object")
+        .sort((a, b) => {
+          const aTime = new Date(a.savedAt || a.updatedAt || a.createdAt || 0).getTime() || 0;
+          const bTime = new Date(b.savedAt || b.updatedAt || b.createdAt || 0).getTime() || 0;
+          if (bTime !== aTime) return bTime - aTime;
+          return String(b.quoteNumber || "").localeCompare(String(a.quoteNumber || ""));
+        })[0]
+    : null;
+
+  return String(
+    event.acceptedQuoteNumber ||
+      latestQuote?.quoteNumber ||
+      event.quote?.quoteNumber ||
+      event.quoteNumber ||
+      (Array.isArray(event.quoteNumbers) ? event.quoteNumbers.at(-1) : "") ||
+      ""
+  ).trim();
+};
+
+const splitQuoteRevision = (quoteNumber = "") => {
+  const text = String(quoteNumber || "").trim();
+  const match = text.match(/^(.+)\.(\d+)$/);
+  return {
+    publicNumber: (match ? match[1] : text).trim(),
+    revision: match?.[2] ? Number(match[2]) : 0,
+  };
+};
+
+const getEventQuoteOptions = (event = {}) => {
+  const versions = Array.isArray(event.quoteVersions)
+    ? event.quoteVersions.filter((entry) => entry && typeof entry === "object" && entry.quoteNumber)
+    : [];
+  const latestByPublicNumber = new Map();
+
+  versions.forEach((entry) => {
+    const { publicNumber, revision } = splitQuoteRevision(entry.quoteNumber);
+    const key = publicNumber.toLowerCase();
+    const existing = latestByPublicNumber.get(key);
+    const existingRevision = splitQuoteRevision(existing?.quoteNumber).revision;
+    const existingTime = new Date(existing?.savedAt || existing?.updatedAt || existing?.createdAt || 0).getTime() || 0;
+    const entryTime = new Date(entry.savedAt || entry.updatedAt || entry.createdAt || 0).getTime() || 0;
+    if (!existing || revision > existingRevision || (revision === existingRevision && entryTime >= existingTime)) {
+      latestByPublicNumber.set(key, { quoteNumber: entry.quoteNumber, label: publicNumber, savedAt: entry.savedAt || entry.updatedAt || "" });
+    }
+  });
+
+  const addFallback = (quoteNumber) => {
+    const text = String(quoteNumber || "").trim();
+    if (!text) return;
+    const { publicNumber } = splitQuoteRevision(text);
+    const key = publicNumber.toLowerCase();
+    if (!latestByPublicNumber.has(key)) {
+      latestByPublicNumber.set(key, { quoteNumber: text, label: publicNumber, savedAt: "" });
+    }
+  };
+
+  addFallback(event.acceptedQuoteNumber);
+  addFallback(event.quote?.quoteNumber);
+  addFallback(event.quoteNumber);
+  (Array.isArray(event.quoteNumbers) ? event.quoteNumbers : []).forEach(addFallback);
+
+  const acceptedPublicNumber = splitQuoteRevision(event.acceptedQuoteNumber).publicNumber.toLowerCase();
+  return Array.from(latestByPublicNumber.values()).sort((a, b) => {
+    const aAccepted = splitQuoteRevision(a.quoteNumber).publicNumber.toLowerCase() === acceptedPublicNumber;
+    const bAccepted = splitQuoteRevision(b.quoteNumber).publicNumber.toLowerCase() === acceptedPublicNumber;
+    if (aAccepted !== bAccepted) return aAccepted ? -1 : 1;
+    return String(a.label || a.quoteNumber).localeCompare(String(b.label || b.quoteNumber));
+  });
+};
+
 //  NEW: get crew needed / required (supports multiple field names + role arrays)
 const getCrewNeeded = (bookingOrEvent) => {
   const b = bookingOrEvent || {};
@@ -1346,7 +1543,7 @@ function EventMetaBadge({ Icon, good, title, children }) {
 }
 
 /* --------------------- CalendarEvent (booking block minimal) ----------------- */
-function CalendarEvent({ event }) {
+function CalendarEvent({ event, onViewQuote }) {
   const router = useRouter();
   const [showNotes, setShowNotes] = useState(false);
 
@@ -1406,6 +1603,9 @@ function CalendarEvent({ event }) {
 
   //  NEW: "Crewed" handling (no crew-needed counts once crewed)
   const isCrewed = !isMaintenance && !!event.isCrewed;
+  const quoteNumberForView = !isMaintenance && !isNote ? getEventQuoteNumber(event) : "";
+  const quoteOptionsForView = !isMaintenance && !isNote ? getEventQuoteOptions(event) : [];
+  const canViewQuote = Boolean(quoteNumberForView && quoteOptionsForView.length);
 
   if (isNote) {
     return (
@@ -1556,6 +1756,40 @@ function CalendarEvent({ event }) {
               >
                 {event.jobNumber}
               </span>
+              {canViewQuote ? (
+                <button
+                  type="button"
+                  onClick={(clickEvent) => {
+                    clickEvent.preventDefault();
+                    clickEvent.stopPropagation();
+                    onViewQuote?.({
+                      bookingId: event.__bookingId || event.id,
+                      jobNumber: event.jobNumber || "",
+                      client: event.client || event.title || "Quote",
+                      quoteOptions: quoteOptionsForView,
+                      initialQuoteNumber: quoteNumberForView,
+                    });
+                  }}
+                  title={`View quote ${quoteNumberForView}`}
+                  aria-label={`View quote ${quoteNumberForView}`}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "1px solid #0b0b0b",
+                    borderRadius: 6,
+                    background: "#ffffff",
+                    color: "#0b0b0b",
+                    padding: 0,
+                    cursor: "pointer",
+                    boxShadow: "0 1px 0 rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <FileText size={14} strokeWidth={2.7} />
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -1564,6 +1798,26 @@ function CalendarEvent({ event }) {
             <span style={{ fontSize: "0.8rem", fontWeight: 900 }}>
               {event.maintenanceTypeLabel || "MAINTENANCE"}
             </span>
+          )}
+
+          {isMaintenance && event.requiresBrakeTestDocument && (
+            <EventMetaBadge
+              Icon={FileText}
+              good={!!event.hasBrakeTestDocument}
+              title={event.hasBrakeTestDocument ? "Brake test document attached" : "No brake test document"}
+            >
+              BT
+            </EventMetaBadge>
+          )}
+
+          {isMaintenance && event.requiresPmiDocument && (
+            <EventMetaBadge
+              Icon={FileText}
+              good={!!event.hasPmiDocument}
+              title={event.hasPmiDocument ? "PMI document attached" : "No PMI document"}
+            >
+              PMI
+            </EventMetaBadge>
           )}
 
           {/*  Call Time line (shows correctly for single day + recce day + multi-day) */}
@@ -1598,6 +1852,7 @@ function CalendarEvent({ event }) {
 
               const isSornOrUntaxed = ["sorn", "untaxed", "no tax"].includes(tax);
               const isUninsured = ["not insured", "uninsured", "no insurance"].includes(ins);
+              const offRoadTrackingApplies = Boolean(event.offRoadTracking) && isOffRoadAllowedGroup(v?.group);
 
               const bookingStatus = String(event.status || "").trim().toLowerCase();
               const isConfirmed = bookingStatus === "confirmed";
@@ -1633,7 +1888,7 @@ function CalendarEvent({ event }) {
               if (
                 isConfirmed &&
                 isCurrentOrFutureJob &&
-                ((isSornOrUntaxed && !event.offRoadTracking) || isUninsured)
+                ((isSornOrUntaxed && !offRoadTrackingApplies) || isUninsured)
               ) {
                 return (
                   <span
@@ -2355,6 +2610,62 @@ function holidayNotesEventPropGetter(event) {
   };
 }
 
+function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
+  if (!viewer?.bookingId || !Array.isArray(viewer.quoteOptions) || !viewer.quoteOptions.length) return null;
+
+  const currentIndex = Math.max(0, Math.min(Number(viewer.index) || 0, viewer.quoteOptions.length - 1));
+  const currentQuote = viewer.quoteOptions[currentIndex];
+  const quoteSrc = `/quote-view/${encodeURIComponent(viewer.bookingId)}?quote=${encodeURIComponent(currentQuote.quoteNumber)}&embed=1`;
+  const editHref = `/quote/${encodeURIComponent(viewer.bookingId)}?quote=${encodeURIComponent(currentQuote.quoteNumber)}`;
+  const hasMany = viewer.quoteOptions.length > 1;
+
+  return (
+    <div
+      style={quoteOverlayBackdrop}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <div style={quoteOverlayPanel} onMouseDown={(event) => event.stopPropagation()}>
+        <div style={quoteOverlayHeader}>
+          <div style={{ minWidth: 0 }}>
+            <div style={quoteOverlayEyebrow}>Quote View</div>
+            <div style={quoteOverlayTitle}>
+              {viewer.jobNumber ? `#${viewer.jobNumber} - ` : ""}
+              {viewer.client || "Quote"}
+            </div>
+            <div style={quoteOverlayMeta}>
+              {currentQuote.label || currentQuote.quoteNumber}
+              {hasMany ? ` (${currentIndex + 1} of ${viewer.quoteOptions.length})` : ""}
+            </div>
+          </div>
+          <div style={quoteOverlayActions}>
+            {hasMany ? (
+              <>
+                <button type="button" style={quoteOverlayButton} onClick={() => onMove?.(-1)}>
+                  <ChevronLeft size={15} />
+                  Previous
+                </button>
+                <button type="button" style={quoteOverlayButton} onClick={() => onMove?.(1)}>
+                  Next
+                  <ChevronRight size={15} />
+                </button>
+              </>
+            ) : null}
+            <button type="button" style={quoteOverlayPrimaryButton} onClick={() => window.open(editHref, "_blank", "noopener,noreferrer")}>
+              Edit
+            </button>
+            <button type="button" style={quoteOverlayCloseButton} onClick={onClose} aria-label="Close quote viewer">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <iframe title="Quote viewer" src={quoteSrc} style={quoteOverlayFrame} />
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------- Page component ----------------------------- */
 export default function DashboardPage({ bookingSaved, initialDate = "", initialView = "week" }) {
   const router = useRouter();
@@ -2394,6 +2705,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createBookingProgress, setCreateBookingProgress] = useState(0);
   const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
+  const [quoteViewer, setQuoteViewer] = useState(null);
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -2417,6 +2729,33 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     setSelectedDeletedId(null);
   }, []);
 
+  const openQuoteViewer = useCallback((payload) => {
+    const quoteOptions = Array.isArray(payload?.quoteOptions) ? payload.quoteOptions.filter((option) => option?.quoteNumber) : [];
+    if (!payload?.bookingId || !quoteOptions.length) return;
+    const initialIndex = Math.max(
+      0,
+      quoteOptions.findIndex((option) => option.quoteNumber === payload.initialQuoteNumber)
+    );
+    setQuoteViewer({
+      bookingId: payload.bookingId,
+      jobNumber: payload.jobNumber || "",
+      client: payload.client || "",
+      quoteOptions,
+      index: initialIndex,
+    });
+  }, []);
+
+  const moveQuoteViewer = useCallback((direction) => {
+    setQuoteViewer((current) => {
+      if (!current?.quoteOptions?.length) return current;
+      const total = current.quoteOptions.length;
+      return {
+        ...current,
+        index: (Number(current.index || 0) + direction + total) % total,
+      };
+    });
+  }, []);
+
   const selectedBooking = useMemo(
     () => bookings.find((booking) => booking.id === selectedBookingId) || null,
     [bookings, selectedBookingId]
@@ -2426,6 +2765,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [maintenanceDate, setMaintenanceDate] = useState(() => getDashboardInitialDate(initialDate));
   const [showDeletedInView, setShowDeletedInView] = useState(true);
   const [showInactiveInView, setShowInactiveInView] = useState(true);
+  const [hidePrefsLoadedForUser, setHidePrefsLoadedForUser] = useState(null);
   const shiftByDays = (date, days) => {
     const d = new Date(date);
     d.setDate(d.getDate() + days);
@@ -2510,13 +2850,22 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   }, [createEnquiryOpening]);
 
   useEffect(() => {
-    if (!authReady || !userEmail) return;
+    if (!authReady || !userEmail) {
+      setHidePrefsLoadedForUser(null);
+      return;
+    }
     try {
       const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
-      if (!raw) return;
+      if (!raw) {
+        setHidePrefsLoadedForUser(userEmail);
+        return;
+      }
       const all = JSON.parse(raw);
       const prefs = all?.[userEmail];
-      if (!prefs || typeof prefs !== "object") return;
+      if (!prefs || typeof prefs !== "object") {
+        setHidePrefsLoadedForUser(userEmail);
+        return;
+      }
 
       if (typeof prefs.showInactiveInView === "boolean") {
         setShowInactiveInView(prefs.showInactiveInView);
@@ -2526,11 +2875,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       }
     } catch {
       // ignore malformed localStorage
+    } finally {
+      setHidePrefsLoadedForUser(userEmail);
     }
   }, [authReady, userEmail]);
 
   useEffect(() => {
     if (!authReady || !userEmail) return;
+    if (hidePrefsLoadedForUser !== userEmail) return;
     try {
       const raw = localStorage.getItem(DASHBOARD_HIDE_PREFS_KEY);
       const all = raw ? JSON.parse(raw) : {};
@@ -2542,7 +2894,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     } catch {
       // ignore storage errors
     }
-  }, [authReady, userEmail, showInactiveInView, showDeletedInView]);
+  }, [authReady, userEmail, hidePrefsLoadedForUser, showInactiveInView, showDeletedInView]);
 
   const goToCreateBooking = useCallback(() => {
     if (isRestricted || createBookingOpening || createEnquiryOpening) return;
@@ -2811,7 +3163,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       const tax = String(v.taxStatus ?? "").trim().toLowerCase();
       const ins = String(v.insuranceStatus ?? "").trim().toLowerCase();
       const motDue = getCanonicalDueDate(v, "mot");
-      if (!offRoadTracking && (tax === "sorn" || tax === "untaxed" || tax === "no tax"))
+      const offRoadTrackingApplies = offRoadTracking && isOffRoadAllowedGroup(v.group);
+      if (!offRoadTrackingApplies && (tax === "sorn" || tax === "untaxed" || tax === "no tax"))
         reasons.push(`UN-TAXED / SORN: ${name}${plate}`);
       if (ins === "not insured" || ins === "uninsured" || ins === "no insurance")
         reasons.push(`NO INSURANCE: ${name}${plate}`);
@@ -3272,6 +3625,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           bookingStatus: "Appointment",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: items.map((item) => item.label),
+          requiresMaintenanceDocuments: true,
+          requiresBrakeTestDocument: items.some((item) => item.key === "brake_test"),
+          requiresPmiDocument: items.some((item) => item.key === "pmi"),
         });
       });
 
@@ -3293,18 +3649,28 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           date: item?.completedDate,
           label: "Brake test",
           completedAt: item?.completedAt || "",
+          documents: Array.isArray(item?.documents) ? item.documents : [],
         })),
         ...(Array.isArray(v.pmiHistory) ? v.pmiHistory : []).map((item) => ({
           key: "pmi",
           date: item?.completedDate,
           label: "PMI inspection",
           completedAt: item?.completedAt || "",
+          documents: Array.isArray(item?.documents) ? item.documents : [],
         })),
       ].reduce((acc, item) => {
         const dateKey = ymd(item.date);
         if (!dateKey) return acc;
         if (!acc[dateKey]) acc[dateKey] = [];
-        if (acc[dateKey].some((existing) => existing.key === item.key)) return acc;
+        const existing = acc[dateKey].find((row) => row.key === item.key);
+        if (existing) {
+          existing.documents = [
+            ...(Array.isArray(existing.documents) ? existing.documents : []),
+            ...(Array.isArray(item.documents) ? item.documents : []),
+          ];
+          existing.completedAt = [existing.completedAt, item.completedAt].filter(Boolean).sort().at(-1) || "";
+          return acc;
+        }
         acc[dateKey].push(item);
         return acc;
       }, {});
@@ -3313,6 +3679,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         const date = startOfLocalDay(dateKey);
         if (!date || !items.length) return;
         const appointmentLabel = `${items.map((item) => item.label).join(" / ")} appointment`;
+        const documents = items.flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
+        const brakeDocuments = items
+          .filter((item) => item.key === "brake_test")
+          .flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
+        const pmiDocuments = items
+          .filter((item) => item.key === "pmi")
+          .flatMap((item) => (Array.isArray(item.documents) ? item.documents : []));
         out.push({
           id: `completed_additional_maintenance_appointment__${vehicleId}__${dateKey}__${items
             .map((item) => item.key)
@@ -3330,6 +3703,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           bookingStatus: "Completed",
           maintenanceTypeLabel: appointmentLabel,
           maintenanceTypes: items.map((item) => item.label),
+          documents,
+          hasMaintenanceDocuments: documents.length > 0,
+          requiresMaintenanceDocuments: true,
+          requiresBrakeTestDocument: items.some((item) => item.key === "brake_test"),
+          requiresPmiDocument: items.some((item) => item.key === "pmi"),
+          hasBrakeTestDocument: brakeDocuments.length > 0,
+          hasPmiDocument: pmiDocuments.length > 0,
           completedAt: items.map((item) => item.completedAt).filter(Boolean).sort().at(-1) || dateKey,
         });
       });
@@ -4067,7 +4447,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   }
                 }
               }}
-              components={{ event: CalendarEvent }}
+              components={{ event: (props) => <CalendarEvent {...props} onViewQuote={openQuoteViewer} /> }}
               eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
@@ -4720,6 +5100,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           onClose={handleCloseBookingModal}
         />
       )}
+      <QuoteDashboardOverlay
+        viewer={quoteViewer}
+        onClose={() => setQuoteViewer(null)}
+        onMove={moveQuoteViewer}
+      />
       {createBookingOpening && (
         <RouteLoadingOverlay
           progress={createBookingProgress}

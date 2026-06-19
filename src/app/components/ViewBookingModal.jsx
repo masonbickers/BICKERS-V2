@@ -214,6 +214,17 @@ const quoteStatusSummary = (b = {}) => {
   return { label: "Not started", detail: "No quote yet", tone: "red" };
 };
 
+const getViewableQuoteNumber = (b = {}) => {
+  const latestQuote = latestQuoteEntry(b);
+  return String(
+    b.acceptedQuoteNumber ||
+      latestQuote?.quoteNumber ||
+      b.quoteNumber ||
+      (Array.isArray(b.quoteNumbers) ? b.quoteNumbers.at(-1) : "") ||
+      ""
+  ).trim();
+};
+
 /* ---------- employees helpers ---------- */
 const prettyEmployees = (list) =>
   (Array.isArray(list) ? list : [])
@@ -588,6 +599,11 @@ export default function ViewBookingModal({
 
   const employeesPrettyText = prettyEmployees(booking.employees || []);
   const quoteStatus = quoteStatusSummary(booking);
+  const viewableQuoteNumber = getViewableQuoteNumber(booking);
+  const canViewQuote = !fromDeleted && Boolean(booking?.id && (viewableQuoteNumber || latestQuoteEntry(booking)));
+  const quoteViewHref = canViewQuote
+    ? `/quote-view/${booking.id}${viewableQuoteNumber ? `?quote=${encodeURIComponent(viewableQuoteNumber)}` : ""}`
+    : "";
 
   const showReasons = ["Lost", "Postponed", "Cancelled"].includes(booking.status);
   const reasonsText =
@@ -677,7 +693,23 @@ export default function ViewBookingModal({
             <h3 style={sectionTitle}>Overview</h3>
             <div style={sectionCard}>
               <Field label="Production" value={booking.client || "-"} />
-              <Field label="Quote Number" value={String(booking.quoteNumber || "").trim() || "-"} />
+              <Field
+                label="Quote Number"
+                value={
+                  <div style={quoteNumberActionRow}>
+                    <span>{String(booking.quoteNumber || viewableQuoteNumber || "").trim() || "-"}</span>
+                    {canViewQuote ? (
+                      <button
+                        type="button"
+                        onClick={() => router.push(quoteViewHref)}
+                        style={viewQuoteButton}
+                      >
+                        View quote
+                      </button>
+                    ) : null}
+                  </div>
+                }
+              />
               <Field label="Quote Status" value={<QuoteStatusPill summary={quoteStatus} />} />
               <Field label="Location" value={booking.location || "-"} />
               <Field label="Date(s)" value={fmtDateRange(booking)} />
@@ -1056,6 +1088,20 @@ export default function ViewBookingModal({
             </>
           ) : (
             <>
+              {canViewQuote ? (
+                <button
+                  onClick={() => router.push(quoteViewHref)}
+                  disabled={editLoading}
+                  style={{
+                    ...btn,
+                    background: "#1f4b7a",
+                    cursor: editLoading ? "not-allowed" : "pointer",
+                    opacity: editLoading ? 0.58 : 1,
+                  }}
+                >
+                  View Quote
+                </button>
+              ) : null}
               <button
                 onClick={handleEdit}
                 disabled={editLoading}
@@ -1268,6 +1314,27 @@ const fieldRow = {
 };
 const fieldLabel = { color: "#64748b", fontSize: 11.5, fontWeight: 700 };
 const fieldValue = { color: "#0f172a", fontSize: 12.5, fontWeight: 600 };
+
+const quoteNumberActionRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  minWidth: 0,
+};
+
+const viewQuoteButton = {
+  border: "1px solid #cbd5e1",
+  borderRadius: 999,
+  background: "#fff",
+  color: "#1f4b7a",
+  padding: "2px 8px",
+  fontSize: 11,
+  fontWeight: 900,
+  cursor: "pointer",
+  lineHeight: 1.35,
+};
+
 const quoteStatusPill = {
   display: "inline-flex",
   alignItems: "center",

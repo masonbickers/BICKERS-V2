@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   BarChart,
   Bar,
@@ -21,15 +22,18 @@ import {
   ClipboardCheck,
   History,
   ListChecks,
+  FileText,
   Plus,
   ShieldAlert,
   Wrench,
+  X,
 } from "lucide-react";
-import { Calendar } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { localizer } from "../utils/localizer";
 import {
   getCanonicalDueDate,
+  getIsoWeekLabel,
   isVehicleOutOfUse,
   normalizeAssetRecord,
   ymd as ymdDate,
@@ -41,9 +45,11 @@ import {
   buildVehicleDueEvents,
   getMaintenanceDisplayType,
   isInactiveMaintenanceBooking,
+  startOfLocalDay,
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -52,7 +58,6 @@ import {
   resolveDataAccess,
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
-import { loadVehicleFleetSettings } from "@/app/utils/vehicleCategorySettings";
 import {
   getDocs,
   doc,
@@ -61,6 +66,32 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
+
+const DraggableBigCalendar = dynamic(
+  () =>
+    Promise.all([
+      import("react-big-calendar"),
+      import("react-big-calendar/lib/addons/dragAndDrop"),
+    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          minHeight: 620,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: UI.muted,
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        Loading calendar...
+      </div>
+    ),
+  }
+);
 
 const VEHICLE_CHECK_PATH = "/vehicle-checks";
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -111,6 +142,9 @@ const pageWrap = {
   padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
+  width: "100%",
+  maxWidth: "100%",
+  overflowX: "hidden",
 };
 const headerBar = {
   display: "flex",
@@ -119,6 +153,7 @@ const headerBar = {
   gap: 12,
   marginBottom: 14,
   flexWrap: "wrap",
+  minWidth: 0,
 };
 const h1 = {
   color: UI.text,
@@ -135,6 +170,7 @@ const surface = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadowSm,
+  minWidth: 0,
 };
 const cardBase = {
   ...surface,
@@ -153,6 +189,7 @@ const grid = (cols = 4) => ({
   display: "grid",
   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
   gap: UI.gap,
+  minWidth: 0,
 });
 
 const commandGrid = {
@@ -161,18 +198,21 @@ const commandGrid = {
   gap: UI.gap,
   alignItems: "stretch",
   marginBottom: UI.gap,
+  minWidth: 0,
 };
 
 const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
   gap: 10,
+  minWidth: 0,
 };
 
 const opsGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: 10,
+  minWidth: 0,
 };
 
 const quickLinkGrid = {
@@ -180,6 +220,7 @@ const quickLinkGrid = {
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: 10,
   alignItems: "stretch",
+  minWidth: 0,
 };
 
 const sectionHeader = {
@@ -189,6 +230,7 @@ const sectionHeader = {
   gap: 10,
   marginBottom: 10,
   flexWrap: "wrap",
+  minWidth: 0,
 };
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
@@ -243,7 +285,146 @@ const premiumSection = {
   ...cardBase,
   border: "1px solid #d7e1ea",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
+  maxWidth: "100%",
+  minWidth: 0,
 };
+
+const calendarFrame = {
+  borderRadius: UI.radiusSm,
+  background: "#fff",
+  border: UI.border,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
+  minHeight: 620,
+  overflow: "hidden",
+};
+
+const compactCalendarFrame = {
+  ...calendarFrame,
+  minHeight: 0,
+  height: "auto",
+  overflow: "visible",
+};
+
+const monthCalendarFrame = {
+  ...calendarFrame,
+  minHeight: 620,
+  height: "auto",
+  overflow: "visible",
+};
+
+const vehicleHomeCalendarCss = `
+.vehicle-home-page .rbc-calendar {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  color: ${UI.text};
+  font-size: 12px;
+}
+.vehicle-home-page .rbc-time-view,
+.vehicle-home-page .rbc-month-view {
+  border: 0;
+  background: #fff;
+}
+.vehicle-home-page .rbc-header {
+  padding: 7px 8px;
+  background: #f6f8fb;
+  color: ${UI.muted};
+  font-size: 11.5px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  border-color: #e3eaf2;
+}
+.vehicle-home-page .rbc-date-cell {
+  padding: 5px 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+.vehicle-home-page .rbc-month-row,
+.vehicle-home-page .rbc-day-bg,
+.vehicle-home-page .rbc-time-content,
+.vehicle-home-page .rbc-timeslot-group {
+  border-color: #e6edf5;
+}
+.vehicle-home-page .rbc-off-range-bg {
+  background: #f8fafc;
+}
+.vehicle-home-page .rbc-today {
+  background: rgba(31,75,122,0.08);
+}
+.vehicle-home-page .rbc-event {
+  min-height: 22px;
+}
+.vehicle-home-page .rbc-row-segment {
+  padding: 1px 2px;
+}
+.vehicle-home-page .rbc-event-label {
+  display: none;
+}
+.vehicle-home-page .rbc-show-more {
+  color: ${UI.brand};
+  font-weight: 900;
+  font-size: 12px;
+  background: transparent;
+}
+.vehicle-home-page .dashboard-compact-calendar {
+  height: auto !important;
+  min-height: 0 !important;
+}
+.vehicle-home-page .dashboard-compact-calendar .rbc-time-content {
+  display: none;
+}
+.vehicle-home-page .dashboard-compact-calendar .rbc-time-view {
+  min-height: 0;
+}
+.vehicle-home-page .dashboard-compact-calendar .rbc-time-header {
+  border-bottom: 0;
+}
+.vehicle-home-page .dashboard-compact-calendar .rbc-time-header-content,
+.vehicle-home-page .dashboard-compact-calendar .rbc-row-content,
+.vehicle-home-page .dashboard-compact-calendar .rbc-row,
+.vehicle-home-page .dashboard-compact-calendar .rbc-allday-cell {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.vehicle-home-page .dashboard-compact-calendar .rbc-allday-cell {
+  min-height: 96px;
+}
+.vehicle-home-page .dashboard-month-calendar {
+  height: auto !important;
+  min-height: 620px !important;
+  overflow: visible !important;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-month-view {
+  display: block;
+  height: auto !important;
+  overflow: visible !important;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-month-row {
+  display: block;
+  min-height: 120px;
+  height: auto !important;
+  overflow: visible !important;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-row-bg {
+  inset: 0;
+  min-height: 120px;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-row-content {
+  min-height: 120px;
+  height: auto !important;
+  overflow: visible !important;
+  padding-bottom: 8px;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-row {
+  min-height: 0;
+  height: auto !important;
+  overflow: visible !important;
+}
+.vehicle-home-page .dashboard-month-calendar .rbc-event {
+  height: auto !important;
+}
+`;
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
@@ -382,12 +563,172 @@ const daysInRange = (from, to) => {
 };
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const startOfIsoWeek = (value) => {
+  const date = startOfLocalDay(value);
+  if (!date) return null;
+  const day = date.getDay() || 7;
+  return addDays(date, 1 - day);
+};
 const daysUntil = (d) => {
   if (!d) return null;
   const today = new Date();
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
+};
+
+const sameCalendarDate = (a, b) => {
+  if (!a || !b) return false;
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+};
+
+const getCalendarNow = () => new Date(2000, 0, 1);
+const allDayTrue = () => true;
+
+const diffCalendarDays = (from, to) => {
+  const fromDay = startOfLocalDay(from);
+  const toDay = startOfLocalDay(to);
+  if (!fromDay || !toDay) return 0;
+  return Math.round((toDay.getTime() - fromDay.getTime()) / 86400000);
+};
+
+const shiftYmd = (value, deltaDays) => {
+  const date = startOfLocalDay(value);
+  if (!date) return "";
+  return ymdDate(addDays(date, deltaDays));
+};
+
+const sortedYmdList = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").slice(0, 10))
+        .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    )
+  ).sort();
+
+const shiftDateKeyedMap = (value, deltaDays, keysToShift = null) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.entries(value).reduce((acc, [key, entry]) => {
+    const shouldShift = /^\d{4}-\d{2}-\d{2}$/.test(key) && (!keysToShift || keysToShift.has(key));
+    const shiftedKey = shouldShift ? shiftYmd(key, deltaDays) : key;
+    if (shiftedKey) acc[shiftedKey] = entry;
+    return acc;
+  }, {});
+};
+
+const formatDropConfirmDate = (value) => {
+  const date = startOfLocalDay(value);
+  return date ? date.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : "";
+};
+
+const formatDropConfirmRange = (dates) => {
+  const safeDates = sortedYmdList(dates);
+  if (!safeDates.length) return "";
+  if (safeDates.length === 1) return formatDropConfirmDate(safeDates[0]);
+  return `${formatDropConfirmDate(safeDates[0])} - ${formatDropConfirmDate(safeDates[safeDates.length - 1])}`;
+};
+
+const buildMaintenanceBookingDropUpdates = (booking, event, nextStart) => {
+  const currentStart = startOfLocalDay(event?.start);
+  const targetStart = startOfLocalDay(nextStart);
+  if (!currentStart || !targetStart) return null;
+
+  const deltaDays = diffCalendarDays(currentStart, targetStart);
+  if (!deltaDays) return null;
+
+  const existingDates = sortedYmdList(booking?.bookingDates);
+  const updates = { updatedAt: serverTimestamp() };
+  let movedDateKeys = null;
+  let movedNextDateKeys = null;
+
+  if (existingDates.length) {
+    const eventDates = sortedYmdList(
+      Array.isArray(event?.__occurrences) && event.__occurrences.length
+        ? event.__occurrences
+        : [event?.__occurrence || ymdDate(currentStart)]
+    );
+    movedDateKeys = new Set(eventDates.length ? eventDates : [ymdDate(currentStart)]);
+    movedNextDateKeys = sortedYmdList([...movedDateKeys].map((dateKey) => shiftYmd(dateKey, deltaDays)));
+
+    const unmovedDates = existingDates.filter((dateKey) => !movedDateKeys.has(dateKey));
+    const nextDates = sortedYmdList([...unmovedDates, ...movedNextDateKeys]);
+    const first = nextDates[0] || "";
+    const last = nextDates[nextDates.length - 1] || first;
+    const isMultiDate = nextDates.length > 1;
+
+    updates.bookingDates = nextDates;
+    updates.date = first;
+    updates.appointmentDate = isMultiDate ? "" : first;
+    updates.appointmentDateISO = isMultiDate ? "" : first;
+    updates.startDate = isMultiDate ? first : "";
+    updates.startDateISO = isMultiDate ? first : "";
+    updates.endDate = isMultiDate ? last : "";
+    updates.endDateISO = isMultiDate ? last : "";
+  } else {
+    const exclusiveEnd = startOfLocalDay(event?.end || event?.start);
+    const durationDays = Math.max(1, diffCalendarDays(currentStart, exclusiveEnd));
+    const first = ymdDate(targetStart);
+    const last = ymdDate(addDays(targetStart, durationDays - 1));
+    const isRangeBooking =
+      durationDays > 1 ||
+      Boolean(booking?.startDateISO || booking?.endDateISO || booking?.startDate || booking?.endDate);
+
+    updates.date = first;
+    updates.appointmentDate = isRangeBooking ? "" : first;
+    updates.appointmentDateISO = isRangeBooking ? "" : first;
+    updates.startDate = isRangeBooking ? first : "";
+    updates.startDateISO = isRangeBooking ? first : "";
+    updates.endDate = isRangeBooking ? last : "";
+    updates.endDateISO = isRangeBooking ? last : "";
+  }
+
+  if (booking?.callTimesByDate && typeof booking.callTimesByDate === "object") {
+    updates.callTimesByDate = shiftDateKeyedMap(booking.callTimesByDate, deltaDays, movedDateKeys);
+  }
+
+  return { updates, movedDateKeys, movedNextDateKeys };
+};
+
+const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
+  const targetStart = startOfLocalDay(nextStart);
+  if (!targetStart) return null;
+
+  const currentStart = startOfLocalDay(event?.appointmentDateISO || event?.start);
+  if (!currentStart) return null;
+
+  const currentWeekStart = startOfIsoWeek(currentStart);
+  const targetWeekStart = startOfIsoWeek(targetStart);
+  if (!currentWeekStart || !targetWeekStart) return null;
+
+  const weekDelta = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000));
+  const effectiveDate = addDays(currentStart, weekDelta * 7);
+  const dateKey = ymdDate(effectiveDate);
+  if (!dateKey || !weekDelta) return null;
+
+  const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
+    ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+    : [];
+  const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
+  const shouldMoveBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
+  const shouldMovePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
+
+  const updates = { updatedAt: serverTimestamp() };
+  if (shouldMoveBrake) {
+    updates.nextBrakeTest = dateKey;
+    updates.brakeISOWeek = getIsoWeekLabel(dateKey);
+  }
+  if (shouldMovePmi) {
+    updates.nextPMI = dateKey;
+    updates.pmiISOWeek = getIsoWeekLabel(dateKey);
+  }
+
+  if (!shouldMoveBrake && !shouldMovePmi) return null;
+  return { updates, movedDateKeys: new Set([event?.appointmentDateISO || ymdDate(event?.start)]), movedNextDateKeys: [dateKey] };
 };
 
 /* Notes helpers for Usage chart */
@@ -749,39 +1090,148 @@ const formatEventEquipmentText = (equipment = []) => {
     .join(", ");
 };
 
-function VehicleHomeMaintenanceEvent({ event }) {
+function MaintenanceCalendarEvent({ event }) {
   const kind = event?.kind || "MAINTENANCE";
   const displayType = getMaintenanceDisplayType(event);
+  const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
+  const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
+  const isCompleted =
+    bookingStatus === "completed" ||
+    bookingStatus === "complete" ||
+    workflowStatus === "completed" ||
+    workflowStatus === "complete";
   const vehicleText = formatEventVehicleText(event?.vehicles);
   const equipmentText = formatEventEquipmentText(event?.equipment);
   const locationText = String(event?.location || "").trim();
 
   const label =
     kind === "MOT"
-      ? event?.booked
-        ? "MOT due - Booked"
-        : "MOT due"
-      : kind === "SERVICE"
-      ? event?.booked
-        ? "Service due - Booked"
-        : "Service due"
-      : kind === "MOT_BOOKING"
-      ? "MOT booking"
-      : kind === "SERVICE_BOOKING"
-      ? "Service booking"
+      ? "MOT expiry"
+    : kind === "SERVICE"
+      ? "Service due"
+    : kind === "MOT_BOOKING"
+      ? "MOT appointment"
+    : kind === "SERVICE_BOOKING"
+      ? "Service appointment"
+      : kind === "INSPECTION"
+      ? "8 week inspection due"
+      : kind === "BRAKE_TEST"
+      ? "Brake test due"
+      : kind === "PMI"
+      ? "PMI inspection due"
+      : kind === "INSPECTION_BOOKING"
+      ? "Inspection appointment"
+      : kind === "MAINTENANCE_APPOINTMENT"
+      ? event?.maintenanceTypeLabel || `${displayType} appointment`
+      : kind === "MAINTENANCE_BOOKING"
+      ? `${displayType} appointment`
+      : kind === "MAINTENANCE"
+      ? event?.maintenanceTypeLabel || "Workshop job card"
       : `${displayType} booking`;
 
   const dd = event?.dueDate ? new Date(event.dueDate) : null;
   const isBookingBlock =
-    kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
-  const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
+    kind === "MOT_BOOKING" ||
+    kind === "SERVICE_BOOKING" ||
+    kind === "INSPECTION_BOOKING" ||
+    kind === "MAINTENANCE_APPOINTMENT" ||
+    kind === "MAINTENANCE_BOOKING";
+  const isDueBlock =
+    kind === "MOT" ||
+    kind === "SERVICE" ||
+    kind === "INSPECTION" ||
+    kind === "BRAKE_TEST" ||
+    kind === "PMI";
+  const showTone = !isBookingBlock && !(isDueBlock && event?.booked);
   const tone = showTone && dd ? dueTone(dd) : "soft";
-  const toneText = tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
+  const toneText =
+    tone === "overdue"
+      ? "Overdue"
+      : tone === "soon"
+      ? "Due soon"
+      : tone === "ok" && kind === "SERVICE"
+      ? "Service in date"
+      : tone === "ok" && kind === "MOT"
+      ? "MOT in date"
+      : tone === "ok" && kind === "INSPECTION"
+      ? "Inspection in cycle"
+      : tone === "ok" && kind === "BRAKE_TEST"
+      ? "Brake test in date"
+      : tone === "ok" && kind === "PMI"
+      ? "PMI in date"
+      : "";
+  const cleanTitle = (() => {
+    const title = String(event?.title || "Maintenance").trim();
+    if (kind === "MAINTENANCE_APPOINTMENT") {
+      const suffix = ` - ${String(event?.maintenanceTypeLabel || "").trim()}`;
+      return suffix.trim() && title.endsWith(suffix) ? title.slice(0, -suffix.length) : title;
+    }
+    if (!isDueBlock) return title;
+    return title
+      .replace(/\s+-\s+MOT due(?:\s+\(Booked\))?$/i, "")
+      .replace(/\s+-\s+Service due(?:\s+\(Booked\))?$/i, "")
+      .replace(/\s+-\s+8 week inspection due(?:\s+\(Booked(?:\s+-\s+Outside ISO Week)?\))?$/i, "")
+      .replace(/\s+-\s+Brake test due$/i, "")
+      .replace(/\s+-\s+PMI inspection due$/i, "");
+  })();
+  const dueLabelColor = tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
+  const labelColor =
+    isDueBlock && dueLabelColor
+      ? dueLabelColor
+      : kind === "MOT"
+      ? "#b45309"
+      : kind === "SERVICE"
+      ? "#047857"
+      : kind === "INSPECTION"
+      ? "#7c3aed"
+      : kind === "BRAKE_TEST"
+      ? "#4f46e5"
+      : kind === "PMI"
+      ? "#0f766e"
+      : isBookingBlock
+      ? "#1d4ed8"
+      : kind === "MAINTENANCE"
+      ? "#475569"
+      : "#1d4ed8";
+  const nextDueLabel =
+    isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
+      ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
+      : isCompleted && kind === "SERVICE_BOOKING" && event?.nextService
+      ? `Next Service Due: ${new Date(event.nextService).toLocaleDateString("en-GB")}`
+      : "";
   const subline = isBookingBlock
-    ? event?.bookingStatus || "Booked"
-    : event?.booked && (kind === "MOT" || kind === "SERVICE")
-    ? event?.bookingStatus || "Booked"
+    ? event?.bookingStatus
+      ? String(event.bookingStatus).replace(/^booked$/i, "Booked")
+      : "Booked"
+    : event?.booked && isDueBlock
+    ? event?.bookingStatus
+      ? String(event.bookingStatus).includes("After Expiry")
+        ? "Appointment after expiry"
+        : String(event.bookingStatus).includes("Outside ISO Week")
+        ? "Appointment outside ISO week"
+        : "Appointment booked"
+      : "Appointment booked"
+    : workflowStatus
+    ? workflowStatus.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase())
     : toneText;
+  const documentBadges = [
+    event?.requiresBrakeTestDocument
+      ? {
+          key: "brake",
+          label: "BT",
+          good: !!event?.hasBrakeTestDocument,
+          title: event?.hasBrakeTestDocument ? "Brake test document attached" : "No brake test document",
+        }
+      : null,
+    event?.requiresPmiDocument
+      ? {
+          key: "pmi",
+          label: "PMI",
+          good: !!event?.hasPmiDocument,
+          title: event?.hasPmiDocument ? "PMI document attached" : "No PMI document",
+        }
+      : null,
+  ].filter(Boolean);
 
   return (
     <div
@@ -794,15 +1244,61 @@ function VehicleHomeMaintenanceEvent({ event }) {
         lineHeight: 1.3,
         fontWeight: 900,
         padding: 8,
-        letterSpacing: "0.01em",
+        letterSpacing: 0,
+        whiteSpace: "normal",
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
+        minWidth: 0,
       }}
     >
-      <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
-      <span style={{ color: UI.text }}>{event?.title || "Maintenance"}</span>
-      {vehicleText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{vehicleText}</span> : null}
-      {equipmentText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{equipmentText}</span> : null}
-      {locationText ? <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.muted }}>{locationText}</span> : null}
-      {subline ? <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>{subline}</span> : null}
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      {documentBadges.length ? (
+        <span style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+          {documentBadges.map((badge) => (
+            <span
+              key={badge.key}
+              title={badge.title}
+              aria-label={badge.title}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                minHeight: 18,
+                minWidth: badge.label === "PMI" ? 40 : 30,
+                padding: "2px 5px",
+                borderRadius: 6,
+                background: badge.good ? "#16a34a" : "#ef4444",
+                color: "#ffffff",
+                border: "1px solid rgba(0,0,0,0.65)",
+                fontSize: 10.5,
+                lineHeight: 1,
+                fontWeight: 900,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <FileText size={10} strokeWidth={3} />
+              {badge.label}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{cleanTitle}</span>
+      {vehicleText ? (
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
+      ) : null}
+      {equipmentText ? (
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{equipmentText}</span>
+      ) : null}
+      {locationText ? (
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
+      ) : null}
+      {nextDueLabel ? (
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#0f766e", whiteSpace: "normal" }}>{nextDueLabel}</span>
+      ) : null}
+      {subline ? (
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
+      ) : null}
     </div>
   );
 }
@@ -823,7 +1319,7 @@ export default function VehiclesHomePage() {
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
 
   // Calendar state
-  const [calView, setCalView] = useState("month");
+  const [calView, setCalView] = useState("week");
   const [calDate, setCalDate] = useState(new Date());
 
   const [mounted, setMounted] = useState(false);
@@ -837,11 +1333,11 @@ export default function VehiclesHomePage() {
 
   const [usageData, setUsageData] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [pendingMaintenanceDrop, setPendingMaintenanceDrop] = useState(null);
 
   // Vehicles (for due-date events + labels + counts)
   const [vehiclesRaw, setVehiclesRaw] = useState([]);
   const [vehicleNameMap, setVehicleNameMap] = useState({});
-  const [vehicleCategoryMeta, setVehicleCategoryMeta] = useState({});
 
   // Counters
   const [motCounts, setMotCounts] = useState({ overdue: 0, soon: 0, ok: 0, total: 0 });
@@ -902,24 +1398,6 @@ export default function VehiclesHomePage() {
         console.error("[vehicle-home] vehicles load error:", error);
       }
     });
-  }, [accessKey, dataAccessState]);
-
-  useEffect(() => {
-    const gate = resolveDataAccess(dataAccessState);
-    if (gate.checking) return;
-    if (!gate.allowed) {
-      reportDataAccessBlocked(gate, { collectionName: "settings/vehicleCategories", operation: "read vehicle category settings" });
-      return;
-    }
-
-    loadVehicleFleetSettings(db)
-      .then((settings) => setVehicleCategoryMeta(settings.categoryMeta || {}))
-      .catch((error) => {
-        if (!handlePageFirestoreError(error, { collectionName: "settings/vehicleCategories", operation: "read vehicle category settings" })) {
-          console.warn("[vehicle-home] vehicle category settings unavailable:", error);
-        }
-        setVehicleCategoryMeta({});
-      });
   }, [accessKey, dataAccessState]);
 
   /* --------- MOT + Service counters (uses vehiclesRaw) --------- */
@@ -1201,6 +1679,130 @@ export default function VehiclesHomePage() {
       ...motServiceEventsShared,
     ];
   }, [maintenanceBookingEventsShared, maintenanceJobEventsShared, motServiceEventsShared]);
+
+  const maintenanceDraggableAccessor = useCallback(
+    (event) =>
+      (event?.__collection === "maintenanceBookings" && Boolean(event?.__parentId || event?.id)) ||
+      (event?.kind === "MAINTENANCE_APPOINTMENT" &&
+        event?.vehicleId &&
+        !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase())),
+    []
+  );
+
+  const handleMaintenanceEventDrop = useCallback(
+    async ({ event, start }) => {
+      if (event?.kind === "MAINTENANCE_APPOINTMENT") {
+        const vehicleId = String(event?.vehicleId || "").trim();
+        const dropChange = buildVehicleMaintenanceAppointmentDropUpdates(event, start);
+        if (!vehicleId || !dropChange?.updates) {
+          alert("Could not identify this vehicle appointment to move.");
+          return;
+        }
+
+        setPendingMaintenanceDrop({
+          targetCollection: "vehicles",
+          vehicleId,
+          title: String(event?.title || event?.maintenanceTypeLabel || "this appointment").trim(),
+          fromLabel: formatDropConfirmRange([...dropChange.movedDateKeys].filter(Boolean)),
+          toLabel: formatDropConfirmRange(dropChange.movedNextDateKeys || [ymdDate(start)].filter(Boolean)),
+          updates: dropChange.updates,
+        });
+        return;
+      }
+
+      if (event?.__collection !== "maintenanceBookings") {
+        alert("Only saved maintenance bookings can be moved. Due-date reminders stay fixed to the vehicle schedule.");
+        return;
+      }
+
+      const bookingId = String(event.__parentId || event.id || "").trim();
+      if (!bookingId) {
+        alert("Could not identify the maintenance booking to move.");
+        return;
+      }
+
+      const existingBooking =
+        (maintenanceBookingsRaw || []).find((booking) => String(booking?.id || "") === bookingId) || event;
+      const dropChange = buildMaintenanceBookingDropUpdates(existingBooking, event, start);
+      if (!dropChange?.updates) return;
+
+      const title = String(event?.title || existingBooking?.title || existingBooking?.jobNumber || "this booking").trim();
+      const fromDates = dropChange.movedDateKeys
+        ? [...dropChange.movedDateKeys]
+        : [ymdDate(event?.start)].filter(Boolean);
+      const toDates = dropChange.movedNextDateKeys?.length
+        ? dropChange.movedNextDateKeys
+        : [ymdDate(start)].filter(Boolean);
+      setPendingMaintenanceDrop({
+        targetCollection: "maintenanceBookings",
+        bookingId,
+        title,
+        fromLabel: formatDropConfirmRange(fromDates),
+        toLabel: formatDropConfirmRange(toDates),
+        updates: dropChange.updates,
+      });
+    },
+    [maintenanceBookingsRaw]
+  );
+
+  const cancelPendingMaintenanceDrop = useCallback(() => {
+    setPendingMaintenanceDrop(null);
+  }, []);
+
+  const confirmPendingMaintenanceDrop = useCallback(async () => {
+    if (!pendingMaintenanceDrop?.updates) return;
+
+    if (pendingMaintenanceDrop.targetCollection === "vehicles") {
+      const vehicleId = String(pendingMaintenanceDrop.vehicleId || "").trim();
+      if (!vehicleId) return;
+
+      const previousVehicles = vehiclesRaw;
+      const optimisticUpdates = { ...pendingMaintenanceDrop.updates, updatedAt: new Date().toISOString() };
+      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
+      setVehiclesRaw((current) =>
+        (current || []).map((vehicle) =>
+          String(vehicle?.id || "") === vehicleId ? { ...vehicle, ...optimisticUpdates } : vehicle
+        )
+      );
+
+      try {
+        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
+        setPendingMaintenanceDrop(null);
+      } catch (error) {
+        setVehiclesRaw(previousVehicles);
+        if (!handlePageFirestoreError(error, { collectionName: "vehicles", operation: "move vehicle maintenance appointment" })) {
+          console.error("[vehicle-home] vehicle maintenance appointment move failed:", error);
+        }
+        alert("Could not move this maintenance appointment. Please try again.");
+        setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
+      }
+      return;
+    }
+
+    if (!pendingMaintenanceDrop?.bookingId) return;
+
+    const { bookingId, updates } = pendingMaintenanceDrop;
+    const previousBookings = maintenanceBookingsRaw;
+    const optimisticUpdates = { ...updates, updatedAt: new Date().toISOString() };
+    setPendingMaintenanceDrop((current) => (current ? { ...current, saving: true } : current));
+    setMaintenanceBookingsRaw((current) =>
+      (current || []).map((booking) =>
+        String(booking?.id || "") === bookingId ? { ...booking, ...optimisticUpdates } : booking
+      )
+    );
+
+    try {
+      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      setPendingMaintenanceDrop(null);
+    } catch (error) {
+      setMaintenanceBookingsRaw(previousBookings);
+      if (!handlePageFirestoreError(error, { collectionName: "maintenanceBookings", operation: "move maintenance booking" })) {
+        console.error("[vehicle-home] maintenance booking move failed:", error);
+      }
+      alert("Could not move this maintenance booking. Please try again.");
+      setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
+    }
+  }, [maintenanceBookingsRaw, pendingMaintenanceDrop, vehiclesRaw]);
 
   // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
@@ -1572,20 +2174,12 @@ export default function VehiclesHomePage() {
   };
 
   const handleSelectEvent = (event) => {
+    if (!event) return;
+    if (event.__collection === "maintenanceJobs") {
+      router.push(`/maintenance-jobs?jobId=${encodeURIComponent(event.id)}`);
+      return;
+    }
     setSelectedEvent(event);
-  };
-
-  const openMaintenanceJobFromEvent = (event) => {
-    if (!event?.vehicleId) return;
-    const kind = String(event.kind || "").toLowerCase().includes("mot") ? "mot" : "service";
-    const due = ymdDate(event?.dueDate || event?.start || "");
-    const qs = new URLSearchParams({
-      vehicleId: String(event.vehicleId),
-      kind,
-      dueDate: due,
-      source: "vehicle-home",
-    });
-    router.push(`${MAINTENANCE_JOBS_PATH}?${qs.toString()}`);
   };
 
   const usageMonthLabel = `${usageMonth.getFullYear()}-${String(usageMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -1706,112 +2300,125 @@ export default function VehiclesHomePage() {
     [motCounts, serviceCounts, recentActivity.length]
   );
 
-  const vehicleCategoryColorById = useMemo(() => {
-    const lowerMeta = Object.entries(vehicleCategoryMeta || {}).reduce((acc, [key, value]) => {
-      acc[normStatus(key)] = value || {};
-      return acc;
-    }, {});
-
-    return vehiclesRaw.reduce((acc, vehicle) => {
-      const category = String(vehicle?.category || "").trim();
-      const color = vehicleCategoryMeta[category]?.color || lowerMeta[normStatus(category)]?.color || "";
-      if (vehicle?.id && color) acc[vehicle.id] = color;
-      return acc;
-    }, {});
-  }, [vehicleCategoryMeta, vehiclesRaw]);
-
-  const eventPropGetter = (event) => {
+  const maintenanceEventPropGetter = (event) => {
     const kind = event?.kind || "MAINTENANCE";
-    const categoryColor = event?.vehicleId ? vehicleCategoryColorById[event.vehicleId] : "";
+    const bookingStatus = String(event?.bookingStatus || "").trim().toLowerCase();
+    const workflowStatus = String(event?.workflowStatus || "").trim().toLowerCase();
+    const isBookingBlock =
+      kind === "MOT_BOOKING" ||
+      kind === "SERVICE_BOOKING" ||
+      kind === "INSPECTION_BOOKING" ||
+      kind === "MAINTENANCE_APPOINTMENT" ||
+      kind === "MAINTENANCE_BOOKING";
+    const isDueBlock =
+      kind === "MOT" ||
+      kind === "SERVICE" ||
+      kind === "INSPECTION" ||
+      kind === "BRAKE_TEST" ||
+      kind === "PMI";
+    const hasRail = isBookingBlock || isDueBlock || kind === "MAINTENANCE";
+    const isCompleted =
+      bookingStatus === "completed" ||
+      bookingStatus === "complete" ||
+      workflowStatus === "completed" ||
+      workflowStatus === "complete";
 
-    // Base palettes per kind
-    let baseBg = UI.brandSoft;
-    let baseBorder = "#bfdbfe";
-    let baseText = UI.text;
+    let bg = "#c4d6e4";
+    let border = "#95b3ca";
+    let text = "#172a3d";
 
     if (kind === "MOT") {
-      baseBg = "#fff7ed";
-      baseBorder = "#fed7aa";
-      baseText = "#7c2d12";
-      //  booked MOT due should look "success-ish"
+      bg = "#fff7ed";
+      border = "#f59e0b";
+      text = "#713f12";
       if (event?.booked) {
-        baseBg = "#ecfdf5";
-        baseBorder = "#bbf7d0";
-        baseText = "#065f46";
+        bg = "#fef3c7";
+        border = "#d97706";
+        text = "#713f12";
       }
-    }
-
-    if (kind === "MOT_BOOKING") {
-      baseBg = "#ecfdf5";
-      baseBorder = "#bbf7d0";
-      baseText = "#065f46";
+    } else if (kind === "MOT_BOOKING") {
+      bg = "#dbeafe";
+      border = "#2563eb";
+      text = "#102a56";
       if (String(event?.bookingStatus || "").includes("After Expiry")) {
-        baseBg = "#fef2f2";
-        baseBorder = "#fecaca";
-        baseText = "#991b1b";
+        bg = "#e4c0bd";
+        border = "#bf847f";
+        text = "#631f1a";
       }
-    }
-
-    if (kind === "SERVICE") {
-      baseBg = "#ecfdf5";
-      baseBorder = "#bbf7d0";
-      baseText = "#065f46";
+    } else if (kind === "SERVICE") {
+      bg = "#ecfdf5";
+      border = "#10b981";
+      text = "#064e3b";
       if (event?.booked) {
-        baseBg = "#ecfdf5";
-        baseBorder = "#bbf7d0";
-        baseText = "#065f46";
+        bg = "#d1fae5";
+        border = "#059669";
+        text = "#064e3b";
       }
+    } else if (kind === "SERVICE_BOOKING") {
+      bg = "#dbeafe";
+      border = "#2563eb";
+      text = "#102a56";
+    } else if (kind === "INSPECTION") {
+      bg = "#f5f3ff";
+      border = "#8b5cf6";
+      text = "#3b0764";
+      if (event?.booked) {
+        bg = "#ede9fe";
+        border = "#7c3aed";
+        text = "#3b0764";
+      }
+    } else if (kind === "INSPECTION_BOOKING") {
+      bg = "#ede9fe";
+      border = "#7c3aed";
+      text = "#321064";
+    } else if (kind === "MAINTENANCE_APPOINTMENT") {
+      bg = "#f0fdfa";
+      border = "#14b8a6";
+      text = "#134e4a";
+    } else if (kind === "MAINTENANCE_BOOKING") {
+      bg = "#ccfbf1";
+      border = "#0d9488";
+      text = "#134e4a";
+    } else if (kind === "MAINTENANCE") {
+      bg = "#e2e8f0";
+      border = "#64748b";
+      text = "#1e293b";
     }
 
-    if (kind === "SERVICE_BOOKING") {
-      baseBg = "#ecfdf5";
-      baseBorder = "#bbf7d0";
-      baseText = "#065f46";
-    }
-
-    if (kind === "MAINTENANCE_BOOKING") {
-      baseBg = UI.brandSoft;
-      baseBorder = "#bfdbfe";
-      baseText = UI.text;
-    }
-
-    if (kind === "MAINTENANCE") {
-      baseBg = UI.brandSoft;
-      baseBorder = "#bfdbfe";
-      baseText = UI.text;
-    }
-
-    // Escalate based on due date (skip for booking blocks)
-    const dd = event?.dueDate ? new Date(event.dueDate) : null;
-    const isBookingBlock =
-      kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
-    const tone = dd && !isBookingBlock ? dueTone(dd) : "soft";
-
-    // If due is booked, do not escalate to overdue/soon colours
-    const suppressEscalation = (kind === "MOT" || kind === "SERVICE") && event?.booked;
+    const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
+    const suppressEscalation = isDueBlock && event?.booked;
 
     if (!suppressEscalation) {
       if (tone === "overdue") {
-        baseBg = "#fef2f2";
-        baseBorder = "#fecaca";
-        baseText = "#991b1b";
+        bg = "#e4c0bd";
+        border = "#bf847f";
+        text = "#631f1a";
       } else if (tone === "soon") {
-        baseBg = "#fff7ed";
-        baseBorder = "#fed7aa";
-        baseText = "#9a3412";
+        bg = "#e1c79c";
+        border = "#c19458";
+        text = "#5a3918";
       }
+    }
+
+    if (isCompleted) {
+      bg = "#d1fae5";
+      border = "#86efac";
+      text = "#065f46";
     }
 
     return {
       style: {
         borderRadius: 10,
-        border: `1px solid ${baseBorder}`,
-        ...(categoryColor ? { borderLeft: `5px solid ${categoryColor}` } : {}),
-        background: baseBg,
-        color: baseText,
+        border: `1px solid ${border}`,
+        borderLeft: hasRail ? `6px solid ${border}` : `1px solid ${border}`,
+        background: bg,
+        color: text,
         padding: 0,
-        boxShadow: "0 2px 4px rgba(2,6,23,0.08)",
+        boxShadow: isBookingBlock
+          ? "0 4px 10px rgba(37,99,235,0.12)"
+          : "0 2px 6px rgba(15,23,42,0.08)",
         overflow: "hidden",
+        cursor: event?.__collection === "maintenanceBookings" ? "grab" : "pointer",
       },
     };
   };
@@ -1822,22 +2429,73 @@ export default function VehiclesHomePage() {
       <style>{`
         input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .vehicle-home-calendar--month .rbc-calendar { height: auto !important; }
-        .vehicle-home-calendar--month .rbc-month-view { min-height: 860px; height: auto; overflow: visible; }
-        .vehicle-home-calendar--month .rbc-month-row { min-height: 125px; overflow: visible; flex: 1 0 auto; }
-        .vehicle-home-calendar--month .rbc-row-content { max-height: none; min-height: 100%; }
-        .vehicle-home-calendar--month .rbc-event-content { white-space: normal; }
+        .vehicle-home-page,
+        .vehicle-home-page * {
+          box-sizing: border-box;
+        }
+        .vehicle-home-page {
+          overflow-x: hidden;
+        }
+        .vehicle-home-page section,
+        .vehicle-home-page aside,
+        .vehicle-home-page svg,
+        .vehicle-home-page table,
+        .vehicle-home-page .rbc-calendar,
+        .vehicle-home-page .rbc-month-view,
+        .vehicle-home-page .rbc-time-view,
+        .vehicle-home-page .recharts-responsive-container {
+          max-width: 100%;
+          min-width: 0;
+        }
+        .vehicle-home-page .rbc-calendar {
+          overflow-x: hidden;
+        }
+        .vehicle-home-page .rbc-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          min-width: 0;
+        }
+        .vehicle-home-page .rbc-toolbar > div {
+          min-width: 0;
+          max-width: 100%;
+          flex-wrap: wrap;
+        }
+        .vehicle-home-page .rbc-toolbar-label {
+          min-width: 0;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
+        .vehicle-home-page .rbc-row-segment,
+        .vehicle-home-page .rbc-event,
+        .vehicle-home-page .rbc-event-content {
+          min-width: 0;
+          max-width: 100%;
+        }
+        ${vehicleHomeCalendarCss}
         @media (max-width: 1180px) {
-          .vehicle-home-command-grid { grid-template-columns: 1fr !important; }
+          .vehicle-home-command-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .vehicle-home-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .vehicle-home-ops-grid { grid-template-columns: 1fr !important; }
+          .vehicle-home-ops-grid { grid-template-columns: minmax(0, 1fr) !important; }
         }
         @media (max-width: 640px) {
-          .vehicle-home-summary-grid { grid-template-columns: 1fr !important; }
+          .vehicle-home-page {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+          }
+          .vehicle-home-summary-grid { grid-template-columns: minmax(0, 1fr) !important; }
+          .vehicle-home-page .rbc-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 100%;
+          }
+          .vehicle-home-page .rbc-btn-group button {
+            white-space: normal !important;
+          }
         }
       `}</style>
 
-      <div style={pageWrap}>
+      <div className="vehicle-home-page" style={pageWrap}>
         {/* Header */}
         <div style={headerBar}>
           <div>
@@ -2066,174 +2724,85 @@ export default function VehiclesHomePage() {
         </section>
 
         {/* Calendar */}
-        <section style={{ ...premiumSection, marginTop: UI.gap }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap, minWidth: 0, overflow: "visible" }}>
           <div style={sectionHeader}>
             <div>
-              <h2 style={titleMd}>Maintenance calendar</h2>
+              <h2 style={titleMd}>Maintenance Calendar</h2>
               <div style={hint}>
-                Shows scheduled maintenance bookings together with upcoming <b>MOT</b> and <b>service</b> due dates using the same operational model as the dashboard.
+                MOT, service, maintenance bookings and active workshop activity.
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
-              <span style={sectionTag}>Calendar view</span>
-              <span style={chipSoft}>{calView}</span>
-              <span style={badge("#fff7ed", "#9a3412")}>MOT due</span>
-              <span style={badge("#ecfdf5", "#065f46")}>Booked MOT</span>
-              <span style={badge("#ecfdf5", "#065f46")}>Booked Service</span>
-              <span style={badge(UI.brandSoft, UI.brand)}>Maintenance</span>
-              <button type="button" style={btn("ghost")} onClick={() => setCalDate(new Date())}>
-                Today
+              <button
+                type="button"
+                style={calView === "week" ? btn() : btn("ghost")}
+                onClick={() => setCalView("week")}
+              >
+                Week
               </button>
+
+              <button
+                type="button"
+                style={calView === "month" ? btn() : btn("ghost")}
+                onClick={() => setCalView("month")}
+              >
+                Month
+              </button>
+
+              <div style={chip}>
+                {calDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+              </div>
             </div>
           </div>
 
-          <div
-            style={{
-              ...surface,
-              boxShadow: "none",
-              padding: 12,
-              paddingBottom: 12,
-              borderRadius: 12,
-              overflow: "visible",
-              height: calView === "month" ? "auto" : "calc(100vh - 340px)",
-              minHeight: calView === "month" ? 860 : undefined,
-            }}
-          >
-            {mounted && (
-              <Calendar
-                className={calView === "month" ? "vehicle-home-calendar--month" : "vehicle-home-calendar"}
-                localizer={localizer}
-                events={calendarEvents}
-                startAccessor="start"
-                endAccessor="end"
-                view={calView}
-                onView={(v) => setCalView(v)}
-                date={calDate}
-                onNavigate={(d) => setCalDate(d)}
-                views={["month", "week", "work_week", "day", "agenda"]}
-                popup
-                showAllEvents={calView === "month"}
-                showMultiDayTimes
-                style={{ height: calView === "month" ? "auto" : "100%" }}
-                dayPropGetter={() => ({
-                  style: { minHeight: "110px", borderRight: "1px solid #eef2f7" },
-                })}
-                eventPropGetter={eventPropGetter}
-                components={{
-                  event: ({ event }) => {
-                    const kind = event?.kind || "MAINTENANCE";
-                    const displayType = getMaintenanceDisplayType(event);
-                    const vehicleText = formatEventVehicleText(event?.vehicles);
-                    const equipmentText = formatEventEquipmentText(event?.equipment);
-                    const locationText = String(event?.location || "").trim();
+          {mounted && (
+            <DraggableBigCalendar
+              localizer={localizer}
+              events={calendarEvents}
+              view={calView}
+              views={["week", "month"]}
+              onView={(v) => setCalView((prev) => (prev === v ? prev : v))}
+              date={calDate}
+              onNavigate={(d) => setCalDate((prev) => (sameCalendarDate(prev, d) ? prev : d))}
+              startAccessor="start"
+              endAccessor="end"
+              allDayAccessor={allDayTrue}
+              allDaySlot
+              selectable={false}
+              resizable={false}
+              draggableAccessor={maintenanceDraggableAccessor}
+              onEventDrop={handleMaintenanceEventDrop}
+              popup
+              showAllEvents
+              toolbar={false}
+              nowIndicator={false}
+              getNow={getCalendarNow}
+              components={{ event: MaintenanceCalendarEvent }}
+              onSelectEvent={handleSelectEvent}
+              eventPropGetter={maintenanceEventPropGetter}
+              className={calView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
+              dayPropGetter={(date) => {
+                const todayD = new Date();
+                const isToday =
+                  date.getDate() === todayD.getDate() &&
+                  date.getMonth() === todayD.getMonth() &&
+                  date.getFullYear() === todayD.getFullYear();
 
-                    const label =
-                      kind === "MOT"
-                        ? event?.booked
-                          ? "MOT due - Booked"
-                          : "MOT due"
-                        : kind === "SERVICE"
-                        ? event?.booked
-                          ? "Service due - Booked"
-                          : "Service due"
-                        : kind === "MOT_BOOKING"
-                        ? "MOT booking"
-                        : kind === "SERVICE_BOOKING"
-                        ? "Service booking"
-                        : `${displayType} booking`;
-
-                    const dd = event?.dueDate ? new Date(event.dueDate) : null;
-
-                    const isBookingBlock =
-                      kind === "MOT_BOOKING" || kind === "SERVICE_BOOKING" || kind === "MAINTENANCE_BOOKING";
-                    const showTone = !isBookingBlock && !((kind === "MOT" || kind === "SERVICE") && event?.booked);
-                    const tone = showTone && dd ? dueTone(dd) : "soft";
-                    const toneText =
-                      tone === "overdue" ? "Overdue" : tone === "soon" ? "Due soon" : tone === "ok" ? "OK" : "";
-
-                    const subline =
-                      isBookingBlock
-                        ? (event?.bookingStatus || "Booked")
-                        : (event?.booked && (kind === "MOT" || kind === "SERVICE"))
-                        ? (event?.bookingStatus || "Booked")
-                        : toneText;
-
-                    return (
-                      <div
-                        title={event.title}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                          fontSize: 12.5,
-                          lineHeight: 1.3,
-                          fontWeight: 900,
-                          padding: 8,
-                          letterSpacing: "0.01em",
-                        }}
-                      >
-                        <span style={{ color: UI.brand, fontWeight: 900, fontSize: 12 }}>{label}</span>
-                        <span style={{ color: UI.text }}>{event.title}</span>
-                        {vehicleText ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{vehicleText}</span>
-                        ) : null}
-                        {equipmentText ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.text }}>{equipmentText}</span>
-                        ) : null}
-                        {locationText ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: UI.muted }}>{locationText}</span>
-                        ) : null}
-                        {subline ? (
-                          <span style={{ fontSize: 11.5, fontWeight: 800, color: UI.muted }}>{subline}</span>
-                        ) : null}
-                      </div>
-                    );
+                return {
+                  style: {
+                    backgroundColor: isToday ? "rgba(139,94,60,0.12)" : undefined,
+                    border: isToday ? "1px solid rgba(139,94,60,0.34)" : undefined,
                   },
-                  toolbar: (props) => (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 8,
-                        gap: 10,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div style={{ fontWeight: 900, color: UI.text }}>{props.label}</div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <ToolbarBtn onClick={() => props.onNavigate("PREV")}>{"<"}</ToolbarBtn>
-                        <ToolbarBtn onClick={() => props.onNavigate("TODAY")}>Today</ToolbarBtn>
-                        <ToolbarBtn onClick={() => props.onNavigate("NEXT")}>{">"}</ToolbarBtn>
-
-                        <ToolbarBtn active={props.view === "month"} onClick={() => props.onView("month")}>
-                          Month
-                        </ToolbarBtn>
-                        <ToolbarBtn active={props.view === "week"} onClick={() => props.onView("week")}>
-                          Week
-                        </ToolbarBtn>
-                        <ToolbarBtn active={props.view === "work_week"} onClick={() => props.onView("work_week")}>
-                          Work Week
-                        </ToolbarBtn>
-                        <ToolbarBtn active={props.view === "day"} onClick={() => props.onView("day")}>
-                          Day
-                        </ToolbarBtn>
-                        <ToolbarBtn active={props.view === "agenda"} onClick={() => props.onView("agenda")}>
-                          Agenda
-                        </ToolbarBtn>
-                      </div>
-                    </div>
-                  ),
-                }}
-                onSelectEvent={handleSelectEvent}
-              />
-            )}
-          </div>
+                };
+              }}
+              style={calView === "week" ? compactCalendarFrame : monthCalendarFrame}
+            />
+          )}
         </section>
 
         {/* Usage chart */}
-        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "visible" }}>
+        <section style={{ ...premiumSection, marginTop: UI.gap, overflow: "hidden", minWidth: 0 }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Vehicle usage</h2>
@@ -2276,7 +2845,7 @@ export default function VehiclesHomePage() {
             </div>
           </div>
 
-          <div style={{ height: 320, marginTop: 10 }}>
+          <div style={{ height: 320, marginTop: 10, minWidth: 0, overflow: "hidden" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -2304,41 +2873,160 @@ export default function VehiclesHomePage() {
           </div>
         </section>
 
-        {/* Event modal (only for non-vehicle routing events) */}
         {selectedEvent && (
-          <div style={modal}>
-            <h3 style={{ marginTop: 0, marginBottom: 8, fontWeight: 900, color: UI.text }}>
-              {selectedEvent.title}
-            </h3>
-            <p style={{ margin: 0, color: UI.muted, fontSize: 13 }}>
-              <strong style={{ color: UI.text }}>Start:</strong> {selectedEvent.start.toLocaleDateString("en-GB")}
-            </p>
-            <p style={{ margin: "6px 0 12px", color: UI.muted, fontSize: 13 }}>
-              <strong style={{ color: UI.text }}>End:</strong> {selectedEvent.end.toLocaleDateString("en-GB")}
-            </p>
+          <DashboardMaintenanceModal
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+          />
+        )}
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              {selectedEvent?.vehicleId ? (
+        {pendingMaintenanceDrop && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2,6,23,0.55)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 120,
+              padding: 18,
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && !pendingMaintenanceDrop.saving) {
+                cancelPendingMaintenanceDrop();
+              }
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="maintenance-drop-confirm-title"
+              style={{
+                ...surface,
+                width: 520,
+                maxWidth: "94vw",
+                padding: 0,
+                overflow: "hidden",
+                boxShadow: "0 24px 70px rgba(2,6,23,0.28)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 16px",
+                  borderBottom: UI.border,
+                  background: "#f8fafc",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 8,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: UI.accentSoft,
+                      color: "#8b5e3c",
+                      border: `1px solid ${UI.brandBorder}`,
+                      flex: "0 0 auto",
+                    }}
+                  >
+                    <Wrench size={17} />
+                  </span>
+                  <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: 16, fontWeight: 950, color: UI.text }}>
+                    Confirm Date Change
+                  </h3>
+                </div>
                 <button
-                  onClick={() => openMaintenanceJobFromEvent(selectedEvent)}
-                  style={btn("ghost")}
+                  type="button"
+                  onClick={cancelPendingMaintenanceDrop}
+                  disabled={pendingMaintenanceDrop.saving}
+                  aria-label="Cancel date change"
+                  style={{
+                    ...btn("ghost"),
+                    width: 34,
+                    height: 34,
+                    padding: 0,
+                    opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
+                  }}
                 >
-                  {"Open jobs workspace ->"}
+                  <X size={16} />
                 </button>
-              ) : null}
-              {selectedEvent?.vehicleId ? (
+              </div>
+
+              <div style={{ padding: 16 }}>
+                <div style={{ fontSize: 13.5, lineHeight: 1.45, color: UI.text, fontWeight: 750 }}>
+                  You changed the date of this occurrence of{" "}
+                  <span style={{ fontWeight: 950 }}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 10,
+                    marginTop: 14,
+                  }}
+                >
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>From</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
+                  </div>
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fbfe" }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>To</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 14, fontSize: 12.5, lineHeight: 1.45, color: UI.muted, fontWeight: 700 }}>
+                  To change all dates, open the series.
+                </div>
+                <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
+                  Do you want to change just this one?
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  padding: "12px 16px",
+                  borderTop: UI.border,
+                  background: "#f8fafc",
+                }}
+              >
                 <button
-                  onClick={() =>
-                    router.push(`/vehicle-edit/${encodeURIComponent(selectedEvent.vehicleId)}`)
-                  }
-                  style={btn("primary")}
+                  type="button"
+                  onClick={cancelPendingMaintenanceDrop}
+                  disabled={pendingMaintenanceDrop.saving}
+                  style={{
+                    ...btn("ghost"),
+                    opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
+                    cursor: pendingMaintenanceDrop.saving ? "not-allowed" : "pointer",
+                  }}
                 >
-                  {"Open vehicle ->"}
+                  No
                 </button>
-              ) : null}
-              <button onClick={() => setSelectedEvent(null)} style={btn("ghost")}>
-                Close
-              </button>
+                <button
+                  type="button"
+                  onClick={confirmPendingMaintenanceDrop}
+                  disabled={pendingMaintenanceDrop.saving}
+                  style={{
+                    ...btn(),
+                    opacity: pendingMaintenanceDrop.saving ? 0.82 : 1,
+                    cursor: pendingMaintenanceDrop.saving ? "wait" : "pointer",
+                  }}
+                >
+                  {pendingMaintenanceDrop.saving ? "Saving..." : "Yes"}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2472,36 +3160,6 @@ export default function VehiclesHomePage() {
           </div>
         )}
       </div>
-
-      {/* Global polish for RBC to match your style */}
-      <style jsx global>{`
-        .rbc-today {
-          background: rgba(29, 78, 216, 0.08) !important;
-        }
-        .rbc-off-range-bg {
-          background: #f8fafc !important;
-        }
-        .rbc-month-view,
-        .rbc-time-view,
-        .rbc-agenda-view {
-          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        }
-        .rbc-header {
-          padding: 8px 6px;
-          font-weight: 900;
-          color: #0f172a;
-          border-bottom: 1px solid #e5e7eb !important;
-        }
-        .rbc-time-content > * + * > * {
-          border-left: 1px solid #eef2f7 !important;
-        }
-        .rbc-event {
-          overflow: visible !important;
-        }
-        .rbc-toolbar button {
-          border-radius: 999px !important;
-        }
-      `}</style>
     </HeaderSidebarLayout>
   );
 }
@@ -2524,14 +3182,16 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick
       style={{
         ...metricCard,
         minHeight: 92,
+        minWidth: 0,
+        maxWidth: "100%",
         width: "100%",
         textAlign: "left",
         fontFamily: "inherit",
         cursor: clickable ? "pointer" : "default",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
           <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
         </div>
@@ -2565,14 +3225,14 @@ function RiskRing({ title, total, ok, soon, overdue }) {
   const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
 
   return (
-    <div style={{ ...surface, padding: 12 }}>
+    <div style={{ ...surface, padding: 12, minWidth: 0, maxWidth: "100%" }}>
       <div style={{ ...sectionHeader, marginBottom: 10 }}>
         <div>
           <h2 style={{ ...titleMd, fontSize: 15 }}>{title}</h2>
           <div style={hint}>{safeTotal} vehicles tracked</div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flexWrap: "wrap" }}>
         <div
           style={{
             width: 126,
@@ -2621,29 +3281,6 @@ function RingLegend({ color, label, value }) {
   );
 }
 
-function ToolbarBtn({ children, onClick, active }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...btn("pill"),
-        borderColor: active ? "#bfdbfe" : "#d1d5db",
-        background: active ? UI.brandSoft : "#fff",
-        color: active ? UI.brand : UI.text,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = "#f8fafc";
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = "#ffffff";
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function Tile({ title, description, onClick, rightBadges = [], disabled = false, icon: Icon = Wrench }) {
   return (
     <div
@@ -2652,6 +3289,8 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
         background: "#ffffff",
         height: "100%",
         minHeight: 82,
+        minWidth: 0,
+        maxWidth: "100%",
         padding: "11px 12px",
         display: "flex",
         alignItems: "center",
@@ -2690,6 +3329,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
           gridTemplateColumns: "34px minmax(0, 1fr) auto",
           alignItems: "center",
           gap: 10,
+          minWidth: 0,
         }}
       >
         <span
@@ -2741,7 +3381,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
                     ? badge("#fff7ed", "#9a3412")
                     : badge(UI.brandSoft, UI.brand);
                 return (
-                  <span key={idx} style={s}>
+                  <span key={idx} style={{ ...s, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                     {b.label}
                   </span>
                 );
@@ -2768,12 +3408,14 @@ function VehicleCheckTile({ onClick }) {
         background: "#ffffff",
         height: "100%",
         minHeight: 82,
+        minWidth: 0,
+        maxWidth: "100%",
         padding: "11px 12px",
       }}
       onMouseEnter={(e) => Object.assign(e.currentTarget.style, cardHover)}
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, cardBase)}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", minWidth: 0, justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span
             aria-hidden="true"
@@ -2793,7 +3435,7 @@ function VehicleCheckTile({ onClick }) {
             <ClipboardCheck size={17} strokeWidth={2.2} />
           </span>
 
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.18, color: UI.text }}>
               Vehicle Check
             </div>

@@ -14,8 +14,9 @@ import {
   where,
   onSnapshot,
 } from "firebase/firestore";
-import { auth, db } from "../../../../firebaseConfig";
+import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
   reportDataAccessBlocked,
@@ -52,6 +53,65 @@ const DAYS = [
   "Saturday",
   "Sunday",
 ];
+
+const cleanIdentityValue = (value) => String(value || "").trim().toLowerCase();
+
+function buildTimesheetUserIdentity(user, userDoc = {}) {
+  const codeValues = [
+    userDoc.userCode,
+    userDoc.employeeCode,
+    userDoc.code,
+    userDoc.staffCode,
+    userDoc.timesheetCode,
+  ]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const nameValues = [
+    userDoc.name,
+    userDoc.fullName,
+    userDoc.employeeName,
+    userDoc.displayName,
+    user?.displayName,
+  ]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const emailValues = [userDoc.email, user?.email]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const idValues = [userDoc.employeeId, userDoc.id, user?.uid]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+
+  return {
+    codes: new Set(codeValues),
+    names: new Set(nameValues),
+    emails: new Set(emailValues),
+    ids: new Set(idValues),
+  };
+}
+
+function timesheetMatchesTimesheetUser(timesheet = {}, identity) {
+  if (!identity) return false;
+  const timesheetCodes = [timesheet.employeeCode, timesheet.userCode, timesheet.code, timesheet.staffCode]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const timesheetNames = [timesheet.employeeName, timesheet.name, timesheet.fullName]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const timesheetEmails = [timesheet.employeeEmail, timesheet.email, timesheet.userEmail]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+  const timesheetIds = [timesheet.employeeId, timesheet.userId, timesheet.uid]
+    .map(cleanIdentityValue)
+    .filter(Boolean);
+
+  return (
+    timesheetCodes.some((value) => identity.codes.has(value)) ||
+    timesheetNames.some((value) => identity.names.has(value)) ||
+    timesheetEmails.some((value) => identity.emails.has(value)) ||
+    timesheetIds.some((value) => identity.ids.has(value))
+  );
+}
 
 const LUNCH_DEDUCT_HRS = 0.5;
 const DEFAULT_YARD_START = "08:00";
@@ -926,11 +986,19 @@ function eachDateYMD(startRaw, endRaw) {
 export default function TimesheetDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const authState = useAuth() || {};
   const dataAccessState = useDataAccessState();
   const accessKey = useMemo(() => dataAccessKey(dataAccessState), [dataAccessState]);
+  const userEmail = String(authState.user?.email || "").trim().toLowerCase();
+  const isAdmin = Boolean(authState.isAdmin);
+  const currentTimesheetIdentity = useMemo(
+    () => buildTimesheetUserIdentity(authState.user, authState.userDoc || {}),
+    [authState.user, authState.userDoc]
+  );
 
   const [timesheet, setTimesheet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const [jobsByDay, setJobsByDay] = useState({});
   const [vehicleLookup, setVehicleLookup] = useState({});
@@ -955,8 +1023,6 @@ export default function TimesheetDetailPage() {
   const [payAdvicePin, setPayAdvicePin] = useState("");
   const [payAdvicePinUnlocked, setPayAdvicePinUnlocked] = useState(false);
   const [payAdvicePinError, setPayAdvicePinError] = useState("");
-  const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState("");
   const [employeePayrollRates, setEmployeePayrollRates] = useState(null);
   const [globalPayrollRates, setGlobalPayrollRates] = useState(null);
   const [employeeYardAutofill, setEmployeeYardAutofill] = useState({
@@ -970,32 +1036,6 @@ export default function TimesheetDetailPage() {
   const payAdviceSaveTimerRef = useRef(null);
   const lastSavedPayAdviceRef = useRef("");
 
-  useEffect(() => {
-    let roleUnsub = null;
-    const unsub = auth?.onAuthStateChanged?.((u) => {
-      setUserEmail((u?.email || "").toLowerCase());
-      roleUnsub?.();
-      roleUnsub = null;
-      if (!u?.uid) {
-        setUserRole("");
-        return;
-      }
-      roleUnsub = onSnapshot(
-        doc(db, "users", u.uid),
-        (snap) => setUserRole(String(snap.data()?.role || "").toLowerCase()),
-        () => setUserRole("")
-      );
-    });
-    return () => {
-      roleUnsub?.();
-      unsub?.();
-    };
-  }, []);
-
-  const isAdmin = useMemo(
-    () => ADMIN_EMAILS.includes(userEmail) || userRole === "admin",
-    [userEmail, userRole]
-  );
   const needsPayAdvicePin = userEmail === PAY_ADVICE_PIN_EMAIL && !payAdvicePinUnlocked;
 
   const handlePayAdvicePinSubmit = (event) => {
@@ -1028,8 +1068,22 @@ export default function TimesheetDetailPage() {
     })();
   }, [id]);
 
+  const canViewTimesheet = useMemo(() => {
+    if (!timesheet?.id) return false;
+    if (isAdmin) return true;
+    return timesheetMatchesTimesheetUser(timesheet, currentTimesheetIdentity);
+  }, [currentTimesheetIdentity, isAdmin, timesheet]);
+
   useEffect(() => {
     if (!timesheet?.id) {
+      setAccessDenied(false);
+      return;
+    }
+    setAccessDenied(!canViewTimesheet);
+  }, [canViewTimesheet, timesheet?.id]);
+
+  useEffect(() => {
+    if (!timesheet?.id || !canViewTimesheet) {
       setWeekNav({ previous: null, next: null });
       return;
     }
@@ -1073,7 +1127,7 @@ export default function TimesheetDetailPage() {
         setWeekNav({ previous: null, next: null });
       }
     })();
-  }, [accessKey, dataAccessState, timesheet?.id, timesheet?.employeeCode, timesheet?.employeeName]);
+  }, [accessKey, canViewTimesheet, dataAccessState, timesheet?.id, timesheet?.employeeCode, timesheet?.employeeName]);
 
   /* ----------------------- Derived flag: approved? ----------------------- */
   const isApproved =
@@ -1109,7 +1163,7 @@ export default function TimesheetDetailPage() {
 
   /* ----------------------- Load holidays for this timesheet ----------------------- */
   useEffect(() => {
-    if (!timesheet) return;
+    if (!timesheet || !canViewTimesheet) return;
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (reportDataAccessBlocked(gate, { collectionName: "holidays", operation: "Load holidays for timesheet" })) return;
@@ -1144,11 +1198,11 @@ export default function TimesheetDetailPage() {
         setHolidaysByDate({});
       }
     })();
-  }, [accessKey, dataAccessState, timesheet]);
+  }, [accessKey, canViewTimesheet, dataAccessState, timesheet]);
 
   /* ----------------------- Load jobs + vehicles based on snapshot ----------------------- */
   useEffect(() => {
-    if (!timesheet) return;
+    if (!timesheet || !canViewTimesheet) return;
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "Load timesheet job vehicles" })) return;
@@ -1257,11 +1311,11 @@ export default function TimesheetDetailPage() {
         setVehicleLookup({});
       }
     })();
-  }, [accessKey, dataAccessState, timesheet]);
+  }, [accessKey, canViewTimesheet, dataAccessState, timesheet]);
 
   /* ----------------------- Load existing queries for this timesheet ----------------------- */
   useEffect(() => {
-    if (!timesheet?.id) return;
+    if (!timesheet?.id || !canViewTimesheet) return;
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (reportDataAccessBlocked(gate, { collectionName: "timesheetQueries", operation: "Load timesheet queries" })) return;
@@ -1275,7 +1329,7 @@ export default function TimesheetDetailPage() {
         setQueries([]);
       }
     })();
-  }, [accessKey, dataAccessState, timesheet]);
+  }, [accessKey, canViewTimesheet, dataAccessState, timesheet]);
 
   /* ------------------------------ PRINT ----------------------------------- */
   const handlePrint = () => {
@@ -1287,7 +1341,7 @@ export default function TimesheetDetailPage() {
   };
 
   const handleLunchDeductionToggle = async (day, checked) => {
-    if (!timesheet?.id || !day) return;
+    if (!isAdmin || !timesheet?.id || !day) return;
 
     setLunchSavingDay(day);
     try {
@@ -1336,7 +1390,7 @@ export default function TimesheetDetailPage() {
   }, [timesheet?.id, timesheet?.payAdviceOverrides]);
 
   useEffect(() => {
-    if (!timesheet) return;
+    if (!timesheet || !canViewTimesheet) return;
     const gate = resolveDataAccess(dataAccessState);
     if (gate.checking) return;
     if (reportDataAccessBlocked(gate, { collectionName: "employees", operation: "Load employee payroll rates" })) return;
@@ -1365,11 +1419,11 @@ export default function TimesheetDetailPage() {
         setEmployeeYardAutofill(getEmployeeYardAutofill(null));
       }
     })();
-  }, [accessKey, dataAccessState, timesheet]);
+  }, [accessKey, canViewTimesheet, dataAccessState, timesheet]);
 
   /* ------------------------------ APPROVE --------------------------------- */
   const handleApprove = async () => {
-    if (!timesheet?.id) return;
+    if (!isAdmin || !timesheet?.id) return;
     setApproving(true);
     setApproveError("");
 
@@ -1420,7 +1474,7 @@ export default function TimesheetDetailPage() {
   /* ------------------------------ QUERY ----------------------------------- */
   const handleSubmitQuery = async (e) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
-    if (!timesheet?.id) return;
+    if (!isAdmin || !timesheet?.id) return;
 
     setQueryError("");
     setQuerySuccess("");
@@ -1844,7 +1898,7 @@ export default function TimesheetDetailPage() {
   };
 
   const savePayAdviceState = useCallback(async (rows, rates, successMessage = "Pay advice saved.") => {
-    if (!timesheet?.id) return;
+    if (!isAdmin || !timesheet?.id) return;
     setPayAdviceSaving(true);
     setPayAdviceMessage("");
     const payload = {
@@ -1878,7 +1932,7 @@ export default function TimesheetDetailPage() {
     } finally {
       setPayAdviceSaving(false);
     }
-  }, [dataAccessState, timesheet?.id]);
+  }, [dataAccessState, isAdmin, timesheet?.id]);
 
   const handleSavePayAdvice = async () => {
     await savePayAdviceState(payAdviceEdits, payAdviceRateEdits, "Pay advice saved.");
@@ -1941,6 +1995,30 @@ export default function TimesheetDetailPage() {
     );
   }
 
+  if (accessDenied) {
+    return (
+      <HeaderSidebarLayout>
+        <div style={pageWrap}>
+          <div
+            style={{
+              maxWidth: 720,
+              background: UI.panel,
+              border: UI.border,
+              borderRadius: UI.radius,
+              boxShadow: UI.shadowSm,
+              padding: 16,
+            }}
+          >
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Timesheet access restricted</h1>
+            <p style={{ margin: 0, color: UI.muted, fontSize: 14 }}>
+              You can only view timesheets linked to your own employee record.
+            </p>
+          </div>
+        </div>
+      </HeaderSidebarLayout>
+    );
+  }
+
   let statusLabel = "Draft (not submitted)";
   let badgeBg = "#fed7aa";
   let badgeBorder = "#fdba74";
@@ -1988,15 +2066,17 @@ export default function TimesheetDetailPage() {
               </button>
             ) : null}
 
-            <button
-              onClick={handleApprove}
-              disabled={approving || isApproved}
-              style={approveButtonStyle(approving || isApproved)}
-              title={isApproved ? "This timesheet has already been approved" : "Approve this timesheet"}
-            >
-              <CheckCircle2 size={17} />
-              {isApproved ? "Approved" : approving ? "Approving..." : "Approve Timesheet"}
-            </button>
+            {isAdmin ? (
+              <button
+                onClick={handleApprove}
+                disabled={approving || isApproved}
+                style={approveButtonStyle(approving || isApproved)}
+                title={isApproved ? "This timesheet has already been approved" : "Approve this timesheet"}
+              >
+                <CheckCircle2 size={17} />
+                {isApproved ? "Approved" : approving ? "Approving..." : "Approve Timesheet"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -2179,12 +2259,14 @@ export default function TimesheetDetailPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (isApproved) return;
+                        if (!isAdmin || isApproved) return;
                         setQueryDay(day);
                       }}
-                      disabled={isApproved}
+                      disabled={!isAdmin || isApproved}
                       title={
-                        isApproved
+                        !isAdmin
+                          ? "Only admins can raise timesheet queries."
+                          : isApproved
                           ? "Timesheet approved - queries are read-only."
                           : "Raise a query for this day"
                       }
@@ -2198,8 +2280,8 @@ export default function TimesheetDetailPage() {
                         border: `1px dashed ${UI.brandBorder}`,
                         background: "#ffffff",
                         color: UI.brand,
-                        cursor: isApproved ? "not-allowed" : "pointer",
-                        opacity: isApproved ? 0.5 : 1,
+                        cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
+                        opacity: !isAdmin || isApproved ? 0.5 : 1,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -2318,14 +2400,14 @@ export default function TimesheetDetailPage() {
                                 alignItems: "center",
                                 gap: 6,
                                 fontWeight: 600,
-                                cursor: isApproved ? "default" : "pointer",
-                                opacity: isApproved ? 0.55 : 1,
+                                cursor: !isAdmin || isApproved ? "default" : "pointer",
+                                opacity: !isAdmin || isApproved ? 0.55 : 1,
                               }}
                             >
                               <input
                                 type="checkbox"
                                 checked={paidHolidayLunchDeducted}
-                                disabled={isApproved || lunchSavingDay === day}
+                                disabled={!isAdmin || isApproved || lunchSavingDay === day}
                                 onChange={(e) => handleLunchDeductionToggle(day, e.target.checked)}
                               />
                               {lunchSavingDay === day ? "Saving lunch deduction..." : "Deduct lunch"}
@@ -2456,7 +2538,7 @@ export default function TimesheetDetailPage() {
                           <input
                             type="checkbox"
                             checked={yardLunchDeducted}
-                            disabled={isApproved || lunchSavingDay === day}
+                            disabled={!isAdmin || isApproved || lunchSavingDay === day}
                             onChange={(e) => handleLunchDeductionToggle(day, e.target.checked)}
                           />
                           {lunchSavingDay === day ? "Saving lunch deduction..." : "Deduct lunch"}
@@ -2960,7 +3042,7 @@ export default function TimesheetDetailPage() {
             Manager queries
           </h2>
 
-          {isApproved && (
+          {isAdmin && isApproved && (
             <div
               style={{
                 marginBottom: 10,
@@ -2977,98 +3059,100 @@ export default function TimesheetDetailPage() {
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmitQuery}
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              alignItems: "flex-start",
-              marginBottom: 10,
-              opacity: isApproved ? 0.6 : 1,
-            }}
-          >
-            <div style={{ minWidth: 140 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                Day
-              </label>
-              <select
-                value={queryDay}
-                onChange={(e) => setQueryDay(e.target.value)}
-                disabled={isApproved}
-                style={{
-                  ...formControlStyle,
-                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
-                  cursor: isApproved ? "not-allowed" : "pointer",
-                }}
-              >
-                <option value="">Select day...</option>
-                {DAYS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {isAdmin ? (
+            <form
+              onSubmit={handleSubmitQuery}
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                alignItems: "flex-start",
+                marginBottom: 10,
+                opacity: isApproved ? 0.6 : 1,
+              }}
+            >
+              <div style={{ minWidth: 140 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                  Day
+                </label>
+                <select
+                  value={queryDay}
+                  onChange={(e) => setQueryDay(e.target.value)}
+                  disabled={isApproved}
+                  style={{
+                    ...formControlStyle,
+                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    cursor: isApproved ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <option value="">Select day...</option>
+                  {DAYS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div style={{ minWidth: 160 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                What are you querying?
-              </label>
-              <select
-                value={queryField}
-                onChange={(e) => setQueryField(e.target.value)}
-                disabled={isApproved}
-                style={{
-                  ...formControlStyle,
-                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
-                  cursor: isApproved ? "not-allowed" : "pointer",
-                }}
-              >
-                <option value="overall">Overall hours</option>
-                <option value="yard">Yard times</option>
-                <option value="travel">Travel times</option>
-                <option value="onset">On-set times</option>
-                <option value="notes">Notes / comments</option>
-                <option value="holiday">Holiday / day off</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
+              <div style={{ minWidth: 160 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                  What are you querying?
+                </label>
+                <select
+                  value={queryField}
+                  onChange={(e) => setQueryField(e.target.value)}
+                  disabled={isApproved}
+                  style={{
+                    ...formControlStyle,
+                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    cursor: isApproved ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <option value="overall">Overall hours</option>
+                  <option value="yard">Yard times</option>
+                  <option value="travel">Travel times</option>
+                  <option value="onset">On-set times</option>
+                  <option value="notes">Notes / comments</option>
+                  <option value="holiday">Holiday / day off</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
 
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-                Query note for employee
-              </label>
-              <textarea
-                value={queryNote}
-                onChange={(e) => setQueryNote(e.target.value)}
-                rows={2}
-                placeholder={
-                  isApproved
-                    ? "Queries are closed on approved timesheets."
-                    : "e.g. Hours seem high on Thursday - can you double-check call and wrap times?"
-                }
-                disabled={isApproved}
-                style={{
-                  ...formControlStyle,
-                  resize: "vertical",
-                  backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
-                  cursor: isApproved ? "not-allowed" : "text",
-                }}
-              />
-            </div>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                  Query note for employee
+                </label>
+                <textarea
+                  value={queryNote}
+                  onChange={(e) => setQueryNote(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    isApproved
+                      ? "Queries are closed on approved timesheets."
+                      : "e.g. Hours seem high on Thursday - can you double-check call and wrap times?"
+                  }
+                  disabled={isApproved}
+                  style={{
+                    ...formControlStyle,
+                    resize: "vertical",
+                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    cursor: isApproved ? "not-allowed" : "text",
+                  }}
+                />
+              </div>
 
-            <div style={{ alignSelf: "flex-end" }}>
-              <button
-                type="submit"
-                disabled={querySubmitting || isApproved}
-                style={controlButton("primary", querySubmitting || isApproved)}
-              >
-                <Send size={14} />
-                {isApproved ? "Queries closed" : querySubmitting ? "Sending..." : "Send query"}
-              </button>
-            </div>
-          </form>
+              <div style={{ alignSelf: "flex-end" }}>
+                <button
+                  type="submit"
+                  disabled={querySubmitting || isApproved}
+                  style={controlButton("primary", querySubmitting || isApproved)}
+                >
+                  <Send size={14} />
+                  {isApproved ? "Queries closed" : querySubmitting ? "Sending..." : "Send query"}
+                </button>
+              </div>
+            </form>
+          ) : null}
 
           {queryError && (
             <div
@@ -3149,7 +3233,7 @@ export default function TimesheetDetailPage() {
                     </div>
                     <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.message || q.note}</div>
 
-                    <QueryMessageThread query={q} />
+                    <QueryMessageThread query={q} canReply={isAdmin} />
                   </li>
                 ))}
               </ul>
@@ -3165,7 +3249,7 @@ export default function TimesheetDetailPage() {
 /* INLINE QUERY MESSAGE THREAD                                   */
 /* ------------------------------------------------------------- */
 
-function QueryMessageThread({ query }) {
+function QueryMessageThread({ query, canReply = false }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -3188,7 +3272,7 @@ function QueryMessageThread({ query }) {
   }, [query?.id]);
 
   const handleSend = async () => {
-    if (!input.trim() || !query?.id || isClosed) return;
+    if (!canReply || !input.trim() || !query?.id || isClosed) return;
     setSending(true);
     try {
       await addDoc(collection(db, "timesheetQueries", query.id, "messages"), {
@@ -3215,7 +3299,7 @@ function QueryMessageThread({ query }) {
       }}
     >
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: UI.muted }}>
-        Messages {isClosed && "(read-only)"}
+        Messages {(isClosed || !canReply) && "(read-only)"}
       </div>
 
       <div
@@ -3254,38 +3338,40 @@ function QueryMessageThread({ query }) {
         })}
       </div>
 
-      {isClosed && (
+      {(isClosed || !canReply) && (
         <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
-          This query is closed. No further messages can be sent.
+          {isClosed ? "This query is closed. No further messages can be sent." : "Replies are admin-only."}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={isClosed ? "Query closed - replies disabled." : "Reply to this query..."}
-          disabled={isClosed}
-          style={{
-            flex: 1,
-            padding: "8px 10px",
-            borderRadius: UI.radiusSm,
-            border: UI.border,
-            fontSize: 12,
-            backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
-            cursor: isClosed ? "not-allowed" : "text",
-          }}
-        />
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={sending || !input.trim() || isClosed}
-          style={controlButton("primary", sending || !input.trim() || isClosed)}
-        >
-          <Send size={14} />
-          {sending ? "Sending..." : "Send"}
-        </button>
-      </div>
+      {canReply ? (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={isClosed ? "Query closed - replies disabled." : "Reply to this query..."}
+            disabled={isClosed}
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              borderRadius: UI.radiusSm,
+              border: UI.border,
+              fontSize: 12,
+              backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
+              cursor: isClosed ? "not-allowed" : "text",
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sending || !input.trim() || isClosed}
+            style={controlButton("primary", sending || !input.trim() || isClosed)}
+          >
+            <Send size={14} />
+            {sending ? "Sending..." : "Send"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

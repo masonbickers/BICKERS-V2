@@ -295,7 +295,13 @@ export default function CreateEnquiryPage() {
 
   const [jobNumber, setJobNumber] = useState("");
   const [client, setClient] = useState("");
+  const [production, setProduction] = useState("");
   const [location, setLocation] = useState("");
+  const [showInvoicingDetails, setShowInvoicingDetails] = useState(false);
+  const [po, setPo] = useState("");
+  const [invoiceContactName, setInvoiceContactName] = useState("");
+  const [invoiceContactEmail, setInvoiceContactEmail] = useState("");
+  const [invoiceContactPhone, setInvoiceContactPhone] = useState("");
   const [shootType, setShootType] = useState("Day");
   const [dateKnown, setDateKnown] = useState(false);
   const [isRange, setIsRange] = useState(false);
@@ -534,7 +540,12 @@ export default function CreateEnquiryPage() {
     const payload = {
       jobNumber: jobNumber.trim(),
       client: client.trim(),
+      production: production.trim(),
       location: location.trim(),
+      po: po.trim(),
+      invoiceContactName: invoiceContactName.trim(),
+      invoiceContactEmail: invoiceContactEmail.trim(),
+      invoiceContactPhone: invoiceContactPhone.trim(),
       status,
       shootType,
       bookingDates,
@@ -685,11 +696,43 @@ export default function CreateEnquiryPage() {
                     <option>Other</option>
                   </select>
 
-                  <label style={label}>Production</label>
+                  <label style={label}>Production Company</label>
                   <input value={client} onChange={(e) => setClient(e.target.value)} style={input} required />
+
+                  <label style={label}>Production</label>
+                  <input value={production} onChange={(e) => setProduction(e.target.value)} style={input} />
 
                   <label style={label}>Location</label>
                   <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
+
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#f8fafc" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
+                      <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
+                      Add invoicing details
+                    </label>
+                    {showInvoicingDetails && (
+                      <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                        <div>
+                          <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
+                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                          <div>
+                            <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
+                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Name" />
+                          </div>
+                          <div>
+                            <label style={{ ...label, marginTop: 0 }}>Email</label>
+                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="accounts@example.com" />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ ...label, marginTop: 0 }}>Phone</label>
+                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Optional phone number" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <div style={divider} />
 

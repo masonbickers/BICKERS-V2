@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { arrayUnion, deleteDoc, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { db, storage } from "../../../firebaseConfig";
 import EditMaintenanceBookingForm from "./EditMaintenanceBookingForm";
 import MaintenanceBookingForm from "./MaintenanceBookingForm";
 import {
@@ -18,6 +19,7 @@ import {
   validateMaintenanceStageRequirements,
 } from "@/app/utils/maintenanceWorkflowSpec";
 import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 
 const EMPTY_VALUE = "-";
 
@@ -124,6 +126,14 @@ const prettyField = (field) =>
     .replaceAll("_", " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
 
+const safeFileName = (name = "document") =>
+  String(name || "document")
+    .replace(/[\\/:*?"<>|#%{}~&]/g, "-")
+    .replace(/\s+/g, "-")
+    .slice(0, 120) || "document";
+
+const documentList = (value) => (Array.isArray(value) ? value.filter((item) => item?.url || item?.name) : []);
+
 export default function DashboardMaintenanceModal({ event, onClose }) {
   const router = useRouter();
   const dataAccessState = useDataAccessState();
@@ -156,6 +166,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const [jobEditorError, setJobEditorError] = useState("");
   const [bookingActionMessage, setBookingActionMessage] = useState("");
   const [bookingActionError, setBookingActionError] = useState("");
+  const [brakeTestDocumentFile, setBrakeTestDocumentFile] = useState(null);
+  const [pmiDocumentFile, setPmiDocumentFile] = useState(null);
 
   const vehicleId = String(event?.vehicleId || "").trim();
   const bookingId = String(event?.__parentId || event?.id || "").trim();
@@ -179,6 +191,21 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     isGeneratedMaintenanceAppointment &&
     !!vehicleId &&
     !["completed", "complete"].includes(String(event?.bookingStatus || "").trim().toLowerCase());
+
+  const generatedAppointmentKinds = useMemo(() => {
+    const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
+      ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
+      : [];
+    const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
+    return {
+      brake: maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake"),
+      pmi: maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi"),
+    };
+  }, [event]);
+  const canAttachGeneratedAppointmentDocuments =
+    isGeneratedMaintenanceAppointment &&
+    !!vehicleId &&
+    (generatedAppointmentKinds.brake || generatedAppointmentKinds.pmi);
 
   useEffect(() => {
     let active = true;
@@ -320,16 +347,30 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
 
   if (!event || loading) return null;
 
-  const buildGeneratedAppointmentCompletionPatch = () => {
+  const uploadAppointmentDocument = async (file, kind, completedDate) => {
+    if (!file) return null;
+    const kindLabel = kind === "pmi" ? "PMI inspection" : "Brake test";
+    const path = companyStoragePath(
+      dataAccessState,
+      `vehicles/${vehicleId}/maintenance-documents/${kind}/${completedDate}-${Date.now()}-${safeFileName(file.name)}`
+    );
+    const snap = await uploadBytes(storageRef(storage, path), file);
+    const url = await getDownloadURL(snap.ref);
+    return {
+      name: file.name || `${kindLabel} document`,
+      url,
+      type: kind,
+      label: kindLabel,
+      uploadedAt: new Date().toISOString(),
+    };
+  };
+
+  const buildGeneratedAppointmentCompletionPatch = ({ brakeDocument = null, pmiDocument = null } = {}) => {
     const completedDate = ymd(event?.appointmentDateISO || event?.start);
     if (!completedDate) return null;
 
-    const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
-      ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
-      : [];
-    const label = String(event?.maintenanceTypeLabel || event?.title || "").trim().toLowerCase();
-    const shouldCompleteBrake = maintenanceTypes.some((item) => item.includes("brake")) || label.includes("brake");
-    const shouldCompletePmi = maintenanceTypes.some((item) => item.includes("pmi")) || label.includes("pmi");
+    const shouldCompleteBrake = generatedAppointmentKinds.brake;
+    const shouldCompletePmi = generatedAppointmentKinds.pmi;
     const patch = {
       updatedAt: new Date().toISOString(),
       updatedAtServer: serverTimestamp(),
@@ -342,8 +383,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (shouldCompleteBrake) {
       const freqWeeks = resolveFreqWeeks(vehicle?.brakeTestFreq, vehicle?.lastBrakeTest, vehicle?.nextBrakeTest);
       const nextBrakeTest = addWeeksToYmd(completedDate, freqWeeks);
+      const brakeDocuments = brakeDocument ? [brakeDocument] : [];
       patch.lastBrakeTest = completedDate;
       localPatch.lastBrakeTest = completedDate;
+      if (brakeDocument) {
+        patch.brakeTestDocuments = arrayUnion(brakeDocument);
+        localPatch.brakeTestDocuments = [...documentList(vehicle?.brakeTestDocuments), brakeDocument];
+      }
       if (nextBrakeTest) {
         patch.nextBrakeTest = nextBrakeTest;
         patch.brakeISOWeek = getIsoWeekLabel(nextBrakeTest);
@@ -356,6 +402,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         completedDate,
         nextDueDate: nextBrakeTest || "",
         completedAt,
+        documents: brakeDocuments,
       });
       localPatch.brakeTestHistory = [
         ...(Array.isArray(vehicle?.brakeTestHistory) ? vehicle.brakeTestHistory : []),
@@ -365,6 +412,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           completedDate,
           nextDueDate: nextBrakeTest || "",
           completedAt,
+          documents: brakeDocuments,
         },
       ];
     }
@@ -372,8 +420,13 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     if (shouldCompletePmi) {
       const freqWeeks = resolveFreqWeeks(vehicle?.pmiFreq, vehicle?.lastPMI, vehicle?.nextPMI);
       const nextPMI = addWeeksToYmd(completedDate, freqWeeks);
+      const pmiDocuments = pmiDocument ? [pmiDocument] : [];
       patch.lastPMI = completedDate;
       localPatch.lastPMI = completedDate;
+      if (pmiDocument) {
+        patch.pmiDocuments = arrayUnion(pmiDocument);
+        localPatch.pmiDocuments = [...documentList(vehicle?.pmiDocuments), pmiDocument];
+      }
       if (nextPMI) {
         patch.nextPMI = nextPMI;
         patch.pmiISOWeek = getIsoWeekLabel(nextPMI);
@@ -386,6 +439,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
         completedDate,
         nextDueDate: nextPMI || "",
         completedAt,
+        documents: pmiDocuments,
       });
       localPatch.pmiHistory = [
         ...(Array.isArray(vehicle?.pmiHistory) ? vehicle.pmiHistory : []),
@@ -395,6 +449,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
           completedDate,
           nextDueDate: nextPMI || "",
           completedAt,
+          documents: pmiDocuments,
         },
       ];
     }
@@ -406,8 +461,8 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
   const handleMarkGeneratedAppointmentComplete = async () => {
     if (!canCompleteGeneratedAppointment || completingAppointment) return;
 
-    const completionPatch = buildGeneratedAppointmentCompletionPatch();
-    if (!completionPatch?.patch) {
+    const completedDate = ymd(event?.appointmentDateISO || event?.start);
+    if (!completedDate) {
       setBookingActionError("Could not calculate the next maintenance date.");
       setBookingActionMessage("");
       return;
@@ -417,12 +472,136 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     setBookingActionError("");
     setBookingActionMessage("");
     try {
+      const [brakeDocument, pmiDocument] = await Promise.all([
+        generatedAppointmentKinds.brake
+          ? uploadAppointmentDocument(brakeTestDocumentFile, "brake_test", completedDate)
+          : Promise.resolve(null),
+        generatedAppointmentKinds.pmi
+          ? uploadAppointmentDocument(pmiDocumentFile, "pmi", completedDate)
+          : Promise.resolve(null),
+      ]);
+      const completionPatch = buildGeneratedAppointmentCompletionPatch({ brakeDocument, pmiDocument });
+      if (!completionPatch?.patch) {
+        setBookingActionError("Could not calculate the next maintenance date.");
+        setBookingActionMessage("");
+        setCompletingAppointment(false);
+        return;
+      }
       await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, completionPatch.patch));
       setVehicle((prev) => (prev ? { ...prev, ...completionPatch.localPatch } : prev));
+      setBrakeTestDocumentFile(null);
+      setPmiDocumentFile(null);
       setBookingActionMessage("Appointment marked complete and next date calculated.");
     } catch (error) {
       console.error("[DashboardMaintenanceModal] generated appointment complete failed:", error);
       setBookingActionError("Could not mark appointment as complete.");
+    } finally {
+      setCompletingAppointment(false);
+    }
+  };
+
+  const appendDocumentToHistory = (history, { type, label, completedDate, completedAt, document }) => {
+    if (!document) return Array.isArray(history) ? history : [];
+    const rows = Array.isArray(history) ? [...history] : [];
+    const index = rows.findIndex((item) => {
+      const itemType = String(item?.type || item?.key || "").trim().toLowerCase();
+      const itemLabel = String(item?.label || "").trim().toLowerCase();
+      return (
+        String(item?.completedDate || "").slice(0, 10) === completedDate &&
+        (itemType === type || itemLabel === label.toLowerCase())
+      );
+    });
+
+    if (index >= 0) {
+      const existingDocuments = documentList(rows[index]?.documents);
+      rows[index] = {
+        ...rows[index],
+        documents: [...existingDocuments, document],
+      };
+      return rows;
+    }
+
+    return [
+      ...rows,
+      {
+        type,
+        label,
+        completedDate,
+        nextDueDate: "",
+        completedAt,
+        documents: [document],
+      },
+    ];
+  };
+
+  const handleSaveGeneratedAppointmentDocuments = async () => {
+    if (!canAttachGeneratedAppointmentDocuments || completingAppointment) return;
+    const completedDate = ymd(event?.appointmentDateISO || event?.start);
+    if (!completedDate) {
+      setBookingActionError("Could not identify the appointment date.");
+      setBookingActionMessage("");
+      return;
+    }
+    if (!brakeTestDocumentFile && !pmiDocumentFile) {
+      setBookingActionError("Choose a document before saving.");
+      setBookingActionMessage("");
+      return;
+    }
+
+    setCompletingAppointment(true);
+    setBookingActionError("");
+    setBookingActionMessage("");
+    try {
+      const [brakeDocument, pmiDocument] = await Promise.all([
+        generatedAppointmentKinds.brake
+          ? uploadAppointmentDocument(brakeTestDocumentFile, "brake_test", completedDate)
+          : Promise.resolve(null),
+        generatedAppointmentKinds.pmi
+          ? uploadAppointmentDocument(pmiDocumentFile, "pmi", completedDate)
+          : Promise.resolve(null),
+      ]);
+
+      const patch = {
+        updatedAt: new Date().toISOString(),
+        updatedAtServer: serverTimestamp(),
+      };
+      const localPatch = { updatedAt: patch.updatedAt };
+      const completedAt = event?.completedAt || new Date().toISOString();
+
+      if (brakeDocument) {
+        patch.brakeTestDocuments = arrayUnion(brakeDocument);
+        patch.brakeTestHistory = appendDocumentToHistory(vehicle?.brakeTestHistory, {
+          type: "brake_test",
+          label: "Brake test",
+          completedDate,
+          completedAt,
+          document: brakeDocument,
+        });
+        localPatch.brakeTestDocuments = [...documentList(vehicle?.brakeTestDocuments), brakeDocument];
+        localPatch.brakeTestHistory = patch.brakeTestHistory;
+      }
+
+      if (pmiDocument) {
+        patch.pmiDocuments = arrayUnion(pmiDocument);
+        patch.pmiHistory = appendDocumentToHistory(vehicle?.pmiHistory, {
+          type: "pmi",
+          label: "PMI inspection",
+          completedDate,
+          completedAt,
+          document: pmiDocument,
+        });
+        localPatch.pmiDocuments = [...documentList(vehicle?.pmiDocuments), pmiDocument];
+        localPatch.pmiHistory = patch.pmiHistory;
+      }
+
+      await updateDoc(doc(db, "vehicles", vehicleId), tenantPayload(dataAccessState, patch));
+      setVehicle((prev) => (prev ? { ...prev, ...localPatch } : prev));
+      setBrakeTestDocumentFile(null);
+      setPmiDocumentFile(null);
+      setBookingActionMessage("Maintenance document saved.");
+    } catch (error) {
+      console.error("[DashboardMaintenanceModal] document save failed:", error);
+      setBookingActionError("Could not save the maintenance document.");
     } finally {
       setCompletingAppointment(false);
     }
@@ -647,6 +826,7 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
     { label: "Vehicles", value: bookingDetails.vehicles, show: canEditBooking && hasDisplayValue(bookingDetails.vehicles) },
     { label: "Equipment", value: bookingDetails.equipment, show: canEditBooking && hasDisplayValue(bookingDetails.equipment) },
   ].filter((item) => item.show !== false && hasDisplayValue(item.value));
+  const eventDocuments = documentList(event?.documents);
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose?.()}>
@@ -677,6 +857,24 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             {detailRows.map((item) => (
               <Row key={item.label} label={item.label} value={item.value} />
             ))}
+            {eventDocuments.length ? (
+              <div style={documentsBlock}>
+                <div style={labelStyle}>Documents</div>
+                <div style={documentLinks}>
+                  {eventDocuments.map((item, index) => (
+                    <a
+                      key={`${item.url || item.name}-${index}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={documentLink}
+                    >
+                      {item.label || item.name || `Document ${index + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {hasDisplayValue(bookingDetails.notes) ? (
               <div style={notesBlock}>
                 <div style={labelStyle}>Notes</div>
@@ -685,6 +883,51 @@ export default function DashboardMaintenanceModal({ event, onClose }) {
             ) : null}
           </div>
         </div>
+
+        {canAttachGeneratedAppointmentDocuments ? (
+          <div style={documentUploadCard}>
+            <div style={jobEditorTitle}>Completion Documents</div>
+            <div style={jobEditorSubtitle}>
+              Attach the inspection paperwork for this maintenance appointment.
+            </div>
+            <div style={jobGrid}>
+              {generatedAppointmentKinds.brake ? (
+                <Field label="Brake Test Document">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => setBrakeTestDocumentFile(e.target.files?.[0] || null)}
+                    style={fieldInput}
+                  />
+                  {brakeTestDocumentFile ? <div style={fileHint}>{brakeTestDocumentFile.name}</div> : null}
+                </Field>
+              ) : null}
+              {generatedAppointmentKinds.pmi ? (
+                <Field label="PMI Inspection Document">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => setPmiDocumentFile(e.target.files?.[0] || null)}
+                    style={fieldInput}
+                  />
+                  {pmiDocumentFile ? <div style={fileHint}>{pmiDocumentFile.name}</div> : null}
+                </Field>
+              ) : null}
+            </div>
+            {!canCompleteGeneratedAppointment ? (
+              <div style={jobEditorActions}>
+                <button
+                  type="button"
+                  style={primaryBtn}
+                  onClick={handleSaveGeneratedAppointmentDocuments}
+                  disabled={completingAppointment}
+                >
+                  {completingAppointment ? "Saving..." : "Save Documents"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div style={actions}>
           {canBook && (
@@ -1037,6 +1280,49 @@ const detailsPanel = {
   borderRadius: 8,
   overflow: "hidden",
   background: "#ffffff",
+};
+
+const documentUploadCard = {
+  margin: "0 12px 12px",
+  border: "1px solid #d7dee8",
+  borderRadius: 8,
+  padding: 12,
+  background: "#ffffff",
+  boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
+};
+
+const documentsBlock = {
+  padding: 10,
+  borderTop: "1px solid #e3ebf3",
+  background: "#ffffff",
+};
+
+const documentLinks = {
+  display: "flex",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 6,
+};
+
+const documentLink = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "5px 8px",
+  borderRadius: 8,
+  border: "1px solid #c8d6e3",
+  background: "#edf3f8",
+  color: "#1f4b7a",
+  fontSize: 12,
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const fileHint = {
+  marginTop: 6,
+  color: "#5f6f82",
+  fontSize: 12,
+  fontWeight: 700,
+  overflowWrap: "anywhere",
 };
 
 const row = {

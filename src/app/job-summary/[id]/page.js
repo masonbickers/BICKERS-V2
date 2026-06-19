@@ -169,6 +169,20 @@ const crewFullNames = (employees) =>
 /* ───────────────────────────────────────────
    Timesheet helpers (table renderer)
 ─────────────────────────────────────────── */
+const normalizeQuoteVersions = (job = {}) => {
+  const versions = Array.isArray(job.quoteVersions)
+    ? job.quoteVersions.filter((entry) => entry && typeof entry === "object")
+    : [];
+  const legacyQuote = job.quote && typeof job.quote === "object" && !versions.length ? [job.quote] : [];
+  return [...versions, ...legacyQuote];
+};
+
+const quoteDisplayName = (quote = {}) => {
+  const name = String(quote.quoteName || quote.displayName || "").trim();
+  if (name) return name;
+  return String(quote.templateName || quote.templateFile || "").trim() || "Unnamed quote";
+};
+
 const minutes = (hhmm) => {
   if (!hhmm) return 0;
   const [h, m] = hhmm.split(":").map(Number);
@@ -388,6 +402,8 @@ export default function JobSummaryWithTimesheetsPage() {
 
   const prettyStatus = useMemo(() => prettifyStatus(job?.status), [job]);
   const dateLabel = useMemo(() => dateRangeLabel(job || {}), [job]);
+  const quoteOptions = useMemo(() => normalizeQuoteVersions(job || {}), [job]);
+  const acceptedQuoteNumber = String(job?.acceptedQuoteNumber || job?.quoteNumber || "").trim();
 
   const notesBlob = useMemo(() => {
     if (!job) return "";
@@ -421,6 +437,20 @@ export default function JobSummaryWithTimesheetsPage() {
 
   const markNeedsAction = () =>
     safeUpdate({ status: "Action Required" }, "Marked as Needs Action.");
+
+  const saveAcceptedQuote = (quoteNumber) => {
+    const selectedQuote = quoteOptions.find(
+      (quote) => String(quote.quoteNumber || "").trim() === String(quoteNumber || "").trim()
+    );
+    if (!selectedQuote) return;
+    safeUpdate(
+      {
+        acceptedQuoteNumber: selectedQuote.quoteNumber || "",
+        acceptedQuoteName: quoteDisplayName(selectedQuote),
+      },
+      "Accepted quote saved."
+    );
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -579,6 +609,38 @@ export default function JobSummaryWithTimesheetsPage() {
                   <div>{job.id}</div>
                   <div style={label}>Job Number</div>
                   <div>{job.jobNumber || "—"}</div>
+                  <div style={label}>Accepted Quote</div>
+                  <div>
+                    {quoteOptions.length ? (
+                      <select
+                        value={acceptedQuoteNumber}
+                        onChange={(event) => saveAcceptedQuote(event.target.value)}
+                        style={{
+                          width: "100%",
+                          maxWidth: 420,
+                          border: "1px solid #d1d5db",
+                          borderRadius: 8,
+                          padding: "7px 9px",
+                          fontWeight: 800,
+                          color: UI.text,
+                          background: "#fff",
+                        }}
+                        disabled={saving}
+                      >
+                        <option value="">Choose accepted quote</option>
+                        {quoteOptions.map((quote) => (
+                          <option key={quote.quoteNumber || quote.version || quoteDisplayName(quote)} value={quote.quoteNumber || ""}>
+                            {[quote.quoteNumber, quoteDisplayName(quote)].filter(Boolean).join(" - ")}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      "â€”"
+                    )}
+                    {job.acceptedQuoteName ? (
+                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{job.acceptedQuoteName}</div>
+                    ) : null}
+                  </div>
                   <div style={label}>Contact</div>
                   <div>
                     {job.contactName || "—"}

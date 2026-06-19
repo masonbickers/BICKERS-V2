@@ -243,6 +243,10 @@ function isEmployeeRecord(employee = {}) {
   const jobTitleBlob = Array.isArray(employee.jobTitle)
     ? employee.jobTitle.join(" ").toLowerCase()
     : String(employee.jobTitle || "").toLowerCase();
+  const nameBlob = [employee.name, employee.fullName, employee.employeeName, employee.email]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean)
+    .join(" ");
 
   if (
     employee.deleted === true ||
@@ -252,11 +256,18 @@ function isEmployeeRecord(employee = {}) {
     employee.active === false ||
     employee.appDisabled === true
   ) return false;
-  if (employee.isService === true) return false;
-  if (role === "service" || role === "hybrid") return false;
+  const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
+  const serviceOnly = employee.isService === true && appAccess.user !== true;
+  if (serviceOnly) return false;
+  if (employee.preview === true || employee.isPreview === true || employee.test === true || employee.isTest === true) {
+    return false;
+  }
+  if (role === "service") return false;
   if (role === "freelancer" || role === "freelance") return false;
   if (employmentType.includes("freelance")) return false;
   if (jobTitleBlob.includes("freelance")) return false;
+  if (/\b(preview lane|test employee|demo employee)\b/.test(nameBlob)) return false;
+  if (nameBlob.includes("example.invalid")) return false;
   return true;
 }
 

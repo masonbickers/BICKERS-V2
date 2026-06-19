@@ -50,10 +50,13 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  Download,
   FileText,
   Package,
+  Printer,
   Save,
   Search,
+  Trash2,
   Truck,
   Users,
 } from "lucide-react";
@@ -604,10 +607,61 @@ const normalizeQuoteNumbers = (value) =>
     )
   );
 
+const splitQuoteRevision = (quoteNumber = "") => {
+  const text = String(quoteNumber || "").trim();
+  const match = text.match(/^(.+)\.(\d+)$/);
+  return {
+    base: (match ? match[1] : text).trim(),
+    revision: match?.[2] ? Number(match[2]) : 0,
+  };
+};
+
+const publicQuoteNumber = (quoteNumber = "") => splitQuoteRevision(quoteNumber).base;
+
+const normalizePublicQuoteNumbers = (value) =>
+  Array.from(
+    normalizeQuoteNumbers(value).reduce((map, number) => {
+      const publicNumber = publicQuoteNumber(number);
+      const key = String(publicNumber || "").trim().toLowerCase();
+      if (key && !map.has(key)) map.set(key, publicNumber);
+      return map;
+    }, new Map()).values()
+  );
+
+const quoteRevisionLabel = (quoteNumber = "") => {
+  const revision = splitQuoteRevision(quoteNumber).revision;
+  return revision > 0 ? `Rev ${revision}` : "Original";
+};
+
+const quoteVersionFromNumber = (quoteNumber = "") => {
+  const match = String(publicQuoteNumber(quoteNumber) || "").match(/(?:^|-)(\d{1,4})$/);
+  const version = Number(match?.[1] || 0);
+  return Number.isInteger(version) && version > 0 ? version : 0;
+};
+
+const quoteDisplayName = (quote = {}) => {
+  const name = String(quote?.quoteName || quote?.displayName || "").trim();
+  if (name) return name;
+  return String(quote?.templateName || quote?.templateFile || "").trim();
+};
+
 const quoteNumberInputValue = (booking = {}) => {
-  const quoteNumbers = normalizeQuoteNumbers(booking.quoteNumbers);
+  const quoteNumbers = normalizePublicQuoteNumbers(booking.quoteNumbers);
   if (quoteNumbers.length) return quoteNumbers.join("\n");
-  return String(booking.quoteNumber || "");
+  return publicQuoteNumber(booking.quoteNumber || "");
+};
+
+const nextPublicQuoteNumber = (jobNumber = "", quoteNumbers = []) => {
+  const job = String(jobNumber || "").trim();
+  const base = job ? (job.toUpperCase().startsWith("Q") ? job : `Q${job}`) : "";
+  const versions = quoteNumbers
+    .map(publicQuoteNumber)
+    .map((number) => String(number || "").match(/(?:^|-)(\d{1,4})$/)?.[1])
+    .filter(Boolean)
+    .map(Number);
+  const nextVersion = Math.max(0, ...versions) + 1;
+  const suffix = String(nextVersion).padStart(3, "0");
+  return base ? `${base}-${suffix}` : suffix;
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -816,10 +870,17 @@ const buildEditBookingPrefillState = (bookingData) => {
   return {
     hasBooking: hasUsefulBooking,
     quoteNumber: quoteNumberInputValue(booking),
-    quoteNumbers: normalizeQuoteNumbers(booking.quoteNumbers),
+    quoteNumbers: normalizePublicQuoteNumbers(booking.quoteNumbers),
     jobNumber: booking.jobNumber || "",
     client: booking.client || "",
+    production: booking.production || "",
     location: booking.location || "",
+    showInvoicingDetails: Boolean(booking.po || booking.invoiceContactName || booking.invoiceContactEmail || booking.invoiceContactPhone || booking.invoiceDocument),
+    po: booking.po || "",
+    invoiceContactName: booking.invoiceContactName || "",
+    invoiceContactEmail: booking.invoiceContactEmail || "",
+    invoiceContactPhone: booking.invoiceContactPhone || "",
+    invoiceDocument: booking.invoiceDocument && typeof booking.invoiceDocument === "object" ? booking.invoiceDocument : null,
     status: booking.status || "Confirmed",
     shootType: booking.shootType || "Day",
     statusReasons: Array.isArray(booking.statusReasons) ? booking.statusReasons : [],
@@ -912,6 +973,7 @@ const AUDIT_FIELDS = [
   "quoteNumbers",
   "jobNumber",
   "client",
+  "production",
   "location",
   "status",
   "statusReasons",
@@ -949,7 +1011,8 @@ const AUDIT_LABELS = {
   quoteNumber: "Quote number",
   quoteNumbers: "Quote numbers",
   jobNumber: "Job number",
-  client: "Production",
+  client: "Production Company",
+  production: "Production",
   location: "Location",
   status: "Status",
   statusReasons: "Status reasons",
@@ -1212,7 +1275,15 @@ export default function EditBookingPage() {
   const [quoteNumber, setQuoteNumber] = useState(prefill.quoteNumber);
   const [jobNumber, setJobNumber] = useState(prefill.jobNumber);
   const [client, setClient] = useState(prefill.client);
+  const [production, setProduction] = useState(prefill.production);
   const [location, setLocation] = useState(prefill.location);
+  const [showInvoicingDetails, setShowInvoicingDetails] = useState(prefill.showInvoicingDetails);
+  const [po, setPo] = useState(prefill.po);
+  const [invoiceContactName, setInvoiceContactName] = useState(prefill.invoiceContactName);
+  const [invoiceContactEmail, setInvoiceContactEmail] = useState(prefill.invoiceContactEmail);
+  const [invoiceContactPhone, setInvoiceContactPhone] = useState(prefill.invoiceContactPhone);
+  const [invoiceDocument, setInvoiceDocument] = useState(prefill.invoiceDocument);
+  const [invoiceDocumentFile, setInvoiceDocumentFile] = useState(null);
 
   const [status, setStatus] = useState(prefill.status);
   const [shootType, setShootType] = useState(prefill.shootType);
@@ -1286,6 +1357,9 @@ export default function EditBookingPage() {
   const [pdfProgress, setPdfProgress] = useState(0);
   const [quoteDraft, setQuoteDraft] = useState(prefill.quote);
   const [quoteDrafts, setQuoteDrafts] = useState(prefill.quoteVersions);
+  const [deletingQuoteNumber, setDeletingQuoteNumber] = useState("");
+  const [previewQuoteNumber, setPreviewQuoteNumber] = useState("");
+  const [selectedQuoteRevisions, setSelectedQuoteRevisions] = useState({});
 
   // Data lists
   const [allBookings, setAllBookings] = useState([]);
@@ -1407,10 +1481,10 @@ export default function EditBookingPage() {
       : ""
     : isBickersJob
     ? !coreFilled
-      ? "Fill Production to save"
+      ? "Fill Production Company to save"
       : ""
     : !coreFilled
-    ? "Fill Production and Location to save"
+    ? "Fill Production Company and Location to save"
     : "";
 
   const selectedVehicleDetails = useMemo(() => {
@@ -1428,7 +1502,21 @@ export default function EditBookingPage() {
       };
     }
 
+    const eligible = selectedVehicleDetails.filter((v) => isOffRoadAllowedGroup(v.group));
     const ineligible = selectedVehicleDetails.filter((v) => !isOffRoadAllowedGroup(v.group));
+
+    if (!eligible.length) {
+      const names = ineligible
+        .map((v) => v.name || v.registration || "Vehicle")
+        .slice(0, 3)
+        .join(", ");
+      return {
+        eligible: false,
+        reason: `Select a Bike / Electric Tracking Vehicle / Small Tracking Vehicle first. Selected: ${names}`,
+        eligibleVehicles: [],
+        ineligible,
+      };
+    }
 
     if (ineligible.length) {
       const names = ineligible
@@ -1436,13 +1524,14 @@ export default function EditBookingPage() {
         .slice(0, 3)
         .join(", ");
       return {
-        eligible: false,
-        reason: `Only Bike / Electric Tracking Vehicles / Small Tracking Vehicles are allowed. Ineligible: ${names}`,
+        eligible: true,
+        reason: `Applies to eligible off-road vehicles only. Still checking road legality for: ${names}`,
+        eligibleVehicles: eligible,
         ineligible,
       };
     }
 
-    return { eligible: true, reason: "", ineligible: [] };
+    return { eligible: true, reason: "", eligibleVehicles: eligible, ineligible: [] };
   }, [selectedVehicleDetails, vehicles]);
 
   const bookingWindowEnd = useMemo(() => {
@@ -1527,7 +1616,15 @@ export default function EditBookingPage() {
       setQuoteNumber(quoteNumberInputValue(bookingData));
       setJobNumber(bookingData.jobNumber || "");
       setClient(bookingData.client || "");
+      setProduction(bookingData.production || "");
       setLocation(bookingData.location || "");
+      setShowInvoicingDetails(Boolean(bookingData.po || bookingData.invoiceContactName || bookingData.invoiceContactEmail || bookingData.invoiceContactPhone || bookingData.invoiceDocument));
+      setPo(bookingData.po || "");
+      setInvoiceContactName(bookingData.invoiceContactName || "");
+      setInvoiceContactEmail(bookingData.invoiceContactEmail || "");
+      setInvoiceContactPhone(bookingData.invoiceContactPhone || "");
+      setInvoiceDocument(bookingData.invoiceDocument && typeof bookingData.invoiceDocument === "object" ? bookingData.invoiceDocument : null);
+      setInvoiceDocumentFile(null);
       setQuoteDraft(bookingData.quote && typeof bookingData.quote === "object" ? bookingData.quote : null);
       setQuoteDrafts(
         Array.isArray(bookingData.quoteVersions)
@@ -2333,7 +2430,7 @@ export default function EditBookingPage() {
 
     if (!coreFilled) {
       const missing = [];
-      if (!isMaintenance && !(client || "").trim()) missing.push("Production");
+      if (!isMaintenance && !(client || "").trim()) missing.push("Production Company");
       if (!isBickersJob && !(location || "").trim()) missing.push("Location");
       return alert("Please provide: " + missing.join(", ") + ".");
     }
@@ -2476,12 +2573,13 @@ export default function EditBookingPage() {
     }
 
     let nextAttachments = [...(attachments || [])];
+    let nextInvoiceDocument = invoiceDocument || null;
 
     setSaving(true);
     setPdfProgress(0);
 
     // Upload new files if any
-    if (newFiles.length > 0) {
+    if (newFiles.length > 0 || invoiceDocumentFile) {
       const uploaded = [];
       const { storage, ref, uploadBytesResumable, getDownloadURL } =
         await getFirebaseStorageTools();
@@ -2530,6 +2628,57 @@ export default function EditBookingPage() {
       }
 
       nextAttachments = [...nextAttachments, ...uploaded];
+
+      if (invoiceDocumentFile) {
+        const safeName = `${jobNumber || "nojob"}_invoice_${invoiceDocumentFile.name}`.replace(/\s+/g, "_");
+        const storagePath = companyStoragePath(dataAccessState, `invoice_documents/${safeName}`);
+        const storageRefObj = ref(storage, storagePath);
+        const contentType =
+          invoiceDocumentFile.type ||
+          (safeName.toLowerCase().endsWith(".pdf")
+            ? "application/pdf"
+            : safeName.toLowerCase().endsWith(".docx")
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : safeName.toLowerCase().endsWith(".doc")
+            ? "application/msword"
+            : safeName.toLowerCase().endsWith(".xlsx")
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : safeName.toLowerCase().endsWith(".xls")
+            ? "application/vnd.ms-excel"
+            : safeName.toLowerCase().endsWith(".csv")
+            ? "text/csv"
+            : safeName.toLowerCase().endsWith(".jpg") || safeName.toLowerCase().endsWith(".jpeg")
+            ? "image/jpeg"
+            : safeName.toLowerCase().endsWith(".png")
+            ? "image/png"
+            : "application/octet-stream");
+
+        const task = uploadBytesResumable(storageRefObj, invoiceDocumentFile, { contentType });
+
+        await new Promise((resolve, reject) => {
+          task.on(
+            "state_changed",
+            (snap) =>
+              setPdfProgress(
+                Math.round((snap.bytesTransferred / snap.totalBytes) * 100)
+              ),
+            (err) => reject(err),
+            async () => {
+              const url = await getDownloadURL(task.snapshot.ref);
+              nextInvoiceDocument = {
+                url,
+                name: invoiceDocumentFile.name,
+                contentType,
+                size: invoiceDocumentFile.size,
+                storagePath,
+                uploadedAt: new Date().toISOString(),
+                purpose: "invoice-details",
+              };
+              resolve();
+            }
+          );
+        });
+      }
     }
 
     const firstUrl = nextAttachments[0]?.url || null;
@@ -2591,7 +2740,7 @@ export default function EditBookingPage() {
       allocatedCrewCount: allocatedAtSave,
     });
 
-    const quoteNumbersForSave = normalizeQuoteNumbers(quoteNumber);
+    const quoteNumbersForSave = normalizePublicQuoteNumbers(quoteNumber);
     const primaryQuoteNumber = quoteNumbersForSave[0] || "";
 
     const payload = {
@@ -2599,7 +2748,13 @@ export default function EditBookingPage() {
       quoteNumbers: quoteNumbersForSave,
       jobNumber,
       client,
+      production,
       location,
+      po: String(po || "").trim(),
+      invoiceContactName: String(invoiceContactName || "").trim(),
+      invoiceContactEmail: String(invoiceContactEmail || "").trim(),
+      invoiceContactPhone: String(invoiceContactPhone || "").trim(),
+      invoiceDocument: nextInvoiceDocument,
 
       employees: cleanedEmployees,
       employeesByDate: employeesByDatePayload,
@@ -2724,6 +2879,8 @@ export default function EditBookingPage() {
 
       setPdfProgress(0);
       setNewFiles([]);
+      setInvoiceDocument(nextInvoiceDocument);
+      setInvoiceDocumentFile(null);
       alert("Booking Updated ");
       router.push(updatedReturnHref);
     } catch (err) {
@@ -2760,9 +2917,169 @@ export default function EditBookingPage() {
     Number.isFinite(Number(hotelPricePerNight))
       ? Number(hotelNights || 0) * Number(hotelPricePerNight || 0)
       : 0;
-  const quoteNumbers = normalizeQuoteNumbers(quoteNumber);
+  const quoteNumbers = normalizePublicQuoteNumbers(quoteNumber);
   const quoteNumberFieldIsMulti = vehicles.length > 1 || quoteNumbers.length > 1;
   const quoteNumberSummary = quoteNumbers.length ? quoteNumbers.join(", ") : "-";
+  const nextQuoteNumber = nextPublicQuoteNumber(jobNumber, [
+    ...quoteNumbers,
+    ...(Array.isArray(quoteDrafts) ? quoteDrafts.map((entry) => entry?.quoteNumber) : []),
+    quoteDraft?.quoteNumber,
+  ]);
+  const addAnotherQuoteHref = `/quote/${bookingId}?quote=${encodeURIComponent(nextQuoteNumber)}`;
+  const deleteQuoteFromEditPage = async (quoteCard) => {
+    if (!quoteCard || deletingQuoteNumber) return;
+    const targetQuoteNumber = String(quoteCard.selectedRevisionNumber || quoteCard.internalQuoteNumber || quoteCard.quoteNumber || "").trim();
+    if (!targetQuoteNumber) return;
+
+    if (!quoteCard.isSaved) {
+      const confirmed = window.confirm(
+        `Cancel draft quote ${quoteCard.quoteNumber}?\n\nThis draft quote has not been saved to Firestore and will be removed from this booking edit screen.`
+      );
+      if (!confirmed) return;
+      const remainingPublicNumbers = quoteNumbers.filter(
+        (number) => publicQuoteNumber(number).toLowerCase() !== quoteCard.quoteNumber.toLowerCase()
+      );
+      setQuoteNumber(remainingPublicNumbers.join("\n"));
+      setPreviewQuoteNumber((current) => (current === quoteCard.quoteNumber ? "" : current));
+      alert("Draft quote cancelled.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete quote ${quoteCard.quoteNumber}?\n\nThis quote will be permanently removed from Firestore, including the quote builder data linked to this booking. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingQuoteNumber(targetQuoteNumber);
+    const deleteKey = String(targetQuoteNumber).trim().toLowerCase();
+    const remainingDrafts = (Array.isArray(quoteDrafts) ? quoteDrafts : []).filter(
+      (entry) => String(entry?.quoteNumber || "").trim().toLowerCase() !== deleteKey
+    );
+    const latestRemainingQuote = remainingDrafts.reduce((latest, entry) => {
+      if (!latest) return entry;
+      const latestTime = new Date(latest.savedAt || latest.updatedAt || latest.createdAt || 0).getTime() || 0;
+      const entryTime = new Date(entry.savedAt || entry.updatedAt || entry.createdAt || 0).getTime() || 0;
+      if (entryTime !== latestTime) return entryTime > latestTime ? entry : latest;
+      return splitQuoteRevision(entry.quoteNumber).revision >= splitQuoteRevision(latest.quoteNumber).revision ? entry : latest;
+    }, null);
+    const remainingPublicNumbers = normalizePublicQuoteNumbers(remainingDrafts.map((entry) => entry?.quoteNumber));
+    const deletedAcceptedQuote =
+      publicQuoteNumber(targetQuoteNumber).toLowerCase() ===
+      publicQuoteNumber(originalBookingData?.acceptedQuoteNumber || "").toLowerCase();
+    const user = auth.currentUser;
+    const nowIso = new Date().toISOString();
+
+    // TODO: delete associated Storage files/PDFs/generated docs when quote assets get their own storage metadata.
+    const patch = {
+      quoteVersions: remainingDrafts,
+      quoteNumbers: remainingPublicNumbers,
+      quote: latestRemainingQuote || null,
+      quoteNumber: latestRemainingQuote?.quoteNumber || remainingPublicNumbers[0] || "",
+      quoteVersion: latestRemainingQuote ? quoteVersionFromNumber(latestRemainingQuote.quoteNumber) : 0,
+      updatedAt: nowIso,
+      lastEditedBy: user?.email || "Unknown",
+      lastEditedByUid: user?.uid || "",
+    };
+
+    if (deletedAcceptedQuote) {
+      patch.acceptedQuoteNumber = "";
+      patch.acceptedQuoteName = "";
+    }
+
+    try {
+      await updateDoc(doc(db, "bookings", bookingId), tenantPayload(dataAccessState, patch));
+      setQuoteDrafts(remainingDrafts);
+      setQuoteDraft(latestRemainingQuote || null);
+      setQuoteNumber(remainingPublicNumbers.join("\n"));
+      setSelectedQuoteRevisions((current) => {
+        const next = { ...current };
+        delete next[quoteCard.quoteNumber];
+        return next;
+      });
+      setPreviewQuoteNumber((current) => (current === quoteCard.quoteNumber ? "" : current));
+      alert(`Quote ${quoteCard.quoteNumber} deleted successfully.`);
+      router.push("/completed-quotes");
+    } catch (error) {
+      if (!handleFirestoreAccessError(error, { collectionName: "bookings", operation: "delete quote from edit booking" })) {
+        console.error("Failed deleting quote:", error);
+        alert("Failed to delete quote. Please try again.");
+      }
+    } finally {
+      setDeletingQuoteNumber("");
+    }
+  };
+  const quoteCards = (() => {
+    const savedQuotes = Array.isArray(quoteDrafts) ? quoteDrafts : [];
+    const legacyQuoteNumber = quoteDraft?.quoteNumber || (quoteDraft?.lineItems?.length ? quoteNumbers[0] : "");
+    const publicCardNumbers = [
+      ...quoteNumbers.map(publicQuoteNumber),
+      ...savedQuotes.map((entry) => publicQuoteNumber(entry?.quoteNumber)),
+      publicQuoteNumber(legacyQuoteNumber),
+    ].filter(Boolean);
+    const cardNumbers = Array.from(
+      publicCardNumbers.reduce((map, number) => {
+        const key = String(number || "").trim().toLowerCase();
+        if (key && !map.has(key)) map.set(key, number);
+        return map;
+      }, new Map()).values()
+    );
+    return cardNumbers.map((number) => {
+      const publicNumber = publicQuoteNumber(number);
+      const matchingSavedQuotes = savedQuotes
+        .filter(
+          (entry) => publicQuoteNumber(entry?.quoteNumber).toLowerCase() === String(publicNumber || "").trim().toLowerCase()
+        )
+        .sort((a, b) => splitQuoteRevision(b?.quoteNumber).revision - splitQuoteRevision(a?.quoteNumber).revision);
+      const savedQuote =
+        matchingSavedQuotes[0] ||
+        (String(legacyQuoteNumber || "").trim().toLowerCase() === String(number || "").trim().toLowerCase()
+          ? quoteDraft
+          : null);
+      const internalQuoteNumber = savedQuote?.quoteNumber || publicNumber;
+      const revisionOptions = matchingSavedQuotes.length
+        ? matchingSavedQuotes.map((entry) => ({
+            quoteNumber: entry.quoteNumber,
+            label: quoteRevisionLabel(entry.quoteNumber),
+            savedAt: entry.savedAt || entry.updatedAt || "",
+          }))
+        : internalQuoteNumber
+        ? [{ quoteNumber: internalQuoteNumber, label: quoteRevisionLabel(internalQuoteNumber), savedAt: savedQuote?.savedAt || savedQuote?.updatedAt || "" }]
+        : [];
+      const selectedRevisionNumber =
+        selectedQuoteRevisions[publicNumber] &&
+        revisionOptions.some((option) => option.quoteNumber === selectedQuoteRevisions[publicNumber])
+          ? selectedQuoteRevisions[publicNumber]
+          : internalQuoteNumber;
+      const selectedSavedQuote =
+        matchingSavedQuotes.find((entry) => entry.quoteNumber === selectedRevisionNumber) || savedQuote;
+      const lineCount = Array.isArray(selectedSavedQuote?.lineItems) ? selectedSavedQuote.lineItems.length : 0;
+      const subtotal = Number(selectedSavedQuote?.subtotal);
+      return {
+        quoteNumber: publicNumber,
+        internalQuoteNumber,
+        selectedRevisionNumber,
+        revisions: revisionOptions,
+        revisionCount: matchingSavedQuotes.length,
+        name: quoteDisplayName(selectedSavedQuote) || "Unnamed quote",
+        savedQuote: selectedSavedQuote,
+        href: `/quote/${bookingId}?quote=${encodeURIComponent(selectedRevisionNumber)}`,
+        printHref: `/quote/${bookingId}?quote=${encodeURIComponent(selectedRevisionNumber)}&action=print`,
+        downloadHref: `/quote/${bookingId}?quote=${encodeURIComponent(selectedRevisionNumber)}&action=download`,
+        status: selectedSavedQuote?.status || (selectedSavedQuote ? "Draft" : "Not started"),
+        isAccepted:
+          String(selectedSavedQuote?.status || "").trim() === "Accepted" ||
+          publicQuoteNumber(selectedSavedQuote?.quoteNumber || number || "").trim() === publicQuoteNumber(originalBookingData?.acceptedQuoteNumber || "").trim(),
+        description: selectedSavedQuote?.templateName || selectedSavedQuote?.templateFile || "No template selected",
+        lineCount,
+        total: Number.isFinite(subtotal) && subtotal > 0 ? `GBP ${subtotal.toFixed(2)}` : "",
+        savedAt: selectedSavedQuote?.savedAt || selectedSavedQuote?.updatedAt || "",
+        savedBy: selectedSavedQuote?.savedBy || selectedSavedQuote?.updatedBy || "",
+        previewLines: Array.isArray(selectedSavedQuote?.lineItems) ? selectedSavedQuote.lineItems.slice(0, 5) : [],
+        isSaved: Boolean(selectedSavedQuote),
+      };
+    });
+  })();
+  const previewQuoteCard = quoteCards.find((quoteCard) => quoteCard.quoteNumber === publicQuoteNumber(previewQuoteNumber));
 
   return (
     <HeaderSidebarLayout>
@@ -2818,13 +3135,9 @@ export default function EditBookingPage() {
                   />
                   Off Road Tracking
                 </label>
-                {!offRoadEligibility.eligible ? (
-                  <div style={{ fontSize: 12, color: UI.muted }}>{offRoadEligibility.reason}</div>
-                ) : (
-                  <div style={{ fontSize: 12, color: UI.muted }}>
-                    Skips tax/SORN compliance only. Insurance is still required.
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: UI.muted }}>
+                  {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
+                </div>
               </div>
             </div>
           </div>
@@ -2957,12 +3270,19 @@ export default function EditBookingPage() {
                   <option value="Night">Night</option>
                 </select>
 
-                <label style={field.label}>Production</label>
+                <label style={field.label}>Production Company</label>
                 <input
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   style={field.input}
                   required={!isMaintenance}
+                />
+
+                <label style={field.label}>Production</label>
+                <input
+                  value={production}
+                  onChange={(e) => setProduction(e.target.value)}
+                  style={field.input}
                 />
 
                 {/* Contacts block only */}
@@ -3238,6 +3558,74 @@ export default function EditBookingPage() {
                   style={field.input}
                   required
                 />
+                <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
+                  <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={showInvoicingDetails}
+                      onChange={(e) => setShowInvoicingDetails(e.target.checked)}
+                    />
+                    Add invoicing details
+                  </label>
+                  {showInvoicingDetails && (
+                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Purchase Order (PO)</label>
+                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                        <div>
+                          <label style={{ ...field.label, marginTop: 0 }}>Invoicing contact</label>
+                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Name" />
+                        </div>
+                        <div>
+                          <label style={{ ...field.label, marginTop: 0 }}>Email</label>
+                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="accounts@example.com" />
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Phone</label>
+                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Optional phone number" />
+                      </div>
+                      <div>
+                        <label style={{ ...field.label, marginTop: 0 }}>Invoice details document</label>
+                        {invoiceDocument?.url && !invoiceDocumentFile && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              padding: 8,
+                              borderRadius: UI.radiusSm,
+                              border: UI.border,
+                              background: "#fff",
+                              marginBottom: 6,
+                            }}
+                          >
+                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, fontWeight: 700 }}>
+                              {invoiceDocument.name || "Invoice details document"}
+                            </span>
+                            <a href={invoiceDocument.url} target="_blank" rel="noreferrer" style={{ ...btnGhost, padding: "5px 9px", textDecoration: "none", flexShrink: 0 }}>
+                              Open
+                            </a>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
+                          onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
+                          style={{ ...field.input, height: "auto", padding: 10, background: "#fff" }}
+                        />
+                        {invoiceDocumentFile && (
+                          <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
+                            {invoiceDocumentFile.name} selected - it will replace the saved document on Update.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radiusSm, border: UI.border, background: UI.bgAlt }}>
                   <label style={{ ...field.checkboxRow, marginBottom: 0 }}>
                     <input
@@ -3960,23 +4348,253 @@ export default function EditBookingPage() {
                   <div>
                     <h3 style={cardTitle}>Quote</h3>
                     <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
-                      {quoteDrafts.length
-                        ? `${quoteDrafts.length} saved quote${quoteDrafts.length === 1 ? "" : "s"}${quoteDrafts.length > 1 ? " available" : ""}`
-                        : quoteDraft?.lineItems?.length
-                        ? `${quoteDraft.lineItems.length} quote line${quoteDraft.lineItems.length === 1 ? "" : "s"} saved${quoteDraft.subtotal ? ` - GBP ${Number(quoteDraft.subtotal).toFixed(2)}` : ""}`
+                      {quoteCards.length
+                        ? `${quoteCards.length} quote${quoteCards.length === 1 ? "" : "s"} on this booking`
                         : "Create or edit the quote on its own page in the Bickers quote format."}
                     </div>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push(`/quote/${bookingId}`)}
+                  onClick={() => router.push(quoteCards.length ? addAnotherQuoteHref : `/quote/${bookingId}`)}
                   style={btnPrimary}
                 >
                   <FileText size={14} />
-                  {quoteDrafts.length || quoteDraft?.lineItems?.length ? "Open Quotes" : "Create Quote"}
+                  {quoteCards.length ? "Add another quote" : "Create Quote"}
                 </button>
               </div>
+              {quoteCards.length ? (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {quoteCards.map((quoteCard) => (
+                    <div
+                      key={quoteCard.quoteNumber}
+                      style={{
+                        width: "100%",
+                        display: "grid",
+                        gridTemplateColumns: "minmax(150px, 0.7fr) minmax(220px, 1.5fr) auto",
+                        gap: 10,
+                        alignItems: "center",
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        border: UI.border,
+                        borderRadius: UI.radiusSm,
+                        background: quoteCard.isSaved ? "#ffffff" : UI.bgAlt,
+                        color: UI.text,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => router.push(quoteCard.href)}
+                        style={{
+                          display: "grid",
+                          gap: 3,
+                          border: 0,
+                          background: "transparent",
+                          color: UI.text,
+                          padding: 0,
+                          textAlign: "left",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <strong style={{ fontSize: 13 }}>{quoteCard.quoteNumber}</strong>
+                        <span style={{ fontSize: 12, color: quoteCard.isSaved ? UI.green : UI.amber, fontWeight: 800 }}>
+                          {quoteCard.isAccepted ? "Accepted" : quoteCard.status}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push(quoteCard.href)}
+                        style={{
+                          display: "grid",
+                          gap: 3,
+                          minWidth: 0,
+                          border: 0,
+                          background: "transparent",
+                          color: UI.text,
+                          padding: 0,
+                          textAlign: "left",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {quoteCard.name}
+                        </span>
+                        <span style={{ fontSize: 12, color: UI.muted }}>
+                          {quoteCard.description}
+                          {quoteCard.revisionCount > 1 ? ` - ${quoteCard.revisionCount} revisions` : ""}
+                          {" - "}
+                          {quoteCard.lineCount ? `${quoteCard.lineCount} line${quoteCard.lineCount === 1 ? "" : "s"}` : "No lines yet"}
+                          {quoteCard.total ? ` - ${quoteCard.total}` : ""}
+                          {quoteCard.savedAt ? ` - saved ${formatAuditDate(quoteCard.savedAt)}` : ""}
+                          {quoteCard.savedBy ? ` by ${quoteCard.savedBy}` : ""}
+                        </span>
+                      </button>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {quoteCard.revisions.length > 1 ? (
+                          <select
+                            value={quoteCard.selectedRevisionNumber}
+                            onChange={(event) =>
+                              setSelectedQuoteRevisions((current) => ({
+                                ...current,
+                                [quoteCard.quoteNumber]: event.target.value,
+                              }))
+                            }
+                            style={{
+                              minHeight: 32,
+                              border: "1px solid #cbd5e1",
+                              borderRadius: 8,
+                              background: "#fff",
+                              color: UI.text,
+                              fontSize: 12,
+                              fontWeight: 800,
+                              padding: "6px 8px",
+                            }}
+                            title="Select quote revision"
+                          >
+                            {quoteCard.revisions.map((revision) => (
+                              <option key={revision.quoteNumber} value={revision.quoteNumber}>
+                                {revision.label}
+                                {revision.savedAt ? ` - ${formatAuditDate(revision.savedAt)}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => router.push(quoteCard.href)}
+                          style={{ ...btnPrimary, minHeight: 32, padding: "6px 9px", justifyContent: "center" }}
+                        >
+                          <FileText size={14} />
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewQuoteNumber((current) =>
+                              current === quoteCard.quoteNumber ? "" : quoteCard.quoteNumber
+                            )
+                          }
+                          style={{ ...btnGhost, minHeight: 32, padding: "6px 9px", justifyContent: "center" }}
+                        >
+                          <Search size={14} />
+                          Preview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push(quoteCard.printHref)}
+                          style={{ ...btnGhost, minHeight: 32, padding: "6px 9px", justifyContent: "center" }}
+                        >
+                          <Printer size={14} />
+                          Print
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push(quoteCard.downloadHref)}
+                          style={{ ...btnGhost, minHeight: 32, padding: "6px 9px", justifyContent: "center" }}
+                        >
+                          <Download size={14} />
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteQuoteFromEditPage(quoteCard)}
+                          disabled={Boolean(deletingQuoteNumber)}
+                          style={{
+                            ...btnDanger,
+                            minHeight: 32,
+                            padding: "6px 9px",
+                            justifyContent: "center",
+                            cursor: deletingQuoteNumber ? "not-allowed" : "pointer",
+                            opacity: deletingQuoteNumber ? 0.68 : 1,
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          {deletingQuoteNumber === quoteCard.selectedRevisionNumber ? "Deleting..." : quoteCard.isSaved ? "Delete" : "Cancel draft"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {previewQuoteCard ? (
+                    <div
+                      style={{
+                        border: UI.border,
+                        borderRadius: UI.radiusSm,
+                        background: "#f8fafc",
+                        padding: 12,
+                        display: "grid",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800, textTransform: "uppercase" }}>
+                            Preview
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 900 }}>{previewQuoteCard.name}</div>
+                          <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                            {previewQuoteCard.quoteNumber}
+                            {previewQuoteCard.revisionCount > 1 ? ` - ${previewQuoteCard.revisionCount} revisions` : ""}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ ...pill, background: previewQuoteCard.isSaved ? UI.greenSoft : UI.amberSoft, color: previewQuoteCard.isSaved ? UI.green : UI.amber, borderColor: previewQuoteCard.isSaved ? UI.greenBorder : UI.amberBorder }}>
+                            {previewQuoteCard.status}
+                          </span>
+                          {previewQuoteCard.total ? <span style={{ fontSize: 13, fontWeight: 900 }}>{previewQuoteCard.total}</span> : null}
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 11, color: UI.muted, fontWeight: 800 }}>Description</div>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{previewQuoteCard.description}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: UI.muted, fontWeight: 800 }}>Saved</div>
+                          <div style={{ fontSize: 13 }}>
+                            {previewQuoteCard.savedAt ? formatAuditDate(previewQuoteCard.savedAt) : "Not saved yet"}
+                            {previewQuoteCard.savedBy ? ` by ${previewQuoteCard.savedBy}` : ""}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: UI.muted, fontWeight: 800 }}>Lines</div>
+                          <div style={{ fontSize: 13 }}>{previewQuoteCard.lineCount || 0}</div>
+                        </div>
+                      </div>
+                      {previewQuoteCard.previewLines.length ? (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {previewQuoteCard.previewLines.map((line, index) => (
+                            <div
+                              key={line.id || `${previewQuoteCard.quoteNumber}-line-${index}`}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                                gap: 8,
+                                alignItems: "center",
+                                fontSize: 12.5,
+                                borderTop: index === 0 ? "1px solid #e2e8f0" : 0,
+                                paddingTop: index === 0 ? 8 : 0,
+                              }}
+                            >
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }}>
+                                {line.description || line.section || "Untitled line"}
+                              </span>
+                              <span style={{ color: UI.muted }}>{line.qty ? `Qty ${line.qty}` : "-"}</span>
+                              <span style={{ color: UI.muted }}>{line.unitPrice ? `GBP ${line.unitPrice}` : "-"}</span>
+                            </div>
+                          ))}
+                          {previewQuoteCard.lineCount > previewQuoteCard.previewLines.length ? (
+                            <div style={{ fontSize: 12, color: UI.muted }}>
+                              +{previewQuoteCard.lineCount - previewQuoteCard.previewLines.length} more line{previewQuoteCard.lineCount - previewQuoteCard.previewLines.length === 1 ? "" : "s"}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, color: UI.muted }}>No quote lines saved yet.</div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {/* Files & Notes */}
@@ -4201,7 +4819,8 @@ export default function EditBookingPage() {
                     <SummaryRow label="Number">{jobNumber || "-"}</SummaryRow>
                     <SummaryRow label="Status">{status || "-"}</SummaryRow>
                     <SummaryRow label="Shoot">{shootType || "-"}</SummaryRow>
-                    <SummaryRow label="Client">{client || "-"}</SummaryRow>
+                    <SummaryRow label="Production Company">{client || "-"}</SummaryRow>
+                    <SummaryRow label="Production">{production || "-"}</SummaryRow>
                   </div>
 
                   <div style={summarySection}>

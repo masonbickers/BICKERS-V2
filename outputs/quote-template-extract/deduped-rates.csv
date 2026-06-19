@@ -1,0 +1,231 @@
+section,description,unitPrice,unitPriceNumber,exampleFile,row
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Silverado Elite Tracking Vehicle,755.00,755.0,Horse Rig 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Fuller Body Spring Operated,600.00,600.0,Horse Rig 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Basic Riggers Scaffolding Kit,95.00,95.0,Horse Rig 2026.xls,19
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre-Rigging & Additional Equipment,,,Horse Rig 2026.xls,20
+Labour Rates - Daily Rates - 2 Man Crew,To Services of Driver/Technician per 10hr Day Cont. Day (Call to Wrap) - Inclusive of Stand By Days,585.00,585.0,Horse Rig 2026.xls,24
+Labour Rates - Daily Rates - 2 Man Crew,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,Horse Rig 2026.xls,25
+Labour Rates - Daily Rates - 2 Man Crew,Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,Horse Rig 2026.xls,26
+Labour Rates - Daily Rates - 2 Man Crew,Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,Horse Rig 2026.xls,27
+Labour Rates - Daily Rates - 2 Man Crew,Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,Horse Rig 2026.xls,28
+Labour Rates - Daily Rates - 2 Man Crew,Supplementary charge applies for Saturday working,292.50,292.5,Horse Rig 2026.xls,29
+Labour Rates - Daily Rates - 2 Man Crew,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,Horse Rig 2026.xls,30
+Labour Rates - Daily Rates - 2 Man Crew,Recce Charge per man,585.00,585.0,Horse Rig 2026.xls,31
+Travel Charges,Transport Vehicle,175.00,175.0,Horse Rig 2026.xls,34
+Travel Charges,Transport Mileage,1.55,1.55,Horse Rig 2026.xls,35
+Travel Charges,Tracking Vehicle and Crew Travel Days,585.00,585.0,Horse Rig 2026.xls,36
+Travel Charges,Tracking Vehicle and Crew Travel Time,58.50,58.5,Horse Rig 2026.xls,37
+Travel Charges,Enroute Hotels,TBC,,Horse Rig 2026.xls,38
+Travel Charges,Ferry & GMR,TBC,,Horse Rig 2026.xls,39
+Travel Charges,Overnight Meal Allowance,35.00,35.0,Horse Rig 2026.xls,41
+Travel Charges,Breakfast/Lunch not Supplied on location per man,22.00,22.0,Horse Rig 2026.xls,43
+Travel Charges,Recce Travel Time/Travel Day (When recce is outside the London area),58.50,58.5,Horse Rig 2026.xls,44
+Travel Charges,"Recce Mileage (Inc On Location Recce Mileage, Location to Location Moves)",0.68,0.68,Horse Rig 2026.xls,45
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Mini Cooper Tracking Vehicle - Plate Shot Vehicle,690.00,690.0,PB Q Mini Cooper 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Performance Service parts charge,125.00,125.0,PB Q Mini Cooper 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Remote Head mounts - Post Rigs - 2x Available Unit Price,180.00,180.0,PB Q Mini Cooper 2026.xls,15
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),To Services of Driver/Technician per 10hr day (Call to Wrap),585.00,585.0,PB Q Mini Cooper 2026.xls,21
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,PB Q Mini Cooper 2026.xls,22
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Stunt Interactive Driving (Higher Speed Choreographed Driving and or Braking Traction),150.00,150.0,PB Q Mini Cooper 2026.xls,23
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,PB Q Mini Cooper 2026.xls,24
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,PB Q Mini Cooper 2026.xls,25
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,PB Q Mini Cooper 2026.xls,26
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Supplementary charge applies for Saturday working,292.50,292.5,PB Q Mini Cooper 2026.xls,27
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,PB Q Mini Cooper 2026.xls,28
+Labour Rates - Daily Rates (2 Man crew required if Transport Vehicle needs to Moved to Different locations),Recce Charge per man,585.00,585.0,PB Q Mini Cooper 2026.xls,29
+Travel Charges,Transport Vehicle 4x4 and Covered Trailer,225.00,225.0,PB Q Mini Cooper 2026.xls,32
+Travel Charges,Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage,1.55,1.55,PB Q Mini Cooper 2026.xls,33
+Travel Charges,London and Home Counties Fixed Travel Charge,185.00,185.0,PB Q Mini Cooper 2026.xls,36
+Travel Charges,London Congestion-ULEZ Charge per vehicle,30.00,30.0,PB Q Mini Cooper 2026.xls,37
+Travel Charges,Clean air zone charge where applicable,,,PB Q Mini Cooper 2026.xls,38
+Travel Charges,Overnights,35.00,35.0,PB Q Mini Cooper 2026.xls,41
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Silverado Elite Tracking Vehicle,850.00,850.0,PB Q Silverado Elite Motorcle Banking 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Motorcycle Hydraulic Banking Rig (Towing Rig),635.00,635.0,PB Q Silverado Elite Motorcle Banking 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Front Fork Attachments,288.00,288.0,PB Q Silverado Elite Motorcle Banking 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),5K Generator (Built in Generator) Including Fuel,180.00,180.0,PB Q Silverado Elite Motorcle Banking 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Camera Crane Mounting Kit,175.00,175.0,PB Q Silverado Elite Motorcle Banking 2026.xls,17
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Motorcycle Mini Low Loader,250.00,250.0,PB Q Silverado Elite Motorcle Banking 2026.xls,18
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Universal ""A"" Frame (Car Towing Frame)",150.00,150.0,PB Q Silverado Elite Motorcle Banking 2026.xls,19
+Labour Rates - Daily Rates - 2 x Crew,To Services of Driver/Technician per 10hr Cont. Day (Call to Wrap),585.00,585.0,PB Q Silverado Elite Motorcle Banking 2026.xls,25
+Labour Rates - Daily Rates - 2 x Crew,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,PB Q Silverado Elite Motorcle Banking 2026.xls,26
+Labour Rates - Daily Rates - 2 x Crew,Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,PB Q Silverado Elite Motorcle Banking 2026.xls,27
+Labour Rates - Daily Rates - 2 x Crew,Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,PB Q Silverado Elite Motorcle Banking 2026.xls,28
+Labour Rates - Daily Rates - 2 x Crew,Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,PB Q Silverado Elite Motorcle Banking 2026.xls,29
+Labour Rates - Daily Rates - 2 x Crew,Supplementary charge applies for Saturday working,292.50,292.5,PB Q Silverado Elite Motorcle Banking 2026.xls,30
+Labour Rates - Daily Rates - 2 x Crew,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,PB Q Silverado Elite Motorcle Banking 2026.xls,31
+Labour Rates - Daily Rates - 2 x Crew,Recce Charge per man,585.00,585.0,PB Q Silverado Elite Motorcle Banking 2026.xls,32
+Travel Charges,Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage,1.70,1.7,PB Q Silverado Elite Motorcle Banking 2026.xls,35
+Travel Charges,Overnight Meal Allowance,28.00,28.0,PB Q Silverado Elite Motorcle Banking 2026.xls,42
+Travel Charges,Breakfast/Lunch not Supplied on location per man,18.00,18.0,PB Q Silverado Elite Motorcle Banking 2026.xls,44
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pulse Elite Tracking Vehicle - Fully Electric and Silent (Rear Wheel Drive),700.00,700.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),5K Generator including Fuel,180.00,180.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"""A"" Frame Car Towing Frame - Only small vehicles can be towed by the Explorer",125.00,125.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,16
+Labour Rates - Daily Rates,To Services of Driver/Technician per 10hr Cont. day (Call to Wrap),585.00,585.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,22
+Labour Rates - Daily Rates,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,23
+Labour Rates - Daily Rates,Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,24
+Labour Rates - Daily Rates,Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,25
+Labour Rates - Daily Rates,Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,26
+Labour Rates - Daily Rates,Supplementary charge applies for Saturday working,292.50,292.5,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,27
+Labour Rates - Daily Rates,"Commercials Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,28
+Labour Rates - Daily Rates,Recce Charge per man,585.00,585.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,29
+Travel Charges,Transport vehicle and Trailer,225.00,225.0,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,32
+Travel Charges,Tracking Vehicle Mileage (Miles) Subject to Tracking Mileage,1.25,1.25,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,33
+Travel Charges,Clean air zone charge where applicable,TBC,,Pulse Elite Fully Electric Tracking Vehicle 2026.xls,38
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Audi RS4 Tracking Vehicle,755.00,755.0,Q Audi RS 4 Film 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Comms Kit 5 x Head sets with 3 helmets (Hard Wired),200.00,200.0,Q Audi RS 4 Film 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Remote Head mounts - Post Rigs - 2x Available Unit Price,185.00,185.0,Q Audi RS 4 Film 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre-Rigging & Additional Equipment,95.00,95.0,Q Audi RS 4 Film 2026.xls,17
+Labour Rates - Daily Rates,Stunt Interactive Driving (Higher Speed Choreographed Driving and or Braking Traction),175.00,175.0,Q Audi RS 4 Film 2026.xls,23
+Labour Rates - Daily Rates,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,Q Audi RS 4 Film 2026.xls,28
+Travel Charges,Overnight,35.00,35.0,Q Audi RS 4 Film 2026.xls,41
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Cheyenne Elite Tracking Vehicle,700.00,700.0,Q Cheyenne Elite Tracking Vehicle & Air Ride Compact Process Trailer 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Air-Ride Compact Process Trailer,375.00,375.0,Q Cheyenne Elite Tracking Vehicle & Air Ride Compact Process Trailer 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"""A"" Frame - Car Towing Rig - Driving cast must hold full driving licence - Car needs to tested for A Frame Compatibility. If it wont A Frame the Tow Dolly may be an option (2 Man Crew Required)",150.00,150.0,Q Cheyenne Elite Tracking Vehicle & Air Ride Compact Process Trailer 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Tracking Tow-Dolly (2 Man Crew Required),230.00,230.0,Q Cheyenne Elite Tracking Vehicle & Air Ride Compact Process Trailer 2026.xls,17
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Rear Wheel Lifters for Tow Dolly,155.00,155.0,Q Cheyenne Elite Tracking Vehicle & Air Ride Compact Process Trailer 2026.xls,18
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"""A"" Frame - Car Towing Rig - Driving cast must hold full driving licence - Car needs to be tested for A Frame Compatibility. If it wont A Frame the Tow Dolly may be an option (2 Man Crew Required)",150.00,150.0,Q Cheyenne Elite Tracking Vehicle 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Motorcycle Hydraulic Banking Rig (Towing Rig),585.00,585.0,Q Cheyenne with Banking Rig 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Motorcycle Mini Low Loader,225.00,225.0,Q Cheyenne with Banking Rig 2026.xls,17
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Testing at Bickers- No Charge for Equipment - Labour,95.00,95.0,Q Cheyenne with Banking Rig 2026.xls,19
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Dodge Ram Elite Tracking Vehicle,755.00,755.0,Q Dodge Elite Nov 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"""A"" Frame - Car Towing Rig - Driving cast must hold full driving licence - Car needs to tested for A Frame Compatibility prior to the shoot. If it wont A Frame the Tow Dolly may be an option",150.00,150.0,Q Dodge Elite Nov 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Tracking Tow Dolly - 2 Crew Required for this equipment,230.00,230.0,Q Dodge Elite Nov 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Camera Crane Mounting Kit,90.00,90.0,Q Dodge Elite Nov 2026.xls,17
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre-Rigging & Additional Equipment,90.00,90.0,Q Dodge Elite Nov 2026.xls,19
+Travel Charges,London Congestion Charge,30.00,30.0,Q Dodge Elite Nov 2026.xls,37
+Travel Charges,ULEZ Charge per vehicle,100.00,100.0,Q Dodge Elite Nov 2026.xls,38
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Explorer ""Compact"" Tracking Vehicle",650.00,650.0,Q Explorer Elite  2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"""A"" Frame Car Towing Frame - Only small vehicles can be towed by the Explorer",150.00,150.0,Q Explorer Elite  2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),GLC Dynamic Tracking Vehicle,755.00,755.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),HD Monitors,275.00,275.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Black Tec Tower Rigging Kit,95.00,95.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Discount,0.0%,0.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Black Tec Tower - 3rd Party Cost,,,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,17
+Labour Rates - Daily Rates,To Services of Driver/Technician per 9hr day (10hrs Inc. 1hr lunch),680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,19
+Labour Rates - Daily Rates,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),102.00,102.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,20
+Labour Rates - Daily Rates,"Double Time for Night Work, Sundays and Bank Holidays",680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,21
+Labour Rates - Daily Rates,Supplementary charge applies for Saturday working,340.00,340.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,22
+Labour Rates - Daily Rates,Supplementary charge applies for Late Working Chargeable from 22:00 - 23:59,340.00,340.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,23
+Labour Rates - Daily Rates,Turnaround Day after Night Work Chargeable from - 23:59,680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,24
+Labour Rates - Daily Rates,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,25
+Labour Rates - Daily Rates,Recce Charge per man,680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,26
+Travel Charges,Tracking Vehicle and Crew Travel Days,680.00,680.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,30
+Travel Charges,Tracking Vehicle and Crew Travel Time,68.00,68.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,31
+Travel Charges,Recce Travel Time/Travel Day (When recce is outside the London area),68.00,68.0,Q GLC Dynamic Tracking Vehicle Non Circuit Work 2026.xls,39
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),GMC Sierra Elite Tracking Vehicle,700.00,700.0,Q GMC Sierra Elite Tracking Vehicle 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Camera Crane Mounted Kit,150.00,150.0,Q GMC Sierra Elite Tracking Vehicle 2026.xls,18
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),GMC Command Vehicle / Mobile Video Village,700.00,700.0,Q GMC Video Pursuit 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),3K Generator including Fuel,180.00,180.0,Q GMC Video Pursuit 2026.xls,14
+Labour Rates - Daily Rates,To Services of Driver/Technician per 10hr Cont Day (Call to Wrap),585.00,585.0,Q GMC Video Pursuit 2026.xls,19
+Labour Rates - Daily Rates,Overtime Charged @ 1.5T (inc Pre-Calls & Call Times Prior to 07:00),87.75,87.75,Q GMC Video Pursuit 2026.xls,20
+Travel Charges,Overnights (Meal Allowance) per man,35.00,35.0,Q GMC Video Pursuit 2026.xls,38
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Land Rover Discovery 4x4 Tracking Vehicle,600.00,600.0,Q Land Rover Discovery 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Post Camera Mount - 2 Available if to be rigged front and back,185.00,185.0,Q Land Rover Discovery 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Discount,,,Q Land Rover Discovery 2026.xls,18
+Travel Charges,Recce Mileage,0.68,0.68,Q Land Rover Discovery 2026.xls,43
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Lightning F150 Plate Vehicle,700.00,700.0,Q Lightning F150 Plate Vehicle 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Generator 3K,180.00,180.0,Q Lightning F150 Plate Vehicle 2026.xls,14
+Labour Rates - Daily Rates,To Services of Driver/Technician per 10hr day (Call to Wrap),585.00,585.0,Q Lightning F150 Plate Vehicle 2026.xls,22
+Travel Charges,London Congestion Charge-ULEZ per vehicle,30.00,30.0,Q Lightning F150 Plate Vehicle 2026.xls,37
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Mini Cooper Tracking Vehicle - Plate Shot Vehicle,700.00,700.0,Q Mini Cooper 2026.xls,13
+Labour Rates - Daily Rates,Stunt Interactive Driving (Higher Speed Choreographed Driving and or Braking Traction),150.00,150.0,Q Mini Cooper 2026.xls,24
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Raptor Elite Tracking Vehicle,850.00,850.0,Q Raptor Elite 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Universal ""A"" Frame (Car Towing Frame) (2 Man Crew Required)",150.00,150.0,Q Raptor Elite 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Tracking Tow Dolly (IF TOW-DOLLY IS USED 2 CREW REQUIRED),230.00,230.0,Q Raptor Elite 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Discount,0.00%,0.0,Q Raptor Elite 2026.xls,20
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Silverado Elite Tracking Vehicle,800.00,800.0,Q Silverado Elite 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Rear Wheel Lifters for Tow Dolly,150.00,150.0,Q Silverado Elite 2026.xls,17
+Pre-Rigging & Additional Equipment,Discount,0.00%,0.0,Q Silverado Elite 2026.xls,21
+Travel Charges,Overnight Meal Allowance / Per Diem,35.00,35.0,Q Silverado Elite 2026.xls,39
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Fuller Body Rig,600.00,600.0,Q Silverado Elite Horse Rig 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Camera Crane Mounted Kit,175.00,175.0,Q Silverado Elite Horse Rig 2026.xls,18
+Labour Rates - Daily Rates - 2 Man Crew,To Services of Driver/Technician per 10hr Day Cont. Day (Call to Wrap),585.00,585.0,Q Silverado Elite Horse Rig 2026.xls,24
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Sprinter No.1 Command Vehicle / Mobile Video Village,700.00,700.0,Q Sprinter No.1 Video Pursuit Vehicle 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Sprinter No.2 Command Vehicle / Mobile Video Village,700.00,700.0,Q Sprinter No.2 Video Pursuit Vehicle 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Tiger 6 Tracking Vehicle - Plate Shot Vehicle,700.00,700.0,Q Tiger 6 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Remote Head mounts - Post Rigs Unit Price,185.00,185.0,Q Tiger 6 2026.xls,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Artic Low Loader No1 Elite Tracking Trailer,"1,075.00",1075.0,Low Loader No.1 OR No.2 London - 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),8K Generator (Built in Generator) - Charged if used,180.00,180.0,Low Loader No.1 OR No.2 London - 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Basic Riggers Scaffolding Kit (18 Tubes and Fittings),95.00,95.0,Low Loader No.1 OR No.2 London - 2026.xls,15
+Labour Rates - Daily Rates,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times prior to 07.00),87.75,87.75,Low Loader No.1 OR No.2 London - 2026.xls,22
+Travel Charges,Overnight Meal Allowance per man per night,35.00,35.0,Low Loader No.1 OR No.2 London - 2026.xls,39
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Artic Low Loader No.2 Elite Tracking Trailer,"1,075.00",1075.0,Low Loader No.2 - 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre Rigging and Prep Work,,,Low Loader No.2 - 2026.xls,16
+Travel Charges,Recce Travel Time/Travel Day (When recce is outside London area),58.50,58.5,Low Loader No.2 - 2026.xls,42
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Artic Low Loader No1 Elite Tracking Trailer,"1,125.00",1125.0,PB Q Low Loader No.1 - 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre Rigging and Prep Work,95.00,95.0,PB Q Low Loader No.1 - 2026.xls,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Artic Low Loader No1 OR No.2 Elite Tracking Trailer,"1,075.00",1075.0,Low Loader No.1 OR No.2 - 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Hire of Existing Pod Car Rig per day (White Insignia, Audi Q3, Landrover Discovery)","1,100.00",1100.0,Pod Car Hire 2026.xls,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Pre-Rigging, Prep and loading",,,Pod Car Hire 2026.xls,14
+Labour Rates - Daily Rates - 2 man Crew TBC,Precision Pod Car Driver per 10hr Cont. Day - Below Terms Apply to this Drivers rate,790.00,790.0,Pod Car Hire 2026.xls,18
+Labour Rates - Daily Rates - 2 man Crew TBC,To Services of Technician per 10hr Cont. Day (call to Wrap),585.00,585.0,Pod Car Hire 2026.xls,19
+Labour Rates - Daily Rates - 2 man Crew TBC,Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,Pod Car Hire 2026.xls,20
+Labour Rates - Daily Rates - 2 man Crew TBC,Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,Pod Car Hire 2026.xls,21
+Labour Rates - Daily Rates - 2 man Crew TBC,Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,Pod Car Hire 2026.xls,22
+Labour Rates - Daily Rates - 2 man Crew TBC,Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,Pod Car Hire 2026.xls,23
+Labour Rates - Daily Rates - 2 man Crew TBC,Supplementary charge applies for Saturday working,292.50,292.5,Pod Car Hire 2026.xls,24
+Labour Rates - Daily Rates - 2 man Crew TBC,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,Pod Car Hire 2026.xls,25
+Labour Rates - Daily Rates - 2 man Crew TBC,Recce Charge per man,585.00,585.0,Pod Car Hire 2026.xls,26
+Travel Charges,Transport Vehicle with Basic Hand Tools for Mechanical Back up,185.00,185.0,Pod Car Hire 2026.xls,29
+Travel Charges,Recce Travel Time/Travel Day (When recce is outside the London area,58.50,58.5,Pod Car Hire 2026.xls,40
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Bespoke POD Car / Top Driver Build - Estimate - Including Pod Equipment Hire,"11,000.00",11000.0,Pod Car Build 2026.xls,14
+Labour Rates - Daily Rates - 2 man Crew TBC,Precision Pod Car Driver per 10hr Cont. Day - Below Terms Apply to this Drivers rate,780.00,780.0,Pod Car Build 2026.xls,19
+Travel Charges,Taxis/Ubers,TBC,,Q Tracking Vehicle Recce 2026.xls,19
+Travel Charges,Train Fair - Charged back at Cost,TBC,,Q Tracking Vehicle Recce 2026.xls,20
+Travel Charges,Overnight Meal,35.00,35.0,Q Tracking Vehicle Recce 2026.xls,21
+Travel Charges,Recce Travel Day (When recce is outside the London area),585.00,585.0,Q Tracking Vehicle Recce 2026.xls,24
+Travel Charges,Recce Hours Travel Time (When recce is outside the London area),58.50,58.5,Q Tracking Vehicle Recce 2026.xls,25
+Labour Rates - Daily Rates,Tracking Teams/Zoom Meeting Techncian Per Hour - Minimum Charge of 1hr,75.00,75.0,Q Tracking Teams-Zoom Meeting 2026.xls,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Trojan Electric Tracking Vehicle,630.00,630.0,Q Trojan Electric 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",180.00,180.0,Q Trojan Electric 2026.xlsx,14
+Travel Charges,Transport Vehicle,180.00,180.0,Q Trojan Electric 2026.xlsx,30
+Travel Charges,Transport Vehicle Mileage (Miles),1.25,1.25,Q Trojan Electric 2026.xlsx,31
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Bicycle Mini Low-Loader,185.00,185.0,Q Trojan Electric & Bicycle Banking-Rig 2026.xlsx,15
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Bicycle Hydraulic Banking-Rig,600.00,600.0,Q Trojan Electric & Bicycle Banking-Rig 2026.xlsx,16
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Fork Attachments,288.00,288.0,Q Trojan Electric & Bicycle Banking-Rig 2026.xlsx,17
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Motorcycle Mini Low-Loader,225.00,225.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,14
+Labour Rates - Daily Rates (2 Man Crew),To Services of Driver/Technician per 10hr Cont. Day (call to Wrap),585.00,585.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,21
+Labour Rates - Daily Rates (2 Man Crew),Overtime Charged @ 1.5T (Inc. Pre-Calls & Call Times Prior to 07:00),87.75,87.75,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,22
+Labour Rates - Daily Rates (2 Man Crew),Sunday and Bank Holiday Work charged at Double Time,585.00,585.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,23
+Labour Rates - Daily Rates (2 Man Crew),Turnaround Day After Night Work Chargeable from 23:59,585.00,585.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,24
+Labour Rates - Daily Rates (2 Man Crew),Supplementary charge for Late Working between 22:00 & 23:59,292.50,292.5,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,25
+Labour Rates - Daily Rates (2 Man Crew),Supplementary charge applies for Saturday working,292.50,292.5,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,26
+Labour Rates - Daily Rates (2 Man Crew),"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",585.00,585.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,27
+Labour Rates - Daily Rates (2 Man Crew),Recce Charge per man,585.00,585.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,28
+Travel Charges,London Congestion-ULEZ Charge per vehicle (Recce & Shoot),30.00,30.0,Q Trojan Electric and Motorcycle Banking Rig or Mini Low Loader 2026.xlsx,39
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Twizzy Electric Tracking Vehicle,630.00,630.0,Q Twizzy Electric 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Trojan Electric Tracking Vehicle,680.00,680.0,PB Q Trojan 4  Electric in Trailer  2026.xlsx,13
+Travel Charges,Transport Van £180 / 4x4 and Trailer £225,225.00,225.0,PB Q Trojan 4  Electric in Trailer  2026.xlsx,30
+Travel Charges,Transport Vehicle Mileage (Miles),1.40,1.4,PB Q Trojan 4  Electric in Trailer  2026.xlsx,31
+Travel Charges,Transport Van £180 / 4x4 and Trailer £225,180.00,180.0,PB Q Trojan Electric 2026.xlsx,30
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Atlas E-Bike Tracking Motorcycle,550.00,550.0,Q Atlas E-Bike Motorcycle 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Remote Head Mounts,195.00,195.0,Q Atlas E-Bike Motorcycle 2026.xlsx,14
+Travel Charges,Transport Vehicle,185.00,185.0,Q Atlas E-Bike Motorcycle 2026.xlsx,30
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Bandit Camera Tracking Motorcycle,550.00,550.0,Q Bandit Elite Motorcycle  2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Remote Head Mount - Post Rig or Scaffold Rig,195.00,195.0,Q Bandit Elite Motorcycle  2026.xlsx,14
+Labour Rates - Daily Rates,To Services of Driver/Technician per 12hr day (10hrs Continuous),585.00,585.0,Q Bandit Elite Motorcycle  2026.xlsx,20
+Travel Charges,Overnight Meal Allowance - per man per night,35.00,35.0,Q Bandit Elite Motorcycle  2026.xlsx,40
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Can Am Maverick Elite Tracking Vehicle,950.00,950.0,Q Can Am Maverick 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),HD Monitors,260.00,260.0,Q Can Am Maverick 2026.xlsx,14
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),"Crane Mount, Remote Head Mount - Post Rig or Scaffold Rig",195.00,195.0,Q Can Am Maverick 2026.xlsx,15
+Labour Rates - Daily Rates,To Services of Driver/Technician per,585.00,585.0,Q Can Am Maverick 2026.xlsx,21
+Labour Rates - Daily Rates,"Commercials - Sundays, Night Work charged at 2T / Saturday Charged 1.5T - APA",292.50,292.5,Q Can Am Maverick 2026.xlsx,27
+Travel Charges,Covered Transport Vehicle,300.00,300.0,Q Can Am Maverick 2026.xlsx,31
+Travel Charges,Transport Vehicle Mileage (Miles) Subject to Tracking Mileage,1.55,1.55,Q Can Am Maverick 2026.xlsx,32
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Dominator Electric Tracking Quad,600.00,600.0,Q Dominator Quad Electric 2026.xlsx,13
+Travel Charges,Congestion Charge/Clean air zone charge where applicable,30.00,30.0,Q Dominator Quad Electric 2026.xlsx,36
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Electric Mountain Bike - Bicycle Tracking Vehicle,500.00,500.0,Q Electric Bicycle  2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Rigging and Prep Work charged,95.00,95.0,Q Electric Bicycle  2026.xlsx,15
+Labour Rates - Daily Rates,To Services of Driver/Technician per 10hr Day,585.00,585.0,Q Electric Bicycle  2026.xlsx,19
+Labour Rates - Daily Rates,Supplementary charge applies for Saturdays,292.50,292.5,Q Electric Bicycle  2026.xlsx,21
+Labour Rates - Daily Rates,Supplementary charge applies for Late Working Between 22:00 & 23:59,292.50,292.5,Q Electric Bicycle  2026.xlsx,23
+Travel Charges,Recce Mileage,0.66,0.66,Q Electric Bicycle  2026.xlsx,40
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Enduromax Elite Tracking Motorcycle,600.00,600.0,Q Enduromax Elite Off Road Motorcycle 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),E-Trike - Tricycle Tracking Vehicle,500.00,500.0,Q E-Trike Tricycle Tracking Vehicle 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Pre-Rigging and Prep Work charged,,,Q E-Trike Tricycle Tracking Vehicle 2026.xlsx,15
+Labour Rates - Daily Rates,Commercials - Night Work and Sundays Charged at 2T / Saturdays Charged at 1.5T - APA,585.00,585.0,Q E-Trike Tricycle Tracking Vehicle 2026.xlsx,25
+Travel Charges,Transport Vehicle,105.00,105.0,Q E-Trike Tricycle Tracking Vehicle 2026.xlsx,29
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Panther Elite Tracking Vehicle,600.00,600.0,Q Panther 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Trojan Elite Petrol Powered Tracking Vehicle,600.00,600.0,Q Petrol Powered Trojan 2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Racing Quad Elite Tracking Vehicle - For Higher Speed use or for more Off Road Use,600.00,600.0,Q Racing Quad  2026.xlsx,13
+Equipment - Daily Rates (Optional Equipment Charged if Used or Booked),Rubicon Tracking Quad,600.00,600.0,Q Rubicon Quad 2026.xlsx,13

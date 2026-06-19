@@ -79,6 +79,15 @@ const splitJobNumber = (jobNumber) => {
   return { prefix: jobNumber || "Job", suffix: "" };
 };
 
+const splitQuoteRevision = (quoteNumber) => {
+  const raw = String(quoteNumber || "").trim();
+  const match = raw.match(/^(.+)\.(\d+)$/);
+  if (!match) return { publicNumber: raw, revision: 0 };
+  return { publicNumber: match[1], revision: Number(match[2]) || 0 };
+};
+
+const getJobQuoteNumber = (job) => String(job?.acceptedQuoteNumber || job?.quoteNumber || "").trim();
+
 const renderEmployees = (employees) =>
   Array.isArray(employees) && employees.length
     ? employees
@@ -839,6 +848,9 @@ const getInvoiceReadiness = (job, timesheets = [], status = "") => {
 
   if (!["complete", "ready to invoice", "paid"].includes(statusNorm)) missing.push("status");
   if (!String(job?.po || "").trim()) missing.push("PO");
+  if (!String(job?.invoiceContactName || "").trim() || !String(job?.invoiceContactEmail || "").trim()) {
+    missing.push("invoiceContact");
+  }
   if (!timesheets.length) missing.push("timesheets");
   if (!renderNames(job?.vehicles, ["name", "registration", "vehicleName"])) missing.push("vehicle");
   if (crew.required > 0 && crew.allocated < crew.required) missing.push("crew");
@@ -1562,7 +1574,17 @@ export default function JobInfoPage() {
               const cards = timesheets.map((ts) => renderTimesheet(ts, job, vehicleMap, true)).filter(Boolean);
 
               const jobNotesText = [job.jobNotes, job.notes, job.generalNotes].filter(Boolean).join("\n\n");
-              const quoteNumberDisplay = String(job.quoteNumber || "").trim();
+              const quoteNumberRaw = getJobQuoteNumber(job);
+              const quoteRevision = splitQuoteRevision(quoteNumberRaw);
+              const quoteNumberDisplay = quoteRevision.publicNumber;
+              const quoteRevisionLabel = quoteRevision.revision ? `Rev ${quoteRevision.revision}` : "";
+              const quoteViewHref = quoteNumberRaw
+                ? `/quote-view/${job.id}?quote=${encodeURIComponent(quoteNumberRaw)}`
+                : `/quote-view/${job.id}`;
+              const quoteEditHref = quoteNumberRaw
+                ? `/quote/${job.id}?quote=${encodeURIComponent(quoteNumberRaw)}`
+                : `/quote/${job.id}`;
+              const quotePrintHref = `${quoteEditHref}${quoteEditHref.includes("?") ? "&" : "?"}action=download`;
               const vehicleSummary = renderVehicleNames(job.vehicles);
               const crewCount = getCrewCount(job);
               const dayCount = getBookingDayCount(job);
@@ -1579,9 +1601,39 @@ export default function JobInfoPage() {
               const timesheetStatus = `${timesheets.length} timesheet${timesheets.length === 1 ? "" : "s"}`;
               const hasNotesByDate =
                 job.notesByDate && typeof job.notesByDate === "object" && Object.keys(job.notesByDate).length > 0;
+              const quoteNumberValue = (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
+                  <span>{quoteNumberDisplay || "-"}</span>
+                  {quoteRevisionLabel && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        minHeight: 22,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        border: UI.border,
+                        background: "#f8fafc",
+                        color: UI.muted,
+                        fontSize: 11,
+                        fontWeight: 900,
+                      }}
+                      title={quoteNumberRaw}
+                    >
+                      {quoteRevisionLabel}
+                    </span>
+                  )}
+                  <Btn title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
+                    Open quote
+                  </Btn>
+                  <Btn title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
+                    PDF
+                  </Btn>
+                </div>
+              );
               const overviewRows = [
                 ["Job Number", job.jobNumber || job.id],
-                ["Quote Number", quoteNumberDisplay],
+                ["Quote Number", quoteNumberRaw ? quoteNumberValue : quoteNumberDisplay],
                 ["Status", currentDbStatus],
                 ["Production", job.client],
                 ["Shoot Type", job.shootType],
@@ -1734,6 +1786,12 @@ export default function JobInfoPage() {
                       onClick={(e) => e.stopPropagation()}
                       style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
                     >
+                      <Btn disabled={!quoteNumberRaw} title="Open this quote viewer" onClick={() => router.push(quoteViewHref)}>
+                        Open quote
+                      </Btn>
+                      <Btn disabled={!quoteNumberRaw} title="Open this quote ready for PDF/print" onClick={() => router.push(quotePrintHref)}>
+                        PDF
+                      </Btn>
                       <Btn
                         variant="primary"
                         disabled={locked}
@@ -2033,6 +2091,7 @@ export default function JobInfoPage() {
                                 [
                                   ["Status complete", !invoiceReadiness.missing.includes("status")],
                                   ["PO reference", !invoiceReadiness.missing.includes("PO")],
+                                  ["Invoicing contact", !invoiceReadiness.missing.includes("invoiceContact")],
                                   ["Linked timesheets", !invoiceReadiness.missing.includes("timesheets")],
                                   ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
                                   ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
@@ -2103,6 +2162,70 @@ export default function JobInfoPage() {
                                   updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { po: e.target.value }));
                                 }}
                                 placeholder={locked ? "Locked job" : "Enter PO reference…"}
+                                style={{
+                                  width: "100%",
+                                  border: UI.border,
+                                  borderRadius: 8,
+                                  padding: "6px 8px",
+                                  fontSize: 12,
+                                  background: locked ? "#f1f5f9" : "#fff",
+                                  opacity: locked ? 0.8 : 1,
+                                }}
+                              />
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                              <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
+                                Invoicing Contact
+                              </label>
+                              <input
+                                type="text"
+                                defaultValue={job.invoiceContactName || ""}
+                                disabled={locked}
+                                onBlur={(e) => {
+                                  if (locked) return;
+                                  updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactName: e.target.value }));
+                                }}
+                                placeholder={locked ? "Locked job" : "Accounts contact name"}
+                                style={{
+                                  width: "100%",
+                                  border: UI.border,
+                                  borderRadius: 8,
+                                  padding: "6px 8px",
+                                  fontSize: 12,
+                                  background: locked ? "#f1f5f9" : "#fff",
+                                  opacity: locked ? 0.8 : 1,
+                                  marginBottom: 6,
+                                }}
+                              />
+                              <input
+                                type="email"
+                                defaultValue={job.invoiceContactEmail || ""}
+                                disabled={locked}
+                                onBlur={(e) => {
+                                  if (locked) return;
+                                  updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactEmail: e.target.value }));
+                                }}
+                                placeholder={locked ? "Locked job" : "Accounts email"}
+                                style={{
+                                  width: "100%",
+                                  border: UI.border,
+                                  borderRadius: 8,
+                                  padding: "6px 8px",
+                                  fontSize: 12,
+                                  background: locked ? "#f1f5f9" : "#fff",
+                                  opacity: locked ? 0.8 : 1,
+                                  marginBottom: 6,
+                                }}
+                              />
+                              <input
+                                type="tel"
+                                defaultValue={job.invoiceContactPhone || ""}
+                                disabled={locked}
+                                onBlur={(e) => {
+                                  if (locked) return;
+                                  updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, { invoiceContactPhone: e.target.value }));
+                                }}
+                                placeholder={locked ? "Locked job" : "Accounts phone (optional)"}
                                 style={{
                                   width: "100%",
                                   border: UI.border,

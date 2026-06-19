@@ -367,8 +367,10 @@ function isFullTimeEmployeeRecord(employee = {}) {
     employee.appDisabled === true
   ) return false;
   if (status === "inactive" || status === "archived") return false;
-  if (employee.isService === true) return false;
-  if (role === "service" || role === "hybrid") return false;
+  const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
+  const serviceOnly = employee.isService === true && appAccess.user !== true;
+  if (serviceOnly) return false;
+  if (role === "service") return false;
   if (role === "freelancer" || role === "freelance") return false;
   if (employmentType.includes("part")) return false;
   if (employmentType.includes("freelance")) return false;

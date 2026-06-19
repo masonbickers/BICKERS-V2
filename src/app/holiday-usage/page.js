@@ -41,6 +41,73 @@ const ADMIN_EMAILS = [
   "mason@bickers.co.uk",
 ];
 
+const employeeDisplayName = (employee = {}) =>
+  String(
+    employee.name ||
+      employee.fullName ||
+      employee.employee ||
+      employee.employeeName ||
+      employee.displayName ||
+      ""
+  ).trim();
+
+const normaliseEmployeeKey = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const asArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined || value === "") return [];
+  return [value];
+};
+
+const employeeAliasValues = (employee = {}) => [
+  employee.id,
+  employee.employeeId,
+  employee.employeeCode,
+  employee.userCode,
+  employee.code,
+  employee.name,
+  employee.fullName,
+  employee.employee,
+  employee.employeeName,
+  employee.displayName,
+  ...asArray(employee.aliases),
+  ...asArray(employee.nameAliases),
+  ...asArray(employee.previousNames),
+];
+
+function isActiveEmployeeRecord(employee = {}) {
+  const role = String(employee.role || "").trim().toLowerCase();
+  const employmentType = String(employee.employmentType || employee.contractType || employee.employeeType || "")
+    .trim()
+    .toLowerCase();
+  const jobTitleBlob = Array.isArray(employee.jobTitle)
+    ? employee.jobTitle.join(" ").toLowerCase()
+    : String(employee.jobTitle || "").toLowerCase();
+
+  if (
+    employee.deleted === true ||
+    employee.isDeleted === true ||
+    employee.archived === true ||
+    employee.isArchived === true ||
+    employee.active === false ||
+    employee.appDisabled === true ||
+    employee.disabled === true ||
+    employee.isEnabled === false
+  ) return false;
+  const appAccess = employee.appAccess && typeof employee.appAccess === "object" ? employee.appAccess : {};
+  const serviceOnly = employee.isService === true && appAccess.user !== true;
+  if (serviceOnly) return false;
+  if (role === "service" || role === "archived") return false;
+  if (role === "freelancer" || role === "freelance") return false;
+  if (employmentType.includes("freelance")) return false;
+  if (jobTitleBlob.includes("freelance")) return false;
+  return true;
+}
+
 /* Mini design system */
 const UI = {
   radius: 8,
@@ -796,13 +863,22 @@ export default function HolidayUsagePage() {
       // Employees (allowances + carry for the selected year)
       const allowMap = {};
       const carryMap = {};
+      const employeeNameByAlias = {};
+      const activeEmployeeNames = new Set();
       try {
         const empSnap = await getDocs(tenantCollectionQuery(db, "employees", dataAccessState));
         empSnap.docs.forEach((d) => {
-          const x = d.data() || {};
-          const name =
-            x.name || x.fullName || x.employee || x.employeeName || x.displayName;
+          const x = { id: d.id, ...(d.data() || {}) };
+          if (!isActiveEmployeeRecord(x)) return;
+
+          const name = employeeDisplayName(x);
           if (!name) return;
+          activeEmployeeNames.add(name);
+
+          employeeAliasValues(x).forEach((alias) => {
+            const key = normaliseEmployeeKey(alias);
+            if (key) employeeNameByAlias[key] = name;
+          });
 
           allowMap[name] =
             x.holidayAllowances?.[yearKey] ??
@@ -825,13 +901,25 @@ export default function HolidayUsagePage() {
       const holSnap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
       holSnap.docs.forEach((docSnap) => {
         const rec = docSnap.data() || {};
-        const employee = rec.employee;
+        const rawEmployee =
+          rec.employee ||
+          rec.employeeName ||
+          rec.displayName ||
+          rec.employeeCode ||
+          rec.employeeId ||
+          "";
+        const employee =
+          employeeNameByAlias[normaliseEmployeeKey(rawEmployee)] ||
+          employeeNameByAlias[normaliseEmployeeKey(rec.employeeId)] ||
+          employeeNameByAlias[normaliseEmployeeKey(rec.employeeCode)] ||
+          "";
         const start = toSafeDate(rec.startDate);
         const end = toSafeDate(rec.endDate) || start;
 
         const notes = rec.notes || rec.holidayReason || "";
 
         if (!employee || !start || !end) return;
+        if (!activeEmployeeNames.has(employee)) return;
 
         //  only show holidays inside the viewed year (no cross-year)
         if (start.getFullYear() !== end.getFullYear()) return;
@@ -935,7 +1023,7 @@ export default function HolidayUsagePage() {
       setEmpAllowance(allowMap);
       setEmpCarryOver(carryMap);
 
-      if (selectedName && !(details[selectedName] || allowMap[selectedName])) {
+      if (selectedName && !activeEmployeeNames.has(selectedName)) {
         setSelectedName(null);
       }
     };

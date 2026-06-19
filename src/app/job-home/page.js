@@ -7,6 +7,7 @@ import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { formatQuoteDate, getCompletedQuoteRows, money } from "@/app/utils/completedQuotes";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 import {
   AlertTriangle,
@@ -194,6 +195,11 @@ const rowShell = {
 const jobNumberRowShell = {
   ...rowShell,
   gridTemplateColumns: "minmax(260px, 1fr) 260px 136px 110px",
+};
+
+const quoteRowShell = {
+  ...rowShell,
+  gridTemplateColumns: "minmax(220px, 1fr) minmax(170px, 260px) 120px 120px",
 };
 
 const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "#fff" };
@@ -535,6 +541,9 @@ export default function JobHomePage() {
   }, [jobs]);
 
   const paidCount = useMemo(() => jobs.filter(isPaidFlag).length, [jobs]);
+
+  const completedQuoteRows = useMemo(() => getCompletedQuoteRows(jobs), [jobs]);
+  const completedQuotePreview = useMemo(() => completedQuoteRows.slice(0, 8), [completedQuoteRows]);
 
   const upcomingThisWeek = useMemo(() => {
     const inUpcomingWeek = (d) => d >= todayMidnight && d <= weekWindow.sunday;
@@ -959,6 +968,54 @@ export default function JobHomePage() {
     );
   };
 
+  const quoteRow = (quote, rowIndex = 0, rowCount = 1) => {
+    const status = quote.status || "Draft";
+    const statusKind = status === "Accepted" ? "green" : status === "Sent" || status === "Revised" ? "amber" : "neutral";
+    return (
+      <Link
+        key={quote.id}
+        href={`/quote/${quote.bookingId}?quote=${encodeURIComponent(quote.quoteNumber || "")}`}
+        className="job-home-row"
+        style={quoteRowShell}
+      >
+        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+          <span style={{ fontWeight: 900, minWidth: 0, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {quote.label || "-"}
+          </span>
+        </div>
+        <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+          {quote.templateName || quote.location || "-"}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 850, whiteSpace: "nowrap" }}>£{money(quote.subtotal)}</div>
+        <div
+          className="job-home-row-status"
+          style={{
+            justifySelf: "stretch",
+            alignSelf: "stretch",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            alignItems: "center",
+            width: "100%",
+            paddingRight: 4,
+          }}
+        >
+          <span
+            style={{
+              ...chip(statusKind),
+              width: "100%",
+              minHeight: 26,
+              justifyContent: "center",
+              borderRadius: `0 ${rowIndex === 0 ? UI.radius : 0}px ${rowIndex === rowCount - 1 ? UI.radius : 0}px 0`,
+            }}
+            title={`Saved ${formatQuoteDate(quote.savedAt)}`}
+          >
+            {status}
+          </span>
+        </div>
+      </Link>
+    );
+  };
+
   return (
     <HeaderSidebarLayout>
       <style>{focusCss}</style>
@@ -1070,6 +1127,7 @@ export default function JobHomePage() {
             <div className="job-home-workflow-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
               <WorkflowLink href="/review-queue" label="Review Queue" count={reviewQueueCount} tone="purple" />
               <WorkflowLink href="/finance-queue" label="Ready to Invoice" count={financeReadyCount} tone="green" />
+              <WorkflowLink href="/completed-quotes" label="Completed Quotes" count={completedQuoteRows.length} tone="green" />
               <WorkflowLink href="/invoiced" label="Invoiced" count={invoicedCount} />
               <WorkflowLink href="/paid" label="Paid" count={paidCount} tone="green" />
             </div>
@@ -1200,6 +1258,20 @@ export default function JobHomePage() {
             rows={financeQueuePreview}
             renderRow={jobRow}
             icon={Receipt}
+            color={UI.green}
+            bg={UI.greenSoft}
+            border={UI.greenBorder}
+          />
+          <PipelinePanel
+            title="Completed Quotes"
+            hintText="Latest saved quotes across bookings."
+            href="/completed-quotes"
+            linkText="View all"
+            loading={loading}
+            emptyText="No completed quotes yet."
+            rows={completedQuotePreview}
+            renderRow={quoteRow}
+            icon={FileText}
             color={UI.green}
             bg={UI.greenSoft}
             border={UI.greenBorder}
