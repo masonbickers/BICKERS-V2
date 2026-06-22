@@ -48,6 +48,42 @@ function isApprovedHoliday(rec) {
   return false;
 }
 
+const holidayAuditUser = (email = "") => ({
+  uid: auth.currentUser?.uid || "",
+  email: email || auth.currentUser?.email || "",
+  name: auth.currentUser?.displayName || email || auth.currentUser?.email || auth.currentUser?.uid || "",
+});
+
+const auditValue = (value) => {
+  if (value === null || value === undefined || value === "") return "Blank";
+  if (typeof value?.toDate === "function") return value.toDate().toISOString().slice(0, 10);
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+};
+
+const buildHolidayChangeLines = (before = {}, after = {}) => {
+  const fields = [
+    ["employee", "Employee"],
+    ["startDate", "Start date"],
+    ["endDate", "End date"],
+    ["startHalfDay", "Start half day"],
+    ["startAMPM", "Start AM/PM"],
+    ["endHalfDay", "End half day"],
+    ["endAMPM", "End AM/PM"],
+    ["holidayReason", "Reason"],
+    ["paidStatus", "Paid status"],
+    ["status", "Status"],
+  ];
+  return fields
+    .map(([key, label]) => {
+      const oldValue = auditValue(before[key]);
+      const nextValue = auditValue(after[key]);
+      return oldValue === nextValue ? null : `${label}: ${oldValue} -> ${nextValue}`;
+    })
+    .filter(Boolean);
+};
+
 export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
   const router = useRouter();
   const dataAccessState = useDataAccessState();
@@ -360,8 +396,19 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",
       };
+      const changes = buildHolidayChangeLines(holidayRec || {}, payload);
+      const history = [
+        ...(Array.isArray(holidayRec?.history) ? holidayRec.history : []),
+        {
+          id: `edited-${Date.now()}`,
+          action: "Edited",
+          at: new Date().toISOString(),
+          user: holidayAuditUser(userEmail),
+          changes: changes.length ? changes : ["Holiday saved with no tracked field changes"],
+        },
+      ];
 
-      await updateDoc(doc(db, "holidays", String(holidayId)), tenantPayload(dataAccessState, payload));
+      await updateDoc(doc(db, "holidays", String(holidayId)), tenantPayload(dataAccessState, { ...payload, history }));
 
       if (typeof onSaved === "function") onSaved();
       if (typeof onClose === "function") onClose();
@@ -408,6 +455,16 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         deleteFromStatus: prev, //  used by HR "Decline delete" to restore
         updatedAt: serverTimestamp(),
         updatedBy: userEmail || "",
+        history: [
+          ...(Array.isArray(holidayRec?.history) ? holidayRec.history : []),
+          {
+            id: `delete-requested-${Date.now()}`,
+            action: "Delete requested",
+            at: new Date().toISOString(),
+            user: holidayAuditUser(userEmail),
+            changes: [`Status: ${prev} -> delete_requested`],
+          },
+        ],
       }));
 
       if (typeof onSaved === "function") onSaved();

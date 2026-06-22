@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { db } from "../../../firebaseConfig";
 import { doc, getDoc, getDocs, deleteDoc, collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { displayDayNote } from "@/app/utils/dayNotes";
 
 /* ---------- helpers ---------- */
 const fmtDate = (iso) => (iso ? new Date(iso).toDateString() : "Not set");
@@ -174,7 +175,7 @@ export default function ViewBookingModal({ id, onClose }) {
                   .map((date) => {
                     const note = booking.notesByDate[date] || "—";
                     const other = booking.notesByDate[`${date}-other`];
-                    const final = note === "Other" && other ? `${note} — ${other}` : note;
+                    const final = note === "Other" && other ? `${note} — ${other}` : displayDayNote(note);
                     const pretty = new Date(date).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
                     return (
                       <div key={date} style={noteCard}>

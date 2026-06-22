@@ -107,6 +107,88 @@ const cloneLineItem = (section = "Equipment - Daily Rates (Optional Equipment Ch
   totalMode: "auto",
 });
 
+const normalizeSharedRateText = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const SHARED_RATE_RULES = [
+  { id: "five_k_generator", label: "5K Generator", match: /5k generator/ },
+  { id: "driver_day", label: "Driver/Technician per 10hr day", match: /services? of driver.*technician.*10hr/ },
+  { id: "basic_riggers", label: "Basic Riggers Scaffolding Kit", match: /basic riggers scaffolding kit/ },
+  { id: "pre_rigging", label: "Pre-Rigging & Additional Equipment", match: /pre rigging.*(additional equipment|prep|prep work)|pre rigging and prep work charged/ },
+  { id: "overtime_1_5", label: "Overtime charged @ 1.5T", match: /overtime charged.*1 5t/ },
+  { id: "sunday_bank_holiday", label: "Sunday and Bank Holiday double time", match: /sunday.*bank holiday.*double time|double time.*sundays.*bank holidays/ },
+  { id: "turnaround", label: "Turnaround Day After Night Work", match: /turnaround day after night work/ },
+  { id: "late_working", label: "Late working 22:00-23:59", match: /supplementary charge for late working/ },
+  { id: "saturday", label: "Saturday working supplement", match: /supplementary charge applies for saturday working/ },
+  { id: "commercials_weekend_night", label: "Commercials weekend/night APA", match: /commercials.*(sundays|night work).*(saturday|saturdays).*1 5t/ },
+  { id: "recce_charge", label: "Recce charge per man", match: /recce charge per man/ },
+  { id: "tracking_travel_days", label: "Tracking vehicle and crew travel days", match: /tracking vehicle and crew travel days/ },
+  { id: "tracking_travel_time", label: "Tracking vehicle and crew travel time", match: /tracking vehicle and crew travel time/ },
+  { id: "overnight_meal", label: "Overnight Meal Allowance", match: /overnight.*meal allowance|overnights meal allowance/ },
+  { id: "breakfast_lunch", label: "Breakfast/Lunch not supplied", match: /breakfast lunch not supplied on location per man/ },
+  { id: "recce_travel_time", label: "Recce travel time/day", match: /recce travel time travel day/ },
+  { id: "recce_mileage", label: "Recce mileage", match: /recce mileage/ },
+  { id: "london_home_counties", label: "London/Home Counties fixed travel", match: /london and home counties fixed travel charge/ },
+  { id: "congestion_ulez", label: "London Congestion/ULEZ", match: /london congestion ulez charge/ },
+  { id: "clean_air", label: "Clean air zone charge", match: /clean air zone charge/ },
+];
+
+const countValues = (values) =>
+  values.reduce((map, value) => {
+    const key = String(value ?? "");
+    map.set(key, (map.get(key) || 0) + 1);
+    return map;
+  }, new Map());
+
+const mostCommonValue = (values, fallback = "") => {
+  const counts = Array.from(countValues(values).entries());
+  if (!counts.length) return fallback;
+  counts.sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+  return counts[0][0];
+};
+
+const formatValueCounts = (values) =>
+  Array.from(countValues(values).entries())
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
+    .map(([value, count]) => `${value || "blank"} (${count})`)
+    .join(", ");
+
+const summarizeSharedRates = (templates = []) =>
+  SHARED_RATE_RULES.map((rule) => {
+    const matches = [];
+    templates.forEach((template) => {
+      (template.lineItems || []).forEach((item, itemIndex) => {
+        if (rule.match.test(normalizeSharedRateText(item.description))) {
+          matches.push({
+            templateId: template.id,
+            templateName: template.serviceDescription || template.file || template.id,
+            itemIndex,
+            unitPrice: String(item.unitPrice ?? ""),
+            totalMode: String(item.totalMode || "auto"),
+          });
+        }
+      });
+    });
+    const unitPrices = matches.map((match) => match.unitPrice);
+    const totalModes = matches.map((match) => match.totalMode);
+    return {
+      ...rule,
+      matches,
+      occurrenceCount: matches.length,
+      templateCount: new Set(matches.map((match) => match.templateId)).size,
+      unitPrices: Array.from(new Set(unitPrices)),
+      totalModes: Array.from(new Set(totalModes)),
+      suggestedUnitPrice: mostCommonValue(unitPrices),
+      suggestedTotalMode: mostCommonValue(totalModes, "tbc"),
+      unitPriceSummary: formatValueCounts(unitPrices),
+      totalModeSummary: formatValueCounts(totalModes),
+    };
+  }).filter((summary) => summary.occurrenceCount > 0);
+
 export default function QuoteTemplatesPage() {
   const rawAuthState = useAuth();
   const authState = useMemo(() => rawAuthState || {}, [rawAuthState]);
@@ -118,6 +200,7 @@ export default function QuoteTemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [globalDrafts, setGlobalDrafts] = useState({});
 
   useEffect(() => {
     const load = async () => {
@@ -163,6 +246,25 @@ export default function QuoteTemplatesPage() {
     );
   }, [search, templates]);
 
+  const sharedRateSummaries = useMemo(() => summarizeSharedRates(templates), [templates]);
+
+  useEffect(() => {
+    setGlobalDrafts((current) => {
+      let changed = false;
+      const next = { ...current };
+      sharedRateSummaries.forEach((summary) => {
+        if (!next[summary.id]) {
+          next[summary.id] = {
+            unitPrice: summary.suggestedUnitPrice,
+            totalMode: summary.suggestedTotalMode,
+          };
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [sharedRateSummaries]);
+
   const updateSelected = (patch) => {
     setTemplates((current) =>
       current.map((template) => (template.id === selectedId ? { ...template, ...patch } : template))
@@ -181,6 +283,40 @@ export default function QuoteTemplatesPage() {
     const lineItems = [...(selectedTemplate.lineItems || [])];
     lineItems[index] = { ...(lineItems[index] || {}), ...patch };
     updateSelected({ lineItems });
+  };
+
+  const updateGlobalDraft = (ruleId, patch) => {
+    setGlobalDrafts((current) => ({
+      ...current,
+      [ruleId]: {
+        ...(current[ruleId] || {}),
+        ...patch,
+      },
+    }));
+  };
+
+  const applyGlobalRate = (ruleId) => {
+    const summary = sharedRateSummaries.find((item) => item.id === ruleId);
+    const rule = SHARED_RATE_RULES.find((item) => item.id === ruleId);
+    if (!summary || !rule) return;
+    const draft = globalDrafts[ruleId] || {};
+    const unitPrice = Object.prototype.hasOwnProperty.call(draft, "unitPrice")
+      ? draft.unitPrice
+      : summary.suggestedUnitPrice;
+    const totalMode = draft.totalMode || summary.suggestedTotalMode || "tbc";
+
+    setTemplates((current) =>
+      current.map((template) => ({
+        ...template,
+        lineItems: (template.lineItems || []).map((item) =>
+          rule.match.test(normalizeSharedRateText(item.description))
+            ? { ...item, unitPrice, totalMode }
+            : item
+        ),
+      }))
+    );
+    setMessage(`Applied ${summary.label} to ${summary.occurrenceCount} line${summary.occurrenceCount === 1 ? "" : "s"}. Save templates to publish.`);
+    setError("");
   };
 
   const addLine = (section) => {
@@ -362,6 +498,81 @@ export default function QuoteTemplatesPage() {
               <div style={{ color: UI.muted, fontWeight: 800 }}>Select a template to edit.</div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
+                <section style={{ ...templateSection, padding: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 8 }}>
+                    <div>
+                      <label style={{ ...label, marginBottom: 2 }}>Global Shared Rates</label>
+                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700 }}>
+                        Apply one charge to every matching line across all templates, then save templates.
+                      </div>
+                    </div>
+                    <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
+                      {sharedRateSummaries.filter((summary) => summary.unitPrices.length > 1 || summary.totalModes.length > 1).length} with variance
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(230px, 1.2fr) 90px 110px minmax(220px, 1fr) 130px 88px", gap: 6, alignItems: "center", color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", padding: "0 2px" }}>
+                      <div>Shared line</div>
+                      <div>Templates</div>
+                      <div>Unit Price</div>
+                      <div>Current values</div>
+                      <div>Total Mode</div>
+                      <div>Action</div>
+                    </div>
+                    {sharedRateSummaries.map((summary) => {
+                      const draft = globalDrafts[summary.id] || {};
+                      const hasVariance = summary.unitPrices.length > 1 || summary.totalModes.length > 1;
+                      return (
+                        <div
+                          key={summary.id}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "minmax(230px, 1.2fr) 90px 110px minmax(220px, 1fr) 130px 88px",
+                            gap: 6,
+                            alignItems: "center",
+                            padding: 6,
+                            borderRadius: 8,
+                            border: `1px solid ${hasVariance ? "#fbbf24" : UI.border}`,
+                            background: hasVariance ? "#fffbeb" : "#fff",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 900 }}>{summary.label}</div>
+                            <div style={{ color: UI.muted, fontSize: 11, marginTop: 2 }}>
+                              {summary.occurrenceCount} line{summary.occurrenceCount === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 900 }}>{summary.templateCount}</div>
+                          <input
+                            value={draft.unitPrice ?? ""}
+                            onChange={(event) => updateGlobalDraft(summary.id, { unitPrice: event.target.value })}
+                            style={compactInput}
+                            placeholder="Unit"
+                          />
+                          <div style={{ color: hasVariance ? "#92400e" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
+                            {summary.unitPrices.length > 1 ? `Varies: ${summary.unitPriceSummary}` : `Unit: ${summary.unitPriceSummary}`}
+                          </div>
+                          <select
+                            value={draft.totalMode || summary.suggestedTotalMode || "tbc"}
+                            onChange={(event) => updateGlobalDraft(summary.id, { totalMode: event.target.value })}
+                            style={compactInput}
+                          >
+                            <option value="auto">Auto total</option>
+                            <option value="tbc">TBC</option>
+                            <option value="production">Production</option>
+                            <option value="foc">FOC</option>
+                            <option value="discount">Discount</option>
+                          </select>
+                          <button type="button" onClick={() => applyGlobalRate(summary.id)} style={smallButton}>
+                            Apply
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                   <div>
                     <label style={label}>Template ID</label>

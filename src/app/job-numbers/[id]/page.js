@@ -24,6 +24,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 /* ────────────────────────────────────────────────────────────
@@ -1957,7 +1958,7 @@ export default function JobInfoPage() {
                                         });
                                         return (
                                           <div key={dateKey} style={{ fontSize: 13, color: UI.text, overflowWrap: "anywhere" }}>
-                                            <strong style={{ color: UI.muted }}>{nice}:</strong> {note}
+                                            <strong style={{ color: UI.muted }}>{nice}:</strong> {displayDayNote(note)}
                                           </div>
                                         );
                                       })}

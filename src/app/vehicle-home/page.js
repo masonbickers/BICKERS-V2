@@ -2807,7 +2807,7 @@ export default function VehiclesHomePage() {
             <div>
               <h2 style={titleMd}>Vehicle usage</h2>
               <div style={hint}>
-                Counts active booking days where the booking note contains <b>On Set</b> or <b>Shoot day</b>.
+                Counts active booking days where the booking note contains <b>Shoot Day</b>.
               </div>
             </div>
 

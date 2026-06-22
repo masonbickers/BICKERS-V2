@@ -2755,13 +2755,13 @@ export default function StatisticsPage() {
         <div className="statistics-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: UI.gap, marginBottom: UI.gap }}>
           <StackedBarChart
             title="Shoot days per month"
-            subtitle="Counts days where the per-day note is On Set / Night Shoot"
+            subtitle="Counts days where the per-day note is Shoot Day / Night Shoot"
             data={shootDaysByMonth}
             rightLabel="Shoot"
           />
           <StackedBarChart
             title="Credits per month"
-            subtitle="On Set/Night Shoot/Travel/Split/Standby/Rehearsal = 1, half travel = 0.5, travel time = 0.25"
+            subtitle="Shoot Day/Night Shoot/Travel/Split/Standby/Rehearsal = 1, half travel = 0.5, travel time = 0.25"
             data={creditsByMonth}
             rightLabel="Credits"
             valueFormatter={(v) => formatCredits(v)}
@@ -2775,7 +2775,7 @@ export default function StatisticsPage() {
             </div>
             <div style={sectionMeta}>
               Counts per-day diary notes from <span style={mono}>notesByDate</span>, <span style={mono}>dayNotes</span>,
-              and related daily note fields. <b>On Set</b>, <b>Night Shoot</b>, <b>Travel Day</b>, <b>Split Day</b>,
+              and related daily note fields. <b>Shoot Day</b>, <b>Night Shoot</b>, <b>Travel Day</b>, <b>Split Day</b>,
               <b>Standby Day</b>, and <b>Rehearsal Day</b> count as 1 credit. <b>1/2 Travel Day</b> counts as 0.5.
               <b> Travel Time</b> counts as 0.25.
             </div>
@@ -2902,7 +2902,7 @@ export default function StatisticsPage() {
           <div style={{ ...panel, minHeight: 220 }}>
             <div style={{ ...sectionTitle, marginBottom: 8 }}>How &quot;shoot days&quot; are counted</div>
             <div style={sectionMeta}>
-              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>On Set</b> or{" "}
+              We count a day as a <b>shoot day</b> when the booking has a per-day note of <b>Shoot Day</b> or{" "}
               <b>Night Shoot</b> (from <span style={mono}>notesByDate / dayNotes / notesForEachDay / noteForDay</span>).
               <br />
               <br />

@@ -12,6 +12,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
 import {
@@ -894,7 +895,7 @@ export default function ViewBookingModal({
                           ? `${note} - ${other}`
                           : note === "Travel Time" && mins
                           ? `Travel Time - ${mins} mins`
-                          : note;
+                          : displayDayNote(note);
 
                       const d = toDateSafe(date);
                       const pretty = d

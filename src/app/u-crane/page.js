@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { auth, db } from "../../../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
@@ -873,7 +874,7 @@ function CalendarEvent({ event }) {
                                 lineHeight: 1.2,
                               }}
                             >
-                              {formattedDate}: {note || "-"}
+                              {formattedDate}: {displayDayNote(note) || "-"}
                               {extra}
                               {callTimeForDay ? ` - CT ${callTimeForDay}` : ""}
                             </div>

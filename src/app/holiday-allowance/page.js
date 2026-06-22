@@ -9,7 +9,7 @@ import {
   deleteDoc,
   doc as fsDoc,
 } from "firebase/firestore";
-import { db } from "../../../firebaseConfig";
+import { auth, db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   dataAccessKey,
@@ -72,6 +72,76 @@ const asNum = (v, fallback = 0) => {
 };
 
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+const auditValue = (value) => {
+  if (value === null || value === undefined || value === "") return "Blank";
+  return String(value);
+};
+
+const allowanceAuditUser = () => ({
+  uid: auth.currentUser?.uid || "",
+  email: auth.currentUser?.email || "",
+  name: auth.currentUser?.displayName || auth.currentUser?.email || auth.currentUser?.uid || "",
+});
+
+const buildAllowanceHistoryEntry = (row = {}, next = {}) => {
+  const year = String(next.year || thisYear);
+  const pattern = row.workPattern || DEFAULT_PATTERN;
+  const base = entitlementFor(pattern);
+  const previousAllowance =
+    row.holidayAllowances?.[year] !== undefined ? asNum(row.holidayAllowances[year], base) : asNum(row.holidayAllowance, base);
+  const previousCarry =
+    row.carryOverByYear?.[year] !== undefined ? asNum(row.carryOverByYear[year], 0) : asNum(row.carriedOverDays, 0);
+
+  const changes = [
+    auditValue(row.name) === auditValue(next.name) ? null : `Employee: ${auditValue(row.name)} -> ${auditValue(next.name)}`,
+    auditValue(PATTERN_LABEL[row.workPattern || DEFAULT_PATTERN] || row.workPattern) ===
+    auditValue(PATTERN_LABEL[next.workPattern || DEFAULT_PATTERN] || next.workPattern)
+      ? null
+      : `Work pattern: ${auditValue(PATTERN_LABEL[row.workPattern || DEFAULT_PATTERN] || row.workPattern)} -> ${auditValue(
+          PATTERN_LABEL[next.workPattern || DEFAULT_PATTERN] || next.workPattern
+        )}`,
+    previousAllowance === next.holidayAllowance ? null : `${year} allowance: ${previousAllowance} -> ${next.holidayAllowance}`,
+    previousCarry === next.carriedOverDays ? null : `${year} carry over: ${previousCarry} -> ${next.carriedOverDays}`,
+  ].filter(Boolean);
+
+  if (!changes.length) return null;
+
+  return {
+    id: `allowance-${year}-${Date.now()}`,
+    action: "Allowance changed",
+    at: new Date().toISOString(),
+    user: allowanceAuditUser(),
+    year,
+    previous: {
+      name: row.name || "",
+      workPattern: row.workPattern || DEFAULT_PATTERN,
+      holidayAllowance: previousAllowance,
+      carriedOverDays: previousCarry,
+    },
+    next: {
+      name: next.name || "",
+      workPattern: next.workPattern || DEFAULT_PATTERN,
+      holidayAllowance: next.holidayAllowance,
+      carriedOverDays: next.carriedOverDays,
+    },
+    changes,
+  };
+};
+
+const buildAllowanceCreatedHistory = ({ name, pattern, allowance, carry }) => ({
+  id: `allowance-created-${Date.now()}`,
+  action: "Allowance created",
+  at: new Date().toISOString(),
+  user: allowanceAuditUser(),
+  year: String(thisYear),
+  changes: [
+    `Employee: ${name}`,
+    `Work pattern: ${PATTERN_LABEL[pattern] || pattern}`,
+    `${thisYear} allowance: ${allowance}`,
+    `${thisYear} carry over: ${carry}`,
+  ],
+});
 
 /* ────────────────────────────────────────────────────────────────
    MINI DESIGN SYSTEM (matches your newer pages)
@@ -283,6 +353,7 @@ export default function EmployeesAdminPage() {
             // per-year maps
             holidayAllowances: x.holidayAllowances || {},
             carryOverByYear: x.carryOverByYear || {},
+            holidayAllowanceHistory: Array.isArray(x.holidayAllowanceHistory) ? x.holidayAllowanceHistory : [],
           };
         });
 
@@ -491,6 +562,18 @@ export default function EmployeesAdminPage() {
     try {
       const nextAllowances = { ...(r.holidayAllowances || {}), [yrKey]: allowance };
       const nextCarry = { ...(r.carryOverByYear || {}), [yrKey]: carry };
+      const historyEntry = buildAllowanceHistoryEntry(r, {
+        name,
+        workPattern: pattern,
+        holidayAllowance: allowance,
+        carriedOverDays: carry,
+        year: yrKey,
+      });
+      const holidayAllowanceHistory = historyEntry
+        ? [...(Array.isArray(r.holidayAllowanceHistory) ? r.holidayAllowanceHistory : []), historyEntry]
+        : Array.isArray(r.holidayAllowanceHistory)
+        ? r.holidayAllowanceHistory
+        : [];
 
       const legacyPatch = yearView === thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {};
 
@@ -499,6 +582,7 @@ export default function EmployeesAdminPage() {
         workPattern: pattern,
         holidayAllowances: nextAllowances,
         carryOverByYear: nextCarry,
+        holidayAllowanceHistory,
         ...legacyPatch,
       }));
 
@@ -511,6 +595,7 @@ export default function EmployeesAdminPage() {
                 workPattern: pattern,
                 holidayAllowances: nextAllowances,
                 carryOverByYear: nextCarry,
+                holidayAllowanceHistory,
                 ...(yearView === thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {}),
               }
             : row
@@ -556,6 +641,7 @@ export default function EmployeesAdminPage() {
 
     const allowance = entitlementFor(pattern);
     const carry = Math.max(0, asNum(newCarry, 0));
+    const holidayAllowanceHistory = [buildAllowanceCreatedHistory({ name, pattern, allowance, carry })];
 
     setAdding(true);
     try {
@@ -570,6 +656,7 @@ export default function EmployeesAdminPage() {
         // per-year
         holidayAllowances: { [String(thisYear)]: allowance },
         carryOverByYear: { [String(thisYear)]: carry },
+        holidayAllowanceHistory,
       }));
 
       const newRow = {
@@ -580,6 +667,7 @@ export default function EmployeesAdminPage() {
         carriedOverDays: carry,
         holidayAllowances: { [String(thisYear)]: allowance },
         carryOverByYear: { [String(thisYear)]: carry },
+        holidayAllowanceHistory,
       };
 
       setRows((l) => [newRow, ...l]);

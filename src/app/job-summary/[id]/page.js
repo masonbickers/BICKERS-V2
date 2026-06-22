@@ -21,6 +21,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { displayDayNote } from "@/app/utils/dayNotes";
 
 /* ───────────────────────────────────────────
    Mini design system (same look & feel)
@@ -591,7 +592,7 @@ export default function JobSummaryWithTimesheetsPage() {
                         const nice = d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
                         return (
                           <div key={iso} style={{ fontSize: 13 }}>
-                            <strong style={{ color: UI.muted }}>{nice}:</strong> {job.notesByDate[iso]}
+                            <strong style={{ color: UI.muted }}>{nice}:</strong> {displayDayNote(job.notesByDate[iso])}
                           </div>
                         );
                       })}

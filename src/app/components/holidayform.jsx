@@ -138,6 +138,12 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
     return String(newWhen).toUpperCase() === String(oldWhen).toUpperCase();
   };
 
+  const auditUser = () => ({
+    uid: auth.currentUser?.uid || "",
+    email: auth.currentUser?.email || "",
+    name: auth.currentUser?.displayName || auth.currentUser?.email || auth.currentUser?.uid || "",
+  });
+
   const fmt = (d) => {
     if (!d) return "—";
     return d.toLocaleDateString("en-GB", {
@@ -830,6 +836,20 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           "",
         requestedByEmail: auth.currentUser?.email || "",
         createdAt: serverTimestamp(),
+        history: [
+          {
+            id: `created-${Date.now()}`,
+            action: "Created",
+            at: new Date().toISOString(),
+            user: auditUser(),
+            changes: [
+              `Employee: ${employee}`,
+              `Dates: ${finalStart} to ${finalEnd}`,
+              `Type: ${paidStatus}`,
+              `Reason: ${holidayReason.trim()}`,
+            ],
+          },
+        ],
       };
 
       await addDoc(collection(db, "holidays"), tenantPayload(dataAccessState, payload));

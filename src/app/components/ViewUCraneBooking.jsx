@@ -11,6 +11,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import RouteLoadingOverlay from "./RouteLoadingOverlay";
 import {
   dataAccessKey,
@@ -668,7 +669,7 @@ export default function ViewUCraneBookingModal({
                           ? `${note} — ${other}`
                           : note === "Travel Time" && mins
                           ? `Travel Time — ${mins} mins`
-                          : note;
+                          : displayDayNote(note);
 
                       const d = toDateSafe(date);
                       const pretty = d

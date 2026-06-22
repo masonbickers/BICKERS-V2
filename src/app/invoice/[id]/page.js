@@ -16,6 +16,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { displayDayNote } from "@/app/utils/dayNotes";
 
 /* ───────────────────────────────────────────
    Mini design system
@@ -487,7 +488,7 @@ export default function InvoiceJobPage() {
                     {Object.entries(job.notesByDate).map(([d, n]) => (
                       <li key={d} style={{ marginBottom: 6 }}>
                         <strong>{formatNotesDateKey(d)}:</strong>{" "}
-                        <span style={{ whiteSpace: "pre-wrap" }}>{String(n || "")}</span>
+                        <span style={{ whiteSpace: "pre-wrap" }}>{displayDayNote(n)}</span>
                       </li>
                     ))}
                   </ul>

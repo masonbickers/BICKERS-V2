@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, db } from "@/app/utils/firebaseClient";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -946,8 +947,6 @@ const labelFromMins = (mins) => {
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
 
-const displayDayNote = (note) => (note === "On Set" ? "Shoot Day" : note);
-
 //  helper for timestamps / dates / strings  (use this for HOLIDAYS + NOTES)
 const toJsDate = (value) => {
   if (!value) return null;
@@ -1673,7 +1672,7 @@ function CalendarEvent({ event, onViewQuote }) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: "flex-start",
               width: "100%",
               marginBottom: 2,
               gap: 6,
@@ -1691,6 +1690,9 @@ function CalendarEvent({ event, onViewQuote }) {
                   display: "grid",
                   gap: 1,
                   lineHeight: 1.05,
+                  whiteSpace: "nowrap",
+                  wordBreak: "normal",
+                  flexShrink: 0,
                 }}
               >
                 {employeeInitialLines.map((line, index) => (
@@ -1699,7 +1701,7 @@ function CalendarEvent({ event, onViewQuote }) {
               </span>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginLeft: "auto" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                 <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "#111" }}>
                   {event.status}
@@ -1752,6 +1754,14 @@ function CalendarEvent({ event, onViewQuote }) {
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   border: "1px solid #0b0b0b",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 44,
+                  boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                  wordBreak: "normal",
+                  flexShrink: 0,
                 }}
               >
                 {event.jobNumber}

@@ -92,7 +92,7 @@ const btn = (kind = "primary") => {
 };
 
 const BREAKDOWN_COLUMNS = [
-  { key: "onSet", label: "On Set" },
+  { key: "onSet", label: "Shoot Day" },
   { key: "travel", label: "Travel" },
   { key: "halfTravel", label: "1/2 Travel" },
   { key: "yard", label: "Yard / Rig" },
@@ -242,8 +242,8 @@ function creditForBookingDay(note, dayKey) {
 
 function creditRuleForBookingDay(note, dayKey) {
   const normNote = String(note || "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (normNote === "on set" && isSunday(dayKey)) return "Sunday On Set x2";
-  if (normNote === "on set" && isSaturday(dayKey)) return "Saturday On Set +0.5";
+  if (normNote === "on set" && isSunday(dayKey)) return "Sunday Shoot Day x2";
+  if (normNote === "on set" && isSaturday(dayKey)) return "Saturday Shoot Day +0.5";
   if (normNote.includes("night shoot")) return "Night Shoot + turnaround";
   if (normNote === "travel time") return "Travel Time";
   if (normNote === "1/2 day travel" || normNote === "1/2 day travel day") return "Half Travel";
@@ -259,8 +259,8 @@ function employeeMatches(emp, employeeKey, employeeName) {
 
 function classifyNote(rawNote) {
   const norm = String(rawNote || "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (!norm) return { key: "onSet", label: "On Set", priority: 50 };
-  if (norm === "on set" || norm === "shoot day") return { key: "onSet", label: "On Set", priority: 50 };
+  if (!norm) return { key: "onSet", label: "Shoot Day", priority: 50 };
+  if (norm === "on set" || norm === "shoot day") return { key: "onSet", label: "Shoot Day", priority: 50 };
   if (norm === "travel day" || norm === "travel time") return { key: "travel", label: "Travel", priority: 40 };
   if (norm === "1/2 day travel" || norm === "1/2 day travel day" || norm === "half day travel") {
     return { key: "halfTravel", label: "1/2 Travel", priority: 35 };
@@ -428,7 +428,7 @@ export default function EmployeeWorkBreakdownPage() {
             jobRow.dayCredits.push({
               date: dayKey,
               dayName: dayNameUTC(dayKey),
-              note: note || "On Set",
+              note: note || "Shoot Day",
               credit: dayCredit,
               rule: creditRuleForBookingDay(note, dayKey),
             });
@@ -442,7 +442,7 @@ export default function EmployeeWorkBreakdownPage() {
               typeLabel: category.label,
               source: "booking",
               bookingLabel,
-              note: note || "On Set",
+              note: note || "Shoot Day",
               credit: dayCredit,
               creditRule: creditRuleForBookingDay(note, dayKey),
               priority: category.priority,

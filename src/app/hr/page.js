@@ -6,6 +6,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import {
   getDocs,
+  setDoc,
   updateDoc,
   doc,
   deleteDoc,
@@ -19,6 +20,7 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
+  tenantPayload,
 } from "@/app/utils/firestoreAccess";
 
 import {
@@ -39,6 +41,7 @@ import {
   ChevronRight,
   Clock3,
   FileText,
+  History,
   ShieldCheck,
   Timer,
   Trash2,
@@ -264,6 +267,23 @@ const breakdownRow = (muted) => ({
   background: muted ? "#f3f4f6" : "#fff",
   color: muted ? "#6b7280" : UI.text,
 });
+
+const holidayAuditUser = () => ({
+  uid: auth.currentUser?.uid || "",
+  email: auth.currentUser?.email || "",
+  name: auth.currentUser?.displayName || auth.currentUser?.email || auth.currentUser?.uid || "",
+});
+
+const appendHolidayHistory = (holiday = {}, action = "", changes = []) => [
+  ...(Array.isArray(holiday.history) ? holiday.history : []),
+  {
+    id: `${String(action || "holiday").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
+    action,
+    at: new Date().toISOString(),
+    user: holidayAuditUser(),
+    changes: Array.isArray(changes) ? changes.filter(Boolean) : [String(changes || "").trim()].filter(Boolean),
+  },
+];
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
@@ -756,17 +776,21 @@ export default function HRPage() {
     }
   };
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (holiday, status) => {
     if (!isAdmin) {
       alert("Only admins can approve or decline holidays.");
       return;
     }
     try {
+      const id = String(holiday?.id || "");
       const ref = doc(db, "holidays", id);
       await updateDoc(ref, {
         status,
         decidedBy: auth?.currentUser?.email || "",
         decidedAt: serverTimestamp(),
+        history: appendHolidayHistory(holiday, status === "approved" ? "Approved" : "Declined", [
+          `Status: ${String(holiday?.status || "requested")} -> ${status}`,
+        ]),
       });
       await fetchHolidays();
     } catch (err) {
@@ -782,11 +806,27 @@ export default function HRPage() {
       return;
     }
     const ok = confirm(
-      "Approve deletion? This will permanently remove the holiday entry."
+      "Approve deletion? This will remove the holiday from active records and keep it in the holiday audit."
     );
     if (!ok) return;
 
     try {
+      const deletedAt = new Date().toISOString();
+      const archived = {
+        ...h,
+        originalHolidayId: h.id,
+        status: "deleted",
+        deletedAt,
+        deletedBy: auth?.currentUser?.email || "",
+        history: appendHolidayHistory(h, "Delete approved", [
+          `Status: ${String(h.status || "delete_requested")} -> deleted`,
+        ]),
+      };
+      await setDoc(
+        doc(db, "deletedHolidays", String(h.id)),
+        tenantPayload(dataAccessState, archived),
+        { merge: true }
+      );
       await deleteDoc(doc(db, "holidays", h.id));
       await fetchHolidays();
     } catch (err) {
@@ -808,6 +848,9 @@ export default function HRPage() {
         deleteRequestedBy: null,
         deleteDeclinedAt: serverTimestamp(),
         deleteDeclinedBy: auth?.currentUser?.email || "",
+        history: appendHolidayHistory(h, "Delete declined", [
+          `Status: ${String(h.status || "delete_requested")} -> ${restore}`,
+        ]),
       });
       await fetchHolidays();
     } catch (err) {
@@ -836,6 +879,16 @@ export default function HRPage() {
       color: UI.green,
       bg: UI.greenSoft,
       border: UI.greenBorder,
+    },
+    {
+      key: "holidayAudit",
+      title: "Holiday Audit",
+      description: "Review employee holidays, edits, delete requests and deleted records.",
+      link: "/holiday-audit",
+      icon: History,
+      color: "#4338ca",
+      bg: "#eef2ff",
+      border: "#c7d2fe",
     },
     {
       key: "timesheets",
@@ -1236,7 +1289,7 @@ export default function HRPage() {
                               opacity: isAdmin ? 1 : 0.45,
                               cursor: isAdmin ? "pointer" : "not-allowed",
                             }}
-                            onClick={() => isAdmin && updateStatus(h.id, "approved")}
+                            onClick={() => isAdmin && updateStatus(h, "approved")}
                             type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Approve"}
@@ -1249,7 +1302,7 @@ export default function HRPage() {
                               opacity: isAdmin ? 1 : 0.45,
                               cursor: isAdmin ? "pointer" : "not-allowed",
                             }}
-                            onClick={() => isAdmin && updateStatus(h.id, "declined")}
+                            onClick={() => isAdmin && updateStatus(h, "declined")}
                             type="button"
                             disabled={!isAdmin}
                             title={!isAdmin ? "Admin only" : "Decline"}

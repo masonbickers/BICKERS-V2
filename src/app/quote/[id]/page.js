@@ -9,6 +9,7 @@ import { useAuth } from "@/app/context/authContext";
 import { db } from "@/app/utils/firebaseClient";
 import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
 import { normalizeVehicleKeysListForLookup } from "@/app/utils/bookingFormShared";
+import { displayDayNote } from "@/app/utils/dayNotes";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -41,6 +42,7 @@ const emptyQuote = {
   quoteName: "",
   lineItems: [],
   notes: "",
+  bickersContact: "",
 };
 
 const compact = (value) =>
@@ -65,6 +67,26 @@ const money = (value) => {
   });
 };
 
+const titleFromEmail = (email = "") => {
+  const local = String(email || "").split("@")[0] || "";
+  return local
+    .split(/[._-]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+    .trim();
+};
+
+const getUserDisplayName = (user = {}, userDoc = {}) =>
+  String(
+    userDoc?.name ||
+      userDoc?.displayName ||
+      userDoc?.fullName ||
+      userDoc?.employeeName ||
+      user?.displayName ||
+      titleFromEmail(user?.email) ||
+      ""
+  ).trim();
+
 const quoteDate = () =>
   new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -82,10 +104,39 @@ const formatDate = (raw) => {
   return text;
 };
 
+const ordinalDay = (day) => {
+  const value = Number(day);
+  if (!Number.isFinite(value)) return "";
+  if (value % 100 >= 11 && value % 100 <= 13) return `${value}th`;
+  if (value % 10 === 1) return `${value}st`;
+  if (value % 10 === 2) return `${value}nd`;
+  if (value % 10 === 3) return `${value}rd`;
+  return `${value}th`;
+};
+
+const formatQuoteShootDate = (raw) => {
+  if (!raw) return "";
+  const text = String(raw);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text)) return formatDate(raw);
+  const [year, month, day] = text.slice(0, 10).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return formatDate(raw);
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
+  const monthName = date.toLocaleDateString("en-GB", { month: "long" });
+  return `${weekday} ${ordinalDay(day)} ${monthName}`;
+};
+
 const formatBookingDates = (booking = {}) => {
   const list = Array.isArray(booking.bookingDates) ? booking.bookingDates : [];
-  if (list.length) return list.map(formatDate).join(", ");
-  return formatDate(booking.date || booking.startDate || "");
+  const notesByDate = booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate : {};
+  const formatWithNote = (date) => {
+    const key = String(date || "").slice(0, 10);
+    const note = displayDayNote(notesByDate[key]);
+    const formattedDate = formatQuoteShootDate(date);
+    return note ? `${formattedDate} - ${note}` : formattedDate;
+  };
+  if (list.length) return list.map(formatWithNote).filter(Boolean).join("\n");
+  return formatWithNote(booking.date || booking.startDate || "");
 };
 
 const getItemLabel = (item) => {
@@ -140,7 +191,7 @@ const getDayNoteRows = (booking = {}) => {
   return dates
     .map((date) => {
       const note = booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate[date] : "";
-      return note ? { date: formatDate(date), note } : null;
+      return note ? { date: formatDate(date), note: displayDayNote(note) } : null;
     })
     .filter(Boolean);
 };
@@ -714,6 +765,10 @@ export default function QuotePage() {
   const savedQuotes = useMemo(() => normalizeQuoteVersions(booking || {}), [booking]);
   const quoteNumberOptions = useMemo(() => getBookingQuoteNumbers(booking || {}), [booking]);
   const currentQuoteNumber = String(quote.quoteNumber || "").trim();
+  const currentUserDisplayName = useMemo(
+    () => getUserDisplayName(authAccess.user, authAccess.userDoc),
+    [authAccess.user, authAccess.userDoc]
+  );
   const quoteSelectOptions = useMemo(() => {
     const map = new Map();
     normalizeQuoteNumbers([
@@ -733,6 +788,12 @@ export default function QuotePage() {
   const currentSavedQuote = savedQuotes.find(
     (entry) => quoteNumberKey(entry.quoteNumber, booking || {}, entry) === quoteNumberKey(currentQuoteNumber, booking || {}, quote)
   );
+  const quoteBickersContact =
+    quote.bickersContact ||
+    currentSavedQuote?.bickersContact ||
+    titleFromEmail(quote.savedBy || currentSavedQuote?.savedBy || "") ||
+    currentUserDisplayName ||
+    "-";
   const currentQuoteKey = quoteNumberKey(currentQuoteNumber, booking || {}, quote);
   const quoteOptionLabels = useMemo(() => {
     const savedKeys = new Set(
@@ -785,6 +846,7 @@ export default function QuotePage() {
       templateFile: template.file,
       templateName: template.serviceDescription,
       quoteName: quote.quoteName || template.serviceDescription,
+      bickersContact: quote.bickersContact || currentUserDisplayName,
       lineItems: template.lineItems.map(cloneTemplateItem),
       createdAt: quote.createdAt || new Date().toISOString(),
       quoteNumber: buildInitialQuoteNumber(booking || {}, quote),
@@ -994,6 +1056,7 @@ export default function QuotePage() {
       client: booking.client || quote.client || "",
       location: booking.location || quote.location || "",
       bookingDates: Array.isArray(booking.bookingDates) ? booking.bookingDates : [],
+      bickersContact: quote.bickersContact || currentUserDisplayName,
       subtotal,
       savedAt: nowIso,
       savedBy: authAccess.user?.email || "Unknown",
@@ -1382,7 +1445,7 @@ export default function QuotePage() {
               />
               <InfoField label="Location" value={booking.location || "-"} />
               <InfoField label="Shoot Dates" value={formatBookingDates(booking) || "-"} />
-              <InfoField label="Bickers Contact" value={quote.bickersContact || "Adam Eastall"} />
+              <InfoField label="Bickers Contact" value={quoteBickersContact} />
             </div>
 
             <div style={screenDescriptionBar}>
@@ -1638,7 +1701,7 @@ export default function QuotePage() {
               <tr>
                 <td style={valueCell}>{booking.location || ""}</td>
                 <td style={valueCell}>{formatBookingDates(booking)}</td>
-                <td style={valueCell}>{quote.bickersContact || "Adam Eastall"}</td>
+                <td style={valueCell}>{quoteBickersContact}</td>
               </tr>
             </tbody>
           </table>
@@ -2240,6 +2303,7 @@ const screenInfoValue = {
   fontWeight: 750,
   lineHeight: 1.15,
   padding: "5px 8px",
+  whiteSpace: "pre-line",
 };
 
 const screenDescriptionBar = {
@@ -2911,6 +2975,7 @@ const valueCell = {
   textAlign: "center",
   background: "#fff",
   color: "#000",
+  whiteSpace: "pre-line",
 };
 
 const descriptionLabel = {

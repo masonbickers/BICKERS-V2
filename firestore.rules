@@ -413,6 +413,13 @@ service cloud.firestore {
       allow delete: if canDeleteAnyWorkspaceTenantDoc();
     }
 
+    match /deletedHolidays/{holidayId} {
+      allow read: if canReadAnyWorkspaceTenantDoc();
+      allow create: if canCreateAnyWorkspaceTenantDoc();
+      allow update: if canUpdateAnyWorkspaceTenantDoc();
+      allow delete: if canDeleteAnyWorkspaceTenantDoc();
+    }
+
     match /shiftChangeRequests/{requestId} {
       allow read: if canReadUserTenantDoc();
       allow create: if canCreateUserTenantDoc();

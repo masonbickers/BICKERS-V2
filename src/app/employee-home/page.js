@@ -420,7 +420,7 @@ function creditForNote(rawNote) {
 }
 
 const BREAKDOWN_COLUMNS = [
-  { key: "onSet", label: "On Set" },
+  { key: "onSet", label: "Shoot Day" },
   { key: "travel", label: "Travel" },
   { key: "halfTravel", label: "1/2 Travel" },
   { key: "yardBase", label: "Yard Based" },
@@ -437,7 +437,7 @@ const BREAKDOWN_COLUMNS = [
 ];
 
 const FULL_TIME_PIE_META = [
-  { key: "onSet", label: "On Set", weight: 1, color: "#1d4ed8" },
+  { key: "onSet", label: "Shoot Day", weight: 1, color: "#1d4ed8" },
   { key: "travel", label: "Travel", weight: 1, color: "#0f766e" },
   { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "#14b8a6" },
   { key: "standby", label: "Standby", weight: 1, color: "#f59e0b" },
@@ -637,7 +637,7 @@ export default function EmployeesHomePage() {
             const normNote = String(note || "").trim().toLowerCase().replace(/\s+/g, " ");
             const isNightShootDay = normNote.includes("night shoot");
 
-            // Weekend "On Set" weighting: Saturday +0.5, Sunday double time.
+            // Weekend shoot-day weighting: Saturday +0.5, Sunday double time.
             if (note && (isSaturday(dayKey) || isSunday(dayKey))) {
               if (normNote === "on set") credit = isSunday(dayKey) ? credit * 2 : credit + 0.5;
             }
@@ -1097,7 +1097,7 @@ export default function EmployeesHomePage() {
 
             <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
               <b>Credit rules:</b> Half Day Travel = 0.5 - Travel Time = 0.25 - Most day types = 1 - Rest Day / Other = 0 -
-              <b> Night Shoot = +1 turnaround per booking - On Set Saturdays = +0.5 - On Set Sundays = x2</b>
+              <b> Night Shoot = +1 turnaround per booking - Shoot Day Saturdays = +0.5 - Shoot Day Sundays = x2</b>
             </div>
           </div>
 
@@ -1154,7 +1154,7 @@ export default function EmployeesHomePage() {
               <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid #d1d5db" }} />
                 <div style={{ color: UI.muted, fontSize: 12 }}>
-                  Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday On Set extra half credit and Sunday On Set double time. Hover to view full names.
+                  Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday Shoot Day extra half credit and Sunday Shoot Day double time. Hover to view full names.
                 </div>
               </div>
             </div>
@@ -1306,7 +1306,7 @@ export default function EmployeesHomePage() {
             <div>
               <h2 style={titleMd}>Full-Time Work Type Pie</h2>
               <div style={hint}>
-                Full-time employees only. Weighted totals: On Set 1, Travel 1, Half Travel 0.5, Standby 1,
+                Full-time employees only. Weighted totals: Shoot Day 1, Travel 1, Half Travel 0.5, Standby 1,
                 Night Shoot 1, Recce 1, Split Day 1.
               </div>
             </div>
@@ -1401,7 +1401,7 @@ export default function EmployeesHomePage() {
             <div>
               <h2 style={titleMd}>Weighted Work Notes By Employee</h2>
               <div style={hint}>
-                Per full-time employee total for On Set, Travel, Half Travel, Standby, Night Shoot, Recce and
+                Per full-time employee total for Shoot Day, Travel, Half Travel, Standby, Night Shoot, Recce and
                 Split Day using the same weighting as the pie chart, stacked with yard days on the same bar.
               </div>
             </div>
