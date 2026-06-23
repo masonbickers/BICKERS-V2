@@ -381,7 +381,7 @@ export default function ReviewQueuePage() {
       });
   }, [jobs4, beforeToday]);
 
-  const clients = useMemo(
+  const productionCompanies = useMemo(
     () => ["all", ...Array.from(new Set(queue.map((j) => j.client).filter(Boolean))).sort()],
     [queue]
   );
@@ -413,6 +413,7 @@ export default function ReviewQueuePage() {
       if (!s) return true;
       return (
         String(j.jobNumber || "").toLowerCase().includes(s) ||
+        String(j.production || "").toLowerCase().includes(s) ||
         String(j.client || "").toLowerCase().includes(s) ||
         String(j.location || "").toLowerCase().includes(s) ||
         String(j.notes || "").toLowerCase().includes(s)
@@ -516,6 +517,7 @@ export default function ReviewQueuePage() {
         <table style={tableEl} aria-label={title}>
           <colgroup>
             <col style={{ width: 84 }} />
+            <col style={{ width: 170 }} />
             <col style={{ width: 180 }} />
             <col />
             <col style={{ width: 72 }} />
@@ -528,7 +530,8 @@ export default function ReviewQueuePage() {
           <thead>
             <tr>
               <th style={th}>Job #</th>
-              <th style={th}>Client</th>
+              <th style={th}>Production</th>
+              <th style={th}>Production Company</th>
               <th style={th}>Location</th>
               <th style={th}>Notes</th>
               <th style={th}>PO</th>
@@ -556,6 +559,7 @@ export default function ReviewQueuePage() {
                       #{j.jobNumber || j.id}
                     </Link>
                   </td>
+                  <td style={td} title={j.production || ""}>{j.production || "-"}</td>
                   <td style={td} title={j.client || ""}>{j.client || "-"}</td>
                   <td style={td} title={j.location || ""}>{j.location || "-"}</td>
                   <td style={{ ...td, ...nowrap }}><span style={chip(notesState.tone)}>{notesState.label}</span></td>
@@ -628,7 +632,7 @@ export default function ReviewQueuePage() {
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search by job #, client, location or notes..."
+              placeholder="Search by job #, production, production company, location or notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ ...inputStyle, paddingLeft: 29 }}
@@ -637,9 +641,9 @@ export default function ReviewQueuePage() {
           </div>
 
           <select value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} style={inputStyle}>
-            {clients.map((c) => (
+            {productionCompanies.map((c) => (
               <option key={c} value={c}>
-                {c === "all" ? "Client: All" : c}
+                {c === "all" ? "Production Company: All" : c}
               </option>
             ))}
           </select>
