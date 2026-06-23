@@ -82,10 +82,63 @@ const formatDate = (raw) => {
   return text;
 };
 
+const ordinalSuffix = (day) => {
+  const value = Number(day);
+  if (!Number.isFinite(value)) return "";
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return "th";
+  switch (value % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+};
+
+const formatQuoteShootDate = (raw) => {
+  const text = String(raw || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return formatDate(raw);
+  const [year, month, day] = text.split("-").map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  if (Number.isNaN(date.getTime())) return formatDate(raw);
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
+  const monthName = date.toLocaleDateString("en-GB", { month: "long" });
+  return `${weekday} ${day}${ordinalSuffix(day)} ${monthName}`;
+};
+
+const displayQuoteDayNote = (note) => {
+  const text = String(note || "").trim();
+  return compact(text) === "on set" ? "Shoot Day" : text;
+};
+
+const getQuoteDayNote = (booking = {}, dateKey = "") => {
+  const directNote =
+    booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate[dateKey] : "";
+  if (directNote) return displayQuoteDayNote(directNote);
+
+  if (Array.isArray(booking.bookingNotes) && Array.isArray(booking.bookingDates)) {
+    const index = booking.bookingDates.findIndex((date) => String(date || "").slice(0, 10) === dateKey);
+    if (index >= 0) return displayQuoteDayNote(booking.bookingNotes[index]);
+  }
+
+  return "";
+};
+
 const formatBookingDates = (booking = {}) => {
-  const list = Array.isArray(booking.bookingDates) ? booking.bookingDates : [];
-  if (list.length) return list.map(formatDate).join(", ");
-  return formatDate(booking.date || booking.startDate || "");
+  const list = getBookingDateKeys(booking);
+  if (list.length) {
+    return list
+      .map((dateKey) => {
+        const note = getQuoteDayNote(booking, dateKey);
+        return [formatQuoteShootDate(dateKey), note].filter(Boolean).join(" - ");
+      })
+      .join(", ");
+  }
+  return formatQuoteShootDate(booking.date || booking.startDate || "");
 };
 
 const getItemLabel = (item) => {
@@ -139,8 +192,8 @@ const getDayNoteRows = (booking = {}) => {
   const dates = getBookingDateKeys(booking);
   return dates
     .map((date) => {
-      const note = booking.notesByDate && typeof booking.notesByDate === "object" ? booking.notesByDate[date] : "";
-      return note ? { date: formatDate(date), note } : null;
+      const note = getQuoteDayNote(booking, date);
+      return note ? { date: formatQuoteShootDate(date), note } : null;
     })
     .filter(Boolean);
 };
