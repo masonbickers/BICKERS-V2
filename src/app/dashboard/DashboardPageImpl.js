@@ -368,6 +368,23 @@ const chip = {
   whiteSpace: "nowrap",
 };
 
+const miniCountBadge = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 22,
+  height: 22,
+  padding: "0 7px",
+  borderRadius: 999,
+  border: `1px solid ${UI.brand}`,
+  background: UI.brand,
+  color: "#fff",
+  fontSize: 11.5,
+  fontWeight: 900,
+  lineHeight: 1,
+  boxShadow: "0 5px 12px rgba(31,75,122,0.22)",
+};
+
 const btn = (kind = "primary") => {
   const base = {
     display: "inline-flex",
@@ -2552,9 +2569,13 @@ function MaintenanceCalendarEvent({ event }) {
 }
 
 function HolidayNotesCalendarEvent({ event }) {
+  const [expanded, setExpanded] = useState(false);
   const isHoliday = event.status === "Holiday";
   const label = isHoliday ? "Holiday" : "Note";
   const title = isHoliday ? event.employee || "Holiday" : event.title || "Note";
+  const titleText = String(title || "");
+  const shouldCollapse = !isHoliday && titleText.length > 110;
+  const displayTitle = shouldCollapse && !expanded ? `${titleText.slice(0, 110).trim()}...` : titleText;
   const detail = isHoliday
     ? formatHolidayDetail(event)
     : event.blocksEmployeeBooking && event.employee
@@ -2581,7 +2602,43 @@ function HolidayNotesCalendarEvent({ event }) {
       }}
     >
       <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
-      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{title}</span>
+      <span
+        style={{
+          color: "#0f172a",
+          whiteSpace: "normal",
+          display: "-webkit-box",
+          WebkitLineClamp: shouldCollapse && !expanded ? 4 : "unset",
+          WebkitBoxOrient: "vertical",
+          overflow: shouldCollapse && !expanded ? "hidden" : "visible",
+        }}
+      >
+        {displayTitle}
+      </span>
+      {shouldCollapse ? (
+        <button
+          type="button"
+          onClick={(clickEvent) => {
+            clickEvent.preventDefault();
+            clickEvent.stopPropagation();
+            setExpanded((value) => !value);
+          }}
+          style={{
+            alignSelf: "flex-start",
+            border: "1px solid #99f6e4",
+            background: "#f0fdfa",
+            color: "#0f766e",
+            borderRadius: 999,
+            padding: "2px 7px",
+            fontSize: 10.5,
+            fontWeight: 900,
+            cursor: "pointer",
+            lineHeight: 1.2,
+            marginTop: 2,
+          }}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
       {detail ? (
         <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
       ) : null}
@@ -2721,6 +2778,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
+
+  const enquiryCount = useMemo(
+    () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
+    [bookings]
+  );
 
   const [maintenanceBookings, setMaintenanceBookings] = useState([]);
   const [maintenanceJobs, setMaintenanceJobs] = useState([]);
@@ -4249,6 +4311,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             >
               <Plus size={14} />
               Enquiries
+              <span style={miniCountBadge}>{enquiryCount}</span>
             </button>
             <button
               style={btn("ghost")}

@@ -673,6 +673,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   // Dates
   const [isRange, setIsRange] = useState(false);
   const [useCustomDates, setUseCustomDates] = useState(false);
+  const [enquiryDatesEnabled, setEnquiryDatesEnabled] = useState(statusFromQuery !== "Enquiry");
   const [customDates, setCustomDates] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -757,14 +758,16 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
   const isMaintenance = status === "Maintenance";
   const isBickersJob = status === "Bickers";
+  const dateEntryEnabled = status !== "Enquiry" || enquiryDatesEnabled;
 
   // Derived dates
   const selectedDates = useMemo(() => {
+    if (!dateEntryEnabled) return [];
     if (useCustomDates) return customDates;
     if (!startDate) return [];
     if (isRange && endDate) return enumerateDaysYMD_UTC(startDate, endDate);
     return [startDate];
-  }, [useCustomDates, customDates, startDate, isRange, endDate]);
+  }, [dateEntryEnabled, useCustomDates, customDates, startDate, isRange, endDate]);
   const availabilityDateKey = useMemo(
     () => [...selectedDates].filter(Boolean).sort().join("|"),
     [selectedDates]
@@ -817,6 +820,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       shootType,
       statusReasons,
       statusReasonOther,
+      enquiryDatesEnabled,
       isRange,
       useCustomDates,
       customDates,
@@ -862,6 +866,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       shootType,
       statusReasons,
       statusReasonOther,
+      enquiryDatesEnabled,
       isRange,
       useCustomDates,
       customDates,
@@ -1193,7 +1198,13 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     setInvoiceContactName(saved.invoiceContactName || "");
     setInvoiceContactEmail(saved.invoiceContactEmail || "");
     setInvoiceContactPhone(saved.invoiceContactPhone || "");
-    setStatus(saved.status || "Confirmed");
+    const savedStatus = saved.status || "Confirmed";
+    setStatus(savedStatus);
+    setEnquiryDatesEnabled(
+      saved.enquiryDatesEnabled ??
+        (savedStatus !== "Enquiry" ||
+          Boolean(saved.startDate || saved.endDate || (Array.isArray(saved.customDates) && saved.customDates.length)))
+    );
     setShootType(saved.shootType || "Day");
     setStatusReasons(Array.isArray(saved.statusReasons) ? saved.statusReasons : []);
     setStatusReasonOther(saved.statusReasonOther || "");
@@ -1794,7 +1805,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       });
 
   const handleSubmit = async ({ openQuote = false } = {}) => {
-    if (status !== "Enquiry") {
+    if (dateEntryEnabled) {
       if (useCustomDates) {
         if (!customDates.length) return alert("Please select at least one date.");
       } else {
@@ -1826,7 +1837,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       ...customNames.map((n) => ({ role: "Precision Driver", name: n })),
     ]);
 
-    const bookingDates = status !== "Enquiry" ? selectedDates : [];
+    const bookingDates = dateEntryEnabled ? selectedDates : [];
     let availabilityForSave = null;
     if (bookingDates.length) {
       try {
@@ -2119,6 +2130,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
       notesByDate: filteredNotesByDate,
       status,
+      enquiryDatesEnabled: dateEntryEnabled,
       bookingDates,
       shootType,
 
@@ -2147,7 +2159,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
       additionalContacts: additionalContactsToSave,
 
-      ...(status !== "Enquiry" && !useCustomDates
+      ...(dateEntryEnabled && !useCustomDates
         ? isRange
           ? {
               startDate: new Date(startDate).toISOString(),
@@ -2328,6 +2340,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   onChange={(e) => {
                     const next = e.target.value;
                     setStatus(next);
+                    setEnquiryDatesEnabled(next !== "Enquiry");
                     if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
                       setStatusReasons([]);
                       setStatusReasonOther("");
@@ -2613,52 +2626,71 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <h3 style={cardTitle}>Dates & People</h3>
                 </div>
 
-                <label style={field.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={useCustomDates}
-                    onChange={(e) => {
-                      const on = e.target.checked;
-                      setUseCustomDates(on);
-                      if (on) setIsRange(false);
-                    }}
-                  />
-                  Select non-consecutive dates
-                </label>
-
-                {!useCustomDates && (
+                {status === "Enquiry" && (
                   <label style={field.checkboxRow}>
-                    <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
-                    Multi-day booking (consecutive)
+                    <input
+                      type="checkbox"
+                      checked={enquiryDatesEnabled}
+                      onChange={(e) => setEnquiryDatesEnabled(e.target.checked)}
+                    />
+                    Date is available
                   </label>
                 )}
 
-                {useCustomDates ? (
-                  <div style={{ marginTop: 10 }}>
-                    <DatePicker
-                      multiple
-                      value={customDates}
-                      format="YYYY-MM-DD"
-                      onChange={(vals) => {
-                        const normalised = (Array.isArray(vals) ? vals : [])
-                          .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
-                          .sort();
-                        setCustomDates(normalised);
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
-                    <div>
-                      <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
-                    </div>
-                    {isRange && (
-                      <div>
-                        <label style={field.label}>End Date</label>
-                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
+                {dateEntryEnabled ? (
+                  <>
+                    <label style={field.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={useCustomDates}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setUseCustomDates(on);
+                          if (on) setIsRange(false);
+                        }}
+                      />
+                      Select non-consecutive dates
+                    </label>
+
+                    {!useCustomDates && (
+                      <label style={field.checkboxRow}>
+                        <input type="checkbox" checked={isRange} onChange={() => setIsRange(!isRange)} />
+                        Multi-day booking (consecutive)
+                      </label>
+                    )}
+
+                    {useCustomDates ? (
+                      <div style={{ marginTop: 10 }}>
+                        <DatePicker
+                          multiple
+                          value={customDates}
+                          format="YYYY-MM-DD"
+                          onChange={(vals) => {
+                            const normalised = (Array.isArray(vals) ? vals : [])
+                              .map((v) => (typeof v?.format === "function" ? v.format("YYYY-MM-DD") : String(v)))
+                              .sort();
+                            setCustomDates(normalised);
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
+                        <div>
+                          <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
+                          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
+                        </div>
+                        {isRange && (
+                          <div>
+                            <label style={field.label}>End Date</label>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
+                          </div>
+                        )}
                       </div>
                     )}
+                  </>
+                ) : (
+                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13 }}>
+                    No dates recorded yet.
                   </div>
                 )}
 
@@ -3302,7 +3334,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <div style={summarySection}>
                     <h4 style={summarySectionTitle}>Schedule</h4>
                     <SummaryRow label="Dates">
-                      {useCustomDates
+                      {!dateEntryEnabled
+                        ? "-"
+                        : useCustomDates
                         ? customDates.length
                           ? formatSummaryDates(customDates)
                           : "-"

@@ -181,6 +181,8 @@ function getEmployeeYardAutofill(employee) {
     true;
 
   return {
+    start,
+    end,
     rawHours: diffHours(start, end),
     deductLunch: deductLunch !== false,
   };
@@ -302,6 +304,37 @@ function normaliseDays(daysObj) {
     out[day] = daysObj?.[day.toLowerCase()] ?? daysObj?.[day] ?? null;
   });
   return out;
+}
+
+function toSchemaDays(daysObj) {
+  const out = {};
+  DAYS.forEach((day) => {
+    out[day.toLowerCase()] = daysObj?.[day] ?? daysObj?.[day.toLowerCase()] ?? null;
+  });
+  return out;
+}
+
+function buildManualTimesheetDays(employee) {
+  const defaults = getEmployeeYardAutofill(employee);
+  const manualEntry = {
+    mode: "yard",
+    type: "yard",
+    manualEntry: true,
+    manuallyAdded: true,
+    yardSegments: [{ start: defaults.start, end: defaults.end }],
+    managerLunchDeduct: defaults.deductLunch,
+    note: "Manual entry added by admin.",
+  };
+
+  return toSchemaDays({
+    Monday: { ...manualEntry },
+    Tuesday: { ...manualEntry },
+    Wednesday: { ...manualEntry },
+    Thursday: { ...manualEntry },
+    Friday: { ...manualEntry },
+    Saturday: null,
+    Sunday: null,
+  });
 }
 
 function isReviewableTimesheetEmployee(employee = {}) {
@@ -719,6 +752,7 @@ export default function TimesheetListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [approvingId, setApprovingId] = useState("");
+  const [manualCreatingKey, setManualCreatingKey] = useState("");
 
   const [searchTerm, setSearchTerm] = useState(() => searchParams?.get("q") || "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams?.get("status") || "all");
@@ -803,6 +837,65 @@ export default function TimesheetListPage() {
       setError("Unable to approve that timesheet. Please try again.");
     } finally {
       setApprovingId("");
+    }
+  };
+
+  const handleCreateManualTimesheet = async (event, emp, weekStart) => {
+    event.stopPropagation();
+    if (!isAdmin || !emp?.code || !weekStart || manualCreatingKey) return;
+
+    const createKey = `${emp.code}_${weekStart}`;
+    setManualCreatingKey(createKey);
+    setError("");
+
+    try {
+      const newRef = doc(db, "timesheets", `${emp.code}_${weekStart}`);
+      const now = new Date();
+      const manualTimesheet = {
+        employeeCode: emp.code,
+        employeeName: emp.name || emp.employee?.name || "",
+        employeeId: emp.employeeId || emp.employee?.id || "",
+        weekStart,
+        days: buildManualTimesheetDays(emp.employee),
+        status: "draft",
+        submitted: false,
+        approved: false,
+        manualEntry: true,
+        manuallyAdded: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: authState.user?.email || "",
+      };
+
+      await setDoc(newRef, tenantPayload(dataAccessState, manualTimesheet));
+
+      const localTimesheet = {
+        ...manualTimesheet,
+        id: newRef.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setGrouped((prev) => {
+        const currentEmp = prev[emp.code];
+        if (!currentEmp) return prev;
+        return {
+          ...prev,
+          [emp.code]: {
+            ...currentEmp,
+            timesheets: [localTimesheet, ...currentEmp.timesheets].sort(
+              (a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+            ),
+          },
+        };
+      });
+
+      router.push(`/timesheet-id/${newRef.id}`);
+    } catch (err) {
+      console.error("Error creating manual timesheet:", err);
+      setError("Unable to create manual timesheet. Please try again.");
+    } finally {
+      setManualCreatingKey("");
     }
   };
 
@@ -1670,7 +1763,10 @@ export default function TimesheetListPage() {
                       const weeklyHours = ts ? getTimesheetWeekHours(ts, emp.employee) : 0;
                       const showWeeklyHours = !!ts && (ts.submitted || status.key === "approved");
                       const canApprove = isAdmin && !!ts && status.key === "submitted";
+                      const canCreateManual = isAdmin && !ts && status.key === "missing";
                       const isApproving = approvingId === ts?.id;
+                      const manualCreateKey = `${emp.code}_${weekStart}`;
+                      const isCreatingManual = manualCreatingKey === manualCreateKey;
                       const lastUpdateText =
                         lastUpdateMs > 0
                           ? new Date(lastUpdateMs).toLocaleString("en-GB")
@@ -1879,6 +1975,27 @@ export default function TimesheetListPage() {
                               >
                                 <CheckCircle2 size={14} />
                                 {isApproving ? "Approving..." : "Approve"}
+                              </button>
+                            ) : canCreateManual ? (
+                              <button
+                                type="button"
+                                onClick={(event) => handleCreateManualTimesheet(event, emp, weekStart)}
+                                disabled={isCreatingManual}
+                                style={{
+                                  ...btn("primary"),
+                                  padding: compactReviewView ? "5px 8px" : "6px 10px",
+                                  fontSize: compactReviewView ? 11.5 : 12.5,
+                                  background: isCreatingManual
+                                    ? UI.brandSoft
+                                    : "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+                                  color: isCreatingManual ? UI.brand : "#ffffff",
+                                  boxShadow: isCreatingManual
+                                    ? UI.shadowSm
+                                    : "0 8px 18px rgba(31,75,122,0.18)",
+                                }}
+                              >
+                                <PencilLine size={14} />
+                                {isCreatingManual ? "Creating..." : "Add manual entry"}
                               </button>
                             ) : (
                               <span

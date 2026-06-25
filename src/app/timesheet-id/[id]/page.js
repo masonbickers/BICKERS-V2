@@ -236,6 +236,42 @@ const formControlStyle = {
   boxSizing: "border-box",
 };
 
+const TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => {
+  const minutes = index * 15;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+});
+
+function TimeSelect({ label, value, onChange }) {
+  const listId = `manual-time-options-${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+  return (
+    <label style={{ display: "grid", gap: 3, fontSize: 10.5, color: UI.muted, fontWeight: 800 }}>
+      {label}
+      <input
+        aria-label={label}
+        list={listId}
+        inputMode="numeric"
+        placeholder="HH:MM"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          ...formControlStyle,
+          fontSize: 12,
+          padding: "6px 8px",
+          minHeight: 32,
+          background: "#ffffff",
+        }}
+      />
+      <datalist id={listId}>
+        {TIME_OPTIONS.map((time) => (
+          <option key={time} value={time} />
+        ))}
+      </datalist>
+    </label>
+  );
+}
+
 const payAdviceCell = {
   border: "1px solid #cbd5e1",
   padding: "6px 5px",
@@ -275,6 +311,32 @@ function toLocalYMD(raw) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function ordinalSuffix(day) {
+  const value = Number(day);
+  if (!Number.isFinite(value)) return "";
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return "th";
+  switch (value % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+function formatDayDateLabel(raw) {
+  const d = parseDateFlexible(raw);
+  if (!d) return "";
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "long" });
+  const month = d.toLocaleDateString("en-GB", { month: "long" });
+  const day = d.getDate();
+  return `${weekday} ${day}${ordinalSuffix(day)} ${month}`;
 }
 
 /* HH:mm to minutes */
@@ -654,6 +716,118 @@ function jobsFromEntry(entry, snapshot = {}) {
   ];
 }
 
+function normaliseAssignmentToken(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return "";
+  return /^\d+$/.test(text) ? text.replace(/^0+/, "") || "0" : text;
+}
+
+function addAssignmentToken(set, value) {
+  const token = normaliseAssignmentToken(value);
+  if (token) set.add(token);
+}
+
+function getTimesheetEmployeeTokens(timesheet = {}) {
+  const tokens = new Set();
+  [
+    timesheet.employeeCode,
+    timesheet.userCode,
+    timesheet.code,
+    timesheet.staffCode,
+    timesheet.employeeName,
+    timesheet.name,
+    timesheet.fullName,
+    timesheet.employeeId,
+    timesheet.userId,
+  ].forEach((value) => addAssignmentToken(tokens, value));
+  return tokens;
+}
+
+function collectAssignmentTokens(source, set = new Set()) {
+  if (!source) return set;
+  if (Array.isArray(source)) {
+    source.forEach((item) => collectAssignmentTokens(item, set));
+    return set;
+  }
+  if (typeof source === "object") {
+    [
+      source.code,
+      source.employeeCode,
+      source.userCode,
+      source.staffCode,
+      source.id,
+      source.employeeId,
+      source.userId,
+      source.uid,
+      source.name,
+      source.employeeName,
+      source.fullName,
+      source.label,
+      source.value,
+    ].forEach((value) => addAssignmentToken(set, value));
+    return set;
+  }
+  addAssignmentToken(set, source);
+  return set;
+}
+
+function valueForDate(map, ymd) {
+  if (!map || typeof map !== "object") return null;
+  return map[ymd] || map[String(ymd || "").slice(0, 10)] || null;
+}
+
+function bookingDateKeys(booking = {}) {
+  const keys = new Set();
+  if (Array.isArray(booking.bookingDates)) {
+    booking.bookingDates.forEach((value) => {
+      const key = String(value?.date || value || "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) keys.add(key);
+    });
+  }
+  [booking.dateISO, booking.date, booking.startDateISO, booking.startDate].forEach((value) => {
+    const key = String(value || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key)) keys.add(key);
+  });
+  return Array.from(keys);
+}
+
+function bookingMatchesEmployeeOnDate(booking = {}, ymd, employeeTokens) {
+  if (!employeeTokens?.size) return false;
+  const assignmentTokens = new Set();
+  [
+    valueForDate(booking.employeesByDate, ymd),
+    valueForDate(booking.employeeAssignmentsByDate, ymd),
+    valueForDate(booking.employeeCodesByDate, ymd),
+    valueForDate(booking.assignedEmployeeCodesByDate, ymd),
+    booking.employees,
+    booking.employeeCodes,
+    booking.assignedEmployeeCodes,
+    booking.staff,
+    booking.crew,
+  ].forEach((source) => collectAssignmentTokens(source, assignmentTokens));
+  return Array.from(assignmentTokens).some((token) => employeeTokens.has(token));
+}
+
+function jobFromBooking(booking = {}, ymd = "") {
+  const dayNoteMeta = resolveBookingDayNoteMeta(booking, ymd);
+  return {
+    bookingId: booking.id || "",
+    id: booking.id || "",
+    jobNumber: booking.jobNumber || "",
+    client: booking.client || "",
+    location: booking.location || "",
+    vehicles: Array.isArray(booking.vehicles) ? booking.vehicles : [],
+    dayNote: dayNoteMeta.text,
+    dayNoteType: dayNoteMeta.type,
+    dayNoteTravelMins: dayNoteMeta.travelMins,
+    booking,
+  };
+}
+
+function manualJobKey(job = {}) {
+  return String(job.bookingId || job.id || job.jobNumber || "").trim();
+}
+
 function getBlockNote(block) {
   return String(block?.note || block?.notes || block?.description || "").trim();
 }
@@ -1016,6 +1190,9 @@ export default function TimesheetDetailPage() {
   const [querySuccess, setQuerySuccess] = useState("");
   const [queries, setQueries] = useState([]);
   const [lunchSavingDay, setLunchSavingDay] = useState("");
+  const [manualEntryDay, setManualEntryDay] = useState("");
+  const [manualEntryDraft, setManualEntryDraft] = useState(null);
+  const [manualEntrySavingDay, setManualEntrySavingDay] = useState("");
   const [payAdviceEdits, setPayAdviceEdits] = useState({});
   const [payAdviceRateEdits, setPayAdviceRateEdits] = useState({});
   const [payAdviceSaving, setPayAdviceSaving] = useState(false);
@@ -1236,9 +1413,47 @@ export default function TimesheetDetailPage() {
         }
 
         const bookingDetailsById = {};
+        const hasSavedJobs = Object.values(jobMap).some((arr) => Array.isArray(arr) && arr.length > 0);
+
+        if (!hasSavedJobs) {
+          const weekStart = parseDateFlexible(timesheet?.weekStart);
+          const employeeTokens = getTimesheetEmployeeTokens(timesheet);
+          if (weekStart && employeeTokens.size) {
+            const weekDateToDay = {};
+            DAYS.forEach((day, dayIndex) => {
+              const dt = new Date(weekStart);
+              dt.setDate(dt.getDate() + dayIndex);
+              dt.setHours(0, 0, 0, 0);
+              weekDateToDay[toLocalYMD(dt)] = day;
+            });
+
+            const bookingSnap = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
+            bookingSnap.docs.forEach((bookingDoc) => {
+              const booking = { id: bookingDoc.id, ...(bookingDoc.data() || {}) };
+              bookingDateKeys(booking).forEach((ymd) => {
+                const day = weekDateToDay[ymd];
+                if (!day || !bookingMatchesEmployeeOnDate(booking, ymd, employeeTokens)) return;
+                const job = jobFromBooking(booking, ymd);
+                jobMap[day].push(job);
+                allBookingIds.add(booking.id);
+                bookingDetailsById[booking.id] = booking;
+              });
+            });
+          }
+        }
+
         const usedVehicleKeys = new Set();
 
         for (const bookingId of allBookingIds) {
+          if (bookingDetailsById[bookingId]) {
+            const data = bookingDetailsById[bookingId];
+            if (Array.isArray(data.vehicles)) {
+              data.vehicles.forEach((v) => {
+                getVehicleLookupKeys(v).forEach((key) => usedVehicleKeys.add(key));
+              });
+            }
+            continue;
+          }
           try {
             const bSnap = await getDoc(doc(db, "bookings", bookingId));
             if (bSnap.exists()) {
@@ -1375,6 +1590,166 @@ export default function TimesheetDetailPage() {
       setApproveError("Failed to update lunch deduction. Please try again.");
     } finally {
       setLunchSavingDay("");
+    }
+  };
+
+  const openManualEntryEditor = (card) => {
+    if (!isAdmin || isApproved || !card?.day) return;
+    const entry = card.entry || {};
+    const entryMode = detectMode(entry, card.day === "Saturday" || card.day === "Sunday");
+    const yardSeg = extractYardSegments(entry)[0] || {};
+    const availableJobs = Array.isArray(card.jobsToday) ? card.jobsToday : [];
+    const savedJobKeys = new Set(jobsFromEntry(entry, timesheet?.jobSnapshot || {}).map(manualJobKey).filter(Boolean));
+    setManualEntryDay(card.day);
+    setManualEntryDraft({
+      mode: entryMode === "missing" ? "yard" : entryMode,
+      start: yardSeg.start || entry.startTime || employeeYardAutofill.start || DEFAULT_YARD_START,
+      end: yardSeg.end || entry.endTime || employeeYardAutofill.end || DEFAULT_YARD_END,
+      leaveTime: entry.leaveTime || "",
+      arriveTime: entry.arriveTime || "",
+      precallDuration: normaliseTimeValue(entry.precallDuration) || "",
+      callTime: entry.callTime || "",
+      wrapTime: entry.wrapTime || "",
+      arriveBack: entry.arriveBack || "",
+      managerLunchDeduct:
+        entry.managerLunchDeduct === true
+          ? true
+          : entry.managerLunchDeduct === false
+          ? false
+          : employeeYardAutofill.deductLunch,
+      travelLunchSup: Boolean(entry.travelLunchSup),
+      overnight: Boolean(entry.overnight),
+      nightShoot: Boolean(entry.nightShoot),
+      mealSup: Boolean(entry.mealSup),
+      note: entry.note || entry.dayNotes || "",
+      selectedJobKeys: savedJobKeys.size
+        ? Array.from(savedJobKeys)
+        : availableJobs.map(manualJobKey).filter(Boolean),
+    });
+  };
+
+  const updateManualEntryDraft = (patch) => {
+    setManualEntryDraft((current) => ({ ...(current || {}), ...patch }));
+  };
+
+  const buildManualDayEntry = (draft, card) => {
+    const mode = String(draft?.mode || "yard").toLowerCase();
+    const selectedKeys = new Set(Array.isArray(draft?.selectedJobKeys) ? draft.selectedJobKeys : []);
+    const availableJobs = Array.isArray(card?.jobsToday) ? card.jobsToday : [];
+    const jobs = selectedKeys.size
+      ? availableJobs.filter((job) => selectedKeys.has(manualJobKey(job)))
+      : [];
+    const primaryJob = jobs[0] || null;
+    const base = {
+      mode,
+      type: mode,
+      manualEntry: true,
+      manuallyAdded: true,
+      dateISO: card?.ymdForDay || "",
+      note: draft?.note || "",
+      dayNotes: draft?.note || "",
+      jobs,
+      hasJob: jobs.length > 0,
+      bookingId: primaryJob?.bookingId || primaryJob?.id || "",
+      jobNumber: primaryJob?.jobNumber || "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (mode === "yard" || mode === "workshop") {
+      return {
+        ...base,
+        mode: mode === "workshop" ? "yard" : "yard",
+        type: mode,
+        yardSegments: [
+          {
+            start: draft?.start || employeeYardAutofill.start || DEFAULT_YARD_START,
+            end: draft?.end || employeeYardAutofill.end || DEFAULT_YARD_END,
+            note: draft?.note || "",
+          },
+        ],
+        managerLunchDeduct: draft?.managerLunchDeduct !== false,
+        overnight: Boolean(draft?.overnight),
+      };
+    }
+
+    if (mode === "office") {
+      return {
+        ...base,
+        startTime: draft?.start || "09:00",
+        endTime: draft?.end || "17:00",
+      };
+    }
+
+    if (mode === "travel") {
+      return {
+        ...base,
+        leaveTime: draft?.leaveTime || "",
+        arriveTime: draft?.arriveTime || "",
+        travelLunchSup: Boolean(draft?.travelLunchSup),
+        overnight: Boolean(draft?.overnight),
+      };
+    }
+
+    if (mode === "onset") {
+      return {
+        ...base,
+        leaveTime: draft?.leaveTime || "",
+        arriveTime: draft?.arriveTime || "",
+        precallDuration: draft?.precallDuration || "",
+        callTime: draft?.callTime || "",
+        wrapTime: draft?.wrapTime || "",
+        arriveBack: draft?.arriveBack || "",
+        overnight: Boolean(draft?.overnight),
+        nightShoot: Boolean(draft?.nightShoot),
+        mealSup: Boolean(draft?.mealSup),
+      };
+    }
+
+    return {
+      ...base,
+      mode,
+      type: mode,
+      jobs: [],
+      hasJob: false,
+      bookingId: "",
+      jobNumber: "",
+    };
+  };
+
+  const handleSaveManualEntry = async (card) => {
+    if (!isAdmin || isApproved || !timesheet?.id || !card?.day || !manualEntryDraft) return;
+
+    setManualEntrySavingDay(card.day);
+    setApproveError("");
+    try {
+      const existingDays = normaliseDays(timesheet.days);
+      const nextEntry = buildManualDayEntry(manualEntryDraft, card);
+      const nextDays = {
+        ...existingDays,
+        [card.day]: nextEntry,
+      };
+      const nextSchemaDays = toSchemaDays(nextDays);
+
+      await updateDoc(doc(db, "timesheets", timesheet.id), tenantPayload(dataAccessState, {
+        days: nextSchemaDays,
+        updatedAt: serverTimestamp(),
+      }));
+
+      setTimesheet((prev) =>
+        prev
+          ? {
+              ...prev,
+              days: nextSchemaDays,
+            }
+          : prev
+      );
+      setManualEntryDay("");
+      setManualEntryDraft(null);
+    } catch (err) {
+      console.error("Error saving manual timesheet entry:", err);
+      setApproveError("Failed to save manual entry. Please try again.");
+    } finally {
+      setManualEntrySavingDay("");
     }
   };
 
@@ -1545,12 +1920,14 @@ export default function TimesheetDetailPage() {
 
       // calendar date for this day (used to show holidays)
       let ymdForDay = null;
+      let dayDateLabel = day;
       if (weekStartDate) {
         const dayIndex = DAYS.indexOf(day);
         const dt = new Date(weekStartDate);
         dt.setDate(dt.getDate() + dayIndex);
         dt.setHours(0, 0, 0, 0);
         ymdForDay = toLocalYMD(dt);
+        dayDateLabel = formatDayDateLabel(dt) || day;
       }
 
       const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
@@ -1659,6 +2036,8 @@ export default function TimesheetDetailPage() {
 
       return {
         day,
+        dayDateLabel,
+        ymdForDay,
         entry,
         entryExists,
         jobsToday,
@@ -2195,6 +2574,8 @@ export default function TimesheetDetailPage() {
             {dayCards.map((card) => {
               const {
                 day,
+                dayDateLabel,
+                ymdForDay,
                 entry,
                 entryExists,
                 jobsToday,
@@ -2255,43 +2636,304 @@ export default function TimesheetDetailPage() {
                       gap: 6,
                     }}
                   >
-                    <div style={{ fontWeight: 800, color: UI.ink }}>{day}</div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isAdmin || isApproved) return;
-                        setQueryDay(day);
-                      }}
-                      disabled={!isAdmin || isApproved}
-                      title={
-                        !isAdmin
-                          ? "Only admins can raise timesheet queries."
-                          : isApproved
-                          ? "Timesheet approved - queries are read-only."
-                          : "Raise a query for this day"
-                      }
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        fontSize: 10.5,
-                        padding: "3px 7px",
-                        borderRadius: UI.radiusSm,
-                        border: `1px dashed ${UI.brandBorder}`,
-                        background: "#ffffff",
-                        color: UI.brand,
-                        cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
-                        opacity: !isAdmin || isApproved ? 0.5 : 1,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <MessageSquare size={11} /> Query
-                    </button>
+                    <div style={{ fontWeight: 800, color: UI.ink }}>{dayDateLabel}</div>
+                    <div style={{ display: "inline-flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      {entryExists && !isApproved ? (
+                        <button
+                          type="button"
+                          onClick={() => openManualEntryEditor({ day, ymdForDay, jobsToday, entry })}
+                          disabled={!isAdmin || manualEntrySavingDay === day}
+                          title={!isAdmin ? "Only admins can edit manual entries." : `Edit manual entry for ${dayDateLabel}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            fontSize: 10.5,
+                            padding: "3px 7px",
+                            borderRadius: UI.radiusSm,
+                            border: `1px dashed ${UI.brandBorder}`,
+                            background: "#ffffff",
+                            color: UI.brand,
+                            cursor: !isAdmin || manualEntrySavingDay === day ? "not-allowed" : "pointer",
+                            opacity: !isAdmin || manualEntrySavingDay === day ? 0.5 : 1,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Manual edit
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isAdmin || isApproved) return;
+                          setQueryDay(day);
+                        }}
+                        disabled={!isAdmin || isApproved}
+                        title={
+                          !isAdmin
+                            ? "Only admins can raise timesheet queries."
+                            : isApproved
+                            ? "Timesheet approved - queries are read-only."
+                            : "Raise a query for this day"
+                        }
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          fontSize: 10.5,
+                          padding: "3px 7px",
+                          borderRadius: UI.radiusSm,
+                          border: `1px dashed ${UI.brandBorder}`,
+                          background: "#ffffff",
+                          color: UI.brand,
+                          cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
+                          opacity: !isAdmin || isApproved ? 0.5 : 1,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <MessageSquare size={11} /> Query
+                      </button>
+                    </div>
                   </div>
 
-                  {isMissingCard && (
-                    <div style={{ color: UI.muted, fontSize: 12, marginBottom: 6 }}>
-                      No entry submitted.
+                  {(isMissingCard || manualEntryDay === day) && (
+                    <div style={{ marginBottom: 8 }}>
+                      {isMissingCard ? (
+                        <>
+                          <div style={{ color: UI.muted, fontSize: 12, marginBottom: 7 }}>
+                            No entry submitted.
+                          </div>
+                          {!isApproved ? (
+                            <button
+                              type="button"
+                              onClick={() => openManualEntryEditor({ day, ymdForDay, jobsToday, entry })}
+                              disabled={!isAdmin || manualEntrySavingDay === day}
+                              title={!isAdmin ? "Only admins can add manual entries." : `Add manual entry for ${dayDateLabel}`}
+                              style={{
+                                ...controlButton("ghost", !isAdmin || manualEntrySavingDay === day),
+                                minHeight: 28,
+                                padding: "4px 8px",
+                                fontSize: 11.5,
+                              }}
+                            >
+                              Add manual entry
+                            </button>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {manualEntryDay === day && manualEntryDraft ? (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: 8,
+                            borderRadius: UI.radiusSm,
+                            border: UI.border,
+                            background: "#f8fbfd",
+                            display: "grid",
+                            gap: 7,
+                          }}
+                        >
+                          <select
+                            value={manualEntryDraft.mode || "yard"}
+                            onChange={(e) => updateManualEntryDraft({ mode: e.target.value })}
+                            style={{ ...formControlStyle, fontSize: 12, padding: "6px 8px" }}
+                          >
+                            <option value="yard">Yard</option>
+                            <option value="office">Office</option>
+                            <option value="travel">Travel</option>
+                            <option value="onset">On Set</option>
+                            <option value="off">Off</option>
+                            <option value="unpaid">Unpaid</option>
+                          </select>
+
+                          {jobsToday.length > 0 ? (
+                            <div
+                              style={{
+                                border: UI.border,
+                                borderRadius: UI.radiusSm,
+                                background: "#ffffff",
+                                padding: 7,
+                                display: "grid",
+                                gap: 5,
+                              }}
+                            >
+                              <div style={{ fontSize: 11, color: UI.muted, fontWeight: 800 }}>
+                                Connected jobs
+                              </div>
+                              {jobsToday.map((job, idx) => {
+                                const key = manualJobKey(job) || `job-${idx}`;
+                                const selected = (manualEntryDraft.selectedJobKeys || []).includes(key);
+                                return (
+                                  <label
+                                    key={key}
+                                    style={{
+                                      display: "flex",
+                                      gap: 6,
+                                      alignItems: "flex-start",
+                                      fontSize: 11.5,
+                                      color: UI.ink,
+                                      lineHeight: 1.3,
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={(e) => {
+                                        const current = new Set(manualEntryDraft.selectedJobKeys || []);
+                                        if (e.target.checked) current.add(key);
+                                        else current.delete(key);
+                                        updateManualEntryDraft({ selectedJobKeys: Array.from(current) });
+                                      }}
+                                    />
+                                    <span>
+                                      <strong>{job.jobNumber || job.bookingId || "Job"}</strong>
+                                      {job.client ? ` - ${job.client}` : ""}
+                                      {job.location ? ` - ${job.location}` : ""}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11.5, color: UI.muted }}>
+                              No connected jobs found for this employee on this day.
+                            </div>
+                          )}
+
+                          {["yard", "office"].includes(manualEntryDraft.mode) ? (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                              {[
+                                ["start", "Start"],
+                                ["end", "Finish"],
+                              ].map(([field, label]) => (
+                                <TimeSelect
+                                  key={field}
+                                  label={label}
+                                  value={manualEntryDraft[field] || ""}
+                                  onChange={(value) => updateManualEntryDraft({ [field]: value })}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {manualEntryDraft.mode === "travel" ? (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                              {[
+                                ["leaveTime", "Leave"],
+                                ["arriveTime", "Arrive"],
+                              ].map(([field, label]) => (
+                                <TimeSelect
+                                  key={field}
+                                  label={label}
+                                  value={manualEntryDraft[field] || ""}
+                                  onChange={(value) => updateManualEntryDraft({ [field]: value })}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {manualEntryDraft.mode === "onset" ? (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                              {[
+                                ["leaveTime", "Leave"],
+                                ["arriveTime", "Arrive"],
+                                ["precallDuration", "Precall"],
+                                ["callTime", "Unit Call"],
+                                ["wrapTime", "Wrap"],
+                                ["arriveBack", "Arrive Back"],
+                              ].map(([field, label]) => (
+                                <TimeSelect
+                                  key={field}
+                                  label={label}
+                                  value={manualEntryDraft[field] || ""}
+                                  onChange={(value) => updateManualEntryDraft({ [field]: value })}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
+                              {manualEntryDraft.mode === "yard" ? (
+                                <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={manualEntryDraft.managerLunchDeduct !== false}
+                                    onChange={(e) => updateManualEntryDraft({ managerLunchDeduct: e.target.checked })}
+                                  />
+                                  Deduct lunch
+                                </label>
+                              ) : null}
+                              {manualEntryDraft.mode === "travel" ? (
+                                <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(manualEntryDraft.travelLunchSup)}
+                                    onChange={(e) => updateManualEntryDraft({ travelLunchSup: e.target.checked })}
+                                  />
+                                  Travel meal
+                                </label>
+                              ) : null}
+                              {manualEntryDraft.mode === "onset" ? (
+                                <>
+                                  <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(manualEntryDraft.nightShoot)}
+                                      onChange={(e) => updateManualEntryDraft({ nightShoot: e.target.checked })}
+                                    />
+                                    Night shoot
+                                  </label>
+                                  <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(manualEntryDraft.mealSup)}
+                                      onChange={(e) => updateManualEntryDraft({ mealSup: e.target.checked })}
+                                    />
+                                    Meal supplement
+                                  </label>
+                                </>
+                              ) : null}
+                              <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(manualEntryDraft.overnight)}
+                                  onChange={(e) => updateManualEntryDraft({ overnight: e.target.checked })}
+                                />
+                                Overnight
+                              </label>
+                            </div>
+                          ) : null}
+
+                          <textarea
+                            value={manualEntryDraft.note || ""}
+                            onChange={(e) => updateManualEntryDraft({ note: e.target.value })}
+                            placeholder="Day notes..."
+                            style={{ ...formControlStyle, minHeight: 58, resize: "vertical", fontSize: 12 }}
+                          />
+
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setManualEntryDay("");
+                                setManualEntryDraft(null);
+                              }}
+                              style={{ ...controlButton("ghost"), minHeight: 28, padding: "4px 8px", fontSize: 11.5 }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveManualEntry({ day, ymdForDay, jobsToday })}
+                              disabled={manualEntrySavingDay === day}
+                              style={{ ...controlButton("primary", manualEntrySavingDay === day), minHeight: 28, padding: "4px 8px", fontSize: 11.5 }}
+                            >
+                              {manualEntrySavingDay === day ? "Saving..." : "Save entry"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 

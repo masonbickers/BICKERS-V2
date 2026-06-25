@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onSnapshot } from "firebase/firestore";
-import { LayoutDashboard, Plus, Search, FileText, PencilLine } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, Plus, Search, FileText, PencilLine, X } from "lucide-react";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import ViewBookingModal from "../components/ViewBookingModal";
+import { loadBookingFormReferenceData } from "@/app/utils/bookingFormReferenceData";
 import {
   dataAccessKey,
+  handleFirestoreAccessError,
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
@@ -26,6 +28,15 @@ const UI = {
   brand: "#1f4b7a",
   brandSoft: "#edf3f8",
   brandBorder: "#c8d6e3",
+  green: "#15803d",
+  greenSoft: "#ecfdf3",
+  greenBorder: "#bbf7d0",
+  amber: "#b45309",
+  amberSoft: "#fffbeb",
+  amberBorder: "#fde68a",
+  red: "#b91c1c",
+  redSoft: "#fff1f2",
+  redBorder: "#fecdd3",
 };
 
 const pageWrap = {
@@ -100,17 +111,82 @@ const input = {
   background: "transparent",
 };
 
-const row = {
-  border: UI.border,
-  borderRadius: UI.radius,
-  padding: 12,
+const quoteOverlayBackdrop = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 140,
+  background: "rgba(2,6,23,0.66)",
   display: "flex",
-  justifyContent: "space-between",
-  gap: 10,
   alignItems: "center",
-  flexWrap: "wrap",
+  justifyContent: "center",
+  padding: 4,
+};
+
+const quoteOverlayPanel = {
+  width: "min(900px, 99vw)",
+  height: "min(760px, calc(100vh - 8px))",
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
   background: "#fff",
-  boxShadow: UI.shadow,
+  border: "1px solid #cbd5e1",
+  borderRadius: 10,
+  boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
+  overflow: "hidden",
+};
+
+const quoteOverlayHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "7px 10px",
+  borderBottom: "1px solid #dbe4ef",
+  background: "#f8fafc",
+};
+
+const quoteOverlayEyebrow = {
+  color: UI.muted,
+  fontSize: 10.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+};
+
+const quoteOverlayTitle = {
+  color: UI.text,
+  fontSize: 15,
+  lineHeight: 1.2,
+  fontWeight: 900,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const quoteOverlayMeta = {
+  marginTop: 2,
+  color: UI.muted,
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const quoteOverlayCloseButton = {
+  width: 34,
+  minHeight: 34,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: "1px solid #cbd5e1",
+  borderRadius: 8,
+  background: "#fff",
+  color: UI.text,
+  padding: 0,
+  cursor: "pointer",
+};
+
+const quoteOverlayFrame = {
+  width: "100%",
+  height: "100%",
+  border: 0,
+  background: "#fff",
 };
 
 const pill = {
@@ -125,11 +201,143 @@ const pill = {
   fontWeight: 900,
 };
 
+const queueChip = (kind = "neutral") => {
+  const base = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    padding: "3px 8px",
+    borderRadius: 999,
+    border: `1px solid ${UI.brandBorder}`,
+    background: UI.brandSoft,
+    color: UI.text,
+    fontSize: 11.5,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  };
+  if (kind === "green") return { ...base, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
+  if (kind === "amber") return { ...base, border: `1px solid ${UI.amberBorder}`, background: UI.amberSoft, color: UI.amber };
+  if (kind === "red") return { ...base, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.red };
+  return base;
+};
+
+const sectionHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  margin: "2px 0 8px",
+  flexWrap: "wrap",
+};
+
+const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
+
+const tableWrap = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadow, overflow: "auto" };
+const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 12.5, tableLayout: "fixed" };
+const th = {
+  textAlign: "left",
+  padding: "6px 8px",
+  borderBottom: "1px solid #e5e7eb",
+  position: "sticky",
+  top: 0,
+  background: "#f8fafc",
+  zIndex: 1,
+  color: UI.muted,
+  fontSize: 10.5,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+};
+const td = {
+  padding: "7px 8px",
+  borderBottom: "1px solid #f1f5f9",
+  verticalAlign: "middle",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+const nowrap = { whiteSpace: "nowrap" };
+
+const toDate = (value) => {
+  if (!value) return null;
+  const date = value?.toDate
+    ? value.toDate()
+    : typeof value?.seconds === "number"
+      ? new Date(value.seconds * 1000)
+      : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const fmtDate = (value) => {
-  if (!value) return "-";
-  const d = value?.toDate ? value.toDate() : new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
+  const d = toDate(value);
+  if (!d) return "-";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+};
+
+const formatAddedTimestamp = (booking) => {
+  const value = booking.createdAt || booking.addedAt || booking.updatedAt;
+  if (!value) return "Added date unknown";
+  const d = toDate(value);
+  if (!d) return "Added date unknown";
+  const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `Added ${date}, ${time}`;
+};
+
+const enquiryNeedsChase = (booking) => {
+  const createdAt = toDate(booking.createdAt || booking.addedAt);
+  if (!createdAt) return false;
+  const updatedAt = toDate(booking.updatedAt);
+  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+  const meaningfulUpdateMs = 5 * 60 * 1000;
+  const isAWeekOld = Date.now() - createdAt.getTime() >= oneWeekMs;
+  const hasLaterUpdate = updatedAt && updatedAt.getTime() - createdAt.getTime() > meaningfulUpdateMs;
+  return isAWeekOld && !hasLaterUpdate;
+};
+
+const hasQuote = (booking) => {
+  if (String(booking.quoteNumber || "").trim()) return true;
+  if (Array.isArray(booking.quoteNumbers) && booking.quoteNumbers.some((number) => String(number || "").trim())) return true;
+  if (Array.isArray(booking.quoteVersions) && booking.quoteVersions.length > 0) return true;
+  if (booking.quote && typeof booking.quote === "object") return true;
+  return Boolean(String(booking.pdfUrl || booking.pdfURL || booking.quoteUrl || "").trim());
+};
+
+const quoteLabel = (booking) => {
+  if (String(booking.quoteNumber || "").trim()) return String(booking.quoteNumber).trim();
+  if (Array.isArray(booking.quoteNumbers)) {
+    const first = booking.quoteNumbers.find((number) => String(number || "").trim());
+    if (first) return String(first).trim();
+  }
+  const latestVersion = Array.isArray(booking.quoteVersions) ? booking.quoteVersions[0] : null;
+  return String(latestVersion?.quoteNumber || "Quote").trim();
+};
+
+const quoteNumberForView = (booking) => {
+  const label = quoteLabel(booking);
+  return label === "Quote" ? "" : label;
+};
+
+const vehicleLabel = (vehicle, lookup = {}) => {
+  if (!vehicle) return "";
+  if (typeof vehicle === "string") {
+    const key = vehicle.trim();
+    if (!key) return "";
+    const match = lookup.byId?.[key] || lookup.byReg?.[key.toUpperCase()] || lookup.byName?.[key.toLowerCase()];
+    return match ? vehicleLabel(match, lookup) : "";
+  }
+  if (typeof vehicle !== "object") return String(vehicle || "").trim();
+  return [vehicle.name || vehicle.vehicleName, vehicle.registration || vehicle.reg]
+    .filter(Boolean)
+    .join(" - ")
+    .trim() || String(vehicle.id || vehicle.vehicleId || "").trim();
+};
+
+const enquiryVehicleText = (booking, lookup = {}) => {
+  const vehicles = Array.isArray(booking.vehicles) ? booking.vehicles : [];
+  const labels = vehicles.map((vehicle) => vehicleLabel(vehicle, lookup)).filter(Boolean);
+  if (labels.length) return labels.join(", ");
+  return vehicleLabel(booking.vehicle || booking.vehicleName || booking.registration || booking.reg, lookup) || "-";
 };
 
 const enquiryDateText = (booking) => {
@@ -137,8 +345,37 @@ const enquiryDateText = (booking) => {
     return booking.bookingDates.map(fmtDate).join(", ");
   }
   if (booking.startDate && booking.endDate) return `${fmtDate(booking.startDate)} to ${fmtDate(booking.endDate)}`;
-  return fmtDate(booking.startDate || booking.date);
+  const dateText = fmtDate(booking.startDate || booking.date);
+  return dateText === "-" ? "TBC" : dateText;
 };
+
+function EnquiryQuoteOverlay({ viewer, onClose }) {
+  if (!viewer?.bookingId) return null;
+
+  const params = new URLSearchParams({ embed: "1", returnTo: "/enquiry" });
+  if (viewer.quoteNumber) params.set("quote", viewer.quoteNumber);
+  const src = `/quote-view/${encodeURIComponent(viewer.bookingId)}?${params.toString()}`;
+
+  return (
+    <div style={quoteOverlayBackdrop} role="dialog" aria-modal="true" aria-label="Quote view">
+      <div style={quoteOverlayPanel}>
+        <div style={quoteOverlayHeader}>
+          <div style={{ minWidth: 0 }}>
+            <div style={quoteOverlayEyebrow}>Quote View</div>
+            <div style={quoteOverlayTitle}>
+              #{viewer.jobNumber || "No Job #"} - {viewer.client || "No production"}
+            </div>
+            <div style={quoteOverlayMeta}>{viewer.quoteNumber || "Quote"}</div>
+          </div>
+          <button type="button" style={quoteOverlayCloseButton} onClick={onClose} aria-label="Close quote view">
+            <X size={18} />
+          </button>
+        </div>
+        <iframe title="Quote view" src={src} style={quoteOverlayFrame} />
+      </div>
+    </div>
+  );
+}
 
 export default function EnquiryPage() {
   const router = useRouter();
@@ -147,6 +384,8 @@ export default function EnquiryPage() {
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [quoteViewer, setQuoteViewer] = useState(null);
+  const [vehicleLookup, setVehicleLookup] = useState({ byId: {}, byReg: {}, byName: {} });
 
   useEffect(() => {
     const gate = resolveDataAccess(dataAccessState);
@@ -162,6 +401,43 @@ export default function EnquiryPage() {
     });
     return () => unsub();
   }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    const loadVehicles = async () => {
+      const gate = resolveDataAccess(dataAccessState);
+      if (gate.checking) return;
+      if (!gate.allowed) {
+        reportDataAccessBlocked(gate, { collectionName: "vehicles", operation: "load enquiry vehicle names" });
+        setVehicleLookup({ byId: {}, byReg: {}, byName: {} });
+        return;
+      }
+
+      try {
+        const referenceData = await loadBookingFormReferenceData(db, { accessState: dataAccessState });
+        setVehicleLookup(referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} });
+      } catch (error) {
+        if (!handleFirestoreAccessError(error, { collectionName: "vehicles", operation: "load enquiry vehicle names" })) {
+          console.error("Failed loading enquiry vehicle names:", error);
+        }
+        setVehicleLookup({ byId: {}, byReg: {}, byName: {} });
+      }
+    };
+
+    loadVehicles();
+  }, [accessKey, dataAccessState]);
+
+  useEffect(() => {
+    const handleQuoteViewMessage = (event) => {
+      if (event.data?.type !== "bickers:quote-edit") return;
+      const href = event.data?.href;
+      if (!href) return;
+      setQuoteViewer(null);
+      router.push(href);
+    };
+
+    window.addEventListener("message", handleQuoteViewMessage);
+    return () => window.removeEventListener("message", handleQuoteViewMessage);
+  }, [router]);
 
   const enquiries = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -184,6 +460,16 @@ export default function EnquiryPage() {
     () => bookings.find((booking) => booking.id === selectedBookingId) || null,
     [bookings, selectedBookingId]
   );
+
+  const openQuoteViewer = (booking) => {
+    if (!hasQuote(booking)) return;
+    setQuoteViewer({
+      bookingId: booking.id,
+      jobNumber: booking.jobNumber,
+      client: booking.client,
+      quoteNumber: quoteNumberForView(booking),
+    });
+  };
 
   return (
     <HeaderSidebarLayout>
@@ -220,53 +506,126 @@ export default function EnquiryPage() {
           {enquiries.length === 0 ? (
             <div style={{ color: UI.muted, fontSize: 13.5 }}>No enquiries found.</div>
           ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {enquiries.map((booking) => (
-                <div key={booking.id} style={row}>
-                  <div style={{ minWidth: 260, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 8,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: UI.brandSoft,
-                        border: `1px solid ${UI.brandBorder}`,
-                        color: UI.brand,
-                        flex: "0 0 auto",
-                      }}
-                    >
-                      <FileText size={17} />
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 900, color: UI.text }}>
-                        {booking.jobNumber || "No Job #"} - {booking.client || "No production"}
-                      </div>
-                      <div style={{ color: UI.muted, fontSize: 12.5, marginTop: 3 }}>
-                        {enquiryDateText(booking)} - {booking.location || "No location"}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" style={btn()} onClick={() => setSelectedBookingId(booking.id)}>
-                      <FileText size={14} />
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      style={btn("primary")}
-                      onClick={() => router.push(`/edit-booking/${booking.id}?returnTo=${encodeURIComponent("/enquiry")}`)}
-                    >
-                      <PencilLine size={14} />
-                      Edit
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              <div style={sectionHeader}>
+                <h2 style={titleMd}>Enquiry Queue</h2>
+                <span style={queueChip()}>
+                  {enquiries.length} enquir{enquiries.length === 1 ? "y" : "ies"}
+                </span>
+              </div>
+              <div style={tableWrap}>
+                <table style={tableEl} aria-label="Enquiry queue">
+                  <colgroup>
+                    <col style={{ width: 110 }} />
+                    <col style={{ width: 260 }} />
+                    <col />
+                    <col style={{ width: 240 }} />
+                    <col style={{ width: 170 }} />
+                    <col style={{ width: 178 }} />
+                    <col style={{ width: 92 }} />
+                    <col style={{ width: 118 }} />
+                    <col style={{ width: 174 }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th style={th}>Job #</th>
+                      <th style={th}>Production</th>
+                      <th style={th}>Location</th>
+                      <th style={th}>Vehicle</th>
+                      <th style={th}>Dates</th>
+                      <th style={th}>Added</th>
+                      <th style={th}>Quote</th>
+                      <th style={th}>Chase</th>
+                      <th style={th}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enquiries.map((booking) => {
+                      const needsChase = enquiryNeedsChase(booking);
+                      return (
+                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "#fff" }}>
+                          <td style={{ ...td, ...nowrap, fontWeight: 900 }}>{booking.jobNumber || "No Job #"}</td>
+                          <td style={td} title={booking.client || ""}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                              <span
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 8,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  background: UI.brandSoft,
+                                  border: `1px solid ${UI.brandBorder}`,
+                                  color: UI.brand,
+                                  flex: "0 0 auto",
+                                }}
+                              >
+                                <FileText size={15} />
+                              </span>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 850 }}>
+                                {booking.client || "No production"}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={td} title={booking.location || ""}>{booking.location || "No location"}</td>
+                          <td style={td} title={enquiryVehicleText(booking, vehicleLookup)}>
+                            {enquiryVehicleText(booking, vehicleLookup)}
+                          </td>
+                          <td style={{ ...td, ...nowrap }}>{enquiryDateText(booking)}</td>
+                          <td style={{ ...td, ...nowrap }}>{formatAddedTimestamp(booking).replace(/^Added /, "")}</td>
+                          <td style={{ ...td, ...nowrap }}>
+                            {hasQuote(booking) ? (
+                              <button
+                                type="button"
+                                style={{ ...queueChip("green"), cursor: "pointer" }}
+                                title={`View ${quoteLabel(booking)}`}
+                                onClick={() => openQuoteViewer(booking)}
+                              >
+                                <FileText size={13} />
+                                Quote
+                              </button>
+                            ) : (
+                              <span style={{ color: UI.muted }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ ...td, ...nowrap }}>
+                            {needsChase ? (
+                              <span style={queueChip("amber")}>
+                                <AlertTriangle size={13} />
+                                Needs chase
+                              </span>
+                            ) : (
+                              <span style={queueChip()}>OK</span>
+                            )}
+                          </td>
+                          <td style={{ ...td, ...nowrap }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap" }}>
+                              <button
+                                type="button"
+                                style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}
+                                onClick={() => setSelectedBookingId(booking.id)}
+                              >
+                                <FileText size={13} />
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                style={{ ...btn("primary"), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}
+                                onClick={() => router.push(`/edit-booking/${booking.id}?returnTo=${encodeURIComponent("/enquiry")}`)}
+                              >
+                                <PencilLine size={13} />
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
@@ -278,6 +637,7 @@ export default function EnquiryPage() {
             onClose={() => setSelectedBookingId(null)}
           />
         )}
+        {quoteViewer && <EnquiryQuoteOverlay viewer={quoteViewer} onClose={() => setQuoteViewer(null)} />}
       </div>
     </HeaderSidebarLayout>
   );

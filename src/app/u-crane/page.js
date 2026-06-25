@@ -235,6 +235,30 @@ const pageCss = `
   .ucrane-page .rbc-event {
     overflow: visible;
   }
+  .ucrane-page .ucrane-compact-calendar {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .ucrane-page .ucrane-compact-calendar .rbc-time-content {
+    display: none;
+  }
+  .ucrane-page .ucrane-compact-calendar .rbc-time-view {
+    min-height: 0;
+  }
+  .ucrane-page .ucrane-compact-calendar .rbc-time-header {
+    border-bottom: 0;
+  }
+  .ucrane-page .ucrane-compact-calendar .rbc-time-header-content,
+  .ucrane-page .ucrane-compact-calendar .rbc-row-content,
+  .ucrane-page .ucrane-compact-calendar .rbc-row,
+  .ucrane-page .ucrane-compact-calendar .rbc-allday-cell {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .ucrane-page .ucrane-compact-calendar .rbc-allday-cell {
+    min-height: 112px;
+  }
   .ucrane-page .ucrane-month-calendar {
     overflow: visible;
   }
@@ -1447,7 +1471,7 @@ export default function DashboardPage({ bookingSaved }) {
 
           <div
             style={calendarShell}
-            className={calendarView === "month" ? "ucrane-month-calendar" : ""}
+            className={calendarView === "month" ? "ucrane-month-calendar" : "ucrane-compact-calendar"}
           >
             <BigCalendar
               localizer={localizer}
@@ -1484,7 +1508,7 @@ export default function DashboardPage({ bookingSaved }) {
                   },
                 };
               }}
-              style={{ height: calendarView === "month" ? "auto" : 610, background: "#fff" }}
+              style={{ height: "auto", background: "#fff" }}
               onSelectEvent={(e) => {
                 openSelectedBooking(e);
               }}
