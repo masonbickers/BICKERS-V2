@@ -752,14 +752,6 @@ const startOfLocalDay = (d) => {
   return x;
 };
 
-const startOfIsoWeek = (value) => {
-  const x = startOfLocalDay(value);
-  if (Number.isNaN(x.getTime())) return x;
-  const day = x.getDay() || 7;
-  x.setDate(x.getDate() + 1 - day);
-  return x;
-};
-
 const addWeeksToLocalDate = (value, weeks) => {
   const base = parseLocalDate(value);
   if (!base) return "";
@@ -1169,12 +1161,9 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const currentStart = startOfLocalDay(event?.appointmentDateISO || event?.start);
   if (!currentStart || Number.isNaN(currentStart.getTime())) return null;
 
-  const currentWeekStart = startOfIsoWeek(currentStart);
-  const targetWeekStart = startOfIsoWeek(targetStart);
-  const weekDelta = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000));
-  const effectiveDate = addDays(currentStart, weekDelta * 7);
-  const dateKey = ymd(effectiveDate);
-  if (!dateKey || !weekDelta) return null;
+  const dateKey = ymd(targetStart);
+  const currentDateKey = event?.appointmentDateISO || ymd(event?.start);
+  if (!dateKey || dateKey === currentDateKey) return null;
 
   const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
     ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
@@ -1194,7 +1183,7 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   }
 
   if (!shouldMoveBrake && !shouldMovePmi) return null;
-  return { updates, movedDateKeys: new Set([event?.appointmentDateISO || ymd(event?.start)]), movedNextDateKeys: [dateKey] };
+  return { updates, movedDateKeys: new Set([currentDateKey]), movedNextDateKeys: [dateKey] };
 };
 
 //  Build/normalise callTimesByDate for EVERY event (single-day, recce-day, multi-day)

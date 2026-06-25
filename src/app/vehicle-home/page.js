@@ -563,12 +563,6 @@ const daysInRange = (from, to) => {
 };
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-const startOfIsoWeek = (value) => {
-  const date = startOfLocalDay(value);
-  if (!date) return null;
-  const day = date.getDay() || 7;
-  return addDays(date, 1 - day);
-};
 const daysUntil = (d) => {
   if (!d) return null;
   const today = new Date();
@@ -701,14 +695,9 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   const currentStart = startOfLocalDay(event?.appointmentDateISO || event?.start);
   if (!currentStart) return null;
 
-  const currentWeekStart = startOfIsoWeek(currentStart);
-  const targetWeekStart = startOfIsoWeek(targetStart);
-  if (!currentWeekStart || !targetWeekStart) return null;
-
-  const weekDelta = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000));
-  const effectiveDate = addDays(currentStart, weekDelta * 7);
-  const dateKey = ymdDate(effectiveDate);
-  if (!dateKey || !weekDelta) return null;
+  const dateKey = ymdDate(targetStart);
+  const currentDateKey = event?.appointmentDateISO || ymdDate(event?.start);
+  if (!dateKey || dateKey === currentDateKey) return null;
 
   const maintenanceTypes = Array.isArray(event?.maintenanceTypes)
     ? event.maintenanceTypes.map((item) => String(item || "").trim().toLowerCase())
@@ -728,7 +717,7 @@ const buildVehicleMaintenanceAppointmentDropUpdates = (event, nextStart) => {
   }
 
   if (!shouldMoveBrake && !shouldMovePmi) return null;
-  return { updates, movedDateKeys: new Set([event?.appointmentDateISO || ymdDate(event?.start)]), movedNextDateKeys: [dateKey] };
+  return { updates, movedDateKeys: new Set([currentDateKey]), movedNextDateKeys: [dateKey] };
 };
 
 /* Notes helpers for Usage chart */
