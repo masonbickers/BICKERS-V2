@@ -313,6 +313,33 @@ function toLocalYMD(raw) {
   return `${year}-${month}-${day}`;
 }
 
+const TIMESHEET_DOC_ID_RE = /^(.*)_(\d{4}-\d{2}-\d{2})$/;
+const WEEK_START_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeTimesheetRouteId(rawId) {
+  if (rawId == null) return "";
+  const source = Array.isArray(rawId) ? rawId[0] : String(rawId);
+  if (!source) return "";
+  try {
+    return decodeURIComponent(source).trim();
+  } catch {
+    return String(source).trim();
+  }
+}
+
+function isWeekStartId(value) {
+  return WEEK_START_RE.test(String(value || "").trim());
+}
+
+function parseTimesheetDocId(value) {
+  const parts = String(value || "").trim().match(TIMESHEET_DOC_ID_RE);
+  if (!parts) return null;
+  return {
+    employeeCode: parts[1],
+    weekStart: parts[2],
+  };
+}
+
 function ordinalSuffix(day) {
   const value = Number(day);
   if (!Number.isFinite(value)) return "";
@@ -674,6 +701,53 @@ function detectMode(entry, isWeekend) {
   return "yard";
 }
 
+function hasMeaningfulDayEntry(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  const timeFields = [
+    "leaveTime",
+    "arriveTime",
+    "arriveBack",
+    "callTime",
+    "wrapTime",
+    "startTime",
+    "endTime",
+    "note",
+    "dayNotes",
+    "journeyTime",
+    "lunchSup",
+    "travelLunchSup",
+    "travelPD",
+    "overnight",
+    "lateSup",
+    "mealSup",
+    "generatorUsed",
+    "hasJob",
+    "bookingId",
+    "jobNumber",
+    "manualEntry",
+    "unpaidDay",
+    "bankHolidayWorked",
+    "unpaidRestore",
+    "workType",
+    "dayWorkType",
+    "mode",
+    "precallDuration",
+    "holiday",
+  ];
+
+  if (timeFields.some((key) => {
+    const value = entry[key];
+    if (typeof value === "boolean") return value === true;
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  })) return true;
+
+  if (Array.isArray(entry.yardSegments) && entry.yardSegments.length > 0) return true;
+  if (Array.isArray(entry.workshopJobs) && entry.workshopJobs.length > 0) return true;
+
+  return false;
+}
+
 /* Normalize days structure to Monday..Sunday */
 function normaliseDays(daysObj) {
   const out = {};
@@ -727,6 +801,16 @@ function addAssignmentToken(set, value) {
   if (token) set.add(token);
 }
 
+function addAssignmentNameTokens(set, value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return;
+  text
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .forEach((part) => addAssignmentToken(set, part));
+}
+
 function getTimesheetEmployeeTokens(timesheet = {}) {
   const tokens = new Set();
   [
@@ -739,7 +823,33 @@ function getTimesheetEmployeeTokens(timesheet = {}) {
     timesheet.fullName,
     timesheet.employeeId,
     timesheet.userId,
-  ].forEach((value) => addAssignmentToken(tokens, value));
+  ].forEach((value) => {
+    addAssignmentToken(tokens, value);
+    addAssignmentNameTokens(tokens, value);
+  });
+  return tokens;
+}
+
+function getHolidayMatchTokens(holiday = {}) {
+  const tokens = new Set();
+  collectAssignmentTokens(
+    [
+      holiday.employee,
+      holiday.employeeName,
+      holiday.userCode,
+      holiday.employeeCode,
+      holiday.staffCode,
+      holiday.userId,
+      holiday.employeeId,
+      holiday.uid,
+      holiday.id,
+      holiday.createdBy,
+      holiday.owner,
+    ],
+    tokens
+  );
+  addAssignmentNameTokens(tokens, holiday.employee);
+  addAssignmentNameTokens(tokens, holiday.employeeName);
   return tokens;
 }
 
@@ -1153,6 +1263,125 @@ function eachDateYMD(startRaw, endRaw) {
   return out;
 }
 
+function normalizeBooleanish(value) {
+  if (value === true || value === false) return value;
+  if (typeof value === "number") return value === 1;
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return null;
+  if (["true", "1", "yes", "y", "on"].includes(text)) return true;
+  if (["false", "0", "no", "off", "n"].includes(text)) return false;
+  return null;
+}
+
+function getHolidayDateKeys(holiday = {}) {
+  const keys = new Set();
+
+  const rangeFields = [
+    ["startDate", "endDate"],
+    ["from", "to"],
+    ["fromDate", "toDate"],
+    ["startDateISO", "endDateISO"],
+  ];
+  rangeFields.forEach(([startField, endField]) => {
+    const range = eachDateYMD(holiday[startField], holiday[endField] || holiday[startField]);
+    range.forEach((key) => keys.add(key));
+  });
+
+  if (keys.size === 0) {
+    ["date", "dateISO", "start", "day", "holidayDate", "holidayDateKey"].forEach((key) => {
+      const keyDate = String(holiday[key] || "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(keyDate)) keys.add(keyDate);
+    });
+  }
+
+  if (Array.isArray(holiday.holidayDateKeys)) {
+    holiday.holidayDateKeys.forEach((ymd) => {
+      const key = String(ymd || "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) keys.add(key);
+    });
+  }
+  if (Array.isArray(holiday.dates)) {
+    holiday.dates.forEach((ymd) => {
+      const key = String(ymd || "").slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) keys.add(key);
+    });
+  }
+
+  return Array.from(keys);
+}
+
+function isHolidayHalfDayDoc(holiday = {}) {
+  const startHalfDay = normalizeBooleanish(holiday.startHalfDay);
+  const endHalfDay = normalizeBooleanish(holiday.endHalfDay);
+  if (startHalfDay === true || endHalfDay === true) return true;
+  if (startHalfDay === false && endHalfDay === false) return false;
+
+  const ampm = String(
+    holiday.startAMPM || holiday.startAmpm || holiday.endAMPM || holiday.endAmpm || ""
+  )
+    .toLowerCase()
+    .trim();
+  if (ampm === "am" || ampm === "pm") return true;
+
+  const duration = String(holiday.duration || "").toLowerCase();
+  if (duration.includes("half")) return true;
+  return false;
+}
+
+function getHolidayPaidLabel(holiday = {}) {
+  const paidStatus = String(holiday.paidStatus || holiday.leaveType || "").trim();
+  const isUnpaid = normalizeBooleanish(holiday.isUnpaid);
+  const isAccrued = normalizeBooleanish(holiday.isAccrued);
+  const isPaid = normalizeBooleanish(holiday.paid);
+
+  if (isUnpaid === true) return "Unpaid";
+  if (isAccrued === true) return "Accrued";
+  if (isPaid === false) return "Unpaid";
+  return paidStatus || "";
+}
+
+function getHolidayLockForDate(holidayDocs = []) {
+  if (!Array.isArray(holidayDocs) || !holidayDocs.length) return null;
+
+  const visible = holidayDocs.filter((h) => {
+    if (!h || typeof h !== "object") return false;
+    if (h.deleted === true || h.isDeleted === true) return false;
+    const status = String(h.status || "").trim().toLowerCase();
+    if (!status) return true;
+    return ["requested", "approved", "accepted"].includes(status);
+  });
+  if (!visible.length) return null;
+
+  const halfHoliday = visible.some((h) => isHolidayHalfDayDoc(h));
+  const paidLabels = visible
+    .map(getHolidayPaidLabel)
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  const paidLabel = Array.from(new Set(paidLabels));
+
+  const holidayReason = visible.find((h) => String(h.holidayReason || "").trim())?.holidayReason || "";
+  const halfLabel = visible
+    .map((h) => {
+      if (normalizeBooleanish(h.startHalfDay) === true) return "AM";
+      if (normalizeBooleanish(h.endHalfDay) === true) return "PM";
+      const ampm = String(h.startAMPM || h.endAMPM || h.startAmpm || h.endAmpm || "")
+        .trim()
+        .toUpperCase();
+      return ampm && /AM|PM/.test(ampm) ? ampm : "";
+    })
+    .find(Boolean) || "";
+
+  return {
+    mode: halfHoliday ? "yard" : "holiday",
+    halfHoliday,
+    halfLabel,
+    paidStatuses: paidLabel,
+    paidLabel: paidLabel.join(" / "),
+    holidayReason,
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /*                               PAGE                                         */
 /* -------------------------------------------------------------------------- */
@@ -1228,22 +1457,72 @@ export default function TimesheetDetailPage() {
 
   /* ----------------------- Load timesheet ----------------------- */
   useEffect(() => {
-    if (!id) return;
+    const routeId = normalizeTimesheetRouteId(id);
+    if (!routeId) {
+      setTimesheet(null);
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       try {
-        const ref = doc(db, "timesheets", id);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          setTimesheet({ id: snap.id, ...snap.data() });
-        } else {
-          setTimesheet(null);
+        const directRef = doc(db, "timesheets", routeId);
+        const directSnap = await getDoc(directRef);
+        if (directSnap.exists()) {
+          setTimesheet({ id: directSnap.id, ...directSnap.data() });
+          return;
         }
+
+        const parsed = parseTimesheetDocId(routeId);
+        const constraints = [];
+
+        if (parsed) {
+          constraints.push(where("employeeCode", "==", parsed.employeeCode));
+          constraints.push(where("weekStart", "==", parsed.weekStart));
+        } else if (isWeekStartId(routeId)) {
+          constraints.push(where("weekStart", "==", routeId));
+        }
+
+        if (!constraints.length) {
+          setTimesheet(null);
+          return;
+        }
+
+        const gate = resolveDataAccess(dataAccessState);
+        if (gate.checking) return;
+        if (reportDataAccessBlocked(gate, { collectionName: "timesheets", operation: "Load timesheet by id" }))
+          return;
+
+        const matchSnap = await getDocs(tenantCollectionQuery(db, "timesheets", dataAccessState, constraints));
+        const candidates = matchSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+
+        if (!candidates.length) {
+          setTimesheet(null);
+          return;
+        }
+
+        const picked = isAdmin
+          ? candidates.sort(
+              (a, b) =>
+                (parseDateFlexible(b.updatedAt)?.getTime() || 0) -
+                (parseDateFlexible(a.updatedAt)?.getTime() || 0)
+            )[0]
+          : candidates.find((item) => timesheetMatchesTimesheetUser(item, currentTimesheetIdentity)) || null;
+
+        if (!picked) {
+          setTimesheet(null);
+          return;
+        }
+
+        if (picked.id !== routeId) {
+          router.replace(`/timesheet-id/${picked.id}`);
+        }
+        setTimesheet(picked);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [accessKey, currentTimesheetIdentity, dataAccessState, id, isAdmin, router]);
 
   const canViewTimesheet = useMemo(() => {
     if (!timesheet?.id) return false;
@@ -1324,6 +1603,7 @@ export default function TimesheetDetailPage() {
           const ymd = String(event?.date || "").slice(0, 10);
           if (!ymd) return;
           map[ymd] = {
+            notWorking: true,
             title: event?.title || "Bank Holiday",
             notes: event?.notes || "",
           };
@@ -1349,6 +1629,12 @@ export default function TimesheetDetailPage() {
       try {
         const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const map = {};
+        const timesheetTokens = getTimesheetEmployeeTokens(timesheet);
+        const weekStart = parseDateFlexible(timesheet?.weekStart);
+        const weekEnd = weekStart ? new Date(weekStart) : null;
+        if (weekEnd) weekEnd.setDate(weekEnd.getDate() + 6);
+        const weekStartYmd = weekStart ? toLocalYMD(weekStart) : "";
+        const weekEndYmd = weekEnd ? toLocalYMD(weekEnd) : "";
 
         snap.docs.forEach((d) => {
           const h = d.data();
@@ -1356,14 +1642,25 @@ export default function TimesheetDetailPage() {
           const status = String(h.status || "").toLowerCase();
           if (h.deleted === true || h.isDeleted === true || status === "deleted") return;
 
-          const matchesName = timesheet.employeeName && h.employee === timesheet.employeeName;
-          const matchesCode = timesheet.employeeCode && h.employeeCode === timesheet.employeeCode;
+          const holidayTokens = getHolidayMatchTokens(h);
+          const explicitCodeMatch =
+            timesheet.employeeCode &&
+            String(h.employeeCode || "").trim().toLowerCase() ===
+              String(timesheet.employeeCode).trim().toLowerCase();
+          const legacyNameMatch =
+            timesheet.employeeName &&
+            String(h.employee || "").trim().toLowerCase() === String(timesheet.employeeName).trim().toLowerCase();
 
-          if (!matchesName && !matchesCode) return;
+          const tokenMatch = Array.from(holidayTokens).some((token) =>
+            token && timesheetTokens.has(token)
+          );
 
-          const dates = eachDateYMD(h.startDate, h.endDate);
-          dates.forEach((ymd) => {
-            if (!ymd) return;
+          if (!explicitCodeMatch && !legacyNameMatch && !tokenMatch) return;
+
+          const dateKeys = getHolidayDateKeys(h);
+
+          dateKeys.forEach((ymd) => {
+            if (weekStartYmd && weekEndYmd && (ymd < weekStartYmd || ymd > weekEndYmd)) return;
             if (!map[ymd]) map[ymd] = [];
             map[ymd].push({ id: d.id, ...h });
           });
@@ -1932,22 +2229,14 @@ export default function TimesheetDetailPage() {
 
       const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
       const hasLiveHoliday = holidayDocsForDay.length > 0;
+      const holidayLock = getHolidayLockForDate(holidayDocsForDay);
+      const hasLiveHolidayLock = Boolean(holidayLock);
       const bankHolidayInfo = ymdForDay ? bankHolidaysByDate?.[ymdForDay] || null : null;
       const hasBankHoliday = Boolean(bankHolidayInfo);
+      const isHalfHoliday = Boolean(holidayLock?.halfHoliday);
+      let paidLabel = hasLiveHolidayLock ? holidayLock.paidLabel || "" : null;
 
-      const paidStatuses = Array.from(
-        new Set(
-          holidayDocsForDay
-            .map((h) => String(h.paidStatus || h.leaveType || "").trim())
-            .filter(Boolean)
-        )
-      );
-
-      let paidLabel = null;
-      if (paidStatuses.length === 1) paidLabel = paidStatuses[0];
-      else if (paidStatuses.length > 1) paidLabel = paidStatuses.join(" / ");
-
-      const entryExists = !!entry;
+      const entryExists = hasMeaningfulDayEntry(entry);
 
       let mode = detectMode(entry, isWeekend);
 
@@ -1962,8 +2251,11 @@ export default function TimesheetDetailPage() {
         paidLabel = "Unpaid";
       }
 
-      if (!entryExists && hasLiveHoliday) {
-        mode = "holiday";
+      if (hasLiveHolidayLock) {
+        mode = holidayLock.mode;
+        if (isHalfHoliday && !paidLabel) {
+          paidLabel = holidayLock.halfLabel || "Half day";
+        }
       }
 
       // If there is NO LIVE HOLIDAY, don't honour old "holiday" mode on the timesheet
@@ -1975,9 +2267,11 @@ export default function TimesheetDetailPage() {
 
       let dayHours = 0;
       const isBankHolidayDay = mode === "bankholiday";
+      const isHalfHolidayDay = hasLiveHolidayLock && isHalfHoliday;
       const displayPaidLabel = isBankHolidayDay ? "Paid" : paidLabel || "";
       const isPaidHolidayDay =
         isBankHolidayDay ||
+        isHalfHolidayDay ||
         (hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid");
       const paidHolidayLunchDeducted = isPaidHolidayDay
         ? entry?.managerLunchDeduct === true
@@ -1992,6 +2286,7 @@ export default function TimesheetDetailPage() {
             employeeYardAutofill.rawHours - (paidHolidayLunchDeducted ? LUNCH_DEDUCT_HRS : 0)
           )
         : 0;
+      const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
       if (entryExists) {
         if (mode === "yard") dayHours = computeYardHours(entry);
         if (mode === "travel") dayHours = computeTravelHours(entry);
@@ -2001,14 +2296,20 @@ export default function TimesheetDetailPage() {
         //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
         if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
 
-        if (mode === "holiday" || mode === "bankholiday" || mode === "off" || mode === "unpaid") {
-          dayHours = paidHolidayHours;
+        if (
+          mode === "holiday" ||
+          mode === "bankholiday" ||
+          isHalfHolidayDay ||
+          mode === "off" ||
+          mode === "unpaid"
+        ) {
+          dayHours = paidHolidayHoursToUse;
         }
         if (mode === "unpaid") {
           dayHours = 0;
         }
-      } else if (mode === "holiday" || mode === "bankholiday") {
-        dayHours = paidHolidayHours;
+      } else if (mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay) {
+        dayHours = paidHolidayHoursToUse;
       }
 
       total += dayHours;
@@ -2049,7 +2350,9 @@ export default function TimesheetDetailPage() {
         paidLabel,
         displayPaidLabel,
         isPaidHolidayDay,
+        isHalfHolidayDay,
         paidHolidayHours,
+        paidHolidayHoursToUse,
         paidHolidayLunchDeducted,
         paidHolidayTimeLabel: `${employeeYardAutofill.start} -> ${employeeYardAutofill.end}`,
         dayTotalLabel,
@@ -2106,7 +2409,7 @@ export default function TimesheetDetailPage() {
         card.mode === "yard"
           ? computeYardHours(entry)
           : card.isPaidHolidayDay
-          ? card.paidHolidayHours
+          ? card.paidHolidayHoursToUse || card.paidHolidayHours
           : 0;
       const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
@@ -2587,6 +2890,8 @@ export default function TimesheetDetailPage() {
                 isPaidHolidayDay,
                 paidHolidayHours,
                 paidHolidayLunchDeducted,
+                paidHolidayHoursToUse,
+                isHalfHolidayDay,
                 paidHolidayTimeLabel,
                 dayTotalLabel,
                 precallLabel,
@@ -2602,7 +2907,7 @@ export default function TimesheetDetailPage() {
                 yardLunchDeducted,
               } = card;
 
-              const isHolidayCard = mode === "holiday" || mode === "bankholiday";
+              const isHolidayCard = mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay;
               const isOffCard = mode === "off";
               const isUnpaidCard = mode === "unpaid";
               const isMissingCard = mode === "missing";
@@ -3021,7 +3326,8 @@ export default function TimesheetDetailPage() {
                               fontWeight: 600,
                             }}
                           >
-                            Paid at yard autofill: {paidHolidayTimeLabel} ({formatHoursLabel(paidHolidayHours)})
+                            Paid at yard autofill: {paidHolidayTimeLabel} ({formatHoursLabel(paidHolidayHoursToUse || paidHolidayHours)})
+                            {isHalfHolidayDay ? " - half day" : ""}
                           </div>
                           <div
                             style={{

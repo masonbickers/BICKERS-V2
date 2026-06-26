@@ -517,7 +517,8 @@ export default function ViewUCraneBookingModal({
         {/* Content grid */}
         <div style={grid}>
           <Section title="Overview">
-            <Field label="Production" value={booking.client || "—"} />
+            <Field label="Production Company" value={booking.client || booking.productionCompany || "—"} />
+            <Field label="Production" value={booking.production || "—"} />
             <Field label="Location" value={booking.location || "—"} />
             <Field label="Date(s)" value={fmtDateRange(booking)} />
 

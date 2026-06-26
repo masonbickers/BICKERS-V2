@@ -692,7 +692,8 @@ export default function ViewBookingModal({
           <div style={topCol}>
             <h3 style={sectionTitle}>Overview</h3>
             <div style={sectionCard}>
-              <Field label="Production" value={booking.client || "-"} />
+              <Field label="Production Company" value={booking.client || booking.productionCompany || "-"} />
+              <Field label="Production" value={booking.production || "-"} />
               <Field
                 label="Quote Number"
                 value={

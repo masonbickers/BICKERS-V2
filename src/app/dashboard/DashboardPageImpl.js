@@ -1035,6 +1035,16 @@ const normaliseCallTime = (raw) => {
   return s; // fallback: keep as-is
 };
 
+const getBookingProductionLabel = (booking = {}) => {
+  return String(
+    booking.production ||
+      booking.productionCompany ||
+      booking.client ||
+      booking.title ||
+      "No production"
+  ).trim();
+};
+
 const ymdKey = (d) => {
   try {
     if (!d) return "";
@@ -1340,7 +1350,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
           __collection: b.__collection || "bookings",
           __deletedDocId: b.__deletedDocId || null,
           __dateGroupIndex: index,
-          title: b.client || "",
+          title: getBookingProductionLabel(b),
           start: startOfLocalDay(group.start),
           end: startOfLocalDay(addDays(group.end, 1)),
           allDay: true,
@@ -1364,7 +1374,7 @@ const eventsByJobNumber = (bookings, maintenanceBookings) => {
         ...b,
         __collection: b.__collection || "bookings",
         __deletedDocId: b.__deletedDocId || null,
-        title: b.client || "",
+        title: getBookingProductionLabel(b),
         start: startOfLocalDay(startBase),
         end: startOfLocalDay(addDays(safeEnd, 1)),
         allDay: true,
@@ -1799,7 +1809,7 @@ function CalendarEvent({ event, onViewQuote }) {
             </div>
           </div>
 
-          {!isMaintenance && <span>{event.client}</span>}
+          {!isMaintenance && <span>{getBookingProductionLabel(event)}</span>}
           {isMaintenance && (
             <span style={{ fontSize: "0.8rem", fontWeight: 900 }}>
               {event.maintenanceTypeLabel || "MAINTENANCE"}
@@ -2578,11 +2588,11 @@ function HolidayNotesCalendarEvent({ event }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 2,
-        fontSize: 12.5,
-        lineHeight: 1.3,
+        gap: 1,
+        fontSize: 11.5,
+        lineHeight: 1.15,
         fontWeight: 900,
-        padding: 8,
+        padding: "4px 6px",
         letterSpacing: 0,
         whiteSpace: "normal",
         overflowWrap: "anywhere",
@@ -2590,7 +2600,7 @@ function HolidayNotesCalendarEvent({ event }) {
         minWidth: 0,
       }}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "normal" }}>{label}</span>
       <span
         style={{
           color: "#0f172a",
@@ -2629,7 +2639,7 @@ function HolidayNotesCalendarEvent({ event }) {
         </button>
       ) : null}
       {detail ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
       ) : null}
     </div>
   );
@@ -2643,9 +2653,9 @@ function holidayNotesEventPropGetter(event) {
 
   return {
     style: {
-      borderRadius: 10,
+      borderRadius: 7,
       border: `1px solid ${border}`,
-      borderLeft: `6px solid ${border}`,
+      borderLeft: `4px solid ${border}`,
       background: bg,
       color: text,
       padding: 0,
@@ -4265,7 +4275,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                         }}
                       >
                         <div style={{ fontWeight: 800, color: UI.text }}>
-                          {booking.jobNumber || "No Job #"} - {booking.client || "No client"}
+                          {booking.jobNumber || "No Job #"} - {getBookingProductionLabel(booking)}
                         </div>
                         <div style={{ fontSize: 12.5, color: UI.muted }}>
                           {formatSearchBookingDates(booking)} - {formatSearchBookingVehicles(booking)} - {booking.location || "No location"}
