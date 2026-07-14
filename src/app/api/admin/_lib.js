@@ -1,5 +1,6 @@
 import { adminCreateDocument, adminReadDocument } from "../_firebaseAdminRest";
 import { isAdminEmail, isPlatformAdminEmail } from "@/app/utils/adminAccess";
+import { evaluateActiveMember } from "../_accessPolicy";
 
 const FIREBASE_WEB_API_KEY =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
@@ -223,6 +224,12 @@ export async function createFirestoreDocument(collection, data, idToken) {
 }
 
 export async function requireAdminFromRequest(req) {
+  const access = await requireActiveMemberFromRequest(req, { roles: ["admin", "platformAdmin"] });
+  if (access.error) return access;
+  return access;
+}
+
+export async function requireActiveMemberFromRequest(req, options = {}) {
   const idToken = readBearerToken(req);
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser?.uid) {
@@ -231,6 +238,11 @@ export async function requireAdminFromRequest(req) {
   }
 
   const userData = await adminReadDocument("users", verifiedUser.uid);
+  if (!userData) {
+    await writeBlockedAccessLog(req, verifiedUser, "Missing user access record");
+    return { error: jsonError("No active application access record was found.", 403) };
+  }
+
   const role = String(userData?.role || "").trim();
   const emailAdminRole = isPlatformAdminEmail(verifiedUser.email)
     ? "platformAdmin"
@@ -239,17 +251,38 @@ export async function requireAdminFromRequest(req) {
       : "";
   const normalizedRole = emailAdminRole || normalizeServerRole(role);
 
-  if (userData?.isEnabled === false) {
-    await writeBlockedAccessLog(req, verifiedUser, "Account disabled");
-    return { error: jsonError("Account disabled.", 403) };
+  const decision = evaluateActiveMember({
+    verifiedUser,
+    userData,
+    role: normalizedRole,
+    expectedCompanyId: String(options.companyId || "").trim(),
+    allowedRoles: Array.isArray(options.roles) ? options.roles : [],
+  });
+  if (!decision.allowed) {
+    await writeBlockedAccessLog(req, verifiedUser, decision.reason);
+    return { error: jsonError(`${decision.reason}.`, decision.status) };
+  }
+  const companyId = decision.companyId;
+
+  const method = String(req?.method || "GET").toUpperCase();
+  if (!options.allowDuringMaintenance && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const platformSettings = (await adminReadDocument("settings", "platform")) || {};
+    if (platformSettings.maintenanceMode === true) {
+      return {
+        error: Response.json(
+          { error: "The system is in maintenance mode. Writes are temporarily frozen." },
+          { status: 503, headers: { "Retry-After": "3600" } }
+        ),
+      };
+    }
   }
 
-  if (!["platformAdmin", "admin"].includes(normalizedRole)) {
-    await writeBlockedAccessLog(req, verifiedUser, "Platform admin access required");
-    return { error: jsonError("Platform admin access required.", 403) };
-  }
-
-  return { idToken, verifiedUser, userData: { ...(userData || {}), role: normalizedRole || role || userData?.role || "" } };
+  return {
+    idToken,
+    verifiedUser,
+    companyId,
+    userData: { ...userData, companyId, role: normalizedRole || role || userData?.role || "" },
+  };
 }
 
 export async function requirePlatformAdminFromRequest(req) {

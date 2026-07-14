@@ -6,6 +6,7 @@ import {
   mergeInspectionHistory,
   mergeMaintenanceHistory,
 } from "./inspectionHistory";
+import { tenantPayload } from "./firestoreAccess";
 
 const parseLocalDate = (value) => {
   if (!value) return null;
@@ -71,6 +72,7 @@ export async function syncEightWeekInspectionRollovers({
   db,
   vehicles = [],
   maintenanceBookings = [],
+  dataAccessState,
   loggerPrefix = "[inspection rollover]",
 }) {
   if (!db || !Array.isArray(vehicles) || !vehicles.length) return;
@@ -279,7 +281,10 @@ export async function syncEightWeekInspectionRollovers({
       }
       if (!changed) return null;
 
-      return updateDoc(doc(db, "vehicles", vehicleId), patch).catch((error) => {
+      return updateDoc(
+        doc(db, "vehicles", vehicleId),
+        tenantPayload(dataAccessState, patch)
+      ).catch((error) => {
         console.error(`${loggerPrefix} sync failed:`, error);
       });
     })

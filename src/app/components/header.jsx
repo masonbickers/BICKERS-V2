@@ -2,10 +2,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/app/context/authContext";
 
 export default function Header() {
   const pathname = usePathname();
   const [showMenu, setShowMenu] = useState(false);
+  const { logout } = useAuth() || {};
 
   const navLinks = [
     { label: "Playground", path: "/playground" },
@@ -105,18 +107,23 @@ export default function Header() {
               >
                 Settings
               </Link>
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={() => logout?.()}
                 style={{
                   display: "block",
+                  width: "100%",
                   padding: "10px 16px",
-                  textDecoration: "none",
                   color: "#000",
                   fontSize: "14px",
+                  textAlign: "left",
+                  background: "none",
+                  border: 0,
+                  cursor: "pointer",
                 }}
               >
                 Logout
-              </Link>
+              </button>
             </div>
           )}
         </div>

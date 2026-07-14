@@ -11,6 +11,7 @@ import { storage } from "../../../firebaseConfig"; //  use this
 import { auth } from "../../../firebaseConfig";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery, tenantPayload } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 
 /* ───────────────────────────────────────────
    U-Crane roles (must match Crew Manager page)
@@ -461,7 +462,8 @@ export default function CreateBookingPage() {
 
     if (quoteFile) {
       try {
-        const storageRef = ref(storage, `quotes/${jobNumber}_${quoteFile.name}`);
+        const storagePath = companyStoragePath(authState, `quotes/${jobNumber}_${quoteFile.name}`);
+        const storageRef = ref(storage, storagePath);
         const metadata = {
           contentType:
             quoteFile.type ||

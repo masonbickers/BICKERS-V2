@@ -8,7 +8,7 @@ import { doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { useAuth } from "@/app/context/authContext";
-import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import { dataAccessKey, tenantCollectionQuery, tenantPayload } from "@/app/utils/firestoreAccess";
 
 const UI = {
   bg: "#f8fafc",
@@ -28,7 +28,6 @@ const UI = {
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v4";
 const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v3";
-const PREP_SHARED_DOC_REF = doc(db, "appState", "preplistShared");
 
 const INACTIVE_STATUSES = new Set([
   "cancelled",
@@ -206,6 +205,10 @@ export default function PrepListPage() {
   const searchParams = useSearchParams();
   const authState = useAuth();
   const accessKey = dataAccessKey(authState);
+  const prepSharedDocRef = useMemo(() => {
+    const companyId = String(authState?.userDoc?.companyId || "").trim();
+    return companyId ? doc(db, "appState", `${companyId}--preplistShared`) : null;
+  }, [authState?.userDoc?.companyId]);
 
   const [bookings, setBookings] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -314,11 +317,12 @@ export default function PrepListPage() {
   }, [manualEntries]);
 
   useEffect(() => {
+    if (!prepSharedDocRef) return undefined;
     let active = true;
 
     (async () => {
       try {
-        const snap = await getDoc(PREP_SHARED_DOC_REF);
+        const snap = await getDoc(prepSharedDocRef);
         if (!active || !snap.exists()) return;
 
         const data = snap.data() || {};
@@ -351,20 +355,20 @@ export default function PrepListPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [prepSharedDocRef]);
 
   useEffect(() => {
-    if (!cloudHydrated) return;
+    if (!cloudHydrated || !prepSharedDocRef || !authState?.isAdmin) return;
 
     const t = setTimeout(async () => {
       try {
         await setDoc(
-          PREP_SHARED_DOC_REF,
-          {
+          prepSharedDocRef,
+          tenantPayload(authState, {
             prepRecordsByKey,
             manualEntries,
             updatedAt: new Date().toISOString(),
-          },
+          }),
           { merge: true }
         );
       } catch (error) {
@@ -373,7 +377,7 @@ export default function PrepListPage() {
     }, 500);
 
     return () => clearTimeout(t);
-  }, [cloudHydrated, prepRecordsByKey, manualEntries]);
+  }, [authState, cloudHydrated, prepRecordsByKey, manualEntries, prepSharedDocRef]);
 
   const vehicleById = useMemo(() => {
     const map = new Map();

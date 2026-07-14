@@ -1,0 +1,47 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function userPath() {
+      return /databases/(default)/documents/users/$(request.auth.uid);
+    }
+    function activeUser() {
+      return request.auth != null
+        && firestore.exists(userPath())
+        && firestore.get(userPath()).data.isEnabled == true
+        && (!firestore.get(userPath()).data.keys().hasAny(['credentialResetRequired'])
+          || firestore.get(userPath()).data.credentialResetRequired == false)
+        && firestore.get(userPath()).data.companyId is string;
+    }
+    function companyId() {
+      return firestore.get(userPath()).data.companyId;
+    }
+    function writesOpen() {
+      let settingsPath = /databases/(default)/documents/settings/platform;
+      return !firestore.exists(settingsPath)
+        || firestore.get(settingsPath).data.maintenanceMode != true;
+    }
+    function safeFile() {
+      return writesOpen() && request.resource != null
+        && request.resource.size <= 25 * 1024 * 1024
+        && request.resource.contentType is string
+        && request.resource.contentType.matches('application/pdf|application/msword|application/vnd\\..*|text/csv|image/.*|application/octet-stream');
+    }
+
+    match /companies/{tenantId}/{allPaths=**} {
+      allow read: if activeUser() && companyId() == tenantId;
+      allow create, update: if activeUser() && companyId() == tenantId && safeFile();
+      allow delete: if writesOpen() && activeUser() && companyId() == tenantId;
+    }
+
+    match /{legacyRoot}/{allPaths=**} {
+      allow read: if activeUser() && companyId() == 'bickers-action'
+        && legacyRoot in ['profilePhotos', 'booking_pdfs', 'quotes', 'job_attachments', 'maintenance-quotes', 'vehicles', 'recce-photos', 'hr', 'h-and-s']
+        && request.time < timestamp.date(2026, 8, 14);
+      allow write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

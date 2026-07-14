@@ -82,6 +82,28 @@ const formatDate = (raw) => {
   return text;
 };
 
+const quoteAssetRefs = (booking = {}, quote = {}) => {
+  const assets = [
+    ...(Array.isArray(quote.assetRefs) ? quote.assetRefs : []),
+    ...(Array.isArray(booking.attachments)
+      ? booking.attachments.filter((asset) => asset?.folder === "quotes")
+      : []),
+  ];
+  const seen = new Set();
+  return assets
+    .map((asset) => ({
+      storagePath: String(asset?.storagePath || asset?.path || "").trim(),
+      name: String(asset?.name || "").trim(),
+      size: Math.max(0, Number(asset?.size || 0)),
+      contentType: String(asset?.contentType || asset?.type || "").trim(),
+    }))
+    .filter((asset) => {
+      if (!asset.storagePath || seen.has(asset.storagePath)) return false;
+      seen.add(asset.storagePath);
+      return true;
+    });
+};
+
 const ordinalSuffix = (day) => {
   const value = Number(day);
   if (!Number.isFinite(value)) return "";
@@ -1052,6 +1074,7 @@ export default function QuotePage() {
       savedBy: authAccess.user?.email || "Unknown",
       updatedAt: nowIso,
       updatedBy: authAccess.user?.email || "Unknown",
+      assetRefs: quoteAssetRefs(booking, quote),
     };
     const quoteVersions = [
       ...existingVersions.filter(
@@ -1129,42 +1152,23 @@ export default function QuotePage() {
 
     const displayNumber = displayQuoteNumber(savedQuoteToDelete.quoteNumber || quoteNumberToDelete, booking);
     const confirmed = window.confirm(
-      `Delete quote ${displayNumber || savedQuoteToDelete.quoteNumber || "this quote"}?\n\nThis quote will be permanently removed from Firestore, including the quote builder data linked to this booking. This cannot be undone.`
+      `Delete quote ${displayNumber || savedQuoteToDelete.quoteNumber || "this quote"}?\n\nIt can be restored by an administrator for 30 days.`
     );
     if (!confirmed) return;
 
     setDeleting(true);
-    const deleteKey = quoteNumberKey(savedQuoteToDelete.quoteNumber, booking || {}, savedQuoteToDelete);
-    const remainingQuoteVersions = savedQuotes.filter(
-      (entry) => quoteNumberKey(entry.quoteNumber, booking || {}, entry) !== deleteKey
-    );
-    const nextQuote = latestQuoteVersion(remainingQuoteVersions);
-    const remainingQuoteNumbers = getRemainingQuoteNumbers(remainingQuoteVersions);
-    const deletedAcceptedQuote =
-      publicQuoteNumber(savedQuoteToDelete.quoteNumber).toLowerCase() ===
-      publicQuoteNumber(booking.acceptedQuoteNumber || "").toLowerCase();
-    const nowIso = new Date().toISOString();
-
-    // TODO: delete associated Storage files/PDFs/generated docs when quote assets get their own storage metadata.
-    const patch = {
-      quoteVersions: remainingQuoteVersions,
-      quoteNumbers: remainingQuoteNumbers,
-      quote: nextQuote || null,
-      quoteNumber: nextQuote?.quoteNumber || remainingQuoteNumbers[0] || "",
-      quoteVersion: nextQuote ? getVersionFromQuoteNumber(nextQuote.quoteNumber) || Number(nextQuote.version || 0) : 0,
-      updatedAt: nowIso,
-      lastEditedBy: authAccess.user?.email || "Unknown",
-      lastEditedByUid: authAccess.user?.uid || "",
-    };
-
-    if (deletedAcceptedQuote) {
-      patch.acceptedQuoteNumber = "";
-      patch.acceptedQuoteName = "";
-    }
-
     try {
-      await updateDoc(doc(db, "bookings", booking.id), tenantPayload(dataAccessState, patch));
-      alert(`Quote ${displayNumber || savedQuoteToDelete.quoteNumber} deleted successfully.`);
+      const idToken = await authAccess.user?.getIdToken?.();
+      if (!idToken) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/quotes/${encodeURIComponent(booking.id)}/delete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteNumber: savedQuoteToDelete.quoteNumber }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not delete quote.");
+      setBooking((current) => ({ ...(current || {}), ...(result.patch || {}) }));
+      alert(`Quote ${displayNumber || savedQuoteToDelete.quoteNumber} moved to the 30-day recovery bin.`);
       router.push("/completed-quotes");
     } catch (err) {
       if (!handleFirestoreAccessError(err, { collectionName: "bookings", operation: "delete quote" })) {

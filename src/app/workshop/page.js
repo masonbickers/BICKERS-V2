@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import dynamic from "next/dynamic";
+const FullCalendar = dynamic(() => import("@/app/components/LazyFullCalendar"), {
+  ssr: false,
+  loading: () => <div style={{ minHeight: 620 }} aria-label="Loading calendar" />,
+});
 import { onSnapshot } from "firebase/firestore";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
 import { useAuth } from "@/app/context/authContext";
@@ -274,7 +276,6 @@ export default function WorkshopPage() {
             }}
           >
           <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
               left: "prev,next today",

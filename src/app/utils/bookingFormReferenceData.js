@@ -3,7 +3,7 @@
 import { getDocs } from "firebase/firestore";
 import { tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
-const CACHE_KEY = "booking-form-reference-data:v1";
+const CACHE_KEY = "booking-form-reference-data:v2";
 const CONTACTS_CACHE_KEY = "booking-form-saved-contacts:v2";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -71,6 +71,33 @@ const vehicleCategoryGroup = (vehicle = {}) =>
 const shouldShowVehicleCategory = (group) =>
   !HIDDEN_VEHICLE_CATEGORY_GROUPS.has(String(group || "").trim().toLowerCase());
 
+const compactRegistration = (value) =>
+  String(value || "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
+
+const spacedRegistration = (value) =>
+  String(value || "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+const addLookupValue = (lookup, value, info, { compact = false } = {}) => {
+  const raw = String(value || "").trim();
+  if (!raw) return;
+  lookup[raw] = info;
+  lookup[raw.toLowerCase()] = info;
+  lookup[raw.toUpperCase()] = info;
+  if (compact) {
+    const compactValue = compactRegistration(raw);
+    const spacedValue = spacedRegistration(raw);
+    if (compactValue) lookup[compactValue] = info;
+    if (spacedValue) lookup[spacedValue] = info;
+  }
+};
+
 const sortVehicleGroupEntries = (groups) =>
   Object.fromEntries(
     Object.entries(groups)
@@ -137,8 +164,10 @@ const buildReferenceData = ({ empSnap, vehicleSnap, equipSnap }) => {
     const info = { id, name, registration, group, ...v };
 
     if (id) byId[id] = info;
-    if (registration) byReg[registration.toUpperCase()] = info;
-    if (name) byName[name.toLowerCase()] = info;
+    addLookupValue(byReg, registration, info, { compact: true });
+    addLookupValue(byName, name, info);
+    addLookupValue(byName, [name, spacedRegistration(registration)].filter(Boolean).join(" - "), info);
+    addLookupValue(byName, [name, compactRegistration(registration)].filter(Boolean).join(" - "), info);
 
     if (shouldShowVehicleCategory(group)) {
       if (!vehicleGroups[group]) vehicleGroups[group] = [];

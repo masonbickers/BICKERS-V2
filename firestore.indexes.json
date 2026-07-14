@@ -1,0 +1,20 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "deletedQuotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "apiRateLimits",
+      "fieldPath": "expiresAt",
+      "indexes": [],
+      "ttl": true
+    }
+  ]
+}

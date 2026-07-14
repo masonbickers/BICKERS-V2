@@ -4,6 +4,10 @@
     {
       "path": "/api/dvla/mot-history/sync",
       "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/quotes/purge",
+      "schedule": "15 3 * * *"
     }
   ]
 }

@@ -4181,7 +4181,7 @@ export default function TimesheetDetailPage() {
                     </div>
                     <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.message || q.note}</div>
 
-                    <QueryMessageThread query={q} canReply={isAdmin} />
+                    <QueryMessageThread query={q} canReply={isAdmin} dataAccessState={dataAccessState} />
                   </li>
                 ))}
               </ul>
@@ -4197,7 +4197,7 @@ export default function TimesheetDetailPage() {
 /* INLINE QUERY MESSAGE THREAD                                   */
 /* ------------------------------------------------------------- */
 
-function QueryMessageThread({ query, canReply = false }) {
+function QueryMessageThread({ query, canReply = false, dataAccessState }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -4223,11 +4223,12 @@ function QueryMessageThread({ query, canReply = false }) {
     if (!canReply || !input.trim() || !query?.id || isClosed) return;
     setSending(true);
     try {
-      await addDoc(collection(db, "timesheetQueries", query.id, "messages"), {
+      await addDoc(collection(db, "timesheetQueries", query.id, "messages"), tenantPayload(dataAccessState, {
         text: input.trim(),
         from: "manager",
+        senderUid: auth?.currentUser?.uid || "",
         createdAt: serverTimestamp(),
-      });
+      }));
       setInput("");
     } catch (err) {
       console.error("Error sending query message:", err);

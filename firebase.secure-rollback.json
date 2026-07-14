@@ -1,0 +1,9 @@
+{
+  "firestore": {
+    "rules": "firestore.rules.secure-compatibility",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules.secure-compatibility"
+  }
+}

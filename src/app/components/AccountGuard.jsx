@@ -2,13 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
 import { useAuth } from "@/app/context/authContext";
-import { auth } from "../../../firebaseConfig";
 
 export default function AccountGuard() {
   const router = useRouter();
-  const { user, accessReady, userDoc, isEnabled } = useAuth() || {};
+  const { user, accessReady, userDoc, isEnabled, logout } = useAuth() || {};
 
   useEffect(() => {
     if (!user || !accessReady) return;
@@ -28,7 +26,7 @@ export default function AccountGuard() {
     let cancelled = false;
     const disableAccount = async () => {
       try {
-        await signOut(auth);
+        await logout?.();
       } finally {
         if (!cancelled) router.push("/login?disabled=1");
       }
@@ -38,7 +36,7 @@ export default function AccountGuard() {
     return () => {
       cancelled = true;
     };
-  }, [accessReady, isEnabled, router, user, userDoc]);
+  }, [accessReady, isEnabled, logout, router, user, userDoc]);
 
   return null;
 }

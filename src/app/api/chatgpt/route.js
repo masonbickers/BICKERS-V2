@@ -2,42 +2,15 @@
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const FIREBASE_WEB_API_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-  process.env.FIREBASE_API_KEY ||
-  "AIzaSyBiKz88kMEAB5C-oRn3qN6E7KooDcmYTWE";
+import { requireActiveMemberFromRequest } from "../admin/_lib";
+import { consumeApiQuota, quotaExceededResponse } from "../_rateLimit";
+import { API_INPUT_LIMITS, validateAiRequestPayload } from "../_requestValidation";
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
-async function verifyFirebaseIdTokenFromRequest(req) {
-  const authHeader = req.headers.get("authorization") || "";
-  if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
-
-  const idToken = authHeader.slice(7).trim();
-  if (!idToken || !FIREBASE_WEB_API_KEY) return null;
-
-  const res = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-      cache: "no-store",
-    }
-  );
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  const user = Array.isArray(data?.users) ? data.users[0] : null;
-  if (!user?.localId) return null;
-
-  return {
-    uid: user.localId,
-    email: String(user.email || "").toLowerCase(),
-  };
-}
+const MAX_BODY_BYTES = API_INPUT_LIMITS.aiBodyBytes;
+const MAX_COMPACT_CONTEXT_BYTES = API_INPUT_LIMITS.aiCompactContextBytes;
 
 function serializeDateish(value) {
   if (!value) return null;
@@ -70,6 +43,12 @@ function normalizeRecord(record) {
 
 function safeString(value) {
   return String(value || "").trim();
+}
+
+function truncateUtf8(value, maxBytes) {
+  const input = Buffer.from(String(value || ""), "utf8");
+  if (input.length <= maxBytes) return input.toString("utf8");
+  return input.subarray(0, maxBytes).toString("utf8").replace(/\uFFFD+$/g, "");
 }
 
 function takeLatest(items, max = 50, dateFields = []) {
@@ -257,34 +236,40 @@ function buildCompactContext(contextPayload) {
 
 export async function POST(req) {
   try {
-    if (!openai) {
-      return NextResponse.json(
-        { error: "AI Assistant temporarily disabled (no API key set)." },
-        { status: 503 }
-      );
+    const declaredLength = Number(req.headers.get("content-length") || 0);
+    if (declaredLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body exceeds 256 KB." }, { status: 413 });
     }
 
-    const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
-    if (!verifiedUser?.uid) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
+    const access = await requireActiveMemberFromRequest(req);
+    if (access.error) return access.error;
 
-    const { prompt, messages, clientContext } = await req.json();
-    if (!prompt || !safeString(prompt)) {
-      return NextResponse.json({ error: "Missing prompt." }, { status: 400 });
+    const rawBody = Buffer.from(await req.arrayBuffer());
+    if (rawBody.byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body exceeds 256 KB." }, { status: 413 });
     }
-    const userRole = safeString(clientContext?.user?.role).toLowerCase() || "user";
-    let contextPayload = null;
-    if (clientContext && typeof clientContext === "object") {
-      contextPayload = normalizeRecord(clientContext);
-    } else {
-      return NextResponse.json(
-        { error: "Assistant context was not loaded in the browser. Refresh the page and try again." },
-        { status: 400 }
-      );
+    let body;
+    try {
+      body = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
     }
+    const validation = validateAiRequestPayload(body || {});
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status });
+    }
+    const { prompt: cleanPrompt, messages, clientContext } = validation.value;
 
-    const compactContext = buildCompactContext(contextPayload);
+    const userRole = String(access.userData?.role || "user");
+    const contextPayload = normalizeRecord({
+      ...clientContext,
+      user: { role: userRole, companyId: access.companyId },
+      metrics: clientContext?.metrics && typeof clientContext.metrics === "object"
+        ? clientContext.metrics
+        : {},
+    });
+
+    const compactContext = truncateUtf8(buildCompactContext(contextPayload), MAX_COMPACT_CONTEXT_BYTES);
     const systemContext = [
       "You are Bickers Assistant, an operations AI inside the company software.",
       "You help with bookings, timesheets, workshop jobs, maintenance, vehicles, staffing, holidays, and operational questions.",
@@ -297,15 +282,27 @@ export async function POST(req) {
       compactContext,
     ].join("\n\n");
 
-    const messageHistory = Array.isArray(messages)
+    const messageHistory = Array.isArray(messages) && messages.length
       ? messages
-          .filter((item) => item && (item.role === "user" || item.role === "assistant"))
-          .slice(-8)
           .map((item) => ({
             role: item.role,
             content: safeString(item.content),
           }))
-      : [{ role: "user", content: safeString(prompt) }];
+      : [{ role: "user", content: cleanPrompt }];
+
+    const quota = await consumeApiQuota({
+      service: "ai",
+      userId: access.verifiedUser.uid,
+      companyId: access.companyId,
+    });
+    if (!quota.allowed) return quotaExceededResponse(quota);
+
+    if (!openai) {
+      return NextResponse.json(
+        { error: "AI Assistant temporarily disabled (no API key set)." },
+        { status: 503 }
+      );
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -319,16 +316,15 @@ export async function POST(req) {
     const reply = completion.choices?.[0]?.message?.content ?? "No reply from assistant.";
     return NextResponse.json({
       reply,
-      contextMeta: contextPayload.metrics,
+      contextMeta: contextPayload.metrics || {},
     });
   } catch (error) {
     console.error("AI Assistant Error:", error);
-    const message =
-      error?.status === 429
-        ? "The assistant hit an OpenAI rate limit or quota limit."
-        : error?.message
-        ? `Assistant error: ${error.message}`
-        : "Something went wrong with the assistant.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const upstreamStatus = Number(error?.status || 0);
+    const status = upstreamStatus >= 400 && upstreamStatus < 500 ? 502 : 500;
+    const message = upstreamStatus === 429
+      ? "The assistant upstream service is temporarily rate limited."
+      : "Something went wrong with the assistant.";
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -9,7 +9,7 @@ import dynamic from "next/dynamic";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const BigCalendar = dynamic(
-  () => import("react-big-calendar").then((m) => m.Calendar),
+  () => import("../components/LazyOperationalCalendar").then((m) => m.OperationalCalendar),
   {
     ssr: false,
     loading: () => (
@@ -31,10 +31,8 @@ const BigCalendar = dynamic(
   }
 );
 
-import { localizer } from "../utils/localizer";
 import { collection, onSnapshot } from "firebase/firestore";
 
-import ViewUCraneBooking from "../components/ViewUCraneBooking";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import {
@@ -51,6 +49,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+
+const ViewUCraneBooking = dynamic(() => import("../components/ViewUCraneBooking"), { ssr: false });
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
@@ -1474,7 +1474,6 @@ export default function DashboardPage({ bookingSaved }) {
             className={calendarView === "month" ? "ucrane-month-calendar" : "ucrane-compact-calendar"}
           >
             <BigCalendar
-              localizer={localizer}
               events={workDiaryEvents}
               view={calendarView}
               views={["week", "month"]}

@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function activeUser() {
+      return request.auth != null
+        && exists(userPath())
+        && get(userPath()).data.isEnabled == true
+        && (!get(userPath()).data.keys().hasAny(['credentialResetRequired'])
+          || get(userPath()).data.credentialResetRequired == false)
+        && get(userPath()).data.companyId is string
+        && get(userPath()).data.companyId.size() > 0;
+    }
+    function companyId() {
+      return get(userPath()).data.companyId;
+    }
+    function isAdmin() {
+      return activeUser() && get(userPath()).data.role in ['admin', 'platformAdmin'];
+    }
+    function writesOpen() {
+      let settingsPath = /databases/$(database)/documents/settings/platform;
+      return !exists(settingsPath) || get(settingsPath).data.maintenanceMode != true;
+    }
+    function sameExistingTenant() {
+      return activeUser() && resource.data.companyId == companyId();
+    }
+    function sameIncomingTenant() {
+      return activeUser() && request.resource.data.companyId == companyId();
+    }
+
+    match /users/{uid} {
+      allow read: if activeUser() && (request.auth.uid == uid || (isAdmin() && resource.data.companyId == companyId()));
+      allow create: if writesOpen() && isAdmin() && sameIncomingTenant();
+      allow update: if writesOpen() && isAdmin() && sameExistingTenant() && sameIncomingTenant();
+      allow delete: if writesOpen() && isAdmin() && sameExistingTenant();
+    }
+
+    match /settings/{id} {
+      allow read: if isAdmin();
+      allow write: if writesOpen() && isAdmin();
+    }
+
+    // Emergency rollback only: this keeps every business record company-bound
+    // while temporarily relaxing the fine-grained write matrix.
+    match /{collection}/{id} {
+      allow read: if sameExistingTenant();
+      allow create: if writesOpen() && sameIncomingTenant();
+      allow update: if writesOpen() && sameExistingTenant() && sameIncomingTenant()
+        && request.resource.data.companyId == resource.data.companyId;
+      allow delete: if writesOpen() && sameExistingTenant();
+
+      match /{nested=**} {
+        allow read: if activeUser()
+          && get(/databases/$(database)/documents/$(collection)/$(id)).data.companyId == companyId();
+        allow write: if writesOpen() && activeUser()
+          && get(/databases/$(database)/documents/$(collection)/$(id)).data.companyId == companyId()
+          && request.resource.data.companyId == companyId();
+      }
+    }
+  }
+}

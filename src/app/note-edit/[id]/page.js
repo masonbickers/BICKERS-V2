@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { auth, db } from "../../../../firebaseConfig";
-import { signOut } from "firebase/auth";
+import { db } from "../../../../firebaseConfig";
 import { doc, getDoc, getDocs, updateDoc, deleteDoc} from "firebase/firestore";
 import {
   dataAccessKey,
@@ -97,7 +96,6 @@ export default function EditNoteForm() {
   };
 
   const handleHome = async () => {
-    await signOut(auth);
     router.push("/home");
   };
 

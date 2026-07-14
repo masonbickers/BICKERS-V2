@@ -6,6 +6,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord, toDateLike } from "@/app/utils/serviceRecordCompat";
+import { tenantCollectionQuery, useDataAccessState } from "@/app/utils/firestoreAccess";
 
 const UI = {
   radius: 14,
@@ -74,6 +75,7 @@ function bookingCompletedLabel(b) {
 export default function VehicleServiceHistoryPage() {
   const router = useRouter();
   const { id } = useParams();
+  const dataAccessState = useDataAccessState();
   const [vehicle, setVehicle] = useState(null);
   const [serviceRecords, setServiceRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ export default function VehicleServiceHistoryPage() {
         const vehicleRef = doc(db, "vehicles", id);
         const [vehicleSnap, serviceRecordSnap] = await Promise.all([
           getDoc(vehicleRef),
-          getDocs(query(collection(db, "serviceRecords"), where("vehicleId", "==", id))),
+          getDocs(tenantCollectionQuery(db, "serviceRecords", dataAccessState, [where("vehicleId", "==", id)])),
         ]);
 
         if (vehicleSnap.exists()) {
@@ -111,7 +113,7 @@ export default function VehicleServiceHistoryPage() {
       console.error("Failed to load service history:", error);
       setLoading(false);
     });
-  }, [id]);
+  }, [dataAccessState, id]);
 
   const serviceHistoryItems = useMemo(() => {
     const stored = Array.isArray(vehicle?.serviceHistory) ? vehicle.serviceHistory : [];

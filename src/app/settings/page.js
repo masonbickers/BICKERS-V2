@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { signOut, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -190,6 +191,7 @@ function statusPill(label, ok) {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { logout } = useAuth() || {};
   const [userData, setUserData] = useState(null);
   const [userDocData, setUserDocData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -246,8 +248,7 @@ export default function SettingsPage() {
   }, [router]);
 
   const handleSignOut = async () => {
-    await signOut(auth);
-    router.push("/login");
+    await logout?.();
   };
 
   const avatarNode = useMemo(() => {

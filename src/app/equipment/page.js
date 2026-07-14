@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -125,10 +126,7 @@ const dateInfo = (raw) => {
   const d = raw?.toDate ? raw.toDate() : new Date(raw);
   if (Number.isNaN(d.getTime())) return { text: String(raw), style: {} };
 
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = Math.floor((t1 - t0) / 86400000);
+  const diff = calendarDayDifference(d);
 
   let style = {};
   if (diff < 0) style = { color: UI.red, fontWeight: 950 };

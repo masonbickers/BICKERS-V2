@@ -14,6 +14,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
   ArrowLeft,
   CalendarDays,
@@ -297,7 +298,10 @@ export default function UploadContractPage() {
       const timestamp = Date.now();
       const originalName = file.name || "upload";
       const safeOriginal = originalName.replace(/[^\w.\-() ]+/g, "_");
-      const storagePath = `hr/contracts/${empId || empName}/${timestamp}_${safeOriginal}`;
+      const storagePath = companyStoragePath(
+        dataAccessState,
+        `hr/contracts/${empId || empName}/${timestamp}_${safeOriginal}`
+      );
 
       const ref = storageRef(storage, storagePath);
       const task = uploadBytesResumable(ref, file);

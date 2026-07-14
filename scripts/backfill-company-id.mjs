@@ -1,162 +1,140 @@
 import fs from "node:fs";
 import path from "node:path";
+import { TENANT_COLLECTION_MANIFEST } from "../src/app/config/tenantCollections.js";
+import { getAdminDb } from "../src/app/api/_firebaseAdmin.js";
+import {
+  classifyCompany,
+  collectLegacyStoragePaths,
+  normalizeUserAccessRecord,
+  rewriteStorageReferences,
+} from "./lib/tenantMigration.mjs";
 
-const TARGET_COMPANY_ID = "bickers-action";
-const REQUIRED_USER_FIELDS = ["uid", "email", "role", "companyId", "isEnabled", "appAccess"];
+const apply = process.argv.includes("--apply");
+const companyArg = process.argv.find((arg) => arg.startsWith("--company-id="));
+const checkpointArg = process.argv.find((arg) => arg.startsWith("--checkpoint="));
+const companyId = String(companyArg?.slice("--company-id=".length) || "").trim();
+const collections = ["users", ...TENANT_COLLECTION_MANIFEST];
 
-const COLLECTIONS = [
-  "users",
-  "employees",
-  "bookings",
-  "deletedBookings",
-  "vehicles",
-  "equipment",
-  "holidays",
-  "notes",
-  "serviceRecords",
-  "defectReports",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "vehicleIssues",
-  "sickLeave",
-  "uCraneFreelancers",
-  "invoiceQueue",
-  "timesheets",
-  "vehicleChecks",
-  "workBookings",
-  "timesheetQueries",
-];
-
-let adminListDocuments;
-let adminPatchDocument;
-
-const clean = (value) => String(value || "").trim();
-
-function loadEnvFileIfNeeded() {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_CLIENT_EMAIL && process.env.FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY) {
-    return;
-  }
-
-  for (const fileName of [".env.local", ".env"]) {
-    const filePath = path.join(process.cwd(), fileName);
-    if (!fs.existsSync(filePath)) continue;
-
-    const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-
-      const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-      if (!match) continue;
-
-      const [, key, rawValue] = match;
-      if (process.env[key]) continue;
-
-      let value = rawValue.trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      process.env[key] = value.replace(/\\n/g, "\n");
-    }
+function loadEnv(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match || line.trimStart().startsWith("#") || process.env[match[1]]) continue;
+    process.env[match[1]] = match[2].replace(/^(\"|')(.*)\1$/, "$2").replace(/\\n/g, "\n");
   }
 }
 
-function missingUserFields(user) {
-  return REQUIRED_USER_FIELDS.filter((field) => {
-    if (field === "appAccess") return !user.appAccess || typeof user.appAccess !== "object";
-    if (field === "isEnabled") return typeof user.isEnabled !== "boolean";
-    return !clean(user[field]);
-  });
+loadEnv(path.resolve(".env.local"));
+
+if (!companyId) {
+  console.error("Pass --company-id=<company id>. Dry-run is the default; mutation also requires --apply.");
+  process.exit(1);
+}
+if (apply && companyId !== "bickers-action") {
+  console.error("This reviewed cutover only permits --company-id=bickers-action.");
+  process.exit(1);
 }
 
-function canUpdateDoc(collectionName, doc) {
-  const companyId = clean(doc.companyId);
-  if (companyId) {
-    return { allowed: false, reason: `already has companyId ${companyId}` };
-  }
+const checkpointPath = path.resolve(
+  checkpointArg?.slice("--checkpoint=".length) || `.migration-state/company-backfill-${companyId}.json`
+);
 
-  if (collectionName === "users") {
-    const missing = missingUserFields(doc);
-    if (missing.length !== 1 || missing[0] !== "companyId") {
-      return { allowed: false, reason: `user missing fields: ${missing.join(", ") || "none"}` };
-    }
-  }
-
-  return { allowed: true, reason: "" };
+function loadCheckpoint() {
+  if (!apply || !fs.existsSync(checkpointPath)) return { completedCollections: [] };
+  const parsed = JSON.parse(fs.readFileSync(checkpointPath, "utf8"));
+  if (parsed.companyId !== companyId) throw new Error("Checkpoint company does not match this run.");
+  return parsed;
 }
 
-async function updateCollection(collectionName) {
-  const docs = await adminListDocuments(collectionName);
-  const result = {
-    collection: collectionName,
-    total: docs.length,
-    updated: 0,
-    skipped: 0,
-    errors: [],
-    skippedExamples: [],
-  };
+function saveCheckpoint(checkpoint) {
+  if (!apply) return;
+  fs.mkdirSync(path.dirname(checkpointPath), { recursive: true });
+  const tempPath = `${checkpointPath}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(checkpoint, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tempPath, checkpointPath);
+}
 
-  for (const { id, data } of docs) {
-    const decision = canUpdateDoc(collectionName, data || {});
-    if (!decision.allowed) {
-      result.skipped += 1;
-      if (result.skippedExamples.length < 10) {
-        result.skippedExamples.push({ id, reason: decision.reason });
-      }
-      continue;
+async function scan(db) {
+  const results = [];
+  const documents = new Map();
+  for (const collectionName of collections) {
+    const snapshot = await db.collection(collectionName).get();
+    const rows = snapshot.docs.map((doc) => ({ id: doc.id, ref: doc.ref, data: doc.data() || {} }));
+    documents.set(collectionName, rows);
+    const counts = { total: rows.length, missing: 0, target: 0, conflict: 0, legacyStorageRefs: 0 };
+    for (const row of rows) {
+      counts[classifyCompany(row.data, companyId)] += 1;
+      counts.legacyStorageRefs += collectLegacyStoragePaths(row.data).size;
+      if (collectionName === "users") normalizeUserAccessRecord(row.data, { id: row.id, companyId });
     }
-
-    try {
-      await adminPatchDocument(collectionName, id, {
-        companyId: TARGET_COMPANY_ID,
-      });
-      result.updated += 1;
-    } catch (error) {
-      result.errors.push({
-        id,
-        message: error?.message || String(error),
-      });
-    }
+    results.push({ collection: collectionName, ...counts });
   }
+  return { results, documents };
+}
 
-  return result;
+async function applyCollection(db, collectionName, rows) {
+  let changed = 0;
+  for (let offset = 0; offset < rows.length; offset += 400) {
+    const batch = db.batch();
+    let batchChanges = 0;
+    for (const row of rows.slice(offset, offset + 400)) {
+      const scoped = collectionName === "users"
+        ? normalizeUserAccessRecord(row.data, { id: row.id, companyId })
+        : { ...rewriteStorageReferences(row.data, companyId), companyId };
+      if (JSON.stringify(scoped) === JSON.stringify(row.data)) continue;
+      batch.set(row.ref, scoped, { merge: false });
+      batchChanges += 1;
+    }
+    if (batchChanges) await batch.commit();
+    changed += batchChanges;
+  }
+  return changed;
 }
 
 async function main() {
-  loadEnvFileIfNeeded();
-  ({ adminListDocuments, adminPatchDocument } = await import("../src/app/api/_firebaseAdminRest.js"));
-
+  const db = getAdminDb();
   const startedAt = new Date().toISOString();
-  const results = [];
-
-  for (const collectionName of COLLECTIONS) {
-    results.push(await updateCollection(collectionName));
+  const before = await scan(db);
+  const conflicts = before.results.reduce((sum, row) => sum + row.conflict, 0);
+  if (conflicts) {
+    console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", companyId, before: before.results }, null, 2));
+    throw new Error(`${conflicts} conflicting non-empty companyId value(s) found; no writes were made.`);
   }
 
+  const checkpoint = loadCheckpoint();
+  const completed = new Set(checkpoint.completedCollections || []);
+  const changed = {};
+  if (apply) {
+    for (const collectionName of collections) {
+      if (completed.has(collectionName)) continue;
+      changed[collectionName] = await applyCollection(db, collectionName, before.documents.get(collectionName) || []);
+      completed.add(collectionName);
+      saveCheckpoint({
+        companyId,
+        completedCollections: [...completed],
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  const after = apply ? await scan(db) : null;
+  const remaining = after?.results.reduce((sum, row) => sum + row.missing + row.conflict, 0) || 0;
   const report = {
+    mode: apply ? "apply" : "dry-run",
+    companyId,
     startedAt,
     finishedAt: new Date().toISOString(),
-    mode: "apply",
-    targetCompanyId: TARGET_COMPANY_ID,
-    summary: {
-      updated: results.reduce((sum, row) => sum + row.updated, 0),
-      skipped: results.reduce((sum, row) => sum + row.skipped, 0),
-      errors: results.reduce((sum, row) => sum + row.errors.length, 0),
-    },
-    results,
+    checkpointPath: apply ? checkpointPath : null,
+    before: before.results,
+    changed,
+    after: after?.results || null,
+    acceptance: apply ? { missingOrConflictingCompanyIds: remaining, passed: remaining === 0 } : null,
   };
-
   console.log(JSON.stringify(report, null, 2));
-
-  if (report.summary.errors > 0) {
-    process.exitCode = 1;
-  }
+  if (remaining) process.exitCode = 2;
 }
 
 main().catch((error) => {
-  console.error("CompanyId backfill failed:", error);
+  console.error(`Company migration stopped: ${error?.message || error}`);
   process.exitCode = 1;
 });

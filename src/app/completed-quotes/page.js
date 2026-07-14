@@ -184,6 +184,9 @@ export default function CompletedQuotesPage() {
               <Settings2 size={14} />
               Quote Templates
             </Link>
+            <Link href="/completed-quotes/vehicle-stats" style={btn}>
+              Vehicle Stats
+            </Link>
             <span style={chip("green")}>
               <FileText size={14} />
               {loading ? "Loading..." : `${rows.length} quotes`}

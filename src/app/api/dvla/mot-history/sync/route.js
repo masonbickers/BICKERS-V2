@@ -3,6 +3,8 @@ import { collection, doc, getDocs, limit, query, updateDoc, where } from "fireba
 import { db } from "../../../../../../firebaseConfig";
 import { adminReadDocument } from "../../../_firebaseAdminRest";
 import { isAdminEmail } from "@/app/utils/adminAccess";
+import { getAdminDb } from "../../../_firebaseAdmin";
+import { requireAdminFromRequest } from "../../../admin/_lib";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -430,12 +432,20 @@ function buildVehiclePatch(vehicle, motHistory) {
   return patch;
 }
 
-async function runMotHistorySync() {
-  const snapshot = await getDocs(collection(db, "vehicles"));
-  const vehicles = snapshot.docs.map((vehicleDoc) => ({
+async function listTenantVehicles(companyId) {
+  const snapshot = await getAdminDb()
+    .collection("vehicles")
+    .where("companyId", "==", companyId)
+    .get();
+  return snapshot.docs.map((vehicleDoc) => ({
     id: vehicleDoc.id,
     ...(vehicleDoc.data() || {}),
+    __adminRef: vehicleDoc.ref,
   }));
+}
+
+async function runMotHistorySync(companyId = "bickers-action") {
+  const vehicles = await listTenantVehicles(companyId);
   const token = await getAccessToken();
 
   const results = {
@@ -460,7 +470,7 @@ async function runMotHistorySync() {
       const patch = buildVehiclePatch(vehicle, motHistory);
       if (!Object.keys(patch).length) continue;
 
-      await updateDoc(doc(db, "vehicles", vehicle.id), patch);
+      await vehicle.__adminRef.set({ ...patch, companyId }, { merge: true });
       results.updated += 1;
     } catch (err) {
       results.failed += 1;
@@ -476,10 +486,10 @@ async function runMotHistorySync() {
   return results;
 }
 
-async function runMotHistorySyncWithUserToken(idToken) {
+async function runMotHistorySyncWithUserToken(_idToken, companyId) {
   const startedAtMs = Date.now();
   const startedAt = new Date(startedAtMs).toISOString();
-  const vehicles = await listVehiclesWithUserToken(idToken);
+  const vehicles = await listTenantVehicles(companyId);
   const token = await getAccessToken();
 
   const results = {
@@ -512,7 +522,7 @@ async function runMotHistorySyncWithUserToken(idToken) {
         continue;
       }
 
-      await updateVehicleWithUserToken(vehicle, patch, idToken);
+      await vehicle.__adminRef.set({ ...patch, companyId }, { merge: true });
       results.updated += 1;
       results.updatedVehicles.push({
         vehicleId: vehicle.id,
@@ -547,7 +557,7 @@ export async function GET(request) {
   }
 
   try {
-    return Response.json(await runMotHistorySync(), { status: 200 });
+    return Response.json(await runMotHistorySync("bickers-action"), { status: 200 });
   } catch (err) {
     console.error("Weekly MOT History sync failed:", err.response?.status, err.message);
     return Response.json(
@@ -561,13 +571,12 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const user = await verifyFirebaseIdTokenFromRequest(request);
-  if (!user || !(await isAdminUser(user))) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAdminFromRequest(request);
+  if (access.error) return access.error;
+  const user = { ...access.verifiedUser, idToken: access.idToken };
 
   try {
-    const results = await runMotHistorySyncWithUserToken(user.idToken);
+    const results = await runMotHistorySyncWithUserToken(user.idToken, access.companyId);
     await updateSyncMetadataWithUserToken(results, user, user.idToken);
     return Response.json({ ...results, triggeredBy: user.email }, { status: 200 });
   } catch (err) {

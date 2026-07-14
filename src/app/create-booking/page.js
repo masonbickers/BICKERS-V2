@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -11,6 +11,8 @@ import {
   contactIdFromEmail,
   employeesKey,
   normalizeVehicleKeysListForLookup,
+  collectVehicleIdentityKeySet,
+  collectVehicleIdentityKeys,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
 import {
@@ -28,6 +30,8 @@ import {
   buildInitialLifecycle,
   buildInitialStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+import { analyzeVehiclePencilConflicts } from "@/app/utils/vehiclePencilConflict";
+import { analyzeResourceConflicts, formatResourceConflictLines } from "@/app/utils/resourceConflict";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
@@ -437,16 +441,6 @@ const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
-const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
-  }
-  return existing.some((s) => isVehicleBlockingStatus(s));
-};
-
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
   "electric tracking vehicles",
@@ -1320,42 +1314,130 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     return allBookings.filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates]);
 
-  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-    const booked = [];
-    const held = [];
+  const allVehicleIds = useMemo(() => Object.keys(vehicleLookup?.byId || {}), [vehicleLookup?.byId]);
+  const selectedVehicleIdsForConflicts = useMemo(() => {
+    const normalized = normalizeVehicleKeysListForLookup(vehicles, vehicleLookup);
+    const identityTokens = collectVehicleIdentityKeys(vehicles, vehicleLookup);
+    return Array.from(new Set([...normalized, ...identityTokens]));
+  }, [vehicleLookup, vehicles]);
+  const selectedVehicleStatusByIdForConflicts = useMemo(() => {
+    const next = {};
+    selectedVehicleIdsForConflicts.forEach((vehicleId) => {
+      if (!vehicleLookup?.byId?.[vehicleId]) return;
+      next[vehicleId] = vehicleStatus[vehicleId] || status;
+    });
+    return next;
+  }, [selectedVehicleIdsForConflicts, status, vehicleStatus, vehicleLookup?.byId]);
+  const selectedVehicleConflictKeys = useMemo(
+    () => collectVehicleIdentityKeySet(selectedVehicleIdsForConflicts, vehicleLookup),
+    [selectedVehicleIdsForConflicts, vehicleLookup]
+  );
+  const isVehicleConflictRelevant = useCallback((item) => {
+    if (!item) return false;
+    if (selectedVehicleConflictKeys.has(item.vehicleId)) return true;
+    return (item.vehicleMatchKeys || []).some((key) => selectedVehicleConflictKeys.has(key));
+  }, [selectedVehicleConflictKeys]);
 
-    overlapping.forEach((b) => {
-      const keys = normalizeVehicleKeysListForLookup(b.vehicles || [], vehicleLookup);
-      const vmap = b.vehicleStatus || {};
+  const {
+    bookedVehicleIds,
+    heldVehicleIds,
+    vehicleBlockingStatusById,
+    vehicleBlockingStatusesById,
+    requestedConflictByVehicleId,
+    requestedConflictList,
+  } = useMemo(() =>
+    analyzeVehiclePencilConflicts({
+      allBookings: overlapping,
+      vehicleLookup,
+      selectedDates,
+      selectedVehicleIds: allVehicleIds,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: allVehicleIds,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
+    }),
+    [
+      overlapping,
+      allVehicleIds,
+      selectedVehicleIdsForConflicts,
+      status,
+      vehicleLookup,
+      selectedDates,
+      selectedVehicleStatusByIdForConflicts,
+      startDate,
+      endDate,
+      vehicles,
+      production,
+      client,
+      jobNumber,
+    ]
+  );
 
-      keys.forEach((vid) => {
-        const itemStatus = (vmap[vid] ?? b.status) || "";
-        if (!itemStatus) return;
-
-        if (isVehicleBlockingStatus(itemStatus)) {
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) {
-            blockingById[vid] = itemStatus;
-            booked.push(vid);
-          }
-        } else {
-          if (!held.includes(vid)) held.push(vid);
-        }
-      });
+  const buildVehicleConflictAnalysis = (bookingRows = [], dates = selectedDates) =>
+    analyzeVehiclePencilConflicts({
+      allBookings: bookingRows || [],
+      vehicleLookup,
+      selectedDates: dates,
+      selectedVehicleIds: selectedVehicleIdsForConflicts,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: selectedVehicleIdsForConflicts,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
     });
 
-    return {
-      bookedVehicleIds: booked,
-      heldVehicleIds: held,
-      vehicleBlockingStatusById: blockingById,
-      vehicleBlockingStatusesById: blockingStatusesById,
-    };
-  }, [overlapping, vehicleLookup]);
+  const selectedVehicleConflicts = useMemo(
+    () => requestedConflictList.filter((item) => isVehicleConflictRelevant(item)),
+    [requestedConflictList, isVehicleConflictRelevant]
+  );
+
+  const canSelectVehicleAsSecondPencil = (vehicleId) => {
+    const statuses = vehicleBlockingStatusesById[vehicleId] || [];
+    if (!statuses.length) return false;
+    const normalized = statuses.map((item) => String(item || "").trim());
+    const hasFirstPencil = normalized.includes("First Pencil");
+    const hasHardBlock = normalized.some((item) => item === "Confirmed" || item === "Maintenance");
+    return hasFirstPencil && !hasHardBlock;
+  };
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -1561,29 +1643,37 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-
-    (bookingRows || [])
-      .filter((booking) => anyDateOverlap(expandBookingDates(booking), dates))
-      .forEach((booking) => {
-        const keys = normalizeVehicleKeysListForLookup(booking.vehicles || [], vehicleLookup);
-        const vmap = booking.vehicleStatus || {};
-
-        keys.forEach((vid) => {
-          const itemStatus = (vmap[vid] ?? booking.status) || "";
-          if (!isVehicleBlockingStatus(itemStatus)) return;
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) blockingById[vid] = itemStatus;
-        });
-      });
-
-    return { blockingById, blockingStatusesById };
-  };
+  const buildVehicleConflictAnalysisForSave = (bookingRows = [], dates = selectedDates) =>
+    analyzeVehiclePencilConflicts({
+      allBookings: bookingRows || [],
+      vehicleLookup,
+      selectedDates: dates,
+      selectedVehicleIds: selectedVehicleIdsForConflicts,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: selectedVehicleIdsForConflicts,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
+    });
 
   /* ────────────────────────────────────────────────────────────
      Options that include custom “Other” names so they stay selectable
@@ -1773,7 +1863,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
-        if (!next[vehicleId]) next[vehicleId] = status;
+        if (!next[vehicleId]) {
+          next[vehicleId] = canSelectVehicleAsSecondPencil(vehicleId)
+            ? SECOND_PENCIL_STATUS
+            : status;
+        }
       } else {
         delete next[vehicleId];
       }
@@ -1784,25 +1878,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   /* ────────────────────────────────────────────────────────────
      Submit (contacts-only: remove contactEmail/contactNumber)
   ───────────────────────────────────────────────────────────── */
-  const selectedVehicleConflictLabels = (
-    selectedIds,
-    statuses,
-    blockingStatuses = vehicleBlockingStatusesById,
-    blockingStatus = vehicleBlockingStatusById
-  ) =>
-    (selectedIds || [])
-      .filter((vehicleId) =>
-        existingVehicleStatusConflictsWithRequested(
-          blockingStatuses[vehicleId] || [],
-          statuses?.[vehicleId] || status
-        )
-      )
-      .map((vehicleId) => {
-        const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
-        const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
-        return `${label} (${existingStatus})`;
-      });
+  const selectedVehicleConflictLines = (conflicts = []) =>
+    conflicts.map((item) => {
+      const dateLabel = item.dateRanges.length ? item.dateRanges.join(", ") : "selected date(s)";
+      return `${item.vehicleLabel} is blocked by ${item.bookingLabel} (${item.bookingReference}) on ${dateLabel}. Existing: ${item.bookingStatus}.`;
+    });
 
   const handleSubmit = async ({ openQuote = false } = {}) => {
     if (dateEntryEnabled) {
@@ -1854,20 +1934,17 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       }
     }
 
-    const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+    const freshVehicleConflict = availabilityForSave
+      ? buildVehicleConflictAnalysisForSave(availabilityForSave.bookings || [], bookingDates)
       : null;
-    const vehicleConflicts = selectedVehicleConflictLabels(
-      vehicles,
-      vehicleStatus,
-      freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
-      freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
+    const vehicleConflicts = (availabilityForSave ? freshVehicleConflict.requestedConflictList : selectedVehicleConflicts).filter(
+      (item) => isVehicleConflictRelevant(item)
     );
     if (bookingDates.length && vehicleConflicts.length) {
       return alert(
-        `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
+        `One or more selected vehicles already have overlapping conflicts:\n\n${selectedVehicleConflictLines(vehicleConflicts).join(
           "\n"
-        )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
+        )}\n\nConfirmed blocks all other holds. First Pencil blocks another First Pencil, but Second Pencil can sit behind a First Pencil.`
       );
     }
 
@@ -1896,6 +1973,28 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
           employeesByDatePayload[date] = [...cleanedEmployees];
         });
       }
+    }
+
+    const resourceConflictResult = analyzeResourceConflicts({
+      allBookings: availabilityForSave ? availabilityForSave.bookings || [] : allBookings || [],
+      selectedDates: bookingDates,
+      selectedCrew: cleanedEmployees,
+      selectedCrewByDate: employeesByDatePayload,
+      selectedEquipment: equipment,
+      currentBookingLabel: [production, client, jobNumber || "New booking"]
+        .filter((value) => String(value || "").trim())
+        .join(" / "),
+      debugContext: {
+        currentBookingId: "new-booking",
+      },
+    });
+    if (bookingDates.length && resourceConflictResult.hasBlockingConflicts) {
+      return alert(
+        `Crew/equipment double-booking conflict found:\n\n${formatResourceConflictLines([
+          ...resourceConflictResult.crewConflicts,
+          ...resourceConflictResult.equipmentConflicts,
+        ]).join("\n")}\n\nPlease remove the conflicting crew/equipment or choose non-overlapping dates before saving.`
+      );
     }
 
     const holidaysForSave = availabilityForSave?.holidays || holidayBookings;
@@ -1964,7 +2063,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
-        const storageRef = ref(storage, companyStoragePath(dataAccessState, `${folder}/${safeName}`));
+        const storagePath = companyStoragePath(dataAccessState, `${folder}/${safeName}`);
+        const storageRef = ref(storage, storagePath);
 
         const contentType =
           file.type ||
@@ -1995,6 +2095,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 contentType,
                 size: file.size,
                 folder,
+                storagePath,
               });
               resolve();
             }
@@ -3008,8 +3109,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             {items.map((vehicle) => {
                               const key = vehicle.id;
                               const isBooked = bookedVehicleIds.includes(key);
-                              const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
+                              const requestedStatusForRow = vehicleStatus[key] || status;
+                              const bookingConflict = requestedConflictByVehicleId[key];
+                              const hasBookingConflict = Boolean(bookingConflict);
                               const blockedStatus = vehicleBlockingStatusById[key];
+                              const canBookAsSecondPencil = canSelectVehicleAsSecondPencil(key);
                               const isHeld = heldVehicleIds.includes(key);
                               const isSelected = vehicles.includes(key);
 
@@ -3019,7 +3123,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                               const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                               const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                               const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                              const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                              const disabled = ((hasBookingConflict && !canBookAsSecondPencil) || isMaintBlocked || isDefectBlocked) && !isSelected;
 
                               return (
                                 <div
@@ -3033,13 +3137,17 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                     cursor: disabled ? "not-allowed" : "",
                                   }}
                                   title={
-                                    disabled
+                                    disabled || canBookAsSecondPencil
                                       ? isMaintBlocked
                                         ? `Vehicle is out for ${maintReason} during selected date(s)`
                                         : isDefectBlocked
                                         ? `Vehicle is blocked: ${defectReason}`
-                                        : status === SECOND_PENCIL_STATUS
-                                        ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
+                                        : bookingConflict && !canBookAsSecondPencil
+                                        ? `Vehicle conflicts with: ${selectedVehicleConflictLines(bookingConflict.conflicts).join(" ")}`
+                                        : canBookAsSecondPencil
+                                        ? "Vehicle is on First Pencil for the selected date(s). Selecting it will add it as Second Pencil."
+                                        : requestedStatusForRow === SECOND_PENCIL_STATUS
+                                        ? "Vehicle is already held as Second Pencil on overlapping date(s)."
                                         : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
                                       : ""
                                   }

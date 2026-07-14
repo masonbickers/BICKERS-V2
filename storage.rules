@@ -1,5 +1,4 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
     function isSignedIn() {
@@ -14,230 +13,191 @@ service firebase.storage {
       return userDoc().data;
     }
 
-    function isNotDisabled() {
-      return isSignedIn();
-    }
-
-    function roleValue() {
-      return userData() != null && userData().keys().hasAny(["role"])
-        ? userData().role
-        : "";
-    }
-
-    function isPlatformAdmin() {
-      return isNotDisabled()
-        && roleValue() in [
-          "platformAdmin",
-          "platformadmin",
-          "platform admin",
-          "Platform Admin",
-          "superAdmin",
-          "superadmin",
-          "super admin",
-          "Super Admin"
-        ];
+    function activeUser() {
+      return isSignedIn()
+        && userData() != null
+        && userData().isEnabled == true
+        && (!userData().keys().hasAny(['credentialResetRequired'])
+          || userData().credentialResetRequired == false)
+        && userData().companyId is string
+        && userData().companyId.size() > 0
+        && userData().role in ['user', 'admin', 'platformAdmin'];
     }
 
     function isAdmin() {
-      return isPlatformAdmin()
-        || (
-          isNotDisabled()
-          && roleValue() in [
-            "admin",
-            "Admin",
-            "companyAdmin",
-            "companyadmin",
-            "company admin",
-            "Company Admin"
-          ]
-        );
+      return activeUser() && userData().role in ['admin', 'platformAdmin'];
     }
 
-    function canUseSoftware() {
-      return isNotDisabled();
+    function writesOpen() {
+      let settingsPath = /databases/(default)/documents/settings/platform;
+      return !firestore.exists(settingsPath)
+        || firestore.get(settingsPath).data.maintenanceMode != true;
+    }
+
+    function isAdminWrite() {
+      return writesOpen() && isAdmin();
     }
 
     function canAccessCompany(companyId) {
-      return canUseSoftware();
+      return activeUser() && userData().companyId == companyId;
     }
 
-    function appAccessEnabled(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["appAccess"])
+    function workspaceEnabled(workspace) {
+      return activeUser()
         && userData().appAccess is map
-        && userData().appAccess.keys().hasAny([workspace])
         && userData().appAccess[workspace] == true;
     }
 
-    function defaultWorkspaceIs(workspace) {
-      return userData() != null
-        && userData().keys().hasAny(["defaultWorkspace"])
-        && userData().defaultWorkspace == workspace;
+    function safeFile(maxBytes, allowedMime) {
+      return writesOpen()
+        && request.resource != null
+        && request.resource.size <= maxBytes
+        && request.resource.contentType is string
+        && request.resource.contentType.matches(allowedMime);
     }
 
-    function roleIn(roles) {
-      return userData() != null
-        && userData().keys().hasAny(["role"])
-        && userData().role in roles;
-    }
-
-    function isServiceUser() {
-      return userData() != null
-        && userData().keys().hasAny(["isService"])
-        && userData().isService == true;
-    }
-
-    function hasUserAccess() {
-      return canUseSoftware();
-    }
-
-    function hasServiceAccess() {
-      return canUseSoftware();
-    }
-
-    function isSafeFileSize(maxBytes) {
-      return request.resource.size != null && request.resource.size <= maxBytes;
-    }
-
-    function isSafeMimeType(allowed) {
-      return request.resource.contentType != null
-        && request.resource.contentType.matches(allowed);
-    }
-
-    match /profilePhotos/{uid}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
-        && (request.auth.uid == uid || isAdmin())
-        && isSafeFileSize(10 * 1024 * 1024)
-        && isSafeMimeType('image/.*');
+    function legacyBickersRead() {
+      return activeUser()
+        && userData().companyId == 'bickers-action'
+        && request.time < timestamp.date(2026, 8, 14);
     }
 
     match /companies/{companyId}/profilePhotos/{uid}/{allPaths=**} {
       allow read: if canAccessCompany(companyId);
-      allow write: if canAccessCompany(companyId)
-        && (request.auth.uid == uid || isAdmin())
-        && isSafeFileSize(10 * 1024 * 1024)
-        && isSafeMimeType('image/.*');
-    }
-
-    match /companies/{companyId}/booking_pdfs/{allPaths=**} {
-      allow read: if canAccessCompany(companyId) && hasUserAccess();
-      allow write: if canAccessCompany(companyId)
-        && hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf');
+      allow create, update: if canAccessCompany(companyId)
+        && (request.auth.uid == uid || isAdminWrite())
+        && safeFile(10 * 1024 * 1024, 'image/.*');
+      allow delete: if writesOpen() && canAccessCompany(companyId) && (request.auth.uid == uid || isAdminWrite());
     }
 
     match /companies/{companyId}/quotes/{allPaths=**} {
-      allow read: if canAccessCompany(companyId) && hasUserAccess();
-      allow write: if canAccessCompany(companyId)
-        && hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('user'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
+    }
+
+    match /companies/{companyId}/booking_pdfs/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('user'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
     match /companies/{companyId}/job_attachments/{jobId}/{allPaths=**} {
-      allow read: if canAccessCompany(companyId) && hasUserAccess();
-      allow write: if canAccessCompany(companyId)
-        && hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('user'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
+    }
+
+    match /companies/{companyId}/invoice_documents/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && isAdmin();
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|application/msword|application/vnd\\.openxmlformats-officedocument\\..*|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
     match /companies/{companyId}/maintenance-quotes/{allPaths=**} {
-      allow read: if canAccessCompany(companyId) && hasServiceAccess();
-      allow write: if canAccessCompany(companyId)
-        && hasServiceAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('service'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
     match /companies/{companyId}/vehicles/{vehicleId}/{field}/{allPaths=**} {
-      allow read: if canAccessCompany(companyId) && hasServiceAccess();
-      allow write: if canAccessCompany(companyId)
-        && hasServiceAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('service'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
     match /companies/{companyId}/hr/contracts/{employeeRef}/{allPaths=**} {
       allow read: if canAccessCompany(companyId) && isAdmin();
-      allow write: if canAccessCompany(companyId)
-        && isAdmin()
-        && isSafeFileSize(25 * 1024 * 1024);
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
-    match /recce-photos/{uid}/{bookingId}/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && request.auth.uid == uid
-        && isSafeFileSize(20 * 1024 * 1024)
-        && isSafeMimeType('image/.*');
+    match /companies/{companyId}/hr/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && isAdmin();
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream|application/vnd\\.openxmlformats-officedocument\\..*');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
     }
 
+    match /companies/{companyId}/h-and-s/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('user'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(25 * 1024 * 1024, 'application/pdf|image/.*|application/octet-stream');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
+    }
+
+    match /companies/{companyId}/recce-photos/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && (isAdmin() || workspaceEnabled('user'));
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(20 * 1024 * 1024, 'image/.*');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
+    }
+
+    match /companies/{companyId}/images/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && isAdmin();
+      allow create, update: if canAccessCompany(companyId) && isAdminWrite()
+        && safeFile(10 * 1024 * 1024, 'image/.*');
+      allow delete: if canAccessCompany(companyId) && isAdminWrite();
+    }
+
+    match /companies/{companyId}/vehicle-issues/{uid}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && (request.auth.uid == uid || isAdmin());
+      allow create: if canAccessCompany(companyId) && request.auth.uid == uid
+        && safeFile(20 * 1024 * 1024, 'application/pdf|image/.*');
+      allow update, delete: if isAdminWrite() && canAccessCompany(companyId);
+    }
+
+    match /companies/{companyId}/h-and-s/issues/{uid}/{allPaths=**} {
+      allow read: if canAccessCompany(companyId) && (request.auth.uid == uid || isAdmin());
+      allow create: if canAccessCompany(companyId) && request.auth.uid == uid
+        && safeFile(20 * 1024 * 1024, 'application/pdf|image/.*');
+      allow update, delete: if isAdminWrite() && canAccessCompany(companyId);
+    }
+
+    // Compatibility reads automatically expire on 14 August 2026. New writes are
+    // denied so all application uploads must use companies/{companyId}/... now.
+    match /profilePhotos/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
+    }
     match /booking_pdfs/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf');
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
     match /quotes/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.ms-excel|text/csv|image/.*|application/octet-stream');
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
-    match /job_attachments/{jobId}/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    match /job_attachments/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
     match /maintenance-quotes/{allPaths=**} {
-      allow read: if hasServiceAccess();
-      allow write: if hasServiceAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
-    match /vehicles/{vehicleId}/{field}/{allPaths=**} {
-      allow read: if hasServiceAccess();
-      allow write: if hasServiceAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
+    match /vehicles/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
-    match /hr/contracts/{employeeRef}/{allPaths=**} {
-      allow read: if isAdmin();
-      allow write: if isAdmin()
-        && isSafeFileSize(25 * 1024 * 1024);
+    match /recce-photos/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
-    match /h-and-s/training-policy/{employeeRef}/{itemId}/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024);
+    match /hr/contracts/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
-
-    match /h-and-s/certificates/{checkId}/{allPaths=**} {
-      allow read: if hasUserAccess();
-      allow write: if hasUserAccess()
-        && isSafeFileSize(25 * 1024 * 1024)
-        && isSafeMimeType('application/pdf|image/.*|application/octet-stream');
-    }
-
-    match /images/{allPaths=**} {
-      allow read: if isAdmin();
-      allow write: if isAdmin()
-        && isSafeFileSize(10 * 1024 * 1024)
-        && isSafeMimeType('image/.*');
-    }
-
-    match /debug/{allPaths=**} {
-      allow read, write: if isAdmin();
+    match /h-and-s/{allPaths=**} {
+      allow read: if legacyBickersRead();
+      allow write: if false;
     }
 
     match /{allPaths=**} {

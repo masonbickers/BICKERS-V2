@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci --ignore-scripts
+      - run: npm run check:secrets
+      - run: npm run check:secrets:history
+      - run: npm run audit:access
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run test:resource-locks
+      - run: npm run test:rules
+      - run: npm run test:rollback-rules
+      - run: npm run build

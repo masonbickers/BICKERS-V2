@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
+import { isAdminPath } from "@/app/utils/accessControl";
 
-const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
+const PUBLIC_PATHS = ["/login", "/auth/complete", "/credential-reset-required"];
 
 export default function ProtectedLayout({ children }) {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function ProtectedLayout({ children }) {
     user,
     loading,
     isEnabled,
+    userDoc,
+    isAdmin,
   } = useAuth() || {};
 
   const isPublic = PUBLIC_PATHS.some(
@@ -33,11 +36,20 @@ export default function ProtectedLayout({ children }) {
       router.replace("/login?disabled=1");
       return;
     }
+    if (userDoc?.credentialResetRequired === true) {
+      router.replace("/login?reset=required");
+      return;
+    }
+    if (isAdminPath(pathname) && !isAdmin) {
+      router.replace("/screens/homescreen?access=denied");
+    }
   }, [
     loading,
     user,
     isPublic,
     isEnabled,
+    userDoc?.credentialResetRequired,
+    isAdmin,
     pathname,
     router,
   ]);

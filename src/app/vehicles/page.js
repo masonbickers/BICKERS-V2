@@ -19,6 +19,7 @@ import {
 } from "@/app/utils/firestoreAccess";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 import {
   DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
   loadVehicleFleetSettings,
@@ -142,11 +143,7 @@ const safeDate = (v) => {
 };
 
 const daysUntil = (d) => {
-  if (!d) return null;
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
+  return calendarDayDifference(d);
 };
 
 const formatDateWithStyle = (raw, options = {}) => {
@@ -330,7 +327,10 @@ export default function VehicleMaintenancePage() {
     if (expiredInsuranceUpdates.length) {
       Promise.allSettled(
         expiredInsuranceUpdates.map((vehicle) =>
-          updateDoc(doc(db, "vehicles", vehicle.id), { insuranceStatus: "Not Insured" })
+          updateDoc(
+            doc(db, "vehicles", vehicle.id),
+            tenantPayload(dataAccessState, { insuranceStatus: "Not Insured" })
+          )
         )
       )
         .then((results) =>
@@ -350,7 +350,10 @@ export default function VehicleMaintenancePage() {
     if (sornTaxDateUpdates.length) {
       Promise.allSettled(
         sornTaxDateUpdates.map((vehicle) =>
-          updateDoc(doc(db, "vehicles", vehicle.id), { taxStatus: "Sorn", ...clearTaxDateFields })
+          updateDoc(
+            doc(db, "vehicles", vehicle.id),
+            tenantPayload(dataAccessState, { taxStatus: "Sorn", ...clearTaxDateFields })
+          )
         )
       )
         .then((results) =>
@@ -415,7 +418,7 @@ export default function VehicleMaintenancePage() {
     const updates = { [field]: value, ...extraUpdates };
     setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, ...updates } : v)));
     try {
-      await updateDoc(doc(db, "vehicles", id), updates);
+      await updateDoc(doc(db, "vehicles", id), tenantPayload(dataAccessState, updates));
     } catch (err) {
       const denied = handlePageFirestoreError(err, {
         collectionName: "vehicles",
@@ -1186,6 +1189,7 @@ export default function VehicleMaintenancePage() {
 
         {categorySettingsOpen ? (
           <VehicleCategorySettingsModal
+            dataAccessState={dataAccessState}
             categories={categories}
             settings={vehicleFleetSettings}
             vehicles={vehicles}

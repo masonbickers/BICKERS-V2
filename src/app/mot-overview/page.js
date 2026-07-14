@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { getDocs } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 import MaintenanceBookingForm from "@/app/components/MaintenanceBookingForm";
 import { normalizeVehicleRecord } from "@/app/utils/vehicleCompat";
 import { isMotNotApplicable, isVehicleOutOfUse } from "@/app/utils/maintenanceSchema";
@@ -163,8 +164,7 @@ const parseDateAny = (v) => {
   const d = v?.toDate ? v.toDate() : new Date(v);
   return isNaN(d) ? null : d;
 };
-const dateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const daysDiff = (a, b) => Math.round((dateOnly(a) - dateOnly(b)) / (1000 * 60 * 60 * 24));
+const daysDiff = (a, b) => calendarDayDifference(a, b) ?? 0;
 const fmtShort = (d) => (d ? d.toLocaleDateString("en-GB") : "-");
 
 const fmtInputDate = (d) => {

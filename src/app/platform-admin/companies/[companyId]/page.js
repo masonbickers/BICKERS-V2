@@ -12,10 +12,8 @@ const tabs = ["general", "modules", "security", "limits"];
 
 const securityLabels = [
   ["mfaRequired", "MFA required"],
-  ["passkeysAllowed", "Passkeys enabled"],
   ["loginAlerts", "Login emails enabled"],
   ["locationAlerts", "Location checks"],
-  ["userCodeLogin", "Setup-code login enabled"],
   ["selfSignup", "Self signup enabled"],
 ];
 
@@ -38,10 +36,8 @@ const blankCompany = {
   },
   security: {
     mfaRequired: true,
-    passkeysAllowed: true,
     loginAlerts: true,
     locationAlerts: true,
-    userCodeLogin: false,
     rememberMfaDays: 30,
     selfSignup: false,
   },

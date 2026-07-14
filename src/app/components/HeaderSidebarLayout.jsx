@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Inter } from "next/font/google";
 import { BUILD_INFO } from "@/app/generated/buildInfo";
 import { limit, onSnapshot } from "firebase/firestore";
 import { db } from "@/app/utils/firebaseClient";
@@ -35,33 +34,28 @@ import {
   shouldBypassUnsavedChanges,
 } from "@/app/utils/unsavedChanges";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
 const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
   : BUILD_INFO.version;
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 
 const UI = {
-  shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
-  sidebarBg: "#000000",
-  sidebarBorder: "rgba(255,255,255,0.14)",
-  sidebarMuted: "#b4c0cf",
-  sidebarText: "#f8fbff",
-  sidebarActiveBg: "rgba(255,255,255,0.08)",
-  sidebarActiveBorder: "rgba(133,211,155,0.44)",
-  activeAccent: "#6bb37f",
-  topbarBg: "#000000",
-  topbarBorder: "rgba(255,255,255,0.12)",
+  shellBg: "var(--shell-gradient)",
+  sidebarBg: "var(--shell-sidebar-bg)",
+  sidebarBorder: "var(--shell-border)",
+  sidebarMuted: "var(--shell-muted)",
+  sidebarText: "var(--shell-text)",
+  sidebarActiveBg: "var(--shell-active-bg)",
+  sidebarActiveBorder: "var(--shell-active-border)",
+  activeAccent: "var(--color-success-accent)",
+  topbarBg: "var(--shell-topbar-bg)",
+  topbarBorder: "var(--shell-border)",
   contentBg: "transparent",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  success: "#6bb37f",
-  text: "#0f172a",
-  muted: "#5f6f82",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  success: "var(--color-success-accent)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
 };
 
 const topPillBase = {
@@ -207,10 +201,20 @@ export default function HeaderSidebarLayout({
   const [showMenu, setShowMenu] = useState(false); // (kept)
   const [activeWorkspace, setActiveWorkspace] = useState("user");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [permissionIssue, setPermissionIssue] = useState(null);
   const [viewAsUsers, setViewAsUsers] = useState([]);
   const [viewAsLoading, setViewAsLoading] = useState(false);
+  const sidebarCollapsed = isCollapsed || isNarrowViewport;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const syncViewport = () => setIsNarrowViewport(media.matches);
+    syncViewport();
+    media.addEventListener?.("change", syncViewport);
+    return () => media.removeEventListener?.("change", syncViewport);
+  }, []);
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
@@ -693,26 +697,16 @@ export default function HeaderSidebarLayout({
   }, [scrollRestoreKey]);
 
   return (
-    <div
-      className={inter.variable}
-      style={{
-        display: "flex",
-        height: "100dvh",
-        minHeight: "100dvh",
-        overflow: "hidden",
-        fontFamily: "var(--font-inter)",
-        background: UI.shellBg,
-      }}
-    >
+    <div className="app-shell">
       {/* ----------------- Sidebar ----------------- */}
       <aside
         style={{
-          width: isCollapsed ? "60px" : "220px",
+          width: sidebarCollapsed ? "var(--shell-sidebar-collapsed-width)" : "var(--shell-sidebar-width)",
           flexShrink: 0,
           boxSizing: "border-box",
           background: UI.sidebarBg,
           color: UI.sidebarText,
-          padding: isCollapsed ? "18px 10px" : "22px 16px",
+          padding: sidebarCollapsed ? "18px 10px" : "22px 16px",
           display: "flex",
           flexDirection: "column",
           borderRight: "none",
@@ -723,6 +717,8 @@ export default function HeaderSidebarLayout({
       >
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-expanded={!sidebarCollapsed}
+          aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
           style={{
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.12)",
@@ -732,15 +728,15 @@ export default function HeaderSidebarLayout({
             fontWeight: 700,
             marginBottom: "18px",
             borderRadius: 10,
-            width: isCollapsed ? 40 : 36,
+            width: sidebarCollapsed ? 40 : 36,
             height: 36,
-            alignSelf: isCollapsed ? "center" : "flex-start",
+            alignSelf: sidebarCollapsed ? "center" : "flex-start",
           }}
         >
-          {isCollapsed ? ">" : "<"}
+          {sidebarCollapsed ? ">" : "<"}
         </button>
 
-        {!isCollapsed ? (
+        {!sidebarCollapsed ? (
           <div
             style={{
               padding: "4px 6px 18px",
@@ -784,7 +780,7 @@ export default function HeaderSidebarLayout({
         <nav style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {workspaceNavGroups.map((group) => (
             <div key={group.heading}>
-              {!isCollapsed && (
+              {!sidebarCollapsed && (
                 <div
                   style={{
                     padding: "0 10px 8px",
@@ -820,8 +816,8 @@ export default function HeaderSidebarLayout({
                           : "1px solid transparent",
                         color: active ? UI.sidebarText : UI.sidebarMuted,
                         fontSize: "14px",
-                        textAlign: isCollapsed ? "center" : "left",
-                        padding: isCollapsed ? "10px 8px" : "11px 14px",
+                        textAlign: sidebarCollapsed ? "center" : "left",
+                        padding: sidebarCollapsed ? "10px 8px" : "11px 14px",
                         cursor: "pointer",
                         position: "relative",
                         borderRadius: 12,
@@ -835,7 +831,7 @@ export default function HeaderSidebarLayout({
                           : label
                       }
                     >
-                      {!isCollapsed ? (
+                      {!sidebarCollapsed ? (
                         <span
                           style={{
                             display: "inline-flex",
@@ -882,7 +878,7 @@ export default function HeaderSidebarLayout({
                         </span>
                       )}
 
-                      {isCollapsed && showHrBadge && (
+                      {sidebarCollapsed && showHrBadge && (
                         <span
                           style={{
                             position: "absolute",
@@ -915,7 +911,7 @@ export default function HeaderSidebarLayout({
               fontSize: "14px",
             }}
           >
-            {isCollapsed ? "LO" : "Logout"}
+            {sidebarCollapsed ? "LO" : "Logout"}
           </button>
         </div>
       </aside>

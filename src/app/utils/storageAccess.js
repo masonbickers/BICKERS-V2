@@ -11,5 +11,9 @@ export function companyStoragePath(authState, legacyPath) {
     .replace(/^\/+/, "");
   if (!cleanPath) throw createDataAccessError("Storage path is required.");
 
-  return cleanPath;
+  const prefix = `companies/${gate.companyId}/`;
+  if (cleanPath.startsWith("companies/") && !cleanPath.startsWith(prefix)) {
+    throw createDataAccessError("Cross-company storage paths are not allowed.");
+  }
+  return cleanPath.startsWith(prefix) ? cleanPath : `${prefix}${cleanPath}`;
 }

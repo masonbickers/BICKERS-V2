@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/authContext";
 
 export default function UserDropdown({ name = "Mason Bickers", email = "masonbickers8@icloud.com" }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { logout } = useAuth() || {};
 
   return (
     <div style={{ position: "relative", marginLeft: "auto" }}>
@@ -42,7 +44,7 @@ export default function UserDropdown({ name = "Mason Bickers", email = "masonbic
           </div>
           <div style={{ padding: "8px 0", cursor: "pointer" }}>Settings</div>
           <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/profile")}>Profile</div>
-          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => router.push("/login")}>Log out</div>
+          <div style={{ padding: "8px 0", cursor: "pointer" }} onClick={() => logout?.()}>Log out</div>
         </div>
       )}
     </div>

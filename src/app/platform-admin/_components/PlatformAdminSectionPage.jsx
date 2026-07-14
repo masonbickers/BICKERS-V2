@@ -36,7 +36,7 @@ const sectionCopy = {
   mfa: ["MFA Management", "Authenticator readiness and legacy MFA cleanup."],
   roles: ["Roles & Permissions", "Current role model and module permission matrix."],
   auditLogs: ["Audit Logs", "Admin/security changes written to adminAuditLogs."],
-  loginSecurity: ["Login Security", "Login, setup-code and lockout activity."],
+  loginSecurity: ["Login Security", "Login, MFA and lockout activity."],
   cleanup: ["System Cleanup", "Safe cleanup tasks with preview-first behaviour."],
   featureFlags: ["Feature Flags", "Global and company module/security switches."],
   settings: ["Global Settings", "Current operating model and hardening checklist."],
@@ -161,7 +161,6 @@ function DashboardView({ data, audit }) {
   const disabledCompanies = data.companies.filter((c) => ["suspended", "archived", "locked"].includes(c.status)).length;
   const activeUsers = data.users.filter((u) => u.isEnabled).length;
   const disabledUsers = data.users.filter((u) => !u.isEnabled).length;
-  const setupCodeCompanies = data.companies.filter((c) => c.security?.userCodeLogin === true).length;
   const mfaMissing = data.users.filter((u) => !userMfaReady(u)).length;
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -173,7 +172,6 @@ function DashboardView({ data, audit }) {
         <Metric label="Active Users" value={activeUsers} tone="green" />
         <Metric label="Blocked/Disabled Users" value={disabledUsers} tone={disabledUsers ? "red" : "blue"} />
         <Metric label="MFA Missing Users" value={mfaMissing} tone={mfaMissing ? "amber" : "blue"} />
-        <Metric label="Setup-code Login Enabled Companies" value={setupCodeCompanies} tone={setupCodeCompanies ? "amber" : "blue"} />
       </div>
       <QuickActions />
       <Warnings rows={audit.rows} users={data.users} companies={data.companies} />
@@ -231,17 +229,13 @@ const blankCompanyDraft = {
     assistant: true,
     mobileApp: true,
     pushNotifications: true,
-    passkeys: true,
     mfa: true,
-    userCodeLogin: false,
     settings: true,
   },
   security: {
     mfaRequired: true,
-    passkeysAllowed: true,
     loginAlerts: true,
     locationAlerts: true,
-    userCodeLogin: false,
     rememberMfaDays: 30,
     selfSignup: false,
   },
@@ -249,10 +243,8 @@ const blankCompanyDraft = {
 
 const companySecurityLabels = [
   ["mfaRequired", "MFA required"],
-  ["passkeysAllowed", "Passkeys"],
   ["loginAlerts", "Login emails"],
   ["locationAlerts", "Location checks"],
-  ["userCodeLogin", "Setup-code login"],
   ["selfSignup", "Self signup"],
 ];
 
@@ -276,13 +268,11 @@ const featureFlagLabels = [
   ["invoices", "Invoice pages"],
   ["mobileApp", "Mobile app"],
   ["pushNotifications", "Push notifications"],
-  ["passkeys", "Passkeys"],
   ["mfa", "MFA"],
-  ["userCodeLogin", "Setup-code login"],
 ];
 
 const defaultFeatureFlags = featureFlagLabels.reduce((acc, [key]) => {
-  acc[key] = key !== "userCodeLogin";
+  acc[key] = true;
   return acc;
 }, {});
 
@@ -485,9 +475,6 @@ function CompaniesView({ data, load }) {
                 <Td>{userCount} / {company.maxUsers || "-"}<Small>{employeeCount} employees</Small></Td>
                 <Td>{enabledModules.join(", ") || "-"}</Td>
                 <Td>
-                  <Pill tone={company.security?.userCodeLogin === false ? "green" : "amber"}>
-                    {company.security?.userCodeLogin === false ? "setup-code off" : "setup-code on"}
-                  </Pill>
                   <Small>MFA {company.security?.mfaRequired === false ? "optional" : "required"}</Small>
                 </Td>
                 <Td><Small>Created: {formatDate(company.createdAt)}</Small><Small>Updated: {formatDate(company.updatedAt)}</Small></Td>
@@ -1045,7 +1032,7 @@ function Panel({ title, children }) {
 function SecurityView({ data, audit, load }) {
   const [notice, setNotice] = useState("");
   const [busyKey, setBusyKey] = useState("");
-  const weakCompanies = data.companies.filter((c) => c.security?.mfaRequired === false || c.security?.userCodeLogin !== false || c.security?.loginAlerts === false);
+  const weakCompanies = data.companies.filter((c) => c.security?.mfaRequired === false || c.security?.loginAlerts === false);
   const riskyRows = audit.rows.filter((row) => ["fail", "warn"].includes(row.status));
   const usersMissingMfa = data.users.filter((user) => !userMfaReady(user));
   const usersMissingPhone = data.users.filter((user) => !user.phoneVerified);
@@ -1074,31 +1061,6 @@ function SecurityView({ data, audit, load }) {
       setNotice("Security action completed.");
     } catch (error) {
       setNotice(error?.message || "Security action failed.");
-    } finally {
-      setBusyKey("");
-    }
-  };
-
-  const disableSetupCode = async (company) => {
-    setBusyKey(`company:${company.id}`);
-    setNotice("");
-    try {
-      await authedFetch("/api/platform-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "saveCompany",
-          companyId: company.id,
-          company: {
-            ...company,
-            security: { ...(company.security || {}), userCodeLogin: false },
-          },
-        }),
-      });
-      await load();
-      setNotice("Setup-code login disabled.");
-    } catch (error) {
-      setNotice(error?.message || "Could not disable setup-code login.");
     } finally {
       setBusyKey("");
     }
@@ -1147,26 +1109,20 @@ function SecurityView({ data, audit, load }) {
       />
 
       <Panel title="Companies with weak security settings">
-        <Table headers={["Company", "Issues", "Action"]}>
+        <Table headers={["Company", "Issues"]}>
           {weakCompanies.map((company) => {
             const issues = [
               company.security?.mfaRequired === false ? "MFA not required" : "",
-              company.security?.userCodeLogin !== false ? "Setup-code login enabled" : "",
               company.security?.loginAlerts === false ? "Login emails disabled" : "",
             ].filter(Boolean);
             return (
               <tr key={company.id}>
                 <Td><strong>{company.name}</strong><Small>{company.id}</Small></Td>
                 <Td>{issues.join(", ")}</Td>
-                <Td>
-                  <button type="button" disabled={busyKey === `company:${company.id}` || company.security?.userCodeLogin === false} onClick={() => disableSetupCode(company)} style={ui.button}>
-                    Disable setup-code login
-                  </button>
-                </Td>
               </tr>
             );
           })}
-          {!weakCompanies.length ? <tr><Td colSpan={3}>No weak company security settings found.</Td></tr> : null}
+          {!weakCompanies.length ? <tr><Td colSpan={2}>No weak company security settings found.</Td></tr> : null}
         </Table>
       </Panel>
 
@@ -1979,7 +1935,6 @@ function SettingsView() {
 function Warnings({ rows, users, companies }) {
   const warnings = [
     ...rows.filter((row) => ["fail", "warn"].includes(row.status)).slice(0, 5).map((row) => `${row.email || row.name || row.uid}: ${(row.issues || []).join(", ")}`),
-    ...companies.filter((company) => company.security?.userCodeLogin !== false).slice(0, 3).map((company) => `${company.name}: setup-code login still enabled`),
     ...users.filter((user) => !user.companyId).slice(0, 3).map((user) => `${user.email}: missing companyId`),
   ];
   return (
@@ -2127,8 +2082,6 @@ function companyFeatureFlags(company = {}) {
     mobileApp: company.modules?.mobileApp ?? (company.featureFlags?.mobileApp !== false),
     pushNotifications: company.modules?.pushNotifications ?? (company.featureFlags?.pushNotifications !== false),
     mfa: company.modules?.mfa ?? (company.security?.mfaRequired !== false),
-    passkeys: company.security?.passkeysAllowed === true,
-    userCodeLogin: company.security?.userCodeLogin === true,
     settings: company.modules?.settings !== false,
   };
 }

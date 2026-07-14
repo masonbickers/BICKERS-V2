@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
@@ -19,18 +20,18 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
+  tenantPayload,
 } from "@/app/utils/firestoreAccess";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  LabelList,
-} from "recharts";
+const lazyRechart = (name) => dynamic(() => import("recharts").then((module) => module[name]), { ssr: false });
+const BarChart = lazyRechart("BarChart");
+const Bar = lazyRechart("Bar");
+const XAxis = lazyRechart("XAxis");
+const YAxis = lazyRechart("YAxis");
+const Tooltip = lazyRechart("Tooltip");
+const ResponsiveContainer = lazyRechart("ResponsiveContainer");
+const CartesianGrid = lazyRechart("CartesianGrid");
+const LabelList = lazyRechart("LabelList");
 import {
   BarChart3,
   BookOpen,
@@ -763,11 +764,11 @@ export default function HRPage() {
     }
     try {
       const ref = doc(db, "holidays", id);
-      await updateDoc(ref, {
+      await updateDoc(ref, tenantPayload(dataAccessState, {
         status,
         decidedBy: auth?.currentUser?.email || "",
         decidedAt: serverTimestamp(),
-      });
+      }));
       await fetchHolidays();
     } catch (err) {
       console.error("Error updating status:", err);
@@ -802,13 +803,13 @@ export default function HRPage() {
     }
     try {
       const restore = String(h.deleteFromStatus || h.previousStatus || "approved");
-      await updateDoc(doc(db, "holidays", h.id), {
+      await updateDoc(doc(db, "holidays", h.id), tenantPayload(dataAccessState, {
         status: restore,
         deleteRequestedAt: null,
         deleteRequestedBy: null,
         deleteDeclinedAt: serverTimestamp(),
         deleteDeclinedBy: auth?.currentUser?.email || "",
-      });
+      }));
       await fetchHolidays();
     } catch (err) {
       console.error("Error declining delete:", err);

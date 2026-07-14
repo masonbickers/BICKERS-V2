@@ -742,7 +742,7 @@ export default function AdminPage() {
 
     setSavingSick(true);
     try {
-      await updateDoc(doc(db, "sickLeave", editingSick.id), {
+      await updateDoc(doc(db, "sickLeave", editingSick.id), tenantPayload(dataAccessState, {
         employeeId: editingSick.employeeId,
         startDate: editingSick.startDate, // stored as yyyy-mm-dd
         endDate: editingSick.endDate, // stored as yyyy-mm-dd
@@ -751,7 +751,7 @@ export default function AdminPage() {
         notes: editingSick.notes || "",
         updatedAt: serverTimestamp(),
         updatedBy: me?.email || "",
-      });
+      }));
 
       showToast("ok", "Sick leave updated");
       setEditingSick(null);
@@ -926,6 +926,13 @@ export default function AdminPage() {
             >
               <ShieldCheck size={14} />
               Security audit
+            </button>
+            <button
+              onClick={() => router.push("/admin/deleted-quotes")}
+              style={btnStyle}
+              title="Restore quotes or inspect purge failures"
+            >
+              Deleted quotes
             </button>
 
             <button
@@ -2379,7 +2386,7 @@ function EmployeesHolidayAllowancesTab() {
 
       const legacyPatch = yearView === HA_thisYear ? { holidayAllowance: allowance, carriedOverDays: carry } : {};
 
-      await updateDoc(doc(db, "employees", r.id), {
+      await updateDoc(doc(db, "employees", r.id), tenantPayload(dataAccessState, {
         name,
         fullName: name,
         employeeName: name,
@@ -2387,7 +2394,7 @@ function EmployeesHolidayAllowancesTab() {
         holidayAllowances: nextAllowances,
         carryOverByYear: nextCarry,
         ...legacyPatch,
-      });
+      }));
 
       setRows((list) =>
         list.map((row) =>

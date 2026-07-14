@@ -121,6 +121,27 @@ export const ADMIN_PATH_PREFIXES = [
   "/admin",
   "/platform-admin",
   "/settings",
+  "/add-employee",
+  "/add-equipment",
+  "/add-vehicle",
+  "/edit-employee",
+  "/edit-equipment",
+  "/vehicle-edit",
+  "/create-booking",
+  "/edit-booking",
+  "/create-enquiry",
+  "/deleted-bookings",
+  "/quote-templates",
+  "/finance-dashboard",
+  "/finance-home",
+  "/finance-queue",
+  "/invoiced",
+  "/invoice",
+  "/paid",
+  "/ready-invoice",
+  "/review-queue",
+  "/upload",
+  "/upload-contract",
 ];
 
 export const DEFAULT_FEATURE_FLAGS = {
@@ -142,9 +163,7 @@ export const DEFAULT_FEATURE_FLAGS = {
   assistant: true,
   mobileApp: true,
   pushNotifications: true,
-  passkeys: true,
   mfa: true,
-  userCodeLogin: false,
   settings: true,
 };
 

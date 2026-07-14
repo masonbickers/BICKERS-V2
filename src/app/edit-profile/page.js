@@ -8,6 +8,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, ImageUp, Mail, Save, UserRound } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useDataAccessState } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
@@ -135,6 +137,7 @@ function initials(name = "") {
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -210,7 +213,7 @@ export default function EditProfilePage() {
       return null;
     }
 
-    const path = `profilePhotos/${uid}/${Date.now()}_${file.name}`;
+    const path = companyStoragePath(dataAccessState, `profilePhotos/${uid}/${Date.now()}_${file.name}`);
     const r = ref(storage, path);
     const task = uploadBytesResumable(r, file);
 

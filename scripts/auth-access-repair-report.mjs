@@ -1,35 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import { TENANT_COLLECTION_MANIFEST } from "../src/app/config/tenantCollections.js";
 
 let adminListDocuments;
 
 const REQUIRED_USER_FIELDS = ["uid", "email", "role", "companyId", "isEnabled", "appAccess"];
 
-const COMPANY_SCOPED_COLLECTIONS = [
-  "users",
-  "employees",
-  "bookings",
-  "deletedBookings",
-  "vehicles",
-  "equipment",
-  "holidays",
-  "notes",
-  "serviceRecords",
-  "defectReports",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "vehicleIssues",
-  "sickLeave",
-  "uCraneFreelancers",
-  "invoiceQueue",
-  "timesheets",
-  "maintenance",
-  "motPreChecks",
-  "timesheetQueries",
-  "vehicleChecks",
-  "vehiclePrepRecords",
-  "workBookings",
-];
+const COMPANY_SCOPED_COLLECTIONS = ["users", ...TENANT_COLLECTION_MANIFEST];
 
 const clean = (value) => String(value || "").trim();
 const cleanEmail = (value) => clean(value).toLowerCase();

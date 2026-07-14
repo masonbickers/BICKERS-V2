@@ -24,6 +24,11 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../../firebaseConfig";
+import {
+  tenantCollectionQuery,
+  tenantPayload,
+  useDataAccessState,
+} from "@/app/utils/firestoreAccess";
 
 /* UI tokens */
 const UI = {
@@ -415,6 +420,7 @@ function sameRow(a, b) {
 /* Page */
 export default function GeneralDefectsPage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
@@ -427,9 +433,9 @@ export default function GeneralDefectsPage() {
       setLoading(true);
       try {
         const [checksSnap, issuesSnap, defectsSnap] = await Promise.all([
-          getDocsFromServer(collection(db, "vehicleChecks")),
-          getDocsFromServer(collection(db, "vehicleIssues")),
-          getDocsFromServer(collection(db, "defectReports")),
+          getDocsFromServer(tenantCollectionQuery(db, "vehicleChecks", dataAccessState)),
+          getDocsFromServer(tenantCollectionQuery(db, "vehicleIssues", dataAccessState)),
+          getDocsFromServer(tenantCollectionQuery(db, "defectReports", dataAccessState)),
         ]);
         const checkDocs = checksSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const issueDocs = issuesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -442,7 +448,7 @@ export default function GeneralDefectsPage() {
       }
     };
     load();
-  }, []);
+  }, [dataAccessState]);
 
   const filtered = useMemo(() => {
     let data = rows;
@@ -483,23 +489,23 @@ export default function GeneralDefectsPage() {
       };
 
       if (row.sourceType === "vehicleIssue") {
-        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), tenantPayload(dataAccessState, {
           maintenance: maintenancePayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else if (row.sourceType === "defectReport") {
-        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), tenantPayload(dataAccessState, {
           status: newStatus === "resolved" ? "resolved" : "open",
           notes: (note || row.note || "").trim(),
           updatedAt: serverTimestamp(),
           ...(newStatus === "resolved" ? { completedAt: serverTimestamp() } : {}),
-        });
+        }));
       } else {
         const path = `items.${row.defectIndex}.maintenance`;
-        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
           [path]: maintenancePayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       setRows((prev) =>
@@ -536,23 +542,23 @@ export default function GeneralDefectsPage() {
 
     try {
       if (row.sourceType === "vehicleIssue") {
-        await updateDoc(doc(db, "vehicleIssues", row.issueId), {
+        await updateDoc(doc(db, "vehicleIssues", row.issueId), tenantPayload(dataAccessState, {
           "review.category": "immediate",
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else if (row.sourceType === "defectReport") {
-        await updateDoc(doc(db, "defectReports", row.defectReportId), {
+        await updateDoc(doc(db, "defectReports", row.defectReportId), tenantPayload(dataAccessState, {
           severity: "Immediate",
           priority: "high",
           offRoad: true,
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else {
         const path = `items.${row.defectIndex}.review.category`;
-        await updateDoc(doc(db, "vehicleChecks", row.checkId), {
+        await updateDoc(doc(db, "vehicleChecks", row.checkId), tenantPayload(dataAccessState, {
           [path]: "immediate",
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       setRows((prev) =>

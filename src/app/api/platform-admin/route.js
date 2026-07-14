@@ -7,37 +7,13 @@ import {
 } from "@/app/api/_firebaseAdminRest";
 import { jsonError, requirePlatformAdminFromRequest } from "@/app/api/admin/_lib";
 import { buildEmployeeUserLinkReport, validateEmployeeUserLink } from "@/app/api/platform/_lib";
+import { TENANT_COLLECTION_MANIFEST } from "@/app/config/tenantCollections";
 
 export const runtime = "nodejs";
 
 const DEFAULT_COMPANY_ID = "bickers-action";
 const COMPANY_STATUSES = new Set(["active", "suspended", "archived"]);
-const BUSINESS_COLLECTIONS = [
-  "bookings",
-  "employees",
-  "vehicles",
-  "equipment",
-  "holidays",
-  "notes",
-  "maintenance",
-  "serviceRecords",
-  "defectReports",
-  "timesheets",
-  "contacts",
-  "invoiceQueue",
-  "workBookings",
-  "vehicleChecks",
-  "vehiclePrepRecords",
-  // Existing adjacent business collections kept in the cleanup scan so older data is still visible.
-  "deletedBookings",
-  "holidays",
-  "sickLeave",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "vehicleIssues",
-  "shiftChangeRequests",
-  "recces",
-].filter((collectionName, index, collections) => collections.indexOf(collectionName) === index);
+const BUSINESS_COLLECTIONS = TENANT_COLLECTION_MANIFEST;
 const FEATURE_FLAGS = {
   diary: true,
   bookings: true,
@@ -57,8 +33,6 @@ const FEATURE_FLAGS = {
   assistant: true,
   settings: true,
   mfa: true,
-  passkeys: true,
-  userCodeLogin: false,
   mobileApp: true,
   pushNotifications: true,
 };
@@ -153,17 +127,13 @@ function defaultCompany() {
       mobileApp: true,
       pushNotifications: true,
       mfa: true,
-      passkeys: true,
-      userCodeLogin: false,
       settings: true,
     },
     security: {
       mfaRequired: true,
-      passkeysAllowed: true,
       loginAlerts: true,
       locationAlerts: true,
       rememberMfaDays: 30,
-      userCodeLogin: false,
       selfSignup: false,
     },
     rules: {
@@ -175,6 +145,10 @@ function defaultCompany() {
     limits: {
       storageLimitGb: 0,
       featureLimits: "",
+    },
+    quotas: {
+      dvla: { hourlyPerUser: 30, dailyPerCompany: 300 },
+      ai: { hourlyPerUser: 20, dailyPerCompany: 100 },
     },
     branding: DEFAULT_BRANDING,
     createdAt: new Date().toISOString(),
@@ -190,6 +164,10 @@ function serializeCompany(id, data = {}) {
     id,
     modules: { ...(base.modules || {}), ...(data.modules || {}) },
     security: { ...(base.security || {}), ...(data.security || {}) },
+    quotas: {
+      dvla: { ...(base.quotas?.dvla || {}), ...(data.quotas?.dvla || {}) },
+      ai: { ...(base.quotas?.ai || {}), ...(data.quotas?.ai || {}) },
+    },
     rules: { ...(base.rules || {}), ...(data.rules || {}) },
     limits: { ...(base.limits || {}), ...(data.limits || {}) },
     branding: { ...(base.branding || DEFAULT_BRANDING), ...(data.branding || {}) },
@@ -458,9 +436,7 @@ function sanitizeCompanyPatch(raw = {}) {
       assistant: bool(raw.modules.assistant, true),
       mobileApp: bool(raw.modules.mobileApp, true),
       pushNotifications: bool(raw.modules.pushNotifications, true),
-      passkeys: bool(raw.modules.passkeys, true),
       mfa: bool(raw.modules.mfa, true),
-      userCodeLogin: bool(raw.modules.userCodeLogin, false),
       settings: bool(raw.modules.settings, true),
     };
   }
@@ -468,11 +444,9 @@ function sanitizeCompanyPatch(raw = {}) {
   if (raw.security && typeof raw.security === "object") {
     patch.security = {
       mfaRequired: bool(raw.security.mfaRequired, true),
-      passkeysAllowed: bool(raw.security.passkeysAllowed, true),
       loginAlerts: bool(raw.security.loginAlerts, true),
       locationAlerts: bool(raw.security.locationAlerts, true),
       rememberMfaDays: cleanInt(raw.security.rememberMfaDays, 30, 0, 90),
-      userCodeLogin: bool(raw.security.userCodeLogin, false),
       selfSignup: bool(raw.security.selfSignup, false),
     };
   }
@@ -490,6 +464,19 @@ function sanitizeCompanyPatch(raw = {}) {
     patch.limits = {
       storageLimitGb: cleanInt(raw.limits.storageLimitGb, 0, 0, 1000000),
       featureLimits: String(raw.limits.featureLimits || "").trim().slice(0, 2000),
+    };
+  }
+
+  if (raw.quotas && typeof raw.quotas === "object") {
+    patch.quotas = {
+      dvla: {
+        hourlyPerUser: cleanInt(raw.quotas?.dvla?.hourlyPerUser, 30, 1, 10000),
+        dailyPerCompany: cleanInt(raw.quotas?.dvla?.dailyPerCompany, 300, 1, 100000),
+      },
+      ai: {
+        hourlyPerUser: cleanInt(raw.quotas?.ai?.hourlyPerUser, 20, 1, 10000),
+        dailyPerCompany: cleanInt(raw.quotas?.ai?.dailyPerCompany, 100, 1, 100000),
+      },
     };
   }
 
@@ -790,8 +777,6 @@ export async function POST(req) {
         security: {
           ...(before.security || {}),
           mfaRequired: flags.mfa,
-          passkeysAllowed: flags.passkeys,
-          userCodeLogin: flags.userCodeLogin,
         },
         featureFlags: {
           mobileApp: flags.mobileApp,

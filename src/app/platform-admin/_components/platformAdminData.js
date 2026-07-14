@@ -23,9 +23,7 @@ export const moduleLabels = [
   ["assistant", "Assistant"],
   ["mobileApp", "Mobile App"],
   ["pushNotifications", "Push Notifications"],
-  ["passkeys", "Passkeys"],
   ["mfa", "MFA"],
-  ["userCodeLogin", "Setup-code Login"],
   ["settings", "Settings"],
 ];
 

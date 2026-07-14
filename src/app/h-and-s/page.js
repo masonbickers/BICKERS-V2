@@ -13,6 +13,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -517,16 +518,8 @@ const fmtDate = (value) => {
   return date ? date.toLocaleDateString("en-GB") : "-";
 };
 
-const todayStart = () => {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-};
-
 const daysUntil = (value) => {
-  const date = toDate(value);
-  if (!date) return null;
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.floor((target - todayStart()) / 86400000);
+  return calendarDayDifference(value);
 };
 
 const lower = (value) => String(value || "").trim().toLowerCase();
@@ -1280,14 +1273,16 @@ export default function HealthSafetyPage() {
               <RefreshCcw size={15} />
               Refresh
             </button>
-            <button type="button" style={btn("ghost")} onClick={() => setShowAddRegister((value) => !value)}>
-              <CheckCircle2 size={15} />
-              Add Register Item
-            </button>
+            {dataAccessState.isAdmin ? (
+              <button type="button" style={btn("ghost")} onClick={() => setShowAddRegister((value) => !value)}>
+                <CheckCircle2 size={15} />
+                Add Register Item
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {showAddRegister ? (
+        {showAddRegister && dataAccessState.isAdmin ? (
           <section style={{ ...panel, marginBottom: 12 }}>
             <div style={sectionHeader}>
               <div>
