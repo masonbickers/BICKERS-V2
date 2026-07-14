@@ -9,8 +9,10 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
+  tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 
 import { db, auth, storage } from "../../../../firebaseConfig";
 import {
@@ -539,7 +541,8 @@ export default function EditBookingPage() {
       // upload quote if provided
       let quoteUrlToSave = quoteURL || null;
       if (quoteFile) {
-        const storageRef = ref(storage, `quotes/${jobNumber}_${quoteFile.name}`);
+        const storagePath = companyStoragePath(dataAccessState, `quotes/${jobNumber}_${quoteFile.name}`);
+        const storageRef = ref(storage, storagePath);
         const metadata = {
           contentType:
             quoteFile.type ||
@@ -608,7 +611,7 @@ export default function EditBookingPage() {
         ],
       };
 
-      await updateDoc(refDoc, updatePayload);
+      await updateDoc(refDoc, tenantPayload(dataAccessState, updatePayload));
       alert("Booking updated ");
       router.push(`/job-numbers/${id}`);
     } catch (err) {
@@ -1011,7 +1014,10 @@ export default function EditBookingPage() {
                       ],
                     };
 
-                    const newRef = await addDoc(collection(db, "bookings"), payload);
+                    const newRef = await addDoc(
+                      collection(db, "bookings"),
+                      tenantPayload(dataAccessState, payload)
+                    );
                     alert("Copy created ");
                     router.push(`/job-numbers/${newRef.id}`);
                   } catch (err) {

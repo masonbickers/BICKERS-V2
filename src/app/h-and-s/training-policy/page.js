@@ -15,6 +15,8 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 
 const UI = {
   radius: 8,
@@ -167,12 +169,7 @@ const safeFileName = (name) =>
     .slice(0, 100) || "document";
 
 const daysUntil = (value) => {
-  const date = toDate(value);
-  if (!date) return null;
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.floor((target - start) / 86400000);
+  return calendarDayDifference(value);
 };
 
 const statusFor = (record) => {
@@ -347,7 +344,7 @@ export default function TrainingPolicyPage() {
       const uploadedDocuments = [];
 
       for (const file of documentsToUpload) {
-        const path = `h-and-s/training-policy/${selectedEmployee.id}/${item.id}/${Date.now()}-${safeFileName(file.name)}`;
+        const path = companyStoragePath(dataAccessState, `h-and-s/training-policy/${selectedEmployee.id}/${item.id}/${Date.now()}-${safeFileName(file.name)}`);
         const ref = storageRef(storage, path);
         const snapshot = await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
         const url = await getDownloadURL(snapshot.ref);

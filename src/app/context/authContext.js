@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useClerk, useUser } from "@clerk/nextjs";
+import { onAuthStateChanged, signInWithCustomToken, signOut as signOutFirebase } from "firebase/auth";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/app/utils/firebaseClient";
 import {
@@ -192,8 +193,12 @@ const resolveAccessState = async (currentUser, userDoc) => {
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
+  const { isLoaded: clerkLoaded, isSignedIn, user: clerkUser } = useUser();
+  const { signOut: signOutClerk } = useClerk();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bridgeReady, setBridgeReady] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [accessState, setAccessState] = useState(emptyAccess);
   const [adminViewMode, setAdminViewModeState] = useState("admin");
   const [adminViewUser, setAdminViewUserState] = useState(null);
@@ -201,6 +206,61 @@ export const AuthProvider = ({ children }) => {
   const resolvingRef = useRef(0);
 
   useEffect(() => {
+    if (!clerkLoaded) return undefined;
+
+    let cancelled = false;
+    const syncClerkSessionToFirebase = async () => {
+      setBridgeReady(false);
+      setLoading(true);
+      setAuthError("");
+
+      if (!isSignedIn || !clerkUser) {
+        clearAccessCache();
+        await signOutFirebase(auth).catch(() => {});
+        if (!cancelled) setBridgeReady(true);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/auth/firebase-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.customToken) {
+          const error = new Error(data?.error || "Could not start the application session.");
+          error.code = data?.code || "";
+          throw error;
+        }
+
+        // Always replace any legacy Firebase password session with a fresh,
+        // Clerk-authorized compatibility session.
+        await signInWithCustomToken(auth, data.customToken);
+        if (!cancelled) setBridgeReady(true);
+      } catch (error) {
+        console.error("[authContext] Clerk session bridge failed:", error);
+        clearAccessCache();
+        await signOutFirebase(auth).catch(() => {});
+        if (!cancelled) {
+          setAuthError(error?.message || "Your account could not be linked.");
+          setBridgeReady(true);
+          const redirectUrl = error?.code === "credential_reset_required"
+            ? "/login?reset=required"
+            : "/login?access=denied";
+          await signOutClerk({ redirectUrl }).catch(() => {});
+        }
+      }
+    };
+
+    syncClerkSessionToFirebase();
+    return () => {
+      cancelled = true;
+    };
+  }, [clerkLoaded, clerkUser, isSignedIn, signOutClerk]);
+
+  useEffect(() => {
+    if (!clerkLoaded || !bridgeReady) return undefined;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       const startedAt = nowMs();
       resolvingRef.current += 1;
@@ -240,10 +300,15 @@ export const AuthProvider = ({ children }) => {
         }
         if (token !== resolvingRef.current) return;
 
-        if (userDoc?.isEnabled === false) {
+        if (userDoc?.isEnabled === false || userDoc?.credentialResetRequired === true) {
           clearAccessCache();
           setAccessState(emptyAccess);
-          await signOut(auth);
+          await signOutFirebase(auth);
+          await signOutClerk({
+            redirectUrl: userDoc?.credentialResetRequired === true
+              ? "/login?reset=required"
+              : "/login?disabled=1",
+          }).catch(() => {});
           return;
         }
 
@@ -258,10 +323,15 @@ export const AuthProvider = ({ children }) => {
           resolvedRef,
           async (docSnap) => {
             const liveUserDoc = docSnap.data() || {};
-            if (liveUserDoc?.isEnabled === false) {
+            if (liveUserDoc?.isEnabled === false || liveUserDoc?.credentialResetRequired === true) {
               clearAccessCache();
               setAccessState(emptyAccess);
-              await signOut(auth);
+              await signOutFirebase(auth);
+              await signOutClerk({
+                redirectUrl: liveUserDoc?.credentialResetRequired === true
+                  ? "/login?reset=required"
+                  : "/login?disabled=1",
+              }).catch(() => {});
               return;
             }
 
@@ -283,7 +353,7 @@ export const AuthProvider = ({ children }) => {
       unsubscribe();
       if (userDocUnsubRef.current) userDocUnsubRef.current();
     };
-  }, []);
+  }, [bridgeReady, clerkLoaded, signOutClerk]);
 
   const refreshMfaState = useCallback(() => {
     const uid = auth.currentUser?.uid || user?.uid;
@@ -356,12 +426,20 @@ export const AuthProvider = ({ children }) => {
     };
   }, [adminViewMode, adminViewUser, canUseAdminViewSwitch, user]);
 
+  const logout = useCallback(async () => {
+    clearAccessCache();
+    await signOutFirebase(auth).catch(() => {});
+    await signOutClerk({ redirectUrl: "/login" });
+  }, [signOutClerk]);
+
   const value = useMemo(
     () => ({
       user: effectiveUser,
       realUser: user,
       loading,
-      logout: () => signOut(auth),
+      logout,
+      authError,
+      clerkUser,
       userDoc: effectiveUserDoc,
       employeeAccess: effectiveEmployeeAccess,
       featureFlags: accessState.featureFlags,
@@ -394,6 +472,9 @@ export const AuthProvider = ({ children }) => {
       setAdminViewMode,
       adminViewUser,
       setAdminViewUser,
+      logout,
+      authError,
+      clerkUser,
     ]
   );
 

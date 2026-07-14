@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { doc, getDocs, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -14,13 +15,13 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 
-import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import format from "date-fns/format";
-import parse from "date-fns/parse";
-import startOfWeek from "date-fns/startOfWeek";
-import getDay from "date-fns/getDay";
-import enGB from "date-fns/locale/en-GB";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+
+const Calendar = dynamic(() => import("@/app/components/LazyBigCalendar"), {
+  ssr: false,
+  loading: () => <div style={{ minHeight: 620 }} aria-label="Loading calendar" />,
+});
 import {
   CalendarDays,
   CalendarPlus,
@@ -285,15 +286,6 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
 });
 
 /* Localiser */
-const locales = { "en-GB": enGB };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
-
 /* Utils */
 const norm = (v) => String(v ?? "").trim().toLowerCase();
 const truthy = (v) =>
@@ -1360,7 +1352,6 @@ export default function HolidayUsagePage() {
               className="holiday-calendar"
             >
               <Calendar
-                localizer={localizer}
                 events={calendarEventsWithBankHolidays}
                 startAccessor="start"
                 endAccessor="end"

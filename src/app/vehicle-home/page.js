@@ -4,16 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  LabelList,
-} from "recharts";
-import {
   Activity,
   AlertTriangle,
   CalendarCheck,
@@ -30,7 +20,16 @@ import {
 } from "lucide-react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
-import { localizer } from "../utils/localizer";
+
+const lazyRechart = (name) => dynamic(() => import("recharts").then((module) => module[name]), { ssr: false });
+const BarChart = lazyRechart("BarChart");
+const Bar = lazyRechart("Bar");
+const XAxis = lazyRechart("XAxis");
+const YAxis = lazyRechart("YAxis");
+const Tooltip = lazyRechart("Tooltip");
+const ResponsiveContainer = lazyRechart("ResponsiveContainer");
+const CartesianGrid = lazyRechart("CartesianGrid");
+const LabelList = lazyRechart("LabelList");
 import {
   getCanonicalDueDate,
   getIsoWeekLabel,
@@ -49,7 +48,6 @@ import {
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
 import { useAuth } from "@/app/context/authContext";
 import {
   dataAccessKey,
@@ -57,6 +55,7 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
+  tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import {
   getDocs,
@@ -66,13 +65,12 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../firebaseConfig";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
+
+const DashboardMaintenanceModal = dynamic(() => import("@/app/components/DashboardMaintenanceModal"), { ssr: false });
 
 const DraggableBigCalendar = dynamic(
-  () =>
-    Promise.all([
-      import("react-big-calendar"),
-      import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
+  () => import("../components/LazyOperationalCalendar").then((m) => m.DraggableOperationalCalendar),
   {
     ssr: false,
     loading: () => (
@@ -564,11 +562,7 @@ const daysInRange = (from, to) => {
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const daysUntil = (d) => {
-  if (!d) return null;
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
+  return calendarDayDifference(d);
 };
 
 const sameCalendarDate = (a, b) => {
@@ -587,7 +581,7 @@ const diffCalendarDays = (from, to) => {
   const fromDay = startOfLocalDay(from);
   const toDay = startOfLocalDay(to);
   if (!fromDay || !toDay) return 0;
-  return Math.round((toDay.getTime() - fromDay.getTime()) / 86400000);
+  return calendarDayDifference(toDay, fromDay) ?? 0;
 };
 
 const shiftYmd = (value, deltaDays) => {
@@ -1755,7 +1749,10 @@ export default function VehiclesHomePage() {
       );
 
       try {
-        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
+        await updateDoc(
+          doc(db, "vehicles", vehicleId),
+          tenantPayload(dataAccessState, pendingMaintenanceDrop.updates)
+        );
         setPendingMaintenanceDrop(null);
       } catch (error) {
         setVehiclesRaw(previousVehicles);
@@ -1781,7 +1778,10 @@ export default function VehiclesHomePage() {
     );
 
     try {
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      await updateDoc(
+        doc(db, "maintenanceBookings", bookingId),
+        tenantPayload(dataAccessState, updates)
+      );
       setPendingMaintenanceDrop(null);
     } catch (error) {
       setMaintenanceBookingsRaw(previousBookings);
@@ -1791,7 +1791,7 @@ export default function VehiclesHomePage() {
       alert("Could not move this maintenance booking. Please try again.");
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
     }
-  }, [maintenanceBookingsRaw, pendingMaintenanceDrop, vehiclesRaw]);
+  }, [dataAccessState, maintenanceBookingsRaw, pendingMaintenanceDrop, vehiclesRaw]);
 
   // Load submitted checks + app-reported vehicle issues for the review queue
   useEffect(() => {
@@ -2110,11 +2110,11 @@ export default function VehiclesHomePage() {
           reviewPayload.category = String(category || "").trim().toLowerCase();
         }
 
-        await updateDoc(doc(db, "vehicleIssues", defect.issueId), {
+        await updateDoc(doc(db, "vehicleIssues", defect.issueId), tenantPayload(dataAccessState, {
           status: decision,
           review: reviewPayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       } else {
         const path = `items.${defect.defectIndex}.review`;
         const reviewPayload = {
@@ -2128,10 +2128,10 @@ export default function VehiclesHomePage() {
           reviewPayload.category = String(category || "").trim().toLowerCase();
         }
 
-        await updateDoc(doc(db, "vehicleChecks", defect.checkId), {
+        await updateDoc(doc(db, "vehicleChecks", defect.checkId), tenantPayload(dataAccessState, {
           [path]: reviewPayload,
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       setPendingDefects((prev) =>
@@ -2747,7 +2747,6 @@ export default function VehiclesHomePage() {
 
           {mounted && (
             <DraggableBigCalendar
-              localizer={localizer}
               events={calendarEvents}
               view={calView}
               views={["week", "month"]}

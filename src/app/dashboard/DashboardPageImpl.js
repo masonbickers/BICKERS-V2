@@ -9,7 +9,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
 const BigCalendar = dynamic(
-  () => import("react-big-calendar").then((m) => m.Calendar),
+  () => import("../components/LazyOperationalCalendar").then((m) => m.OperationalCalendar),
   {
     ssr: false,
     loading: () => (
@@ -32,11 +32,7 @@ const BigCalendar = dynamic(
 );
 
 const DraggableBigCalendar = dynamic(
-  () =>
-    Promise.all([
-      import("react-big-calendar"),
-      import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
+  () => import("../components/LazyOperationalCalendar").then((m) => m.DraggableOperationalCalendar),
   {
     ssr: false,
     loading: () => (
@@ -58,7 +54,6 @@ const DraggableBigCalendar = dynamic(
   }
 );
 
-import { localizer } from "../utils/localizer";
 import { buildAssetLabel, getCanonicalDueDate, getIsoWeekLabel, isVehicleOutOfUse, ymd } from "../utils/maintenanceSchema";
 import {
   buildMaintenanceBookingEvents,
@@ -78,10 +73,10 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import {
+  AlertTriangle,
   CalendarDays,
   BedDouble,
   Check,
@@ -100,13 +95,6 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import EditHolidayForm from "../components/EditHolidayForm";
-import HolidayForm from "../components/holidayform";
-import CreateNote from "../components/create-note";
-import EditNoteModal from "../components/EditNoteModal";
-import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
-import MaintenanceBookingForm from "../components/MaintenanceBookingForm";
-import MaintenanceBookingPickerModal from "../components/MaintenanceBookingPickerModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 import { cacheBookingForEdit } from "@/app/utils/editBookingCache";
 import { isAdminEmail } from "@/app/utils/adminAccess";
@@ -119,6 +107,17 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
+import { analyzeCurrentSecondPencilUpgradeOpportunities } from "@/app/utils/vehiclePencilConflict";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
+
+const ViewBookingModal = dynamic(() => import("../components/ViewBookingModal"), { ssr: false });
+const EditHolidayForm = dynamic(() => import("../components/EditHolidayForm"), { ssr: false });
+const HolidayForm = dynamic(() => import("../components/holidayform"), { ssr: false });
+const CreateNote = dynamic(() => import("../components/create-note"), { ssr: false });
+const EditNoteModal = dynamic(() => import("../components/EditNoteModal"), { ssr: false });
+const DashboardMaintenanceModal = dynamic(() => import("../components/DashboardMaintenanceModal"), { ssr: false });
+const MaintenanceBookingForm = dynamic(() => import("../components/MaintenanceBookingForm"), { ssr: false });
+const MaintenanceBookingPickerModal = dynamic(() => import("../components/MaintenanceBookingPickerModal"), { ssr: false });
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -127,6 +126,30 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
 ]);
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
+
+const ordinalDay = (day) => {
+  const value = Number(day);
+  if (!Number.isFinite(value)) return "";
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  const suffix = value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th";
+  return `${value}${suffix}`;
+};
+
+const formatFriendlyDate = (dateKey) => {
+  const [year, month, day] = String(dateKey || "").slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return String(dateKey || "");
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return String(dateKey || "");
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
+  const monthName = date.toLocaleDateString("en-GB", { month: "long" });
+  return `${weekday} ${ordinalDay(day)} ${monthName}`;
+};
+
+const formatFriendlyDateList = (dateKeys = []) => {
+  const sorted = Array.from(new Set((dateKeys || []).map((value) => String(value || "").slice(0, 10)).filter(Boolean))).sort();
+  return sorted.map(formatFriendlyDate).join(", ");
+};
 
 /*
    New styling tokens (match your HR page)
@@ -505,6 +528,8 @@ const monthCalendarFrame = {
   overflow: "visible",
 };
 
+const HOLIDAY_NOTES_EVENT_HEIGHT = 64;
+
 const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
   width: 34,
   height: 34,
@@ -629,6 +654,16 @@ const dashboardCalendarCss = `
 }
 .dashboard-page .dashboard-month-calendar .rbc-event {
   height: auto !important;
+}
+.dashboard-page .holiday-notes-calendar .rbc-event {
+  height: ${HOLIDAY_NOTES_EVENT_HEIGHT}px !important;
+}
+.dashboard-page .holiday-notes-calendar .rbc-event-content {
+  height: 100%;
+}
+.dashboard-page .holiday-notes-calendar .rbc-row-segment {
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 `;
 
@@ -926,10 +961,7 @@ const dueTone = (dueDate) => {
   if (!dueDate) return "soft";
   const d = dueDate instanceof Date ? dueDate : new Date(dueDate);
   if (Number.isNaN(d.getTime())) return "soft";
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diff = Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
+  const diff = calendarDayDifference(d);
   if (diff < 0) return "overdue";
   if (diff <= 21) return "soon";
   return "ok";
@@ -1063,7 +1095,7 @@ const diffCalendarDays = (from, to) => {
   const fromDay = startOfLocalDay(from);
   const toDay = startOfLocalDay(to);
   if (Number.isNaN(fromDay.getTime()) || Number.isNaN(toDay.getTime())) return 0;
-  return Math.round((toDay.getTime() - fromDay.getTime()) / 86400000);
+  return calendarDayDifference(toDay, fromDay) ?? 0;
 };
 
 const shiftYmd = (value, deltaDays) => {
@@ -2568,13 +2600,12 @@ function MaintenanceCalendarEvent({ event }) {
 }
 
 function HolidayNotesCalendarEvent({ event }) {
-  const [expanded, setExpanded] = useState(false);
   const isHoliday = event.status === "Holiday";
   const label = isHoliday ? "Holiday" : "Note";
   const title = isHoliday ? event.employee || "Holiday" : event.title || "Note";
   const titleText = String(title || "");
-  const shouldCollapse = !isHoliday && titleText.length > 110;
-  const displayTitle = shouldCollapse && !expanded ? `${titleText.slice(0, 110).trim()}...` : titleText;
+  const shouldCollapse = !isHoliday && titleText.length > 58;
+  const displayTitle = titleText;
   const detail = isHoliday
     ? formatHolidayDetail(event)
     : event.blocksEmployeeBooking && event.employee
@@ -2589,8 +2620,9 @@ function HolidayNotesCalendarEvent({ event }) {
         display: "flex",
         flexDirection: "column",
         gap: 1,
+        height: HOLIDAY_NOTES_EVENT_HEIGHT,
         fontSize: 11.5,
-        lineHeight: 1.15,
+        lineHeight: 1.2,
         fontWeight: 900,
         padding: "4px 6px",
         letterSpacing: 0,
@@ -2598,48 +2630,53 @@ function HolidayNotesCalendarEvent({ event }) {
         overflowWrap: "anywhere",
         wordBreak: "break-word",
         minWidth: 0,
+        overflow: "hidden",
       }}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "nowrap", lineHeight: 1.1 }}>{label}</span>
       <span
         style={{
           color: "#0f172a",
           whiteSpace: "normal",
           display: "-webkit-box",
-          WebkitLineClamp: shouldCollapse && !expanded ? 4 : "unset",
+          WebkitLineClamp: isHoliday ? 1 : 2,
           WebkitBoxOrient: "vertical",
-          overflow: shouldCollapse && !expanded ? "hidden" : "visible",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          minHeight: isHoliday ? 13 : 27,
         }}
       >
         {displayTitle}
       </span>
       {shouldCollapse ? (
-        <button
-          type="button"
-          onClick={(clickEvent) => {
-            clickEvent.preventDefault();
-            clickEvent.stopPropagation();
-            setExpanded((value) => !value);
-          }}
+        <span
           style={{
             alignSelf: "flex-start",
-            border: "1px solid #99f6e4",
-            background: "#f0fdfa",
             color: "#0f766e",
-            borderRadius: 999,
-            padding: "2px 7px",
             fontSize: 10.5,
-            fontWeight: 900,
-            cursor: "pointer",
-            lineHeight: 1.2,
-            marginTop: 2,
+            fontWeight: 950,
+            lineHeight: 1,
+            marginTop: 1,
           }}
         >
-          {expanded ? "Show less" : "Show more"}
-        </button>
+          Show more
+        </span>
       ) : null}
       {detail ? (
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
+        <span
+          style={{
+            display: "block",
+            fontSize: 10.5,
+            fontWeight: 800,
+            color: "#64748b",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            marginTop: "auto",
+          }}
+        >
+          {detail}
+        </span>
       ) : null}
     </div>
   );
@@ -2658,6 +2695,7 @@ function holidayNotesEventPropGetter(event) {
       borderLeft: `4px solid ${border}`,
       background: bg,
       color: text,
+      height: HOLIDAY_NOTES_EVENT_HEIGHT,
       padding: 0,
       boxShadow: "0 2px 6px rgba(15,23,42,0.08)",
       overflow: "hidden",
@@ -2777,6 +2815,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
+  const [upgradingSecondPencilKey, setUpgradingSecondPencilKey] = useState("");
 
   const enquiryCount = useMemo(
     () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
@@ -3240,6 +3279,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     [vehiclesData]
   );
 
+  const vehicleLookupForConflicts = useMemo(() => {
+    const byId = {};
+    const byReg = {};
+    const byName = {};
+    (vehiclesData || []).forEach((vehicle) => {
+      const id = String(vehicle?.id || "").trim();
+      const registration = String(vehicle?.registration || vehicle?.reg || "").trim();
+      const name = String(vehicle?.name || vehicle?.vehicleName || "").trim();
+      if (id) byId[id] = vehicle;
+      if (registration) {
+        byReg[registration.toUpperCase()] = vehicle;
+        byReg[registration.replace(/\s+/g, "").toUpperCase()] = vehicle;
+      }
+      if (name) byName[name.toLowerCase()] = vehicle;
+    });
+    return { byId, byReg, byName };
+  }, [vehiclesData]);
+
   const getVehicleRisk = useCallback((vehicles, { offRoadTracking = false } = {}) => {
     const reasons = [];
     const list = Array.isArray(vehicles) ? vehicles : [];
@@ -3609,6 +3666,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       db,
       vehicles: vehiclesData,
       maintenanceBookings,
+      dataAccessState,
       loggerPrefix: "[dashboard] inspection rollover",
     })
       .catch(() => {})
@@ -3616,7 +3674,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         rolloverSyncRef.current.key = inspectionRolloverSyncKey;
         rolloverSyncRef.current.inFlight = false;
       });
-  }, [inspectionRolloverSyncKey, maintenanceBookings, vehiclesData]);
+  }, [dataAccessState, inspectionRolloverSyncKey, maintenanceBookings, vehiclesData]);
 
   const motServiceDueEvents = useMemo(() => {
     if (!Array.isArray(vehiclesData) || !vehiclesData.length) return [];
@@ -3932,6 +3990,90 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     });
   }, [allEvents, showDeletedInView, showInactiveInView]);
 
+  const visibleDiaryDateKeys = useMemo(() => {
+    const start = new Date(currentDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+
+    if (calendarView === "month") {
+      start.setDate(1);
+      end.setMonth(start.getMonth() + 1, 0);
+    } else {
+      const mondayOffset = (start.getDay() + 6) % 7;
+      start.setDate(start.getDate() - mondayOffset);
+      end.setTime(start.getTime());
+      end.setDate(start.getDate() + 6);
+    }
+
+    const out = [];
+    for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      out.push(ymd(cursor));
+    }
+    return out.filter(Boolean);
+  }, [calendarView, currentDate]);
+
+  const secondPencilUpgradeNotifications = useMemo(() => {
+    let debug = false;
+    try {
+      debug =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("debugVehiclePencilConflicts") === "1";
+    } catch {
+      debug = false;
+    }
+
+    return analyzeCurrentSecondPencilUpgradeOpportunities({
+      allBookings: bookings,
+      vehicleLookup: vehicleLookupForConflicts,
+      targetDates: visibleDiaryDateKeys,
+      debug,
+      debugContext: { currentDate: ymd(currentDate) },
+    });
+  }, [bookings, currentDate, vehicleLookupForConflicts, visibleDiaryDateKeys]);
+
+  const upgradeSecondPencilFromDashboard = useCallback(
+    async (item) => {
+      const bookingId = String(item?.bookingId || "").trim();
+      const vehicleId = String(item?.vehicleId || "").trim();
+      if (!bookingId || !vehicleId) return;
+
+      const actionKey = `${bookingId}-${vehicleId}`;
+      const booking = bookings.find((row) => row.id === bookingId);
+      if (!booking) {
+        alert("Could not find this booking in the current diary data.");
+        return;
+      }
+
+      setUpgradingSecondPencilKey(actionKey);
+      try {
+        const nextVehicleStatus = {
+          ...(booking.vehicleStatus && typeof booking.vehicleStatus === "object"
+            ? booking.vehicleStatus
+            : {}),
+          [vehicleId]: "First Pencil",
+        };
+
+        await updateDoc(
+          doc(db, "bookings", bookingId),
+          tenantPayload(dataAccessState, {
+            vehicleStatus: nextVehicleStatus,
+            updatedAt: new Date().toISOString(),
+            lastEditedBy: authAccess.user?.email || "Unknown",
+            lastEditedByUid: authAccess.user?.uid || "",
+          })
+        );
+      } catch (error) {
+        if (!handleFirestoreAccessError(error, { collectionName: "bookings", operation: "upgrade second pencil vehicle" })) {
+          console.error("[vehicle-pencil-conflict] dashboard upgrade failed:", error);
+        }
+        alert(error?.message || "Could not upgrade this vehicle to First Pencil.");
+      } finally {
+        setUpgradingSecondPencilKey("");
+      }
+    },
+    [authAccess.user?.email, authAccess.user?.uid, bookings, dataAccessState]
+  );
+
   const workCalendarEvents = useMemo(
     () => [...bankHolidays, ...workDiaryEvents],
     [bankHolidays, workDiaryEvents]
@@ -4088,7 +4230,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       );
 
       try {
-        await updateDoc(doc(db, "vehicles", vehicleId), pendingMaintenanceDrop.updates);
+        await updateDoc(
+          doc(db, "vehicles", vehicleId),
+          tenantPayload(dataAccessState, pendingMaintenanceDrop.updates)
+        );
         setPendingMaintenanceDrop(null);
       } catch (error) {
         console.error("Failed to move vehicle maintenance appointment:", error);
@@ -4112,7 +4257,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     );
 
     try {
-      await updateDoc(doc(db, "maintenanceBookings", bookingId), updates);
+      await updateDoc(
+        doc(db, "maintenanceBookings", bookingId),
+        tenantPayload(dataAccessState, updates)
+      );
       setPendingMaintenanceDrop(null);
     } catch (error) {
       console.error("Failed to move maintenance booking:", error);
@@ -4120,7 +4268,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
       setPendingMaintenanceDrop((current) => (current ? { ...current, saving: false } : current));
       alert(error?.message || "Could not move this maintenance booking.");
     }
-  }, [maintenanceBookings, pendingMaintenanceDrop, vehiclesData]);
+  }, [dataAccessState, maintenanceBookings, pendingMaintenanceDrop, vehiclesData]);
 
   const formatSearchBookingDates = (booking) => {
     const formatDate = (value) => {
@@ -4457,8 +4605,81 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
+          {secondPencilUpgradeNotifications.length > 0 && (
+            <div
+              style={{
+                margin: "0 0 10px",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1.5px solid #b45309",
+                background: "#fff7ed",
+                color: "#111827",
+                display: "grid",
+                gap: 8,
+                boxShadow: UI.shadowSm,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 950 }}>
+                <AlertTriangle size={18} />
+                Second Pencil upgrade available
+              </div>
+              {secondPencilUpgradeNotifications.slice(0, 4).map((item) => (
+                (() => {
+                  const actionKey = `${item.bookingId}-${item.vehicleId}`;
+                  const isUpgrading = upgradingSecondPencilKey === actionKey;
+                  return (
+                    <div
+                      key={`${item.vehicleId}-${item.bookingId}-${item.upgradableDates.join("|")}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                        fontSize: 13,
+                        fontWeight: 800,
+                      }}
+                    >
+                      <span>
+                        {item.vehicleLabel} is still Second Pencil on {item.bookingLabel} ({item.bookingReference}), but First Pencil is now free for {formatFriendlyDateList(item.upgradableDates)}.
+                      </span>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          style={
+                            isRestricted || isUpgrading
+                              ? btnDisabled({ ...btn(), padding: "6px 10px" })
+                              : { ...btn(), padding: "6px 10px" }
+                          }
+                          disabled={isRestricted || isUpgrading}
+                          onClick={() => upgradeSecondPencilFromDashboard(item)}
+                        >
+                          {isUpgrading ? "Updating..." : "Make First Pencil"}
+                        </button>
+                        <button
+                          type="button"
+                          style={{ ...btn("ghost"), padding: "6px 10px" }}
+                          onClick={() => {
+                            setSelectedDeletedId(null);
+                            setSelectedBookingId(item.bookingId);
+                          }}
+                        >
+                          View booking
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              ))}
+              {secondPencilUpgradeNotifications.length > 4 && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: UI.muted }}>
+                  +{secondPencilUpgradeNotifications.length - 4} more Second Pencil hold(s) can be reviewed.
+                </div>
+              )}
+            </div>
+          )}
+
           <BigCalendar
-              localizer={localizer}
               //  include bank holidays in Work Diary
               events={workCalendarEvents}
               view={calendarView}
@@ -4655,7 +4876,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           </div>
 
           <DraggableBigCalendar
-            localizer={localizer}
             events={maintenanceEvents}
             view={maintenanceView}
             views={["week", "month"]}
@@ -4878,7 +5098,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
           </div>
 
           <BigCalendar
-            localizer={localizer}
             events={noteHolidayEvents}
             view={calendarView}
             views={["week", "month"]}
@@ -4902,7 +5121,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 setNoteModalOpen(true);
               }
             }}
-            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
+            className={calendarView === "week" ? "dashboard-compact-calendar holiday-notes-calendar" : "holiday-notes-calendar"}
             style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
             components={{
               event: HolidayNotesCalendarEvent,

@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { collection, getDocs, query } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
+import { tenantCollectionQuery, useDataAccessState } from "@/app/utils/firestoreAccess";
 
 /* UI tokens */
 const UI = {
@@ -309,6 +310,7 @@ const formatDisplayDate = (value) => {
 
 /* Page */
 export default function VehicleChecksDashboardPage() {
+  const dataAccessState = useDataAccessState();
   const [loading, setLoading] = useState(true);
   const [checks, setChecks] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -322,11 +324,11 @@ export default function VehicleChecksDashboardPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const snapC = await getDocs(query(collection(db, "vehicleChecks")));
+        const snapC = await getDocs(tenantCollectionQuery(db, "vehicleChecks", dataAccessState));
         const rowsC = [];
         snapC.forEach((d) => rowsC.push({ id: d.id, ...d.data() }));
 
-        const snapB = await getDocs(query(collection(db, "bookings")));
+        const snapB = await getDocs(tenantCollectionQuery(db, "bookings", dataAccessState));
         const rowsB = [];
         snapB.forEach((d) => rowsB.push({ id: d.id, ...d.data() }));
 
@@ -337,7 +339,7 @@ export default function VehicleChecksDashboardPage() {
       }
     };
     load();
-  }, []);
+  }, [dataAccessState]);
 
   const rows = useMemo(() => {
     const todayISO = dateKey(new Date());

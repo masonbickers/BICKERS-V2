@@ -19,6 +19,8 @@ import {
   where,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 import {
   deriveRoleFromAccess,
   resolveDefaultWorkspace,
@@ -357,6 +359,7 @@ export default function EditEmployeePage() {
   const router = useRouter();
   const params = useParams();
   const employeeId = params?.id;
+  const dataAccessState = useDataAccessState();
 
   const jobOptions = useMemo(
     () => [
@@ -710,7 +713,10 @@ export default function EditEmployeePage() {
   const uploadPersonnelFile = async (file, folder, progressKey) => {
     if (!file || !employeeId) return null;
     const originalName = file.name || "document";
-    const storagePath = `hr/personnel/${employeeId}/${folder}/${Date.now()}_${safeFileName(originalName)}`;
+    const storagePath = companyStoragePath(
+      dataAccessState,
+      `hr/personnel/${employeeId}/${folder}/${Date.now()}_${safeFileName(originalName)}`
+    );
     const fileRef = storageRef(storage, storagePath);
     const task = uploadBytesResumable(fileRef, file, {
       contentType: file.type || "application/octet-stream",
@@ -1143,7 +1149,11 @@ export default function EditEmployeePage() {
       };
 
       await Promise.all([
-        setDoc(doc(db, "employees", employeeId), archivePatch, { merge: true }),
+        setDoc(
+          doc(db, "employees", employeeId),
+          tenantPayload(dataAccessState, archivePatch),
+          { merge: true }
+        ),
         ...userRefs.map((ref) =>
           setDoc(
             ref,

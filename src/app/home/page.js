@@ -2,19 +2,18 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
-import ViewBookingModal from "../components/ViewBookingModal";
-import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
 
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+const FullCalendar = dynamic(() => import("../components/LazyFullCalendar"), {
+  ssr: false,
+  loading: () => <div style={{ minHeight: 620 }} aria-label="Loading calendar" />,
+});
 
-import moment from "moment";
 import { db } from "../../../firebaseConfig";
 import { getDocs } from "firebase/firestore";
 import {
@@ -41,6 +40,19 @@ import {
   Wrench,
   Package,
 } from "lucide-react";
+
+const ViewBookingModal = dynamic(() => import("../components/ViewBookingModal"), { ssr: false });
+const DashboardMaintenanceModal = dynamic(() => import("../components/DashboardMaintenanceModal"), { ssr: false });
+
+const formatShortDate = (value, withYear = false) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(withYear ? { year: "numeric" } : {}),
+  }).format(date);
+};
 
 /* ───────────────────────────────────────────
    Mini design system (matches your Jobs Home)
@@ -518,8 +530,8 @@ function Bucket({ title, items }) {
                 <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "-"}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "#374151" }}>
-                MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
-                {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
+                MOT: {formatShortDate(v.nextMOT, true)} | Service:{" "}
+                {formatShortDate(v.nextService, true)}
               </div>
             </li>
           ))}
@@ -668,9 +680,10 @@ export default function HomePage() {
       db,
       vehicles,
       maintenanceBookings,
+      dataAccessState,
       loggerPrefix: "[home] inspection rollover",
     }).catch(() => {});
-  }, [vehicles, maintenanceBookings]);
+  }, [dataAccessState, vehicles, maintenanceBookings]);
 
   /* ────────────────────────────────────────────────────────────────────────
      Derived: events + windows
@@ -986,7 +999,7 @@ export default function HomePage() {
                 ))}
               </div>
               <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
-                {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
+                {formatShortDate(now)} to {formatShortDate(windowEnd, true)}
               </div>
             </section>
 
@@ -1036,7 +1049,6 @@ export default function HomePage() {
 
               <div style={{ overflow: "visible" }}>
                 <FullCalendar
-                  plugins={[dayGridPlugin, interactionPlugin]}
                   initialView="dayGridMonth"
                   headerToolbar={{
                     left: "prev,next today",
@@ -1117,7 +1129,7 @@ export default function HomePage() {
                       <li key={e.id} style={{ ...liItem, cursor: "pointer" }} onClick={() => setSelectedBookingId(e.id)}>
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                           <strong style={{ color: UI.text }}>{e.jobNumber}</strong>
-                          <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>{moment(e.start).format("MMM D")}</span>
+                          <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>{formatShortDate(e.start)}</span>
                         </div>
                         <div style={{ color: UI.text, fontSize: 13 }}>{e.client}</div>
                         <div>
@@ -1149,12 +1161,12 @@ export default function HomePage() {
                         </strong>
 
                         <div style={{ fontSize: 13, color: "#374151" }}>
-                          2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
+                          2nd: {c.second.jobNumber} ({formatShortDate(c.second.start)} - {formatShortDate(c.second.end)})
                           <span style={tag("second pencil")}>Second</span>
                         </div>
 
                         <div style={{ fontSize: 13, color: "#374151" }}>
-                          Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
+                          Firm: {c.firm.jobNumber} ({formatShortDate(c.firm.start)} - {formatShortDate(c.firm.end)})
                           <span style={tag(c.firm.status)}>{c.firm.status}</span>
                         </div>
                       </li>
@@ -1203,7 +1215,7 @@ export default function HomePage() {
                           <td style={td}>{it.vehicles?.join(", ") || "-"}</td>
                           <td style={td}>{it.equipment || "-"}</td>
                           <td style={td}>{it.notes || "-"}</td>
-                          <td style={{ ...td, whiteSpace: "nowrap" }}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
+                          <td style={{ ...td, whiteSpace: "nowrap" }}>{formatShortDate(it.start, true)}</td>
                         </tr>
                       ))}
                     </tbody>

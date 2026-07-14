@@ -69,8 +69,8 @@ test("identifies admin-only routes", () => {
   assert.equal(isAdminPath("/admin"), true);
   assert.equal(isAdminPath("/settings"), true);
   assert.equal(isAdminPath("/employees"), false);
-  assert.equal(isAdminPath("/edit-employee/abc123"), false);
-  assert.equal(isAdminPath("/deleted-bookings"), false);
+  assert.equal(isAdminPath("/edit-employee/abc123"), true);
+  assert.equal(isAdminPath("/deleted-bookings"), true);
   assert.equal(isAdminPath("/dashboard"), false);
 });
 

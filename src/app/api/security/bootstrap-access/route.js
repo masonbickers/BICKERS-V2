@@ -22,8 +22,6 @@ const DEFAULT_FEATURE_FLAGS = {
   assistant: true,
   settings: true,
   mfa: true,
-  passkeys: true,
-  userCodeLogin: false,
   mobileApp: true,
   pushNotifications: true,
 };
@@ -202,6 +200,9 @@ export async function POST(req) {
 
     if (currentUserDoc?.isEnabled === false) {
       return Response.json({ error: "Account disabled." }, { status: 403 });
+    }
+    if (currentUserDoc?.credentialResetRequired === true) {
+      return Response.json({ error: "Credential reset required." }, { status: 403 });
     }
 
     const currentRole = normalizeRole(currentUserDoc?.role);

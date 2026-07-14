@@ -24,6 +24,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 /* ────────────────────────────────────────────────────────────
@@ -1100,7 +1101,7 @@ export default function JobInfoPage() {
 
       const safeName = file.name.replace(/\s+/g, "_");
       const stamp = Date.now();
-      const path = `job_attachments/${jid}/${stamp}_${safeName}`;
+      const path = companyStoragePath(dataAccessState, `job_attachments/${jid}/${stamp}_${safeName}`);
 
       const ref = storageRef(storage, path);
       const task = uploadBytesResumable(ref, file, { contentType: file.type || "application/pdf" });

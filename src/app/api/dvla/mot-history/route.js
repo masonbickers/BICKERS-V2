@@ -1,4 +1,7 @@
 import axios from "axios";
+import { requireActiveMemberFromRequest } from "../../admin/_lib";
+import { consumeApiQuota, quotaExceededResponse } from "../../_rateLimit";
+import { normalizeVrm } from "../../_requestValidation";
 
 const MOT_HISTORY_BASE_URL =
   process.env.DVSA_MOT_HISTORY_BASE_URL || "https://history.mot.api.gov.uk";
@@ -12,7 +15,6 @@ const MOT_HISTORY_API_KEY = process.env.DVSA_MOT_HISTORY_API_KEY;
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
 
-const cleanRegistration = (value) => String(value || "").replace(/\s+/g, "").toUpperCase();
 
 const parseDateTime = (value) => {
   if (!value) return 0;
@@ -74,12 +76,22 @@ async function getAccessToken() {
 // GET /api/dvla/mot-history?vrm=AB12CDE
 export async function GET(request) {
   try {
+    const access = await requireActiveMemberFromRequest(request);
+    if (access.error) return access.error;
+
     const { searchParams } = new URL(request.url);
-    const vrm = cleanRegistration(searchParams.get("vrm"));
+    const vrm = normalizeVrm(searchParams.get("vrm"));
 
     if (!vrm) {
-      return Response.json({ error: "Missing vrm query parameter" }, { status: 400 });
+      return Response.json({ error: "VRM must be 2–8 alphanumeric characters." }, { status: 400 });
     }
+
+    const quota = await consumeApiQuota({
+      service: "dvla",
+      userId: access.verifiedUser.uid,
+      companyId: access.companyId,
+    });
+    if (!quota.allowed) return quotaExceededResponse(quota);
 
     const token = await getAccessToken();
     const motRes = await axios.get(

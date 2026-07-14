@@ -1,125 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
+import { Parser } from "acorn";
+import jsx from "acorn-jsx";
+import { TENANT_COLLECTION_MANIFEST } from "../src/app/config/tenantCollections.js";
 
 const root = process.cwd();
 const appDir = path.join(root, "src", "app");
+const JsxParser = Parser.extend(jsx());
+const tenantCollections = new Set(TENANT_COLLECTION_MANIFEST);
+const failures = [];
+const audited = { clientFiles: 0, tenantQueries: 0, tenantWrites: 0, storageFiles: 0 };
 
-const firestoreOps = [
-  "getDoc",
-  "getDocs",
-  "onSnapshot",
-  "setDoc",
-  "updateDoc",
-  "addDoc",
-  "deleteDoc",
-  "writeBatch",
-  "runTransaction",
-];
+const storageRoots = /^(booking_pdfs|h-and-s|hr|images|invoice_documents|job_attachments|maintenance-quotes|profilePhotos|quotes|recce-photos|vehicles)\//;
 
-const storageOps = [
-  "uploadBytes",
-  "uploadBytesResumable",
-  "uploadString",
-  "getDownloadURL",
-  "deleteObject",
-];
-
-const writeOps = new Set(["setDoc", "updateDoc", "addDoc", "deleteDoc", "writeBatch", "runTransaction"]);
-
-const sensitiveCollections = new Set([
-  "users",
-  "settings",
-  "platformCompanies",
-  "adminAuditLogs",
-  "loginSecurityLogs",
-  "mfaSecrets",
-  "passkeyCredentials",
-  "passkeyChallenges",
-  "setupCodeRateLimits",
-]);
-
-const companyScopedCollections = new Set([
-  "bookings",
-  "employees",
-  "vehicles",
-  "equipment",
-  "holidays",
-  "notes",
-  "recces",
-  "shiftChangeRequests",
-  "maintenance",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "motPreChecks",
-  "serviceRecords",
-  "defectReports",
-  "defects",
-  "vehicleChecks",
-  "vehicleIssues",
-  "vehicleUsageNotes",
-  "vehiclePrepRecords",
-  "workBookings",
-  "timesheets",
-  "contacts",
-  "invoiceQueue",
-  "deletedBookings",
-  "sickLeave",
-  "uCraneFreelancers",
-  "lorries",
-  "timesheetQueries",
-  "hsRegister",
-  "hsCheckRecords",
-  "ppeIssueRecords",
-  "employeeTrainingRecords",
-]);
-
-const explicitlyTenantScopedRules = new Set([
-  "bookings",
-  "contacts",
-  "deletedBookings",
-  "defects",
-  "employees",
-  "equipment",
-  "employeeTrainingRecords",
-  "holidays",
-  "hsCheckRecords",
-  "hsRegister",
-  "invoiceQueue",
-  "lorries",
-  "maintenance",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "notes",
-  "motPreChecks",
-  "ppeIssueRecords",
-  "recces",
-  "serviceRecords",
-  "shiftChangeRequests",
-  "defectReports",
-  "sickLeave",
-  "timesheets",
-  "timesheetQueries",
-  "uCraneFreelancers",
-  "vehicleChecks",
-  "vehicleIssues",
-  "vehiclePrepRecords",
-  "vehicles",
-  "vehicleUsageNotes",
-  "workBookings",
-]);
-
-const adminUiFiles = [
-  "src/app/admin/page.js",
-  "src/app/platform-admin/_components/PlatformAdminShell.jsx",
-];
-
-function walk(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  return entries.flatMap((entry) => {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) return walk(fullPath);
-    if (!/\.(js|jsx|ts|tsx)$/.test(entry.name)) return [];
-    return [fullPath];
+function sourceFiles(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(file);
+    return /\.(js|jsx|mjs)$/.test(entry.name) ? [file] : [];
   });
 }
 
@@ -127,195 +25,168 @@ function rel(file) {
   return path.relative(root, file).replace(/\\/g, "/");
 }
 
-function lineNumberForOffset(source, offset) {
-  return source.slice(0, offset).split(/\r?\n/).length;
+function walk(node, visit) {
+  if (!node || typeof node !== "object") return;
+  visit(node);
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "parent") continue;
+    if (Array.isArray(value)) value.forEach((child) => walk(child, visit));
+    else if (value && typeof value.type === "string") walk(value, visit);
+  }
 }
 
-function collectStringCollections(source) {
-  const collections = new Set();
-  const collectionPattern = /collection\s*\(\s*db\s*,\s*["']([^"']+)["']/g;
-  const docPattern = /doc\s*\(\s*db\s*,\s*["']([^"']+)["']/g;
+function callName(node) {
+  return node?.type === "CallExpression" && node.callee?.type === "Identifier" ? node.callee.name : "";
+}
 
-  for (const pattern of [collectionPattern, docPattern]) {
-    for (const match of source.matchAll(pattern)) {
-      collections.add(match[1]);
-    }
+function literalValue(node) {
+  if (node?.type === "Literal") return typeof node.value === "string" ? node.value : "";
+  if (node?.type === "TemplateLiteral" && node.expressions.length === 0) return node.quasis[0]?.value?.cooked || "";
+  return "";
+}
+
+function containsCall(node, names) {
+  let found = false;
+  walk(node, (child) => {
+    if (names.has(callName(child))) found = true;
+  });
+  return found;
+}
+
+function collectionFromNode(node, { calls = new Set(["collection", "doc"]), rootOnly = false } = {}) {
+  let collection = "";
+  walk(node, (child) => {
+    const name = callName(child);
+    if (collection || !calls.has(name)) return;
+    const args = child.arguments || [];
+    if (rootOnly && name === "collection" && args.length !== 2) return;
+    const candidates = args.map(literalValue).filter(Boolean);
+    const match = candidates.find((value) => tenantCollections.has(value));
+    if (match) collection = match;
+  });
+  return collection;
+}
+
+function hasCompanyWhere(node) {
+  let found = false;
+  walk(node, (child) => {
+    if (callName(child) === "where" && literalValue(child.arguments?.[0]) === "companyId") found = true;
+  });
+  return found;
+}
+
+function line(node) {
+  return node?.loc?.start?.line || 0;
+}
+
+for (const file of sourceFiles(appDir)) {
+  const source = fs.readFileSync(file, "utf8");
+  if (!/^\s*["']use client["']/m.test(source)) continue;
+  audited.clientFiles += 1;
+  let ast;
+  try {
+    ast = JsxParser.parse(source, { ecmaVersion: "latest", sourceType: "module", locations: true, allowHashBang: true });
+  } catch (error) {
+    failures.push(`${rel(file)}: parse failed: ${error.message}`);
+    continue;
   }
 
-  return [...collections].sort();
-}
+  const tenantPayloadVars = new Set();
+  let hasStorageUpload = false;
+  let usesCompanyStoragePath = false;
+  walk(ast, (node) => {
+    if (node.type === "VariableDeclarator" && node.id?.type === "Identifier" && containsCall(node.init, new Set(["tenantPayload"]))) {
+      tenantPayloadVars.add(node.id.name);
+    }
+    if (callName(node) === "companyStoragePath") usesCompanyStoragePath = true;
+    if (["uploadBytes", "uploadBytesResumable", "uploadString"].includes(callName(node))) hasStorageUpload = true;
+  });
 
-function collectFirestoreOperations(source) {
-  const operations = [];
-  for (const op of firestoreOps) {
-    const pattern = new RegExp(`\\b${op}\\s*\\(`, "g");
-    for (const match of source.matchAll(pattern)) {
-      operations.push({
-        op,
-        line: lineNumberForOffset(source, match.index || 0),
+  walk(ast, (node) => {
+    const name = callName(node);
+    if (["getDocs", "onSnapshot"].includes(name)) {
+      const collection = collectionFromNode(node.arguments?.[0], {
+        calls: new Set(["collection"]),
+        rootOnly: true,
       });
+      if (!collection) return;
+      audited.tenantQueries += 1;
+      if (!containsCall(node.arguments?.[0], new Set(["tenantCollectionQuery"])) && !hasCompanyWhere(node.arguments?.[0])) {
+        failures.push(`${rel(file)}:${line(node)} ${name} reads ${collection} without a companyId query constraint.`);
+      }
+    }
+
+    if (["addDoc", "setDoc", "updateDoc"].includes(name)) {
+      const collection = collectionFromNode(node.arguments?.[0]);
+      if (!collection) return;
+      audited.tenantWrites += 1;
+      const payload = node.arguments?.[1];
+      const stamped = containsCall(payload, new Set(["tenantPayload"]))
+        || (payload?.type === "Identifier" && tenantPayloadVars.has(payload.name));
+      if (!stamped) failures.push(`${rel(file)}:${line(node)} ${name} writes ${collection} without tenantPayload.`);
+    }
+
+    if (["ref", "storageRef"].includes(name)) {
+      const rawPath = literalValue(node.arguments?.[1]);
+      if (storageRoots.test(rawPath)) {
+        failures.push(`${rel(file)}:${line(node)} creates a legacy Storage path (${rawPath}).`);
+      }
+    }
+  });
+
+  if (hasStorageUpload) {
+    audited.storageFiles += 1;
+    if (!usesCompanyStoragePath) {
+      failures.push(`${rel(file)} uploads to Storage without companyStoragePath.`);
     }
   }
-  return operations.sort((a, b) => a.line - b.line || a.op.localeCompare(b.op));
 }
 
-function collectStorageOperations(source) {
-  const operations = [];
-  for (const op of storageOps) {
-    const pattern = new RegExp(`\\b${op}\\s*\\(`, "g");
-    for (const match of source.matchAll(pattern)) {
-      operations.push({
-        op,
-        line: lineNumberForOffset(source, match.index || 0),
-      });
-    }
-  }
-  return operations.sort((a, b) => a.line - b.line || a.op.localeCompare(b.op));
-}
+const firestoreRules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
+const storageRules = fs.readFileSync(path.join(root, "storage.rules"), "utf8");
+const tenantHelper = fs.readFileSync(path.join(appDir, "utils", "firestoreAccess.js"), "utf8");
+const storageHelper = fs.readFileSync(path.join(appDir, "utils", "storageAccess.js"), "utf8");
+const middleware = fs.readFileSync(path.join(root, "src", "middleware.js"), "utf8");
 
-function collectStoragePathHints(source) {
-  const hints = new Set();
-  const stringPathPattern = /ref\s*\(\s*storage[^,]*,\s*([`"'])([^`"']+)\1/g;
-  for (const match of source.matchAll(stringPathPattern)) {
-    hints.add(match[2].replace(/\$\{[^}]+\}/g, "${...}"));
-  }
-  return [...hints].sort();
-}
+const semanticChecks = [
+  [!/TEMPORARY EMERGENCY|emergency-broad-read-fallback|canEmergencyRead/.test(`${firestoreRules}\n${tenantHelper}`), "Emergency broad-read fallback remains."],
+  [/exists\(userPath\(\)\)/.test(firestoreRules), "Firestore active-user helper does not require a user document."],
+  [/isEnabled == true/.test(firestoreRules), "Firestore rules do not require isEnabled == true."],
+  [/credentialResetRequired/.test(firestoreRules), "Firestore rules do not block reset-required users."],
+  [/resource\.data\.companyId == companyId\(\)/.test(firestoreRules), "Firestore reads are not tied to current company."],
+  [/request\.resource\.data\.companyId == companyId\(\)/.test(firestoreRules), "Firestore writes are not tied to current company."],
+  [/match \/\{document=\*\*\}[\s\S]*allow read, write: if false/.test(firestoreRules), "Firestore catch-all is not deny-all."],
+  [!/allow\s+(read|write|read, write):\s*if\s+isSignedIn\(\)/.test(firestoreRules), "Firestore contains broad signed-in access."],
+  [/where\("companyId", "==", gate\.companyId\)/.test(tenantHelper), "tenantCollectionQuery does not add companyId."],
+  [/companyId: gate\.companyId/.test(tenantHelper), "tenantPayload does not stamp companyId."],
+  [/companies\/\$\{gate\.companyId\}/.test(storageHelper), "companyStoragePath does not prefix the company."],
+  [/credentialResetRequired/.test(storageRules) && /userData\(\)\.companyId == companyId/.test(storageRules), "Storage rules lack reset/company enforcement."],
+  [/(auth\.protect\(\)|session\.userId[\s\S]*NextResponse\.redirect)/.test(middleware), "Clerk middleware does not protect non-public pages."],
+];
+for (const [passed, message] of semanticChecks) if (!passed) failures.push(message);
 
-function classifyFile(file, source) {
-  const fileRel = rel(file);
-  const isClient = /^\s*["']use client["']\s*;?/m.test(source);
-  const importsFirestore = /from\s+["']firebase\/firestore["']/.test(source);
-  const importsStorage = /from\s+["']firebase\/storage["']/.test(source) || source.includes("firebase/storage");
-  if (!isClient || (!importsFirestore && !importsStorage)) return null;
-
-  const collections = importsFirestore ? collectStringCollections(source) : [];
-  const operations = importsFirestore ? collectFirestoreOperations(source) : [];
-  const storageOperations = importsStorage ? collectStorageOperations(source) : [];
-  const storagePathHints = importsStorage ? collectStoragePathHints(source) : [];
-  const sensitive = collections.filter((name) => sensitiveCollections.has(name));
-  const writes = operations.filter((item) => writeOps.has(item.op));
-  const companyCollections = collections.filter((name) => companyScopedCollections.has(name));
-  const unscopedCompanyCollections = companyCollections.filter((name) => !explicitlyTenantScopedRules.has(name));
-  const route =
-    fileRel.startsWith("src/app/")
-      ? `/${fileRel
-          .replace(/^src\/app\//, "")
-          .replace(/\/page\.(js|jsx|ts|tsx)$/, "")
-          .replace(/\.(js|jsx|ts|tsx)$/, "")
-          .replace(/\[([^\]]+)\]/g, ":$1")
-          .replace(/^page$/, "")}`
-      : fileRel;
-  const adminGateRisk =
-    adminUiFiles.includes(fileRel) &&
-    (source.includes('doc(db, "users"') ||
-      source.includes("doc(db, 'users'") ||
-      source.includes('collection(db, "users"') ||
-      source.includes("collection(db, 'users'"));
-
-  return {
-    file: fileRel,
-    route,
-    operations,
-    storageOperations,
-    storagePathHints,
-    collections,
-    sensitive,
-    writes,
-    companyCollections,
-    unscopedCompanyCollections,
-    adminGateRisk,
-  };
-}
-
-const results = walk(appDir).map((file) => classifyFile(file, fs.readFileSync(file, "utf8"))).filter(Boolean);
-const sensitiveResults = results.filter((item) => item.sensitive.length > 0 || item.adminGateRisk);
-const adminGateRisks = results.filter((item) => item.adminGateRisk);
-const writeResults = results.filter((item) => item.writes.length > 0);
-const unscopedResults = results.filter((item) => item.unscopedCompanyCollections.length > 0);
-const storageResults = results.filter((item) => item.storageOperations.length > 0);
-const collectionSummary = new Map();
-
-for (const item of results) {
-  for (const collection of item.collections) {
-    const row = collectionSummary.get(collection) || { reads: 0, writes: 0, files: new Set() };
-    row.files.add(item.file);
-    if (item.operations.some((op) => !writeOps.has(op.op))) row.reads += 1;
-    if (item.writes.length > 0) row.writes += 1;
-    collectionSummary.set(collection, row);
+for (const collection of TENANT_COLLECTION_MANIFEST) {
+  const explicitName = new RegExp(`["']${collection}["']`).test(firestoreRules);
+  const explicitMatch = new RegExp(`match\\s+\\/${collection}\\/`).test(firestoreRules);
+  if (!explicitName && !explicitMatch) {
+    failures.push(`Tenant manifest collection ${collection} is missing from Firestore rules.`);
   }
 }
 
-console.log("BAS security access audit");
-console.log("=========================");
-console.log(`Client files with Firestore usage: ${results.length}`);
-console.log(`Client files touching sensitive collections: ${sensitiveResults.length}`);
-console.log(`Admin/platform gate direct users reads: ${adminGateRisks.length}`);
-console.log(`Client files with Firestore writes: ${writeResults.length}`);
-console.log(`Client files touching company collections without explicit tenant-scoped rules: ${unscopedResults.length}`);
-console.log(`Client files with Storage operations: ${storageResults.length}`);
-console.log("");
-
-console.log("Collection summary");
-console.log("------------------");
-for (const [collection, row] of [...collectionSummary.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-  const sensitive = sensitiveCollections.has(collection) ? " sensitive" : "";
-  const tenant = companyScopedCollections.has(collection)
-    ? explicitlyTenantScopedRules.has(collection)
-      ? " tenant-scoped"
-      : " tenant-risk"
-    : "";
-  console.log(`- ${collection}: files ${row.files.size}, read files ${row.reads}, write files ${row.writes}${sensitive}${tenant}`);
-}
-console.log("");
-
-console.log("Client Firestore writes");
-console.log("-----------------------");
-for (const item of writeResults) {
-  const opSummary = item.writes.map((op) => `${op.op}@${op.line}`).join(", ");
-  console.log(`- ${item.route} (${item.file})`);
-  console.log(`  collections: ${item.collections.join(", ") || "(dynamic only)"}`);
-  console.log(`  writes: ${opSummary}`);
-}
-console.log("");
-
-console.log("Client Storage operations");
-console.log("-------------------------");
-for (const item of storageResults) {
-  const opSummary = item.storageOperations.map((op) => `${op.op}@${op.line}`).join(", ");
-  console.log(`- ${item.route} (${item.file})`);
-  console.log(`  operations: ${opSummary}`);
-  console.log(`  path hints: ${item.storagePathHints.join(", ") || "(dynamic only)"}`);
-}
-console.log("");
-
-console.log("Company isolation risks");
-console.log("-----------------------");
-if (unscopedResults.length === 0) {
-  console.log("- None found in static scan.");
-} else {
-  for (const item of unscopedResults) {
-    console.log(`- ${item.route} (${item.file})`);
-    console.log(`  collections without explicit tenant-scoped rules: ${item.unscopedCompanyCollections.join(", ")}`);
-  }
-}
-console.log("");
-
-console.log("Sensitive collection touchpoints");
-console.log("--------------------------------");
-for (const item of sensitiveResults) {
-  const opSummary = item.operations.map((op) => `${op.op}@${op.line}`).join(", ");
-  console.log(`- ${item.route} (${item.file})`);
-  console.log(`  collections: ${item.collections.join(", ") || "(dynamic only)"}`);
-  console.log(`  sensitive: ${item.sensitive.join(", ") || "(none)"}`);
-  console.log(`  operations: ${opSummary || "(none)"}`);
-  if (item.adminGateRisk) {
-    console.log("  risk: admin/platform gate still reads users from the browser");
-  }
+for (const removedRoute of [
+  "src/app/api/dvla/vehicle/route.js",
+  "src/app/api/security/login-attempt/route.js",
+  "src/app/api/auth/user-code-login/route.js",
+  "src/app/api/passkeys/login/options/route.js",
+]) {
+  if (fs.existsSync(path.join(root, removedRoute))) failures.push(`Obsolete public/legacy route still exists: ${removedRoute}`);
 }
 
-if (adminGateRisks.length > 0) {
-  console.error("");
-  console.error("Failing: admin/platform gate files must use server bootstrap, not direct users reads.");
+console.log("BAS semantic security audit");
+console.log(JSON.stringify({ ...audited, tenantCollections: TENANT_COLLECTION_MANIFEST.length, failures: failures.length }, null, 2));
+if (failures.length) {
+  failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
+} else {
+  console.log("Security audit passed.");
 }

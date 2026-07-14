@@ -13,10 +13,12 @@ import {
   addDoc,
 } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { tenantCollectionQuery, tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
 
 export default function BookWorkPage() {
   const { id } = useParams();
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
 
   const [vehicle, setVehicle] = useState(null);
   const [startDate, setStartDate] = useState("");
@@ -41,10 +43,7 @@ export default function BookWorkPage() {
   const checkExistingBookings = async () => {
     if (!startDate) return;
 
-    const q = query(
-      collection(db, "workBookings"),
-      where("vehicleId", "==", id)
-    );
+    const q = tenantCollectionQuery(db, "workBookings", dataAccessState, [where("vehicleId", "==", id)]);
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map((doc) => doc.data());
 
@@ -66,7 +65,7 @@ export default function BookWorkPage() {
       return;
     }
 
-    const q = query(collection(db, "workBookings"), where("vehicleId", "==", id));
+    const q = tenantCollectionQuery(db, "workBookings", dataAccessState, [where("vehicleId", "==", id)]);
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map((doc) => doc.data());
 
@@ -96,7 +95,7 @@ export default function BookWorkPage() {
       status: mode === "offroad" ? "Off Road" : "Scheduled",
     };
 
-    await addDoc(collection(db, "workBookings"), record);
+    await addDoc(collection(db, "workBookings"), tenantPayload(dataAccessState, record));
     alert("Maintenance work booked.");
     resetForm();
   };

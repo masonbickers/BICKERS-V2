@@ -93,9 +93,9 @@ Section 14 removes weak access paths from the rules:
 - email-domain fallback access is removed
 - platform admin is based on `users/{uid}.role == "platformAdmin"`, not hard-coded email lists
 - users must have an enabled `users/{uid}` record before app access is granted
-- setup-code login is disabled by default and requires an explicit company security setting
+- legacy Firebase setup-code and application-native passkey login are removed
 - `mfaSecrets`, `passkeyCredentials`, `passkeyChallenges`, and `setupCodeRateLimits` are server-only
-- unmatched collections are platform-admin read-only in rules; writes must use explicit collection rules or server APIs
+- unmatched collections are denied; cross-company platform-admin work must use protected server APIs
 
 ## Server API boundary
 
@@ -107,7 +107,7 @@ Section 15 adds dedicated platform server APIs for sensitive admin operations:
 - `/api/platform/employee-linking/link`
 - `/api/platform/audit-log`
 
-These routes require a verified Firebase ID token and an enabled `users/{uid}` record with `role == "platformAdmin"`. Sensitive writes use the Admin REST helper rather than client Firestore writes, and each mutation writes to `adminAuditLogs`. MFA setup/verify and setup-code login also write server-side audit/security records without exposing private MFA or passkey data to the client.
+These routes require a verified Clerk session bridged to an enabled, non-reset-required `users/{uid}` record with `role == "platformAdmin"`. Sensitive writes use the Admin SDK boundary rather than client Firestore writes, and each mutation writes to `adminAuditLogs`. MFA setup and verification keep secrets server-side.
 
 ## Platform Admin Control Centre
 

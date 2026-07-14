@@ -1,57 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import { collection, query } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { useAuth } from "@/app/context/authContext";
 import { normalizePlatformRole } from "@/app/utils/accessControl";
 import {
   isPermissionDeniedError,
 } from "@/app/utils/pageAccessEvents";
+import { TENANT_COLLECTIONS } from "@/app/config/tenantCollections";
 
 export function isPlatformAdminRole(role) {
   return normalizePlatformRole(role) === "platformAdmin";
 }
 
-export const TENANT_COLLECTIONS = new Set([
-  "bookings",
-  "clients",
-  "clientEmails",
-  "deletedBookings",
-  "employees",
-  "equipment",
-  "holidays",
-  "jobSheets",
-  "notes",
-  "recces",
-  "shiftChangeRequests",
-  "maintenance",
-  "maintenanceBookings",
-  "maintenanceJobs",
-  "motPreChecks",
-  "serviceRecords",
-  "defectReports",
-  "defects",
-  "vehicleChecks",
-  "vehicleIssues",
-  "vehicleUsageNotes",
-  "vehiclePrepRecords",
-  "workBookings",
-  "timesheets",
-  "timesheetQueries",
-  "contacts",
-  "invoiceQueue",
-  "sickLeave",
-  "uCraneFreelancers",
-  "lorries",
-  "vehicles",
-  "hsRegister",
-  "hrDocuments",
-  "hsCheckRecords",
-  "ppeIssueRecords",
-  "employeeTrainingRecords",
-]);
+export { TENANT_COLLECTIONS };
 
-function currentCompanyId(authState = {}) {
+export function currentCompanyId(authState = {}) {
   return String(authState?.userDoc?.companyId || "").trim();
 }
 
@@ -71,7 +35,7 @@ export function resolveDataAccess(authState = {}, options = {}) {
   const companyId = currentCompanyId(authState);
   const isPlatformAdmin = role === "platformAdmin";
 
-  if (authState?.loading === true) {
+  if (authState?.loading === true || authState?.accessReady === false) {
     return {
       allowed: false,
       checking: true,
@@ -94,11 +58,12 @@ export function resolveDataAccess(authState = {}, options = {}) {
   }
 
   const archivedOrDisabled =
-    authState?.isEnabled === false ||
-    userDoc?.isEnabled === false ||
+    authState?.isEnabled !== true ||
+    userDoc?.isEnabled !== true ||
     userDoc?.disabled === true ||
     userDoc?.archived === true ||
     userDoc?.isArchived === true ||
+    userDoc?.credentialResetRequired === true ||
     String(userDoc?.role || "").trim().toLowerCase() === "archived";
 
   if (archivedOrDisabled) {
@@ -106,6 +71,17 @@ export function resolveDataAccess(authState = {}, options = {}) {
       allowed: false,
       checking: false,
       reason: "Account disabled.",
+      role,
+      companyId,
+      isPlatformAdmin,
+    };
+  }
+
+  if (!companyId) {
+    return {
+      allowed: false,
+      checking: false,
+      reason: "Company membership is required.",
       role,
       companyId,
       isPlatformAdmin,
@@ -145,35 +121,21 @@ export function tenantCollectionQuery(db, collectionName, authState, constraints
   const gate = resolveDataAccess(authState, options);
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
+  if (!TENANT_COLLECTIONS.has(collectionName)) {
+    throw createDataAccessError(`Collection ${collectionName} is not in the tenant manifest.`);
+  }
+
   const ref = collection(db, collectionName);
   const queryConstraints = Array.isArray(constraints) ? constraints : [];
+  const companyConstraint = where("companyId", "==", gate.companyId);
 
-  // Single-company quick fix: auth/enabled-user security stays in rules; companyId filtering is disabled.
   reportTenantQueryDebug({
     authState,
     collectionName,
-    companyId: currentCompanyId(authState),
-    tenantFilterApplied: false,
+    companyId: gate.companyId,
+    tenantFilterApplied: true,
   });
-  return queryConstraints.length ? query(ref, ...queryConstraints) : ref;
-}
-
-export function emergencyBroadCollectionRef(db, collectionName, authState, operation = "Firestore broad read") {
-  const gate = resolveDataAccess(authState);
-  if (!gate.allowed) throw createDataAccessError(gate.reason);
-
-  if (typeof window !== "undefined") {
-    // TEMPORARY EMERGENCY READ FALLBACK - REMOVE AFTER TENANT QUERY MIGRATION
-    console.warn("[emergency-broad-read-fallback]", {
-      uid: authState?.user?.uid || "",
-      companyId: currentCompanyId(authState),
-      collectionName,
-      operation,
-      tenantFilterApplied: false,
-    });
-  }
-
-  return collection(db, collectionName);
+  return query(ref, companyConstraint, ...queryConstraints);
 }
 
 export function tenantPayload(authState, payload = {}, options = {}) {
@@ -183,8 +145,16 @@ export function tenantPayload(authState, payload = {}, options = {}) {
   });
   if (!gate.allowed) throw createDataAccessError(gate.reason);
 
-  // Single-company quick fix: do not require/stamp companyId on writes.
-  return { ...payload };
+  const incomingCompanyId = String(payload?.companyId || "").trim();
+  if (incomingCompanyId && incomingCompanyId !== gate.companyId) {
+    throw createDataAccessError("Cross-company writes are not allowed.");
+  }
+  const actorUid = String(authState?.user?.uid || "").trim();
+  return {
+    ...payload,
+    companyId: gate.companyId,
+    ...(!payload?.createdByUid && actorUid ? { createdByUid: actorUid } : {}),
+  };
 }
 
 export function dataAccessKey(authState = {}) {
@@ -205,9 +175,10 @@ export function useDataAccessState() {
       user: authAccess.user,
       userDoc: authAccess.userDoc,
       isEnabled: authAccess.isEnabled,
+      isAdmin: authAccess.isAdmin,
       loading: authAccess.loading,
       accessReady: authAccess.accessReady,
     }),
-    [authAccess.accessReady, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
+    [authAccess.accessReady, authAccess.isAdmin, authAccess.isEnabled, authAccess.loading, authAccess.user, authAccess.userDoc]
   );
 }

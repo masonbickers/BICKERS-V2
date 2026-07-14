@@ -1,26 +1,26 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  LabelList,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
+const lazyRechart = (name) => dynamic(() => import("recharts").then((module) => module[name]), { ssr: false });
+const BarChart = lazyRechart("BarChart");
+const Bar = lazyRechart("Bar");
+const XAxis = lazyRechart("XAxis");
+const YAxis = lazyRechart("YAxis");
+const Tooltip = lazyRechart("Tooltip");
+const ResponsiveContainer = lazyRechart("ResponsiveContainer");
+const CartesianGrid = lazyRechart("CartesianGrid");
+const LabelList = lazyRechart("LabelList");
+const PieChart = lazyRechart("PieChart");
+const Pie = lazyRechart("Pie");
+const Cell = lazyRechart("Cell");
+const Legend = lazyRechart("Legend");
 import {
   BarChart3,
   BriefcaseBusiness,

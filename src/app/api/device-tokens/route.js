@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { adminPatchDocument, adminReadDocument } from "@/app/api/_firebaseAdminRest";
-import { jsonError, readBearerToken, verifyFirebaseIdToken } from "@/app/api/admin/_lib";
+import { jsonError, requireActiveMemberFromRequest } from "@/app/api/admin/_lib";
 
 export const runtime = "nodejs";
 
@@ -24,9 +24,9 @@ function hasReadyMfa(user = {}, privateSecret = {}) {
 
 export async function POST(req) {
   try {
-    const idToken = readBearerToken(req);
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser?.uid) return jsonError("Not signed in.", 401);
+    const access = await requireActiveMemberFromRequest(req);
+    if (access.error) return access.error;
+    const { verifiedUser, userData: user } = access;
 
     const body = await req.json().catch(() => ({}));
     const token = cleanString(body.token || body.expoPushToken || body.pushToken, 500);
@@ -35,12 +35,8 @@ export async function POST(req) {
 
     if (!token) return jsonError("Device token is required.", 400);
 
-    const [user, privateSecret] = await Promise.all([
-      adminReadDocument("users", verifiedUser.uid),
-      adminReadDocument("mfaSecrets", verifiedUser.uid),
-    ]);
+    const privateSecret = await adminReadDocument("mfaSecrets", verifiedUser.uid);
 
-    if (!user || user.isEnabled === false) return jsonError("Account disabled.", 403);
     if (!hasReadyMfa(user, privateSecret)) {
       return jsonError("Verified phone and authenticator MFA are required.", 403);
     }

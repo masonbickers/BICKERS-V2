@@ -16,6 +16,7 @@ import {
   reportDataAccessBlocked,
   resolveDataAccess,
   tenantCollectionQuery,
+  tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import {
@@ -734,7 +735,10 @@ export default function JobSheetPage() {
     const prev = job.status;
     setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: "complete", completedAt: new Date() } : j)));
     try {
-      await updateDoc(doc(db, "bookings", job.id), { status: "complete", completedAt: serverTimestamp() });
+      await updateDoc(
+        doc(db, "bookings", job.id),
+        tenantPayload(dataAccessState, { status: "complete", completedAt: serverTimestamp() })
+      );
     } catch (e) {
       setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
       alert("Could not mark complete. Please try again.");
@@ -745,11 +749,11 @@ export default function JobSheetPage() {
     const prev = job.status;
     setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: nextStatus } : j)));
     try {
-      await updateDoc(doc(db, "bookings", job.id), {
+      await updateDoc(doc(db, "bookings", job.id), tenantPayload(dataAccessState, {
         status: nextStatus,
         updatedAt: serverTimestamp(),
         ...(nextStatus === "complete" ? { completedAt: serverTimestamp() } : {}),
-      });
+      }));
     } catch (e) {
       setBookings((old) => old.map((j) => (j.id === job.id ? { ...j, status: prev } : j)));
       alert("Could not update job status. Please try again.");

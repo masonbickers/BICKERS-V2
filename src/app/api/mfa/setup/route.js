@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import speakeasy from "speakeasy";
-import { verifyFirebaseIdTokenFromRequest } from "../_lib";
+import { requireActiveMemberFromRequest } from "../../admin/_lib";
 import { adminCreateDocument, adminPatchDocument, adminReadDocument } from "../../_firebaseAdminRest";
 
 export const runtime = "nodejs";
@@ -33,15 +33,9 @@ async function writeMfaAudit(req, verifiedUser, action, after = {}) {
 
 export async function POST(req) {
   try {
-    const verifiedUser = await verifyFirebaseIdTokenFromRequest(req);
-    if (!verifiedUser?.uid) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
-
-    const userData = await adminReadDocument("users", verifiedUser.uid);
-    if (userData?.isEnabled === false) {
-      return NextResponse.json({ error: "Account disabled." }, { status: 403 });
-    }
+    const access = await requireActiveMemberFromRequest(req);
+    if (access.error) return access.error;
+    const { verifiedUser, userData } = access;
 
     const secretDoc = (await adminReadDocument("mfaSecrets", verifiedUser.uid)) || {};
     const existingSecret = String(secretDoc?.secret || "").trim();

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Trash2, X } from "lucide-react";
 import { db } from "../../../firebaseConfig";
+import { tenantPayload } from "@/app/utils/firestoreAccess";
 import {
   DEFAULT_VEHICLE_COMPLIANCE_SETTINGS,
   normalizeVehicleCategoryColor,
@@ -146,6 +147,7 @@ export default function VehicleCategorySettingsModal({
   categories = [],
   settings = null,
   vehicles = [],
+  dataAccessState,
   onClose,
   onSaved,
 }) {
@@ -274,7 +276,10 @@ export default function VehicleCategorySettingsModal({
     try {
       if (norm(clean) !== norm(oldCategory)) {
         await Promise.all(
-          affected.map((vehicle) => updateDoc(doc(db, "vehicles", vehicle.id), { category: clean }))
+          affected.map((vehicle) => updateDoc(
+            doc(db, "vehicles", vehicle.id),
+            tenantPayload(dataAccessState, { category: clean })
+          ))
         );
       }
       await saveSettings(nextCategories, orderedMeta);

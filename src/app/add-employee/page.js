@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { db } from "../../../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
-import { DEFAULT_COMPANY_ID, cleanAccessEmail } from "@/app/utils/appAccessRecords";
+import { cleanAccessEmail } from "@/app/utils/appAccessRecords";
+import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -183,6 +184,7 @@ const focusCss = `
 
 export default function AddEmployeePage() {
   const router = useRouter();
+  const dataAccessState = useDataAccessState();
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -210,14 +212,13 @@ export default function AddEmployeePage() {
       const name = String(formData.name || "").trim();
       const email = cleanAccessEmail(formData.email);
       const phoneNumber = String(formData.mobile || "").trim();
-      await addDoc(collection(db, "employees"), {
+      await addDoc(collection(db, "employees"), tenantPayload(dataAccessState, {
         ...formData,
         name,
         fullName: name,
         employeeName: name,
         email,
         emails: [email].filter(Boolean),
-        companyId: DEFAULT_COMPANY_ID,
         isEnabled: true,
         active: true,
         appAccess: { user: true, service: false },
@@ -226,7 +227,7 @@ export default function AddEmployeePage() {
         isService: false,
         phoneNumber,
         createdAt: serverTimestamp(),
-      });
+      }));
       clearBookingReferenceCache();
       alert("Employee added");
       router.push("/employees");

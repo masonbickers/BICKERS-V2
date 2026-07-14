@@ -1,0 +1,56 @@
+export const TENANT_COLLECTION_MANIFEST = Object.freeze([
+  "appState",
+  "bookings",
+  "clients",
+  "clientEmails",
+  "contacts",
+  "defectReports",
+  "defects",
+  "deletedBookings",
+  "deletedQuotes",
+  "employeeTrainingRecords",
+  "employees",
+  "equipment",
+  "holidayAllowances",
+  "holidays",
+  "hrDocuments",
+  "hsCheckRecords",
+  "hsRegister",
+  "invoiceQueue",
+  "jobSheets",
+  "lorries",
+  "maintenance",
+  "maintenanceBookings",
+  "maintenanceJobs",
+  "motPreChecks",
+  "notes",
+  "ppeIssueRecords",
+  "recces",
+  "serviceRecords",
+  "shiftChangeRequests",
+  "sickLeave",
+  "timesheetQueries",
+  "timesheets",
+  "uCraneFreelancers",
+  "vehicleChecks",
+  "vehicleIssues",
+  "vehiclePrepRecords",
+  "vehicleUsageNotes",
+  "vehicles",
+  "workBookings",
+]);
+
+export const TENANT_COLLECTIONS = new Set(TENANT_COLLECTION_MANIFEST);
+
+export const USER_SELF_SERVICE_COLLECTIONS = Object.freeze([
+  "holidays",
+  "shiftChangeRequests",
+  "timesheetQueries",
+  "timesheets",
+]);
+
+export const USER_REPORT_CREATE_COLLECTIONS = Object.freeze([
+  "defectReports",
+  "hsRegister",
+  "vehicleIssues",
+]);

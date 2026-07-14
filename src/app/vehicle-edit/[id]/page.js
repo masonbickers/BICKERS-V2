@@ -1187,7 +1187,11 @@ export default function EditVehiclePage() {
 
     setFetchingMotHistory(true);
     try {
-      const res = await fetch(`/api/dvla/mot-history?vrm=${encodeURIComponent(vrm)}`);
+      const idToken = await auth.currentUser?.getIdToken?.();
+      if (!idToken) throw new Error("Please sign in again.");
+      const res = await fetch(`/api/dvla/mot-history?vrm=${encodeURIComponent(vrm)}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {

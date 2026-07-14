@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { auth, db } from "../../../../firebaseConfig";
-import { signOut } from "firebase/auth";
+import { db } from "../../../../firebaseConfig";
 import {
   getDocs,
   doc,
@@ -139,7 +138,6 @@ export default function EditNotePage() {
   };
 
   const handleHome = async () => {
-    await signOut(auth);
     router.push("/home");
   };
 

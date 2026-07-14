@@ -16,6 +16,8 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { companyStoragePath } from "@/app/utils/storageAccess";
+import { calendarDayDifference } from "@/app/utils/dateNormalization";
 
 const UI = {
   radius: 8,
@@ -264,16 +266,8 @@ const employeeDisplayName = (employee = {}) =>
   employee.id ||
   "Employee";
 
-const todayStart = () => {
-  const today = new Date();
-  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
-};
-
 const daysUntil = (value) => {
-  const date = toDate(value);
-  if (!date) return null;
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.floor((target - todayStart()) / 86400000);
+  return calendarDayDifference(value);
 };
 
 const safeFileName = (name) =>
@@ -979,7 +973,7 @@ function LegacyHsRegisterDetailPage() {
       let certificatePatch = {};
       if (isCertificateCheck && checkDraft.certificateFile) {
         const file = checkDraft.certificateFile;
-        const path = `h-and-s/certificates/${id}/checks/${Date.now()}-${safeFileName(file.name)}`;
+        const path = companyStoragePath(dataAccessState, `h-and-s/certificates/${id}/checks/${Date.now()}-${safeFileName(file.name)}`);
         const ref = storageRef(storage, path);
         const snapshot = await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
         const url = await getDownloadURL(snapshot.ref);
@@ -1084,7 +1078,7 @@ function LegacyHsRegisterDetailPage() {
     if (!file) return;
     setUploading(true);
     try {
-      const path = `h-and-s/certificates/${id}/${Date.now()}-${safeFileName(file.name)}`;
+      const path = companyStoragePath(dataAccessState, `h-and-s/certificates/${id}/${Date.now()}-${safeFileName(file.name)}`);
       const ref = storageRef(storage, path);
       const snapshot = await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
       const url = await getDownloadURL(snapshot.ref);
@@ -1115,7 +1109,7 @@ function LegacyHsRegisterDetailPage() {
     if (!entry?.id || !file) return;
     setHistoryUploadId(entry.id);
     try {
-      const path = `h-and-s/certificates/${id}/checks/${entry.id}-${Date.now()}-${safeFileName(file.name)}`;
+      const path = companyStoragePath(dataAccessState, `h-and-s/certificates/${id}/checks/${entry.id}-${Date.now()}-${safeFileName(file.name)}`);
       const ref = storageRef(storage, path);
       const snapshot = await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
       const url = await getDownloadURL(snapshot.ref);

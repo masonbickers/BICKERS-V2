@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -17,6 +17,8 @@ import {
   contactIdFromEmail,
   employeesKey,
   normalizeVehicleKeysListForLookup,
+  collectVehicleIdentityKeySet,
+  collectVehicleIdentityKeys,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
 import {
@@ -36,6 +38,8 @@ import {
   buildNextLifecycle,
   buildNextStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+import { analyzeVehiclePencilConflicts, expandBookingDates } from "@/app/utils/vehiclePencilConflict";
+import { analyzeResourceConflicts, formatResourceConflictLines } from "@/app/utils/resourceConflict";
 import {
   dataAccessKey,
   handleFirestoreAccessError,
@@ -438,21 +442,41 @@ const VEHICLE_STATUSES = [
 
 const SECOND_PENCIL_STATUS = "Second Pencil";
 const BLOCKING_STATUSES = ["Confirmed", "First Pencil", SECOND_PENCIL_STATUS];
-const SECOND_PENCIL_BLOCKING_STATUSES = [SECOND_PENCIL_STATUS, "Maintenance"];
 const doesBlockBooking = (b) =>
   BLOCKING_STATUSES.includes((b.status || "").trim());
-const isVehicleBlockingStatus = (status) => {
-  const s = (status || "").trim();
-  return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
-};
-const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
+
+const isVehiclePencilConflictDebugEnabled = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("debugVehiclePencilConflicts") === "1";
+  } catch {
+    return false;
   }
-  return existing.some((s) => isVehicleBlockingStatus(s));
+};
+
+const syncVehicleStatusesToBookingStatus = (setVehicleStatusState, selectedVehicles, previousStatus, nextStatus) => {
+  const safeNext = String(nextStatus || "").trim();
+  const safePrevious = String(previousStatus || "").trim() || safeNext;
+  if (!safeNext || !Array.isArray(selectedVehicles) || !selectedVehicles.length) return;
+
+  setVehicleStatusState((prev) => {
+    let changed = false;
+    const next = { ...prev };
+
+    selectedVehicles.forEach((vehicleId) => {
+      const key = String(vehicleId || "").trim();
+      if (!key) return;
+      const currentStatus = String(next[key] || safePrevious).trim();
+      if (!currentStatus || currentStatus === safePrevious) {
+        if (next[key] !== safeNext) {
+          next[key] = safeNext;
+          changed = true;
+        }
+      }
+    });
+
+    return changed ? next : prev;
+  });
 };
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
@@ -508,17 +532,6 @@ const toYMD = (raw) => {
   }
   const d = new Date(raw);
   return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-};
-
-const expandBookingDates = (b) => {
-  if (Array.isArray(b.bookingDates) && b.bookingDates.length)
-    return b.bookingDates;
-  const one = (b.date || "").slice(0, 10);
-  const s = (b.startDate || "").slice(0, 10);
-  const e = (b.endDate || "").slice(0, 10);
-  if (one) return [one];
-  if (s && e) return enumerateDaysYMD_UTC(s, e);
-  return [];
 };
 
 const expandMaintenanceBookingDates = (b) => {
@@ -1452,6 +1465,17 @@ export default function EditBookingPage() {
   const [existingStatusHistory, setExistingStatusHistory] = useState(prefill.existingStatusHistory);
   const [existingLifecycle, setExistingLifecycle] = useState(prefill.existingLifecycle);
   const [originalBookingData, setOriginalBookingData] = useState(prefill.originalBookingData);
+  const [originalBookingStatusForVehicleConflicts, setOriginalBookingStatusForVehicleConflicts] = useState(prefill.status);
+  const [originalVehicleIdsForConflicts, setOriginalVehicleIdsForConflicts] = useState(prefill.vehicles);
+  const [originalVehicleStatusMapForConflicts, setOriginalVehicleStatusMapForConflicts] = useState(prefill.vehicleStatus);
+  const [originalBookingDatesForConflicts, setOriginalBookingDatesForConflicts] = useState(() =>
+    expandBookingDates({
+      startDate: prefill.startDate,
+      endDate: prefill.endDate,
+      date: prefill.date,
+      bookingDates: prefill.customDates,
+    })
+  );
 
   const isMaintenance = status === "Maintenance";
   const isBickersJob = status === "Bickers";
@@ -1465,14 +1489,32 @@ export default function EditBookingPage() {
     if (isRange && endDate) return enumerateDaysYMD_UTC(startDate, endDate);
     return [startDate];
   }, [dateEntryEnabled, useCustomDates, customDates, startDate, isRange, endDate]);
-  const availabilityDateKey = useMemo(
-    () => [...selectedDates].filter(Boolean).sort().join("|"),
-    [selectedDates]
-  );
+  const availabilityScanDates = useMemo(() => {
+    const next = new Set();
+    [...(selectedDates || []), ...(originalBookingDatesForConflicts || [])].forEach((date) => {
+      if (date) next.add(date);
+    });
+    return Array.from(next).sort();
+  }, [selectedDates, originalBookingDatesForConflicts]);
   const selectedVehicleKey = useMemo(
     () => [...vehicles].filter(Boolean).sort().join("|"),
     [vehicles]
   );
+  const allVehicleIds = useMemo(() => Object.keys(vehicleLookup?.byId || {}), [vehicleLookup?.byId]);
+  const selectedVehicleIdsForConflicts = useMemo(() => {
+    const normalized = normalizeVehicleKeysListForLookup(vehicles, vehicleLookup);
+    const identityTokens = collectVehicleIdentityKeys(vehicles, vehicleLookup);
+    return Array.from(new Set([...normalized, ...identityTokens]));
+  }, [vehicleLookup, vehicles]);
+  const selectedVehicleConflictKeys = useMemo(
+    () => collectVehicleIdentityKeySet(selectedVehicleIdsForConflicts, vehicleLookup),
+    [selectedVehicleIdsForConflicts, vehicleLookup]
+  );
+  const isVehicleConflictRelevant = useCallback((item) => {
+    if (!item) return false;
+    if (selectedVehicleConflictKeys.has(item.vehicleId)) return true;
+    return (item.vehicleMatchKeys || []).some((key) => selectedVehicleConflictKeys.has(key));
+  }, [selectedVehicleConflictKeys]);
 
   const coreFilled = isMaintenance
     ? Boolean((location || "").trim())
@@ -1747,6 +1789,15 @@ export default function EditBookingPage() {
         if (!vsFixed[vid]) vsFixed[vid] = bookingData.status || "Confirmed";
       });
       setVehicleStatus(vsFixed);
+      setOriginalBookingStatusForVehicleConflicts(bookingData.status || "Confirmed");
+      setOriginalBookingDatesForConflicts(
+        expandBookingDates({
+          startDate: bookingData.startDate,
+          endDate: bookingData.endDate,
+          date: bookingData.date,
+          bookingDates: bookingData.bookingDates,
+        })
+      );
 
       // equipment
       const rawEquip = Array.isArray(bookingData.equipment)
@@ -1869,17 +1920,21 @@ export default function EditBookingPage() {
         const nextVehicleLookup = referenceData.vehicleLookup || { byId: {}, byReg: {}, byName: {} };
         const normalizedVehicleIds = normalizeVehicleKeysListForLookup(rawVehicles, nextVehicleLookup);
         const resolvedVehicleIds = normalizedVehicleIds.length > 0 ? normalizedVehicleIds : vehicleIds;
+        const resolvedVehicleStatus = resolvedVehicleIds.reduce((acc, vid) => {
+          acc[vid] = vsFixed[vid] || bookingData.status || "Confirmed";
+          return acc;
+        }, {});
+        const resolvedVehicleGroups = resolvedVehicleIds
+          .map((vehicleId) => nextVehicleLookup?.byId?.[vehicleId])
+          .filter(Boolean);
+
+        setOriginalVehicleIdsForConflicts(resolvedVehicleIds);
+        setOriginalVehicleStatusMapForConflicts(resolvedVehicleStatus);
         setVehicles(resolvedVehicleIds);
-        setVehicleStatus((prev) => {
-          const next = { ...prev };
-          resolvedVehicleIds.forEach((vid) => {
-            if (!next[vid]) next[vid] = bookingData.status || "Confirmed";
-          });
-          Object.keys(next).forEach((vid) => {
-            if (!resolvedVehicleIds.includes(vid)) delete next[vid];
-          });
-          return next;
-        });
+        setVehicleStatus(resolvedVehicleStatus);
+        if (resolvedVehicleGroups.length) {
+          setVehicleGroups((prev) => mergeSelectedVehiclesIntoGroups(prev, resolvedVehicleGroups));
+        }
       } catch (err) {
         console.error("Failed loading edit page supporting data:", err);
       } finally {
@@ -1907,7 +1962,7 @@ export default function EditBookingPage() {
   }, [accessKey, bookingId, dataAccessState, prefill.hasBooking, returnHref, router]);
 
   useEffect(() => {
-    const dates = availabilityDateKey.split("|").filter(Boolean);
+    const dates = availabilityScanDates;
     if (!dates.length) {
       setAllBookings([]);
       setHolidayBookings([]);
@@ -1940,7 +1995,7 @@ export default function EditBookingPage() {
     return () => {
       cancelled = true;
     };
-  }, [accessKey, availabilityDateKey, bookingId, dataAccessState]);
+  }, [accessKey, availabilityScanDates, bookingId, dataAccessState]);
 
   useEffect(() => {
     const vehicleIds = selectedVehicleKey.split("|").filter(Boolean);
@@ -1992,43 +2047,115 @@ export default function EditBookingPage() {
       .filter((b) => b?.id && b.id !== bookingId)
       .filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates, bookingId]);
+  const conflictScanBookings = useMemo(() => {
+    if (!availabilityScanDates.length) return [];
+    return (allBookings || [])
+      .filter((b) => b?.id && b.id !== bookingId)
+      .filter((b) => anyDateOverlap(expandBookingDates(b), availabilityScanDates));
+  }, [allBookings, availabilityScanDates, bookingId]);
 
-  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-    const booked = [];
-    const held = [];
+  const selectedVehicleStatusByIdForConflicts = useMemo(() => {
+    const next = {};
+    selectedVehicleIdsForConflicts.forEach((vehicleId) => {
+      if (!vehicleLookup?.byId?.[vehicleId]) return;
+      next[vehicleId] = vehicleStatus[vehicleId] || status;
+    });
+    return next;
+  }, [selectedVehicleIdsForConflicts, status, vehicleStatus, vehicleLookup?.byId]);
 
-    overlapping.forEach((b) => {
-      const keys = normalizeVehicleKeysListForLookup(b.vehicles || [], vehicleLookup);
-      const vmap = b.vehicleStatus || {};
+  const {
+    bookedVehicleIds,
+    heldVehicleIds,
+    vehicleBlockingStatusById,
+    vehicleBlockingStatusesById,
+    requestedConflictByVehicleId,
+    requestedConflictList,
+    upgradeOpportunities,
+    blockedSecondAffectedBookingsByVehicleId,
+  } = useMemo(
+    // Conflict priority (high -> low): Confirmed, First Pencil, Second Pencil.
+    // This analyzer is canonical for status changes and date changes so
+    // edit/create both obey the same availability model.
+      () =>
+      analyzeVehiclePencilConflicts({
+        allBookings: conflictScanBookings,
+        vehicleLookup,
+        selectedDates,
+        selectedVehicleIds: allVehicleIds,
+        selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+        selectedDefaultStatus: status,
+        previousDates: originalBookingDatesForConflicts,
+        previousVehicleIds: originalVehicleIdsForConflicts,
+        previousVehicleStatuses: originalVehicleStatusMapForConflicts,
+        previousDefaultStatus: originalBookingStatusForVehicleConflicts,
+        excludeBookingId: bookingId || "",
+        debug: isVehiclePencilConflictDebugEnabled(),
+        debugContext: {
+          currentBookingId: bookingId || "",
+          currentBookingStatus: status,
+          currentBookingLabel: [production, client, bookingId]
+            .filter((value) => String(value || "").trim())
+            .join(" / "),
+          currentBookingReference: jobNumber || bookingId || "",
+          currentStartDate: startDate,
+          currentEndDate: endDate,
+          currentVehicleRawValues: vehicles,
+          currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+            vehicleId,
+            status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+          })),
+          currentVehicleIds: allVehicleIds,
+          localStorageKey: "debugVehiclePencilConflicts",
+        },
+      }),
+    [
+      conflictScanBookings,
+      originalBookingDatesForConflicts,
+      originalVehicleIdsForConflicts,
+      originalVehicleStatusMapForConflicts,
+      originalBookingStatusForVehicleConflicts,
+      selectedDates,
+      allVehicleIds,
+      selectedVehicleIdsForConflicts,
+      vehicleLookup,
+      selectedVehicleStatusByIdForConflicts,
+      status,
+      bookingId,
+      startDate,
+      endDate,
+      vehicles,
+      production,
+      client,
+      jobNumber,
+    ]
+  );
 
-      keys.forEach((vid) => {
-        const itemStatus = (vmap[vid] ?? b.status) || "";
-        if (!itemStatus) return;
-
-        if (isVehicleBlockingStatus(itemStatus)) {
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) {
-            blockingById[vid] = itemStatus;
-            booked.push(vid);
-          }
-        } else {
-          if (!held.includes(vid)) held.push(vid);
-        }
-      });
+  const selectedVehicleConflictLines = (conflicts = []) =>
+    conflicts.map((item) => {
+      const dateLabel = item.dateRanges.length ? item.dateRanges.join(", ") : "selected date(s)";
+      const currentStatus = item.bookingStatus || "unknown";
+      return `${item.vehicleLabel} is currently ${currentStatus} on ${item.bookingLabel} (${item.bookingReference}) for ${dateLabel}.`;
     });
 
-    return {
-      bookedVehicleIds: booked,
-      heldVehicleIds: held,
-      vehicleBlockingStatusById: blockingById,
-      vehicleBlockingStatusesById: blockingStatusesById,
-    };
-  }, [overlapping, vehicleLookup]);
+  const selectedVehicleConflictList = useMemo(
+    () => requestedConflictList.filter((item) => isVehicleConflictRelevant(item)),
+    [requestedConflictList, isVehicleConflictRelevant]
+  );
+
+  const canSelectVehicleAsSecondPencil = (vehicleId) => {
+    const statuses = vehicleBlockingStatusesById[vehicleId] || [];
+    if (!statuses.length) return false;
+    const normalized = statuses.map((item) => String(item || "").trim());
+    const hasFirstPencil = normalized.includes("First Pencil");
+    const hasHardBlock = normalized.some((item) => item === "Confirmed" || item === "Maintenance");
+    return hasFirstPencil && !hasHardBlock;
+  };
+
+  const buildBlockedSecondConflictLines = (blocked = []) =>
+    blocked.map((item) => {
+      const dateLabel = item?.dateRanges?.length ? item.dateRanges.join(", ") : "selected date(s)";
+      return `${item.vehicleLabel} is now unavailable for First Pencil due confirmed overlap with ${item.bookingLabel} (${item.bookingReference}) on ${dateLabel}.`;
+    });
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -2234,29 +2361,38 @@ export default function EditBookingPage() {
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-
-    (bookingRows || [])
-      .filter((booking) => anyDateOverlap(expandBookingDates(booking), dates))
-      .forEach((booking) => {
-        const keys = normalizeVehicleKeysListForLookup(booking.vehicles || [], vehicleLookup);
-        const vmap = booking.vehicleStatus || {};
-
-        keys.forEach((vid) => {
-          const itemStatus = (vmap[vid] ?? booking.status) || "";
-          if (!isVehicleBlockingStatus(itemStatus)) return;
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) blockingById[vid] = itemStatus;
-        });
-      });
-
-    return { blockingById, blockingStatusesById };
-  };
+  const buildVehicleConflictAnalysisForSave = (bookingRows = [], dates = selectedDates) =>
+    analyzeVehiclePencilConflicts({
+      allBookings: bookingRows || [],
+      vehicleLookup,
+      selectedDates: dates,
+      selectedVehicleIds: selectedVehicleIdsForConflicts,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: originalBookingDatesForConflicts,
+      previousVehicleIds: originalVehicleIdsForConflicts,
+      previousVehicleStatuses: originalVehicleStatusMapForConflicts,
+      previousDefaultStatus: originalBookingStatusForVehicleConflicts,
+      excludeBookingId: bookingId || "",
+      debug: isVehiclePencilConflictDebugEnabled(),
+        debugContext: {
+          currentBookingId: bookingId || "",
+          currentBookingStatus: status,
+          currentBookingLabel: [production, client, bookingId]
+            .filter((value) => String(value || "").trim())
+            .join(" / "),
+          currentBookingReference: jobNumber || bookingId || "",
+          currentStartDate: startDate,
+          currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: selectedVehicleIdsForConflicts,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
+    });
 
   /* ────────────────────────────────────────────────────────────
      Options that include custom Other names so they stay selectable
@@ -2391,7 +2527,11 @@ export default function EditBookingPage() {
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
-        if (!next[vehicleId]) next[vehicleId] = status;
+        if (!next[vehicleId]) {
+          next[vehicleId] = canSelectVehicleAsSecondPencil(vehicleId)
+            ? SECOND_PENCIL_STATUS
+            : status;
+        }
       } else {
         delete next[vehicleId];
       }
@@ -2409,26 +2549,6 @@ export default function EditBookingPage() {
   /* ────────────────────────────────────────────────────────────
      Submit (UPDATE)
   ───────────────────────────────────────────────────────────── */
-  const selectedVehicleConflictLabels = (
-    selectedIds,
-    statuses,
-    blockingStatuses = vehicleBlockingStatusesById,
-    blockingStatus = vehicleBlockingStatusById
-  ) =>
-    (selectedIds || [])
-      .filter((vehicleId) =>
-        existingVehicleStatusConflictsWithRequested(
-          blockingStatuses[vehicleId] || [],
-          statuses?.[vehicleId] || status
-        )
-      )
-      .map((vehicleId) => {
-        const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
-        const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
-        return `${label} (${existingStatus})`;
-      });
-
   const handleUpdate = async () => {
     if (!bookingId) return;
 
@@ -2465,10 +2585,14 @@ export default function EditBookingPage() {
     ]);
 
     const bookingDates = dateEntryEnabled ? selectedDates : [];
+    const shouldTraceConflicts = isVehiclePencilConflictDebugEnabled();
     let availabilityForSave = null;
     if (bookingDates.length) {
+      const availabilityProbeDates = Array.from(
+        new Set([...(bookingDates || []), ...(originalBookingDatesForConflicts || [])])
+      ).filter(Boolean);
       try {
-        availabilityForSave = await loadBookingAvailabilityForDates(db, bookingDates, {
+        availabilityForSave = await loadBookingAvailabilityForDates(db, availabilityProbeDates, {
           accessState: dataAccessState,
           currentBookingId: bookingId,
         });
@@ -2484,21 +2608,144 @@ export default function EditBookingPage() {
       }
     }
 
-    const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+    const freshVehicleConflict = availabilityForSave
+      ? buildVehicleConflictAnalysisForSave(availabilityForSave.bookings || [], bookingDates)
       : null;
-    const vehicleConflicts = selectedVehicleConflictLabels(
-      vehicles,
-      vehicleStatus,
-      freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
-      freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
+    const conflictResult = freshVehicleConflict || {};
+    const selectedConflictVehicleIds = selectedVehicleIdsForConflicts;
+    const vehicleConflicts = (availabilityForSave
+      ? conflictResult.requestedConflictList
+      : selectedVehicleConflictList
+    ).filter((item) => isVehicleConflictRelevant(item));
+    const conflictForCurrentStatus = (status || "").trim().toLowerCase();
+    const nonSecondVehicleConflicts = vehicleConflicts.filter(
+      (item) => String(item.bookingStatus || "").trim().toLowerCase() !== "second pencil"
     );
-    if (bookingDates.length && vehicleConflicts.length) {
+    const currentBookingLabel =
+      [production, client, bookingId]
+        .filter((value) => String(value || "").trim())
+        .join(" / ");
+    if (shouldTraceConflicts) {
+      console.log("[vehicle-pencil-conflict] result", {
+        bookingId: bookingId || "",
+        currentStatus: status,
+        startDate: startDate || "",
+        endDate: endDate || "",
+        assignedVehicles: vehicles,
+        selectedVehicleIdsForConflicts: selectedConflictVehicleIds,
+        requestedConflictCount: (conflictResult.requestedConflictList || []).length,
+        blockedSecondCount: conflictResult.blockedSecondAffectedBookingsByVehicleId
+          ? Object.keys(conflictResult.blockedSecondAffectedBookingsByVehicleId).length
+          : 0,
+        upgradeOpportunityCount: (conflictResult.upgradeOpportunities || []).length,
+        requestedConflictVehicles: vehicleConflicts.map((item) => item.vehicleId),
+        requestedConflictBookings: vehicleConflicts.map((item) => item.bookingId),
+      });
+    }
+    if (bookingDates.length && nonSecondVehicleConflicts.length) {
+      if (shouldTraceConflicts) {
+        console.log("[vehicle-pencil-conflict] prompt triggered", {
+          type: "requested-conflict",
+          bookingId: bookingId || "",
+          status,
+          startDate: startDate || "",
+          endDate: endDate || "",
+          vehicles: vehicles,
+          assignedVehicleIds: selectedConflictVehicleIds,
+          promptTriggered: true,
+          conflictResult: {
+            requestedConflictCount: (conflictResult.requestedConflictList || []).length,
+            blockedSecondCount: conflictResult.blockedSecondAffectedBookingsByVehicleId
+              ? Object.keys(conflictResult.blockedSecondAffectedBookingsByVehicleId).length
+              : 0,
+            upgradeOpportunityCount: (conflictResult.upgradeOpportunities || []).length,
+          },
+          conflictCount: vehicleConflicts.length,
+        });
+      }
       return alert(
-        `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
+        `Current booking: ${currentBookingLabel}\n\nOne or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${selectedVehicleConflictLines(vehicleConflicts).join(
           "\n"
-        )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
+        )}\n\nConfirmed blocks all other holds. First Pencil blocks another First Pencil, but Second Pencil can sit behind a First Pencil.`
       );
+    }
+
+    const blockedSecondConflictLines = buildBlockedSecondConflictLines(
+      Object.entries(freshVehicleConflict?.blockedSecondAffectedBookingsByVehicleId || {}).flatMap(
+        ([vehicleId, entries]) =>
+          entries.filter((entry) => isVehicleConflictRelevant({ ...entry, vehicleId }))
+      )
+    ).filter(Boolean);
+    const hasBlockedSecondOnlyConflict =
+      conflictForCurrentStatus === "confirmed" &&
+      blockedSecondConflictLines.length > 0 &&
+      !nonSecondVehicleConflicts.length;
+    if (hasBlockedSecondOnlyConflict) {
+      if (shouldTraceConflicts) {
+        console.log("[vehicle-pencil-conflict] prompt triggered", {
+          type: "blocked-second-pencil",
+          bookingId: bookingId || "",
+          status,
+          startDate: startDate || "",
+          endDate: endDate || "",
+          vehicles: vehicles,
+          assignedVehicleIds: selectedConflictVehicleIds,
+          promptTriggered: true,
+          conflictResult: {
+            requestedConflictCount: (conflictResult.requestedConflictList || []).length,
+            blockedSecondCount: conflictResult.blockedSecondAffectedBookingsByVehicleId
+              ? Object.keys(conflictResult.blockedSecondAffectedBookingsByVehicleId).length
+              : 0,
+            upgradeOpportunityCount: (conflictResult.upgradeOpportunities || []).length,
+          },
+          conflictCount: blockedSecondConflictLines.length,
+        });
+      }
+      const ok = confirm(
+        `Current booking: ${currentBookingLabel}\nA vehicle that was previously held on First Pencil has now been confirmed on another job. The Second Pencil hold is now unavailable.\n\n${blockedSecondConflictLines.join(
+          "\n"
+        )}\n\nDo you still want to save this booking?`
+      );
+      if (!ok) return;
+    }
+
+    const upgradeOpportunityLines = (freshVehicleConflict?.upgradeOpportunities || [])
+      .filter((opportunity) => isVehicleConflictRelevant(opportunity))
+      .map(
+        (opportunity) =>
+          `Vehicle ${opportunity.vehicleLabel} can be upgraded to First Pencil for ${opportunity.bookingLabel} (${opportunity.bookingReference}) on ${(
+            opportunity.upgradableDateRanges || []
+          ).join(", ")}`
+      );
+    if (upgradeOpportunityLines.length) {
+      if (shouldTraceConflicts) {
+        console.log("[vehicle-pencil-conflict] prompt shown", {
+          type: "upgrade-opportunity",
+          bookingId: bookingId || "",
+          status,
+          startDate: startDate || "",
+          endDate: endDate || "",
+          vehicles: vehicles,
+          assignedVehicleIds: selectedConflictVehicleIds,
+          promptTriggered: true,
+          conflictResult: {
+            requestedConflictCount: (conflictResult.requestedConflictList || []).length,
+            blockedSecondCount: conflictResult.blockedSecondAffectedBookingsByVehicleId
+              ? Object.keys(conflictResult.blockedSecondAffectedBookingsByVehicleId).length
+              : 0,
+            upgradeOpportunityCount: (conflictResult.upgradeOpportunities || []).length,
+          },
+          upgradeOpportunityCount: upgradeOpportunityLines.length,
+        });
+      }
+      const doUpgrade = confirm(
+        `This vehicle is still held as Second Pencil, but First Pencil is now available for these dates:\n\n${upgradeOpportunityLines.join(
+          "\n"
+        )}\n\nDo you want to review these bookings and upgrade eligible records to First Pencil?`
+      );
+      if (!doUpgrade) {
+        // Keep as informational-only; no automatic upgrades are performed.
+      }
     }
 
     const filteredNotesByDate = {};
@@ -2527,6 +2774,29 @@ export default function EditBookingPage() {
           employeesByDatePayload[date] = [...cleanedEmployees];
         });
       }
+    }
+
+    const resourceConflictResult = analyzeResourceConflicts({
+      allBookings: availabilityForSave ? availabilityForSave.bookings || [] : allBookings || [],
+      selectedDates: bookingDates,
+      selectedCrew: cleanedEmployees,
+      selectedCrewByDate: employeesByDatePayload,
+      selectedEquipment: equipment,
+      excludeBookingId: bookingId || "",
+      currentBookingLabel: [production, client, bookingId]
+        .filter((value) => String(value || "").trim())
+        .join(" / "),
+      debugContext: {
+        currentBookingId: bookingId || "",
+      },
+    });
+    if (bookingDates.length && resourceConflictResult.hasBlockingConflicts) {
+      return alert(
+        `Crew/equipment double-booking conflict found:\n\n${formatResourceConflictLines([
+          ...resourceConflictResult.crewConflicts,
+          ...resourceConflictResult.equipmentConflicts,
+        ]).join("\n")}\n\nPlease remove the conflicting crew/equipment or choose non-overlapping dates before saving.`
+      );
     }
 
     const holidaysForSave = availabilityForSave?.holidays || holidayBookings;
@@ -2599,7 +2869,8 @@ export default function EditBookingPage() {
       for (const file of newFiles) {
         const safeName = `${jobNumber || "nojob"}_${file.name}`.replace(/\s+/g, "_");
         const folder = file.name.toLowerCase().endsWith(".pdf") ? "booking_pdfs" : "quotes";
-        const storageRefObj = ref(storage, companyStoragePath(dataAccessState, `${folder}/${safeName}`));
+        const storagePath = companyStoragePath(dataAccessState, `${folder}/${safeName}`);
+        const storageRefObj = ref(storage, storagePath);
 
         const contentType =
           file.type ||
@@ -2633,6 +2904,7 @@ export default function EditBookingPage() {
                 contentType,
                 size: file.size,
                 folder,
+                storagePath,
               });
               resolve();
             }
@@ -2960,58 +3232,32 @@ export default function EditBookingPage() {
     }
 
     const confirmed = window.confirm(
-      `Delete quote ${quoteCard.quoteNumber}?\n\nThis quote will be permanently removed from Firestore, including the quote builder data linked to this booking. This cannot be undone.`
+      `Delete quote ${quoteCard.quoteNumber}?\n\nIt can be restored by an administrator for 30 days.`
     );
     if (!confirmed) return;
 
     setDeletingQuoteNumber(targetQuoteNumber);
-    const deleteKey = String(targetQuoteNumber).trim().toLowerCase();
-    const remainingDrafts = (Array.isArray(quoteDrafts) ? quoteDrafts : []).filter(
-      (entry) => String(entry?.quoteNumber || "").trim().toLowerCase() !== deleteKey
-    );
-    const latestRemainingQuote = remainingDrafts.reduce((latest, entry) => {
-      if (!latest) return entry;
-      const latestTime = new Date(latest.savedAt || latest.updatedAt || latest.createdAt || 0).getTime() || 0;
-      const entryTime = new Date(entry.savedAt || entry.updatedAt || entry.createdAt || 0).getTime() || 0;
-      if (entryTime !== latestTime) return entryTime > latestTime ? entry : latest;
-      return splitQuoteRevision(entry.quoteNumber).revision >= splitQuoteRevision(latest.quoteNumber).revision ? entry : latest;
-    }, null);
-    const remainingPublicNumbers = normalizePublicQuoteNumbers(remainingDrafts.map((entry) => entry?.quoteNumber));
-    const deletedAcceptedQuote =
-      publicQuoteNumber(targetQuoteNumber).toLowerCase() ===
-      publicQuoteNumber(originalBookingData?.acceptedQuoteNumber || "").toLowerCase();
-    const user = auth.currentUser;
-    const nowIso = new Date().toISOString();
-
-    // TODO: delete associated Storage files/PDFs/generated docs when quote assets get their own storage metadata.
-    const patch = {
-      quoteVersions: remainingDrafts,
-      quoteNumbers: remainingPublicNumbers,
-      quote: latestRemainingQuote || null,
-      quoteNumber: latestRemainingQuote?.quoteNumber || remainingPublicNumbers[0] || "",
-      quoteVersion: latestRemainingQuote ? quoteVersionFromNumber(latestRemainingQuote.quoteNumber) : 0,
-      updatedAt: nowIso,
-      lastEditedBy: user?.email || "Unknown",
-      lastEditedByUid: user?.uid || "",
-    };
-
-    if (deletedAcceptedQuote) {
-      patch.acceptedQuoteNumber = "";
-      patch.acceptedQuoteName = "";
-    }
-
     try {
-      await updateDoc(doc(db, "bookings", bookingId), tenantPayload(dataAccessState, patch));
-      setQuoteDrafts(remainingDrafts);
-      setQuoteDraft(latestRemainingQuote || null);
-      setQuoteNumber(remainingPublicNumbers.join("\n"));
+      const idToken = await auth.currentUser?.getIdToken?.();
+      if (!idToken) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/quotes/${encodeURIComponent(bookingId)}/delete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteNumber: targetQuoteNumber }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not delete quote.");
+      const serverPatch = result.patch || {};
+      setQuoteDrafts(Array.isArray(serverPatch.quoteVersions) ? serverPatch.quoteVersions : []);
+      setQuoteDraft(serverPatch.quote || null);
+      setQuoteNumber(Array.isArray(serverPatch.quoteNumbers) ? serverPatch.quoteNumbers.join("\n") : "");
       setSelectedQuoteRevisions((current) => {
         const next = { ...current };
         delete next[quoteCard.quoteNumber];
         return next;
       });
       setPreviewQuoteNumber((current) => (current === quoteCard.quoteNumber ? "" : current));
-      alert(`Quote ${quoteCard.quoteNumber} deleted successfully.`);
+      alert(`Quote ${quoteCard.quoteNumber} moved to the 30-day recovery bin.`);
       router.push("/completed-quotes");
     } catch (error) {
       if (!handleFirestoreAccessError(error, { collectionName: "bookings", operation: "delete quote from edit booking" })) {
@@ -3207,6 +3453,7 @@ export default function EditBookingPage() {
                   value={status}
                   onChange={(e) => {
                     const next = e.target.value;
+                    syncVehicleStatusesToBookingStatus(setVehicleStatus, vehicles, status, next);
                     setStatus(next);
                     setEnquiryDatesEnabled(next !== "Enquiry");
                     if (!["Lost", "Postponed", "Cancelled"].includes(next)) {
@@ -4203,8 +4450,11 @@ export default function EditBookingPage() {
                           {items.map((vehicle) => {
                             const key = vehicle.id;
                             const isBooked = bookedVehicleIds.includes(key);
-                            const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
+                            const bookingConflict = requestedConflictByVehicleId[key];
+                            const requestedStatusForRow = vehicleStatus[key] || status;
+                            const hasBookingConflict = Boolean(bookingConflict);
                             const blockedStatus = vehicleBlockingStatusById[key];
+                            const canBookAsSecondPencil = canSelectVehicleAsSecondPencil(key);
                             const isHeld = heldVehicleIds.includes(key);
                             const isSelected = vehicles.includes(key);
 
@@ -4214,7 +4464,7 @@ export default function EditBookingPage() {
                             const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                             const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                             const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                            const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                            const disabled = ((hasBookingConflict && !canBookAsSecondPencil) || isMaintBlocked || isDefectBlocked) && !isSelected;
 
                             return (
                               <div
@@ -4228,12 +4478,16 @@ export default function EditBookingPage() {
                                   cursor: disabled ? "not-allowed" : "",
                                 }}
                                 title={
-                                  disabled
+                                  disabled || canBookAsSecondPencil
                                     ? isMaintBlocked
                                       ? `Vehicle is already booked for ${maintReason} on overlapping date(s)`
                                       : isDefectBlocked
                                       ? `Vehicle is blocked: ${defectReason}`
-                                      : status === SECOND_PENCIL_STATUS
+                                      : bookingConflict && !canBookAsSecondPencil
+                                      ? `Vehicle conflicts with: ${selectedVehicleConflictLines(bookingConflict.conflicts).join(" ")}`
+                                      : canBookAsSecondPencil
+                                      ? "Vehicle is on First Pencil for the selected date(s). Selecting it will add it as Second Pencil."
+                                      : requestedStatusForRow === SECOND_PENCIL_STATUS
                                       ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
                                       : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
                                     : ""

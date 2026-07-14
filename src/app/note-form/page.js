@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../../../firebaseConfig";
-import { signOut } from "firebase/auth";
+import { db } from "../../../firebaseConfig";
 import { addDoc, collection, getDocs } from "firebase/firestore";
 import { Check, StickyNote } from "lucide-react";
 import {
@@ -143,7 +142,6 @@ export default function NoteForm() {
   };
 
   const handleHome = async () => {
-    await signOut(auth);
     router.push("/home");
   };
 

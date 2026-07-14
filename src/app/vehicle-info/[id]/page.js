@@ -1,13 +1,12 @@
 "use client";
 
-"use client";
-
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { db } from "../../../../firebaseConfig";
 
 import Papa from "papaparse";
 import { addDoc, collection, doc, getDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { tenantPayload, useDataAccessState } from "@/app/utils/firestoreAccess";
 
 const getVehicleOdometerValue = (vehicle) => {
   const candidates = [vehicle?.odometer, vehicle?.serviceOdometer, vehicle?.mileage];
@@ -23,6 +22,7 @@ export default function VehicleInfoPage() {
   const router = useRouter();
   const pathname = usePathname();
   const id = pathname.split("/").pop();
+  const dataAccessState = useDataAccessState();
   const [editableVehicle, setEditableVehicle] = useState(null);
   const handleSave = async () => {
     try {
@@ -35,7 +35,7 @@ export default function VehicleInfoPage() {
       const nextMot = String(editableVehicle?.nextMOT || editableVehicle?.nextMot || editableVehicle?.nextMotDate || "").trim();
       const lastMot = String(editableVehicle?.lastMOT || editableVehicle?.lastMot || "").trim();
       const nextService = String(editableVehicle?.nextService || editableVehicle?.nextServiceDate || "").trim();
-      await updateDoc(docRef, {
+      await updateDoc(docRef, tenantPayload(dataAccessState, {
         ...editableVehicle,
         registration,
         reg: registration,
@@ -54,7 +54,7 @@ export default function VehicleInfoPage() {
         odometer,
         mileage: odometer,
         serviceOdometer: odometer,
-      });
+      }));
       alert(" Vehicle updated");
       router.push("/vehicles");  // or reload if needed
     } catch (err) {
@@ -246,6 +246,7 @@ function Field({ label, value, onChange, suffix }) {
 }
 
 function VehicleCSVImport() {
+  const dataAccessState = useDataAccessState();
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -263,7 +264,7 @@ function VehicleCSVImport() {
             const manufacturer = vehicle.manufacturer || vehicle.make || "";
             const nextMot = vehicle.nextMOT || vehicle.nextMot || vehicle.nextMotDate || vehicle.motDueDate || "";
             const nextService = vehicle.nextService || vehicle.nextServiceDate || vehicle.serviceDueDate || "";
-            await addDoc(collection(db, "vehicles"), {
+            await addDoc(collection(db, "vehicles"), tenantPayload(dataAccessState, {
               name: vehicle.name || vehicle.make || "",
               category: vehicle.category || vehicle.model || "",
               registration,
@@ -285,7 +286,7 @@ function VehicleCSVImport() {
               nextMotDate: nextMot,
               motDueDate: nextMot,
               notes: vehicle.notes || ""
-            });
+            }));
           } catch (err) {
             console.error(" Error importing vehicle:", err);
           }
