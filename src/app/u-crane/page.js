@@ -21,7 +21,7 @@ const BigCalendar = dynamic(
           alignItems: "center",
           justifyContent: "center",
           color: UI.muted,
-          fontSize: 14,
+          fontSize: "var(--font-size-md)",
           fontWeight: 700,
         }}
       >
@@ -54,22 +54,22 @@ import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAcces
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  successSoft: "#edf7f2",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  successSoft: "var(--legacy-color-edf7f2)",
 };
 
 const pageWrap = {
@@ -82,14 +82,14 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 
 const h1 = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -107,7 +107,7 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   marginBottom: UI.gap,
 };
 
@@ -116,7 +116,7 @@ const sectionHeader = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 10,
-  marginBottom: 8,
+  marginBottom: "var(--space-2)",
   flexWrap: "wrap",
 };
 
@@ -125,7 +125,7 @@ const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 }
 
 const sectionActions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   justifyContent: "flex-end",
   alignItems: "center",
@@ -136,11 +136,11 @@ const chip = {
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -164,7 +164,7 @@ const btn = (kind = "primary") => {
     return {
       ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
@@ -172,8 +172,8 @@ const btn = (kind = "primary") => {
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   };
 };
@@ -188,11 +188,11 @@ const btnDisabled = (base) => ({
 
 const successBanner = {
   background: UI.successSoft,
-  color: "#065f46",
-  border: "1px solid #b7dec7",
+  color: "var(--legacy-color-065f46)",
+  border: "1px solid var(--legacy-color-b7dec7)",
   borderRadius: UI.radiusSm,
   padding: "7px 10px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 700,
   display: "inline-flex",
   alignItems: "center",
@@ -202,7 +202,7 @@ const successBanner = {
 const calendarShell = {
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#ffffff",
+  background: "var(--color-white)",
   overflow: "hidden",
 };
 
@@ -213,16 +213,16 @@ const pageCss = `
   }
   .ucrane-page .rbc-time-view,
   .ucrane-page .rbc-month-view {
-    border-color: #d7dee8;
+    border-color: var(--color-border);
   }
   .ucrane-page .rbc-time-header {
-    border-bottom-color: #d7dee8;
+    border-bottom-color: var(--color-border);
   }
   .ucrane-page .rbc-header {
     min-height: 28px;
     padding: 6px 8px;
-    background: #f8fbfd;
-    border-color: #d7dee8;
+    background: var(--legacy-color-f8fbfd);
+    border-color: var(--color-border);
     color: ${UI.muted};
     font-size: 12px;
     font-weight: 850;
@@ -230,7 +230,7 @@ const pageCss = `
   .ucrane-page .rbc-time-content,
   .ucrane-page .rbc-day-bg + .rbc-day-bg,
   .ucrane-page .rbc-month-row + .rbc-month-row {
-    border-color: #e5ebf2;
+    border-color: var(--legacy-color-e5ebf2);
   }
   .ucrane-page .rbc-event {
     overflow: visible;
@@ -291,20 +291,20 @@ const pageCss = `
   }
 `;
 
-const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
+const NIGHT_SHOOT_STYLE = { bg: "var(--legacy-color-f796dfff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-de24e4ff)" };
 
 // ---- status colour map used for job blocks ----
 const STATUS_COLORS = {
-  Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
-  "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
-  "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
-  Complete: { bg: "#719b6eff", text: "#111", border: "#0b0b0b" },
-  "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
-  DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
+  Confirmed: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "First Pencil": { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Second Pencil": { bg: "var(--legacy-color-f73939)", text: "var(--color-white)", border: "var(--legacy-color-0b0b0b)" },
+  Complete: { bg: "var(--legacy-color-719b6eff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Action Required": { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  DNH: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
 };
 
 const getStatusStyle = (s = "") =>
-  STATUS_COLORS[s] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+  STATUS_COLORS[s] || { bg: "var(--legacy-color-ccc)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
 
 // ---- per-user action blocks ----
 const RESTRICTED_EMAILS = new Set(["mel@bickers.co.uk"]); // add more if needed
@@ -533,13 +533,13 @@ function EventMetaBadge({ Icon, good, title, children }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 4,
+        gap: "var(--space-1)",
         minHeight: 20,
         minWidth: children ? 34 : 24,
         padding: children ? "2px 6px" : "2px 5px",
-        borderRadius: 6,
-        backgroundColor: good ? "#4caf50" : "#f44336",
-        color: "#fff",
+        borderRadius: "var(--radius-sm)",
+        backgroundColor: good ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
+        color: "var(--color-white)",
         border: "1px solid rgba(0,0,0,0.8)",
         fontSize: "0.72rem",
         fontWeight: 800,
@@ -605,14 +605,14 @@ function CalendarEvent({ event }) {
         flexDirection: "column",
         fontSize: "0.85rem",
         lineHeight: 1.1,
-        color: "#0b0b0b",
+        color: "var(--legacy-color-0b0b0b)",
         fontWeight: 600,
         fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
         padding: "5px 6px",
         gap: 1,
-        borderRadius: 6,
+        borderRadius: "var(--radius-sm)",
         whiteSpace: "normal",
         wordBreak: "break-word",
         textTransform: "uppercase",
@@ -636,19 +636,19 @@ function CalendarEvent({ event }) {
               style={{
                 backgroundColor: "white",
                 padding: "2px 4px",
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 fontSize: "0.8rem",
                 fontWeight: 600,
-                border: "1px solid #0b0b0b",
+                border: "1px solid var(--legacy-color-0b0b0b)",
               }}
             >
               {employeeInitials}
             </span>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "auto" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#111" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--legacy-color-111)" }}>
                 {event.status}
               </span>
 
@@ -660,7 +660,7 @@ function CalendarEvent({ event }) {
                     gap: 6,
                     fontSize: "0.7rem",
                     fontWeight: 800,
-                    color: "#111",
+                    color: "var(--legacy-color-111)",
                     marginTop: -2,
                   }}
                 >
@@ -676,13 +676,13 @@ function CalendarEvent({ event }) {
                     ? "purple"
                     : event.shootType === "Day"
                     ? "white"
-                    : "#ffffffff",
-                color: event.shootType === "Night" ? "#fff" : "#000",
+                    : "var(--color-white)",
+                color: event.shootType === "Night" ? "var(--color-white)" : "var(--color-black)",
                 padding: "2px 4px",
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 fontSize: "0.95rem",
                 fontWeight: 900,
-                border: "1px solid #0b0b0b",
+                border: "1px solid var(--legacy-color-0b0b0b)",
               }}
             >
               {event.jobNumber}
@@ -699,7 +699,7 @@ function CalendarEvent({ event }) {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 4,
+              gap: "var(--space-1)",
               fontSize: "0.78rem",
               fontWeight: 900,
             }}
@@ -766,10 +766,10 @@ function CalendarEvent({ event }) {
                     gap: 6,
                     padding: "0px 4px",
                     borderRadius: 4,
-                    background: "#e53935",
-                    color: "#fff",
+                    background: "var(--legacy-color-e53935)",
+                    color: "var(--color-white)",
                     fontWeight: 700,
-                    border: "1px solid #0b0b0b",
+                    border: "1px solid var(--legacy-color-0b0b0b)",
                     marginTop: 1,
                   }}
                   title="Vehicle non-compliant (SORN / Not Insured) - future confirmed job"
@@ -855,7 +855,7 @@ function CalendarEvent({ event }) {
             {!hideDayNotes &&
               event.notesByDate &&
               Object.keys(event.notesByDate).length > 0 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: 2 }}>
                   {Object.keys(event.notesByDate)
                     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                     .sort((a, b) => new Date(a) - new Date(b))
@@ -918,10 +918,10 @@ function CalendarEvent({ event }) {
                   style={{
                     fontSize: "0.7rem",
                     padding: "2px 8px",
-                    border: "1px solid #111",
+                    border: "1px solid var(--legacy-color-111)",
                     background: "transparent",
                     cursor: "pointer",
-                    borderRadius: 6,
+                    borderRadius: "var(--radius-sm)",
                   }}
                 >
                   {showNotes ? "Hide Notes" : "Show Notes"}
@@ -976,15 +976,15 @@ function CalendarEvent({ event }) {
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 4,
+                  gap: "var(--space-1)",
                   minHeight: 20,
                   minWidth: 34,
                   fontSize: "0.72rem",
                   fontWeight: 400,
                   padding: "2px 6px",
-                  borderRadius: 6,
-                  backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-                  color: "#fff",
+                  borderRadius: "var(--radius-sm)",
+                  backgroundColor: event.hasRiskAssessment ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
+                  color: "var(--color-white)",
                   border: "1px solid rgba(0,0,0,0.8)",
                   lineHeight: 1,
                   whiteSpace: "nowrap",
@@ -1020,15 +1020,15 @@ function CalendarEvent({ event }) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
+                gap: "var(--space-2)",
                 padding: "6px 10px",
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
                 fontSize: "0.6rem",
                 fontWeight: 800,
-                border: "1.5px solid #0b0b0b",
-                background: "#111827",
-                color: "#fff",
+                border: "1.5px solid var(--legacy-color-0b0b0b)",
+                background: "var(--legacy-color-111827)",
+                color: "var(--color-white)",
               }}
             >
               View recce form ↗
@@ -1039,8 +1039,8 @@ function CalendarEvent({ event }) {
                     fontWeight: 900,
                     padding: "2px 6px",
                     borderRadius: 4,
-                    background: "#fff",
-                    color: "#111",
+                    background: "var(--color-white)",
+                    color: "var(--legacy-color-111)",
                     border: "1px solid rgba(0,0,0,0.8)",
                   }}
                 >
@@ -1056,10 +1056,10 @@ function CalendarEvent({ event }) {
           <div style={{ width: "100%", marginTop: 6 }}>
             <div
               style={{
-                backgroundColor: "#e53935",
-                color: "#fff",
-                border: "1.5px solid #000",
-                borderRadius: 6,
+                backgroundColor: "var(--legacy-color-e53935)",
+                color: "var(--color-white)",
+                border: "1.5px solid var(--color-black)",
+                borderRadius: "var(--radius-sm)",
                 padding: "4px 6px",
                 fontSize: "0.74rem",
                 fontWeight: 900,
@@ -1070,14 +1070,14 @@ function CalendarEvent({ event }) {
             </div>
             <div
               style={{
-                marginTop: 4,
-                background: "#ffe6e6",
-                border: "1px dashed #e53935",
-                borderRadius: 6,
+                marginTop: "var(--space-1)",
+                background: "var(--legacy-color-ffe6e6)",
+                border: "1px dashed var(--legacy-color-e53935)",
+                borderRadius: "var(--radius-sm)",
                 padding: "4px 6px",
                 fontSize: "0.74rem",
                 lineHeight: 1.25,
-                color: "#000",
+                color: "var(--color-black)",
                 fontWeight: 700,
               }}
             >
@@ -1289,10 +1289,10 @@ export default function DashboardPage({ bookingSaved }) {
         <div
           style={{
             ...surface,
-            padding: 12,
+            padding: "var(--space-3)",
             borderRadius: UI.radius,
             border: UI.border,
-            background: "#fff",
+            background: "var(--color-white)",
             minHeight: 140,
           }}
         >
@@ -1302,24 +1302,24 @@ export default function DashboardPage({ bookingSaved }) {
                 style={{
                   width: 12,
                   height: 12,
-                  borderRadius: 999,
+                  borderRadius: "var(--radius-pill)",
                   background: style.bg,
                   border: `2px solid ${style.border}`,
                   display: "inline-block",
                 }}
               />
               <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontWeight: 950, fontSize: 13, color: UI.text }}>{label}</div>
-                <div style={{ fontSize: 12, color: UI.muted }}>{items.length} upcoming</div>
+                <div style={{ fontWeight: 950, fontSize: "var(--font-size-sm)", color: UI.text }}>{label}</div>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>{items.length} upcoming</div>
               </div>
             </div>
 
-            <span style={{ ...chip, fontSize: 12 }}>{items.length}</span>
+            <span style={{ ...chip, fontSize: "var(--font-size-xs)" }}>{items.length}</span>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {items.length === 0 ? (
-              <div style={{ fontSize: 12, color: UI.muted, padding: "10px 8px" }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, padding: "10px 8px" }}>
                 Nothing upcoming.
               </div>
             ) : (
@@ -1336,8 +1336,8 @@ export default function DashboardPage({ bookingSaved }) {
                       textAlign: "left",
                       width: "100%",
                       borderRadius: UI.radiusSm,
-                      border: riskHot ? "2px solid #0b0b0b" : "1px solid #e5e7eb",
-                      background: riskHot ? "#fee2e2" : "#f8fafc",
+                      border: riskHot ? "2px solid var(--legacy-color-0b0b0b)" : "1px solid var(--legacy-color-e5e7eb)",
+                      background: riskHot ? "var(--legacy-color-fee2e2)" : "var(--color-surface-subtle)",
                       padding: "10px 10px",
                       cursor: "pointer",
                       boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
@@ -1345,26 +1345,26 @@ export default function DashboardPage({ bookingSaved }) {
                     title="Click to view booking"
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ fontWeight: 950, color: UI.text, fontSize: 13 }}>
+                      <div style={{ fontWeight: 950, color: UI.text, fontSize: "var(--font-size-sm)" }}>
                         {String(e.jobNumber || "").toUpperCase()} - {String(e.client || "").toUpperCase()}
                       </div>
-                      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>{range}</div>
+                      <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>{range}</div>
                     </div>
 
-                    <div style={{ marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ marginTop: "var(--space-1)", display: "flex", gap: 10, flexWrap: "wrap" }}>
                       {e.location && (
-                        <span style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                        <span style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>
                           {String(e.location).toUpperCase()}
                         </span>
                       )}
                       {riskHot && (
                         <span
                           style={{
-                            fontSize: 12,
+                            fontSize: "var(--font-size-xs)",
                             fontWeight: 950,
-                            color: "#991b1b",
-                            background: "#fff",
-                            border: "1px solid #991b1b",
+                            color: "var(--color-danger)",
+                            background: "var(--color-white)",
+                            border: "1px solid var(--color-danger)",
                             padding: "2px 6px",
                             borderRadius: UI.radiusSm,
                           }}
@@ -1379,7 +1379,7 @@ export default function DashboardPage({ bookingSaved }) {
             )}
 
             {(items.length || 0) > 12 && (
-              <div style={{ fontSize: 12, color: UI.muted, padding: "2px 2px 0" }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, padding: "2px 2px 0" }}>
                 Showing 12 of {items.length}.
               </div>
             )}
@@ -1462,7 +1462,7 @@ export default function DashboardPage({ bookingSaved }) {
                 {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create U-Crane Booking"}
               </button>
 
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
                 <CalendarDays size={14} />
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
@@ -1508,7 +1508,7 @@ export default function DashboardPage({ bookingSaved }) {
                   },
                 };
               }}
-              style={{ height: "auto", background: "#fff" }}
+              style={{ height: "auto", background: "var(--color-white)" }}
               onSelectEvent={(e) => {
                 openSelectedBooking(e);
               }}
@@ -1524,12 +1524,12 @@ export default function DashboardPage({ bookingSaved }) {
                 if (risky && isFutureJobEvent(event)) {
                   return {
                     style: {
-                      backgroundColor: "#e53935",
-                      color: "#fff",
+                      backgroundColor: "var(--legacy-color-e53935)",
+                      color: "var(--color-white)",
                     fontWeight: 700,
                     padding: 0,
-                    borderRadius: 8,
-                      border: "1px solid #991b1b",
+                    borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--color-danger)",
                       boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                       cursor: "pointer",
                     },
@@ -1557,7 +1557,7 @@ export default function DashboardPage({ bookingSaved }) {
                     color: style.text,
                     fontWeight: 700,
                     padding: 0,
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-md)",
                     border: `1px solid ${style.border}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
                     cursor: "pointer",
@@ -1568,8 +1568,8 @@ export default function DashboardPage({ bookingSaved }) {
           </div>
 
           {/*  UPCOMING SECTION (below calendar) */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ ...sectionHeader, marginBottom: 12 }}>
+          <div style={{ marginTop: "var(--space-4)" }}>
+            <div style={{ ...sectionHeader, marginBottom: "var(--space-3)" }}>
               <div>
                 <h3 style={{ ...titleMd, fontSize: 15 }}>Upcoming</h3>
                 <div style={hint}>Future U-Crane work grouped by booking status for quick operational review.</div>
@@ -1583,8 +1583,8 @@ export default function DashboardPage({ bookingSaved }) {
                       ...chip,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: 8,
-                      background: "#fff",
+                      gap: "var(--space-2)",
+                      background: "var(--color-white)",
                     }}
                   >
                     <span
@@ -1609,7 +1609,7 @@ export default function DashboardPage({ bookingSaved }) {
               <UpcomingColumn label="Second Pencil" />
             </div>
 
-            <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
+            <div style={{ marginTop: 10, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
               Tip: click any item to open the booking modal.
             </div>
           </div>

@@ -13,16 +13,16 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#edf3f8",
-  shell: "#ffffff",
-  shellAlt: "#f7fafc",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  border: "1px solid #dbe2ea",
+  bg: "var(--color-brand-soft)",
+  shell: "var(--color-white)",
+  shellAlt: "var(--legacy-color-f7fafc)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   shadow: "0 18px 40px rgba(15,23,42,0.08)",
 };
 
@@ -300,13 +300,13 @@ export default function AssistantPage() {
         >
           <aside
             style={{
-              background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+              background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-fbfdff) 100%)",
               border: UI.border,
-              borderRadius: 18,
+              borderRadius: "var(--radius-xl)",
               boxShadow: UI.shadow,
               padding: 18,
               display: "grid",
-              gap: 16,
+              gap: "var(--space-4)",
               alignSelf: "start",
             }}
           >
@@ -315,9 +315,9 @@ export default function AssistantPage() {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   padding: "6px 10px",
-                  borderRadius: 999,
+                  borderRadius: "var(--radius-pill)",
                   border: `1px solid ${UI.brandBorder}`,
                   background: UI.brandSoft,
                   color: UI.brand,
@@ -353,10 +353,10 @@ export default function AssistantPage() {
                 padding: 14,
               }}
             >
-              <div style={{ color: UI.text, fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
+              <div style={{ color: UI.text, fontWeight: 800, fontSize: "var(--font-size-sm)", marginBottom: "var(--space-2)" }}>
                 Try asking
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)" }}>
                 {starterPrompts.map((prompt) => (
                   <button
                     key={prompt}
@@ -366,9 +366,9 @@ export default function AssistantPage() {
                     style={{
                       textAlign: "left",
                       padding: "10px 12px",
-                      borderRadius: 12,
+                      borderRadius: "var(--radius-lg)",
                       border: `1px solid ${UI.brandBorder}`,
-                      background: "#fff",
+                      background: "var(--color-white)",
                       color: UI.text,
                       cursor: loading ? "not-allowed" : "pointer",
                       fontSize: 12.5,
@@ -385,18 +385,18 @@ export default function AssistantPage() {
               style={{
                 border: UI.border,
                 borderRadius: 14,
-                background: "#fff",
+                background: "var(--color-white)",
                 padding: 14,
               }}
             >
-              <div style={{ color: UI.text, fontWeight: 800, fontSize: 13, marginBottom: 8 }}>
+              <div style={{ color: UI.text, fontWeight: 800, fontSize: "var(--font-size-sm)", marginBottom: "var(--space-2)" }}>
                 Data scope
               </div>
               <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.6 }}>
                 The assistant is grounded in your software data, not just a generic model. It uses records from core collections and answers in operational language.
               </div>
               {contextMeta ? (
-                <div style={{ marginTop: 10, color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
+                <div style={{ marginTop: 10, color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.55 }}>
                   Last context load:
                   <div>Bookings: {contextMeta.bookings ?? 0}</div>
                   <div>Employees: {contextMeta.employees ?? 0}</div>
@@ -411,7 +411,7 @@ export default function AssistantPage() {
           <section
             style={{
               minHeight: "74vh",
-              background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+              background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-fbfdff) 100%)",
               border: UI.border,
               borderRadius: 22,
               boxShadow: UI.shadow,
@@ -425,12 +425,12 @@ export default function AssistantPage() {
                 padding: "16px 18px",
                 borderBottom: UI.border,
                 background:
-                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
-                color: "#eef5fb",
+                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, var(--legacy-color-162434) 0%, var(--legacy-color-22364c) 100%)",
+                color: "var(--legacy-color-eef5fb)",
               }}
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>Bickers Assistant</div>
-              <div style={{ fontSize: 12.5, opacity: 0.84, marginTop: 4 }}>
+              <div style={{ fontSize: 12.5, opacity: 0.84, marginTop: "var(--space-1)" }}>
                 Search the system, summarize activity, and answer operational questions from one place.
               </div>
             </div>
@@ -443,7 +443,7 @@ export default function AssistantPage() {
                 display: "grid",
                 gap: 14,
                 background:
-                  "radial-gradient(circle at top left, rgba(237,243,248,0.9), transparent 35%), linear-gradient(180deg, #f8fbfd 0%, #fdfefe 100%)",
+                  "radial-gradient(circle at top left, rgba(237,243,248,0.9), transparent 35%), linear-gradient(180deg, var(--legacy-color-f8fbfd) 0%, var(--legacy-color-fdfefe) 100%)",
               }}
             >
               {messages.map((message, index) => {
@@ -459,14 +459,14 @@ export default function AssistantPage() {
                     <div
                       style={{
                         maxWidth: "82%",
-                        borderRadius: 18,
+                        borderRadius: "var(--radius-xl)",
                         padding: "12px 14px",
                         border: isUser ? `1px solid ${UI.brand}` : UI.border,
-                        background: isUser ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)" : "#ffffff",
-                        color: isUser ? "#fff" : UI.text,
+                        background: isUser ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)" : "var(--color-white)",
+                        color: isUser ? "var(--color-white)" : UI.text,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.6,
-                        fontSize: 14,
+                        fontSize: "var(--font-size-md)",
                         boxShadow: isUser
                           ? "0 10px 24px rgba(31,75,122,0.18)"
                           : "0 10px 20px rgba(15,23,42,0.05)",
@@ -483,12 +483,12 @@ export default function AssistantPage() {
                   <div
                     style={{
                       maxWidth: "82%",
-                      borderRadius: 18,
+                      borderRadius: "var(--radius-xl)",
                       padding: "12px 14px",
                       border: UI.border,
-                      background: "#ffffff",
+                      background: "var(--color-white)",
                       color: UI.muted,
-                      fontSize: 14,
+                      fontSize: "var(--font-size-md)",
                     }}
                   >
                     Thinking through your system data...
@@ -497,16 +497,16 @@ export default function AssistantPage() {
               ) : null}
             </div>
 
-            <div style={{ borderTop: UI.border, padding: 16, background: "#fff" }}>
+            <div style={{ borderTop: UI.border, padding: "var(--space-4)", background: "var(--color-white)" }}>
               {error ? (
                 <div
                   style={{
                     marginBottom: 10,
                     padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #fecaca",
-                    background: "#fff1f2",
-                    color: "#991b1b",
+                    borderRadius: "var(--radius-lg)",
+                    border: "1px solid var(--color-danger-border)",
+                    background: "var(--legacy-color-fff1f2)",
+                    color: "var(--color-danger)",
                     fontSize: 12.5,
                     fontWeight: 700,
                   }}
@@ -515,7 +515,7 @@ export default function AssistantPage() {
                 </div>
               ) : null}
 
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: "var(--space-3)" }}>
                 <textarea
                   rows={4}
                   value={input}
@@ -529,9 +529,9 @@ export default function AssistantPage() {
                     border: UI.border,
                     padding: "14px 15px",
                     outline: "none",
-                    fontSize: 14,
+                    fontSize: "var(--font-size-md)",
                     color: UI.text,
-                    background: "#fff",
+                    background: "var(--color-white)",
                     boxSizing: "border-box",
                   }}
                 />
@@ -546,9 +546,9 @@ export default function AssistantPage() {
                     borderRadius: 14,
                     border: `1px solid ${UI.brand}`,
                     background: loading || !String(input).trim()
-                      ? "#d7e1ea"
-                      : "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-                    color: loading || !String(input).trim() ? "#6b7280" : "#fff",
+                      ? "var(--legacy-color-d7e1ea)"
+                      : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+                    color: loading || !String(input).trim() ? "var(--legacy-color-6b7280)" : "var(--color-white)",
                     fontWeight: 800,
                     cursor: loading || !String(input).trim() ? "not-allowed" : "pointer",
                     minWidth: 118,

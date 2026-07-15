@@ -38,25 +38,25 @@ import { ArrowLeft, Download, FilePlus2, Plus, RotateCcw, Search, Settings } fro
 
 /* UI tokens */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
   gap: 6,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandBorder: "var(--color-brand-border)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", marginBottom: 4 };
+const headerBar = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-1)", flexWrap: "wrap", marginBottom: "var(--space-1)" };
 const h1 = { margin: 0, fontSize: 24, lineHeight: 1.08, fontWeight: 850, color: UI.text, letterSpacing: 0 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
@@ -72,13 +72,13 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12,
+      fontSize: "var(--font-size-xs)",
       lineHeight: 1.2,
     };
   }
@@ -90,13 +90,13 @@ const btn = (kind = "primary") => {
     padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     lineHeight: 1.2,
   };
 };
@@ -108,8 +108,8 @@ const input = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -120,8 +120,8 @@ const chip = (bg, fg) => ({
   alignItems: "center",
   gap: 5,
   padding: "3px 8px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   background: bg,
   color: fg,
@@ -730,7 +730,7 @@ export default function VehicleMaintenancePage() {
         input:focus, select:focus, button:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: #9fb7cf !important;
+          border-color: var(--legacy-color-9fb7cf) !important;
         }
         .vehicles-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         .vehicles-filter-grid {
@@ -772,7 +772,7 @@ export default function VehicleMaintenancePage() {
                 border: "none",
                 background: "transparent",
                 color: UI.brand,
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 850,
                 cursor: "pointer",
                 textDecoration: "underline",
@@ -858,9 +858,9 @@ export default function VehicleMaintenancePage() {
             </div>
 
             <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <span style={chip("#fff", UI.text)}>{kpis.count} vehicles</span>
-              <span style={chip("#fff7ed", "#9a3412")}>Due soon: {kpis.soon}</span>
-              <span style={chip("#fef2f2", "#991b1b")}>Overdue: {kpis.overdue}</span>
+              <span style={chip("var(--color-white)", UI.text)}>{kpis.count} vehicles</span>
+              <span style={chip("var(--color-warning-soft)", "var(--color-warning)")}>Due soon: {kpis.soon}</span>
+              <span style={chip("var(--color-danger-soft)", "var(--color-danger)")}>Overdue: {kpis.overdue}</span>
 
               <button
                 type="button"
@@ -889,7 +889,7 @@ export default function VehicleMaintenancePage() {
                 await fetchVehicles();
               }}
             />
-            {importing ? <span style={{ fontSize: 12, color: UI.muted }}>Importing...</span> : null}
+            {importing ? <span style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>Importing...</span> : null}
           </div>
 
           {categories.some((category) => getCategoryColor(category)) ? (
@@ -917,9 +917,9 @@ export default function VehicleMaintenancePage() {
                         alignItems: "center",
                         gap: 5,
                         padding: "3px 7px",
-                        borderRadius: 999,
+                        borderRadius: "var(--radius-pill)",
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         color: UI.text,
                         fontSize: 11.5,
                         fontWeight: 850,
@@ -948,7 +948,7 @@ export default function VehicleMaintenancePage() {
         <div style={{ ...card, overflow: "hidden", marginLeft: -18, marginRight: -18, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
           <div style={{ overflowX: "auto" }}>
             <div className="vh-sticky">
-              <table style={{ width: "100%", minWidth: 1420, borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", minWidth: 1420, borderCollapse: "collapse", fontSize: "var(--font-size-xs)" }}>
                 <thead>
                   <tr>
                     {[
@@ -973,8 +973,8 @@ export default function VehicleMaintenancePage() {
                         style={{
                           padding: "5px 10px",
                           background: UI.brand,
-                          color: "#fff",
-                          borderBottom: "1px solid #5b92ce",
+                          color: "var(--color-white)",
+                          borderBottom: "1px solid var(--legacy-color-5b92ce)",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
@@ -990,7 +990,7 @@ export default function VehicleMaintenancePage() {
                         <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, lineHeight: 1.1 }}>
                           <span>{header.label}</span>
                           {header.count ? (
-                            <span style={{ color: "#dbeafe", fontSize: 10.5, fontWeight: 850 }}>
+                            <span style={{ color: "var(--legacy-color-dbeafe)", fontSize: 10.5, fontWeight: 850 }}>
                               {header.count}
                             </span>
                           ) : null}
@@ -1002,7 +1002,7 @@ export default function VehicleMaintenancePage() {
 
                 {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
                   const categoryColor = getCategoryColor(category);
-                  const categoryBackground = categoryColor ? `${categoryColor}18` : "#edf3f8";
+                  const categoryBackground = categoryColor ? `${categoryColor}18` : "var(--color-brand-soft)";
                   return (
                   <tbody key={category}>
                     <tr
@@ -1022,7 +1022,7 @@ export default function VehicleMaintenancePage() {
                         style={{
                           padding: "3px 10px",
                           fontWeight: 900,
-                          fontSize: 12,
+                          fontSize: "var(--font-size-xs)",
                           lineHeight: 1.1,
                           color: UI.text,
                           verticalAlign: "middle",
@@ -1049,14 +1049,14 @@ export default function VehicleMaintenancePage() {
 
                     {expandedCategories[category] &&
                       list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "#ffffff" : "#f8fafc";
+                        const zebra = i % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
                         const retentionPlate = isRetentionPlate(v);
                         const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";
 
                         const rowTd = {
                           padding: "4px 10px",
-                          borderBottom: "1px solid #dbe1ea",
+                          borderBottom: "1px solid var(--legacy-color-dbe1ea)",
                           whiteSpace: "nowrap",
                           verticalAlign: "middle",
                         };
@@ -1094,7 +1094,7 @@ export default function VehicleMaintenancePage() {
                             : 21,
                           suppressStatus: outOfUse,
                         };
-                        const rowBackground = outOfUse ? "#f1f5f9" : zebra;
+                        const rowBackground = outOfUse ? "var(--legacy-color-f1f5f9)" : zebra;
 
                         return (
                           <tr
@@ -1137,7 +1137,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "#000" } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--color-black)" } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
@@ -1179,7 +1179,7 @@ export default function VehicleMaintenancePage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 4, color: UI.muted, fontSize: 12 }}>
+        <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-xs)" }}>
           Row colours: <span style={{ color: UI.amber, fontWeight: 900 }}>orange</span> = due within saved warning days,{" "}
           <span style={{ color: UI.red, fontWeight: 900 }}>red</span> = overdue.
         </div>
@@ -1210,7 +1210,7 @@ export default function VehicleMaintenancePage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: 16,
+              padding: "var(--space-4)",
               background: "rgba(15,23,42,0.42)",
             }}
             onClick={() => setInsuranceDatePrompt(null)}
@@ -1219,14 +1219,14 @@ export default function VehicleMaintenancePage() {
               style={{
                 ...card,
                 width: "min(420px, 100%)",
-                padding: 16,
+                padding: "var(--space-4)",
                 boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set insured until date</div>
-                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+              <div style={{ marginBottom: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>Set insured until date</div>
+                <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                   {insuranceDatePrompt.vehicle?.name || insuranceDatePrompt.vehicle?.registration || "Vehicle"}
                 </div>
               </div>
@@ -1242,7 +1242,7 @@ export default function VehicleMaintenancePage() {
                 autoFocus
               />
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 14 }}>
                 <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
                   Cancel
                 </button>
@@ -1269,7 +1269,7 @@ export default function VehicleMaintenancePage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: 16,
+              padding: "var(--space-4)",
               background: "rgba(15,23,42,0.42)",
             }}
             onClick={() => setTaxDatePrompt(null)}
@@ -1278,14 +1278,14 @@ export default function VehicleMaintenancePage() {
               style={{
                 ...card,
                 width: "min(420px, 100%)",
-                padding: 16,
+                padding: "var(--space-4)",
                 boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>Set road tax date</div>
-                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+              <div style={{ marginBottom: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>Set road tax date</div>
+                <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                   {taxDatePrompt.vehicle?.name || taxDatePrompt.vehicle?.registration || "Vehicle"}
                 </div>
               </div>
@@ -1301,7 +1301,7 @@ export default function VehicleMaintenancePage() {
                 autoFocus
               />
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 14 }}>
                 <button type="button" className="vehicles-action" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
                   Cancel
                 </button>
@@ -1411,9 +1411,9 @@ function renderDateCell(raw, baseStyle, options) {
 const miniSelect = {
   width: "100%",
   padding: "3px 8px",
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
-  background: "#fff",
-  fontSize: 12,
+  background: "var(--color-white)",
+  fontSize: "var(--font-size-xs)",
   cursor: "pointer",
 };

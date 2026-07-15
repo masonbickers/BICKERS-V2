@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { signOut, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../../../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { useAuth } from "@/app/context/authContext";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -20,24 +21,24 @@ import {
 } from "lucide-react";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  successSoft: "#ecfdf5",
-  successText: "#166534",
-  warnSoft: "#fff7ed",
-  warnText: "#9a3412",
-  dangerSoft: "#fcefee",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  successSoft: "var(--color-success-soft)",
+  successText: "var(--color-success)",
+  warnSoft: "var(--color-warning-soft)",
+  warnText: "var(--color-warning)",
+  dangerSoft: "var(--legacy-color-fcefee)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -45,13 +46,13 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -65,11 +66,11 @@ const chip = {
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -82,7 +83,7 @@ const grid = (cols = 12) => ({
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   transform: "translateY(0)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
@@ -108,7 +109,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   textDecoration: "none",
   display: "inline-flex",
@@ -119,12 +120,12 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "#e9c6c4", color: "#991b1b" };
+const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "var(--legacy-color-e9c6c4)", color: "var(--color-danger)" };
 
 const avatarWrap = {
   width: 50,
@@ -143,13 +144,13 @@ const detailCard = {
   padding: 10,
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#ffffff",
+  background: "var(--color-white)",
   minWidth: 0,
 };
 
 const iconBox = {
   width: 32,
-  height: 32,
+  height: "var(--control-height-sm)",
   borderRadius: UI.radius,
   display: "inline-flex",
   alignItems: "center",
@@ -182,7 +183,7 @@ function statusPill(label, ok) {
     style: {
       ...chip,
       background: ok ? UI.successSoft : UI.warnSoft,
-      borderColor: ok ? "#bbf7d0" : "#fed7aa",
+      borderColor: ok ? "var(--color-success-border)" : "var(--color-warning-border)",
       color: ok ? UI.successText : UI.warnText,
     },
   };
@@ -190,6 +191,7 @@ function statusPill(label, ok) {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { logout } = useAuth() || {};
   const [userData, setUserData] = useState(null);
   const [userDocData, setUserDocData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -246,8 +248,7 @@ export default function SettingsPage() {
   }, [router]);
 
   const handleSignOut = async () => {
-    await signOut(auth);
-    router.push("/login");
+    await logout?.();
   };
 
   const avatarNode = useMemo(() => {
@@ -316,7 +317,7 @@ export default function SettingsPage() {
         </div>
         <span style={chip}>{pill}</span>
       </div>
-      <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>{subtitle}</div>
+      <div style={{ marginTop: 6, color: UI.muted, fontSize: "var(--font-size-sm)" }}>{subtitle}</div>
       <div
         style={{
           marginTop: 10,
@@ -343,10 +344,10 @@ export default function SettingsPage() {
             <div style={sub}>A clean view of your account, access, and security settings.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
             <div style={chip}>{loading ? "Loading..." : "Account"}</div>
             {userData?.role ? (
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
                 <UserCog size={14} />
                 Role: <b style={{ marginLeft: 6 }}>{userData.role}</b>
               </div>
@@ -355,27 +356,27 @@ export default function SettingsPage() {
         </div>
 
         {loading ? (
-          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>
+          <div style={{ ...surface, padding: "var(--space-3)", textAlign: "center", color: UI.muted }}>
             Loading settings...
           </div>
         ) : !userData ? (
-          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>
+          <div style={{ ...surface, padding: "var(--space-3)", textAlign: "center", color: UI.muted }}>
             User data not found.
           </div>
         ) : (
           <div className="settings-layout" style={grid(12)}>
             <div className="settings-main" style={{ gridColumn: "span 7" }}>
               <div style={card}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                     <div style={avatarWrap}>{avatarNode}</div>
                     <div>
-                      <div style={{ fontWeight: 900, fontSize: 16 }}>{userData.name}</div>
-                      <div style={{ color: UI.muted, fontSize: 13 }}>{userData.email}</div>
+                      <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)" }}>{userData.name}</div>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>{userData.email}</div>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <span style={chip}>{userData.role}</span>
                     <span
                       style={{
@@ -389,7 +390,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ height: 1, background: "#eef2f7", margin: "12px 0" }} />
+                <div style={{ height: 1, background: "var(--legacy-color-eef2f7)", margin: "12px 0" }} />
 
                 <div className="settings-triple" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
@@ -406,7 +407,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="settings-actions" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div className="settings-actions" style={{ marginTop: "var(--space-3)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
                   <button type="button" style={btnSoft} onClick={() => router.push("/edit-profile")}>
                     <PencilLine size={14} />
                     Edit profile
@@ -521,16 +522,16 @@ export default function SettingsPage() {
             </div>
 
             <div className="settings-side" style={{ gridColumn: "span 5" }}>
-              <div style={{ ...surface, padding: 12 }}>
+              <div style={{ ...surface, padding: "var(--space-3)" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                   <div style={sectionTitle}>Quick actions</div>
                   <span style={chip}>Account</span>
                 </div>
-                <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+                <div style={{ marginTop: 6, color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                   Common account tasks and shortcuts to the parts of the platform you use most.
                 </div>
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                <div style={{ marginTop: "var(--space-3)", display: "grid", gap: 10 }}>
                   {actionCard("/edit-profile", "Edit profile", "Update your name, profile photo, and contact details", "Open", PencilLine)}
                   {actionCard("/change-password", "Change password", "Refresh your sign-in credentials and keep your account secure", "Open", KeyRound)}
                   {actionCard("/job-home", "Jobs Home", "Return to the main operational dashboard", "Open", LayoutDashboard)}
@@ -542,7 +543,7 @@ export default function SettingsPage() {
                 <div style={sectionSub}>Your current account protection and available security actions.</div>
 
                 <div style={{ display: "grid", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                     <span style={statusPill("Email verified", securitySummary.emailVerified).style}>
                       Email {securitySummary.emailVerified ? "verified" : "pending"}
                     </span>

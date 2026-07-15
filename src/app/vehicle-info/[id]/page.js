@@ -105,34 +105,34 @@ export default function VehicleInfoPage() {
     }
   };
 
-  if (!vehicle) return <div style={{ padding: 40, color: '#000' }}>Loading vehicle data...</div>;
+  if (!vehicle) return <div style={{ padding: "var(--space-10)", color: 'var(--color-black)' }}>Loading vehicle data...</div>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif", color: "#111" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--legacy-color-f4f4f5)", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-111)" }}>
       {/* Sidebar */}
 
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: 40 }}>
+      <main style={{ flex: 1, padding: "var(--space-10)" }}>
         <button
           onClick={() => router.push("/vehicles")}
-          style={{ marginBottom: 16, padding: "8px 16px", border: "none", borderRadius: 4, backgroundColor: "#555", color: "#fff", cursor: "pointer", width: "fit-content" }}
+          style={{ marginBottom: "var(--space-4)", padding: "8px 16px", border: "none", borderRadius: 4, backgroundColor: "var(--legacy-color-555)", color: "var(--color-white)", cursor: "pointer", width: "fit-content" }}
         >
           ← Back to Vehicles
         </button>
 
         <VehicleCSVImport />
 
-        <h1 style={{ fontSize: 28, marginBottom: 24 }}>Vehicle Details: {vehicle.name} ({vehicle.category})</h1>
+        <h1 style={{ fontSize: 28, marginBottom: "var(--space-6)" }}>Vehicle Details: {vehicle.name} ({vehicle.category})</h1>
 
-        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <div style={{ display: "grid", gap: "var(--space-5)", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
           <Field label="Name" value={vehicle.name} />
           <div>
-            <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Category</label>
+            <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>Category</label>
             <select
               value={editableVehicle?.category || ""}
               onChange={(e) => setEditableVehicle({ ...editableVehicle, category: e.target.value })}
-              style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+              style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
             >
               <option value="Bike">Bike</option>
               <option value="Small">Small</option>
@@ -144,42 +144,42 @@ export default function VehicleInfoPage() {
           <Field label="Registration Number" value={vehicle.registration} />
           <Field label="Odometer" value={getVehicleOdometerValue(vehicle).toLocaleString()} suffix="mi" />
           <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Last Service</label>
+  <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>Last Service</label>
   <input
     type="date"
     value={editableVehicle?.lastService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Next Service</label>
+  <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>Next Service</label>
   <input
     type="date"
     value={editableVehicle?.nextService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Last MOT</label>
+  <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>Last MOT</label>
   <input
     type="date"
     value={editableVehicle?.lastMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
   />
 </div>
 
 <div>
-  <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>Next MOT</label>
+  <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>Next MOT</label>
   <input
     type="date"
     value={editableVehicle?.nextMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
   />
 </div>
 
@@ -187,22 +187,22 @@ export default function VehicleInfoPage() {
 
         
 
-        <div style={{ marginTop: 40 }}>
-          <h2 style={{ marginBottom: 12 }}>Notes</h2>
+        <div style={{ marginTop: "var(--space-10)" }}>
+          <h2 style={{ marginBottom: "var(--space-3)" }}>Notes</h2>
           <textarea
             value={editableVehicle?.notes || ""}
             onChange={(e) => setEditableVehicle({ ...editableVehicle, notes: e.target.value })}
-            style={{ width: "100%", height: 120, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}
+            style={{ width: "100%", height: 120, padding: "var(--space-3)", border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
           />
         </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 30 }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", marginTop: 30 }}>
         <button
           onClick={handleSave}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#1976d2",
-            color: "#fff",
+            backgroundColor: "var(--legacy-color-1976d2)",
+            color: "var(--color-white)",
             border: "none",
             borderRadius: 4,
             cursor: "pointer"
@@ -216,8 +216,8 @@ export default function VehicleInfoPage() {
             onClick={handleDelete}
             style={{
               padding: "10px 20px",
-              backgroundColor: "#d32f2f",
-              color: "#fff",
+              backgroundColor: "var(--legacy-color-d32f2f)",
+              color: "var(--color-white)",
               border: "none",
               borderRadius: 4,
               cursor: "pointer"
@@ -234,13 +234,13 @@ export default function VehicleInfoPage() {
 function Field({ label, value, onChange, suffix }) {
   return (
     <div>
-      <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>{label}</label>
+      <label style={{ fontWeight: "bold", display: "block", marginBottom: "var(--space-1)" }}>{label}</label>
       <input
         defaultValue={value}
-        style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+        style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: "var(--radius-sm)" }}
         onChange={(e) => onChange(e.target.value)} />
       
-      {suffix && <span style={{ marginLeft: 8 }}>{suffix}</span>}
+      {suffix && <span style={{ marginLeft: "var(--space-2)" }}>{suffix}</span>}
     </div>
   );
 }
@@ -297,8 +297,8 @@ function VehicleCSVImport() {
   };
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <label style={{ fontWeight: "bold", marginRight: 12 }}>Import Vehicle CSV:</label>
+    <div style={{ marginBottom: "var(--space-5)" }}>
+      <label style={{ fontWeight: "bold", marginRight: "var(--space-3)" }}>Import Vehicle CSV:</label>
       <input type="file" accept=".csv" onChange={handleFileUpload} />
     </div>
   );
@@ -306,11 +306,11 @@ function VehicleCSVImport() {
 
 const navButton = {
   background: "transparent",
-  color: "#fff",
+  color: "var(--color-white)",
   border: "none",
-  fontSize: 16,
+  fontSize: "var(--font-size-lg)",
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid #333"
+  borderBottom: "1px solid var(--legacy-color-333)"
 };

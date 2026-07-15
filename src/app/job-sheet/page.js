@@ -34,39 +34,39 @@ import {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const headerBar = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: 14, flexWrap: "wrap" };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const toolbar = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   display: "grid",
   gridTemplateColumns: "minmax(260px, 1fr) auto auto repeat(5, minmax(130px, auto)) auto",
   gap: UI.gap,
@@ -79,7 +79,7 @@ const toolbar = {
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "#fff", color: UI.text };
+const searchInput = { width: "100%", minHeight: "var(--control-height-md)", padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: "var(--font-size-sm)", outline: "none", background: "var(--color-white)", color: UI.text };
 const searchIcon = { position: "absolute", left: 10, width: 17, height: 17, color: UI.muted };
 
 const pillBtn = (active = false) => ({
@@ -90,7 +90,7 @@ const pillBtn = (active = false) => ({
   padding: "6px 9px",
   borderRadius: UI.radiusSm,
   border: active ? `1px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: active ? UI.brandSoft : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: active ? UI.brand : UI.text,
   fontSize: 12.5,
   fontWeight: 800,
@@ -100,34 +100,34 @@ const pillBtn = (active = false) => ({
 });
 
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
-const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "#fff", color: UI.text, fontSize: 12.5, minWidth: 140 };
+const select = { minHeight: "var(--control-height-md)", padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-white)", color: UI.text, fontSize: 12.5, minWidth: 140 };
 const chip = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
 const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: UI.gap, marginTop: UI.gap };
-const statCard = { ...surface, padding: 12 };
+const statCard = { ...surface, padding: "var(--space-3)" };
 
 const sectionHeader = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, margin: "18px 2px 10px", flexWrap: "wrap" };
-const weekTitle = { fontSize: 16, fontWeight: 800, color: UI.text, letterSpacing: 0, margin: 0 };
-const tinyHint = { color: UI.muted, fontSize: 12 };
-const emptyWrap = { ...surface, padding: 20, display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 13.5 };
+const weekTitle = { fontSize: "var(--font-size-lg)", fontWeight: 800, color: UI.text, letterSpacing: 0, margin: 0 };
+const tinyHint = { color: UI.muted, fontSize: "var(--font-size-xs)" };
+const emptyWrap = { ...surface, padding: "var(--space-5)", display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 13.5 };
 const gridWrap = (cols = 4) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: UI.gap });
 const listWrap = { display: "grid", gap: 10 };
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -141,7 +141,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .job-sheet-toolbar,
@@ -297,13 +297,13 @@ const statusColors = (label) => {
     case "Confirmed":
       return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
     case "First Pencil":
-      return { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" };
+      return { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--color-info)" };
     case "Second Pencil":
       return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
     case "TBC":
-      return { bg: "#f8fafc", border: "#e2e8f0", text: UI.muted };
+      return { bg: "var(--color-surface-subtle)", border: "var(--legacy-color-e2e8f0)", text: UI.muted };
     default:
-      return { bg: "#f8fafc", border: "#dbe5ef", text: UI.text };
+      return { bg: "var(--color-surface-subtle)", border: "var(--legacy-color-dbe5ef)", text: UI.text };
   }
 };
 
@@ -320,10 +320,10 @@ const CheckBadge = ({ label, ok }) => (
       alignItems: "center",
       gap: 6,
       padding: "4px 8px",
-      borderRadius: 999,
-      border: `1px solid ${ok ? "#86efac" : "#fecaca"}`,
-      background: ok ? "#dcfce7" : "#fee2e2",
-      color: ok ? "#166534" : "#991b1b",
+      borderRadius: "var(--radius-pill)",
+      border: `1px solid ${ok ? "var(--legacy-color-86efac)" : "var(--color-danger-border)"}`,
+      background: ok ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
+      color: ok ? "var(--color-success)" : "var(--color-danger)",
       fontSize: 10.5,
       fontWeight: 800,
       whiteSpace: "nowrap",
@@ -333,8 +333,8 @@ const CheckBadge = ({ label, ok }) => (
       style={{
         width: 7,
         height: 7,
-        borderRadius: 999,
-        background: ok ? "#16a34a" : "#dc2626",
+        borderRadius: "var(--radius-pill)",
+        background: ok ? "var(--legacy-color-16a34a)" : "var(--legacy-color-dc2626)",
       }}
     />
     {label}
@@ -349,7 +349,7 @@ const StatusBadge = ({ job, section }) => {
       style={{
         padding: "6px 10px",
         fontSize: 11,
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${c.border}`,
         background: c.bg,
         color: c.text,
@@ -363,10 +363,10 @@ const StatusBadge = ({ job, section }) => {
 };
 
 /* Table styles */
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "#fff", boxShadow: UI.shadowSm };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--color-white)", boxShadow: UI.shadowSm };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #dde5ee", position: "sticky", top: 0, background: "#f7f9fc", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
-const td = { padding: "9px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-dde5ee)", position: "sticky", top: 0, background: "var(--legacy-color-f7f9fc)", zIndex: 1, fontSize: "var(--font-size-xs)", color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
+const td = { padding: "9px 12px", borderBottom: "1px solid var(--legacy-color-edf2f7)", verticalAlign: "top" };
 
 /* Page */
 export default function JobSheetPage() {
@@ -776,7 +776,7 @@ export default function JobSheetPage() {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: UI.border,
-      background: "#ffffff",
+      background: "var(--color-white)",
       color: UI.text,
       fontSize: 11.5,
       fontWeight: 800,
@@ -792,7 +792,7 @@ export default function JobSheetPage() {
             display: "grid",
             gridTemplateColumns: "minmax(120px, 1fr) auto",
             alignItems: "center",
-            gap: 8,
+            gap: "var(--space-2)",
             padding: "8px 10px",
             border: UI.border,
             borderRadius: UI.radius,
@@ -803,8 +803,8 @@ export default function JobSheetPage() {
             transition: "transform .12s ease, box-shadow .12s ease, border-color .12s ease",
           }}
         >
-          <div style={{ display: "flex", minWidth: 0, gap: 8, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13.5 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 20, minWidth: 26, padding: "0 6px", borderRadius: 6, background: "#eef2ff", border: "1px solid #e5e7eb", fontWeight: 800, fontSize: 11, color: "#3730a3" }}>
+          <div style={{ display: "flex", minWidth: 0, gap: "var(--space-2)", alignItems: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13.5 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 20, minWidth: 26, padding: "0 6px", borderRadius: "var(--radius-sm)", background: "var(--legacy-color-eef2ff)", border: "1px solid var(--legacy-color-e5e7eb)", fontWeight: 800, fontSize: 11, color: "var(--legacy-color-3730a3)" }}>
               {prefix}
             </span>
             <span style={{ fontWeight: 900, fontSize: 13.5 }}>#{job.jobNumber || job.id}</span>
@@ -831,13 +831,13 @@ export default function JobSheetPage() {
             </button>
           </div>
 
-          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-1)" }}>
             <CheckBadge label="Notes" ok={checks.notes} />
             <CheckBadge label="PO" ok={checks.po} />
             <CheckBadge label="Quote" ok={checks.quote} />
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
+            <span style={{ padding: "2px 8px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--color-surface-subtle)", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
+            <span style={{ padding: "2px 8px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--color-surface-subtle)", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
+            <span style={{ padding: "2px 8px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--color-surface-subtle)", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
           </div>
         </Link>
       );
@@ -868,7 +868,7 @@ export default function JobSheetPage() {
       >
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0, flex: 1 }}>
             <span
               title="Job prefix"
               style={{
@@ -878,12 +878,12 @@ export default function JobSheetPage() {
                 minWidth: 28,
                 height: 22,
                 padding: "0 6px",
-                borderRadius: 8,
-                background: "#eef2ff",
-                border: "1px solid #e5e7eb",
+                borderRadius: "var(--radius-md)",
+                background: "var(--legacy-color-eef2ff)",
+                border: "1px solid var(--legacy-color-e5e7eb)",
                 fontWeight: 900,
                 fontSize: 11.5,
-                color: "#3730a3",
+                color: "var(--legacy-color-3730a3)",
               }}
             >
               {getJobPrefix(job)}
@@ -895,41 +895,41 @@ export default function JobSheetPage() {
           {statusBadge}
         </div>
 
-        <div style={{ height: 1, background: "#f1f5f9", margin: "4px 0 8px" }} />
+        <div style={{ height: 1, background: "var(--legacy-color-f1f5f9)", margin: "4px 0 8px" }} />
 
         {/* Info grid */}
         <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: denseNow ? 4 : 6, columnGap: denseNow ? 8 : 10, fontSize: 13.5, lineHeight: 1.32 }}>
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
           <span>{job.client || "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
           <span>{job.location || "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
           <span>{range}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Employees</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Employees</span>
           <span>
             {Array.isArray(job.employees) && job.employees.length
               ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
               : "-"}
           </span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
           <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
+          <span style={{ color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
           <span>{equipment}</span>
         </div>
 
 
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "var(--space-2)" }}>
           <CheckBadge label="Notes" ok={checks.notes} />
           <CheckBadge label="PO" ok={checks.po} />
           <CheckBadge label="Quote" ok={checks.quote} />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-2)", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               type="button"
@@ -962,7 +962,7 @@ export default function JobSheetPage() {
               Complete
             </button>
           </div>
-          <span style={{ color: UI.muted, fontSize: 11, letterSpacing: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ color: UI.muted, fontSize: 11, letterSpacing: 0, display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
             Open job <ChevronRight size={13} />
           </span>
         </div>
@@ -1024,21 +1024,21 @@ export default function JobSheetPage() {
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Ready to Invoice")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", background: "var(--color-white)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Ready
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Action Required")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", background: "var(--color-white)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Action
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "complete")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", background: "var(--color-white)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Complete
                     </button>
@@ -1103,7 +1103,7 @@ export default function JobSheetPage() {
           </div>
 
           {/* View toggle (3-way) */}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <button onClick={() => setViewMode("grid")} style={pillBtn(viewMode === "grid")} aria-pressed={viewMode === "grid"}>
               <LayoutGrid size={13} /> Grid
             </button>
@@ -1116,7 +1116,7 @@ export default function JobSheetPage() {
           </div>
 
           {/* Density + Sort */}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <select value={density} onChange={(e) => setDensity(e.target.value)} style={select} aria-label="Density">
               <option value="cozy">Cozy</option>
               <option value="compact">Compact</option>
@@ -1174,8 +1174,8 @@ export default function JobSheetPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
-          <div style={{ ...tabsWrap, justifyContent: "space-between", rowGap: 8 }}>
+        <div style={{ ...surface, marginTop: "var(--space-3)", padding: 10, background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-fbfdff) 100%)" }}>
+          <div style={{ ...tabsWrap, justifyContent: "space-between", rowGap: "var(--space-2)" }}>
             <div style={tabsWrap}>
               {[
                 "Upcoming",
@@ -1189,7 +1189,7 @@ export default function JobSheetPage() {
                 const active = activeSection === s;
                 return (
                   <button key={s} onClick={() => setActiveSection(s)} style={pillBtn(active)} aria-pressed={active} aria-label={`Show ${s}`}>
-                    {s} <span style={{ marginLeft: 8, fontWeight: 900 }}>{counts[s]}</span>
+                    {s} <span style={{ marginLeft: "var(--space-2)", fontWeight: 900 }}>{counts[s]}</span>
                   </button>
                 );
               })}
@@ -1205,11 +1205,11 @@ export default function JobSheetPage() {
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Active Section
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{activeSection}</div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900, color: UI.text, marginTop: 6 }}>{activeSection}</div>
               </div>
               <span style={iconBox()}><Columns3 size={17} /></span>
             </div>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>{totalVisible} jobs match the current view</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>{totalVisible} jobs match the current view</div>
           </div>
           <div style={statCard}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -1217,11 +1217,11 @@ export default function JobSheetPage() {
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Notes Filled
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
               </div>
-              <span style={iconBox(UI.brand, "#f8fafc", "#dbe5ef")}><Filter size={17} /></span>
+              <span style={iconBox(UI.brand, "var(--color-surface-subtle)", "var(--legacy-color-dbe5ef)")}><Filter size={17} /></span>
             </div>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with notes entered</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Jobs with notes entered</div>
           </div>
           <div style={statCard}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -1229,11 +1229,11 @@ export default function JobSheetPage() {
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   PO Filled
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.po}</div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.po}</div>
               </div>
               <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}><CheckCircle2 size={17} /></span>
             </div>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with PO added</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Jobs with PO added</div>
           </div>
           <div style={statCard}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -1241,11 +1241,11 @@ export default function JobSheetPage() {
                 <div style={{ color: UI.muted, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   Quote Attached
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.quote}</div>
+                <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.quote}</div>
               </div>
               <span style={iconBox(UI.amber, UI.amberSoft, UI.amberBorder)}><CalendarDays size={17} /></span>
             </div>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with an uploaded file</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>Jobs with an uploaded file</div>
           </div>
         </div>
 

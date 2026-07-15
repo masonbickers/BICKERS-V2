@@ -475,14 +475,14 @@ export default function ViewUCraneBookingModal({
             <div style={eyebrow}>
               U-Crane Booking • Job #{booking.jobNumber || "—"}
               {!isLikelyUCraneBooking && (
-                <span style={{ marginLeft: 8, fontSize: 12, color: "#ef4444", fontWeight: 800 }}>
+                <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--font-size-xs)", color: "var(--legacy-color-ef4444)", fontWeight: 800 }}>
                   (No U-Crane vehicle found)
                 </span>
               )}
             </div>
             <h2 style={title}>{booking.client || "U-Crane Booking Details"}</h2>
             {fromDeleted && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: "var(--legacy-color-6b7280)", fontWeight: 700 }}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
@@ -526,9 +526,9 @@ export default function ViewUCraneBookingModal({
             <Field label="Contact Number" value={booking.contactNumber || "Not provided"} />
 
             {additionalContacts.length > 0 && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: "var(--space-2)" }}>
                 <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
-                <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "grid", gap: "var(--space-2)" }}>
                   {additionalContacts.map((c, idx) => {
                     const name = c?.name || "Contact";
                     const email = c?.email || "";
@@ -536,13 +536,13 @@ export default function ViewUCraneBookingModal({
                     const role = c?.role || "";
                     return (
                       <div key={idx} style={miniCard}>
-                        <div style={{ fontWeight: 800, fontSize: 13 }}>
+                        <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)" }}>
                           {name}{" "}
                           {role ? (
                             <span style={{ opacity: 0.7, fontWeight: 700 }}>({role})</span>
                           ) : null}
                         </div>
-                        <div style={{ fontSize: 13, color: "#111" }}>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-111)" }}>
                           {email ? <div>Email: {email}</div> : null}
                           {phone ? <div>Phone: {phone}</div> : null}
                         </div>
@@ -616,14 +616,14 @@ export default function ViewUCraneBookingModal({
                       {Object.keys(grouped).length ? (
                         <div style={{ display: "grid", gap: 6 }}>
                           {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} style={{ fontSize: 13 }}>
+                            <div key={role} style={{ fontSize: "var(--font-size-sm)" }}>
                               <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
-                              <div style={{ color: "#111" }}>{names.join(", ")}</div>
+                              <div style={{ color: "var(--legacy-color-111)" }}>{names.join(", ")}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: "#6b7280" }}>No one assigned.</div>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-6b7280)" }}>No one assigned.</div>
                       )}
                     </div>
                   );
@@ -704,7 +704,7 @@ export default function ViewUCraneBookingModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments" full>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
@@ -743,7 +743,7 @@ export default function ViewUCraneBookingModal({
         <div style={actions}>
           {fromDeleted ? (
             <>
-              <button onClick={handleRestore} style={{ ...btn, background: "#111827" }}>
+              <button onClick={handleRestore} style={{ ...btn, background: "var(--legacy-color-111827)" }}>
                 Restore
               </button>
               <button onClick={onClose} style={{ ...btn, ...btnSecondary }}>
@@ -819,19 +819,19 @@ const Tag = ({ children, dark, success }) => (
 
 /* ---------- styles ---------- */
 const UI = {
-  radius: 8,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  borderSoft: "1px solid #e4ebf3",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  dangerSoft: "#fff1f2",
+  radius: "var(--radius-md)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  border: "var(--border-default)",
+  borderSoft: "1px solid var(--legacy-color-e4ebf3)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
   shadow: "0 24px 70px rgba(15,23,42,0.28)",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  shadowSm: "var(--shadow-sm)",
 };
 
 const overlay = {
@@ -841,7 +841,7 @@ const overlay = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  padding: 16,
+  padding: "var(--space-4)",
   zIndex: 9999,
   backdropFilter: "blur(2px)",
 };
@@ -862,36 +862,36 @@ const header = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-3)",
   padding: "4px 2px 12px",
   borderBottom: UI.borderSoft,
 };
 
 const eyebrow = { fontSize: 12.5, letterSpacing: 0, color: UI.muted, fontWeight: 800 };
-const title = { margin: "3px 0 0", fontSize: 22, lineHeight: 1.14, color: UI.text, fontWeight: 850 };
+const title = { margin: "3px 0 0", fontSize: "var(--font-size-xl)", lineHeight: 1.14, color: UI.text, fontWeight: 850 };
 
 const badge = {
   padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 850,
   border: "1px solid rgba(15,23,42,0.16)",
   boxShadow: UI.shadowSm,
   whiteSpace: "nowrap",
 };
 
-const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "4px 0 14px" };
+const chipRow = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap", margin: "4px 0 14px" };
 
 const grid = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const sectionTitle = {
   margin: "0 0 8px 0",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
   fontWeight: 850,
   letterSpacing: 0,
@@ -900,7 +900,7 @@ const sectionCard = {
   background: UI.card,
   border: UI.border,
   borderRadius: UI.radius,
-  padding: 12,
+  padding: "var(--space-3)",
   boxShadow: UI.shadowSm,
 };
 
@@ -909,29 +909,29 @@ const fieldRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed #dce6f0",
+  borderBottom: "1px dashed var(--legacy-color-dce6f0)",
 };
 const fieldLabel = { color: UI.muted, fontSize: 12.5, fontWeight: 800 };
 const fieldValue = { color: UI.text, fontSize: 13.5, fontWeight: 650, minWidth: 0 };
 
 const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
-const noteCard = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
+const noteCard = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
 const noteDate = { fontWeight: 850, fontSize: 12.5, marginBottom: 6, color: UI.text };
 const noteText = { fontSize: 13.5, color: UI.text };
 
-const noteBox = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
+const noteBox = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: "var(--space-3)", lineHeight: 1.4 };
 
-const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
+const tagWrap = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap" };
 const tagPill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "4px 9px",
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.text,
   border: UI.borderSoft,
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -939,30 +939,30 @@ const tagSub = { opacity: 0.7, fontSize: 11 };
 const tagStatus = {
   marginLeft: 6,
   padding: "2px 6px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: UI.borderSoft,
-  background: "#fff",
+  background: "var(--color-white)",
   fontSize: 11,
   fontWeight: 800,
 };
 
 const chip = {
   padding: "4px 9px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 850,
   border: UI.borderSoft,
 };
-const chipGood = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
-const chipBad = { background: UI.dangerSoft, color: "#991b1b", border: "1px solid #e9c6c4" };
-const tagSuccess = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
-const tagDark = { background: "#10233a", color: "#fff", border: "1px solid #10233a" };
+const chipGood = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
+const chipBad = { background: UI.dangerSoft, color: "var(--color-danger)", border: "1px solid var(--legacy-color-e9c6c4)" };
+const tagSuccess = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
+const tagDark = { background: "var(--legacy-color-10233a)", color: "var(--color-white)", border: "1px solid var(--legacy-color-10233a)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
   background: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
   borderRadius: UI.radius,
   textDecoration: "none",
   border: `1px solid ${UI.brand}`,
@@ -970,13 +970,13 @@ const fileBtn = {
 };
 
 const footerMeta = {
-  marginTop: 12,
-  paddingTop: 12,
+  marginTop: "var(--space-3)",
+  paddingTop: "var(--space-3)",
   borderTop: UI.borderSoft,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   display: "flex",
-  gap: 16,
+  gap: "var(--space-4)",
   flexWrap: "wrap",
 };
 
@@ -985,7 +985,7 @@ const actions = {
   gap: 10,
   justifyContent: "flex-end",
   marginTop: 14,
-  paddingTop: 12,
+  paddingTop: "var(--space-3)",
   borderTop: UI.borderSoft,
   flexWrap: "wrap",
 };
@@ -994,10 +994,10 @@ const btn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -1005,15 +1005,15 @@ const btn = {
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 const btnSecondary = {
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
 };
 const btnDanger = {
   background: UI.dangerSoft,
-  color: "#991b1b",
-  border: "1px solid #e9c6c4",
+  color: "var(--color-danger)",
+  border: "1px solid var(--legacy-color-e9c6c4)",
   boxShadow: "none",
 };
 const btnBusy = {
@@ -1022,7 +1022,7 @@ const btnBusy = {
 };
 
 const miniCard = {
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   border: UI.borderSoft,
   borderRadius: UI.radius,
   padding: 10,
@@ -1030,21 +1030,21 @@ const miniCard = {
 
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",
-    "First Pencil": "#93c5fd",
-    "Second Pencil": "#ef4444",
-    DNH: "#c2c2c2",
-    Complete: "#22c55e",
-    "Action Required": "#ff7b00",
-    Holiday: "#d1d5db",
-    Maintenance: "#fb923c",
-    Lost: "#ef4444",
-    Postponed: "#f59e0b",
-    Cancelled: "#ef4444",
-    Enquiry: "#e5e7eb",
+    Confirmed: "var(--legacy-color-fde047)",
+    "First Pencil": "var(--legacy-color-93c5fd)",
+    "Second Pencil": "var(--legacy-color-ef4444)",
+    DNH: "var(--legacy-color-c2c2c2)",
+    Complete: "var(--legacy-color-22c55e)",
+    "Action Required": "var(--legacy-color-ff7b00)",
+    Holiday: "var(--legacy-color-d1d5db)",
+    Maintenance: "var(--legacy-color-fb923c)",
+    Lost: "var(--legacy-color-ef4444)",
+    Postponed: "var(--legacy-color-f59e0b)",
+    Cancelled: "var(--legacy-color-ef4444)",
+    Enquiry: "var(--legacy-color-e5e7eb)",
   };
-  return map[status] || "#e5e7eb";
+  return map[status] || "var(--legacy-color-e5e7eb)";
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "#111" : "#fff";
+  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "var(--legacy-color-111)" : "var(--color-white)";
 }

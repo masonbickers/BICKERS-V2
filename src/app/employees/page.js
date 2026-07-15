@@ -28,21 +28,21 @@ import {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#16a34a",
-  greenSoft: "#dcfce7",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-16a34a)",
+  greenSoft: "var(--legacy-color-dcfce7)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -50,22 +50,22 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -87,7 +87,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -105,9 +105,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #86efac",
+      border: "1px solid var(--legacy-color-86efac)",
       background: UI.greenSoft,
-      color: "#065f46",
+      color: "var(--legacy-color-065f46)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -123,8 +123,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -135,20 +135,20 @@ const btn = (kind = "primary") => {
 };
 
 const input = {
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px",
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#fff",
-  fontSize: 13,
+  background: "var(--color-white)",
+  fontSize: "var(--font-size-sm)",
   outline: "none",
   color: UI.text,
 };
 
 const cardBase = {
   ...surface,
-  padding: 12,
-  background: "#ffffff",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -181,7 +181,7 @@ const summaryGrid = {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -191,15 +191,15 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "#fff" };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--color-white)" };
+const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: "var(--font-size-sm)" };
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   position: "sticky",
   top: 0,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -207,27 +207,27 @@ const th = {
   fontSize: 11.5,
   textTransform: "uppercase",
 };
-const td = { padding: "9px 11px", borderBottom: "1px solid #f1f5f9", verticalAlign: "middle", color: UI.text };
+const td = { padding: "9px 11px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "middle", color: UI.text };
 
 const badge = {
   background: UI.brandSoft,
   border: `1px solid ${UI.brandBorder}`,
   color: UI.brand,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   padding: "4px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   display: "inline-block",
 };
 
 const rowHover = `
   tr[data-row="true"]:hover td {
-    background: #fbfdff;
+    background: var(--legacy-color-fbfdff);
   }
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .employees-tools-grid,
@@ -388,7 +388,7 @@ export default function EmployeeListPage() {
             <div style={sub}>Open each employee file to manage contact details, right-to-work, licence, emergency contacts and HR documents.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
             <span style={chip}>{employees.length} employees</span>
             <button style={btn()} onClick={() => router.push("/add-employee")} type="button">
               <UserPlus size={14} /> Add employee
@@ -498,16 +498,16 @@ export default function EmployeeListPage() {
                     <td style={td}>{employee.mobile || "-"}</td>
                     <td style={td}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ ...badge, background: personnel.hasPassport ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.hasPassport ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Passport {personnel.hasPassport ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.hasLicence ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.hasLicence ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Licence {personnel.hasLicence ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.emergencyCount ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.emergencyCount ? "var(--color-success-soft)" : "var(--color-surface-subtle)" }}>
                           Emergency {personnel.emergencyCount}
                         </span>
-                        <span style={{ ...badge, background: personnel.documentCount ? "#eff6ff" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.documentCount ? "var(--color-info-soft)" : "var(--color-surface-subtle)" }}>
                           Docs {personnel.documentCount}
                         </span>
                       </div>
@@ -541,13 +541,13 @@ function MetricCard({ label, value, icon: Icon, tone = "default" }) {
   const colors =
     tone === "soft"
       ? { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand }
-      : { bg: "#ffffff", border: "#d7dee8", fg: UI.brand };
+      : { bg: "var(--color-white)", border: "var(--color-border)", fg: UI.brand };
 
   return (
     <div style={{ ...surface, padding: 11, minHeight: 92, boxShadow: "none", background: colors.bg, border: `1px solid ${colors.border}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(colors.fg, "#fff", colors.border)}>
+        <span style={iconBox(colors.fg, "var(--color-white)", colors.border)}>
           <Icon size={17} />
         </span>
       </div>

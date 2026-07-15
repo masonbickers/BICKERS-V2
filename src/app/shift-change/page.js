@@ -34,24 +34,24 @@ const ADMIN_EMAILS = new Set([
 ]);
 
 const UI = {
-  radius: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fee2e2",
-  redBorder: "#fecaca",
+  radius: "var(--radius-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fee2e2)",
+  redBorder: "var(--color-danger-border)",
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -390,7 +390,7 @@ function Stat({ label, value, icon: Icon, tone }) {
     <div style={statCard}>
       <span style={iconBox(color, bg, border)}><Icon size={17} /></span>
       <div>
-        <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{label}</div>
+        <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{label}</div>
         <div style={{ color: UI.text, fontSize: 24, fontWeight: 900, marginTop: 3 }}>{value}</div>
       </div>
     </div>
@@ -411,19 +411,19 @@ function ShiftCard({ row, isAdmin, saving, onApprove, onDecline }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontWeight: 900, color: UI.text }}>{row.employeeName || "Unknown employee"}</div>
-          <div style={{ marginTop: 4, color: UI.muted, fontSize: 12.5, fontWeight: 750 }}>
+          <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: 12.5, fontWeight: 750 }}>
             {ymdLabel(row.date)} · {row.startTime || "--:--"} to {row.finishTime || "--:--"}
           </div>
         </div>
         <span style={statusStyle}>{status.replace(/\b\w/g, (m) => m.toUpperCase())}</span>
       </div>
       {row.reason ? <div style={reasonBox}>{row.reason}</div> : null}
-      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 750 }}>
+      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 750 }}>
         Requested by {row.requestedByName || row.requestedByEmail || "-"}
         {row.approvedByName ? ` · Approved by ${row.approvedByName}` : ""}
       </div>
       {isAdmin && status === "requested" ? (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 10 }}>
           <button type="button" style={btn("approve")} onClick={onApprove} disabled={saving}>
             <CheckCircle2 size={14} /> Approve
           </button>
@@ -441,33 +441,33 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { margin: 0, color: UI.text, fontSize: 22, fontWeight: 750, lineHeight: 1.08 };
+const h1 = { margin: 0, color: UI.text, fontSize: "var(--font-size-xl)", fontWeight: 750, lineHeight: 1.08 };
 const sub = { marginTop: 6, color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
-const panel = { background: UI.card, border: UI.border, borderRadius: UI.radius, padding: 12, boxShadow: "0 1px 2px rgba(15,23,42,0.05)" };
+const panel = { background: UI.card, border: UI.border, borderRadius: UI.radius, padding: "var(--space-3)", boxShadow: "0 1px 2px rgba(15,23,42,0.05)" };
 const sectionHeader = { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 };
 const titleMd = { margin: 0, fontSize: 17, fontWeight: 900, color: UI.text };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-const layout = { display: "grid", gridTemplateColumns: "minmax(320px, 0.8fr) minmax(0, 1.2fr)", gap: 12, alignItems: "start" };
-const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 12 };
+const layout = { display: "grid", gridTemplateColumns: "minmax(320px, 0.8fr) minmax(0, 1.2fr)", gap: "var(--space-3)", alignItems: "start" };
+const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-3)" };
 const statCard = { ...panel, display: "flex", alignItems: "center", gap: 10 };
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 };
 const labelStyle = { color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".035em" };
-const input = { width: "100%", minHeight: 36, border: "1px solid #c8d6e3", borderRadius: 8, padding: "8px 10px", color: UI.text, background: "#fff", fontSize: 13.5 };
-const checkRow = { gridColumn: "1 / -1", display: "inline-flex", alignItems: "center", gap: 8, color: UI.text, fontSize: 13, fontWeight: 850 };
-const notice = { marginBottom: 12, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, borderRadius: UI.radius, padding: "9px 11px", fontSize: 13, fontWeight: 800 };
-const chip = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 999, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, fontSize: 12, fontWeight: 850 };
-const list = { display: "grid", gap: 8, maxHeight: 650, overflowY: "auto", paddingRight: 2 };
-const requestCard = { border: UI.border, borderRadius: UI.radius, background: "#fff", padding: 11, display: "grid", gap: 8 };
-const reasonBox = { border: "1px solid #e5e7eb", borderRadius: 8, background: "#f8fafc", padding: "8px 9px", color: UI.text, fontSize: 13, lineHeight: 1.4 };
-const empty = { border: "1px dashed #c8d6e3", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: 13, fontWeight: 800, textAlign: "center" };
+const input = { width: "100%", minHeight: "var(--control-height-md)", border: "1px solid var(--color-border-strong)", borderRadius: "var(--radius-md)", padding: "8px 10px", color: UI.text, background: "var(--color-white)", fontSize: 13.5 };
+const checkRow = { gridColumn: "1 / -1", display: "inline-flex", alignItems: "center", gap: "var(--space-2)", color: UI.text, fontSize: "var(--font-size-sm)", fontWeight: 850 };
+const notice = { marginBottom: "var(--space-3)", border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, borderRadius: UI.radius, padding: "9px 11px", fontSize: "var(--font-size-sm)", fontWeight: 800 };
+const chip = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: "var(--radius-pill)", border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, fontSize: "var(--font-size-xs)", fontWeight: 850 };
+const list = { display: "grid", gap: "var(--space-2)", maxHeight: 650, overflowY: "auto", paddingRight: 2 };
+const requestCard = { border: UI.border, borderRadius: UI.radius, background: "var(--color-white)", padding: 11, display: "grid", gap: "var(--space-2)" };
+const reasonBox = { border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: "var(--radius-md)", background: "var(--color-surface-subtle)", padding: "8px 9px", color: UI.text, fontSize: "var(--font-size-sm)", lineHeight: 1.4 };
+const empty = { border: "1px dashed var(--color-border-strong)", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 800, textAlign: "center" };
 const iconBox = (color, bg, border) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -481,18 +481,18 @@ const pill = (color, bg, border) => ({
   alignItems: "center",
   alignSelf: "flex-start",
   padding: "5px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${border}`,
   background: bg,
   color,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
 });
 const btn = (kind = "primary") => {
   if (kind === "approve") return { ...buttonBase, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
   if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.red };
-  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "#fff", color: UI.text };
-  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", gridColumn: "1 / -1" };
+  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "var(--color-white)", color: UI.text };
+  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-white)", gridColumn: "1 / -1" };
 };
 const buttonBase = {
   display: "inline-flex",

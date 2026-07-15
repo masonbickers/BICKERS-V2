@@ -934,14 +934,14 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   allowanceInfo.remainingPaid <= 0
                     ? "rgba(239,68,68,0.12)"
                     : "rgba(59,130,246,0.12)",
-                color: "#0f172a",
-                borderRadius: 8,
+                color: "var(--color-text)",
+                borderRadius: "var(--radius-md)",
                 padding: 10,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 lineHeight: 1.35,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>
+              <div style={{ fontWeight: 900, marginBottom: "var(--space-1)" }}>
                 Allowance check ({allowanceInfo.year})
               </div>
               <div style={{ opacity: 0.95 }}>
@@ -962,16 +962,16 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(239,68,68,0.45)",
                 background: "rgba(239,68,68,0.12)",
-                color: "#7f1d1d",
-                borderRadius: 8,
+                color: "var(--color-danger-hover)",
+                borderRadius: "var(--radius-md)",
                 padding: 10,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 lineHeight: 1.35,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Holiday conflict</div>
+              <div style={{ fontWeight: 900, marginBottom: "var(--space-1)" }}>Holiday conflict</div>
               <div>{holidayConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "#991b1b", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: "var(--color-danger)", fontWeight: 700 }}>
                 You can’t submit an overlapping holiday for the same employee (unless it’s AM vs PM half-day on the same date).
               </div>
             </div>
@@ -983,16 +983,16 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(245,158,11,0.55)",
                 background: "rgba(245,158,11,0.14)",
-                color: "#78350f",
-                borderRadius: 8,
+                color: "var(--legacy-color-78350f)",
+                borderRadius: "var(--radius-md)",
                 padding: 10,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 lineHeight: 1.35,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Job conflict</div>
+              <div style={{ fontWeight: 900, marginBottom: "var(--space-1)" }}>Job conflict</div>
               <div>{jobConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
                 Remove them from the job first, or choose different holiday dates.
               </div>
             </div>
@@ -1002,18 +1002,18 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 13, color: "#0f172a" }}>Half day</div>
-                <div style={{ fontSize: 12, color: "#5f6f82", marginTop: 2, fontWeight: 700 }}>
+                <div style={{ fontWeight: 900, fontSize: "var(--font-size-sm)", color: "var(--color-text)" }}>Half day</div>
+                <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)", marginTop: 2, fontWeight: 700 }}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                 />
-                <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>
+                <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text)", fontWeight: 800 }}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
@@ -1033,18 +1033,18 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                       <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                         <input
                           type="checkbox"
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                         />
-                        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
+                        <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text)", fontWeight: 800 }}>End half</span>
                       </label>
                     </div>
 
                     {endHalfDay ? (
-                      <div style={{ marginTop: 8 }}>
+                      <div style={{ marginTop: "var(--space-2)" }}>
                         <label style={label}>End AM / PM</label>
                         <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
                           <option value="AM">AM</option>
@@ -1059,18 +1059,18 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               <div style={{ marginTop: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                     />
-                    <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text)", fontWeight: 800 }}>End half</span>
                   </label>
                 </div>
 
                 {endHalfDay ? (
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: "var(--space-2)" }}>
                     <label style={label}>End AM / PM</label>
                     <select value={endAMPM} onChange={(e) => setEndAMPM(e.target.value)} style={input}>
                       <option value="AM">AM</option>
@@ -1091,7 +1091,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               rows={3}
               placeholder="e.g. Family holiday / Sick / Appointment..."
               required
-              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: 12 }}
+              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: "var(--space-3)" }}
             />
           </div>
 
@@ -1106,7 +1106,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </select>
 
             {paidStatus === "Paid" && paidAllowed && !paidEnoughForThisRequest ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
                 Not enough paid remaining for this request — pick Unpaid or split.
               </div>
             ) : null}
@@ -1137,12 +1137,12 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 }
 
 const UI = {
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "#d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  border: "var(--color-border)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
 };
 
 const overlay = {
@@ -1153,15 +1153,15 @@ const overlay = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 90,
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const modal = {
   width: "min(620px, 95vw)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   padding: 14,
   color: UI.text,
-  background: "#ffffff",
+  background: "var(--color-white)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -1170,10 +1170,10 @@ const headerRow = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
-  paddingBottom: 12,
-  borderBottom: "1px solid #e2e8f0",
+  paddingBottom: "var(--space-3)",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const titleRow = {
@@ -1186,7 +1186,7 @@ const titleRow = {
 const iconBox = {
   width: 38,
   height: 38,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -1216,9 +1216,9 @@ const modalTitle = {
 const closeBtn = {
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -1229,7 +1229,7 @@ const closeBtn = {
 
 const form = {
   display: "grid",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const formGrid = {
@@ -1245,9 +1245,9 @@ const fieldGroup = {
 
 const label = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -1255,27 +1255,27 @@ const label = {
 const input = {
   width: "100%",
   padding: "10px 11px",
-  borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  backgroundColor: "#ffffff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  backgroundColor: "var(--color-white)",
   color: UI.text,
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   fontWeight: 700,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
 };
 
 const halfWrap = {
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
-  borderRadius: 8,
+  background: "var(--legacy-color-f8fbfe)",
+  borderRadius: "var(--radius-md)",
   padding: 10,
 };
 
 const globalOptionCSS = `
 select option {
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: var(--color-white) !important;
+  color: var(--color-text) !important;
 }
 `;
 
@@ -1293,12 +1293,12 @@ const primaryBtn = {
   gap: 7,
   minWidth: 138,
   padding: "9px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 
@@ -1308,19 +1308,19 @@ const secondaryBtn = {
   justifyContent: "center",
   minWidth: 98,
   padding: "9px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
 };
 
 const actions = {
   display: "flex",
   justifyContent: "flex-end",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   paddingTop: 2,
 };

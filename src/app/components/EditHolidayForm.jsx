@@ -429,7 +429,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             <h2 style={modalTitle}>{loading ? "Loading…" : "Edit Holiday"}</h2>
 
             {!loading ? (
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.70)" }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: "rgba(255,255,255,0.70)" }}>
                 Status:{" "}
                 <b style={{ color: "rgba(255,255,255,0.92)" }}>
                   {approved ? "Approved" : "Not approved"}
@@ -460,7 +460,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "var(--space-3)" }}>
           {!canEditRecord ? (
             <div
               style={{
@@ -478,7 +478,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           ) : null}
           <fieldset
             disabled={loading || saving || !canEditRecord}
-            style={{ display: "grid", gap: 12, border: "none", padding: 0, margin: 0, minWidth: 0 }}
+            style={{ display: "grid", gap: "var(--space-3)", border: "none", padding: 0, margin: 0, minWidth: 0 }}
           >
           {/* Employee */}
           <div>
@@ -557,21 +557,21 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
+                <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)", color: "rgba(255,255,255,0.92)" }}>
                   Half day
                 </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: "rgba(255,255,255,0.65)", marginTop: 2 }}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                   disabled={loading}
                 />
-                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
+                <span style={{ fontSize: "var(--font-size-sm)", color: "rgba(255,255,255,0.85)" }}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
@@ -596,19 +596,19 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                       <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                         <input
                           type="checkbox"
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                           disabled={loading}
                         />
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                        <span style={{ fontSize: "var(--font-size-sm)", color: "rgba(255,255,255,0.85)" }}>End half</span>
                       </label>
                     </div>
 
                     {endHalfDay ? (
-                      <div style={{ marginTop: 8 }}>
+                      <div style={{ marginTop: "var(--space-2)" }}>
                         <label style={label}>End AM / PM</label>
                         <select
                           value={endAMPM}
@@ -628,19 +628,19 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
               <div style={{ marginTop: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <label style={{ ...label, marginBottom: 0 }}>End half day</label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                       disabled={loading}
                     />
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>End half</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: "rgba(255,255,255,0.85)" }}>End half</span>
                   </label>
                 </div>
 
                 {endHalfDay ? (
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: "var(--space-2)" }}>
                     <label style={label}>End AM / PM</label>
                     <select
                       value={endAMPM}
@@ -666,7 +666,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
               rows={3}
               placeholder="e.g. Family holiday / Sick / Appointment..."
               required
-              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: 12 }}
+              style={{ ...input, minHeight: 70, resize: "vertical", paddingTop: "var(--space-3)" }}
               disabled={loading}
             />
           </div>
@@ -722,7 +722,7 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
             </button>
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", marginTop: 2 }}>
+          <div style={{ fontSize: "var(--font-size-xs)", color: "rgba(255,255,255,0.62)", marginTop: 2 }}>
             Deletion requests are reviewed on the HR page. An admin must approve before the holiday is removed.
           </div>
         </form>
@@ -741,14 +741,14 @@ const overlay = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 999, // keep above drawer
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const modal = {
   width: "min(520px, 95vw)",
   borderRadius: 16,
   padding: 18,
-  color: "#fff",
+  color: "var(--color-white)",
   background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
@@ -772,7 +772,7 @@ const modalTitle = {
 const closeBtn = {
   border: "none",
   background: "transparent",
-  color: "#cbd5e1",
+  color: "var(--legacy-color-cbd5e1)",
   fontSize: 20,
   cursor: "pointer",
   padding: 6,
@@ -781,7 +781,7 @@ const closeBtn = {
 
 const label = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
   color: "rgba(255,255,255,0.85)",
   marginBottom: 6,
@@ -793,9 +793,9 @@ const input = {
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.10)",
   backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff",
+  color: "var(--color-white)",
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
   appearance: "none",
 };
@@ -803,14 +803,14 @@ const input = {
 const halfWrap = {
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.08)",
-  borderRadius: 12,
-  padding: 12,
+  borderRadius: "var(--radius-lg)",
+  padding: "var(--space-3)",
 };
 
 const globalOptionCSS = `
 select option {
-  background: #0b0b0b !important;
-  color: #fff !important;
+  background: var(--legacy-color-0b0b0b) !important;
+  color: var(--color-white) !important;
 }
 `;
 
@@ -823,34 +823,34 @@ if (typeof document !== "undefined" && !document.getElementById("holiday-form-op
 
 const primaryBtn = {
   width: "100%",
-  padding: 12,
+  padding: "var(--space-3)",
   borderRadius: 10,
   border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2563eb) 0%, var(--color-info) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
 };
 
 const dangerBtn = {
   width: "100%",
-  padding: 12,
+  padding: "var(--space-3)",
   borderRadius: 10,
   border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)",
-  color: "#fee2e2",
+  background: "linear-gradient(180deg, var(--color-danger) 0%, var(--color-danger-hover) 100%)",
+  color: "var(--legacy-color-fee2e2)",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
 };
 
 const ghostBtn = {
   width: "100%",
-  padding: 12,
+  padding: "var(--space-3)",
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.16)",
   background: "rgba(255,255,255,0.08)",
   color: "rgba(255,255,255,0.88)",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   cursor: "pointer",
 };

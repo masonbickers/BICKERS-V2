@@ -9,6 +9,7 @@ import { useAuth } from "@/app/context/authContext";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
+import { Alert, Badge, Page, PageHeader } from "@/app/components/ui";
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -46,46 +47,28 @@ import {
    Mini design system (matches your Jobs Home)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
 };
 
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: UI.gap,
-  marginBottom: 12,
-  flexWrap: "wrap",
-};
-const h1 = {
-  color: UI.text,
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const chip = {
   padding: "6px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
@@ -95,12 +78,12 @@ const chip = {
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   background: UI.card,
 };
 
-const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: UI.text, letterSpacing: 0 };
-const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
+const cardTitle = { fontWeight: 900, fontSize: "var(--font-size-lg)", margin: 0, color: UI.text, letterSpacing: 0 };
+const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: "var(--space-1)", lineHeight: 1.4 };
 
 const grid = (cols = 12) => ({
   display: "grid",
@@ -110,11 +93,11 @@ const grid = (cols = 12) => ({
 
 const btnChip = (active) => ({
   padding: "6px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
   boxShadow: active ? "0 8px 18px rgba(24,63,103,0.14)" : "none",
-  background: active ? UI.brand : "#fff",
-  color: active ? "#fff" : UI.text,
+  background: active ? UI.brand : "var(--color-white)",
+  color: active ? "var(--color-white)" : UI.text,
   cursor: "pointer",
   fontSize: 12.5,
   fontWeight: 800,
@@ -124,21 +107,21 @@ const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 8,
+  gap: "var(--space-2)",
+  marginBottom: "var(--space-2)",
   flexWrap: "wrap",
 };
 
 const titleRow = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
 };
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -152,7 +135,7 @@ const sectionTag = {
   display: "inline-flex",
   alignItems: "center",
   padding: "4px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -166,7 +149,7 @@ const executivePanel = {
   ...surface,
   background: UI.card,
   color: UI.text,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const executiveGrid = {
@@ -188,7 +171,7 @@ const tableWrap = {
   overflow: "auto",
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#fff",
+  background: "var(--color-white)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
@@ -198,11 +181,11 @@ const th = {
   borderBottom: UI.border,
   position: "sticky",
   top: 0,
-  background: "#f7f9fc",
+  background: "var(--legacy-color-f7f9fc)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 800,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
@@ -215,24 +198,24 @@ const liItem = {
   borderRadius: UI.radiusSm,
   padding: "9px 11px",
   marginBottom: 7,
-  background: "#fff",
+  background: "var(--color-white)",
   display: "grid",
   gap: 3,
   boxShadow: UI.shadowSm,
 };
 const tag = (kind) => {
   const map = {
-    "first pencil": { bg: "#e4edf8", border: "#bfd0e2", col: "#2f4e6f" },
-    "second pencil": { bg: "#f8e7e3", border: "#e0b9b0", col: "#7b3a32" },
-    confirmed: { bg: "#e9f0d8", border: "#bed0ae", col: "#31462f" },
+    "first pencil": { bg: "var(--legacy-color-e4edf8)", border: "var(--legacy-color-bfd0e2)", col: "var(--legacy-color-2f4e6f)" },
+    "second pencil": { bg: "var(--legacy-color-f8e7e3)", border: "var(--legacy-color-e0b9b0)", col: "var(--legacy-color-7b3a32)" },
+    confirmed: { bg: "var(--legacy-color-e9f0d8)", border: "var(--legacy-color-bed0ae)", col: "var(--legacy-color-31462f)" },
   };
   const t = map[kind] || { bg: UI.brandSoft, border: UI.brandBorder, col: UI.brand };
   return {
     display: "inline-block",
-    marginLeft: 8,
+    marginLeft: "var(--space-2)",
     padding: "2px 8px",
     fontSize: 11,
-    borderRadius: 999,
+    borderRadius: "var(--radius-pill)",
     border: `1px solid ${t.border}`,
     background: t.bg,
     color: t.col,
@@ -250,7 +233,7 @@ const btnPrimary = {
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
   fontWeight: 800,
   cursor: "pointer",
   boxShadow: "0 8px 18px rgba(24,63,103,0.14)",
@@ -263,7 +246,7 @@ const btnGhost = {
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brandBorder}`,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
@@ -412,25 +395,25 @@ const getColorByStatus = (status = "") => {
   const s = status.toLowerCase();
   switch (s) {
     case "confirmed":
-      return "#f3f970";
+      return "var(--legacy-color-f3f970)";
     case "second pencil":
-      return "#f73939";
+      return "var(--legacy-color-f73939)";
     case "first pencil":
-      return "#89caf5";
+      return "var(--legacy-color-89caf5)";
     case "cancelled":
-      return "#c2c2c2";
+      return "var(--legacy-color-c2c2c2)";
     case "maintenance":
-      return "#f97316";
+      return "var(--legacy-color-f97316)";
     case "holiday":
-      return "#d3d3d3";
+      return "var(--legacy-color-d3d3d3)";
     case "note":
-      return "#ccfbf1";
+      return "var(--legacy-color-ccfbf1)";
     case "workshop":
-      return "#da8e58ff";
+      return "var(--legacy-color-da8e58ff)";
     case "complete":
-      return "#92d18cff";
+      return "var(--legacy-color-92d18cff)";
     default:
-      return "#c2c2c2";
+      return "var(--legacy-color-c2c2c2)";
   }
 };
 
@@ -485,7 +468,7 @@ function StatBlock({ label, value }) {
       style={{
         ...surface,
         display: "grid",
-        gap: 4,
+        gap: "var(--space-1)",
         minWidth: 0,
         padding: "10px 11px",
         alignContent: "center",
@@ -515,9 +498,9 @@ function Bucket({ title, items }) {
                 <strong style={{ color: UI.text }}>
                   {v.name || v.registration || "-"}
                 </strong>
-                <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "-"}</span>
+                <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>{v.category || "-"}</span>
               </div>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
+              <div style={{ fontSize: 12.5, color: "var(--legacy-color-374151)" }}>
                 MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
                 {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
               </div>
@@ -525,7 +508,7 @@ function Bucket({ title, items }) {
           ))}
         </ul>
       ) : (
-        <div style={{ color: UI.muted, fontSize: 13 }}>None.</div>
+        <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>None.</div>
       )}
     </div>
   );
@@ -915,66 +898,31 @@ export default function HomePage() {
     <ProtectedRoute>
       <HeaderSidebarLayout>
         <style>{homeResponsiveCss}</style>
-        <div style={pageWrap}>
-          <div style={headerBar}>
-            <div>
-              <h1 style={h1}>Home</h1>
-              <div style={sub}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <span style={chip}>Operations overview</span>
-              <span
-                style={{
-                  ...chip,
-                  background:
-                    dataState.status === "ready"
-                      ? "#ecfdf5"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "#fef2f2"
-                        : "#fffbeb",
-                  borderColor:
-                    dataState.status === "ready"
-                      ? "#bbf7d0"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "#fecaca"
-                        : "#fde68a",
-                  color:
-                    dataState.status === "ready"
-                      ? "#166534"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "#991b1b"
-                        : "#92400e",
-                }}
+        <Page width="fluid">
+          <PageHeader
+            title="Home"
+            subtitle="Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness."
+            actions={<>
+              <Badge>Operations overview</Badge>
+              <Badge
+                variant={dataState.status === "ready" ? "success" : dataState.status === "denied" || dataState.status === "error" ? "danger" : "warning"}
                 title={dataState.message || "Home data loaded."}
               >
                 Data: {dataState.status === "ready" ? "Loaded" : dataState.status}
-              </span>
-              <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
-                Window: <b style={{ marginLeft: 6 }}>{windowDays}d</b>
-              </span>
-            </div>
-          </div>
+              </Badge>
+              <Badge variant="info">Window: {windowDays}d</Badge>
+            </>}
+          />
 
           {dataState.status !== "ready" && (
-            <div
-              style={{
-                ...surface,
-                padding: "10px 12px",
-                marginBottom: 12,
-                background: dataState.status === "denied" || dataState.status === "error" ? "#fef2f2" : "#fffbeb",
-                borderColor: dataState.status === "denied" || dataState.status === "error" ? "#fecaca" : "#fde68a",
-                color: dataState.status === "denied" || dataState.status === "error" ? "#991b1b" : "#92400e",
-                fontSize: 13,
-                fontWeight: 800,
-              }}
-            >
+            <Alert variant={dataState.status === "denied" || dataState.status === "error" ? "danger" : "warning"}>
               {dataState.message || "Loading home data..."}
-            </div>
+            </Alert>
           )}
 
           <div className="home-puzzle-grid">
             <section className="home-tile home-window-tile" style={{ ...executivePanel, display: "grid", gap: 10 }}>
-              <span style={{ ...titleRow, color: UI.text, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <span style={{ ...titleRow, color: UI.text, fontSize: "var(--font-size-sm)", fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 <CalendarDays size={16} />
                 Reporting window
               </span>
@@ -985,12 +933,12 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>
                 {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
               </div>
             </section>
 
-            <section className="home-tile home-stats-tile" style={{ ...card, padding: 8 }}>
+            <section className="home-tile home-stats-tile" style={{ ...card, padding: "var(--space-2)" }}>
               <div className="home-stat-grid">
                 <StatBlock label="Total Jobs" value={jobCounts.total} />
                 <StatBlock label="Enquiry" value={jobCounts.enquiry} />
@@ -1000,7 +948,7 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="home-tile home-action-tile" style={{ ...card, display: "grid", gap: 8, alignContent: "center" }}>
+            <section className="home-tile home-action-tile" style={{ ...card, display: "grid", gap: "var(--space-2)", alignContent: "center" }}>
               <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Primary action
               </div>
@@ -1073,10 +1021,10 @@ export default function HomePage() {
                   }}
                   eventDidMount={(info) => {
                     // keep readable on bright blocks
-                    info.el.style.color = "#000";
+                    info.el.style.color = "var(--color-black)";
                     const titleEl = info.el.querySelector(".fc-event-title");
                     if (titleEl) {
-                      titleEl.style.color = "#000";
+                      titleEl.style.color = "var(--color-black)";
                       titleEl.style.fontWeight = "700";
                     }
                   }}
@@ -1084,18 +1032,18 @@ export default function HomePage() {
               </div>
 
               {/* Legend */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
                 {[
-                  { label: "Confirmed", color: "#f3f970" },
-                  { label: "First Pencil", color: "#89caf5" },
-                  { label: "Second Pencil", color: "#f73939" },
-                  { label: "Maintenance", color: "#f97316" },
-                  { label: "Holiday", color: "#d3d3d3" },
-                  { label: "Note", color: "#ccfbf1" },
+                  { label: "Confirmed", color: "var(--legacy-color-f3f970)" },
+                  { label: "First Pencil", color: "var(--legacy-color-89caf5)" },
+                  { label: "Second Pencil", color: "var(--legacy-color-f73939)" },
+                  { label: "Maintenance", color: "var(--legacy-color-f97316)" },
+                  { label: "Holiday", color: "var(--legacy-color-d3d3d3)" },
+                  { label: "Note", color: "var(--legacy-color-ccfbf1)" },
                 ].map((item) => (
-                  <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid #d1d5db", borderRadius: 3 }} />
-                    <span style={{ fontSize: 13, color: UI.text, fontWeight: 800 }}>{item.label}</span>
+                  <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid var(--legacy-color-d1d5db)", borderRadius: 3 }} />
+                    <span style={{ fontSize: "var(--font-size-sm)", color: UI.text, fontWeight: 800 }}>{item.label}</span>
                   </div>
                 ))}
               </div>
@@ -1117,9 +1065,9 @@ export default function HomePage() {
                       <li key={e.id} style={{ ...liItem, cursor: "pointer" }} onClick={() => setSelectedBookingId(e.id)}>
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
                           <strong style={{ color: UI.text }}>{e.jobNumber}</strong>
-                          <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>{moment(e.start).format("MMM D")}</span>
+                          <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 900 }}>{moment(e.start).format("MMM D")}</span>
                         </div>
-                        <div style={{ color: UI.text, fontSize: 13 }}>{e.client}</div>
+                        <div style={{ color: UI.text, fontSize: "var(--font-size-sm)" }}>{e.client}</div>
                         <div>
                           <span style={tag("first pencil")}>First Pencil</span>
                         </div>
@@ -1127,7 +1075,7 @@ export default function HomePage() {
                     ))}
                   </ul>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No first pencils in the next 72 hours.</div>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No first pencils in the next 72 hours.</div>
                 )}
               </div>
 
@@ -1148,12 +1096,12 @@ export default function HomePage() {
                           {vehicleLabel(c.vehicle)}
                         </strong>
 
-                        <div style={{ fontSize: 13, color: "#374151" }}>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-374151)" }}>
                           2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
                           <span style={tag("second pencil")}>Second</span>
                         </div>
 
-                        <div style={{ fontSize: 13, color: "#374151" }}>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-374151)" }}>
                           Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
                           <span style={tag(c.firm.status)}>{c.firm.status}</span>
                         </div>
@@ -1161,7 +1109,7 @@ export default function HomePage() {
                     ))}
                   </ul>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No second-pencil clashes.</div>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No second-pencil clashes.</div>
                 )}
               </div>
             </section>
@@ -1169,7 +1117,7 @@ export default function HomePage() {
             <section className="home-tile home-prep-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
-                  <span style={iconBox("#0f766e", "#f0fdfa", "#99f6e4")}>
+                  <span style={iconBox("var(--legacy-color-0f766e)", "var(--legacy-color-f0fdfa)", "var(--legacy-color-99f6e4)")}>
                     <ClipboardList size={17} />
                   </span>
                   <div>
@@ -1210,14 +1158,14 @@ export default function HomePage() {
                   </table>
                 </div>
               ) : (
-                <div style={{ color: UI.muted, fontSize: 13 }}>No jobs starting in the next 2 days.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No jobs starting in the next 2 days.</div>
               )}
             </section>
 
             <section className="home-tile home-fleet-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
-                  <span style={iconBox(UI.accent, UI.accentSoft, "#dcc8b8")}>
+                  <span style={iconBox(UI.accent, UI.accentSoft, "var(--legacy-color-dcc8b8)")}>
                     <Wrench size={17} />
                   </span>
                   <div>
@@ -1239,7 +1187,7 @@ export default function HomePage() {
             <section className="home-tile home-assistant-tile" style={card}>
               <div style={sectionHeader}>
                 <div style={titleRow}>
-                  <span style={iconBox("#1f4b7a", "#edf3f8", "#c8d6e3")}>
+                  <span style={iconBox("var(--color-brand)", "var(--color-brand-soft)", "var(--color-border-strong)")}>
                     <Plus size={17} />
                   </span>
                   <div>
@@ -1249,7 +1197,7 @@ export default function HomePage() {
                 </div>
                 <span style={sectionTag}>v1.0 links</span>
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)" }}>
                 {[
                   { label: "Create Booking", href: "/create-booking", icon: <Plus size={14} /> },
                   { label: "Employees", href: "/employee-home", icon: <Users size={14} /> },
@@ -1270,7 +1218,7 @@ export default function HomePage() {
               </div>
             </section>
           </div>
-        </div>
+        </Page>
         {selectedBookingId && (
           <ViewBookingModal
             id={selectedBookingId}

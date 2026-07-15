@@ -57,25 +57,25 @@ import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 
 /* UI tokens */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
-  line: "#d7dee8",
-  softBlue: "#edf3f8",
-  softSlate: "#f1f5f9",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
+  line: "var(--color-border)",
+  softBlue: "var(--color-brand-soft)",
+  softSlate: "var(--legacy-color-f1f5f9)",
 };
 
 const pageWrap = {
@@ -87,19 +87,19 @@ const topBar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
   marginBottom: 10,
 };
-const title = { margin: 0, fontSize: 22, fontWeight: 750, letterSpacing: 0, color: UI.text, lineHeight: 1.08 };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", fontWeight: 750, letterSpacing: 0, color: UI.text, lineHeight: 1.08 };
 const subtitle = { marginTop: 6, fontSize: 13.5, color: UI.muted, maxWidth: 760, lineHeight: 1.45 };
 
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 12 };
+const panel = { ...card, padding: "var(--space-3)" };
 const heroCard = {
   ...card,
-  padding: 12,
-  background: "#ffffff",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   border: UI.border,
 };
 
@@ -113,7 +113,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -134,7 +134,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "#fff",
+      color: "var(--color-white)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -150,9 +150,9 @@ const btn = (kind = "primary") => {
       gap: 6,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #bbf7d0",
-      background: "#ecfdf5",
-      color: "#065f46",
+      border: "1px solid var(--color-success-border)",
+      background: "var(--color-success-soft)",
+      color: "var(--legacy-color-065f46)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -168,8 +168,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -192,10 +192,10 @@ const labelStyle = {
 const inputField = {
   width: "100%",
   padding: "8px 10px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#ffffff",
+  background: "var(--color-white)",
   color: UI.text,
   outline: "none",
 };
@@ -220,24 +220,24 @@ const sectionMeta = { marginTop: 3, marginBottom: 0, fontSize: 11.5, color: UI.m
 const grid = (cols = 2) => ({
   display: "grid",
   gridTemplateColumns: `repeat(auto-fit, minmax(${cols >= 4 ? 170 : 240}px, 1fr))`,
-  gap: 8,
+  gap: "var(--space-2)",
 });
 const coreDueGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-  gap: 8,
+  gap: "var(--space-2)",
   marginTop: 10,
 };
 const metricGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: 8,
+  gap: "var(--space-2)",
   marginTop: 10,
 };
 const metricCard = {
   ...card,
   borderRadius: UI.radius,
-  padding: 12,
+  padding: "var(--space-3)",
   minHeight: 88,
 };
 const sectionStack = { display: "flex", flexDirection: "column", gap: UI.gap };
@@ -1556,7 +1556,7 @@ export default function EditVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <div style={{ ...panel, textAlign: "center", color: loadError ? "#dc2626" : UI.muted }}>
+          <div style={{ ...panel, textAlign: "center", color: loadError ? "var(--legacy-color-dc2626)" : UI.muted }}>
             {loadError || "Loading vehicle..."}
           </div>
         </div>
@@ -1574,7 +1574,7 @@ export default function EditVehiclePage() {
           textarea:focus {
             outline: none;
             box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-            border-color: #bfdbfe !important;
+            border-color: var(--color-info-border) !important;
           }
         `}</style>
 
@@ -1614,7 +1614,7 @@ export default function EditVehiclePage() {
             </div>
           </div>
 
-          <div style={{ ...panel, maxWidth: 860, marginTop: 12 }}>
+          <div style={{ ...panel, maxWidth: 860, marginTop: "var(--space-3)" }}>
             <h2 style={sectionTitle}>Number Plate Details</h2>
             <div style={{ ...grid(2), marginTop: 10 }}>
               <Field label="Number Plate" name="registration" value={vehicle.registration || vehicle.reg} onChange={handleChange} />
@@ -1637,7 +1637,7 @@ export default function EditVehiclePage() {
 
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>Category</label>
-                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "#f8fafc" }} />
+                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "var(--color-surface-subtle)" }} />
               </div>
 
               <div style={{ gridColumn: "1 / -1" }}>
@@ -1664,13 +1664,13 @@ export default function EditVehiclePage() {
     const styles = {
       display: "inline-flex",
       alignItems: "center",
-      gap: 8,
+      gap: "var(--space-2)",
       padding: "8px 10px",
-      borderRadius: 999,
-      fontSize: 12,
+      borderRadius: "var(--radius-pill)",
+      fontSize: "var(--font-size-xs)",
       fontWeight: 950,
-      border: "1px solid #e5e7eb",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-e5e7eb)",
+      background: "var(--color-white)",
       color: UI.text,
       whiteSpace: "nowrap",
     };
@@ -1683,7 +1683,7 @@ export default function EditVehiclePage() {
 
     return (
       <div style={styles} title="MOT booking status">
-        <span style={{ width: 10, height: 10, borderRadius: 999, background: dot, display: "inline-block" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "var(--radius-pill)", background: dot, display: "inline-block" }} />
         {status}
       </div>
     );
@@ -1747,11 +1747,11 @@ export default function EditVehiclePage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: #bfdbfe !important;
+          border-color: var(--color-info-border) !important;
         }
         select option {
-          background: #fff;
-          color: #0f172a;
+          background: var(--color-white);
+          color: var(--color-text);
         }
         @media (max-width: 1180px) {
           .vehicle-edit-layout { grid-template-columns: 1fr !important; }
@@ -1770,7 +1770,7 @@ export default function EditVehiclePage() {
         <div style={heroCard}>
           <div style={topBar}>
           <div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
               <h1 style={title}>{headerLabel}</h1>
               {motStatusPill}
             </div>
@@ -2011,8 +2011,8 @@ export default function EditVehiclePage() {
             <div style={panel}>
               <h2 style={sectionTitle}>Core Due Dates</h2>
               <div style={sectionMeta}>Edit the last date and frequency; next will auto-calculate.</div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 8, marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: "var(--space-2)", marginBottom: 10 }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>
                   {dvsaMotSyncLabel || "MOT dates can be pulled from DVSA; frequency remains as a manual fallback."}
                 </div>
                 <button
@@ -2033,9 +2033,9 @@ export default function EditVehiclePage() {
                     gridColumn: "1 / -1",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: "var(--space-2)",
                     color: UI.text,
-                    fontSize: 13,
+                    fontSize: "var(--font-size-sm)",
                     fontWeight: 850,
                     cursor: "pointer",
                   }}
@@ -2058,9 +2058,9 @@ export default function EditVehiclePage() {
                     gridColumn: "1 / -1",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: "var(--space-2)",
                     color: UI.text,
-                    fontSize: 13,
+                    fontSize: "var(--font-size-sm)",
                     fontWeight: 850,
                     cursor: "pointer",
                   }}
@@ -2126,7 +2126,7 @@ export default function EditVehiclePage() {
               </div>
 
               {!dvsaLatestMot ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 10 }}>
                   No DVSA MOT data saved yet. Press Fetch DVSA MOT above, then Save.
                 </div>
               ) : (
@@ -2146,11 +2146,11 @@ export default function EditVehiclePage() {
                     <div
                       style={{
                         display: "flex",
-                        gap: 8,
+                        gap: "var(--space-2)",
                         alignItems: "flex-start",
-                        border: "1px solid #f59e0b",
-                        background: "#fffbeb",
-                        color: "#92400e",
+                        border: "1px solid var(--legacy-color-f59e0b)",
+                        background: "var(--legacy-color-fffbeb)",
+                        color: "var(--legacy-color-92400e)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2165,9 +2165,9 @@ export default function EditVehiclePage() {
                   {dvsaLatestSeriousDefects.length ? (
                     <div
                       style={{
-                        border: "1px solid #fecaca",
-                        background: "#fef2f2",
-                        color: "#991b1b",
+                        border: "1px solid var(--color-danger-border)",
+                        background: "var(--color-danger-soft)",
+                        color: "var(--color-danger)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2189,7 +2189,7 @@ export default function EditVehiclePage() {
                     <div
                       style={{
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2216,7 +2216,7 @@ export default function EditVehiclePage() {
 
                   {(vehicle.eightWeekInspectionHistory || []).length === 0 &&
                   completedInspectionHistory.length === 0 ? (
-                    <div style={{ color: UI.muted, fontSize: 13 }}>No completed inspection history yet.</div>
+                    <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No completed inspection history yet.</div>
                   ) : (
                     <div style={{ display: "grid", gap: 10 }}>
                       {(
@@ -2236,10 +2236,10 @@ export default function EditVehiclePage() {
                         <div
                           key={item.bookingId || `${item.completedDate}-${index}`}
                           style={{
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 12,
+                            border: "1px solid var(--legacy-color-e5e7eb)",
+                            borderRadius: "var(--radius-lg)",
                             padding: 10,
-                            background: "#fff",
+                            background: "var(--color-white)",
                           }}
                         >
                           <div style={{ fontWeight: 900, color: UI.text }}>
@@ -2248,7 +2248,7 @@ export default function EditVehiclePage() {
                           <div style={{ marginTop: 6, fontSize: 12.5, color: UI.muted }}>
                             {item.provider ? `Provider: ${item.provider}` : "Provider: -"}
                           </div>
-                          <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                          <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                             {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
                           </div>
                           {item.notes ? (
@@ -2263,7 +2263,7 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Additional Maintenance</h2>
-              <div style={{ ...grid(2), marginTop: 10, marginBottom: 12 }}>
+              <div style={{ ...grid(2), marginTop: 10, marginBottom: "var(--space-3)" }}>
                 <SelectField label="Warranty" name="warranty" value={vehicle.warranty} onChange={handleChange} options={["Yes", "No"]} />
                 <DateField label="Warranty Expiry" name="warrantyExpiry" value={vehicle.warrantyExpiry} onChange={handleChange} />
               </div>
@@ -2273,10 +2273,10 @@ export default function EditVehiclePage() {
               <div
                 style={{
                   display: "flex",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   flexWrap: "wrap",
                   marginTop: 10,
-                  marginBottom: 12,
+                  marginBottom: "var(--space-3)",
                 }}
               >
                 {ADDITIONAL_MAINTENANCE_SECTIONS.map((section) => {
@@ -2292,11 +2292,11 @@ export default function EditVehiclePage() {
                         alignItems: "center",
                         gap: 7,
                         border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
-                        background: checked ? UI.brandSoft : "#fff",
+                        background: checked ? UI.brandSoft : "var(--color-white)",
                         color: UI.text,
                         borderRadius: UI.radius,
                         padding: "7px 9px",
-                        fontSize: 12,
+                        fontSize: "var(--font-size-xs)",
                         fontWeight: 850,
                         cursor: "pointer",
                         userSelect: "none",
@@ -2315,7 +2315,7 @@ export default function EditVehiclePage() {
               </div>
 
               {visibleAdditionalMaintenanceSections.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                   All additional maintenance lines are hidden for this vehicle.
                 </div>
               ) : null}
@@ -2369,7 +2369,7 @@ export default function EditVehiclePage() {
               </div>
 
               {activeVehicleBookings.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 10 }}>
                   No maintenance bookings found for this vehicle.
                 </div>
               ) : (
@@ -2381,7 +2381,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--color-white)",
                       }}
                     >
                       <div
@@ -2389,7 +2389,7 @@ export default function EditVehiclePage() {
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "flex-start",
-                          gap: 8,
+                          gap: "var(--space-2)",
                           flexWrap: "wrap",
                         }}
                       >
@@ -2398,13 +2398,13 @@ export default function EditVehiclePage() {
                         </div>
                         <div
                           style={{
-                            fontSize: 12,
+                            fontSize: "var(--font-size-xs)",
                             fontWeight: 800,
                             color: UI.text,
                             border: UI.border,
-                            borderRadius: 999,
+                            borderRadius: "var(--radius-pill)",
                             padding: "4px 8px",
-                            background: "#f8fafc",
+                            background: "var(--color-surface-subtle)",
                           }}
                         >
                           {b.status || "Booked"}
@@ -2422,7 +2422,7 @@ export default function EditVehiclePage() {
                         {b.location ? `Location: ${b.location}` : "Location: -"}
                       </div>
 
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           style={btn("ghost")}
@@ -2445,7 +2445,7 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
                 <div>
                   <h2 style={sectionTitle}>MOT Bookings</h2>
                   <div style={sectionMeta}>Completed or past MOT bookings.</div>
@@ -2460,7 +2460,7 @@ export default function EditVehiclePage() {
               </div>
 
               {motHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No MOT history yet.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 10 }}>No MOT history yet.</div>
               ) : (
                 <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                   {motHistoryItems.map((item, index) => (
@@ -2471,7 +2471,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                       title={item.bookingId ? "Open booking" : "No linked booking record"}
@@ -2490,7 +2490,7 @@ export default function EditVehiclePage() {
                         </div>
                       ) : null}
                       {item.bookingId ? (
-                        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 800, color: UI.brand }}>
+                        <div style={{ marginTop: "var(--space-2)", fontSize: 11.5, fontWeight: 800, color: UI.brand }}>
                           Open booking
                         </div>
                       ) : null}
@@ -2501,7 +2501,7 @@ export default function EditVehiclePage() {
             </div>
 
             <div style={panel}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
                 <div>
                   <h2 style={sectionTitle}>Service History</h2>
                   <div style={sectionMeta}>Completed service bookings.</div>
@@ -2516,7 +2516,7 @@ export default function EditVehiclePage() {
               </div>
 
               {serviceHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, marginTop: 10 }}>No completed service history yet.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 10 }}>No completed service history yet.</div>
               ) : (
                 <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
                   {serviceHistoryItems.slice(0, 4).map((item, index) => (
@@ -2531,12 +2531,12 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         cursor: "pointer",
                       }}
                       title={item.bookingId ? "Open full service details" : "Open service history"}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "flex-start" }}>
                         <div>
                           <div style={{ fontWeight: 800, color: UI.text, fontSize: 13.5 }}>
                             {formatDisplayDate(item.completedDate)}
@@ -2545,7 +2545,7 @@ export default function EditVehiclePage() {
                             {item.bookingRef || "Service record"}
                           </div>
                         </div>
-                        <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+                        <span style={{ color: UI.brand, fontSize: "var(--font-size-xs)", fontWeight: 800, whiteSpace: "nowrap" }}>
                           Open
                         </span>
                       </div>
@@ -2600,7 +2600,7 @@ export default function EditVehiclePage() {
 
             <div style={panel}>
               <h2 style={sectionTitle}>Next Dates</h2>
-              <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)", fontSize: "var(--font-size-sm)" }}>
                 <MiniLine label="Next MOT (Expiry)" value={formatDisplayDate(vehicle.nextMOT)} />
                 <MiniLine label="MOT Appointment" value={formatDisplayDate(motAppointmentDisplay)} />
                 <MiniLine label="MOT Booked On" value={formatDisplayDate(motBookedOnDisplay)} />
@@ -2637,7 +2637,7 @@ export default function EditVehiclePage() {
                 style={modalInput}
                 autoFocus
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 14 }}>
                 <button type="button" style={btn("ghost")} onClick={() => setTaxDatePrompt(null)}>
                   Cancel
                 </button>
@@ -2671,7 +2671,7 @@ export default function EditVehiclePage() {
                 style={modalInput}
                 autoFocus
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 14 }}>
                 <button type="button" style={btn("ghost")} onClick={() => setInsuranceDatePrompt(null)}>
                   Cancel
                 </button>
@@ -2684,7 +2684,7 @@ export default function EditVehiclePage() {
         ) : null}
 
         {/* Bottom actions */}
-        <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ marginTop: "var(--space-4)", display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button onClick={() => setShowWorkBooking(true)} style={btn("success")}>
             Book Work
           </button>
@@ -2722,7 +2722,7 @@ function FieldMeta({ children }) {
   return (
     <div
       style={{
-        marginTop: 4,
+        marginTop: "var(--space-1)",
         fontSize: 11.5,
         color: UI.brand,
         fontWeight: 850,
@@ -2775,11 +2775,11 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
       <label style={labelStyle}>{label}</label>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <input type="file" multiple onChange={(e) => onUpload(e, field)} />
-        {isUploading ? <span style={{ fontSize: 12, color: UI.muted }}>Uploading...</span> : null}
+        {isUploading ? <span style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>Uploading...</span> : null}
       </div>
 
       {list.length ? (
-        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+        <div style={{ marginTop: "var(--space-2)", display: "grid", gap: 6 }}>
           {list.map((f, idx) => (
             <a
               key={`${field}-${idx}`}
@@ -2787,14 +2787,14 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
               target="_blank"
               rel="noreferrer"
               style={{
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 color: UI.brand,
                 fontWeight: 800,
                 textDecoration: "none",
                 padding: "8px 10px",
-                borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
+                borderRadius: "var(--radius-lg)",
+                border: "1px solid var(--legacy-color-e5e7eb)",
+                background: "var(--color-white)",
               }}
               title={f.url}
             >
@@ -2803,7 +2803,7 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
           ))}
         </div>
       ) : (
-        <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>No files uploaded.</div>
+        <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted }}>No files uploaded.</div>
       )}
     </div>
   );
@@ -2848,10 +2848,10 @@ function MetaPill({ label, value }) {
         alignItems: "center",
         gap: 6,
         padding: "6px 10px",
-        borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "#fff",
-        fontSize: 12,
+        borderRadius: "var(--radius-pill)",
+        border: "1px solid var(--legacy-color-e5e7eb)",
+        background: "var(--color-white)",
+        fontSize: "var(--font-size-xs)",
       }}
     >
       <span style={{ color: UI.muted, fontWeight: 900 }}>{label}</span>
@@ -2868,13 +2868,13 @@ const overlay = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 90,
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const modal = {
   width: "min(520px, 95vw)",
   borderRadius: UI.radius,
-  padding: 16,
+  padding: "var(--space-4)",
   color: UI.text,
   background: UI.card,
   border: UI.border,
@@ -2885,7 +2885,7 @@ const headerRow = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
 };
 
@@ -2899,7 +2899,7 @@ const modalTitle = {
 const closeBtn = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#ffffff",
+  background: "var(--color-white)",
   color: UI.muted,
   fontSize: 20,
   cursor: "pointer",
@@ -2909,7 +2909,7 @@ const closeBtn = {
 
 const modalLabel = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   color: UI.muted,
   marginBottom: 6,
@@ -2920,10 +2920,10 @@ const modalInput = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  backgroundColor: "#ffffff",
+  backgroundColor: "var(--color-white)",
   color: UI.text,
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   appearance: "none",
 };
 
@@ -2932,10 +2932,10 @@ const primaryBtn = {
   padding: "8px 12px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
 };
 
 const dangerBtn = {
@@ -2944,8 +2944,8 @@ const dangerBtn = {
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.red}`,
   background: UI.red,
-  color: "#ffffff",
+  color: "var(--color-white)",
   fontWeight: 800,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   cursor: "pointer",
 };

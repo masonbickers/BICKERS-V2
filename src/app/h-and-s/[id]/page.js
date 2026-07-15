@@ -18,17 +18,17 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  shadowSm: "var(--shadow-sm)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -36,14 +36,14 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...surface, padding: 12 };
+const panel = { ...surface, padding: "var(--space-3)" };
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
@@ -58,21 +58,21 @@ const smallLabel = { margin: 0, color: UI.muted, fontSize: 11, fontWeight: 900, 
 
 const input = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
 const ppeTh = {
   padding: "7px 8px",
   background: UI.brand,
-  color: "#fff",
-  borderBottom: "1px solid #183d64",
+  color: "var(--color-white)",
+  borderBottom: "1px solid var(--legacy-color-183d64)",
   borderRight: "1px solid rgba(255,255,255,0.16)",
   textAlign: "left",
   fontSize: 11.5,
@@ -82,8 +82,8 @@ const ppeTh = {
 
 const ppeTd = {
   padding: "5px 7px",
-  borderBottom: "1px solid #dbe1ea",
-  borderRight: "1px solid #e5eaf0",
+  borderBottom: "1px solid var(--legacy-color-dbe1ea)",
+  borderRight: "1px solid var(--legacy-color-e5eaf0)",
   fontSize: 12.5,
   color: UI.text,
   verticalAlign: "middle",
@@ -99,7 +99,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -118,8 +118,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -299,9 +299,9 @@ function registerState(item) {
 }
 
 function toneStyle(tone) {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (tone === "amber") return { background: "var(--color-warning-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -426,8 +426,8 @@ function PpeIssueRegisterPage() {
   const ppeTheme = {
     bg: UI.bg,
     panel: UI.card,
-    panel2: "#f8fbfe",
-    border: "#d7dee8",
+    panel2: "var(--legacy-color-f8fbfe)",
+    border: "var(--color-border)",
     text: UI.text,
     muted: UI.muted,
     accent: UI.brand,
@@ -456,14 +456,14 @@ function PpeIssueRegisterPage() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
-                border: "1px solid #bbf7d0",
-                background: "#dcfce7",
-                color: "#166534",
-                borderRadius: 8,
+                gap: "var(--space-2)",
+                border: "1px solid var(--color-success-border)",
+                background: "var(--legacy-color-dcfce7)",
+                color: "var(--color-success)",
+                borderRadius: "var(--radius-md)",
                 padding: "9px 12px",
                 fontWeight: 900,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
               }}
             >
               <CheckCircle2 size={16} />
@@ -473,14 +473,14 @@ function PpeIssueRegisterPage() {
         </div>
 
         <section className="ppe-shell">
-          <aside style={{ ...panel, padding: 12 }}>
+          <aside style={{ ...panel, padding: "var(--space-3)" }}>
             {loadNotice ? (
               <div
                 style={{
-                  border: "1px solid #fed7aa",
-                  background: "#fff7ed",
-                  color: "#9a3412",
-                  borderRadius: 8,
+                  border: "1px solid var(--color-warning-border)",
+                  background: "var(--color-warning-soft)",
+                  color: "var(--color-warning)",
+                  borderRadius: "var(--radius-md)",
                   padding: "9px 10px",
                   fontSize: 12.5,
                   fontWeight: 850,
@@ -500,8 +500,8 @@ function PpeIssueRegisterPage() {
                   placeholder="Search name..."
                   style={{
                     ...input,
-                    paddingLeft: 32,
-                    background: "#fff",
+                    paddingLeft: "var(--space-8)",
+                    background: "var(--color-white)",
                     border: UI.border,
                     color: ppeTheme.text,
                   }}
@@ -523,13 +523,13 @@ function PpeIssueRegisterPage() {
                     style={{
                       textAlign: "left",
                       border: `1px solid ${active ? ppeTheme.accent : ppeTheme.border}`,
-                      background: active ? ppeTheme.accentSoft : "#ffffff",
+                      background: active ? ppeTheme.accentSoft : "var(--color-white)",
                       color: active ? ppeTheme.accent : ppeTheme.text,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       padding: "11px 12px",
                       cursor: "pointer",
                       fontWeight: 900,
-                      boxShadow: active ? "inset 3px 0 0 #1f4b7a" : "none",
+                      boxShadow: active ? "inset 3px 0 0 var(--color-brand)" : "none",
                     }}
                   >
                     {employeeDisplayName(employee)}
@@ -537,14 +537,14 @@ function PpeIssueRegisterPage() {
                 );
               })}
               {!filteredEmployees.length ? (
-                <div style={{ color: ppeTheme.muted, fontSize: 13, fontWeight: 800, padding: 10 }}>
+                <div style={{ color: ppeTheme.muted, fontSize: "var(--font-size-sm)", fontWeight: 800, padding: 10 }}>
                   {loading ? "Loading employees..." : "No employees found."}
                 </div>
               ) : null}
             </div>
           </aside>
 
-          <section style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          <section style={{ display: "grid", gap: "var(--space-3)", alignContent: "start" }}>
             <div style={{ ...panel, padding: 14 }}>
               <div style={sectionHeader}>
                 <div>
@@ -554,7 +554,7 @@ function PpeIssueRegisterPage() {
                 <History size={18} color={ppeTheme.accent} />
               </div>
               {selectedRecords.slice(0, 4).length ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   {selectedRecords.slice(0, 4).map((recordItem) => (
                     <span
                       key={recordItem.id}
@@ -562,7 +562,7 @@ function PpeIssueRegisterPage() {
                         border: `1px solid ${ppeTheme.border}`,
                         background: ppeTheme.panel2,
                         color: ppeTheme.text,
-                        borderRadius: 999,
+                        borderRadius: "var(--radius-pill)",
                         padding: "6px 9px",
                         fontSize: 12.5,
                         fontWeight: 850,
@@ -573,7 +573,7 @@ function PpeIssueRegisterPage() {
                   ))}
                 </div>
               ) : (
-                <div style={{ color: ppeTheme.muted, fontSize: 13, fontWeight: 800 }}>No PPE has been issued for this employee yet.</div>
+                <div style={{ color: ppeTheme.muted, fontSize: "var(--font-size-sm)", fontWeight: 800 }}>No PPE has been issued for this employee yet.</div>
               )}
             </div>
 
@@ -589,17 +589,17 @@ function PpeIssueRegisterPage() {
                     style={{
                       ...surface,
                       padding: 14,
-                      background: "#ffffff",
+                      background: "var(--color-white)",
                       transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                       <div>
-                        <h3 style={{ margin: 0, color: ppeTheme.text, fontSize: 16, fontWeight: 900 }}>{ppe.label}</h3>
-                        <div style={{ marginTop: 7, color: ppeTheme.muted, fontSize: 13, fontWeight: 750 }}>
+                        <h3 style={{ margin: 0, color: ppeTheme.text, fontSize: "var(--font-size-lg)", fontWeight: 900 }}>{ppe.label}</h3>
+                        <div style={{ marginTop: 7, color: ppeTheme.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                           Latest: {latest ? fmtDate(latest.issuedAt) : "Never issued"}
                         </div>
-                        <div style={{ marginTop: 3, color: ppeTheme.muted, fontSize: 13, fontWeight: 750 }}>
+                        <div style={{ marginTop: 3, color: ppeTheme.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                           Total issued: {itemRecords.length}
                         </div>
                       </div>
@@ -613,14 +613,14 @@ function PpeIssueRegisterPage() {
                       style={{
                         width: "100%",
                         marginTop: 14,
-                        minHeight: 44,
-                        border: `1px solid ${selectedEmployee ? UI.brand : "#cbd5e1"}`,
-                        borderRadius: 8,
-                        background: selectedEmployee ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)" : "#e2e8f0",
-                        color: "#fff",
+                        minHeight: "var(--control-height-lg)",
+                        border: `1px solid ${selectedEmployee ? UI.brand : "var(--legacy-color-cbd5e1)"}`,
+                        borderRadius: "var(--radius-md)",
+                        background: selectedEmployee ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)" : "var(--legacy-color-e2e8f0)",
+                        color: "var(--color-white)",
                         fontWeight: 950,
                         cursor: selectedEmployee ? "pointer" : "not-allowed",
-                        fontSize: 14,
+                        fontSize: "var(--font-size-md)",
                         boxShadow: selectedEmployee ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)" : "none",
                       }}
                     >
@@ -653,10 +653,10 @@ function PpeIssueRegisterPage() {
                               style={{
                                 display: "flex",
                                 justifyContent: "space-between",
-                                gap: 8,
+                                gap: "var(--space-2)",
                                 border: UI.border,
-                                borderRadius: 8,
-                                background: "#f8fafc",
+                                borderRadius: "var(--radius-md)",
+                                background: "var(--color-surface-subtle)",
                                 padding: "8px 9px",
                                 color: ppeTheme.text,
                                 fontSize: 12.5,
@@ -1196,7 +1196,7 @@ function LegacyHsRegisterDetailPage() {
             <ArrowLeft size={15} />
             Back to H&S
           </button>
-          <div style={{ ...panel, marginTop: 12 }}>H&S register item not found.</div>
+          <div style={{ ...panel, marginTop: "var(--space-3)" }}>H&S register item not found.</div>
         </main>
       </HeaderSidebarLayout>
     );
@@ -1212,7 +1212,7 @@ function LegacyHsRegisterDetailPage() {
               {item.section || "-"} / {item.frequency || "-"} / {item.owner || "-"}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" style={btn("ghost")} onClick={() => router.push("/h-and-s")}>
               <ArrowLeft size={15} />
               Back
@@ -1231,7 +1231,7 @@ function LegacyHsRegisterDetailPage() {
         </div>
 
         <section className="hs-detail-grid">
-          <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: "var(--space-3)" }}>
             {isPpeRegister ? (
               <div style={panel}>
                 <div style={sectionHeader}>
@@ -1241,7 +1241,7 @@ function LegacyHsRegisterDetailPage() {
                       Record what PPE each employee has been issued. Use dates, quantities or short notes in each cell.
                     </div>
                   </div>
-                  <span style={{ ...toneStyle("brand"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>
+                  <span style={{ ...toneStyle("brand"), borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                     {ppeStats.employees} employees
                   </span>
                 </div>
@@ -1261,7 +1261,7 @@ function LegacyHsRegisterDetailPage() {
                     <tbody>
                       {employees.map((employee, index) => {
                         const issueRow = form.ppeIssueRows?.[employee.id] || {};
-                        const bg = index % 2 === 0 ? "#ffffff" : "#f8fafc";
+                        const bg = index % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
 
                         return (
                           <tr key={employee.id} style={{ background: bg }}>
@@ -1279,7 +1279,7 @@ function LegacyHsRegisterDetailPage() {
                                       ...input,
                                       minHeight: 28,
                                       padding: "4px 6px",
-                                      fontSize: 12,
+                                      fontSize: "var(--font-size-xs)",
                                       fontWeight: 800,
                                     }}
                                   />
@@ -1291,7 +1291,7 @@ function LegacyHsRegisterDetailPage() {
                                     style={{
                                       width: 28,
                                       height: 28,
-                                      borderRadius: 8,
+                                      borderRadius: "var(--radius-md)",
                                       border: `1px solid ${UI.brandBorder}`,
                                       background: UI.brandSoft,
                                       color: UI.brand,
@@ -1316,9 +1316,9 @@ function LegacyHsRegisterDetailPage() {
                                     style={{
                                       width: 28,
                                       height: 28,
-                                      borderRadius: 8,
+                                      borderRadius: "var(--radius-md)",
                                       border: `1px solid ${UI.brandBorder}`,
-                                      background: "#fff",
+                                      background: "var(--color-white)",
                                       color: UI.brand,
                                       display: "inline-flex",
                                       alignItems: "center",
@@ -1361,7 +1361,7 @@ function LegacyHsRegisterDetailPage() {
                 {isWorkshopWeeklyCheck ? (
                   <div className="workshop-check-grid">
                     {WORKSHOP_CHECK_ITEMS.map((checkItem) => (
-                      <label key={checkItem.id} style={{ border: UI.border, borderRadius: UI.radius, background: "#f8fafc", padding: 10 }}>
+                      <label key={checkItem.id} style={{ border: UI.border, borderRadius: UI.radius, background: "var(--color-surface-subtle)", padding: 10 }}>
                         <p style={smallLabel}>{checkItem.label}</p>
                         <select
                           value={checkDraft.workshopResults?.[checkItem.id] || "ok"}
@@ -1438,7 +1438,7 @@ function LegacyHsRegisterDetailPage() {
                   </label>
                   <button
                     type="button"
-                    style={{ ...btn("primary"), minHeight: 36 }}
+                    style={{ ...btn("primary"), minHeight: "var(--control-height-md)" }}
                     onClick={completeManagedCheck}
                     disabled={completingCheck || saving}
                   >
@@ -1455,7 +1455,7 @@ function LegacyHsRegisterDetailPage() {
                   <h2 style={titleMd}>Register details</h2>
                   <div style={hint}>Core information, review dates and notes for this H&S record.</div>
                 </div>
-                <span style={{ ...toneStyle(state.tone), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>
+                <span style={{ ...toneStyle(state.tone), borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                   {loading ? "Loading..." : state.label}
                 </span>
               </div>
@@ -1546,21 +1546,21 @@ function LegacyHsRegisterDetailPage() {
                 </div>
 
                 {checkHistory.length ? (
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "grid", gap: "var(--space-2)" }}>
                     {checkHistory.map((entry) => (
                       <div
                         key={entry.id}
                         style={{
                           border: UI.border,
                           borderRadius: UI.radius,
-                          background: "#f8fafc",
+                          background: "var(--color-surface-subtle)",
                           padding: 10,
                         }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
                           <span style={{ color: UI.text, fontWeight: 900 }}>{fmtDate(entry.checkedAt)}</span>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={{ ...toneStyle("brand"), borderRadius: 999, padding: "3px 7px", fontSize: 12, fontWeight: 900 }}>
+                            <span style={{ ...toneStyle("brand"), borderRadius: "var(--radius-pill)", padding: "3px 7px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                               {entry.reading ? `pH ${entry.reading}` : certificateDocuments(entry).length ? `${certificateDocuments(entry).length} document${certificateDocuments(entry).length === 1 ? "" : "s"}` : entry.workshopResults ? `${Object.values(entry.workshopResults).filter((value) => value === "issue").length} issues` : "Completed"}
                             </span>
                             <button
@@ -1570,8 +1570,8 @@ function LegacyHsRegisterDetailPage() {
                                 ...btn("ghost"),
                                 minHeight: 26,
                                 padding: "3px 7px",
-                                color: "#b91c1c",
-                                borderColor: "#fecdd3",
+                                color: "var(--legacy-color-b91c1c)",
+                                borderColor: "var(--legacy-color-fecdd3)",
                                 boxShadow: "none",
                               }}
                               title="Delete this check"
@@ -1582,12 +1582,12 @@ function LegacyHsRegisterDetailPage() {
                           </div>
                         </div>
                         {entry.workshopResults ? (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "var(--space-2)" }}>
                             {WORKSHOP_CHECK_ITEMS.map((checkItem) => {
                               const value = entry.workshopResults?.[checkItem.id] || "ok";
                               const tone = value === "issue" ? "danger" : value === "na" ? "amber" : "green";
                               return (
-                                <span key={checkItem.id} style={{ ...toneStyle(tone), borderRadius: 999, padding: "3px 7px", fontSize: 11.5, fontWeight: 850 }}>
+                                <span key={checkItem.id} style={{ ...toneStyle(tone), borderRadius: "var(--radius-pill)", padding: "3px 7px", fontSize: 11.5, fontWeight: 850 }}>
                                   {checkItem.label}: {value === "na" ? "N/A" : value === "issue" ? "Issue" : "OK"}
                                 </span>
                               );
@@ -1595,7 +1595,7 @@ function LegacyHsRegisterDetailPage() {
                           </div>
                         ) : null}
                         {certificateDocuments(entry).length ? (
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-2)" }}>
                             {certificateDocuments(entry).map((docItem, index) => (
                               <a
                                 key={`${docItem.url}-${index}`}
@@ -1614,7 +1614,7 @@ function LegacyHsRegisterDetailPage() {
                             style={{
                               ...btn("ghost"),
                               display: "inline-flex",
-                              marginTop: 8,
+                              marginTop: "var(--space-2)",
                               width: "fit-content",
                               opacity: historyUploadId === entry.id ? 0.65 : 1,
                             }}
@@ -1635,7 +1635,7 @@ function LegacyHsRegisterDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13, fontWeight: 750 }}>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                     No completed checks recorded yet.
                   </div>
                 )}
@@ -1643,7 +1643,7 @@ function LegacyHsRegisterDetailPage() {
             ) : null}
           </div>
 
-          <aside style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          <aside style={{ display: "grid", gap: "var(--space-3)", alignContent: "start" }}>
             <div style={panel}>
               <div style={sectionHeader}>
                 <div>
@@ -1654,16 +1654,16 @@ function LegacyHsRegisterDetailPage() {
               </div>
 
               <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fbfdff" }}>
+                <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-fbfdff)" }}>
                   <p style={smallLabel}>Current evidence</p>
                   <div style={{ marginTop: 6, fontWeight: 900, color: UI.text }}>
                     {certificateDocuments(item).length ? `${certificateDocuments(item).length} document${certificateDocuments(item).length === 1 ? "" : "s"} uploaded` : "No certificate uploaded"}
                   </div>
-                  <div style={{ marginTop: 4, color: UI.muted, fontSize: 12.5 }}>
+                  <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: 12.5 }}>
                     Uploaded: {fmtDate(item.certificateUploadedAt)}
                   </div>
                   {certificateDocuments(item).length ? (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 10 }}>
                       {certificateDocuments(item).map((docItem, index) => (
                         <a key={`${docItem.url}-${index}`} href={docItem.url} target="_blank" rel="noreferrer" style={{ ...btn("ghost"), textDecoration: "none" }}>
                           {docItem.name || `Document ${index + 1}`}
@@ -1718,7 +1718,7 @@ function LegacyHsRegisterDetailPage() {
 
                 {selectedPpeHistory ? (
                   <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ border: UI.border, borderRadius: UI.radius, background: "#fbfdff", padding: 10 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fbfdff)", padding: 10 }}>
                       <p style={smallLabel}>Employee</p>
                       <div style={{ marginTop: 5, color: UI.text, fontWeight: 900 }}>{selectedPpeHistory.employeeName}</div>
                       <div style={{ marginTop: 3, color: UI.muted, fontSize: 12.5 }}>{selectedPpeHistory.ppeLabel}</div>
@@ -1733,26 +1733,26 @@ function LegacyHsRegisterDetailPage() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
-                              gap: 8,
+                              gap: "var(--space-2)",
                               border: UI.border,
                               borderRadius: UI.radius,
-                              background: "#fff",
+                              background: "var(--color-white)",
                               padding: "8px 10px",
                             }}
                           >
                             <span style={{ color: UI.text, fontWeight: 900 }}>{entry}</span>
-                            <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>#{index + 1}</span>
+                            <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>#{index + 1}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div style={{ color: UI.muted, fontSize: 13, fontWeight: 750 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                         No issue history has been recorded for this employee and PPE item yet.
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13, fontWeight: 750 }}>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                     No PPE cell selected.
                   </div>
                 )}
@@ -1842,7 +1842,7 @@ function Field({ label, value, onChange, readOnly = false, type = "text" }) {
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange?.(event.target.value)}
-        style={{ ...input, background: readOnly ? "#f8fafc" : "#fff", fontWeight: readOnly ? 850 : 700 }}
+        style={{ ...input, background: readOnly ? "var(--color-surface-subtle)" : "var(--color-white)", fontWeight: readOnly ? 850 : 700 }}
       />
     </label>
   );
@@ -1850,12 +1850,12 @@ function Field({ label, value, onChange, readOnly = false, type = "text" }) {
 
 function InfoRow({ label, value, icon: Icon }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 8, alignItems: "center", padding: "9px 0", borderTop: "1px solid #eef2f7" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: "var(--space-2)", alignItems: "center", padding: "9px 0", borderTop: "1px solid var(--legacy-color-eef2f7)" }}>
       <span
         style={{
           width: 28,
           height: 28,
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
           background: UI.brandSoft,
           color: UI.brand,
           display: "inline-flex",

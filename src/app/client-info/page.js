@@ -20,24 +20,24 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  brandSoft: "var(--color-info-soft)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "6px 10px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
 };
 
@@ -367,22 +367,22 @@ export default function ClientInfoPage() {
             display: "flex",
             alignItems: "baseline",
             justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 16,
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-4)",
             flexWrap: "wrap",
           }}
         >
           <div>
             <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Client Info</h1>
-            <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: "var(--space-1)" }}>
               A client directory built from booking history, booking contacts, crew demand, dates, and outcomes.
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span style={chip}>{clients.length} clients</span>
-            <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>{bookings.length} active bookings</span>
-            <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>{deletedJobs.length} deleted records</span>
-            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "#fff" }}>
+            <span style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)" }}>{bookings.length} active bookings</span>
+            <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)" }}>{deletedJobs.length} deleted records</span>
+            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "var(--color-white)" }}>
               View emails →
             </Link>
           </div>
@@ -398,22 +398,22 @@ export default function ClientInfoPage() {
               width: "100%",
               padding: "10px 12px",
               borderRadius: UI.radiusSm,
-              border: "1px solid #d1d5db",
-              fontSize: 14,
+              border: "1px solid var(--legacy-color-d1d5db)",
+              fontSize: "var(--font-size-md)",
               outline: "none",
-              background: "#fff",
+              background: "var(--color-white)",
             }}
           />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 360px) minmax(0, 1fr)", gap: UI.gap }}>
-          <div style={{ ...surface, padding: 12, maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
+          <div style={{ ...surface, padding: "var(--space-3)", maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Client List</div>
-              <div style={{ color: UI.muted, fontSize: 12 }}>{filteredClients.length} shown</div>
+              <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)" }}>Client List</div>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>{filteredClients.length} shown</div>
             </div>
 
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "grid", gap: "var(--space-2)" }}>
               {filteredClients.length ? (
                 filteredClients.map((client) => {
                   const isSelected = client.key === selectedClient?.key;
@@ -424,29 +424,29 @@ export default function ClientInfoPage() {
                       onClick={() => setSelectedClientKey(client.key)}
                       style={{
                         textAlign: "left",
-                        padding: 12,
-                        borderRadius: 12,
-                        border: isSelected ? "1px solid #93c5fd" : "1px solid #e5e7eb",
-                        background: isSelected ? "#eff6ff" : "#fff",
+                        padding: "var(--space-3)",
+                        borderRadius: "var(--radius-lg)",
+                        border: isSelected ? "1px solid var(--legacy-color-93c5fd)" : "1px solid var(--legacy-color-e5e7eb)",
+                        background: isSelected ? "var(--color-info-soft)" : "var(--color-white)",
                         boxShadow: isSelected ? UI.shadowHover : "none",
                         cursor: "pointer",
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
                         <div style={{ fontWeight: 900, color: UI.text }}>{client.name}</div>
                         <span style={chip}>{client.totalJobs}</span>
                       </div>
-                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 6 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 6 }}>
                         Confirmed {client.confirmedJobs} • First pencil {client.firstPencilJobs} • Dead {client.lostJobs}
                       </div>
-                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                         Last activity {fmtDate(client.lastActivityAt || client.lastShootAt)}
                       </div>
                     </button>
                   );
                 })
               ) : (
-                <div style={{ color: UI.muted, fontSize: 13 }}>No clients match the current search.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No clients match the current search.</div>
               )}
             </div>
           </div>
@@ -455,10 +455,10 @@ export default function ClientInfoPage() {
             {selectedClient ? (
               <>
                 <div style={{ ...surface, padding: 18 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
                     <div>
                       <div style={{ fontSize: 28, fontWeight: 900, color: UI.text }}>{selectedClient.name}</div>
-                      <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: "var(--space-1)" }}>
                         First added {fmtDate(selectedClient.firstAddedAt)} • Last shoot {fmtDate(selectedClient.lastShootAt)}
                       </div>
                     </div>
@@ -471,44 +471,44 @@ export default function ClientInfoPage() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                      gap: 12,
-                      marginTop: 16,
+                      gap: "var(--space-3)",
+                      marginTop: "var(--space-4)",
                     }}
                   >
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Total jobs</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.totalJobs}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Total jobs</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.totalJobs}</div>
                     </div>
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Confirmed</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.confirmedJobs}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Confirmed</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.confirmedJobs}</div>
                     </div>
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg length</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.avgLength}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg length</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.avgLength}</div>
                     </div>
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg crew</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.avgCrew}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Avg crew</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.avgCrew}</div>
                     </div>
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.firstPencilJobs}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>First pencil</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.firstPencilJobs}</div>
                     </div>
-                    <div style={{ ...surface, padding: 12 }}>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Dead outcomes</div>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{selectedClient.lostJobs}</div>
+                    <div style={{ ...surface, padding: "var(--space-3)" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase" }}>Dead outcomes</div>
+                      <div style={{ fontSize: "var(--font-size-xl)", fontWeight: 900 }}>{selectedClient.lostJobs}</div>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: UI.gap }}>
-                  <div style={{ ...surface, padding: 16 }}>
+                  <div style={{ ...surface, padding: "var(--space-4)" }}>
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16 }}>Recent bookings</div>
-                      <div style={{ color: UI.muted, fontSize: 12 }}>{selectedClientJobs.length} records</div>
+                      <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)" }}>Recent bookings</div>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>{selectedClientJobs.length} records</div>
                     </div>
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ display: "grid", gap: "var(--space-2)" }}>
                       {selectedClientJobs.slice(0, 12).map((job) => {
                         const status = job.__deleted ? "Deleted" : prettifyStatus(job.status);
                         const anchorDate =
@@ -523,7 +523,7 @@ export default function ClientInfoPage() {
                               gap: 10,
                               padding: 10,
                               borderRadius: 10,
-                              border: "1px solid #e5e7eb",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
                               textDecoration: "none",
                               color: UI.text,
                               alignItems: "center",
@@ -532,10 +532,10 @@ export default function ClientInfoPage() {
                             <div style={{ fontWeight: 900 }}>{job.jobNumber || "No job #"}</div>
                             <div>
                               <div style={{ fontWeight: 700 }}>{job.location || "No location"}</div>
-                              <div style={{ color: UI.muted, fontSize: 12 }}>{fmtDate(anchorDate)}</div>
+                              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>{fmtDate(anchorDate)}</div>
                             </div>
-                            <div style={{ color: UI.muted, fontSize: 13 }}>{status}</div>
-                            <div style={{ color: UI.muted, fontSize: 13, textAlign: "right" }}>
+                            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>{status}</div>
+                            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", textAlign: "right" }}>
                               {normaliseJobDates(job).length || Number(job.bookingLengthDays) || 0} day(s)
                             </div>
                           </Link>
@@ -545,27 +545,27 @@ export default function ClientInfoPage() {
                   </div>
 
                   <div style={{ display: "grid", gap: UI.gap }}>
-                    <div style={{ ...surface, padding: 16 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>Contacts on bookings</div>
-                      <div style={{ display: "grid", gap: 8 }}>
+                    <div style={{ ...surface, padding: "var(--space-4)" }}>
+                      <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)", marginBottom: 10 }}>Contacts on bookings</div>
+                      <div style={{ display: "grid", gap: "var(--space-2)" }}>
                         {selectedClient.contacts.length ? (
                           selectedClient.contacts.map((contact) => (
-                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} style={{ borderBottom: "1px solid #eef2f7", paddingBottom: 8 }}>
+                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", paddingBottom: "var(--space-2)" }}>
                               <div style={{ fontWeight: 800 }}>{contactTitle(contact)}</div>
-                              <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                                 {[contact.email, contact.phone].filter(Boolean).join(" • ") || "No direct detail saved"}
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div style={{ color: UI.muted, fontSize: 13 }}>No booking contacts stored for this client yet.</div>
+                          <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No booking contacts stored for this client yet.</div>
                         )}
                       </div>
                     </div>
 
-                    <div style={{ ...surface, padding: 16 }}>
-                      <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>Coverage</div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ ...surface, padding: "var(--space-4)" }}>
+                      <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)", marginBottom: 10 }}>Coverage</div>
+                      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                         {selectedClient.locations.length ? (
                           selectedClient.locations.slice(0, 16).map((location) => (
                             <span key={location} style={chip}>
@@ -573,18 +573,18 @@ export default function ClientInfoPage() {
                             </span>
                           ))
                         ) : (
-                          <div style={{ color: UI.muted, fontSize: 13 }}>No locations saved yet.</div>
+                          <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No locations saved yet.</div>
                         )}
                       </div>
 
                       {!!selectedClient.aliases.length && (
                         <div style={{ marginTop: 14 }}>
-                          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase", marginBottom: 8 }}>
+                          <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, textTransform: "uppercase", marginBottom: "var(--space-2)" }}>
                             Name variants
                           </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                             {selectedClient.aliases.map((alias) => (
-                              <span key={alias} style={{ ...chip, background: "#fff" }}>
+                              <span key={alias} style={{ ...chip, background: "var(--color-white)" }}>
                                 {alias}
                               </span>
                             ))}
@@ -596,7 +596,7 @@ export default function ClientInfoPage() {
                 </div>
               </>
             ) : (
-              <div style={{ ...surface, padding: 18, color: UI.muted, fontSize: 14 }}>No client data is available yet.</div>
+              <div style={{ ...surface, padding: 18, color: UI.muted, fontSize: "var(--font-size-md)" }}>No client data is available yet.</div>
             )}
           </div>
         </div>

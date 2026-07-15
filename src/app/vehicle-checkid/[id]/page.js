@@ -10,47 +10,47 @@ import { db } from "../../../../firebaseConfig";
 
 /* UI tokens (unchanged) */
 const UI = {
-  page: "#f3f4f6",
-  card: "#ffffff",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
+  page: "var(--legacy-color-f3f4f6)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  subtext: "var(--color-text-subtle)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   radius: 12,
-  radiusSm: 8,
+  radiusSm: "var(--radius-md)",
   shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
   shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
 };
 const shell = { minHeight: "100vh", background: UI.page, color: UI.text, fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" };
 const main = { flex: 1, padding: "28px 28px 40px", maxWidth: 900, margin: "0 auto" };
-const h1 = { fontSize: 26, lineHeight: "30px", fontWeight: 800, marginBottom: 8, color: UI.text };
-const meta = { fontSize: 13, color: UI.subtext };
-const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm, padding: 16 };
-const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
-const value = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid #eef2f7", padding: "8px 0" };
+const h1 = { fontSize: 26, lineHeight: "30px", fontWeight: 800, marginBottom: "var(--space-2)", color: UI.text };
+const meta = { fontSize: "var(--font-size-sm)", color: UI.subtext };
+const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm, padding: "var(--space-4)" };
+const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" };
+const value = { fontSize: "var(--font-size-md)", color: UI.text, fontWeight: 700 };
+const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" };
 const badge = (variant) => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  border: "1px solid #e5e7eb",
-  background: variant === "submitted" ? "#ecfdf5" : variant === "draft" ? "#f8fafc" : "#fff",
-  color: variant === "submitted" ? "#065f46" : "#111827",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: variant === "submitted" ? "var(--color-success-soft)" : variant === "draft" ? "var(--color-surface-subtle)" : "var(--color-white)",
+  color: variant === "submitted" ? "var(--legacy-color-065f46)" : "var(--legacy-color-111827)",
 });
 const statusChip = (s) => ({
   display: "inline-flex",
   justifyContent: "center",
   minWidth: 84,
   padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  fontSize: 12,
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  background: s === "serviceable" ? "#f0fdf4" : s === "defect" ? "#fef2f2" : s === "na" ? "#f8fafc" : "#fff",
-  color: s === "serviceable" ? "#166534" : s === "defect" ? "#991b1b" : "#111827",
+  background: s === "serviceable" ? "var(--legacy-color-f0fdf4)" : s === "defect" ? "var(--color-danger-soft)" : s === "na" ? "var(--color-surface-subtle)" : "var(--color-white)",
+  color: s === "serviceable" ? "var(--color-success)" : s === "defect" ? "var(--color-danger)" : "var(--legacy-color-111827)",
 });
 
 export default function VehicleCheckDetailPage() {
@@ -117,18 +117,18 @@ export default function VehicleCheckDetailPage() {
           <main style={main}>
             <div style={{ ...card, textAlign: "center" }}>
               Vehicle check not found.
-              {error && <div style={{ marginTop: 6, color: UI.subtext, fontSize: 12 }}>{error}</div>}
+              {error && <div style={{ marginTop: 6, color: UI.subtext, fontSize: "var(--font-size-xs)" }}>{error}</div>}
               <div style={{ marginTop: 10 }}>
                 <Link
                   href="/vehicle-checks"
                   style={{
                     display: "inline-flex",
-                    gap: 8,
+                    gap: "var(--space-2)",
                     padding: "6px 10px",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
+                    border: "1px solid var(--legacy-color-e5e7eb)",
+                    borderRadius: "var(--radius-md)",
                     fontWeight: 800,
-                    background: "#fff",
+                    background: "var(--color-white)",
                   }}
                 >
                   ← Back to list
@@ -170,16 +170,16 @@ export default function VehicleCheckDetailPage() {
               <Field label="Odometer"><div style={value}>{row.odometer || "-"}</div></Field>
             </div>
 
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: "var(--space-3)" }}>
               <Field label="Additional Notes">
                 <div
                   style={{
                     whiteSpace: "pre-wrap",
-                    background: "#fafafa",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 13,
+                    background: "var(--legacy-color-fafafa)",
+                    border: "1px solid var(--legacy-color-e5e7eb)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "var(--space-3)",
+                    fontSize: "var(--font-size-sm)",
                   }}
                 >
                   {row.notes?.trim() ? row.notes : "—"}
@@ -190,9 +190,9 @@ export default function VehicleCheckDetailPage() {
 
           {/* Daily Check */}
           <div style={{ ...card, marginTop: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Daily Check</div>
+            <div style={{ fontWeight: 800, marginBottom: "var(--space-2)", fontSize: "var(--font-size-lg)" }}>Daily Check</div>
             {items.length === 0 ? (
-              <div style={{ color: UI.subtext, fontSize: 13 }}>No items recorded.</div>
+              <div style={{ color: UI.subtext, fontSize: "var(--font-size-sm)" }}>No items recorded.</div>
             ) : (
               items.map((it, idx) => (
                 <div key={idx} style={itemRow}>
@@ -209,20 +209,20 @@ export default function VehicleCheckDetailPage() {
           {/* Defect Notes */}
           {items.some((i) => i.status === "defect") && (
             <div style={{ ...card, marginTop: 14 }}>
-              <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Defect Notes</div>
+              <div style={{ fontWeight: 800, marginBottom: "var(--space-2)", fontSize: "var(--font-size-lg)" }}>Defect Notes</div>
               {items.filter((i) => i.status === "defect").map((it, idx) => (
-                <div key={`def-${idx}`} style={{ borderBottom: "1px solid #eef2f7", padding: "8px 0" }}>
+                <div key={`def-${idx}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" }}>
                   <div style={{ fontWeight: 800 }}>
                     {String(it.i ?? idx + 1).padStart(2, "0")} · {it.label}
                   </div>
                   <div
                     style={{
                       whiteSpace: "pre-wrap",
-                      background: "#fafafa",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
+                      background: "var(--legacy-color-fafafa)",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
+                      borderRadius: "var(--radius-md)",
                       padding: 10,
-                      fontSize: 13,
+                      fontSize: "var(--font-size-sm)",
                       marginTop: 6,
                     }}
                   >
@@ -235,9 +235,9 @@ export default function VehicleCheckDetailPage() {
 
           {/* Photos */}
           <div style={{ ...card, marginTop: 14 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Photos</div>
+            <div style={{ fontWeight: 800, marginBottom: "var(--space-2)", fontSize: "var(--font-size-lg)" }}>Photos</div>
             {photos.length === 0 ? (
-              <div style={{ color: UI.subtext, fontSize: 13 }}>No photos attached.</div>
+              <div style={{ color: UI.subtext, fontSize: "var(--font-size-sm)" }}>No photos attached.</div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
                 {photos.map((u, i) => (
@@ -248,10 +248,10 @@ export default function VehicleCheckDetailPage() {
                     rel="noopener noreferrer"
                     style={{
                       display: "block",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
+                      border: "1px solid var(--legacy-color-e5e7eb)",
+                      borderRadius: "var(--radius-md)",
                       overflow: "hidden",
-                      background: "#fafafa",
+                      background: "var(--legacy-color-fafafa)",
                     }}
                     title="Open full image"
                   >
@@ -263,16 +263,16 @@ export default function VehicleCheckDetailPage() {
             )}
           </div>
 
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: "var(--space-3)" }}>
             <Link
               href="/vehicle-checks"
               style={{
                 display: "inline-flex",
-                gap: 8,
+                gap: "var(--space-2)",
                 padding: "8px 12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                background: "#fff",
+                border: "1px solid var(--legacy-color-e5e7eb)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--color-white)",
                 fontWeight: 800,
               }}
             >
@@ -289,7 +289,7 @@ export default function VehicleCheckDetailPage() {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-subtle)", fontWeight: 700, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

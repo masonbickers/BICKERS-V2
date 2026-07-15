@@ -30,60 +30,60 @@ const UI = {
   radiusSm: 10,
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  good: "#065f46",
-  goodBg: "#d1fae5",
-  goodBorder: "#86efac",
-  warn: "#92400e",
-  warnBg: "#fffbeb",
-  warnBorder: "#fde68a",
-  danger: "#991b1b",
-  dangerBg: "#fee2e2",
-  dangerBorder: "#fecaca",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  good: "var(--legacy-color-065f46)",
+  goodBg: "var(--legacy-color-d1fae5)",
+  goodBorder: "var(--legacy-color-86efac)",
+  warn: "var(--legacy-color-92400e)",
+  warnBg: "var(--legacy-color-fffbeb)",
+  warnBorder: "var(--legacy-color-fde68a)",
+  danger: "var(--color-danger)",
+  dangerBg: "var(--legacy-color-fee2e2)",
+  dangerBorder: "var(--color-danger-border)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
+const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-4)" };
 const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const sub = { color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 16 };
-const sectionHeader = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 };
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const card = { ...surface, padding: "var(--space-4)" };
+const sectionHeader = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: 10 };
+const titleMd = { fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" };
 
 const chip = (kind = "neutral") => {
-  if (kind === "good") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good, fontSize: 12, fontWeight: 900 };
-  if (kind === "warn") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: 12, fontWeight: 900 };
-  if (kind === "danger") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: 12, fontWeight: 900 };
-  return { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 900 };
+  if (kind === "good") return { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good, fontSize: "var(--font-size-xs)", fontWeight: 900 };
+  if (kind === "warn") return { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: "var(--font-size-xs)", fontWeight: 900 };
+  if (kind === "danger") return { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: "var(--font-size-xs)", fontWeight: 900 };
+  return { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: UI.text, fontSize: "var(--font-size-xs)", fontWeight: 900 };
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
-    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", background: "#fff", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--color-white)", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
   if (kind === "danger") {
     return { padding: "8px 10px", borderRadius: UI.radiusSm, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
-  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-white)", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
 };
 
-const grid2 = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 };
-const label = { display: "block", fontSize: 12, fontWeight: 900, color: UI.text, marginBottom: 6 };
-const input = { width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #e5e7eb", outline: "none", fontSize: 13.5, background: "#fff" };
+const grid2 = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-3)" };
+const label = { display: "block", fontSize: "var(--font-size-xs)", fontWeight: 900, color: UI.text, marginBottom: 6 };
+const input = { width: "100%", padding: "10px 12px", borderRadius: "var(--radius-lg)", border: "1px solid var(--legacy-color-e5e7eb)", outline: "none", fontSize: 13.5, background: "var(--color-white)" };
 const textarea = { ...input, minHeight: 92, resize: "vertical" };
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e5e7eb)", margin: "14px 0" };
 
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const tableWrap = { overflow: "auto", border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: "var(--radius-lg)", background: "var(--color-white)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1, whiteSpace: "nowrap" };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", position: "sticky", top: 0, background: "var(--color-surface-subtle)", zIndex: 1, whiteSpace: "nowrap" };
+const td = { padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
 
 /* ───────── date helpers ───────── */
 function toDate(v) {
@@ -452,22 +452,22 @@ export default function Page() {
                 <div style={hint}>Leave blank for single-day.</div>
               </div>
 
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#f8fafc" }}>
+              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", background: "var(--color-surface-subtle)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>Start half day</div>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <div style={{ fontWeight: 900, color: UI.text, fontSize: "var(--font-size-sm)" }}>Start half day</div>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                     <input type="checkbox" checked={startHalfDay} onChange={(e) => setStartHalfDay(e.target.checked)} />
-                    <span style={{ fontSize: 13, color: UI.muted }}>Half day</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>Half day</span>
                   </label>
                 </div>
               </div>
 
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#f8fafc" }}>
+              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", background: "var(--color-surface-subtle)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>End half day</div>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <div style={{ fontWeight: 900, color: UI.text, fontSize: "var(--font-size-sm)" }}>End half day</div>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
                     <input type="checkbox" checked={endHalfDay} onChange={(e) => setEndHalfDay(e.target.checked)} />
-                    <span style={{ fontSize: 13, color: UI.muted }}>Half day</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>Half day</span>
                   </label>
                 </div>
               </div>
@@ -532,9 +532,9 @@ export default function Page() {
           </div>
 
           {loading ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>Loading sick leave…</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>Loading sick leave…</div>
           ) : filtered.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No sick leave records found.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No sick leave records found.</div>
           ) : (
             <div style={tableWrap}>
               <table style={tableEl}>
@@ -572,7 +572,7 @@ export default function Page() {
                           <div style={{ maxWidth: 260, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{notesText}</div>
                         </td>
                         <td style={td}>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "recorded")}>Recorded</button>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "pending")}>Pending</button>
                             <button type="button" style={btn("ghost")} onClick={() => setRecordStatus(r.id, "certified")}>Certified</button>
@@ -588,7 +588,7 @@ export default function Page() {
           )}
         </section>
 
-        <section style={{ marginTop: UI.gap, color: UI.muted, fontSize: 12 }}>
+        <section style={{ marginTop: UI.gap, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
           Counting: weekdays only (Mon–Fri). Half day on start/end counts as 0.5.
         </section>
       </div>

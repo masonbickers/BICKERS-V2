@@ -38,19 +38,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  radius: 8,
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  border: "var(--border-default)",
+  radius: "var(--radius-md)",
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
 };
 
 const pageWrap = {
@@ -70,20 +70,20 @@ const card = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadow,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const pageHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
 };
 
 const h1Style = {
   margin: 0,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 900,
   color: UI.text,
@@ -100,7 +100,7 @@ const headerChecks = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: 10,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
 };
 
 const headerChecksBox = {
@@ -119,13 +119,13 @@ const headerChecksBox = {
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 0.78fr) minmax(360px, 1.1fr) minmax(360px, 1.12fr)",
-  gap: 12,
+  gap: "var(--space-3)",
   marginTop: 10,
 };
 
 const formShell = {
   display: "grid",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const label = {
@@ -140,10 +140,10 @@ const label = {
 const checkboxRow = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   fontWeight: 700,
-  fontSize: 13,
-  marginBottom: 8,
+  fontSize: "var(--font-size-sm)",
+  marginBottom: "var(--space-2)",
 };
 
 const accordionBtn = {
@@ -154,7 +154,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radius,
   border: UI.border,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -163,13 +163,13 @@ const accordionBtn = {
 
 const input = {
   width: "100%",
-  height: 36,
+  height: "var(--control-height-md)",
   border: UI.border,
   borderRadius: UI.radius,
   padding: "7px 9px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
-  background: "#fff",
+  background: "var(--color-white)",
   boxSizing: "border-box",
 };
 
@@ -188,18 +188,18 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-white)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
   boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadow,
 });
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 32,
-  height: 32,
-  borderRadius: 8,
+  height: "var(--control-height-sm)",
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -209,22 +209,22 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 };
+const sectionTitleRow = { display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" };
 const cardTitle = { margin: 0, fontSize: 15, fontWeight: 900, color: UI.text };
 const pill = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "3px 8px",
-  fontSize: 12,
-  borderRadius: 999,
+  fontSize: "var(--font-size-xs)",
+  borderRadius: "var(--radius-pill)",
   background: UI.brandSoft,
   border: `1px solid ${UI.brandBorder}`,
   color: UI.brand,
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e2e8f0", margin: "12px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
 const FILM_DEPARTMENTS = [
   "Production",
   "Director",
@@ -246,7 +246,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -646,12 +646,12 @@ export default function CreateEnquiryPage() {
               <span style={iconBox(dateKnown ? UI.green : UI.brand, dateKnown ? UI.greenSoft : UI.brandSoft, dateKnown ? UI.greenBorder : UI.brandBorder)}>
                 <CalendarDays size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
+              <div style={{ display: "grid", gap: "var(--space-1)", flex: 1 }}>
                 <label style={{ ...checkboxRow, marginBottom: 0 }}>
                   <input type="checkbox" checked={dateKnown} onChange={(e) => setDateKnown(e.target.checked)} />
                   Dates available
                 </label>
-                <div style={{ fontSize: 12, color: UI.muted }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                   Leave unticked when production has not supplied dates yet.
                 </div>
               </div>
@@ -661,9 +661,9 @@ export default function CreateEnquiryPage() {
               <span style={iconBox(UI.green, UI.greenSoft, UI.greenBorder)}>
                 <CheckCircle2 size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 13 }}>Enquiry workflow</div>
-                <div style={{ fontSize: 12, color: UI.muted }}>
+              <div style={{ display: "grid", gap: "var(--space-1)", flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)" }}>Enquiry workflow</div>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                   Saved as an enquiry and excluded from asset availability checks.
                 </div>
               </div>
@@ -683,7 +683,7 @@ export default function CreateEnquiryPage() {
                   <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={input} />
 
                   <label style={label}>Status</label>
-                  <input value="Enquiry" readOnly style={{ ...input, background: "#f8fafc", color: UI.muted }} />
+                  <input value="Enquiry" readOnly style={{ ...input, background: "var(--color-surface-subtle)", color: UI.muted }} />
 
                   <div style={divider} />
 
@@ -705,30 +705,30 @@ export default function CreateEnquiryPage() {
                   <label style={label}>Location</label>
                   <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
 
-                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#f8fafc" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-surface-subtle)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--font-size-sm)", fontWeight: 700 }}>
                       <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
                       Add invoicing details
                     </label>
                     {showInvoicingDetails && (
-                      <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                      <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
-                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--color-white)" }} placeholder="PO reference for invoicing" />
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
-                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Name" />
+                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--color-white)" }} placeholder="Name" />
                           </div>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Email</label>
-                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="accounts@example.com" />
+                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--color-white)" }} placeholder="accounts@example.com" />
                           </div>
                         </div>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Phone</label>
-                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Optional phone number" />
+                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--color-white)" }} placeholder="Optional phone number" />
                         </div>
                       </div>
                     )}
@@ -738,16 +738,16 @@ export default function CreateEnquiryPage() {
 
                   <div
                     style={{
-                      marginTop: 12,
+                      marginTop: "var(--space-3)",
                       padding: 10,
                       borderRadius: UI.radius,
                       border: UI.border,
-                      background: "#f8fafc",
+                      background: "var(--color-surface-subtle)",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
-                      <button type="button" onClick={handleAddContactRow} style={{ ...btn(), padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
+                      <span style={{ fontWeight: 700, fontSize: "var(--font-size-sm)" }}>Contacts</span>
+                      <button type="button" onClick={handleAddContactRow} style={{ ...btn(), padding: "4px 8px", fontSize: "var(--font-size-xs)", borderRadius: "var(--radius-pill)" }}>
                         + Add contact
                       </button>
                     </div>
@@ -756,16 +756,16 @@ export default function CreateEnquiryPage() {
                       <div
                         key={idx}
                         style={{
-                          marginBottom: 8,
-                          padding: 8,
+                          marginBottom: "var(--space-2)",
+                          padding: "var(--space-2)",
                           borderRadius: UI.radius,
-                          background: "#ffffff",
-                          border: "1px solid #e5e7eb",
+                          background: "var(--color-white)",
+                          border: "1px solid var(--legacy-color-e5e7eb)",
                         }}
                       >
-                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                           <div>
-                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Department</label>
+                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Department</label>
                             <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={input}>
                               <option value="">Select department</option>
                               {FILM_DEPARTMENTS.map((dep) => (
@@ -786,18 +786,18 @@ export default function CreateEnquiryPage() {
                           </div>
 
                           <div>
-                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Name</label>
+                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Name</label>
                             <input type="text" value={row.name} onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)} style={input} placeholder="Contact name" />
                           </div>
                         </div>
 
-                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)" }}>
                           <div>
-                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Email</label>
+                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Email</label>
                             <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={input} placeholder="Email" />
                           </div>
                           <div>
-                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Number</label>
+                            <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Number</label>
                             <input type="tel" value={row.phone} onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)} style={input} placeholder="Phone number" />
                           </div>
                         </div>
@@ -810,10 +810,10 @@ export default function CreateEnquiryPage() {
                               ...btn(),
                               padding: "4px 8px",
                               fontSize: 11,
-                              borderRadius: 999,
-                              border: "1px solid #dc2626",
-                              color: "#dc2626",
-                              background: "#fff",
+                              borderRadius: "var(--radius-pill)",
+                              border: "1px solid var(--legacy-color-dc2626)",
+                              color: "var(--legacy-color-dc2626)",
+                              background: "var(--color-white)",
                             }}
                           >
                             Remove
@@ -823,7 +823,7 @@ export default function CreateEnquiryPage() {
                     ))}
 
                     <div style={{ marginTop: 6 }}>
-                      <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
+                      <label style={{ ...label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>
                         Quick add from saved contacts
                       </label>
                       {!savedContactsLoaded ? (
@@ -899,14 +899,14 @@ export default function CreateEnquiryPage() {
                       <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isRange} style={{ ...input, opacity: isRange ? 1 : 0.55 }} />
                     </>
                   ) : (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                       No dates recorded yet.
                     </div>
                   )}
 
                   <div style={divider} />
 
-                  <div style={{ ...sectionTitleRow, marginBottom: 8 }}>
+                  <div style={{ ...sectionTitleRow, marginBottom: "var(--space-2)" }}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Notes</h3>
                   </div>
@@ -921,12 +921,12 @@ export default function CreateEnquiryPage() {
                   </div>
 
                   {referenceDataLoading && (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: "var(--font-size-sm)", marginBottom: 10 }}>
                       Loading vehicles and equipment...
                     </div>
                   )}
 
-                  <div style={{ position: "relative", marginBottom: 12 }}>
+                  <div style={{ position: "relative", marginBottom: "var(--space-3)" }}>
                     <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                     <input
                       type="text"
@@ -937,7 +937,7 @@ export default function CreateEnquiryPage() {
                     />
                   </div>
 
-                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: "var(--space-3)", rowGap: 10, alignItems: "start" }}>
                     {filteredVehicleGroups.map(([group, items]) => {
                       const isOpen = openGroups[group] || false;
                       return (
@@ -955,7 +955,7 @@ export default function CreateEnquiryPage() {
                                 const key = vehicle.id;
                                 const isSelected = vehicles.includes(key);
                                 return (
-                                  <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                  <label key={key} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                                     <input type="checkbox" checked={isSelected} onChange={(e) => toggleVehicle(key, e.target.checked)} />
                                     <span style={{ flex: 1 }}>
                                       {vehicle.name}
@@ -972,7 +972,7 @@ export default function CreateEnquiryPage() {
                   </div>
 
                   {filteredVehicleGroups.length === 0 && (
-                    <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
+                    <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginTop: "var(--space-1)" }}>No vehicles match that search.</div>
                   )}
 
                   <div style={divider} />
@@ -982,7 +982,7 @@ export default function CreateEnquiryPage() {
                     <h3 style={cardTitle}>Equipment</h3>
                   </div>
 
-                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                  <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: "var(--space-3)", rowGap: 10, alignItems: "start" }}>
                     {filteredEquipmentGroups.map(([group, items]) => {
                       const isOpen = openEquipGroups[group] || false;
                       return (
@@ -1021,12 +1021,12 @@ export default function CreateEnquiryPage() {
                   </div>
 
                   {filteredEquipmentGroups.length === 0 && (
-                    <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
+                    <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginTop: "var(--space-1)" }}>No equipment matches that search.</div>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end", flexWrap: "wrap" }}>
                 <button type="submit" disabled={!canSave} style={{ ...btn("primary"), opacity: canSave ? 1 : 0.55, cursor: canSave ? "pointer" : "not-allowed" }}>
                   <Save size={14} />
                   {saving ? "Saving..." : "Save Enquiry"}

@@ -54,56 +54,56 @@ import {
 } from "../utils/maintenanceWorkflowSpec";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  border: "var(--border-default)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 12 };
+const card = { ...surface, padding: "var(--space-3)" };
 const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { margin: 0, color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0 };
+const h1 = { margin: 0, color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0 };
 const sub = { marginTop: 6, color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
   flexWrap: "wrap",
 };
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
+const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: "var(--space-1)" };
 const input = {
   width: "100%",
   minHeight: 38,
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   outline: "none",
 };
 const btn = (kind = "ghost") => {
@@ -113,9 +113,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -123,7 +123,7 @@ const btn = (kind = "ghost") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     boxShadow: primary
       ? "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)"
       : "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
@@ -132,12 +132,12 @@ const btn = (kind = "ghost") => {
   };
 };
 
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: "var(--font-size-sm)", borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   textTransform: "uppercase",
   letterSpacing: 0,
@@ -187,15 +187,15 @@ const classifyServiceRecord = (record) => {
 };
 
 const activityTypeConfig = {
-  service: { label: "Service", bg: "#ecfdf5", fg: "#065f46" },
-  minor_service: { label: "Minor service", bg: "#eff6ff", fg: "#1d4ed8" },
-  repair: { label: "Repair", bg: "#fff7ed", fg: "#9a3412" },
-  defect: { label: "Defect", bg: "#fef2f2", fg: "#991b1b" },
-  mot_precheck: { label: "MOT pre-check", bg: "#f5f3ff", fg: "#6d28d9" },
-  vehicle_prep: { label: "Vehicle prep", bg: "#eef2ff", fg: "#3730a3" },
-  vehicle_check: { label: "Vehicle check", bg: "#edf3f8", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "#f5ede6", fg: "#8b5e3c" },
-  booking: { label: "Booking", bg: "#f8fafc", fg: UI.text },
+  service: { label: "Service", bg: "var(--color-success-soft)", fg: "var(--legacy-color-065f46)" },
+  minor_service: { label: "Minor service", bg: "var(--color-info-soft)", fg: "var(--color-info)" },
+  repair: { label: "Repair", bg: "var(--color-warning-soft)", fg: "var(--color-warning)" },
+  defect: { label: "Defect", bg: "var(--color-danger-soft)", fg: "var(--color-danger)" },
+  mot_precheck: { label: "MOT pre-check", bg: "var(--legacy-color-f5f3ff)", fg: "var(--legacy-color-6d28d9)" },
+  vehicle_prep: { label: "Vehicle prep", bg: "var(--legacy-color-eef2ff)", fg: "var(--legacy-color-3730a3)" },
+  vehicle_check: { label: "Vehicle check", bg: "var(--color-brand-soft)", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "var(--legacy-color-f5ede6)", fg: "var(--legacy-color-8b5e3c)" },
+  booking: { label: "Booking", bg: "var(--color-surface-subtle)", fg: UI.text },
   job: { label: "Job card", bg: UI.brandSoft, fg: UI.brand },
 };
 
@@ -953,10 +953,10 @@ export default function MaintenanceJobsPage() {
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: #9fb7cf !important;
+          border-color: var(--legacy-color-9fb7cf) !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .maintenance-jobs-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        .maintenance-jobs-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
         .maintenance-jobs-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -999,7 +999,7 @@ export default function MaintenanceJobsPage() {
                 Plan, track, complete, and close workshop jobs from one place.
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push("/vehicle-home")}>
                 <ArrowLeft size={15} />
                 Back to Vehicle Home
@@ -1026,7 +1026,7 @@ export default function MaintenanceJobsPage() {
 
           <div className="maintenance-activity-groups">
             {groupedActivity.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: 12, textAlign: "center" }}>No vehicle activity found yet.</div>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "var(--space-3)", textAlign: "center" }}>No vehicle activity found yet.</div>
             ) : (
               groupedActivity.map((group) => (
                 <ActivityGroup key={group.key} group={group} router={router} />
@@ -1071,26 +1071,26 @@ export default function MaintenanceJobsPage() {
             placeholder="Notes"
             value={form.notes}
             onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-            style={{ ...input, marginTop: 8, minHeight: 64, resize: "vertical" }}
+            style={{ ...input, marginTop: "var(--space-2)", minHeight: 64, resize: "vertical" }}
           />
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: "var(--space-2)" }}>
             <button type="button" style={btn("primary")} onClick={createJob} disabled={saving}>
               <Plus size={14} />
               {saving ? "Saving..." : "Create Job"}
             </button>
           </div>
           {createError ? (
-            <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>{createError}</div>
+            <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-xs)", color: "var(--legacy-color-b91c1c)", fontWeight: 700 }}>{createError}</div>
           ) : null}
           {createMessage ? (
             <div
               style={{
-                marginTop: 8,
+                marginTop: "var(--space-2)",
                 fontSize: 12.5,
-                color: "#166534",
+                color: "var(--color-success)",
                 fontWeight: 700,
-                border: "1px solid #bbf7d0",
-                background: "#f0fdf4",
+                border: "1px solid var(--color-success-border)",
+                background: "var(--legacy-color-f0fdf4)",
                 borderRadius: 10,
                 padding: "10px 12px",
               }}
@@ -1110,7 +1110,7 @@ export default function MaintenanceJobsPage() {
                 color: UI.brand,
                 borderRadius: UI.radius,
                 padding: "10px 12px",
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 lineHeight: 1.45,
                 fontWeight: 700,
               }}
@@ -1123,15 +1123,15 @@ export default function MaintenanceJobsPage() {
               <h2 style={titleMd}>Job Queue</h2>
               <div style={hint}>Update booking, completion, cost, invoice and workflow stage from each row.</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span
                 style={{
                   padding: "5px 9px",
-                  borderRadius: 999,
+                  borderRadius: "var(--radius-pill)",
                   border: `1px solid ${UI.brandBorder}`,
                   background: UI.brandSoft,
                   color: UI.brand,
-                  fontSize: 12,
+                  fontSize: "var(--font-size-xs)",
                   fontWeight: 800,
                   whiteSpace: "nowrap",
                 }}
@@ -1140,7 +1140,7 @@ export default function MaintenanceJobsPage() {
               </span>
             </div>
           </div>
-          <div className="maintenance-jobs-filter-grid" style={{ ...surface, boxShadow: "none", padding: 12, marginBottom: 12 }}>
+          <div className="maintenance-jobs-filter-grid" style={{ ...surface, boxShadow: "none", padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
             <label style={{ position: "relative", display: "block" }}>
               <Search
                 size={16}
@@ -1165,7 +1165,7 @@ export default function MaintenanceJobsPage() {
           </div>
 
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", minWidth: 1280, borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", minWidth: 1280, borderCollapse: "collapse", fontSize: "var(--font-size-sm)" }}>
               <thead>
                 <tr>
                   {["Title", "Asset", "Type", "Priority", "Due", "Planned", "Workflow Details", "Status", "Updated"].map((h) => (
@@ -1193,7 +1193,7 @@ export default function MaintenanceJobsPage() {
                         if (node) rowRefs.current[j.id] = node;
                         else delete rowRefs.current[j.id];
                       }}
-                      style={isFocused ? { background: UI.brandSoft } : { background: "#fff" }}
+                      style={isFocused ? { background: UI.brandSoft } : { background: "var(--color-white)" }}
                     >
                       <td style={{ ...thtd, fontWeight: 800, color: UI.text }}>{j.title || "-"}</td>
                       <td style={thtd}>{j.assetLabel || j.assetId || "-"}</td>
@@ -1277,7 +1277,7 @@ export default function MaintenanceJobsPage() {
                           ))}
                         </select>
                         {jobErrors[j.id] ? (
-                          <div style={{ marginTop: 6, fontSize: 11.5, color: "#b91c1c", fontWeight: 700 }}>
+                          <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--legacy-color-b91c1c)", fontWeight: 700 }}>
                             {jobErrors[j.id]}
                           </div>
                         ) : null}
@@ -1300,9 +1300,9 @@ export default function MaintenanceJobsPage() {
 function OverviewChip({ label, value, tone = "default" }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" }
+      ? { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" }
+      ? { bg: "var(--color-success-soft)", fg: "var(--legacy-color-065f46)", border: "var(--color-success-border)" }
       : { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder };
 
   return (
@@ -1313,17 +1313,17 @@ function OverviewChip({ label, value, tone = "default" }) {
         gap: 6,
         minHeight: 30,
         padding: "5px 9px",
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${colors.border}`,
         background: colors.bg,
         color: colors.fg,
-        fontSize: 12,
+        fontSize: "var(--font-size-xs)",
         fontWeight: 850,
         whiteSpace: "nowrap",
       }}
     >
       {label}
-      <strong style={{ fontSize: 13 }}>{value}</strong>
+      <strong style={{ fontSize: "var(--font-size-sm)" }}>{value}</strong>
     </span>
   );
 }
@@ -1344,14 +1344,14 @@ function ActivityGroup({ group, router }) {
       style={{
         border: UI.border,
         borderRadius: UI.radius,
-        background: "#fff",
+        background: "var(--color-white)",
         overflow: "hidden",
         minWidth: 0,
         minHeight: 236,
         boxShadow: UI.shadowSm,
       }}
     >
-      <div style={{ padding: "12px 12px 10px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+      <div style={{ padding: "12px 12px 10px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)" }}>
         <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
           <span
             style={{
@@ -1371,7 +1371,7 @@ function ActivityGroup({ group, router }) {
           </span>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: UI.text, fontSize: 18, lineHeight: 1.1, fontWeight: 950 }}>{group.label}</div>
-            <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.35, marginTop: 4 }}>{group.note}</div>
+            <div style={{ color: UI.muted, fontSize: 12.5, lineHeight: 1.35, marginTop: "var(--space-1)" }}>{group.note}</div>
           </div>
         </div>
         <button type="button" className="maintenance-jobs-action" style={btn()} onClick={() => router.push(route)}>
@@ -1385,12 +1385,12 @@ function ActivityGroup({ group, router }) {
           <div
             style={{
               margin: "0 12px 12px",
-              border: "1px solid #d7dee8",
+              border: "var(--border-default)",
               borderRadius: UI.radius,
               padding: "11px 12px",
               color: UI.muted,
-              fontSize: 13,
-              background: "#fff",
+              fontSize: "var(--font-size-sm)",
+              background: "var(--color-white)",
             }}
           >
             Nothing in this queue.
@@ -1413,10 +1413,10 @@ function ActivityRow({ item }) {
   const statusLower = status.toLowerCase();
   const statusStyle =
     statusLower.includes("open") || statusLower.includes("defect")
-      ? { bg: "#fff36b", fg: "#0f172a" }
+      ? { bg: "var(--legacy-color-fff36b)", fg: "var(--color-text)" }
       : statusLower.includes("complete") || statusLower.includes("closed") || statusLower.includes("logged") || statusLower.includes("history")
-      ? { bg: "#8fca88", fg: "#07130a" }
-      : { bg: "#d7e9f7", fg: UI.text };
+      ? { bg: "var(--legacy-color-8fca88)", fg: "var(--legacy-color-07130a)" }
+      : { bg: "var(--legacy-color-d7e9f7)", fg: UI.text };
   return (
     <div
       className="maintenance-activity-row"
@@ -1424,12 +1424,12 @@ function ActivityRow({ item }) {
         display: "grid",
         gridTemplateColumns: "minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(120px, .7fr) minmax(110px, 110px)",
         alignItems: "stretch",
-        borderTop: "1px solid #e6edf5",
+        borderTop: "1px solid var(--legacy-color-e6edf5)",
         minHeight: 35,
       }}
     >
       <div style={{ padding: "8px 10px", minWidth: 0 }}>
-        <div style={{ color: UI.text, fontSize: 16, lineHeight: 1.22, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ color: UI.text, fontSize: "var(--font-size-lg)", lineHeight: 1.22, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.title || activityTypeLabel(item.type)}
         </div>
       </div>
@@ -1457,7 +1457,7 @@ function ActivityRow({ item }) {
           lineHeight: 1.2,
           fontWeight: 950,
           textAlign: "center",
-          borderLeft: "1px solid #1f2937",
+          borderLeft: "1px solid var(--legacy-color-1f2937)",
         }}
       >
         {status}
@@ -1469,14 +1469,14 @@ function ActivityRow({ item }) {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "ok"
-      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      ? { fg: "var(--legacy-color-065f46)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--color-border)" };
 
   return (
     <div
@@ -1513,7 +1513,7 @@ function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Wrench 
           <Icon size={17} />
         </span>
       </div>
-      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+      {sub ? <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, lineHeight: 1.3, marginTop: "var(--space-2)" }}>{sub}</div> : null}
     </div>
   );
 }

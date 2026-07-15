@@ -46,13 +46,13 @@ const UI = {
   gap: 6,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  red: "#dc2626",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  red: "var(--legacy-color-dc2626)",
 };
 
 const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
@@ -64,11 +64,11 @@ const topBar = {
   flexWrap: "wrap",
   marginBottom: 6,
 };
-const title = { margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
-const subtitle = { marginTop: 2, fontSize: 12, color: UI.muted };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
+const subtitle = { marginTop: 2, fontSize: "var(--font-size-xs)", color: UI.muted };
 
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 8 };
+const panel = { ...card, padding: "var(--space-2)" };
 const sectionTitle = {
   margin: "0 0 5px",
   fontSize: 13.5,
@@ -84,7 +84,7 @@ const col = (span) => ({ gridColumn: `span ${span}` });
 const label = {
   display: "block",
   marginBottom: 2,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
@@ -94,16 +94,16 @@ const label = {
 const input = {
   width: "100%",
   padding: "6px 8px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   fontSize: 12.5,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
   outline: "none",
 };
 
 const textarea = { ...input, minHeight: 180, resize: "vertical", lineHeight: 1.35 };
-const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
+const helpText = { marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
@@ -111,11 +111,11 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
+      gap: "var(--space-1)",
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -128,12 +128,12 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
+      gap: "var(--space-1)",
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "#fff",
+      color: "var(--color-white)",
       fontWeight: 950,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -143,12 +143,12 @@ const btn = (kind = "primary") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: "var(--space-1)",
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--color-white)",
     fontWeight: 950,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -450,7 +450,7 @@ export default function EditEquipmentPage() {
                       setNewCategory(next);
                       setEquipment((prev) => ({ ...(prev || {}), category: next }));
                     }}
-                    style={{ ...input, marginTop: 8 }}
+                    style={{ ...input, marginTop: "var(--space-2)" }}
                     placeholder="Type new category name"
                     required
                   />
@@ -561,11 +561,11 @@ export default function EditEquipmentPage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: #bfdbfe !important;
+          border-color: var(--color-info-border) !important;
         }
         select option {
-          background: #fff;
-          color: #0f172a;
+          background: var(--color-white);
+          color: var(--color-text);
         }
         input:disabled,
         select:disabled,

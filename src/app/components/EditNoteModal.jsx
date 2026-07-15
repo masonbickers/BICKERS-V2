@@ -338,7 +338,7 @@ export default function EditNoteModal({ id, onClose }) {
               rows={4}
               placeholder="Write note..."
               required
-              style={{ ...input, resize: "vertical", paddingTop: 12 }}
+              style={{ ...input, resize: "vertical", paddingTop: "var(--space-3)" }}
             />
           </div>
 
@@ -371,13 +371,13 @@ export default function EditNoteModal({ id, onClose }) {
 }
 
 const UI = {
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "#d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  danger: "#dc2626",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  border: "var(--color-border)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  danger: "var(--legacy-color-dc2626)",
 };
 
 const overlay = {
@@ -388,15 +388,15 @@ const overlay = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 90,
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const modal = {
   width: "min(560px, 95vw)",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   padding: 14,
   color: UI.text,
-  background: "#ffffff",
+  background: "var(--color-white)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -405,10 +405,10 @@ const headerRow = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
-  paddingBottom: 12,
-  borderBottom: "1px solid #e2e8f0",
+  paddingBottom: "var(--space-3)",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const titleRow = {
@@ -421,7 +421,7 @@ const titleRow = {
 const iconBox = {
   width: 38,
   height: 38,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -451,9 +451,9 @@ const modalTitle = {
 const closeBtn = {
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -464,7 +464,7 @@ const closeBtn = {
 
 const form = {
   display: "grid",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const formGrid = {
@@ -480,9 +480,9 @@ const fieldGroup = {
 
 const label = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -490,32 +490,32 @@ const label = {
 const checkRow = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   color: UI.text,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 800,
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
-  borderRadius: 8,
+  background: "var(--legacy-color-f8fbfe)",
+  borderRadius: "var(--radius-md)",
   padding: "9px 10px",
 };
 
 const helpText = {
   marginTop: -4,
-  color: "#991b1b",
-  fontSize: 12,
+  color: "var(--color-danger)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
 };
 
 const input = {
   width: "100%",
   padding: "10px 11px",
-  borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  backgroundColor: "#ffffff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  backgroundColor: "var(--color-white)",
   color: UI.text,
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   fontWeight: 700,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
 };
@@ -527,12 +527,12 @@ const primaryBtn = {
   gap: 7,
   minWidth: 132,
   padding: "9px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   cursor: "pointer",
 };
@@ -544,12 +544,12 @@ const dangerBtn = {
   gap: 7,
   minWidth: 124,
   padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid #fecaca",
-  background: "#fef2f2",
-  color: "#991b1b",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
 };
 
@@ -559,12 +559,12 @@ const secondaryBtn = {
   justifyContent: "center",
   minWidth: 98,
   padding: "9px 12px",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
 };
 
@@ -572,7 +572,7 @@ const actions = {
   display: "flex",
   justifyContent: "flex-end",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   paddingTop: 2,
 };

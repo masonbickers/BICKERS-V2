@@ -275,7 +275,7 @@ function ToggleRow({ label, checked, onChange }) {
   return (
     <label style={toggleRow}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "#0369a1" }} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
     </label>
   );
 }
@@ -289,7 +289,7 @@ function InfoCard({ label, value }) {
   );
 }
 
-const pageGrid = { display: "grid", gap: 12 };
+const pageGrid = { display: "grid", gap: "var(--space-3)" };
 const summaryBar = {
   ...ui.card,
   display: "flex",
@@ -298,17 +298,17 @@ const summaryBar = {
   flexWrap: "wrap",
 };
 const smallCaps = {
-  color: "#64748b",
-  fontSize: 12,
+  color: "var(--color-text-subtle)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   textTransform: "uppercase",
 };
-const tabRow = { display: "flex", gap: 8, flexWrap: "wrap" };
-const activeTab = { borderColor: "#0369a1", background: "#f0f9ff", color: "#0369a1" };
+const tabRow = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap" };
+const activeTab = { borderColor: "var(--legacy-color-0369a1)", background: "var(--legacy-color-f0f9ff)", color: "var(--legacy-color-0369a1)" };
 const formGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 const securityGrid = {
   display: "grid",
@@ -323,8 +323,8 @@ const toggleGrid = {
 const fieldStyle = {
   display: "grid",
   gap: 6,
-  color: "#64748b",
-  fontSize: 12,
+  color: "var(--color-text-subtle)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
 };
 const textareaStyle = {
@@ -336,21 +336,21 @@ const textareaStyle = {
   fontFamily: "Arial, sans-serif",
 };
 const toggleRow = {
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
-  background: "#f8fafc",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-surface-subtle)",
   padding: "10px 12px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 8,
-  color: "#0f172a",
+  gap: "var(--space-2)",
+  color: "var(--color-text)",
   fontWeight: 850,
 };
 const infoCard = {
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
-  background: "#f8fafc",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-surface-subtle)",
   padding: "10px 12px",
   display: "grid",
   gap: 6,
@@ -359,32 +359,32 @@ const saveBar = {
   ...ui.card,
   display: "flex",
   justifyContent: "flex-end",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
 };
 const primaryButton = {
-  height: 36,
-  border: "1px solid #0369a1",
-  borderRadius: 8,
+  height: "var(--control-height-md)",
+  border: "1px solid var(--legacy-color-0369a1)",
+  borderRadius: "var(--radius-md)",
   padding: "0 12px",
-  background: "#0369a1",
-  color: "#fff",
+  background: "var(--legacy-color-0369a1)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
 };
 const noticeWarn = {
   ...ui.card,
-  borderColor: "#fed7aa",
-  background: "#fffbeb",
-  color: "#b45309",
-  marginBottom: 12,
+  borderColor: "var(--color-warning-border)",
+  background: "var(--legacy-color-fffbeb)",
+  color: "var(--legacy-color-b45309)",
+  marginBottom: "var(--space-3)",
   fontWeight: 900,
 };
 const noticeOk = {
   ...ui.card,
-  borderColor: "#bbf7d0",
-  background: "#f0fdf4",
-  color: "#15803d",
-  marginBottom: 12,
+  borderColor: "var(--color-success-border)",
+  background: "var(--legacy-color-f0fdf4)",
+  color: "var(--legacy-color-15803d)",
+  marginBottom: "var(--space-3)",
   fontWeight: 900,
 };

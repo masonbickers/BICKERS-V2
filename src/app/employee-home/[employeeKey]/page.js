@@ -16,20 +16,20 @@ import {
 const UI = {
   radius: 18,
   radiusSm: 12,
-  gap: 12,
+  gap: "var(--space-3)",
   shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  good: "#166534",
-  goodSoft: "#ecfdf5",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
+  border: "1px solid var(--legacy-color-dbe2ea)",
+  bg: "var(--color-brand-soft)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  good: "var(--color-success)",
+  goodSoft: "var(--color-success-soft)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
 };
 
 const pageWrap = { padding: "14px 12px 20px", background: UI.bg, minHeight: "100vh" };
@@ -47,20 +47,20 @@ const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 }
 const inputBase = {
   width: "100%",
   padding: "8px 9px",
-  borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--color-white)",
 };
-const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
+const smallLabel = { fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 };
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
     return {
       padding: "9px 11px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -70,9 +70,9 @@ const btn = (kind = "primary") => {
   if (kind === "pill") {
     return {
       padding: "7px 9px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -84,7 +84,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -291,7 +291,7 @@ function eachDateYMD(startRaw, endRaw) {
 }
 
 const summaryCard = {
-  background: "#fff",
+  background: "var(--color-white)",
   border: UI.border,
   borderRadius: 10,
   padding: "6px 9px",
@@ -600,7 +600,7 @@ export default function EmployeeWorkBreakdownPage() {
             <h1 style={{ color: UI.text, fontSize: 25, lineHeight: 1.08, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
               {titleCase(employeeName)}
             </h1>
-            <div style={{ color: UI.muted, fontSize: 12, marginTop: 3 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 3 }}>
               Detailed work breakdown for the selected reporting window.
             </div>
           </div>
@@ -618,11 +618,11 @@ export default function EmployeeWorkBreakdownPage() {
           </div>
 
           <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "#fff", color: mode === "lastNDays" ? UI.brand : UI.text }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "var(--color-white)", color: mode === "lastNDays" ? UI.brand : UI.text }}>
                 Last N Days
               </button>
-              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "#fff", color: mode === "customRange" ? UI.brand : UI.text }}>
+              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "var(--color-white)", color: mode === "customRange" ? UI.brand : UI.text }}>
                 Custom Range
               </button>
             </div>
@@ -644,7 +644,7 @@ export default function EmployeeWorkBreakdownPage() {
                   <button
                     key={n}
                     type="button"
-                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "#fff", color: rangeDays === n ? UI.brand : UI.text }}
+                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "var(--color-white)", color: rangeDays === n ? UI.brand : UI.text }}
                     onClick={() => setRangeDays(n)}
                   >
                     {n}d
@@ -673,7 +673,7 @@ export default function EmployeeWorkBreakdownPage() {
             marginTop: 10,
           }}
         >
-          <div style={{ ...sectionHeader, marginBottom: 4 }}>
+          <div style={{ ...sectionHeader, marginBottom: "var(--space-1)" }}>
             <div>
               <h2 style={titleMd}>Summary</h2>
               <div style={hint}>Compact work-type totals for this employee.</div>
@@ -689,7 +689,7 @@ export default function EmployeeWorkBreakdownPage() {
           {BREAKDOWN_COLUMNS.map((column) => (
             <div key={column.key} style={summaryCard}>
               <div style={{ fontSize: 10.5, color: UI.muted, fontWeight: 800, lineHeight: 1.2 }}>{column.label}</div>
-              <div style={{ fontSize: 16, color: UI.text, fontWeight: 900, lineHeight: 1 }}>{summary[column.key] || 0}</div>
+              <div style={{ fontSize: "var(--font-size-lg)", color: UI.text, fontWeight: 900, lineHeight: 1 }}>{summary[column.key] || 0}</div>
             </div>
           ))}
           </div>
@@ -704,11 +704,11 @@ export default function EmployeeWorkBreakdownPage() {
             <div
               style={{
                 padding: "6px 10px",
-                borderRadius: 999,
+                borderRadius: "var(--radius-pill)",
                 border: `1px solid ${UI.brandBorder}`,
                 background: UI.brandSoft,
                 color: UI.brand,
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 900,
               }}
             >
@@ -717,9 +717,9 @@ export default function EmployeeWorkBreakdownPage() {
           </div>
 
           {loading ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>Loading job credits...</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>Loading job credits...</div>
           ) : jobCreditRows.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No job credits found for this range.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No job credits found for this range.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 900 }}>
@@ -781,7 +781,7 @@ export default function EmployeeWorkBreakdownPage() {
           </div>
 
           {loading ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>Loading breakdown…</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>Loading breakdown…</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 820 }}>
@@ -807,11 +807,11 @@ export default function EmployeeWorkBreakdownPage() {
                         <span
                           style={{
                             padding: "4px 8px",
-                            borderRadius: 999,
-                            border: `1px solid ${row.source === "holiday" ? "#fcd34d" : row.source === "booking" ? UI.brandBorder : "#d1d5db"}`,
-                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "#f8fafc",
+                            borderRadius: "var(--radius-pill)",
+                            border: `1px solid ${row.source === "holiday" ? "var(--legacy-color-fcd34d)" : row.source === "booking" ? UI.brandBorder : "var(--legacy-color-d1d5db)"}`,
+                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "var(--color-surface-subtle)",
                             color: row.source === "holiday" ? UI.warn : row.source === "booking" ? UI.brand : UI.muted,
-                            fontSize: 12,
+                            fontSize: "var(--font-size-xs)",
                             fontWeight: 800,
                           }}
                         >
@@ -836,7 +836,7 @@ export default function EmployeeWorkBreakdownPage() {
 
 const tableHead = {
   padding: "8px 10px",
-  background: "#f8fbfd",
+  background: "var(--legacy-color-f8fbfd)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
@@ -860,7 +860,7 @@ const tableCell = {
   fontSize: 12.5,
   color: UI.text,
   textAlign: "center",
-  background: "#fff",
+  background: "var(--color-white)",
   whiteSpace: "nowrap",
 };
 

@@ -37,22 +37,22 @@ const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
 
 /* UI tokens */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -60,15 +60,15 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 12 };
+const card = { ...surface, padding: "var(--space-3)" };
 
 const kpiGrid = {
   display: "grid",
@@ -80,7 +80,7 @@ const kpiGrid = {
 const controls = {
   ...surface,
   boxShadow: "none",
-  padding: 12,
+  padding: "var(--space-3)",
   borderRadius: UI.radius,
   display: "grid",
   gridTemplateColumns: "minmax(260px, 1fr) auto auto",
@@ -95,20 +95,20 @@ const inputBase = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
 };
 
-const pill = (bg, fg, borderColor = "#e5e7eb") => ({
+const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color: fg,
   border: `1px solid ${borderColor}`,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   whiteSpace: "nowrap",
 });
@@ -119,8 +119,8 @@ const btn = (kind = "ghost") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -128,7 +128,7 @@ const btn = (kind = "ghost") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: "var(--space-2)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
       fontSize: 12.5,
       lineHeight: 1.2,
@@ -138,7 +138,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -147,7 +147,7 @@ const btn = (kind = "ghost") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     fontSize: 12.5,
     lineHeight: 1.2,
@@ -155,13 +155,13 @@ const btn = (kind = "ghost") => {
 };
 
 /* table */
-const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden", marginTop: 12 };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden", marginTop: "var(--space-3)" };
+const thtd = { padding: "11px 12px", fontSize: "var(--font-size-sm)", borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   letterSpacing: 0,
   textTransform: "uppercase",
@@ -188,11 +188,11 @@ const modalOverlay = {
 };
 const modalCard = {
   width: "min(92vw, 560px)",
-  background: "#fff",
+  background: "var(--color-white)",
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 /* Helpers */
@@ -334,10 +334,10 @@ export default function DeclinedDefectsPage() {
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: #9fb7cf !important;
+          border-color: var(--legacy-color-9fb7cf) !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .declined-defects-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        .declined-defects-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
         .declined-defects-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -369,7 +369,7 @@ export default function DeclinedDefectsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Link href="/vehicles" className="declined-defects-action" style={btn("ghost")}>
               <ArrowLeft size={15} />
               Back to Vehicles
@@ -402,8 +402,8 @@ export default function DeclinedDefectsPage() {
               />
             </label>
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <span style={pill("#fef2f2", "#991b1b", "#fecaca")}>Declined</span>
+            <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+              <span style={pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)")}>Declined</span>
               <span style={pill(UI.brandSoft, UI.brand, UI.brandBorder)}>
                 Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {total}
               </span>
@@ -457,13 +457,13 @@ export default function DeclinedDefectsPage() {
                     const key = `${r.checkId}:${r.defectIndex}`;
                     const isBusy = reopeningId === key;
                     return (
-                      <tr key={key} style={{ background: i % 2 ? "#fff" : "#fcfdff" }}>
+                      <tr key={key} style={{ background: i % 2 ? "var(--color-white)" : "var(--legacy-color-fcfdff)" }}>
                         <td style={thtd}>{fmtDate(r.reviewedAt)}</td>
                         <td style={thtd}>{fmtDate(r.dateISO)}</td>
 
                         <td style={thtd}>
                           <div style={{ fontWeight: 900, color: UI.text }}>{r.vehicle}</div>
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{r.jobLabel || "-"}</div>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 2 }}>{r.jobLabel || "-"}</div>
                         </td>
 
                         <td style={thtd}>{r.driverName}</td>
@@ -477,7 +477,7 @@ export default function DeclinedDefectsPage() {
                           <div style={rowNoteClamp}>
                             {r.defectNote || "-"}
                             {r.comment ? (
-                              <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                 <strong>Review note:</strong> {r.comment}
                               </div>
                             ) : null}
@@ -486,7 +486,7 @@ export default function DeclinedDefectsPage() {
 
                         <td style={thtd}>{r.reviewedBy}</td>
                         <td style={{ ...thtd, textAlign: "center" }}>
-                          <span style={pill("#f1f5f9", UI.text)}>
+                          <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>
                             <Camera size={13} />
                             {r.photosCount}
                           </span>
@@ -496,7 +496,7 @@ export default function DeclinedDefectsPage() {
                           <Link
                             href={CHECK_DETAIL_PATH(r.checkId)}
                             className="declined-defects-action"
-                            style={{ ...btn("ghost"), marginRight: 8 }}
+                            style={{ ...btn("ghost"), marginRight: "var(--space-2)" }}
                             title="View full vehicle check"
                           >
                             <ArrowUpRight size={13} />
@@ -530,7 +530,7 @@ export default function DeclinedDefectsPage() {
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 17, color: UI.text }}>Reopen to Review</div>
-                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: 4 }}>
+                  <div style={{ fontSize: 12.5, color: UI.muted, marginTop: "var(--space-1)" }}>
                     This removes the declined review block so it returns to the review queue.
                   </div>
                 </div>
@@ -540,27 +540,27 @@ export default function DeclinedDefectsPage() {
                 </button>
               </div>
 
-              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12 }}>
-                <div style={{ fontSize: 13, color: UI.text, fontWeight: 900 }}>
+              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--font-size-sm)", color: UI.text, fontWeight: 900 }}>
                   {confirmModal.row.vehicle} - #{confirmModal.row.defectIndex + 1} {confirmModal.row.itemLabel}
                 </div>
-                <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 6 }}>
                   Driver: {confirmModal.row.driverName} - Job: {confirmModal.row.jobLabel || "-"} - Reviewed: {fmtDate(confirmModal.row.reviewedAt)}
                 </div>
 
-                <div style={{ marginTop: 10, fontSize: 12, color: UI.muted }}>
+                <div style={{ marginTop: 10, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                   Current note:
                 </div>
-                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#fff", fontSize: 13 }}>
+                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--color-white)", fontSize: "var(--font-size-sm)" }}>
                   {confirmModal.row.defectNote || "-"}
                   {confirmModal.row.comment ? (
-                    <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
+                    <div style={{ marginTop: "var(--space-2)", color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                       <strong>Review note:</strong> {confirmModal.row.comment}
                     </div>
                   ) : null}
                 </div>
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: "var(--space-3)" }}>
                   <button type="button" style={btn("ghost")} onClick={() => setConfirmModal(null)} disabled={!!reopeningId}>
                     Cancel
                   </button>
@@ -586,14 +586,14 @@ export default function DeclinedDefectsPage() {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ClipboardList }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "ok"
-      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      ? { fg: "var(--legacy-color-065f46)", bg: "var(--color-success-soft)", border: "var(--color-success-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--color-border)" };
 
   return (
     <div
@@ -630,7 +630,7 @@ function SummaryCard({ label, value, sub, tone = "default", icon: Icon = Clipboa
           <Icon size={17} />
         </span>
       </div>
-      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+      {sub ? <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, lineHeight: 1.3, marginTop: "var(--space-2)" }}>{sub}</div> : null}
     </div>
   );
 }

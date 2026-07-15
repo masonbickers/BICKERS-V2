@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
@@ -11,6 +11,8 @@ import {
   contactIdFromEmail,
   employeesKey,
   normalizeVehicleKeysListForLookup,
+  collectVehicleIdentityKeySet,
+  collectVehicleIdentityKeys,
   uniqEmpObjects,
 } from "@/app/utils/bookingFormShared";
 import {
@@ -28,6 +30,8 @@ import {
   buildInitialLifecycle,
   buildInitialStatusHistory,
 } from "@/app/utils/bookingLifecycle";
+import { analyzeVehiclePencilConflicts } from "@/app/utils/vehiclePencilConflict";
+import { analyzeResourceConflicts, formatResourceConflictLines } from "@/app/utils/resourceConflict";
 import { useUnsavedChangesGuard } from "@/app/utils/unsavedChanges";
 import {
   dataAccessKey,
@@ -59,29 +63,29 @@ const OFF_ROAD_STATUS_FIELDS = ["status", "vehicleStatus", "operationalStatus", 
    Visual tokens + shared styles
 ──────────────────────────────────────────────────────────────────────────── */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
   radiusXs: 8,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#ffffff",
-  bgAlt: "#f8fafc",
-  page: "#f3f6f9",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-white)",
+  bgAlt: "var(--color-surface-subtle)",
+  page: "var(--color-canvas)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -99,7 +103,7 @@ const mainWrap = {
 const h1Style = {
   color: UI.text,
   marginBottom: 0,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -109,8 +113,8 @@ const pageHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 12,
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-3)",
   flexWrap: "wrap",
 };
 
@@ -118,7 +122,7 @@ const headerChecks = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   gap: 10,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
 };
 
 const headerChecksBox = {
@@ -137,7 +141,7 @@ const headerChecksBox = {
 const sectionGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(280px, 0.78fr) minmax(420px, 1.1fr) minmax(420px, 1.12fr)",
-  gap: 12,
+  gap: "var(--space-3)",
   marginTop: 10,
 };
 
@@ -146,11 +150,11 @@ const card = {
   borderRadius: UI.radius,
   border: UI.border,
   boxShadow: UI.shadow,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 const formShell = {
   display: "grid",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 const seamlessSection = {
   ...card,
@@ -176,12 +180,12 @@ const field = {
   },
   input: {
     width: "100%",
-    height: 36,
+    height: "var(--control-height-md)",
     padding: "7px 9px",
-    fontSize: 13,
+    fontSize: "var(--font-size-sm)",
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "#fff",
+    background: "var(--color-white)",
     color: UI.text,
     boxSizing: "border-box",
   },
@@ -189,20 +193,20 @@ const field = {
     width: "100%",
     minHeight: 80,
     padding: "9px 10px",
-    fontSize: 13,
+    fontSize: "var(--font-size-sm)",
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "#fff",
+    background: "var(--color-white)",
     color: UI.text,
     boxSizing: "border-box",
   },
   checkboxRow: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     fontWeight: 700,
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: "var(--font-size-sm)",
+    marginBottom: "var(--space-2)",
   },
 };
 
@@ -214,7 +218,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -226,15 +230,15 @@ const pill = {
   alignItems: "center",
   gap: 6,
   padding: "3px 8px",
-  fontSize: 12,
-  borderRadius: 999,
+  fontSize: "var(--font-size-xs)",
+  borderRadius: "var(--radius-pill)",
   background: UI.brandSoft,
   border: `1px solid ${UI.brandBorder}`,
   color: UI.brand,
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e2e8f0", margin: "12px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
 
 const checkboxGrid = {
   display: "grid",
@@ -260,16 +264,16 @@ const personCheckboxLabel = {
 
 const actionsRow = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   justifyContent: "flex-end",
-  marginTop: 16,
+  marginTop: "var(--space-4)",
 };
 
 const subCard = {
   padding: 10,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const DatePicker = dynamic(() => import("react-multi-date-picker"), {
@@ -287,17 +291,17 @@ const btn = {
   border: `1px solid ${UI.brand}`,
   cursor: "pointer",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
 };
 const btnPrimary = {
   ...btn,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
 };
 const btnGhost = {
   ...btn,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
 };
@@ -315,17 +319,17 @@ const summaryRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed #d6e0ea",
+  borderBottom: "1px dashed var(--legacy-color-d6e0ea)",
 };
 const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-  gap: 8,
+  gap: "var(--space-2)",
 };
 const summarySection = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
   padding: "8px 10px",
 };
 const summarySectionTitle = {
@@ -339,7 +343,7 @@ const summarySectionTitle = {
 const summaryCompactRow = {
   ...summaryRow,
   gridTemplateColumns: "82px 1fr",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "3px 0",
   borderBottom: "none",
   fontSize: 12.5,
@@ -352,11 +356,11 @@ const summaryPill = {
   gap: 5,
   border: UI.border,
   background: UI.bgAlt,
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   padding: "2px 7px",
   marginRight: 5,
   marginBottom: 5,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
 };
 const SummaryRow = ({ label, children }) => (
   <div style={summaryCompactRow}>
@@ -381,8 +385,8 @@ const formatSummaryCallTimes = (dates, times, fallback = "") => {
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 32,
-  height: 32,
-  borderRadius: 8,
+  height: "var(--control-height-sm)",
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -393,12 +397,12 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
 });
 
 const pageSub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const sectionTitleRow = { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 };
+const sectionTitleRow = { display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" };
 const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -437,16 +441,6 @@ const isVehicleBlockingStatus = (status) => {
   const s = (status || "").trim();
   return BLOCKING_STATUSES.includes(s) || s === "Maintenance";
 };
-const existingVehicleStatusConflictsWithRequested = (existingStatuses = [], requestedStatus = "") => {
-  const requested = (requestedStatus || "").trim();
-  const existing = existingStatuses.map((s) => (s || "").trim()).filter(Boolean);
-  if (!isVehicleBlockingStatus(requested)) return false;
-  if (requested === SECOND_PENCIL_STATUS) {
-    return existing.some((s) => SECOND_PENCIL_BLOCKING_STATUSES.includes(s));
-  }
-  return existing.some((s) => isVehicleBlockingStatus(s));
-};
-
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
   "electric tracking vehicles",
@@ -1320,42 +1314,130 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     return allBookings.filter((b) => anyDateOverlap(expandBookingDates(b), selectedDates));
   }, [allBookings, selectedDates]);
 
-  const { bookedVehicleIds, heldVehicleIds, vehicleBlockingStatusById, vehicleBlockingStatusesById } = useMemo(() => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-    const booked = [];
-    const held = [];
+  const allVehicleIds = useMemo(() => Object.keys(vehicleLookup?.byId || {}), [vehicleLookup?.byId]);
+  const selectedVehicleIdsForConflicts = useMemo(() => {
+    const normalized = normalizeVehicleKeysListForLookup(vehicles, vehicleLookup);
+    const identityTokens = collectVehicleIdentityKeys(vehicles, vehicleLookup);
+    return Array.from(new Set([...normalized, ...identityTokens]));
+  }, [vehicleLookup, vehicles]);
+  const selectedVehicleStatusByIdForConflicts = useMemo(() => {
+    const next = {};
+    selectedVehicleIdsForConflicts.forEach((vehicleId) => {
+      if (!vehicleLookup?.byId?.[vehicleId]) return;
+      next[vehicleId] = vehicleStatus[vehicleId] || status;
+    });
+    return next;
+  }, [selectedVehicleIdsForConflicts, status, vehicleStatus, vehicleLookup?.byId]);
+  const selectedVehicleConflictKeys = useMemo(
+    () => collectVehicleIdentityKeySet(selectedVehicleIdsForConflicts, vehicleLookup),
+    [selectedVehicleIdsForConflicts, vehicleLookup]
+  );
+  const isVehicleConflictRelevant = useCallback((item) => {
+    if (!item) return false;
+    if (selectedVehicleConflictKeys.has(item.vehicleId)) return true;
+    return (item.vehicleMatchKeys || []).some((key) => selectedVehicleConflictKeys.has(key));
+  }, [selectedVehicleConflictKeys]);
 
-    overlapping.forEach((b) => {
-      const keys = normalizeVehicleKeysListForLookup(b.vehicles || [], vehicleLookup);
-      const vmap = b.vehicleStatus || {};
+  const {
+    bookedVehicleIds,
+    heldVehicleIds,
+    vehicleBlockingStatusById,
+    vehicleBlockingStatusesById,
+    requestedConflictByVehicleId,
+    requestedConflictList,
+  } = useMemo(() =>
+    analyzeVehiclePencilConflicts({
+      allBookings: overlapping,
+      vehicleLookup,
+      selectedDates,
+      selectedVehicleIds: allVehicleIds,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: allVehicleIds,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
+    }),
+    [
+      overlapping,
+      allVehicleIds,
+      selectedVehicleIdsForConflicts,
+      status,
+      vehicleLookup,
+      selectedDates,
+      selectedVehicleStatusByIdForConflicts,
+      startDate,
+      endDate,
+      vehicles,
+      production,
+      client,
+      jobNumber,
+    ]
+  );
 
-      keys.forEach((vid) => {
-        const itemStatus = (vmap[vid] ?? b.status) || "";
-        if (!itemStatus) return;
-
-        if (isVehicleBlockingStatus(itemStatus)) {
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) {
-            blockingById[vid] = itemStatus;
-            booked.push(vid);
-          }
-        } else {
-          if (!held.includes(vid)) held.push(vid);
-        }
-      });
+  const buildVehicleConflictAnalysis = (bookingRows = [], dates = selectedDates) =>
+    analyzeVehiclePencilConflicts({
+      allBookings: bookingRows || [],
+      vehicleLookup,
+      selectedDates: dates,
+      selectedVehicleIds: selectedVehicleIdsForConflicts,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: selectedVehicleIdsForConflicts,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
     });
 
-    return {
-      bookedVehicleIds: booked,
-      heldVehicleIds: held,
-      vehicleBlockingStatusById: blockingById,
-      vehicleBlockingStatusesById: blockingStatusesById,
-    };
-  }, [overlapping, vehicleLookup]);
+  const selectedVehicleConflicts = useMemo(
+    () => requestedConflictList.filter((item) => isVehicleConflictRelevant(item)),
+    [requestedConflictList, isVehicleConflictRelevant]
+  );
+
+  const canSelectVehicleAsSecondPencil = (vehicleId) => {
+    const statuses = vehicleBlockingStatusesById[vehicleId] || [];
+    if (!statuses.length) return false;
+    const normalized = statuses.map((item) => String(item || "").trim());
+    const hasFirstPencil = normalized.includes("First Pencil");
+    const hasHardBlock = normalized.some((item) => item === "Confirmed" || item === "Maintenance");
+    return hasFirstPencil && !hasHardBlock;
+  };
 
   const bookedEquipment = useMemo(() => {
     return overlapping
@@ -1561,29 +1643,37 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   const isEmployeeUnavailableByNoteForDates = (employeeName, dates) =>
     Boolean(getEmployeeUnavailableNoteForDates(employeeName, dates));
 
-  const buildVehicleBlockingMapsFromBookings = (bookingRows = [], dates = selectedDates) => {
-    const blockingById = {};
-    const blockingStatusesById = {};
-
-    (bookingRows || [])
-      .filter((booking) => anyDateOverlap(expandBookingDates(booking), dates))
-      .forEach((booking) => {
-        const keys = normalizeVehicleKeysListForLookup(booking.vehicles || [], vehicleLookup);
-        const vmap = booking.vehicleStatus || {};
-
-        keys.forEach((vid) => {
-          const itemStatus = (vmap[vid] ?? booking.status) || "";
-          if (!isVehicleBlockingStatus(itemStatus)) return;
-          if (!blockingStatusesById[vid]) blockingStatusesById[vid] = [];
-          if (!blockingStatusesById[vid].includes(itemStatus)) {
-            blockingStatusesById[vid].push(itemStatus);
-          }
-          if (!blockingById[vid]) blockingById[vid] = itemStatus;
-        });
-      });
-
-    return { blockingById, blockingStatusesById };
-  };
+  const buildVehicleConflictAnalysisForSave = (bookingRows = [], dates = selectedDates) =>
+    analyzeVehiclePencilConflicts({
+      allBookings: bookingRows || [],
+      vehicleLookup,
+      selectedDates: dates,
+      selectedVehicleIds: selectedVehicleIdsForConflicts,
+      selectedVehicleStatuses: selectedVehicleStatusByIdForConflicts,
+      selectedDefaultStatus: status,
+      previousDates: [],
+      previousVehicleIds: [],
+      previousVehicleStatuses: {},
+      previousDefaultStatus: status,
+      excludeBookingId: "",
+      debugContext: {
+        currentBookingId: "new-booking",
+        currentBookingStatus: status,
+        currentBookingLabel: [production, client, jobNumber || "New booking"]
+          .filter((value) => String(value || "").trim())
+          .join(" / "),
+        currentBookingReference: jobNumber || "",
+        currentStartDate: startDate,
+        currentEndDate: endDate,
+        currentVehicleRawValues: vehicles,
+        currentVehicleStatuses: selectedVehicleIdsForConflicts.map((vehicleId) => ({
+          vehicleId,
+          status: selectedVehicleStatusByIdForConflicts[vehicleId] || status,
+        })),
+        currentVehicleIds: selectedVehicleIdsForConflicts,
+        localStorageKey: "debugVehiclePencilConflicts",
+      },
+    });
 
   /* ────────────────────────────────────────────────────────────
      Options that include custom “Other” names so they stay selectable
@@ -1773,7 +1863,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
     setVehicleStatus((prev) => {
       const next = { ...prev };
       if (checked) {
-        if (!next[vehicleId]) next[vehicleId] = status;
+        if (!next[vehicleId]) {
+          next[vehicleId] = canSelectVehicleAsSecondPencil(vehicleId)
+            ? SECOND_PENCIL_STATUS
+            : status;
+        }
       } else {
         delete next[vehicleId];
       }
@@ -1784,25 +1878,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
   /* ────────────────────────────────────────────────────────────
      Submit (contacts-only: remove contactEmail/contactNumber)
   ───────────────────────────────────────────────────────────── */
-  const selectedVehicleConflictLabels = (
-    selectedIds,
-    statuses,
-    blockingStatuses = vehicleBlockingStatusesById,
-    blockingStatus = vehicleBlockingStatusById
-  ) =>
-    (selectedIds || [])
-      .filter((vehicleId) =>
-        existingVehicleStatusConflictsWithRequested(
-          blockingStatuses[vehicleId] || [],
-          statuses?.[vehicleId] || status
-        )
-      )
-      .map((vehicleId) => {
-        const vehicle = vehicleLookup?.byId?.[vehicleId] || {};
-        const label = [vehicle.name, vehicle.registration].filter(Boolean).join(" - ") || vehicleId;
-        const existingStatus = (blockingStatuses[vehicleId] || [blockingStatus[vehicleId] || "booked"]).join(", ");
-        return `${label} (${existingStatus})`;
-      });
+  const selectedVehicleConflictLines = (conflicts = []) =>
+    conflicts.map((item) => {
+      const dateLabel = item.dateRanges.length ? item.dateRanges.join(", ") : "selected date(s)";
+      return `${item.vehicleLabel} is blocked by ${item.bookingLabel} (${item.bookingReference}) on ${dateLabel}. Existing: ${item.bookingStatus}.`;
+    });
 
   const handleSubmit = async ({ openQuote = false } = {}) => {
     if (dateEntryEnabled) {
@@ -1854,20 +1934,17 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
       }
     }
 
-    const freshVehicleBlocking = availabilityForSave
-      ? buildVehicleBlockingMapsFromBookings(availabilityForSave.bookings || [], bookingDates)
+    const freshVehicleConflict = availabilityForSave
+      ? buildVehicleConflictAnalysisForSave(availabilityForSave.bookings || [], bookingDates)
       : null;
-    const vehicleConflicts = selectedVehicleConflictLabels(
-      vehicles,
-      vehicleStatus,
-      freshVehicleBlocking?.blockingStatusesById || vehicleBlockingStatusesById,
-      freshVehicleBlocking?.blockingById || vehicleBlockingStatusById
+    const vehicleConflicts = (availabilityForSave ? freshVehicleConflict.requestedConflictList : selectedVehicleConflicts).filter(
+      (item) => isVehicleConflictRelevant(item)
     );
     if (bookingDates.length && vehicleConflicts.length) {
       return alert(
-        `One or more selected vehicles already have a booking that conflicts with the selected vehicle status on the selected date(s):\n\n${vehicleConflicts.join(
+        `One or more selected vehicles already have overlapping conflicts:\n\n${selectedVehicleConflictLines(vehicleConflicts).join(
           "\n"
-        )}\n\nUse Second Pencil where the vehicle is already Confirmed or First Pencil. Vehicles already on Second Pencil cannot be booked again for those date(s).`
+        )}\n\nConfirmed blocks all other holds. First Pencil blocks another First Pencil, but Second Pencil can sit behind a First Pencil.`
       );
     }
 
@@ -1896,6 +1973,28 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
           employeesByDatePayload[date] = [...cleanedEmployees];
         });
       }
+    }
+
+    const resourceConflictResult = analyzeResourceConflicts({
+      allBookings: availabilityForSave ? availabilityForSave.bookings || [] : allBookings || [],
+      selectedDates: bookingDates,
+      selectedCrew: cleanedEmployees,
+      selectedCrewByDate: employeesByDatePayload,
+      selectedEquipment: equipment,
+      currentBookingLabel: [production, client, jobNumber || "New booking"]
+        .filter((value) => String(value || "").trim())
+        .join(" / "),
+      debugContext: {
+        currentBookingId: "new-booking",
+      },
+    });
+    if (bookingDates.length && resourceConflictResult.hasBlockingConflicts) {
+      return alert(
+        `Crew/equipment double-booking conflict found:\n\n${formatResourceConflictLines([
+          ...resourceConflictResult.crewConflicts,
+          ...resourceConflictResult.equipmentConflicts,
+        ]).join("\n")}\n\nPlease remove the conflicting crew/equipment or choose non-overlapping dates before saving.`
+      );
     }
 
     const holidaysForSave = availabilityForSave?.holidays || holidayBookings;
@@ -2247,7 +2346,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
           </div>
           {referenceDataLoading && (
-            <div style={{ ...subCard, color: UI.muted, fontSize: 12, marginBottom: 12 }}>
+            <div style={{ ...subCard, color: UI.muted, fontSize: "var(--font-size-xs)", marginBottom: "var(--space-3)" }}>
               Loading employees, vehicles and equipment...
             </div>
           )}
@@ -2275,7 +2374,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
               <span style={iconBox(offRoadTracking ? UI.green : UI.brand, offRoadTracking ? UI.greenSoft : UI.brandSoft, offRoadTracking ? UI.greenBorder : UI.brandBorder)}>
                 <Truck size={17} />
               </span>
-              <div style={{ display: "grid", gap: 4, flex: 1 }}>
+              <div style={{ display: "grid", gap: "var(--space-1)", flex: 1 }}>
                 <label style={{ ...field.checkboxRow, marginBottom: 0 }} title={offRoadEligibility.reason || ""}>
                   <input
                     type="checkbox"
@@ -2285,7 +2384,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   />
                   Off Road Tracking
                 </label>
-                <div style={{ fontSize: 12, color: UI.muted }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                   {offRoadEligibility.reason || "Skips tax/SORN compliance only. Insurance is still required."}
                 </div>
               </div>
@@ -2307,7 +2406,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <h3 style={cardTitle}>Job Info</h3>
                 </div>
 
-                <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                   <div>
                     <label style={field.label}>Job Number</label>
                     <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={field.input} />
@@ -2321,7 +2420,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         onChange={(e) => setQuoteNumber(e.target.value)}
                         rows={Math.max(2, Math.min(5, Math.max(vehicles.length, quoteNumbers.length)))}
                         placeholder="One quote number per line"
-                        style={{ ...field.textarea, minHeight: 36, height: "auto", resize: "vertical" }}
+                        style={{ ...field.textarea, minHeight: "var(--control-height-md)", height: "auto", resize: "vertical" }}
                       />
                     ) : (
                       <input
@@ -2360,7 +2459,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     style={{
                       border: UI.border,
                       borderRadius: UI.radiusSm,
-                      padding: 12,
+                      padding: "var(--space-3)",
                       marginTop: 10,
                       background: UI.bgAlt,
                     }}
@@ -2372,9 +2471,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 8,
-                          marginRight: 16,
-                          marginBottom: 8,
+                          gap: "var(--space-2)",
+                          marginRight: "var(--space-4)",
+                          marginBottom: "var(--space-2)",
                         }}
                       >
                         <input
@@ -2388,7 +2487,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       </label>
                     ))}
                     {statusReasons.includes("Other") && (
-                      <div style={{ marginTop: 8 }}>
+                      <div style={{ marginTop: "var(--space-2)" }}>
                         <input
                           type="text"
                           placeholder="Other reason..."
@@ -2418,7 +2517,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 {/* Contacts block only */}
                 <div
                   style={{
-                    marginTop: 12,
+                    marginTop: "var(--space-3)",
                     padding: 10,
                     borderRadius: UI.radiusSm,
                     border: UI.border,
@@ -2426,8 +2525,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>Contacts</span>
-                    <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: 12, borderRadius: 999 }}>
+                    <span style={{ fontWeight: 700, fontSize: "var(--font-size-sm)" }}>Contacts</span>
+                    <button type="button" onClick={handleAddContactRow} style={{ ...btn, padding: "4px 8px", fontSize: "var(--font-size-xs)", borderRadius: "var(--radius-pill)" }}>
                       + Add contact
                     </button>
                   </div>
@@ -2436,16 +2535,16 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     <div
                       key={idx}
                       style={{
-                        marginBottom: 8,
-                        padding: 8,
+                        marginBottom: "var(--space-2)",
+                        padding: "var(--space-2)",
                         borderRadius: UI.radiusXs,
-                        background: "#ffffff",
-                        border: "1px solid #e5e7eb",
+                        background: "var(--color-white)",
+                        border: "1px solid var(--legacy-color-e5e7eb)",
                       }}
                     >
-                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Department</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Department</label>
                           <select value={row.department} onChange={(e) => handleUpdateContactRow(idx, "department", e.target.value)} style={field.input}>
                             <option value="">Select department</option>
                             {FILM_DEPARTMENTS.map((dep) => (
@@ -2466,18 +2565,18 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         </div>
 
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Name</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Name</label>
                           <input type="text" value={row.name} onChange={(e) => handleUpdateContactRow(idx, "name", e.target.value)} style={field.input} placeholder="Contact name" />
                         </div>
                       </div>
 
-                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)" }}>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Email</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Email</label>
                           <input type="email" value={row.email} onChange={(e) => handleUpdateContactRow(idx, "email", e.target.value)} style={field.input} placeholder="Email" />
                         </div>
                         <div>
-                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>Number</label>
+                          <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>Number</label>
                           <input type="tel" value={row.phone} onChange={(e) => handleUpdateContactRow(idx, "phone", e.target.value)} style={field.input} placeholder="Phone number" />
                         </div>
                       </div>
@@ -2490,10 +2589,10 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             ...btn,
                             padding: "4px 8px",
                             fontSize: 11,
-                            borderRadius: 999,
-                            borderColor: "#dc2626",
-                            color: "#dc2626",
-                            background: "#fff",
+                            borderRadius: "var(--radius-pill)",
+                            borderColor: "var(--legacy-color-dc2626)",
+                            color: "var(--legacy-color-dc2626)",
+                            background: "var(--color-white)",
                           }}
                         >
                           Remove
@@ -2503,7 +2602,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   ))}
 
                   <div style={{ marginTop: 6 }}>
-                    <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: 4 }}>
+                    <label style={{ ...field.label, fontWeight: 500, marginTop: 0, marginBottom: "var(--space-1)" }}>
                       Quick add from saved contacts
                     </label>
                     {!savedContactsLoaded ? (
@@ -2566,24 +2665,24 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     Add invoicing details
                   </label>
                   {showInvoicingDetails && (
-                    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                    <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Purchase Order (PO)</label>
-                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "var(--color-white)" }} placeholder="PO reference for invoicing" />
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Invoicing contact</label>
-                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Name" />
+                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "var(--color-white)" }} placeholder="Name" />
                         </div>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Email</label>
-                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="accounts@example.com" />
+                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "var(--color-white)" }} placeholder="accounts@example.com" />
                         </div>
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Phone</label>
-                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Optional phone number" />
+                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "var(--color-white)" }} placeholder="Optional phone number" />
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Invoice details document</label>
@@ -2591,10 +2690,10 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                           type="file"
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
                           onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
-                          style={{ ...field.input, height: "auto", padding: 10, background: "#fff" }}
+                          style={{ ...field.input, height: "auto", padding: 10, background: "var(--color-white)" }}
                         />
                         {invoiceDocumentFile && (
-                          <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
+                          <div style={{ marginTop: 5, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                             {invoiceDocumentFile.name} selected - it will upload on Save.
                           </div>
                         )}
@@ -2612,7 +2711,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       value={riggingAddress}
                       onChange={(e) => setRiggingAddress(e.target.value)}
                       rows={3}
-                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "#fff" }}
+                      style={{ ...field.textarea, minHeight: 70, marginTop: "var(--space-2)", background: "var(--color-white)" }}
                       placeholder="Enter rigging address..."
                     />
                   )}
@@ -2674,7 +2773,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         />
                       </div>
                     ) : (
-                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: 12 }}>
+                      <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: isRange ? "1fr 1fr" : "1fr", gap: "var(--space-3)" }}>
                         <div>
                           <label style={field.label}>{isRange ? "Start Date" : "Date"}</label>
                           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required={status !== "Enquiry"} style={field.input} />
@@ -2689,32 +2788,32 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     )}
                   </>
                 ) : (
-                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13 }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-surface-subtle)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                     No dates recorded yet.
                   </div>
                 )}
 
                 {selectedDates.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
+                  <div style={{ marginTop: "var(--space-3)" }}>
                     <h4 style={{ margin: "8px 0" }}>{selectedDates.length > 1 ? "Notes for Each Day" : "Note for the Day"}</h4>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "var(--space-2)" }}>
                       {selectedDates.map((date) => {
                         const selectedNote = notesByDate[date] || "";
                         const isOther = selectedNote === "Other";
                         const customOtherValue = notesByDate[`${date}-other`] || "";
                         const callTimeForDate = callTimesByDate[date] || "";
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "#f8fafc" }}>
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: "var(--space-2)", background: "var(--color-surface-subtle)" }}>
                             <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 13.5, lineHeight: 1.15 }}>{new Date(date).toDateString()}</div>
 
-                            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)" }}>
                               <div>
                                 <label style={{ ...field.label, marginTop: 0, marginBottom: 3, fontSize: 10.5, lineHeight: 1 }}>Day note</label>
                                 <select
                                   value={selectedNote}
                                   onChange={(e) => setNotesByDate({ ...notesByDate, [date]: e.target.value })}
-                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                  style={{ ...field.input, height: "var(--control-height-sm)", padding: "5px 8px" }}
                                 >
                                   <option value="">Select note</option>
                                   <option value="1/2 Day Travel">1/2 Day Travel</option>
@@ -2737,7 +2836,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                 <select
                                   value={callTimeForDate}
                                   onChange={(e) => setCallTimesByDate((prev) => ({ ...prev, [date]: e.target.value }))}
-                                  style={{ ...field.input, height: 32, padding: "5px 8px" }}
+                                  style={{ ...field.input, height: "var(--control-height-sm)", padding: "5px 8px" }}
                                 >
                                   <option value="">Select time</option>
                                   {TIME_OPTIONS.map((t) => (
@@ -2750,7 +2849,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             </div>
 
                             {isOther && (
-                              <div style={{ marginTop: 8 }}>
+                              <div style={{ marginTop: "var(--space-2)" }}>
                                 <input
                                   type="text"
                                   placeholder="Enter custom note"
@@ -2768,7 +2867,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             )}
 
                             {selectedNote === "Travel Time" && (
-                              <div style={{ marginTop: 8 }}>
+                              <div style={{ marginTop: "var(--space-2)" }}>
                                 <label style={{ ...field.label, marginBottom: 6 }}>Travel duration</label>
                                 <select
                                   value={notesByDate[`${date}-travelMins`] || ""}
@@ -2832,7 +2931,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -2841,9 +2940,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "#f8fafc" }}>
+                <div style={{ marginTop: "var(--space-2)", padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-surface-subtle)" }}>
                   <div className="create-booking-crew-box" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 76px 76px auto", gap: 6, alignItems: "stretch" }}>
-                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: "var(--font-size-sm)", minHeight: "var(--control-height-md)", padding: "0 8px", borderRadius: UI.radiusXs, background: "var(--color-white)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
@@ -2852,7 +2951,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       />
                       Crewed
                     </label>
-                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--color-white)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
                       <input
                         type="number"
@@ -2866,11 +2965,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
                     </div>
-                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--color-white)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
-                      <span style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
+                      <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
                     </div>
-                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "#166534" : "#92400e", background: isCrewed ? "#dcfce7" : "#fff7ed", border: `1px solid ${isCrewed ? "#86efac" : "#fed7aa"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
+                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--color-success)" : "var(--legacy-color-92400e)", background: isCrewed ? "var(--legacy-color-dcfce7)" : "var(--color-warning-soft)", border: `1px solid ${isCrewed ? "var(--legacy-color-86efac)" : "var(--color-warning-border)"}`, borderRadius: "var(--radius-pill)", padding: "5px 10px", fontWeight: 900 }}>
                       {isCrewed ? "Crewed" : "Manual"}
                     </span>
                   </div>
@@ -2906,7 +3005,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -2915,7 +3014,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {employees.some((e) => e.name === "Other") && (
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: "var(--space-2)" }}>
                     <input type="text" placeholder="Other employee(s), comma-separated" value={customEmployee} onChange={(e) => setCustomEmployee(e.target.value)} style={field.input} />
                   </div>
                 )}
@@ -2924,7 +3023,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <>
                     <div style={divider} />
                     <h4 style={{ margin: "8px 0" }}>Employee schedule by day</h4>
-                    <p style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>Default = everyone works every selected day. Use this grid to fine-tune.</p>
+                    <p style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginBottom: "var(--space-2)" }}>Default = everyone works every selected day. Use this grid to fine-tune.</p>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
                       {selectedDates.map((date) => {
@@ -2941,7 +3040,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                 const isOnDay = assigned.some((x) => x.name === emp.name && x.role === emp.role);
 
                                 return (
-                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: 13, marginBottom: 4 }}>
+                                  <label key={`${emp.role}-${emp.name}-${date}`} style={{ display: "block", fontSize: "var(--font-size-sm)", marginBottom: "var(--space-1)" }}>
                                     <input
                                       type="checkbox"
                                       checked={isOnDay}
@@ -2979,7 +3078,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <span style={iconBox(UI.brand, UI.brandSoft, UI.brandBorder)}><Truck size={17} /></span>
                   <h3 style={cardTitle}>Vehicles</h3>
                 </div>
-                <div style={{ position: "relative", marginBottom: 12 }}>
+                <div style={{ position: "relative", marginBottom: "var(--space-3)" }}>
                   <Search size={16} style={{ position: "absolute", left: 10, top: 10, color: UI.muted }} />
                   <input
                     type="text"
@@ -2990,7 +3089,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   />
                 </div>
 
-                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: "var(--space-3)", rowGap: 10, alignItems: "start" }}>
                   {filteredVehicleGroups.map(([group, items]) => {
                     const isOpen = openGroups[group] || false;
 
@@ -3008,8 +3107,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             {items.map((vehicle) => {
                               const key = vehicle.id;
                               const isBooked = bookedVehicleIds.includes(key);
-                              const hasBookingConflict = existingVehicleStatusConflictsWithRequested(vehicleBlockingStatusesById[key] || [], status);
+                              const requestedStatusForRow = vehicleStatus[key] || status;
+                              const bookingConflict = requestedConflictByVehicleId[key];
+                              const hasBookingConflict = Boolean(bookingConflict);
                               const blockedStatus = vehicleBlockingStatusById[key];
+                              const canBookAsSecondPencil = canSelectVehicleAsSecondPencil(key);
                               const isHeld = heldVehicleIds.includes(key);
                               const isSelected = vehicles.includes(key);
 
@@ -3019,7 +3121,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                               const complianceReason = complianceVehicleBlocking.reasonById[key] || "Compliance hold";
                               const isDefectBlocked = defectVehicleBlocking.ids.has(key);
                               const defectReason = defectVehicleBlocking.reasonById[key] || "Open safety defect";
-                              const disabled = (hasBookingConflict || isMaintBlocked || isDefectBlocked) && !isSelected;
+                              const disabled = ((hasBookingConflict && !canBookAsSecondPencil) || isMaintBlocked || isDefectBlocked) && !isSelected;
 
                               return (
                                 <div
@@ -3027,25 +3129,29 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                   style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 8,
-                                    marginBottom: 8,
+                                    gap: "var(--space-2)",
+                                    marginBottom: "var(--space-2)",
                                     opacity: disabled ? 0.55 : 1,
                                     cursor: disabled ? "not-allowed" : "",
                                   }}
                                   title={
-                                    disabled
+                                    disabled || canBookAsSecondPencil
                                       ? isMaintBlocked
                                         ? `Vehicle is out for ${maintReason} during selected date(s)`
                                         : isDefectBlocked
                                         ? `Vehicle is blocked: ${defectReason}`
-                                        : status === SECOND_PENCIL_STATUS
-                                        ? "Vehicle already has a Second Pencil booking on overlapping date(s)"
+                                        : bookingConflict && !canBookAsSecondPencil
+                                        ? `Vehicle conflicts with: ${selectedVehicleConflictLines(bookingConflict.conflicts).join(" ")}`
+                                        : canBookAsSecondPencil
+                                        ? "Vehicle is on First Pencil for the selected date(s). Selecting it will add it as Second Pencil."
+                                        : requestedStatusForRow === SECOND_PENCIL_STATUS
+                                        ? "Vehicle is already held as Second Pencil on overlapping date(s)."
                                         : `Vehicle is already ${blockedStatus || "booked"} on overlapping date(s). Use Second Pencil to add a softer hold.`
                                       : ""
                                   }
                                 >
                                   <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                  <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
+                                  <span style={{ flex: 1, color: disabled ? "var(--legacy-color-6e6f70ff)" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -3056,7 +3162,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                   </span>
 
                                   {isSelected && (
-                                    <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: 32 }} title="Vehicle status">
+                                    <select value={vehicleStatus[key] || status} onChange={(e) => setVehicleStatus((prev) => ({ ...prev, [key]: e.target.value }))} style={{ height: "var(--control-height-sm)" }} title="Vehicle status">
                                       {VEHICLE_STATUSES.map((s) => (
                                         <option key={s} value={s}>
                                           {s}
@@ -3075,7 +3181,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {filteredVehicleGroups.length === 0 && (
-                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No vehicles match that search.</div>
+                  <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginTop: "var(--space-1)" }}>No vehicles match that search.</div>
                 )}
 
                 <div style={divider} />
@@ -3085,7 +3191,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   <h3 style={cardTitle}>Equipment</h3>
                 </div>
 
-                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: 12, rowGap: 10, alignItems: "start" }}>
+                <div className="create-booking-assets" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", columnGap: "var(--space-3)", rowGap: 10, alignItems: "start" }}>
                   {filteredEquipmentGroups.map(([group, items]) => {
                     const isOpen = openEquipGroups[group] || false;
 
@@ -3136,7 +3242,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                       else setEquipment((prev) => prev.filter((x) => x !== name));
                                     }}
                                   />{" "}
-                                  <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                  <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                                     {name}
                                     {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                     {isBooked && " (Booked)"}
@@ -3153,7 +3259,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {filteredEquipmentGroups.length === 0 && (
-                  <div style={{ fontSize: 13, color: UI.muted, marginTop: 4 }}>No equipment matches that search.</div>
+                  <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginTop: "var(--space-1)" }}>No equipment matches that search.</div>
                 )}
 
               </div>
@@ -3161,7 +3267,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
 
             <div style={seamlessSection}>
               <div style={{ ...sectionTitleRow, justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
                   <span style={iconBox()}><FileText size={17} /></span>
                   <div>
                     <h3 style={cardTitle}>Quote</h3>
@@ -3189,7 +3295,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
             </div>
 
             {/* Files & Notes */}
-            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+            <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)", alignItems: "start" }}>
                 <div style={seamlessSection}>
                   <div style={sectionTitleRow}>
                     <span style={iconBox()}><FileText size={17} /></span>
@@ -3204,21 +3310,21 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     style={{ ...field.input, height: "auto", padding: 10 }}
                   />
 
-                  {pdfProgress > 0 && <div style={{ marginTop: 8, fontSize: 12 }}>Uploading: {pdfProgress}%</div>}
+                  {pdfProgress > 0 && <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-xs)" }}>Uploading: {pdfProgress}%</div>}
                   {newFiles?.length > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                    <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                       {newFiles.length} file{newFiles.length > 1 ? "s" : ""} selected - they will upload on Save.
                     </div>
                   )}
                 </div>
 
-                <div style={{ ...seamlessSection, display: "grid", gap: 8 }}>
-                  <div style={{ ...sectionTitleRow, marginBottom: 4 }}>
+                <div style={{ ...seamlessSection, display: "grid", gap: "var(--space-2)" }}>
+                  <div style={{ ...sectionTitleRow, marginBottom: "var(--space-1)" }}>
                     <span style={iconBox()}><FileText size={17} /></span>
                     <h3 style={cardTitle}>Notes</h3>
                   </div>
                   <label style={{ ...field.label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "#fff" }} placeholder="Anything extra to include for this booking..." />
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "var(--color-white)" }} placeholder="Anything extra to include for this booking..." />
 
                   <label style={{ ...field.checkboxRow, marginBottom: 0, marginTop: 2 }}>
                     <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />
@@ -3273,7 +3379,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                   )}
 
                   {hasHotel && (
-                    <div style={{ fontSize: 12, color: UI.muted }}>
+                    <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                       Total: <b>{hotelTotal ? `GBP ${hotelTotal.toFixed(2)}` : "-"}</b>
                     </div>
                   )}

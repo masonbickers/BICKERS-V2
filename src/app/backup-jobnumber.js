@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "../../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import { timesheetDetailPath } from "@/app/utils/timesheetDetail";
 import {
   doc,
   getDoc,
@@ -571,8 +572,8 @@ const renderTimesheet = (ts, job) => {
         {/* open full timesheet (adjust route if different) */}
         <button
           onClick={() => {
-            const pathById = `/timesheet/${ts.id}`;
-            const pathByWeek = `/timesheet/${encodeURIComponent(ts.weekStart)}`;
+            const pathById = timesheetDetailPath(ts.id);
+            const pathByWeek = timesheetDetailPath(ts.weekStart);
             window.location.href = ts.id ? pathById : pathByWeek;
           }}
           style={{

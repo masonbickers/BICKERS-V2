@@ -110,24 +110,24 @@ function isActiveEmployeeRecord(employee = {}) {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#16a34a",
-  amber: "#d97706",
-  red: "#dc2626",
-  blue: "#2563eb",
-  teal: "#0f766e",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-16a34a)",
+  amber: "var(--legacy-color-d97706)",
+  red: "var(--legacy-color-dc2626)",
+  blue: "var(--legacy-color-2563eb)",
+  teal: "var(--legacy-color-0f766e)",
 };
 
 const pageWrap = {
@@ -139,13 +139,13 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 const h1 = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -162,11 +162,11 @@ const surface = {
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -186,7 +186,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -204,9 +204,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#7f1d1d",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--color-danger-hover)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -222,8 +222,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -235,8 +235,8 @@ const btn = (kind = "primary") => {
 
 const cardBase = {
   ...surface,
-  padding: 12,
-  background: "#ffffff",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -254,13 +254,13 @@ const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 }
 
 const inputBase = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   outline: "none",
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -274,7 +274,7 @@ const mainGrid = {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -470,12 +470,12 @@ function getStatus(rec) {
 
 function Pill({ children, tone = "default" }) {
   const tones = {
-    default: { bg: "#f8fbfd", fg: UI.text, br: "#d7dee8" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-    gray: { bg: "#f1f5f9", fg: "#374151", br: "#d1d5db" },
-    pending: { bg: "#fef3c7", fg: "#92400e", br: "#fde68a" },
+    default: { bg: "var(--legacy-color-f8fbfd)", fg: UI.text, br: "var(--color-border)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--color-success-hover)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--legacy-color-fee2e2)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
+    gray: { bg: "var(--legacy-color-f1f5f9)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
+    pending: { bg: "var(--legacy-color-fef3c7)", fg: "var(--legacy-color-92400e)", br: "var(--legacy-color-fde68a)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -483,11 +483,11 @@ function Pill({ children, tone = "default" }) {
       style={{
         display: "inline-block",
         padding: "4px 10px",
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         background: t.bg,
         color: t.fg,
         border: `1px solid ${t.br}`,
-        fontSize: 12,
+        fontSize: "var(--font-size-xs)",
         fontWeight: 800,
         whiteSpace: "nowrap",
       }}
@@ -499,11 +499,11 @@ function Pill({ children, tone = "default" }) {
 
 function StatTile({ label, value, tone = "default", icon: Icon }) {
   const tones = {
-    default: { bg: "#ffffff", br: "#d7dee8", fg: UI.brand },
+    default: { bg: "var(--color-white)", br: "var(--color-border)", fg: UI.brand },
     soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
-    warn: { bg: "#fff7ed", br: "#fed7aa", fg: "#9a3412" },
-    good: { bg: "#ecfdf5", br: "#bbf7d0", fg: "#065f46" },
-    danger: { bg: "#fef2f2", br: "#fecaca", fg: "#991b1b" },
+    warn: { bg: "var(--color-warning-soft)", br: "var(--color-warning-border)", fg: "var(--color-warning)" },
+    good: { bg: "var(--color-success-soft)", br: "var(--color-success-border)", fg: "var(--legacy-color-065f46)" },
+    danger: { bg: "var(--color-danger-soft)", br: "var(--color-danger-border)", fg: "var(--color-danger)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -531,7 +531,7 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
           {label}
         </div>
         {Icon ? (
-          <span style={iconBox(t.fg, "#fff", t.br)}>
+          <span style={iconBox(t.fg, "var(--color-white)", t.br)}>
             <Icon size={17} />
           </span>
         ) : null}
@@ -553,7 +553,7 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
 
 function LegendSwatch({ color, label }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
       <span
         style={{
           width: 14,
@@ -563,7 +563,7 @@ function LegendSwatch({ color, label }) {
           border: UI.border,
         }}
       />
-      <span style={{ fontSize: 13, color: UI.text }}>{label}</span>
+      <span style={{ fontSize: "var(--font-size-sm)", color: UI.text }}>{label}</span>
     </div>
   );
 }
@@ -589,7 +589,7 @@ function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
               padding: "8px 9px",
               borderRadius: UI.radiusSm,
               border: UI.border,
-              background: "#fff",
+              background: "var(--color-white)",
               color: UI.text,
               textAlign: "left",
               cursor: onRowClick ? "pointer" : "default",
@@ -600,7 +600,7 @@ function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
             <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {renderRow(row)}
             </span>
-            <span style={{ color: UI.brand, fontSize: 16, fontWeight: 800, lineHeight: 1 }}>&gt;</span>
+            <span style={{ color: UI.brand, fontSize: "var(--font-size-lg)", fontWeight: 800, lineHeight: 1 }}>&gt;</span>
           </button>
         ))
       ) : (
@@ -630,7 +630,7 @@ function Drawer({ open, title, subtitle, onClose, children }) {
             <div
               style={{
                 fontWeight: 850,
-                fontSize: 16,
+                fontSize: "var(--font-size-lg)",
                 color: UI.text,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -640,7 +640,7 @@ function Drawer({ open, title, subtitle, onClose, children }) {
               {title}
             </div>
             {subtitle ? (
-              <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 2 }}>
                 {subtitle}
               </div>
             ) : null}
@@ -667,7 +667,7 @@ const drawerOverlay = {
 const drawerPanel = {
   width: "min(720px, 94vw)",
   height: "100%",
-  background: "#fff",
+  background: "var(--color-white)",
   borderLeft: UI.border,
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
   display: "flex",
@@ -675,7 +675,7 @@ const drawerPanel = {
 };
 
 const drawerHeader = {
-  padding: 12,
+  padding: "var(--space-3)",
   borderBottom: UI.border,
   display: "flex",
   alignItems: "center",
@@ -683,7 +683,7 @@ const drawerHeader = {
   gap: 10,
 };
 
-const drawerBody = { padding: 12, overflow: "auto" };
+const drawerBody = { padding: "var(--space-3)", overflow: "auto" };
 
 /* Page */
 export default function HolidayUsagePage() {
@@ -1037,10 +1037,10 @@ export default function HolidayUsagePage() {
     if (event?.bankHoliday) {
       return {
         style: {
-          backgroundColor: "#eef2f7",
+          backgroundColor: "var(--legacy-color-eef2f7)",
           borderRadius: "8px",
           border: UI.border,
-          color: "#111827",
+          color: "var(--legacy-color-111827)",
           padding: "4px 6px",
           fontWeight: 900,
         },
@@ -1051,21 +1051,21 @@ export default function HolidayUsagePage() {
     if (event?.pending) {
       return {
         style: {
-          backgroundColor: "#fef3c7",
+          backgroundColor: "var(--legacy-color-fef3c7)",
           borderRadius: "8px",
           border: "1px dashed rgba(146,64,14,0.45)",
-          color: "#92400e",
+          color: "var(--legacy-color-92400e)",
           padding: "4px 6px",
           fontWeight: 900,
         },
       };
     }
 
-    let bg = event.color || "#cbd5e1";
-    let textColor = "#0f172a";
+    let bg = event.color || "var(--legacy-color-cbd5e1)";
+    let textColor = "var(--color-text)";
     if (event.unpaid) {
-      bg = "#fee2e2";
-      textColor = "#7f1d1d";
+      bg = "var(--legacy-color-fee2e2)";
+      textColor = "var(--color-danger-hover)";
     }
     return {
       style: {
@@ -1202,7 +1202,7 @@ export default function HolidayUsagePage() {
   return (
     <HeaderSidebarLayout>
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         @media (max-width: 1180px) {
           .holiday-main-grid { grid-template-columns: 1fr !important; }
@@ -1214,12 +1214,12 @@ export default function HolidayUsagePage() {
         }
         .holiday-calendar .rbc-toolbar button {
           border: 1px solid ${UI.brandBorder};
-          border-radius: 8px;
+          border-radius: var(--radius-md);
           color: ${UI.text};
           font-size: 12.5px;
           font-weight: 800;
           padding: 6px 9px;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
+          background: linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%);
           box-shadow: 0 4px 10px rgba(15,23,42,0.04);
         }
         .holiday-calendar .rbc-toolbar button.rbc-active {
@@ -1235,11 +1235,11 @@ export default function HolidayUsagePage() {
         .holiday-calendar .rbc-month-view,
         .holiday-calendar .rbc-time-view {
           border: ${UI.border};
-          border-radius: 8px;
+          border-radius: var(--radius-md);
           overflow: hidden;
         }
         .holiday-calendar .rbc-header {
-          background: #f6f8fb;
+          background: var(--legacy-color-f6f8fb);
           color: ${UI.muted};
           font-size: 11.5px;
           font-weight: 900;
@@ -1322,7 +1322,7 @@ export default function HolidayUsagePage() {
                 display: "flex",
                 alignItems: "flex-start",
                 justifyContent: "space-between",
-                gap: 12,
+                gap: "var(--space-3)",
                 marginBottom: 10,
                 flexWrap: "wrap",
               }}
@@ -1342,10 +1342,10 @@ export default function HolidayUsagePage() {
                   justifyContent: "flex-end",
                 }}
               >
-                <LegendSwatch color="#eef2f7" label="Bank holiday" />
-                <LegendSwatch color="#fef3c7" label="Pending" />
-                <LegendSwatch color="#fee2e2" label="Unpaid" />
-                <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
+                <LegendSwatch color="var(--legacy-color-eef2f7)" label="Bank holiday" />
+                <LegendSwatch color="var(--legacy-color-fef3c7)" label="Pending" />
+                <LegendSwatch color="var(--legacy-color-fee2e2)" label="Unpaid" />
+                <LegendSwatch color="var(--legacy-color-cbd5e1)" label="Paid (per employee)" />
               </div>
             </div>
 
@@ -1355,7 +1355,7 @@ export default function HolidayUsagePage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 overflow: "hidden",
-                background: "#fff",
+                background: "var(--color-white)",
               }}
               className="holiday-calendar"
             >
@@ -1386,8 +1386,8 @@ export default function HolidayUsagePage() {
                 marginTop: UI.gap,
                 border: UI.border,
                 borderRadius: UI.radius,
-                background: "#fff",
-                padding: 12,
+                background: "var(--color-white)",
+                padding: "var(--space-3)",
               }}
             >
               <div
@@ -1440,7 +1440,7 @@ export default function HolidayUsagePage() {
                         <tr
                           key={row.name}
                           style={{
-                            backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
+                            backgroundColor: i % 2 === 0 ? "var(--color-white)" : "var(--legacy-color-fbfdff)",
                             cursor: "pointer",
                           }}
                           onClick={() => setSelectedName(row.name)}
@@ -1517,7 +1517,7 @@ export default function HolidayUsagePage() {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: 8,
+                      gap: "var(--space-2)",
                       fontWeight: 800,
                       color: UI.text,
                     }}
@@ -1560,7 +1560,7 @@ export default function HolidayUsagePage() {
                   <option value="allowBalDesc">Sort: Balance (desc)</option>
                 </select>
 
-                <div style={{ marginTop: 2, color: UI.muted, fontSize: 12 }}>
+                <div style={{ marginTop: 2, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                   Showing <b>{namesToShow.length}</b> employees.
                 </div>
               </div>
@@ -1595,7 +1595,7 @@ export default function HolidayUsagePage() {
                   icon={WalletCards}
                 />
               </div>
-              <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
+              <div style={{ marginTop: 10, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                 Note: <b>Pending</b> holidays show on the calendar but do{" "}
                 <b>not</b> reduce paid allowance totals. <b>Declined</b> holidays
                 do not show at all.
@@ -1632,7 +1632,7 @@ export default function HolidayUsagePage() {
                   marginBottom: 10,
                 }}
               >
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
                   <span style={iconBox(UI.brand, UI.brandSoft)}>
                     <UserRound size={17} />
                   </span>
@@ -1646,7 +1646,7 @@ export default function HolidayUsagePage() {
               <div
                 style={{
                   display: "grid",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   maxHeight: "44vh",
                   overflow: "auto",
                   paddingRight: 2,
@@ -1666,7 +1666,7 @@ export default function HolidayUsagePage() {
                         width: "100%",
                         borderRadius: UI.radiusSm,
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         padding: 9,
                         cursor: "pointer",
                         display: "grid",
@@ -1676,7 +1676,7 @@ export default function HolidayUsagePage() {
                         (e.currentTarget.style.borderColor = UI.brandBorder)
                       }
                       onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor = "#d7dee8")
+                        (e.currentTarget.style.borderColor = "var(--color-border)")
                       }
                     >
                       <div
@@ -1702,7 +1702,7 @@ export default function HolidayUsagePage() {
                         <Pill tone={tone}>Bal {m.allowBal}</Pill>
                       </div>
 
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                         <Pill tone="info">
                           Paid {Number(m.paid.toFixed(2))}/{m.totalAllowance}
                         </Pill>
@@ -1715,7 +1715,7 @@ export default function HolidayUsagePage() {
                 })}
 
                 {namesToShow.length === 0 ? (
-                  <div style={{ padding: 10, color: UI.muted, fontSize: 13 }}>
+                  <div style={{ padding: 10, color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                     No matches.
                   </div>
                 ) : null}
@@ -1802,7 +1802,7 @@ export default function HolidayUsagePage() {
                           <tr
                             key={row.id}
                             style={{
-                              backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
+                              backgroundColor: i % 2 === 0 ? "var(--color-white)" : "var(--legacy-color-fbfdff)",
                             }}
                           >
                             <td style={td}>{format(row.start, "EEE d MMM")}</td>
@@ -1815,13 +1815,13 @@ export default function HolidayUsagePage() {
                               <div
                                 style={{
                                   display: "flex",
-                                  gap: 8,
+                                  gap: "var(--space-2)",
                                   alignItems: "center",
                                   flexWrap: "wrap",
                                 }}
                               >
                                 {halfPrefix ? (
-                                  <span style={{ ...chip, background: "#fff7ed" }}>
+                                  <span style={{ ...chip, background: "var(--color-warning-soft)" }}>
                                     {halfPrefix}
                                   </span>
                                 ) : null}
@@ -1851,7 +1851,7 @@ export default function HolidayUsagePage() {
                                   Edit
                                 </button>
                               ) : (
-                                <span style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
+                                <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>
                                   -
                                 </span>
                               )}
@@ -1901,7 +1901,7 @@ export default function HolidayUsagePage() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 999,
-            padding: 16,
+            padding: "var(--space-4)",
           }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setHolidayModalOpen(false);
@@ -1948,7 +1948,7 @@ const tableWrap = {
   overflow: "auto",
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 const tableEl = {
   width: "100%",
@@ -1959,10 +1959,10 @@ const tableEl = {
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   position: "sticky",
   top: 0,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   zIndex: 1,
   whiteSpace: "nowrap",
   color: UI.muted,
@@ -1972,7 +1972,7 @@ const th = {
 };
 const td = {
   padding: "9px 11px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
 };

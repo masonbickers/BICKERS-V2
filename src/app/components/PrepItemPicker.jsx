@@ -29,28 +29,28 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
   return (
     <div
       style={{
-        border: "1px solid #e5e7eb",
+        border: "1px solid var(--legacy-color-e5e7eb)",
         borderRadius: 10,
-        background: "#f8fafc",
+        background: "var(--color-surface-subtle)",
         padding: 10,
         display: "grid",
-        gap: 8,
+        gap: "var(--space-2)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 800, color: "#334155" }}>Quick Add Prep Item</div>
+      <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 800, color: "var(--legacy-color-334155)" }}>Quick Add Prep Item</div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <select
           value={selectedPreset}
           onChange={(e) => setSelectedPreset(e.target.value)}
           style={{
             flex: 1,
             minWidth: 260,
-            border: "1px solid #d1d5db",
-            borderRadius: 8,
+            border: "1px solid var(--legacy-color-d1d5db)",
+            borderRadius: "var(--radius-md)",
             padding: "8px 10px",
-            fontSize: 13,
-            background: "#fff",
+            fontSize: "var(--font-size-sm)",
+            background: "var(--color-white)",
           }}
         >
           <option value="">Select preset item...</option>
@@ -71,12 +71,12 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           }}
           disabled={!canAddPreset}
           style={{
-            border: "1px solid #1d4ed8",
-            background: canAddPreset ? "#1d4ed8" : "#93c5fd",
-            color: "#fff",
-            borderRadius: 8,
+            border: "1px solid var(--color-info)",
+            background: canAddPreset ? "var(--color-info)" : "var(--legacy-color-93c5fd)",
+            color: "var(--color-white)",
+            borderRadius: "var(--radius-md)",
             padding: "8px 12px",
-            fontSize: 12,
+            fontSize: "var(--font-size-xs)",
             fontWeight: 800,
             cursor: canAddPreset ? "pointer" : "not-allowed",
           }}
@@ -85,7 +85,7 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <input
           type="text"
           value={customText}
@@ -103,11 +103,11 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           style={{
             flex: 1,
             minWidth: 240,
-            border: "1px solid #d1d5db",
-            borderRadius: 8,
+            border: "1px solid var(--legacy-color-d1d5db)",
+            borderRadius: "var(--radius-md)",
             padding: "8px 10px",
-            fontSize: 13,
-            background: "#fff",
+            fontSize: "var(--font-size-sm)",
+            background: "var(--color-white)",
           }}
         />
 
@@ -121,12 +121,12 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           }}
           disabled={!canAddCustom}
           style={{
-            border: "1px solid #0f766e",
-            background: canAddCustom ? "#0f766e" : "#99f6e4",
-            color: "#fff",
-            borderRadius: 8,
+            border: "1px solid var(--legacy-color-0f766e)",
+            background: canAddCustom ? "var(--legacy-color-0f766e)" : "var(--legacy-color-99f6e4)",
+            color: "var(--color-white)",
+            borderRadius: "var(--radius-md)",
             padding: "8px 12px",
-            fontSize: 12,
+            fontSize: "var(--font-size-xs)",
             fontWeight: 800,
             cursor: canAddCustom ? "pointer" : "not-allowed",
           }}

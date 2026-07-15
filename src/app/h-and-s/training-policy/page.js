@@ -17,19 +17,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  radius: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  shadowSm: "var(--shadow-sm)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const TRAINING_ITEMS = [
@@ -49,14 +49,14 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
   marginBottom: 14,
 };
-const h1 = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 };
+const h1 = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 };
 const sub = { margin: "6px 0 0", color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...surface, padding: 12 };
+const panel = { ...surface, padding: "var(--space-3)" };
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
@@ -70,13 +70,13 @@ const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 }
 const smallLabel = { margin: 0, color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const input = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 10px",
   borderRadius: UI.radius,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -90,7 +90,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radius,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -109,13 +109,13 @@ const btn = (kind = "primary") => {
     padding: "8px 10px",
     borderRadius: UI.radius,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 850,
     cursor: "pointer",
     whiteSpace: "nowrap",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-    fontSize: 13,
+    fontSize: "var(--font-size-sm)",
     lineHeight: 1.2,
   };
 };
@@ -184,9 +184,9 @@ const statusFor = (record) => {
 };
 
 const toneStyle = (tone) => {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (tone === "amber") return { background: "var(--color-warning-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 };
 
@@ -397,7 +397,7 @@ export default function TrainingPolicyPage() {
             <div style={sub}>Track employee training, policy acknowledgements and expiry dates.</div>
           </div>
           {toast ? (
-            <div style={{ ...toneStyle("green"), display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 8, padding: "9px 12px", fontWeight: 900, fontSize: 13 }}>
+            <div style={{ ...toneStyle("green"), display: "inline-flex", alignItems: "center", gap: "var(--space-2)", borderRadius: "var(--radius-md)", padding: "9px 12px", fontWeight: 900, fontSize: "var(--font-size-sm)" }}>
               <CheckCircle2 size={16} />
               {toast}
             </div>
@@ -407,7 +407,7 @@ export default function TrainingPolicyPage() {
         <section className="training-shell">
           <aside style={panel}>
             {loadNotice ? (
-              <div style={{ ...toneStyle("amber"), borderRadius: 8, padding: "9px 10px", fontSize: 12.5, fontWeight: 850, marginBottom: 10 }}>
+              <div style={{ ...toneStyle("amber"), borderRadius: "var(--radius-md)", padding: "9px 10px", fontSize: 12.5, fontWeight: 850, marginBottom: 10 }}>
                 {loadNotice}
               </div>
             ) : null}
@@ -419,7 +419,7 @@ export default function TrainingPolicyPage() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search name..."
-                  style={{ ...input, paddingLeft: 32 }}
+                  style={{ ...input, paddingLeft: "var(--space-8)" }}
                 />
               </div>
             </label>
@@ -438,13 +438,13 @@ export default function TrainingPolicyPage() {
                     style={{
                       textAlign: "left",
                       border: `1px solid ${active ? UI.brand : UI.brandBorder}`,
-                      background: active ? UI.brandSoft : "#ffffff",
+                      background: active ? UI.brandSoft : "var(--color-white)",
                       color: active ? UI.brand : UI.text,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       padding: "11px 12px",
                       cursor: "pointer",
                       fontWeight: 900,
-                      boxShadow: active ? "inset 3px 0 0 #1f4b7a" : "none",
+                      boxShadow: active ? "inset 3px 0 0 var(--color-brand)" : "none",
                     }}
                   >
                     {employeeDisplayName(employee)}
@@ -452,37 +452,37 @@ export default function TrainingPolicyPage() {
                 );
               })}
               {!filteredEmployees.length ? (
-                <div style={{ color: UI.muted, fontSize: 13, fontWeight: 800, padding: 10 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 800, padding: 10 }}>
                   {loading ? "Loading employees..." : "No employees found."}
                 </div>
               ) : null}
             </div>
           </aside>
 
-          <section style={{ display: "grid", gap: 12, alignContent: "start" }}>
+          <section style={{ display: "grid", gap: "var(--space-3)", alignContent: "start" }}>
             <div style={panel}>
               <div style={sectionHeader}>
                 <div>
                   <h2 style={titleMd}>{selectedEmployee ? employeeDisplayName(selectedEmployee) : "Select an employee"}</h2>
                   <div style={hint}>Latest training and policy activity.</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ ...toneStyle("green"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.current} current</span>
-                  <span style={{ ...toneStyle("amber"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.dueSoon} due soon</span>
-                  <span style={{ ...toneStyle("danger"), borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>{summary.expired} expired</span>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                  <span style={{ ...toneStyle("green"), borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>{summary.current} current</span>
+                  <span style={{ ...toneStyle("amber"), borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>{summary.dueSoon} due soon</span>
+                  <span style={{ ...toneStyle("danger"), borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>{summary.expired} expired</span>
                 </div>
               </div>
 
               {selectedRecords.slice(0, 5).length ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   {selectedRecords.slice(0, 5).map((record) => (
-                    <span key={record.id} style={{ border: UI.border, background: "#f8fbfe", color: UI.text, borderRadius: 999, padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
+                    <span key={record.id} style={{ border: UI.border, background: "var(--legacy-color-f8fbfe)", color: UI.text, borderRadius: "var(--radius-pill)", padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
                       {record.itemName} / expires {fmtDate(record.expiresAt)}
                     </span>
                   ))}
                 </div>
               ) : (
-                <div style={{ color: UI.muted, fontSize: 13, fontWeight: 800 }}>No training or policy records saved for this employee yet.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 800 }}>No training or policy records saved for this employee yet.</div>
               )}
             </div>
 
@@ -499,16 +499,16 @@ export default function TrainingPolicyPage() {
                   <article key={item.id} style={{ ...surface, padding: 14 }}>
                     <div style={sectionHeader}>
                       <div>
-                        <h3 style={{ margin: 0, color: UI.text, fontSize: 16, fontWeight: 900 }}>{item.label}</h3>
+                        <h3 style={{ margin: 0, color: UI.text, fontSize: "var(--font-size-lg)", fontWeight: 900 }}>{item.label}</h3>
                         <div style={{ ...hint, marginTop: 5 }}>{item.type}</div>
                       </div>
-                      <span style={{ ...toneStyle(state.tone), display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900 }}>
+                      <span style={{ ...toneStyle(state.tone), display: "inline-flex", alignItems: "center", gap: 6, borderRadius: "var(--radius-pill)", padding: "5px 9px", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                         <StateIcon size={14} />
                         {state.label}
                       </span>
                     </div>
 
-                    <div style={{ display: "grid", gap: 4, marginBottom: 12, color: UI.muted, fontSize: 13, fontWeight: 750 }}>
+                    <div style={{ display: "grid", gap: "var(--space-1)", marginBottom: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)", fontWeight: 750 }}>
                       <div>Completed: {latest ? fmtDate(latest.completedAt) : "-"}</div>
                       <div>Expires: {latest ? fmtDate(latest.expiresAt) : "-"}</div>
                       <div>Documents: {latest?.documents?.length ? latest.documents.length : "-"}</div>
@@ -553,9 +553,9 @@ export default function TrainingPolicyPage() {
                       </label>
 
                       {draft.documents?.length ? (
-                        <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                        <div style={{ display: "grid", gap: 6, marginTop: "var(--space-2)" }}>
                           {draft.documents.map((file, index) => (
-                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "#f8fbfe", padding: "7px 8px" }}>
+                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", border: UI.border, borderRadius: "var(--radius-md)", background: "var(--legacy-color-f8fbfe)", padding: "7px 8px" }}>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, color: UI.text, fontSize: 12.5, fontWeight: 850 }}>
                                 <Paperclip size={13} style={{ flex: "0 0 auto" }} />
                                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
@@ -569,9 +569,9 @@ export default function TrainingPolicyPage() {
                       ) : null}
 
                       {latest?.documents?.length ? (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: "var(--space-2)" }}>
                           {latest.documents.map((document, index) => (
-                            <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ ...toneStyle("brand"), display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, padding: "5px 8px", fontSize: 12, fontWeight: 900, textDecoration: "none" }}>
+                            <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ ...toneStyle("brand"), display: "inline-flex", alignItems: "center", gap: 5, borderRadius: "var(--radius-pill)", padding: "5px 8px", fontSize: "var(--font-size-xs)", fontWeight: 900, textDecoration: "none" }}>
                               <Paperclip size={12} />
                               {document.name || "Document"}
                             </a>
@@ -580,7 +580,7 @@ export default function TrainingPolicyPage() {
                       ) : null}
                     </div>
 
-                    <button type="button" onClick={() => saveRecord(item)} disabled={!selectedEmployee || savingItem === item.label} style={{ ...btn("primary"), width: "100%", minHeight: 42, marginTop: 12 }}>
+                    <button type="button" onClick={() => saveRecord(item)} disabled={!selectedEmployee || savingItem === item.label} style={{ ...btn("primary"), width: "100%", minHeight: 42, marginTop: "var(--space-3)" }}>
                       <Save size={15} />
                       {savingItem === item.label ? "Saving..." : "Save Record"}
                     </button>
@@ -590,7 +590,7 @@ export default function TrainingPolicyPage() {
                       onClick={() => setOpenHistoryItem(historyOpen ? "" : item.label)}
                       style={{ marginTop: 9, border: 0, background: "transparent", color: UI.brand, padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 900 }}
                     >
-                      <History size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                      <History size={13} style={{ verticalAlign: "-2px", marginRight: "var(--space-1)" }} />
                       {historyOpen ? "Hide History" : "View History"}
                     </button>
 
@@ -598,8 +598,8 @@ export default function TrainingPolicyPage() {
                       <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                         {itemRecords.length ? (
                           itemRecords.map((record) => (
-                            <div key={record.id} style={{ border: UI.border, borderRadius: 8, background: "#f8fafc", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <div key={record.id} style={{ border: UI.border, borderRadius: "var(--radius-md)", background: "var(--color-surface-subtle)", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)" }}>
                                 <span>Completed {fmtDate(record.completedAt)}</span>
                                 <span>Expires {fmtDate(record.expiresAt)}</span>
                               </div>
@@ -607,7 +607,7 @@ export default function TrainingPolicyPage() {
                               {record.documents?.length ? (
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                                   {record.documents.map((document, index) => (
-                                    <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: UI.brand, textDecoration: "none", fontSize: 12, fontWeight: 900 }}>
+                                    <a key={`${document.path || document.url || document.name}-${index}`} href={document.url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: UI.brand, textDecoration: "none", fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                                       <Paperclip size={12} />
                                       {document.name || "Document"}
                                     </a>

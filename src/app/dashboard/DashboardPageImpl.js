@@ -21,7 +21,7 @@ const BigCalendar = dynamic(
           alignItems: "center",
           justifyContent: "center",
           color: UI.muted,
-          fontSize: 14,
+          fontSize: "var(--font-size-md)",
           fontWeight: 700,
         }}
       >
@@ -36,7 +36,11 @@ const DraggableBigCalendar = dynamic(
     Promise.all([
       import("react-big-calendar"),
       import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
+    ]).then(([calendarModule, dndModule]) => {
+      // Webpack can wrap this CommonJS add-on in an extra `default` layer.
+      const withDragAndDrop = dndModule.default?.default ?? dndModule.default;
+      return withDragAndDrop(calendarModule.Calendar);
+    }),
   {
     ssr: false,
     loading: () => (
@@ -48,7 +52,7 @@ const DraggableBigCalendar = dynamic(
           alignItems: "center",
           justifyContent: "center",
           color: UI.muted,
-          fontSize: 14,
+          fontSize: "var(--font-size-md)",
           fontWeight: 700,
         }}
       >
@@ -82,6 +86,7 @@ import ViewBookingModal from "../components/ViewBookingModal";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
 import {
+  AlertTriangle,
   CalendarDays,
   BedDouble,
   Check,
@@ -119,6 +124,7 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
+import { analyzeCurrentSecondPencilUpgradeOpportunities } from "@/app/utils/vehiclePencilConflict";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -128,28 +134,52 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
 
+const ordinalDay = (day) => {
+  const value = Number(day);
+  if (!Number.isFinite(value)) return "";
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  const suffix = value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th";
+  return `${value}${suffix}`;
+};
+
+const formatFriendlyDate = (dateKey) => {
+  const [year, month, day] = String(dateKey || "").slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return String(dateKey || "");
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return String(dateKey || "");
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long" });
+  const monthName = date.toLocaleDateString("en-GB", { month: "long" });
+  return `${weekday} ${ordinalDay(day)} ${monthName}`;
+};
+
+const formatFriendlyDateList = (dateKeys = []) => {
+  const sorted = Array.from(new Set((dateKeys || []).map((value) => String(value || "").slice(0, 10)).filter(Boolean))).sort();
+  return sorted.map(formatFriendlyDate).join(", ");
+};
+
 /*
    New styling tokens (match your HR page)
 */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  successSoft: "#edf7f2",
-  warningSoft: "#fcf3e6",
-  dangerSoft: "#fcefee",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  successSoft: "var(--legacy-color-edf7f2)",
+  warningSoft: "var(--legacy-color-fcf3e6)",
+  dangerSoft: "var(--legacy-color-fcefee)",
 };
 
 const pageWrap = {
@@ -166,7 +196,7 @@ const quoteOverlayBackdrop = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 4,
+  padding: "var(--space-1)",
 };
 
 const quoteOverlayPanel = {
@@ -174,8 +204,8 @@ const quoteOverlayPanel = {
   height: "min(760px, calc(100vh - 8px))",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 10,
   boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
   overflow: "hidden",
@@ -185,10 +215,10 @@ const quoteOverlayHeader = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: "7px 10px",
-  borderBottom: "1px solid #dbe4ef",
-  background: "#f8fafc",
+  borderBottom: "1px solid var(--legacy-color-dbe4ef)",
+  background: "var(--color-surface-subtle)",
 };
 
 const quoteOverlayEyebrow = {
@@ -211,7 +241,7 @@ const quoteOverlayTitle = {
 const quoteOverlayMeta = {
   marginTop: 2,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
 };
 
@@ -219,7 +249,7 @@ const quoteOverlayActions = {
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-end",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
 };
 
@@ -229,12 +259,12 @@ const quoteOverlayButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 5,
-  border: "1px solid #cbd5e1",
-  borderRadius: 8,
-  background: "#fff",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
   color: UI.text,
   padding: "6px 10px",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -243,7 +273,7 @@ const quoteOverlayPrimaryButton = {
   ...quoteOverlayButton,
   background: UI.brand,
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
 };
 
 const quoteOverlayCloseButton = {
@@ -256,21 +286,21 @@ const quoteOverlayFrame = {
   width: "100%",
   height: "100%",
   border: 0,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
 const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 
 const h1 = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -279,7 +309,7 @@ const h1 = {
 
 const headerActions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "nowrap",
   justifyContent: "flex-end",
   alignItems: "center",
@@ -296,11 +326,11 @@ const headerSearchWrap = {
 
 const headerSearchInput = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px 7px 34px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
   fontSize: 13.5,
   outline: "none",
@@ -315,7 +345,7 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   marginBottom: UI.gap,
 };
 
@@ -324,14 +354,14 @@ const sectionHeader = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 10,
-  marginBottom: 8,
+  marginBottom: "var(--space-2)",
   flexWrap: "wrap",
 };
 
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: 0 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
 const labelTiny = {
-  marginBottom: 4,
+  marginBottom: "var(--space-1)",
   fontSize: 11,
   fontWeight: 900,
   color: UI.muted,
@@ -348,7 +378,7 @@ const sectionTitleWrap = {
 
 const sectionActions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   justifyContent: "flex-end",
   alignItems: "center",
@@ -359,11 +389,11 @@ const chip = {
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -375,10 +405,10 @@ const miniCountBadge = {
   minWidth: 22,
   height: 22,
   padding: "0 7px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brand}`,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
   fontSize: 11.5,
   fontWeight: 900,
   lineHeight: 1,
@@ -403,7 +433,7 @@ const btn = (kind = "primary") => {
     return {
       ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
@@ -411,16 +441,16 @@ const btn = (kind = "primary") => {
   if (kind === "danger") {
     return {
       ...base,
-      border: "1px solid #e9c6c4",
+      border: "1px solid var(--legacy-color-e9c6c4)",
       background: UI.dangerSoft,
-      color: "#991b1b",
+      color: "var(--color-danger)",
     };
   }
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
   };
 };
@@ -435,11 +465,11 @@ const btnDisabled = (base) => ({
 
 const successBanner = {
   background: UI.successSoft,
-  color: "#065f46",
-  border: "1px solid #b7dec7",
+  color: "var(--legacy-color-065f46)",
+  border: "1px solid var(--legacy-color-b7dec7)",
   borderRadius: UI.radiusSm,
   padding: "7px 10px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 800,
   display: "inline-flex",
   alignItems: "center",
@@ -451,7 +481,7 @@ const tableWrap = {
   overflow: "auto",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--color-white)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const table = {
@@ -463,10 +493,10 @@ const table = {
 const th = {
   textAlign: "left",
   padding: "9px 10px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   position: "sticky",
   top: 0,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -477,14 +507,14 @@ const th = {
 };
 const td = {
   padding: "9px 10px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
 };
 
 const calendarFrame = {
   borderRadius: UI.radiusSm,
-  background: "#fff",
+  background: "var(--color-white)",
   border: UI.border,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
   minHeight: 620,
@@ -505,10 +535,12 @@ const monthCalendarFrame = {
   overflow: "visible",
 };
 
+const HOLIDAY_NOTES_EVENT_HEIGHT = 64;
+
 const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -527,21 +559,21 @@ const dashboardCalendarCss = `
 .dashboard-page .rbc-time-view,
 .dashboard-page .rbc-month-view {
   border: 0;
-  background: #fff;
+  background: var(--color-white);
 }
 .dashboard-page .rbc-header {
   padding: 7px 8px;
-  background: #f6f8fb;
+  background: var(--legacy-color-f6f8fb);
   color: ${UI.muted};
   font-size: 11.5px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0;
-  border-color: #e3eaf2;
+  border-color: var(--legacy-color-e3eaf2);
 }
 .dashboard-page .rbc-date-cell {
   padding: 5px 6px;
-  color: #64748b;
+  color: var(--color-text-subtle);
   font-size: 12px;
   font-weight: 800;
 }
@@ -549,10 +581,10 @@ const dashboardCalendarCss = `
 .dashboard-page .rbc-day-bg,
 .dashboard-page .rbc-time-content,
 .dashboard-page .rbc-timeslot-group {
-  border-color: #e6edf5;
+  border-color: var(--legacy-color-e6edf5);
 }
 .dashboard-page .rbc-off-range-bg {
-  background: #f8fafc;
+  background: var(--color-surface-subtle);
 }
 .dashboard-page .rbc-today {
   background: rgba(31,75,122,0.08);
@@ -630,26 +662,36 @@ const dashboardCalendarCss = `
 .dashboard-page .dashboard-month-calendar .rbc-event {
   height: auto !important;
 }
+.dashboard-page .holiday-notes-calendar .rbc-event {
+  height: ${HOLIDAY_NOTES_EVENT_HEIGHT}px !important;
+}
+.dashboard-page .holiday-notes-calendar .rbc-event-content {
+  height: 100%;
+}
+.dashboard-page .holiday-notes-calendar .rbc-row-segment {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
 `;
 
-const NIGHT_SHOOT_STYLE = { bg: "#f796dfff", text: "#111", border: "#de24e4ff" };
+const NIGHT_SHOOT_STYLE = { bg: "var(--legacy-color-f796dfff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-de24e4ff)" };
 
 // ---- status colour map used for per-vehicle pills ----
 const STATUS_COLORS = {
-  Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
-  Bickers: { bg: "#ffffff", text: "#111", border: "#0b0b0b" },
-  Stunt: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
-  "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
-  "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
-  Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
-  Maintenance: { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" },
-  Complete: { bg: "#92d18cff", text: "#111", border: "#0b0b0b" },
-  "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
-  DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  Postponed: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  Deleted: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  "Bank Holiday": { bg: "#dbeafe", text: "#111", border: "#0b0b0b" },
-  Note: { bg: "#ccfbf1", text: "#111", border: "#0f766e" },
+  Confirmed: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Bickers: { bg: "var(--color-white)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Stunt: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "First Pencil": { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Second Pencil": { bg: "var(--legacy-color-f73939)", text: "var(--color-white)", border: "var(--legacy-color-0b0b0b)" },
+  Holiday: { bg: "var(--legacy-color-d3d3d3)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Maintenance: { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Complete: { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Action Required": { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  DNH: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  Postponed: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  Deleted: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  "Bank Holiday": { bg: "var(--legacy-color-dbeafe)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Note: { bg: "var(--legacy-color-ccfbf1)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0f766e)" },
 };
 
 const normalizeStatusLabel = (raw = "") => {
@@ -672,23 +714,23 @@ const normalizeStatusLabel = (raw = "") => {
 };
 
 const getStatusStyle = (s = "") =>
-  STATUS_COLORS[normalizeStatusLabel(s)] || { bg: "#ccc", text: "#111", border: "#0b0b0b" };
+  STATUS_COLORS[normalizeStatusLabel(s)] || { bg: "var(--legacy-color-ccc)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
 
 const WORK_DIARY_BORDERS = {
-  Confirmed: "#000000",
-  Bickers: "#94a3b8",
-  Stunt: "#d6a900",
-  "First Pencil": "#2f8fc8",
-  "Second Pencil": "#b91c1c",
-  Holiday: "#94a3b8",
-  Maintenance: "#a95622",
-  Complete: "#3d8b37",
-  "Action Required": "#b45309",
-  DNH: "#8f8f8f",
-  Postponed: "#8f8f8f",
-  Deleted: "#8f8f8f",
-  "Bank Holiday": "#7ca0d6",
-  Note: "#0f766e",
+  Confirmed: "var(--color-black)",
+  Bickers: "var(--legacy-color-94a3b8)",
+  Stunt: "var(--legacy-color-d6a900)",
+  "First Pencil": "var(--legacy-color-2f8fc8)",
+  "Second Pencil": "var(--legacy-color-b91c1c)",
+  Holiday: "var(--legacy-color-94a3b8)",
+  Maintenance: "var(--legacy-color-a95622)",
+  Complete: "var(--legacy-color-3d8b37)",
+  "Action Required": "var(--legacy-color-b45309)",
+  DNH: "var(--legacy-color-8f8f8f)",
+  Postponed: "var(--legacy-color-8f8f8f)",
+  Deleted: "var(--legacy-color-8f8f8f)",
+  "Bank Holiday": "var(--legacy-color-7ca0d6)",
+  Note: "var(--legacy-color-0f766e)",
 };
 
 const getWorkDiaryBorder = (status, fallback) =>
@@ -701,7 +743,7 @@ const getVehicleStatusPillStyle = (status) => {
   if (normalizedStatus === "Bickers") {
     return {
       ...tone,
-      bg: "#e9eef5",
+      bg: "var(--legacy-color-e9eef5)",
       border: getWorkDiaryBorder(normalizedStatus, tone.border),
     };
   }
@@ -1538,13 +1580,13 @@ function EventMetaBadge({ Icon, good, title, children }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 4,
+        gap: "var(--space-1)",
         minHeight: 20,
         minWidth: children ? 34 : 24,
         padding: children ? "2px 6px" : "2px 5px",
-        borderRadius: 6,
-        backgroundColor: good ? "#4caf50" : "#f44336",
-        color: "#fff",
+        borderRadius: "var(--radius-sm)",
+        backgroundColor: good ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
+        color: "var(--color-white)",
         border: "1px solid rgba(0,0,0,0.8)",
         fontSize: "0.72rem",
         fontWeight: 800,
@@ -1632,7 +1674,7 @@ function CalendarEvent({ event, onViewQuote }) {
           flexDirection: "column",
           gap: 2,
           padding: "5px 6px",
-          color: "#0b0b0b",
+          color: "var(--legacy-color-0b0b0b)",
           fontFamily: "Inter, system-ui, Arial, sans-serif",
           fontSize: "0.82rem",
           lineHeight: 1.15,
@@ -1643,7 +1685,7 @@ function CalendarEvent({ event, onViewQuote }) {
           letterSpacing: 0,
         }}
       >
-        <span style={{ fontSize: "0.68rem", fontWeight: 900, color: "#0f766e" }}>NOTE</span>
+        <span style={{ fontSize: "0.68rem", fontWeight: 900, color: "var(--legacy-color-0f766e)" }}>NOTE</span>
         <span>{event.title || "Note"}</span>
         {event.employee ? <span style={{ fontSize: "0.72rem", fontWeight: 700 }}>{event.employee}</span> : null}
       </div>
@@ -1658,14 +1700,14 @@ function CalendarEvent({ event, onViewQuote }) {
         flexDirection: "column",
         fontSize: "0.85rem",
         lineHeight: 1.1,
-        color: "#0b0b0b",
+        color: "var(--legacy-color-0b0b0b)",
         fontWeight: 600,
         fontFamily: "Inter, system-ui, Arial, sans-serif",
         textAlign: "left",
         alignItems: "flex-start",
         padding: "5px 6px",
         gap: 1,
-        borderRadius: 6,
+        borderRadius: "var(--radius-sm)",
         whiteSpace: "normal",
         wordBreak: "break-word",
         textTransform: "uppercase",
@@ -1700,10 +1742,10 @@ function CalendarEvent({ event, onViewQuote }) {
                 style={{
                   backgroundColor: "white",
                   padding: "2px 4px",
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   fontSize: "0.8rem",
                   fontWeight: 600,
-                  border: "1px solid #0b0b0b",
+                  border: "1px solid var(--legacy-color-0b0b0b)",
                   display: "grid",
                   gap: 1,
                   lineHeight: 1.05,
@@ -1715,9 +1757,9 @@ function CalendarEvent({ event, onViewQuote }) {
               </span>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginLeft: "auto" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "#111" }}>
+                <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "var(--legacy-color-111)" }}>
                   {event.status}
                 </span>
 
@@ -1730,7 +1772,7 @@ function CalendarEvent({ event, onViewQuote }) {
                       gap: 6,
                       fontSize: "0.65rem",
                       fontWeight: 800,
-                      color: "#111",
+                      color: "var(--legacy-color-111)",
                       marginTop: -2,
                     }}
                   >
@@ -1744,7 +1786,7 @@ function CalendarEvent({ event, onViewQuote }) {
                     style={{
                       fontSize: "0.65rem",
                       fontWeight: 800,
-                      color: "#111",
+                      color: "var(--legacy-color-111)",
                       marginTop: -2,
                     }}
                     title="Crew needed for this job"
@@ -1761,13 +1803,13 @@ function CalendarEvent({ event, onViewQuote }) {
                       ? "purple"
                       : event.shootType === "Day"
                       ? "white"
-                      : "#ffffffff",
-                  color: event.shootType === "Night" ? "#fff" : "#000",
+                      : "var(--color-white)",
+                  color: event.shootType === "Night" ? "var(--color-white)" : "var(--color-black)",
                   padding: "2px 4px",
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   fontSize: "0.9rem",
                   fontWeight: 800,
-                  border: "1px solid #0b0b0b",
+                  border: "1px solid var(--legacy-color-0b0b0b)",
                 }}
               >
                 {event.jobNumber}
@@ -1794,10 +1836,10 @@ function CalendarEvent({ event, onViewQuote }) {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: "1px solid #0b0b0b",
-                    borderRadius: 6,
-                    background: "#ffffff",
-                    color: "#0b0b0b",
+                    border: "1px solid var(--legacy-color-0b0b0b)",
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--color-white)",
+                    color: "var(--legacy-color-0b0b0b)",
                     padding: 0,
                     cursor: "pointer",
                     boxShadow: "0 1px 0 rgba(0,0,0,0.12)",
@@ -1843,7 +1885,7 @@ function CalendarEvent({ event, onViewQuote }) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 4,
+                gap: "var(--space-1)",
                 fontSize: "0.78rem",
                 fontWeight: 900,
               }}
@@ -1915,10 +1957,10 @@ function CalendarEvent({ event, onViewQuote }) {
                       gap: 6,
                       padding: "0px 4px",
                       borderRadius: 4,
-                      background: "#e53935",
-                      color: "#fff",
+                      background: "var(--legacy-color-e53935)",
+                      color: "var(--color-white)",
                       fontWeight: 700,
-                      border: "1px solid #0b0b0b",
+                      border: "1px solid var(--legacy-color-0b0b0b)",
                       marginTop: 1,
                     }}
                     title="Vehicle non-compliant (SORN or not insured) - current or future confirmed job"
@@ -2011,7 +2053,7 @@ function CalendarEvent({ event, onViewQuote }) {
                 !hideDayNotes &&
                 event.notesByDate &&
                 Object.keys(event.notesByDate).length > 0 && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: 2 }}>
                     {Object.keys(event.notesByDate)
                       .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
                       .sort((a, b) => new Date(a) - new Date(b))
@@ -2074,10 +2116,10 @@ function CalendarEvent({ event, onViewQuote }) {
                     style={{
                       fontSize: "0.7rem",
                       padding: "2px 8px",
-                      border: "1px solid #111",
+                      border: "1px solid var(--legacy-color-111)",
                       background: "transparent",
                       cursor: "pointer",
-                      borderRadius: 6,
+                      borderRadius: "var(--radius-sm)",
                     }}
                   >
                     {showNotes ? "Hide Notes" : "Show Notes"}
@@ -2090,7 +2132,7 @@ function CalendarEvent({ event, onViewQuote }) {
                         fontWeight: 500,
                         fontSize: "0.75rem",
                         lineHeight: 1.25,
-                        marginTop: 4,
+                        marginTop: "var(--space-1)",
                       }}
                     >
                       {event.notes}
@@ -2135,15 +2177,15 @@ function CalendarEvent({ event, onViewQuote }) {
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 4,
+                      gap: "var(--space-1)",
                       minHeight: 20,
                       minWidth: 34,
                       fontSize: "0.72rem",
                       fontWeight: 400,
                       padding: "2px 6px",
-                      borderRadius: 6,
-                      backgroundColor: event.hasRiskAssessment ? "#4caf50" : "#f44336",
-                      color: "#fff",
+                      borderRadius: "var(--radius-sm)",
+                      backgroundColor: event.hasRiskAssessment ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
+                      color: "var(--color-white)",
                       border: "1px solid rgba(0,0,0,0.8)",
                       lineHeight: 1,
                       whiteSpace: "nowrap",
@@ -2186,15 +2228,15 @@ function CalendarEvent({ event, onViewQuote }) {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   padding: "6px 10px",
-                  borderRadius: 6,
+                  borderRadius: "var(--radius-sm)",
                   cursor: "pointer",
                   fontSize: "0.6rem",
                   fontWeight: 800,
-                  border: "1.5px solid #0b0b0b",
-                  background: "#111827",
-                  color: "#fff",
+                  border: "1.5px solid var(--legacy-color-0b0b0b)",
+                  background: "var(--legacy-color-111827)",
+                  color: "var(--color-white)",
                 }}
               >
                 View recce form
@@ -2205,8 +2247,8 @@ function CalendarEvent({ event, onViewQuote }) {
                       fontWeight: 900,
                       padding: "2px 6px",
                       borderRadius: 4,
-                      background: "#fff",
-                      color: "#111",
+                      background: "var(--color-white)",
+                      color: "var(--legacy-color-111)",
                       border: "1px solid rgba(0,0,0,0.8)",
                     }}
                   >
@@ -2222,10 +2264,10 @@ function CalendarEvent({ event, onViewQuote }) {
             <div style={{ width: "100%", marginTop: 6 }}>
               <div
                 style={{
-                  backgroundColor: "#e53935",
-                  color: "#fff",
-                  border: "1.5px solid #000",
-                  borderRadius: 6,
+                  backgroundColor: "var(--legacy-color-e53935)",
+                  color: "var(--color-white)",
+                  border: "1.5px solid var(--color-black)",
+                  borderRadius: "var(--radius-sm)",
                   padding: "4px 6px",
                   fontSize: "0.74rem",
                   fontWeight: 900,
@@ -2236,14 +2278,14 @@ function CalendarEvent({ event, onViewQuote }) {
               </div>
               <div
                 style={{
-                  marginTop: 4,
-                  background: "#ffe6e6",
-                  border: "1px dashed #e53935",
-                  borderRadius: 6,
+                  marginTop: "var(--space-1)",
+                  background: "var(--legacy-color-ffe6e6)",
+                  border: "1px dashed var(--legacy-color-e53935)",
+                  borderRadius: "var(--radius-sm)",
                   padding: "4px 6px",
                   fontSize: "0.74rem",
                   lineHeight: 1.25,
-                  color: "#000",
+                  color: "var(--color-black)",
                   fontWeight: 700,
                 }}
               >
@@ -2284,66 +2326,66 @@ function maintenanceEventPropGetter(event) {
     workflowStatus === "completed" ||
     workflowStatus === "complete";
 
-  let bg = "#c4d6e4";
-  let border = "#95b3ca";
-  let text = "#172a3d";
+  let bg = "var(--legacy-color-c4d6e4)";
+  let border = "var(--legacy-color-95b3ca)";
+  let text = "var(--legacy-color-172a3d)";
 
   if (kind === "MOT") {
-    bg = "#fff7ed";
-    border = "#f59e0b";
-    text = "#713f12";
+    bg = "var(--color-warning-soft)";
+    border = "var(--legacy-color-f59e0b)";
+    text = "var(--legacy-color-713f12)";
     if (event?.booked) {
-      bg = "#fef3c7";
-      border = "#d97706";
-      text = "#713f12";
+      bg = "var(--legacy-color-fef3c7)";
+      border = "var(--legacy-color-d97706)";
+      text = "var(--legacy-color-713f12)";
     }
   } else if (kind === "MOT_BOOKING") {
-    bg = "#dbeafe";
-    border = "#2563eb";
-    text = "#102a56";
+    bg = "var(--legacy-color-dbeafe)";
+    border = "var(--legacy-color-2563eb)";
+    text = "var(--legacy-color-102a56)";
     if (String(event?.bookingStatus || "").includes("After Expiry")) {
-      bg = "#e4c0bd";
-      border = "#bf847f";
-      text = "#631f1a";
+      bg = "var(--legacy-color-e4c0bd)";
+      border = "var(--legacy-color-bf847f)";
+      text = "var(--legacy-color-631f1a)";
     }
   } else if (kind === "SERVICE") {
-    bg = "#ecfdf5";
-    border = "#10b981";
-    text = "#064e3b";
+    bg = "var(--color-success-soft)";
+    border = "var(--legacy-color-10b981)";
+    text = "var(--legacy-color-064e3b)";
     if (event?.booked) {
-      bg = "#d1fae5";
-      border = "#059669";
-      text = "#064e3b";
+      bg = "var(--legacy-color-d1fae5)";
+      border = "var(--legacy-color-059669)";
+      text = "var(--legacy-color-064e3b)";
     }
   } else if (kind === "SERVICE_BOOKING") {
-    bg = "#dbeafe";
-    border = "#2563eb";
-    text = "#102a56";
+    bg = "var(--legacy-color-dbeafe)";
+    border = "var(--legacy-color-2563eb)";
+    text = "var(--legacy-color-102a56)";
   } else if (kind === "INSPECTION") {
-    bg = "#f5f3ff";
-    border = "#8b5cf6";
-    text = "#3b0764";
+    bg = "var(--legacy-color-f5f3ff)";
+    border = "var(--legacy-color-8b5cf6)";
+    text = "var(--legacy-color-3b0764)";
     if (event?.booked) {
-      bg = "#ede9fe";
-      border = "#7c3aed";
-      text = "#3b0764";
+      bg = "var(--legacy-color-ede9fe)";
+      border = "var(--legacy-color-7c3aed)";
+      text = "var(--legacy-color-3b0764)";
     }
   } else if (kind === "INSPECTION_BOOKING") {
-    bg = "#ede9fe";
-    border = "#7c3aed";
-    text = "#321064";
+    bg = "var(--legacy-color-ede9fe)";
+    border = "var(--legacy-color-7c3aed)";
+    text = "var(--legacy-color-321064)";
   } else if (kind === "MAINTENANCE_APPOINTMENT") {
-    bg = "#f0fdfa";
-    border = "#14b8a6";
-    text = "#134e4a";
+    bg = "var(--legacy-color-f0fdfa)";
+    border = "var(--legacy-color-14b8a6)";
+    text = "var(--legacy-color-134e4a)";
   } else if (kind === "MAINTENANCE_BOOKING") {
-    bg = "#ccfbf1";
-    border = "#0d9488";
-    text = "#134e4a";
+    bg = "var(--legacy-color-ccfbf1)";
+    border = "var(--legacy-color-0d9488)";
+    text = "var(--legacy-color-134e4a)";
   } else if (kind === "MAINTENANCE") {
-    bg = "#e2e8f0";
-    border = "#64748b";
-    text = "#1e293b";
+    bg = "var(--legacy-color-e2e8f0)";
+    border = "var(--color-text-subtle)";
+    text = "var(--legacy-color-1e293b)";
   }
 
   const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
@@ -2351,20 +2393,20 @@ function maintenanceEventPropGetter(event) {
 
   if (!suppressEscalation) {
     if (tone === "overdue") {
-      bg = "#e4c0bd";
-      border = "#bf847f";
-      text = "#631f1a";
+      bg = "var(--legacy-color-e4c0bd)";
+      border = "var(--legacy-color-bf847f)";
+      text = "var(--legacy-color-631f1a)";
     } else if (tone === "soon") {
-      bg = "#e1c79c";
-      border = "#c19458";
-      text = "#5a3918";
+      bg = "var(--legacy-color-e1c79c)";
+      border = "var(--legacy-color-c19458)";
+      text = "var(--legacy-color-5a3918)";
     }
   }
 
   if (isCompleted) {
-    bg = "#d1fae5";
-    border = "#86efac";
-    text = "#065f46";
+    bg = "var(--legacy-color-d1fae5)";
+    border = "var(--legacy-color-86efac)";
+    text = "var(--legacy-color-065f46)";
   }
 
   return {
@@ -2487,25 +2529,25 @@ function MaintenanceCalendarEvent({ event }) {
       .replace(/\s+-\s+PMI inspection due$/i, "");
   })();
   const dueLabelColor =
-    tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
+    tone === "overdue" ? "var(--color-danger)" : tone === "soon" ? "var(--legacy-color-92400e)" : null;
   const labelColor =
     isDueBlock && dueLabelColor
       ? dueLabelColor
       : kind === "MOT"
-      ? "#b45309"
+      ? "var(--legacy-color-b45309)"
       : kind === "SERVICE"
-      ? "#047857"
+      ? "var(--legacy-color-047857)"
       : kind === "INSPECTION"
-      ? "#7c3aed"
+      ? "var(--legacy-color-7c3aed)"
       : kind === "BRAKE_TEST"
-      ? "#4f46e5"
+      ? "var(--legacy-color-4f46e5)"
       : kind === "PMI"
-      ? "#0f766e"
+      ? "var(--legacy-color-0f766e)"
       : isBookingBlock
-      ? "#1d4ed8"
+      ? "var(--color-info)"
       : kind === "MAINTENANCE"
-      ? "#475569"
-      : "#1d4ed8";
+      ? "var(--legacy-color-475569)"
+      : "var(--color-info)";
   const nextDueLabel =
     isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
       ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
@@ -2538,7 +2580,7 @@ function MaintenanceCalendarEvent({ event }) {
         fontSize: 12.5,
         lineHeight: 1.3,
         fontWeight: 900,
-        padding: 8,
+        padding: "var(--space-2)",
         letterSpacing: 0,
         whiteSpace: "normal",
         overflowWrap: "anywhere",
@@ -2546,41 +2588,40 @@ function MaintenanceCalendarEvent({ event }) {
         minWidth: 0,
       }}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
-      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{cleanTitle}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: "var(--font-size-xs)", whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: "var(--color-text)", whiteSpace: "normal" }}>{cleanTitle}</span>
       {vehicleText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-text)", whiteSpace: "normal" }}>{vehicleText}</span>
       ) : null}
       {equipmentText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{equipmentText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-text)", whiteSpace: "normal" }}>{equipmentText}</span>
       ) : null}
       {locationText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--legacy-color-475569)", whiteSpace: "normal" }}>{locationText}</span>
       ) : null}
       {nextDueLabel ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#0f766e", whiteSpace: "normal" }}>{nextDueLabel}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--legacy-color-0f766e)", whiteSpace: "normal" }}>{nextDueLabel}</span>
       ) : null}
       {subline ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--color-text-subtle)", whiteSpace: "normal" }}>{subline}</span>
       ) : null}
     </div>
   );
 }
 
 function HolidayNotesCalendarEvent({ event }) {
-  const [expanded, setExpanded] = useState(false);
   const isHoliday = event.status === "Holiday";
   const label = isHoliday ? "Holiday" : "Note";
   const title = isHoliday ? event.employee || "Holiday" : event.title || "Note";
   const titleText = String(title || "");
-  const shouldCollapse = !isHoliday && titleText.length > 110;
-  const displayTitle = shouldCollapse && !expanded ? `${titleText.slice(0, 110).trim()}...` : titleText;
+  const shouldCollapse = !isHoliday && titleText.length > 58;
+  const displayTitle = titleText;
   const detail = isHoliday
     ? formatHolidayDetail(event)
     : event.blocksEmployeeBooking && event.employee
     ? `${event.employee} unavailable`
     : event.employee || "Shared note";
-  const labelColor = isHoliday ? "#475569" : "#0d9488";
+  const labelColor = isHoliday ? "var(--legacy-color-475569)" : "var(--legacy-color-0d9488)";
 
   return (
     <div
@@ -2589,8 +2630,9 @@ function HolidayNotesCalendarEvent({ event }) {
         display: "flex",
         flexDirection: "column",
         gap: 1,
+        height: HOLIDAY_NOTES_EVENT_HEIGHT,
         fontSize: 11.5,
-        lineHeight: 1.15,
+        lineHeight: 1.2,
         fontWeight: 900,
         padding: "4px 6px",
         letterSpacing: 0,
@@ -2598,48 +2640,53 @@ function HolidayNotesCalendarEvent({ event }) {
         overflowWrap: "anywhere",
         wordBreak: "break-word",
         minWidth: 0,
+        overflow: "hidden",
       }}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "nowrap", lineHeight: 1.1 }}>{label}</span>
       <span
         style={{
-          color: "#0f172a",
+          color: "var(--color-text)",
           whiteSpace: "normal",
           display: "-webkit-box",
-          WebkitLineClamp: shouldCollapse && !expanded ? 4 : "unset",
+          WebkitLineClamp: isHoliday ? 1 : 2,
           WebkitBoxOrient: "vertical",
-          overflow: shouldCollapse && !expanded ? "hidden" : "visible",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          minHeight: isHoliday ? 13 : 27,
         }}
       >
         {displayTitle}
       </span>
       {shouldCollapse ? (
-        <button
-          type="button"
-          onClick={(clickEvent) => {
-            clickEvent.preventDefault();
-            clickEvent.stopPropagation();
-            setExpanded((value) => !value);
-          }}
+        <span
           style={{
             alignSelf: "flex-start",
-            border: "1px solid #99f6e4",
-            background: "#f0fdfa",
-            color: "#0f766e",
-            borderRadius: 999,
-            padding: "2px 7px",
+            color: "var(--legacy-color-0f766e)",
             fontSize: 10.5,
-            fontWeight: 900,
-            cursor: "pointer",
-            lineHeight: 1.2,
-            marginTop: 2,
+            fontWeight: 950,
+            lineHeight: 1,
+            marginTop: 1,
           }}
         >
-          {expanded ? "Show less" : "Show more"}
-        </button>
+          Show more
+        </span>
       ) : null}
       {detail ? (
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{detail}</span>
+        <span
+          style={{
+            display: "block",
+            fontSize: 10.5,
+            fontWeight: 800,
+            color: "var(--color-text-subtle)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            marginTop: "auto",
+          }}
+        >
+          {detail}
+        </span>
       ) : null}
     </div>
   );
@@ -2647,9 +2694,9 @@ function HolidayNotesCalendarEvent({ event }) {
 
 function holidayNotesEventPropGetter(event) {
   const isHoliday = event.status === "Holiday";
-  const bg = isHoliday ? "#e2e8f0" : "#ccfbf1";
-  const border = isHoliday ? "#64748b" : "#0d9488";
-  const text = isHoliday ? "#1e293b" : "#134e4a";
+  const bg = isHoliday ? "var(--legacy-color-e2e8f0)" : "var(--legacy-color-ccfbf1)";
+  const border = isHoliday ? "var(--color-text-subtle)" : "var(--legacy-color-0d9488)";
+  const text = isHoliday ? "var(--legacy-color-1e293b)" : "var(--legacy-color-134e4a)";
 
   return {
     style: {
@@ -2658,6 +2705,7 @@ function holidayNotesEventPropGetter(event) {
       borderLeft: `4px solid ${border}`,
       background: bg,
       color: text,
+      height: HOLIDAY_NOTES_EVENT_HEIGHT,
       padding: 0,
       boxShadow: "0 2px 6px rgba(15,23,42,0.08)",
       overflow: "hidden",
@@ -2777,6 +2825,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
   const [createEnquiryOpening, setCreateEnquiryOpening] = useState(false);
   const [createEnquiryProgress, setCreateEnquiryProgress] = useState(0);
   const [quoteViewer, setQuoteViewer] = useState(null);
+  const [upgradingSecondPencilKey, setUpgradingSecondPencilKey] = useState("");
 
   const enquiryCount = useMemo(
     () => bookings.filter((booking) => String(booking.status || "").trim().toLowerCase() === "enquiry").length,
@@ -3239,6 +3288,24 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     },
     [vehiclesData]
   );
+
+  const vehicleLookupForConflicts = useMemo(() => {
+    const byId = {};
+    const byReg = {};
+    const byName = {};
+    (vehiclesData || []).forEach((vehicle) => {
+      const id = String(vehicle?.id || "").trim();
+      const registration = String(vehicle?.registration || vehicle?.reg || "").trim();
+      const name = String(vehicle?.name || vehicle?.vehicleName || "").trim();
+      if (id) byId[id] = vehicle;
+      if (registration) {
+        byReg[registration.toUpperCase()] = vehicle;
+        byReg[registration.replace(/\s+/g, "").toUpperCase()] = vehicle;
+      }
+      if (name) byName[name.toLowerCase()] = vehicle;
+    });
+    return { byId, byReg, byName };
+  }, [vehiclesData]);
 
   const getVehicleRisk = useCallback((vehicles, { offRoadTracking = false } = {}) => {
     const reasons = [];
@@ -3932,6 +3999,90 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
     });
   }, [allEvents, showDeletedInView, showInactiveInView]);
 
+  const visibleDiaryDateKeys = useMemo(() => {
+    const start = new Date(currentDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+
+    if (calendarView === "month") {
+      start.setDate(1);
+      end.setMonth(start.getMonth() + 1, 0);
+    } else {
+      const mondayOffset = (start.getDay() + 6) % 7;
+      start.setDate(start.getDate() - mondayOffset);
+      end.setTime(start.getTime());
+      end.setDate(start.getDate() + 6);
+    }
+
+    const out = [];
+    for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      out.push(ymd(cursor));
+    }
+    return out.filter(Boolean);
+  }, [calendarView, currentDate]);
+
+  const secondPencilUpgradeNotifications = useMemo(() => {
+    let debug = false;
+    try {
+      debug =
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("debugVehiclePencilConflicts") === "1";
+    } catch {
+      debug = false;
+    }
+
+    return analyzeCurrentSecondPencilUpgradeOpportunities({
+      allBookings: bookings,
+      vehicleLookup: vehicleLookupForConflicts,
+      targetDates: visibleDiaryDateKeys,
+      debug,
+      debugContext: { currentDate: ymd(currentDate) },
+    });
+  }, [bookings, currentDate, vehicleLookupForConflicts, visibleDiaryDateKeys]);
+
+  const upgradeSecondPencilFromDashboard = useCallback(
+    async (item) => {
+      const bookingId = String(item?.bookingId || "").trim();
+      const vehicleId = String(item?.vehicleId || "").trim();
+      if (!bookingId || !vehicleId) return;
+
+      const actionKey = `${bookingId}-${vehicleId}`;
+      const booking = bookings.find((row) => row.id === bookingId);
+      if (!booking) {
+        alert("Could not find this booking in the current diary data.");
+        return;
+      }
+
+      setUpgradingSecondPencilKey(actionKey);
+      try {
+        const nextVehicleStatus = {
+          ...(booking.vehicleStatus && typeof booking.vehicleStatus === "object"
+            ? booking.vehicleStatus
+            : {}),
+          [vehicleId]: "First Pencil",
+        };
+
+        await updateDoc(
+          doc(db, "bookings", bookingId),
+          tenantPayload(dataAccessState, {
+            vehicleStatus: nextVehicleStatus,
+            updatedAt: new Date().toISOString(),
+            lastEditedBy: authAccess.user?.email || "Unknown",
+            lastEditedByUid: authAccess.user?.uid || "",
+          })
+        );
+      } catch (error) {
+        if (!handleFirestoreAccessError(error, { collectionName: "bookings", operation: "upgrade second pencil vehicle" })) {
+          console.error("[vehicle-pencil-conflict] dashboard upgrade failed:", error);
+        }
+        alert(error?.message || "Could not upgrade this vehicle to First Pencil.");
+      } finally {
+        setUpgradingSecondPencilKey("");
+      }
+    },
+    [authAccess.user?.email, authAccess.user?.uid, bookings, dataAccessState]
+  );
+
   const workCalendarEvents = useMemo(
     () => [...bankHolidays, ...workDiaryEvents],
     [bankHolidays, workDiaryEvents]
@@ -4241,7 +4392,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     top: "calc(100% + 6px)",
                     left: 0,
                     right: 0,
-                    background: "#fff",
+                    background: "var(--color-white)",
                     border: UI.border,
                     borderRadius: UI.radiusSm,
                     boxShadow: UI.shadowHover,
@@ -4269,8 +4420,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                           textAlign: "left",
                           padding: "10px 12px",
                           border: "none",
-                          borderBottom: "1px solid #edf2f7",
-                          background: "#fff",
+                          borderBottom: "1px solid var(--legacy-color-edf2f7)",
+                          background: "var(--color-white)",
                           cursor: "pointer",
                         }}
                       >
@@ -4457,6 +4608,80 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             </div>
           </div>
 
+          {secondPencilUpgradeNotifications.length > 0 && (
+            <div
+              style={{
+                margin: "0 0 10px",
+                padding: "10px 12px",
+                borderRadius: "var(--radius-md)",
+                border: "1.5px solid var(--legacy-color-b45309)",
+                background: "var(--color-warning-soft)",
+                color: "var(--legacy-color-111827)",
+                display: "grid",
+                gap: "var(--space-2)",
+                boxShadow: UI.shadowSm,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontWeight: 950 }}>
+                <AlertTriangle size={18} />
+                Second Pencil upgrade available
+              </div>
+              {secondPencilUpgradeNotifications.slice(0, 4).map((item) => (
+                (() => {
+                  const actionKey = `${item.bookingId}-${item.vehicleId}`;
+                  const isUpgrading = upgradingSecondPencilKey === actionKey;
+                  return (
+                    <div
+                      key={`${item.vehicleId}-${item.bookingId}-${item.upgradableDates.join("|")}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "var(--space-3)",
+                        flexWrap: "wrap",
+                        fontSize: "var(--font-size-sm)",
+                        fontWeight: 800,
+                      }}
+                    >
+                      <span>
+                        {item.vehicleLabel} is still Second Pencil on {item.bookingLabel} ({item.bookingReference}), but First Pencil is now free for {formatFriendlyDateList(item.upgradableDates)}.
+                      </span>
+                      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          style={
+                            isRestricted || isUpgrading
+                              ? btnDisabled({ ...btn(), padding: "6px 10px" })
+                              : { ...btn(), padding: "6px 10px" }
+                          }
+                          disabled={isRestricted || isUpgrading}
+                          onClick={() => upgradeSecondPencilFromDashboard(item)}
+                        >
+                          {isUpgrading ? "Updating..." : "Make First Pencil"}
+                        </button>
+                        <button
+                          type="button"
+                          style={{ ...btn("ghost"), padding: "6px 10px" }}
+                          onClick={() => {
+                            setSelectedDeletedId(null);
+                            setSelectedBookingId(item.bookingId);
+                          }}
+                        >
+                          View booking
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              ))}
+              {secondPencilUpgradeNotifications.length > 4 && (
+                <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 800, color: UI.muted }}>
+                  +{secondPencilUpgradeNotifications.length - 4} more Second Pencil hold(s) can be reviewed.
+                </div>
+              )}
+            </div>
+          )}
+
           <BigCalendar
               localizer={localizer}
               //  include bank holidays in Work Diary
@@ -4542,14 +4767,14 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               eventPropGetter={(event) => {
               //  bank holiday styling
               if (event.status === "Bank Holiday") {
-                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "#9eb0c6");
+                const bankHolidayBorder = getWorkDiaryBorder("Bank Holiday", "var(--legacy-color-9eb0c6)");
                 return {
                   style: {
-                    backgroundColor: "#e9eef5",
-                    color: "#314257",
+                    backgroundColor: "var(--legacy-color-e9eef5)",
+                    color: "var(--legacy-color-314257)",
                     fontWeight: 800,
                     padding: 0,
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-md)",
                     border: `1px dashed ${bankHolidayBorder}`,
                     borderLeft: `6px solid ${bankHolidayBorder}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
@@ -4593,7 +4818,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     color: text,
                     fontWeight: 700,
                     padding: 0,
-                    borderRadius: 8,
+                    borderRadius: "var(--radius-md)",
                     border: `1px solid ${border}`,
                     borderLeft: `6px solid ${border}`,
                     boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
@@ -4607,7 +4832,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   color: text,
                   fontWeight: 700,
                   padding: 0,
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   border: `1px solid ${border}`,
                   borderLeft: `6px solid ${border}`,
                   boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
@@ -4621,7 +4846,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <section style={card}>
           <div style={sectionHeader}>
             <div style={sectionTitleWrap}>
-              <div style={iconBox("#8b5e3c", UI.accentSoft)}>
+              <div style={iconBox("var(--legacy-color-8b5e3c)", UI.accentSoft)}>
                 <Wrench size={17} />
               </div>
               <div>
@@ -4746,17 +4971,17 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    gap: 12,
+                    gap: "var(--space-3)",
                     padding: "14px 16px",
                     borderBottom: UI.border,
-                    background: "#f8fafc",
+                    background: "var(--color-surface-subtle)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={iconBox("#8b5e3c", UI.accentSoft)}>
+                    <div style={iconBox("var(--legacy-color-8b5e3c)", UI.accentSoft)}>
                       <Wrench size={17} />
                     </div>
-                    <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: 16, fontWeight: 950, color: UI.text }}>
+                    <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: "var(--font-size-lg)", fontWeight: 950, color: UI.text }}>
                       Confirm Date Change
                     </h3>
                   </div>
@@ -4777,7 +5002,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   </button>
                 </div>
 
-                <div style={{ padding: 16 }}>
+                <div style={{ padding: "var(--space-4)" }}>
                   <div style={{ fontSize: 13.5, lineHeight: 1.45, color: UI.text, fontWeight: 750 }}>
                     You changed the date of this occurrence of{" "}
                     <span style={{ fontWeight: 950 }}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
@@ -4791,20 +5016,20 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                       marginTop: 14,
                     }}
                   >
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-white)" }}>
                       <div style={labelTiny}>From</div>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
+                      <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
                     </div>
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fbfe" }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fbfe)" }}>
                       <div style={labelTiny}>To</div>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
+                      <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
                     </div>
                   </div>
 
                   <div style={{ marginTop: 14, fontSize: 12.5, lineHeight: 1.45, color: UI.muted, fontWeight: 700 }}>
                     To change all dates, open the series.
                   </div>
-                  <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
+                  <div style={{ marginTop: 10, fontSize: "var(--font-size-md)", color: UI.text, fontWeight: 900 }}>
                     Do you want to change just this one?
                   </div>
                 </div>
@@ -4816,7 +5041,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     gap: 10,
                     padding: "12px 16px",
                     borderTop: UI.border,
-                    background: "#f8fafc",
+                    background: "var(--color-surface-subtle)",
                   }}
                 >
                   <button
@@ -4853,7 +5078,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <section style={card}>
           <div style={sectionHeader}>
             <div style={sectionTitleWrap}>
-              <div style={iconBox("#7c3aed", "#f5f3ff")}>
+              <div style={iconBox("var(--legacy-color-7c3aed)", "var(--legacy-color-f5f3ff)")}>
                 <StickyNote size={17} />
               </div>
               <div>
@@ -4902,7 +5127,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 setNoteModalOpen(true);
               }
             }}
-            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
+            className={calendarView === "week" ? "dashboard-compact-calendar holiday-notes-calendar" : "holiday-notes-calendar"}
             style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
             components={{
               event: HolidayNotesCalendarEvent,
@@ -4910,8 +5135,8 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             eventPropGetter={holidayNotesEventPropGetter}
             dayPropGetter={() => ({
               style: {
-                borderRight: "1px solid #e5e7eb",
-                borderTop: "1px solid #e5e7eb",
+                borderRight: "1px solid var(--legacy-color-e5e7eb)",
+                borderTop: "1px solid var(--legacy-color-e5e7eb)",
               },
             })}
           />
@@ -4936,10 +5161,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 ...surface,
                 width: 380,
                 maxWidth: "92vw",
-                padding: 16,
+                padding: "var(--space-4)",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: UI.text }}>
+              <h3 style={{ margin: 0, fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>
                 Add Booking for {selectedDate?.toLocaleDateString("en-GB")}
               </h3>
               <form
@@ -4953,7 +5178,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                     location,
                   });
                 }}
-                style={{ display: "grid", gap: 10, marginTop: 12 }}
+                style={{ display: "grid", gap: 10, marginTop: "var(--space-3)" }}
               >
                 <input
                   name="client"
@@ -4961,13 +5186,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   required
                   style={{
                     width: "100%",
-                    minHeight: 36,
+                    minHeight: "var(--control-height-md)",
                     padding: "7px 9px",
                     borderRadius: UI.radiusSm,
                     border: UI.border,
                     outline: "none",
                     fontSize: 13.5,
-                    background: "#fff",
+                    background: "var(--color-white)",
                   }}
                 />
                 <input
@@ -4976,13 +5201,13 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   required
                   style={{
                     width: "100%",
-                    minHeight: 36,
+                    minHeight: "var(--control-height-md)",
                     padding: "7px 9px",
                     borderRadius: UI.radiusSm,
                     border: UI.border,
                     outline: "none",
                     fontSize: 13.5,
-                    background: "#fff",
+                    background: "var(--color-white)",
                   }}
                 />
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

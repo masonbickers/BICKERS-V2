@@ -16,19 +16,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#111827",
-  muted: "#6b7280",
-  border: "1px solid #e5e7eb",
-  green: "#065f46",
-  greenBg: "#ecfdf5",
-  red: "#991b1b",
-  redBg: "#fef2f2",
-  blue: "#1d4ed8",
-  blueBg: "#eff6ff",
-  purple: "#6d28d9",
-  purpleBg: "#f5f3ff",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-6b7280)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  green: "var(--legacy-color-065f46)",
+  greenBg: "var(--color-success-soft)",
+  red: "var(--color-danger)",
+  redBg: "var(--color-danger-soft)",
+  blue: "var(--color-info)",
+  blueBg: "var(--color-info-soft)",
+  purple: "var(--legacy-color-6d28d9)",
+  purpleBg: "var(--legacy-color-f5f3ff)",
 };
 
 const PREP_STORAGE_KEY = "stunt-prep:vehicle-checks:v1";
@@ -56,27 +56,27 @@ const pageWrap = {
 const card = {
   background: UI.card,
   border: UI.border,
-  borderRadius: 12,
-  padding: 16,
+  borderRadius: "var(--radius-lg)",
+  padding: "var(--space-4)",
 };
 
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const inputBase = {
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
+  border: "1px solid var(--legacy-color-d1d5db)",
+  borderRadius: "var(--radius-md)",
   padding: "8px 10px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   width: "100%",
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -85,7 +85,7 @@ const badge = (bg, color) => ({
   alignItems: "center",
   gap: 6,
   padding: "4px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color,
   fontSize: 11,
@@ -756,7 +756,7 @@ export default function StuntPrepPage() {
           }
 
           body {
-            background: #fff !important;
+            background: var(--color-white) !important;
           }
 
           .no-print {
@@ -764,7 +764,7 @@ export default function StuntPrepPage() {
           }
 
           .prep-sheet {
-            background: #fff !important;
+            background: var(--color-white) !important;
             padding: 0 !important;
           }
 
@@ -792,7 +792,7 @@ export default function StuntPrepPage() {
           }
 
           .print-check {
-            border-color: #000 !important;
+            border-color: var(--color-black) !important;
             width: 12px !important;
             height: 12px !important;
             min-width: 12px !important;
@@ -834,12 +834,12 @@ export default function StuntPrepPage() {
       `}</style>
 
       <div style={pageWrap} className="prep-sheet">
-        <div style={{ ...card, marginBottom: 16 }} className="prep-card">
+        <div style={{ ...card, marginBottom: "var(--space-4)" }} className="prep-card">
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              gap: 12,
+              gap: "var(--space-3)",
               flexWrap: "wrap",
             }}
           >
@@ -859,7 +859,7 @@ export default function StuntPrepPage() {
 
               <div
                 className="print-meta"
-                style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}
+                style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-sm)" }}
               >
                 Prep to be completed on this date for outings on{" "}
                 <b>{selectedOutDayDate ? fmtLong(selectedOutDayDate) : "selected day"}</b>.
@@ -867,7 +867,7 @@ export default function StuntPrepPage() {
 
               <div
                 className="print-meta"
-                style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}
+                style={{ marginTop: 6, display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}
               >
                 <span style={badge(UI.redBg, UI.red)}>Vehicles: {totalVisible}</span>
                 <span style={badge(UI.greenBg, UI.green)}>Prepped: {totalCompleted}</span>
@@ -875,7 +875,7 @@ export default function StuntPrepPage() {
               </div>
             </div>
 
-            <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className="no-print" style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               <select
                 value={selectedDay}
                 onChange={(e) => setSelectedDay(e.target.value)}
@@ -906,9 +906,9 @@ export default function StuntPrepPage() {
                 onClick={() => setShowCompleted((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showCompleted ? "#111827" : "#fff",
-                  color: showCompleted ? "#fff" : UI.text,
-                  borderColor: showCompleted ? "#111827" : "#d1d5db",
+                  background: showCompleted ? "var(--legacy-color-111827)" : "var(--color-white)",
+                  color: showCompleted ? "var(--color-white)" : UI.text,
+                  borderColor: showCompleted ? "var(--legacy-color-111827)" : "var(--legacy-color-d1d5db)",
                 }}
               >
                 {showCompleted ? "Hide Prepped" : "Show Prepped"}
@@ -919,9 +919,9 @@ export default function StuntPrepPage() {
                 onClick={() => setShowArchived((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showArchived ? "#6d28d9" : "#fff",
-                  color: showArchived ? "#fff" : UI.text,
-                  borderColor: showArchived ? "#6d28d9" : "#d1d5db",
+                  background: showArchived ? "var(--legacy-color-6d28d9)" : "var(--color-white)",
+                  color: showArchived ? "var(--color-white)" : UI.text,
+                  borderColor: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-d1d5db)",
                 }}
               >
                 {showArchived ? "Hide Archived" : "Show Archived"}
@@ -932,9 +932,9 @@ export default function StuntPrepPage() {
                 onClick={() => window.print()}
                 style={{
                   ...buttonBase,
-                  background: "#111827",
-                  color: "#fff",
-                  borderColor: "#111827",
+                  background: "var(--legacy-color-111827)",
+                  color: "var(--color-white)",
+                  borderColor: "var(--legacy-color-111827)",
                 }}
               >
                 Print Prep List
@@ -943,15 +943,15 @@ export default function StuntPrepPage() {
           </div>
         </div>
 
-        <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+        <div className="no-print" style={{ ...card, marginBottom: "var(--space-4)" }}>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, marginBottom: 10 }}>
             Add Manual Vehicle Prep
           </div>
 
           <div
             style={{
               display: "grid",
-              gap: 8,
+              gap: "var(--space-2)",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             }}
           >
@@ -1021,9 +1021,9 @@ export default function StuntPrepPage() {
               onClick={addManualEntry}
               style={{
                 ...buttonBase,
-                background: "#1d4ed8",
-                borderColor: "#1d4ed8",
-                color: "#fff",
+                background: "var(--color-info)",
+                borderColor: "var(--color-info)",
+                color: "var(--color-white)",
               }}
             >
               Add Manual Vehicle
@@ -1031,15 +1031,15 @@ export default function StuntPrepPage() {
           </div>
         </div>
 
-        <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+        <div className="no-print" style={{ ...card, marginBottom: "var(--space-4)" }}>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, marginBottom: 10 }}>
             Add Fleet Vehicle Prep
           </div>
 
           <div
             style={{
               display: "grid",
-              gap: 8,
+              gap: "var(--space-2)",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             }}
           >
@@ -1114,9 +1114,9 @@ export default function StuntPrepPage() {
               onClick={addFleetEntry}
               style={{
                 ...buttonBase,
-                background: "#0f766e",
-                borderColor: "#0f766e",
-                color: "#fff",
+                background: "var(--legacy-color-0f766e)",
+                borderColor: "var(--legacy-color-0f766e)",
+                color: "var(--color-white)",
               }}
             >
               Add Fleet Vehicle
@@ -1136,15 +1136,15 @@ export default function StuntPrepPage() {
                 : "No incomplete vehicles for this outing day."}
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 20 }}>
+            <div style={{ display: "grid", gap: "var(--space-5)" }}>
               {groupedVisibleSections.map((job) => (
                 <section
                   key={job.jobKey}
                   className="prep-job"
                   style={{
-                    borderBottom: "2px solid #d1d5db",
+                    borderBottom: "2px solid var(--legacy-color-d1d5db)",
                     paddingBottom: 18,
-                    marginBottom: 4,
+                    marginBottom: "var(--space-1)",
                   }}
                 >
                   <div
@@ -1152,8 +1152,8 @@ export default function StuntPrepPage() {
                       display: "flex",
                       alignItems: "flex-start",
                       justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 12,
+                      gap: "var(--space-3)",
+                      marginBottom: "var(--space-3)",
                       flexWrap: "wrap",
                     }}
                   >
@@ -1171,14 +1171,14 @@ export default function StuntPrepPage() {
                         Job #{job.jobNumber} · {job.client}
                       </div>
 
-                      <div style={{ marginTop: 6, fontSize: 14, color: UI.text }}>
+                      <div style={{ marginTop: 6, fontSize: "var(--font-size-md)", color: UI.text }}>
                         {job.location} · <span style={{ fontWeight: 800 }}>{job.status}</span>
                       </div>
 
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <span style={badge("#eef2ff", "#3730a3")}>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                      <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
                         Vehicles: {job.vehicles.length}
                       </span>
                       {job.hasFleet && <span style={badge(UI.blueBg, UI.blue)}>FLEET</span>}
@@ -1190,10 +1190,10 @@ export default function StuntPrepPage() {
                           style={{
                             ...buttonBase,
                             padding: "6px 10px",
-                            fontSize: 12,
-                            background: "#fff1f2",
-                            borderColor: "#fecaca",
-                            color: "#9f1239",
+                            fontSize: "var(--font-size-xs)",
+                            background: "var(--legacy-color-fff1f2)",
+                            borderColor: "var(--color-danger-border)",
+                            color: "var(--legacy-color-9f1239)",
                           }}
                           onClick={() => removeManualEntry(job.manualIds[0])}
                         >
@@ -1228,9 +1228,9 @@ export default function StuntPrepPage() {
                           key={s.sectionKey}
                           className="prep-section"
                           style={{
-                            border: "1px solid #e5e7eb",
+                            border: "1px solid var(--legacy-color-e5e7eb)",
                             padding: 14,
-                            background: isCompleted ? "#f0fdf4" : "transparent",
+                            background: isCompleted ? "var(--legacy-color-f0fdf4)" : "transparent",
                             borderRadius: 10,
                           }}
                         >
@@ -1239,7 +1239,7 @@ export default function StuntPrepPage() {
                               display: "flex",
                               alignItems: "baseline",
                               justifyContent: "space-between",
-                              gap: 12,
+                              gap: "var(--space-3)",
                             }}
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1247,7 +1247,7 @@ export default function StuntPrepPage() {
                                 className="prep-vehicle-title"
                                 style={{
                                   margin: 0,
-                                  fontSize: 22,
+                                  fontSize: "var(--font-size-xl)",
                                   lineHeight: 1.1,
                                   fontWeight: 800,
                                   color: UI.text,
@@ -1263,25 +1263,25 @@ export default function StuntPrepPage() {
                               )}
 
                               {isReady && <span style={badge(UI.blueBg, UI.blue)}>READY</span>}
-                              {isRemoved && <span style={badge("#fff1f2", "#9f1239")}>REMOVED</span>}
-                              {isArchived && <span style={badge("#f3e8ff", "#6d28d9")}>ARCHIVED</span>}
+                              {isRemoved && <span style={badge("var(--legacy-color-fff1f2)", "var(--legacy-color-9f1239)")}>REMOVED</span>}
+                              {isArchived && <span style={badge("var(--legacy-color-f3e8ff)", "var(--legacy-color-6d28d9)")}>ARCHIVED</span>}
                             </div>
 
-                            <span style={{ fontSize: 14, color: UI.muted, fontWeight: 700 }}>
+                            <span style={{ fontSize: "var(--font-size-md)", color: UI.muted, fontWeight: 700 }}>
                               {fmtShort(s.outingDate)}
                             </span>
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div className="no-print" style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                             <button
                               type="button"
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: isCompleted ? "#fee2e2" : "#ecfdf5",
-                                borderColor: isCompleted ? "#fecaca" : "#86efac",
-                                color: isCompleted ? "#991b1b" : "#166534",
+                                fontSize: "var(--font-size-xs)",
+                                background: isCompleted ? "var(--legacy-color-fee2e2)" : "var(--color-success-soft)",
+                                borderColor: isCompleted ? "var(--color-danger-border)" : "var(--legacy-color-86efac)",
+                                color: isCompleted ? "var(--color-danger)" : "var(--color-success)",
                               }}
                               onClick={() => toggleComplete(s.sectionKey)}
                             >
@@ -1293,10 +1293,10 @@ export default function StuntPrepPage() {
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: isReady ? "#dbeafe" : "#fff",
-                                borderColor: "#93c5fd",
-                                color: "#1d4ed8",
+                                fontSize: "var(--font-size-xs)",
+                                background: isReady ? "var(--legacy-color-dbeafe)" : "var(--color-white)",
+                                borderColor: "var(--legacy-color-93c5fd)",
+                                color: "var(--color-info)",
                               }}
                               onClick={() => toggleReady(s.sectionKey)}
                             >
@@ -1308,10 +1308,10 @@ export default function StuntPrepPage() {
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: isRemoved ? "#ecfdf5" : "#fff1f2",
-                                borderColor: isRemoved ? "#86efac" : "#fecaca",
-                                color: isRemoved ? "#166534" : "#9f1239",
+                                fontSize: "var(--font-size-xs)",
+                                background: isRemoved ? "var(--color-success-soft)" : "var(--legacy-color-fff1f2)",
+                                borderColor: isRemoved ? "var(--legacy-color-86efac)" : "var(--color-danger-border)",
+                                color: isRemoved ? "var(--color-success)" : "var(--legacy-color-9f1239)",
                               }}
                               onClick={() => toggleRemoved(s.sectionKey)}
                             >
@@ -1320,15 +1320,15 @@ export default function StuntPrepPage() {
                           </div>
 
                           {(section.notes || isCompleted) && (
-                            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                            <div style={{ marginTop: 10, display: "grid", gap: "var(--space-2)" }}>
                               {section.notes ? (
                                 <div
                                   style={{
-                                    fontSize: 13,
+                                    fontSize: "var(--font-size-sm)",
                                     color: UI.text,
-                                    background: "#eff6ff",
-                                    border: "1px solid #bfdbfe",
-                                    borderRadius: 8,
+                                    background: "var(--color-info-soft)",
+                                    border: "1px solid var(--color-info-border)",
+                                    borderRadius: "var(--radius-md)",
                                     padding: "8px 10px",
                                   }}
                                 >
@@ -1337,7 +1337,7 @@ export default function StuntPrepPage() {
                               ) : null}
 
                               {isCompleted ? (
-                                <div style={{ fontSize: 12, color: UI.green, fontWeight: 700 }}>
+                                <div style={{ fontSize: "var(--font-size-xs)", color: UI.green, fontWeight: 700 }}>
                                   Completed by {section.preparedBy || "unknown"}
                                   {section.preparedAt ? ` on ${fmtDateTime(section.preparedAt)}` : ""}
                                 </div>
@@ -1345,11 +1345,11 @@ export default function StuntPrepPage() {
                             </div>
                           )}
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className="no-print" style={{ marginTop: "var(--space-3)" }}>
                             <div
                               style={{
                                 display: "grid",
-                                gap: 8,
+                                gap: "var(--space-2)",
                                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                               }}
                             >
@@ -1371,7 +1371,7 @@ export default function StuntPrepPage() {
                             </div>
                           </div>
 
-                          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                          <div style={{ marginTop: "var(--space-3)", display: "grid", gap: 10 }}>
                             {(Array.isArray(section.items) ? section.items : []).map((it) => (
                               <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <button
@@ -1380,12 +1380,12 @@ export default function StuntPrepPage() {
                                   style={{
                                     width: 24,
                                     height: 24,
-                                    border: "1px solid #111827",
+                                    border: "1px solid var(--legacy-color-111827)",
                                     borderRadius: 3,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    background: it.checked ? "#bbf7d0" : "#fff",
+                                    background: it.checked ? "var(--color-success-border)" : "var(--color-white)",
                                     fontWeight: 900,
                                     cursor: "pointer",
                                   }}
@@ -1400,10 +1400,10 @@ export default function StuntPrepPage() {
                                   style={{
                                     fontSize: 18,
                                     lineHeight: 1.2,
-                                    color: it.isEquipment ? "#b91c1c" : "#111827",
+                                    color: it.isEquipment ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-111827)",
                                     fontWeight: it.isEquipment ? 900 : 600,
                                     textDecoration: it.isEquipment ? "underline" : "none",
-                                    background: it.checked ? "#ecfccb" : "transparent",
+                                    background: it.checked ? "var(--legacy-color-ecfccb)" : "transparent",
                                     padding: "0 4px",
                                     borderRadius: 4,
                                   }}
@@ -1417,10 +1417,10 @@ export default function StuntPrepPage() {
                                   onClick={() => removeItem(s.sectionKey, it.id)}
                                   style={{
                                     marginLeft: "auto",
-                                    border: "1px solid #fecaca",
-                                    background: "#fff1f2",
-                                    color: "#9f1239",
-                                    borderRadius: 8,
+                                    border: "1px solid var(--color-danger-border)",
+                                    background: "var(--legacy-color-fff1f2)",
+                                    color: "var(--legacy-color-9f1239)",
+                                    borderRadius: "var(--radius-md)",
                                     padding: "6px 8px",
                                     fontWeight: 700,
                                     cursor: "pointer",
@@ -1432,7 +1432,7 @@ export default function StuntPrepPage() {
                             ))}
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className="no-print" style={{ marginTop: "var(--space-3)" }}>
                             <PrepItemPicker
                               onQuickAdd={(item) => addItem(s.sectionKey, item)}
                               onCustomAdd={(text) => addItem(s.sectionKey, text)}

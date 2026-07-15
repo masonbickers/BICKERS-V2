@@ -368,7 +368,7 @@ export default function ViewMaintenanceModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments" full>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
@@ -409,24 +409,24 @@ export default function ViewMaintenanceModal({
         <div style={actions}>
 <button
   onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-  style={{ ...btn, background: "#0d6efd" }}
+  style={{ ...btn, background: "var(--legacy-color-0d6efd)" }}
 >
   Edit Maintenance
 </button>
 
 
-          <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
+          <button onClick={handleDelete} style={{ ...btn, background: "var(--legacy-color-dc3545)" }}>
             Delete
           </button>
 
           <button
             onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-            style={{ ...btn, background: "#111" }}
+            style={{ ...btn, background: "var(--legacy-color-111)" }}
           >
             Open full page
           </button>
 
-          <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+          <button onClick={onClose} style={{ ...btn, background: "var(--legacy-color-6c757d)" }}>
             Close
           </button>
         </div>
@@ -455,7 +455,7 @@ function Field({ label, value }) {
 }
 
 const Chip = ({ good, label, title }) => (
-  <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
+  <span title={title} style={{ ...chip, background: good ? "var(--legacy-color-22c55e)" : "var(--legacy-color-ef4444)", color: "var(--color-white)" }}>
     {label} {good ? "Yes" : "No"}
   </span>
 );
@@ -464,9 +464,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "#22c55e" : dark ? "#111" : "#f3f4f6",
-      color: success || dark ? "#fff" : "#111",
-      border: success || dark ? "1px solid #111" : "1px solid #e5e7eb",
+      background: success ? "var(--legacy-color-22c55e)" : dark ? "var(--legacy-color-111)" : "var(--legacy-color-f3f4f6)",
+      color: success || dark ? "var(--color-white)" : "var(--legacy-color-111)",
+      border: success || dark ? "1px solid var(--legacy-color-111)" : "1px solid var(--legacy-color-e5e7eb)",
     }}
   >
     {children}
@@ -481,59 +481,59 @@ const overlay = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  padding: 16,
+  padding: "var(--space-4)",
   zIndex: 9999,
 };
 
 const modal = {
-  background: "#fff",
-  color: "#111",
+  background: "var(--color-white)",
+  color: "var(--legacy-color-111)",
   width: "min(900px, 96vw)",
   maxHeight: "90vh",
   overflow: "auto",
-  borderRadius: 12,
+  borderRadius: "var(--radius-lg)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-  padding: 20,
+  padding: "var(--space-5)",
 };
 
 const header = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
 };
 
-const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#6b7280" };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
+const eyebrow = { fontSize: "var(--font-size-xs)", letterSpacing: 1, textTransform: "uppercase", color: "var(--legacy-color-6b7280)" };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.2 };
 
 const badge = {
   padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
-  border: "1px solid #111",
+  border: "1px solid var(--legacy-color-111)",
 };
 
-const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
+const chipRow = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap", margin: "8px 0 16px" };
 
 const grid = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 16,
+  gap: "var(--space-4)",
 };
 
 const sectionTitle = {
   margin: "0 0 8px 0",
-  fontSize: 14,
-  color: "#374151",
+  fontSize: "var(--font-size-md)",
+  color: "var(--legacy-color-374151)",
   textTransform: "uppercase",
   letterSpacing: 0.6,
 };
 
 const sectionCard = {
-  background: "#fafafa",
-  border: "1px solid #e5e7eb",
+  background: "var(--legacy-color-fafafa)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
   padding: 14,
 };
@@ -543,48 +543,48 @@ const fieldRow = {
   gridTemplateColumns: "160px 1fr",
   gap: 10,
   padding: "8px 0",
-  borderBottom: "1px dashed #e5e7eb",
+  borderBottom: "1px dashed var(--legacy-color-e5e7eb)",
 };
-const fieldLabel = { color: "#6b7280", fontSize: 13 };
-const fieldValue = { color: "#111", fontSize: 14 };
+const fieldLabel = { color: "var(--legacy-color-6b7280)", fontSize: "var(--font-size-sm)" };
+const fieldValue = { color: "var(--legacy-color-111)", fontSize: "var(--font-size-md)" };
 
 const noteBox = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: 12,
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  borderRadius: "var(--radius-md)",
+  padding: "var(--space-3)",
   lineHeight: 1.4,
 };
 
-const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
+const tagWrap = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap" };
 const tag = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "4px 8px",
-  background: "#f3f4f6",
-  border: "1px solid #e5e7eb",
-  borderRadius: 999,
-  fontSize: 12,
+  background: "var(--legacy-color-f3f4f6)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
 
-const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+const chip = { padding: "4px 8px", borderRadius: "var(--radius-pill)", fontSize: "var(--font-size-xs)", border: "1px solid var(--legacy-color-111)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
-  background: "#111",
-  color: "#fff",
-  borderRadius: 8,
+  background: "var(--legacy-color-111)",
+  color: "var(--color-white)",
+  borderRadius: "var(--radius-md)",
   textDecoration: "none",
-  border: "1px solid #111",
+  border: "1px solid var(--legacy-color-111)",
 };
 const historyDetails = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  background: "#f8fafc",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  borderRadius: "var(--radius-lg)",
+  background: "var(--color-surface-subtle)",
   overflow: "hidden",
 };
 const historySummary = {
@@ -593,22 +593,22 @@ const historySummary = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: "14px 16px",
   fontWeight: 700,
-  color: "#111",
+  color: "var(--legacy-color-111)",
 };
 const historyCount = {
   minWidth: 28,
   height: 28,
   padding: "0 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#e5e7eb",
-  color: "#111",
-  fontSize: 12,
+  background: "var(--legacy-color-e5e7eb)",
+  color: "var(--legacy-color-111)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
 };
 const historyBody = {
@@ -617,10 +617,10 @@ const historyBody = {
   padding: "0 16px 16px",
 };
 const historyItem = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
-  background: "#fff",
-  padding: 12,
+  background: "var(--color-white)",
+  padding: "var(--space-3)",
 };
 const historyTopRow = {
   display: "flex",
@@ -631,51 +631,51 @@ const historyTopRow = {
 };
 const historyAction = {
   fontWeight: 700,
-  color: "#111",
+  color: "var(--legacy-color-111)",
 };
 const historyMeta = {
-  color: "#6b7280",
-  fontSize: 12,
+  color: "var(--legacy-color-6b7280)",
+  fontSize: "var(--font-size-xs)",
 };
 const historyNote = {
-  marginTop: 8,
-  color: "#374151",
+  marginTop: "var(--space-2)",
+  color: "var(--legacy-color-374151)",
   whiteSpace: "pre-wrap",
   lineHeight: 1.45,
 };
 const historyChanges = {
-  marginTop: 8,
+  marginTop: "var(--space-2)",
   display: "grid",
   gap: 6,
 };
 const historyChangeLine = {
-  color: "#374151",
-  fontSize: 13,
+  color: "var(--legacy-color-374151)",
+  fontSize: "var(--font-size-sm)",
   lineHeight: 1.4,
 };
 const historyEmpty = {
-  color: "#6b7280",
-  fontSize: 13,
+  color: "var(--legacy-color-6b7280)",
+  fontSize: "var(--font-size-sm)",
 };
 const historyToggleBtn = {
   justifySelf: "flex-start",
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111",
-  borderRadius: 999,
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--color-white)",
+  color: "var(--legacy-color-111)",
+  borderRadius: "var(--radius-pill)",
   padding: "8px 12px",
   fontWeight: 700,
   cursor: "pointer",
 };
 
 const footerMeta = {
-  marginTop: 12,
-  paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
-  color: "#6b7280",
-  fontSize: 12,
+  marginTop: "var(--space-3)",
+  paddingTop: "var(--space-3)",
+  borderTop: "1px solid var(--legacy-color-e5e7eb)",
+  color: "var(--legacy-color-6b7280)",
+  fontSize: "var(--font-size-xs)",
   display: "flex",
-  gap: 16,
+  gap: "var(--space-4)",
   flexWrap: "wrap",
 };
 
@@ -684,38 +684,38 @@ const actions = {
   gap: 10,
   justifyContent: "flex-end",
   marginTop: 14,
-  paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
+  paddingTop: "var(--space-3)",
+  borderTop: "1px solid var(--legacy-color-e5e7eb)",
 };
 
 const btn = {
   padding: "10px 14px",
-  color: "#fff",
+  color: "var(--color-white)",
   border: "none",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   cursor: "pointer",
   fontWeight: 600,
 };
 
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",
-    "First Pencil": "#93c5fd",
-    "Second Pencil": "#ef4444",
-    DNH: "#c2c2c2",
-    Complete: "#22c55e",
-    Completed: "#22c55e",
-    "Action Required": "#ff7b00",
-    Holiday: "#d1d5db",
-    Maintenance: "#fb923c",
-    Lost: "#ef4444",
-    Postponed: "#f59e0b",
-    Cancelled: "#ef4444",
+    Confirmed: "var(--legacy-color-fde047)",
+    "First Pencil": "var(--legacy-color-93c5fd)",
+    "Second Pencil": "var(--legacy-color-ef4444)",
+    DNH: "var(--legacy-color-c2c2c2)",
+    Complete: "var(--legacy-color-22c55e)",
+    Completed: "var(--legacy-color-22c55e)",
+    "Action Required": "var(--legacy-color-ff7b00)",
+    Holiday: "var(--legacy-color-d1d5db)",
+    Maintenance: "var(--legacy-color-fb923c)",
+    Lost: "var(--legacy-color-ef4444)",
+    Postponed: "var(--legacy-color-f59e0b)",
+    Cancelled: "var(--legacy-color-ef4444)",
   };
-  return map[status] || "#e5e7eb";
+  return map[status] || "var(--legacy-color-e5e7eb)";
 }
 function onStatusColor(status = "") {
   return ["Confirmed", "DNH", "Holiday", "Maintenance", "Booked", "Requested"].includes(status)
-    ? "#111"
-    : "#fff";
+    ? "var(--legacy-color-111)"
+    : "var(--color-white)";
 }

@@ -1186,27 +1186,27 @@ const modal = {
   width: "min(760px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflow: "auto",
-  background: "#f3f6f9",
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
+  background: "var(--color-canvas)",
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
   padding: 0,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const header = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: "14px 16px",
-  background: "#ffffff",
-  borderBottom: "1px solid #d7dee8",
+  background: "var(--color-white)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const eyebrow = {
   fontSize: 11,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: ".08em",
   fontWeight: 900,
@@ -1214,9 +1214,9 @@ const eyebrow = {
 
 const title = {
   margin: "3px 0 0",
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
-  color: "#0f172a",
+  color: "var(--color-text)",
   fontWeight: 900,
   letterSpacing: 0,
 };
@@ -1224,82 +1224,82 @@ const title = {
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
-  background: "#ffffff",
-  fontSize: 14,
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
+  fontSize: "var(--font-size-md)",
   lineHeight: 1,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const card = {
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
   padding: 10,
-  background: "#ffffff",
-  margin: 12,
+  background: "var(--color-white)",
+  margin: "var(--space-3)",
   overflow: "hidden",
 };
 
 const summaryStrip = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: 8,
+  gap: "var(--space-2)",
   marginBottom: 10,
 };
 
 const summaryTile = {
-  border: "1px solid #d7dee8",
-  background: "#f8fafc",
-  borderRadius: 8,
+  border: "var(--border-default)",
+  background: "var(--color-surface-subtle)",
+  borderRadius: "var(--radius-md)",
   padding: "10px 11px",
   minWidth: 0,
 };
 
 const summaryLabel = {
   fontSize: 11,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".04em",
-  marginBottom: 4,
+  marginBottom: "var(--space-1)",
 };
 
 const summaryValue = {
   fontSize: 13.5,
-  color: "#0f172a",
+  color: "var(--color-text)",
   fontWeight: 900,
   lineHeight: 1.35,
   overflowWrap: "anywhere",
 };
 
 const detailsPanel = {
-  border: "1px solid #e3ebf3",
-  borderRadius: 8,
+  border: "1px solid var(--legacy-color-e3ebf3)",
+  borderRadius: "var(--radius-md)",
   overflow: "hidden",
-  background: "#ffffff",
+  background: "var(--color-white)",
 };
 
 const documentUploadCard = {
   margin: "0 12px 12px",
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
-  padding: 12,
-  background: "#ffffff",
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const documentsBlock = {
   padding: 10,
-  borderTop: "1px solid #e3ebf3",
-  background: "#ffffff",
+  borderTop: "1px solid var(--legacy-color-e3ebf3)",
+  background: "var(--color-white)",
 };
 
 const documentLinks = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   marginTop: 6,
 };
@@ -1308,19 +1308,19 @@ const documentLink = {
   display: "inline-flex",
   alignItems: "center",
   padding: "5px 8px",
-  borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#edf3f8",
-  color: "#1f4b7a",
-  fontSize: 12,
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-brand-soft)",
+  color: "var(--color-brand)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   textDecoration: "none",
 };
 
 const fileHint = {
   marginTop: 6,
-  color: "#5f6f82",
-  fontSize: 12,
+  color: "var(--color-text-muted)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
   overflowWrap: "anywhere",
 };
@@ -1330,13 +1330,13 @@ const row = {
   gridTemplateColumns: "150px minmax(0, 1fr)",
   gap: 14,
   padding: "8px 11px",
-  borderBottom: "1px solid #e8eef5",
+  borderBottom: "1px solid var(--legacy-color-e8eef5)",
   alignItems: "start",
 };
 
 const labelStyle = {
   fontSize: 11.5,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -1345,7 +1345,7 @@ const labelStyle = {
 
 const valueStyle = {
   fontSize: 13.5,
-  color: "#0f172a",
+  color: "var(--color-text)",
   fontWeight: 800,
   lineHeight: 1.4,
   overflowWrap: "anywhere",
@@ -1355,11 +1355,11 @@ const notesBlock = {
   display: "grid",
   gap: 6,
   padding: "10px 11px",
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
 };
 
 const notesText = {
-  color: "#0f172a",
+  color: "var(--color-text)",
   fontSize: 13.5,
   fontWeight: 800,
   lineHeight: 1.45,
@@ -1368,7 +1368,7 @@ const notesText = {
 
 const actions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   padding: "0 12px 12px",
   marginTop: 0,
@@ -1376,10 +1376,10 @@ const actions = {
 
 const primaryBtn = {
   padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid #1f4b7a",
-  background: "#1f4b7a",
-  color: "#fff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-brand)",
+  background: "var(--color-brand)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
@@ -1387,10 +1387,10 @@ const primaryBtn = {
 
 const ghostBtn = {
   padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
-  color: "#0f172a",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-white)",
+  color: "var(--color-text)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
@@ -1398,10 +1398,10 @@ const ghostBtn = {
 
 const successBtn = {
   padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid #15803d",
-  background: "#15803d",
-  color: "#fff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-15803d)",
+  background: "var(--legacy-color-15803d)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(21,128,61,0.16)",
@@ -1409,10 +1409,10 @@ const successBtn = {
 
 const dangerBtn = {
   padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid #b91c1c",
-  background: "#b91c1c",
-  color: "#fff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-b91c1c)",
+  background: "var(--legacy-color-b91c1c)",
+  color: "var(--color-white)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
@@ -1420,35 +1420,35 @@ const dangerBtn = {
 
 const jobEditorCard = {
   margin: "0 12px 12px",
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
-  padding: 12,
-  background: "#ffffff",
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
 };
 
 const jobEditorTitle = {
-  fontSize: 16,
+  fontSize: "var(--font-size-lg)",
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--color-text)",
   marginBottom: 6,
 };
 
 const jobEditorSubtitle = {
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   lineHeight: 1.45,
-  color: "#5f6f82",
-  marginBottom: 12,
+  color: "var(--color-text-muted)",
+  marginBottom: "var(--space-3)",
 };
 
 const jobGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const fieldLabel = {
-  fontSize: 12,
-  color: "#5f6f82",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--color-text-muted)",
   fontWeight: 900,
   textTransform: "uppercase",
   marginBottom: 6,
@@ -1457,33 +1457,33 @@ const fieldLabel = {
 const fieldInput = {
   width: "100%",
   padding: "9px 10px",
-  borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
-  color: "#0f172a",
-  fontSize: 14,
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-white)",
+  color: "var(--color-text)",
+  fontSize: "var(--font-size-md)",
 };
 
 const feedbackBase = {
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   padding: "10px 12px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 800,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
 };
 
 const feedbackError = {
   ...feedbackBase,
-  background: "#fef2f2",
-  border: "1px solid #fecaca",
-  color: "#991b1b",
+  background: "var(--color-danger-soft)",
+  border: "1px solid var(--color-danger-border)",
+  color: "var(--color-danger)",
 };
 
 const feedbackSuccess = {
   ...feedbackBase,
-  background: "#eff6ff",
-  border: "1px solid #bfdbfe",
-  color: "#1d4ed8",
+  background: "var(--color-info-soft)",
+  border: "1px solid var(--color-info-border)",
+  color: "var(--color-info)",
 };
 
 const fullField = {
@@ -1494,5 +1494,5 @@ const jobEditorActions = {
   display: "flex",
   justifyContent: "flex-end",
   gap: 10,
-  marginTop: 12,
+  marginTop: "var(--space-3)",
 };

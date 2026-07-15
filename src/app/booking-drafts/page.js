@@ -8,20 +8,20 @@ import { Clock3, FileText, LayoutDashboard, PencilLine, Plus, Trash2 } from "luc
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  border: "var(--border-default)",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
 };
 
 const pageWrap = {
@@ -35,7 +35,7 @@ const card = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadow,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const btn = (kind = "ghost") => ({
@@ -49,17 +49,17 @@ const btn = (kind = "ghost") => ({
     kind === "primary"
       ? `1px solid ${UI.brand}`
       : kind === "danger"
-      ? "1px solid #fecdd3"
+      ? "1px solid var(--legacy-color-fecdd3)"
       : `1px solid ${UI.brandBorder}`,
   background:
     kind === "primary"
       ? UI.brand
       : kind === "danger"
       ? UI.dangerSoft
-      : "#fff",
-  color: kind === "primary" ? "#fff" : kind === "danger" ? UI.danger : UI.text,
+      : "var(--color-white)",
+  color: kind === "primary" ? "var(--color-white)" : kind === "danger" ? UI.danger : UI.text,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
   boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadow,
 });
@@ -76,7 +76,7 @@ const pageHeader = {
 
 const h1Style = {
   margin: 0,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 800,
   color: UI.text,
@@ -106,7 +106,7 @@ const statCard = {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -125,8 +125,8 @@ const statLabel = {
 };
 
 const statValue = {
-  marginTop: 4,
-  fontSize: 22,
+  marginTop: "var(--space-1)",
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1,
   fontWeight: 900,
   color: UI.text,
@@ -135,13 +135,13 @@ const statValue = {
 const draftRow = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  padding: 12,
+  padding: "var(--space-3)",
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
   alignItems: "center",
   flexWrap: "wrap",
-  background: "#fff",
+  background: "var(--color-white)",
   boxShadow: UI.shadow,
 };
 
@@ -164,7 +164,7 @@ function DraftStat({ icon, label, value, detail }) {
       <div>
         <div style={statLabel}>{label}</div>
         <div style={statValue}>{value}</div>
-        {detail ? <div style={{ marginTop: 5, color: UI.muted, fontSize: 12 }}>{detail}</div> : null}
+        {detail ? <div style={{ marginTop: 5, color: UI.muted, fontSize: "var(--font-size-xs)" }}>{detail}</div> : null}
       </div>
     </div>
   );
@@ -231,7 +231,7 @@ export default function BookingDraftsPage() {
               Reopen unfinished booking forms saved automatically.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button type="button" style={btn("primary")} onClick={() => router.push("/create-booking")}>
               <Plus size={14} />
               New Booking
@@ -271,13 +271,13 @@ export default function BookingDraftsPage() {
                       <div style={{ fontWeight: 900, color: UI.text }}>
                         {String(d.title || "Untitled Draft")}
                       </div>
-                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 3 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 3 }}>
                         Updated: {fmtDateTime(d.updatedAt)}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                     <button
                       type="button"
                       style={btn("primary")}

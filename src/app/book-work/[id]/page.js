@@ -113,9 +113,9 @@ export default function BookWorkPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: 40, maxWidth: 700, color: "#111" }}>
+      <div style={{ padding: "var(--space-10)", maxWidth: 700, color: "var(--legacy-color-111)" }}>
         <h1>Book Maintenance for Vehicle</h1>
-        <h2 style={{ marginTop: 10, color: "#111" }}>
+        <h2 style={{ marginTop: 10, color: "var(--legacy-color-111)" }}>
           {vehicle?.name || vehicle?.registration || "Loading..."}
         </h2>
 
@@ -162,7 +162,7 @@ export default function BookWorkPage() {
         <label style={label}>Notes</label>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...input, height: 100 }} />
 
-        <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+        <div style={{ marginTop: "var(--space-5)", display: "flex", gap: 10 }}>
           <button onClick={checkExistingBookings} style={checkBtn}> Check Availability</button>
           <button onClick={handleSubmit} style={submitBtn}> Book Maintenance</button>
           <button onClick={() => router.push("/vehicles")} style={cancelBtn}> Cancel</button>
@@ -170,7 +170,7 @@ export default function BookWorkPage() {
 
         {existingBookings.length > 0 && (
           <div style={{ marginTop: 30 }}>
-            <h3 style={{ color: "#dc2626" }}>Warning Conflicting Bookings:</h3>
+            <h3 style={{ color: "var(--legacy-color-dc2626)" }}>Warning Conflicting Bookings:</h3>
             <ul>
               {existingBookings.map((b, i) => (
                 <li key={i}>
@@ -186,43 +186,43 @@ export default function BookWorkPage() {
 }
 
 // Styles
-const label = { display: "block", marginTop: 20, fontWeight: 600 };
+const label = { display: "block", marginTop: "var(--space-5)", fontWeight: 600 };
 const input = {
   width: "100%",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #ccc",
-  fontSize: 14,
+  border: "1px solid var(--legacy-color-ccc)",
+  fontSize: "var(--font-size-md)",
   marginTop: 5,
 };
 const submitBtn = {
-  marginTop: 20,
+  marginTop: "var(--space-5)",
   padding: "10px 20px",
-  backgroundColor: "#10b981",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-10b981)",
+  color: "var(--color-white)",
   border: "none",
-  borderRadius: 6,
+  borderRadius: "var(--radius-sm)",
   cursor: "pointer",
-  fontSize: 16,
+  fontSize: "var(--font-size-lg)",
 };
 const cancelBtn = {
   ...submitBtn,
-  backgroundColor: "#ef4444",
+  backgroundColor: "var(--legacy-color-ef4444)",
 };
 const checkBtn = {
   ...submitBtn,
-  backgroundColor: "#3b82f6",
+  backgroundColor: "var(--legacy-color-3b82f6)",
 };
 const modeBtn = {
   padding: "8px 12px",
-  borderRadius: 6,
-  border: "1px solid #ccc",
-  background: "#f3f4f6",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--legacy-color-ccc)",
+  background: "var(--legacy-color-f3f4f6)",
   cursor: "pointer",
 };
 const activeMode = {
   ...modeBtn,
-  backgroundColor: "#10b981",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-10b981)",
+  color: "var(--color-white)",
   border: "none",
 };

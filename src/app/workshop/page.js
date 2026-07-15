@@ -24,17 +24,17 @@ import {
 import { db } from "../../../firebaseConfig";
 
 const UI = {
-  bg: "#f4f7fb",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  border: "1px solid #e5e7eb",
+  bg: "var(--legacy-color-f4f7fb)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   shadow: "0 10px 30px rgba(15,23,42,0.06)",
-  maintenance: "#f97316",
-  service: "#2563eb",
-  mot: "#dc2626",
-  dueService: "#93c5fd",
-  dueMot: "#fca5a5",
+  maintenance: "var(--legacy-color-f97316)",
+  service: "var(--legacy-color-2563eb)",
+  mot: "var(--legacy-color-dc2626)",
+  dueService: "var(--legacy-color-93c5fd)",
+  dueMot: "var(--legacy-color-fca5a5)",
 };
 
 const pageWrap = {
@@ -134,7 +134,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "#0f172a",
+          textColor: "var(--color-text)",
           extendedProps: event,
         };
       }),
@@ -160,7 +160,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "#0f172a",
+          textColor: "var(--color-text)",
           extendedProps: event,
         };
       }),
@@ -177,7 +177,7 @@ export default function WorkshopPage() {
         allDay: true,
         backgroundColor: UI.maintenance,
         borderColor: UI.maintenance,
-        textColor: "#0f172a",
+        textColor: "var(--color-text)",
         extendedProps: event,
       })),
     [maintenanceJobs]
@@ -225,19 +225,19 @@ export default function WorkshopPage() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            gap: 16,
+            gap: "var(--space-4)",
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <button
               type="button"
               onClick={() => router.back()}
               style={{
                 padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #d1d5db",
-                background: "#fff",
+                borderRadius: "var(--radius-lg)",
+                border: "1px solid var(--legacy-color-d1d5db)",
+                background: "var(--color-white)",
                 color: UI.text,
                 fontWeight: 900,
                 cursor: "pointer",
@@ -249,24 +249,24 @@ export default function WorkshopPage() {
               <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: UI.text }}>
                 Workshop Calendar
               </h1>
-              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+              <div style={{ marginTop: 6, color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                 View active maintenance bookings, workshop job cards, and upcoming service and MOT due dates.
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={legendPill("#fff7ed", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
-            <span style={legendPill("#fff7ed", UI.maintenance)}>Job cards: {counts.jobs}</span>
-            <span style={legendPill("#eff6ff", UI.service)}>Service booked: {counts.service}</span>
-            <span style={legendPill("#fef2f2", UI.mot)}>MOT booked: {counts.mot}</span>
-            <span style={legendPill("#f8fafc", UI.text)}>Due dates: {counts.due}</span>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <span style={legendPill("var(--color-warning-soft)", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
+            <span style={legendPill("var(--color-warning-soft)", UI.maintenance)}>Job cards: {counts.jobs}</span>
+            <span style={legendPill("var(--color-info-soft)", UI.service)}>Service booked: {counts.service}</span>
+            <span style={legendPill("var(--color-danger-soft)", UI.mot)}>MOT booked: {counts.mot}</span>
+            <span style={legendPill("var(--color-surface-subtle)", UI.text)}>Due dates: {counts.due}</span>
           </div>
         </div>
       </div>
 
       <div style={{ padding: "14px 18px 18px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ ...card, padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ ...card, padding: "var(--space-4)", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
           <div
             style={{
               flex: 1,
@@ -299,7 +299,7 @@ export default function WorkshopPage() {
             }}
           />
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginTop: 14 }}>
             <LegendSwatch color={UI.maintenance} label="General maintenance booking" />
             <LegendSwatch color={UI.maintenance} label="Workshop job card" />
             <LegendSwatch color={UI.service} label="Booked service" />
@@ -330,7 +330,7 @@ export default function WorkshopPage() {
 
 function LegendSwatch({ color, label }) {
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
       <span
         style={{
           width: 14,
@@ -351,11 +351,11 @@ function legendPill(bg, fg) {
     display: "inline-flex",
     alignItems: "center",
     padding: "7px 10px",
-    borderRadius: 999,
-    border: "1px solid #e5e7eb",
+    borderRadius: "var(--radius-pill)",
+    border: "1px solid var(--legacy-color-e5e7eb)",
     background: bg,
     color: fg,
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     fontWeight: 900,
     whiteSpace: "nowrap",
   };

@@ -50,30 +50,30 @@ const HIDE_FROM_HOLIDAY_USAGE_GRAPH = new Set(["paul bickers"]);
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fee2e2",
-  redBorder: "#fecaca",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fee2e2)",
+  redBorder: "var(--color-danger-border)",
 };
 
 const pageWrap = {
@@ -85,11 +85,11 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = {
   background: UI.card,
@@ -103,11 +103,11 @@ const chip = {
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -120,7 +120,7 @@ const grid = (cols = 4) => ({
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
 };
@@ -189,7 +189,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -207,8 +207,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -221,54 +221,54 @@ const btn = (kind = "primary") => {
 /* Table styles (match your other tables) */
 const tableWrap = {
   overflow: "auto",
-  border: "1px solid #dde5ee",
+  border: "1px solid var(--legacy-color-dde5ee)",
   borderRadius: UI.radius,
-  background: "#fff",
+  background: "var(--color-white)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
+const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: "var(--font-size-sm)" };
 const th = {
   textAlign: "left",
   padding: "9px 10px",
-  borderBottom: "1px solid #dde5ee",
+  borderBottom: "1px solid var(--legacy-color-dde5ee)",
   position: "sticky",
   top: 0,
-  background: "#f7f9fc",
+  background: "var(--legacy-color-f7f9fc)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 800,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const td = { padding: "9px 10px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
+const td = { padding: "9px 10px", borderBottom: "1px solid var(--legacy-color-edf2f7)", verticalAlign: "top" };
 
 /* breakdown cell styles */
 const breakdownWrap = {
   maxHeight: 160,
   overflowY: "auto",
-  border: "1px solid #dde5ee",
+  border: "1px solid var(--legacy-color-dde5ee)",
   borderRadius: UI.radius,
   padding: "8px 10px",
-  background: "#f7f9fc",
+  background: "var(--legacy-color-f7f9fc)",
 };
 const breakdownList = { margin: 0, padding: 0, display: "grid", gap: 6 };
 const breakdownRow = (muted) => ({
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   alignItems: "baseline",
   padding: "6px 8px",
-  borderRadius: 8,
-  border: "1px solid #dde5ee",
-  background: muted ? "#f3f4f6" : "#fff",
-  color: muted ? "#6b7280" : UI.text,
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-dde5ee)",
+  background: muted ? "var(--legacy-color-f3f4f6)" : "var(--color-white)",
+  color: muted ? "var(--legacy-color-6b7280)" : UI.text,
 });
 
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -283,7 +283,7 @@ const statCard = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   minHeight: 82,
 };
 
@@ -299,7 +299,7 @@ const statValue = {
   fontSize: 25,
   lineHeight: 1.1,
   fontWeight: 850,
-  marginTop: 8,
+  marginTop: "var(--space-2)",
 };
 
 const selectStyle = {
@@ -317,7 +317,7 @@ const focusCss = `
   select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -863,9 +863,9 @@ export default function HRPage() {
       description: "View company policies and employee handbook.",
       link: "/hr-policies",
       icon: BookOpen,
-      color: "#7c3aed",
-      bg: "#f5f3ff",
-      border: "#ddd6fe",
+      color: "var(--legacy-color-7c3aed)",
+      bg: "var(--legacy-color-f5f3ff)",
+      border: "var(--legacy-color-ddd6fe)",
     },
   ];
 
@@ -877,7 +877,7 @@ export default function HRPage() {
         x={x + width / 2}
         y={y - 4}
         textAnchor="middle"
-        fill="#0f172a"
+        fill="var(--color-text)"
         style={{ fontSize: 11, fontWeight: 800 }}
       >
         {fmtNum(value)}
@@ -893,7 +893,7 @@ export default function HRPage() {
         x={x + width / 2}
         y={y - 4}
         textAnchor="middle"
-        fill="#64748b"
+        fill="var(--color-text-subtle)"
         style={{ fontSize: 11, fontWeight: 800 }}
       >
         {fmtNum(value)}
@@ -990,7 +990,7 @@ export default function HRPage() {
               style={{
                 ...chip,
                 background: UI.brandSoft,
-                borderColor: "#dbeafe",
+                borderColor: "var(--legacy-color-dbeafe)",
                 color: UI.brand,
               }}
             >
@@ -1029,9 +1029,9 @@ export default function HRPage() {
             labelText="Access"
             value={isAdmin ? "Admin" : "View only"}
             icon={ShieldCheck}
-            color="#7c3aed"
-            bg="#f5f3ff"
-            border="#ddd6fe"
+            color="var(--legacy-color-7c3aed)"
+            bg="var(--legacy-color-f5f3ff)"
+            border="var(--legacy-color-ddd6fe)"
             textValue
           />
         </div>
@@ -1066,7 +1066,7 @@ export default function HRPage() {
             </div>
 
             {usageData.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "8px 2px" }}>
                 No approved paid holidays yet for {yearView}, so there is nothing to chart.
               </div>
             ) : (
@@ -1076,12 +1076,12 @@ export default function HRPage() {
                     data={usageData}
                     margin={{ top: 16, right: 24, left: 0, bottom: 24 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fontSize: 12, fill: "#6b7280" }}
-                      axisLine={{ stroke: "#e5e7eb" }}
-                      tickLine={{ stroke: "#e5e7eb" }}
+                      tick={{ fontSize: "var(--font-size-xs)", fill: "var(--legacy-color-6b7280)" }}
+                      axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                      tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                       interval={0}
                       angle={-25}
                       textAnchor="end"
@@ -1090,24 +1090,24 @@ export default function HRPage() {
                     <YAxis
                       domain={[0, maxY]}
                       allowDecimals
-                      tick={{ fontSize: 12, fill: "#6b7280" }}
-                      axisLine={{ stroke: "#e5e7eb" }}
-                      tickLine={{ stroke: "#e5e7eb" }}
+                      tick={{ fontSize: "var(--font-size-xs)", fill: "var(--legacy-color-6b7280)" }}
+                      axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                      tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                       label={{
                         value: "Days",
                         angle: -90,
                         position: "insideLeft",
                         offset: 8,
-                        style: { fontSize: 12, fill: "#6b7280" },
+                        style: { fontSize: "var(--font-size-xs)", fill: "var(--legacy-color-6b7280)" },
                       }}
                     />
                     <Tooltip
                       cursor={{ fill: "rgba(148,163,184,0.12)" }}
                       contentStyle={{
                         borderRadius: 10,
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid var(--legacy-color-e5e7eb)",
                         boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                        fontSize: 12,
+                        fontSize: "var(--font-size-xs)",
                         color: UI.text,
                       }}
                       formatter={(value, name, props) => {
@@ -1120,7 +1120,7 @@ export default function HRPage() {
                     />
 
                     {/* Allowance (grey) */}
-                    <Bar dataKey="allowance" fill="#94a3b8" radius={[8, 8, 0, 0]}>
+                    <Bar dataKey="allowance" fill="var(--legacy-color-94a3b8)" radius={[8, 8, 0, 0]}>
                       <LabelList dataKey="allowance" content={renderAllowanceLabel} />
                     </Bar>
 
@@ -1156,13 +1156,13 @@ export default function HRPage() {
               </div>
 
               {!isAdmin ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "6px 2px" }}>
                   You can review requests here, but only admins can approve or decline them.
                 </div>
               ) : null}
 
               {requestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "8px 2px" }}>
                   No pending holiday requests.
                 </div>
               ) : (
@@ -1215,21 +1215,21 @@ export default function HRPage() {
                           <span style={chip}>{type}</span>
                         </div>
 
-                        <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+                        <div style={{ marginTop: 6, color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                           {fmt(fromD)} to {fmt(toD)}
                           {typeHint ? (
-                            <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
+                            <span style={{ marginLeft: "var(--space-2)", fontWeight: 900, color: UI.text }}>
                               - {typeHint}
                             </span>
                           ) : null}
                         </div>
 
-                        <div style={{ marginTop: 4, color: UI.muted, fontSize: 12.5 }}>
+                        <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: 12.5 }}>
                           Requested by:{" "}
                           <span style={{ fontWeight: 800, color: UI.text }}>{requestedBy}</span>
                         </div>
 
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                           <button
                             style={{
                               ...btn("approve"),
@@ -1269,7 +1269,7 @@ export default function HRPage() {
                   })}
 
                   {requestedHolidays.length > 6 ? (
-                    <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                    <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 2 }}>
                       Showing 6 of {requestedHolidays.length}. Open Holiday Usage for the full list.
                     </div>
                   ) : null}
@@ -1297,13 +1297,13 @@ export default function HRPage() {
               </div>
 
               {!isAdmin ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "6px 2px" }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "6px 2px" }}>
                   You can review delete requests here, but only admins can approve or decline them.
                 </div>
               ) : null}
 
               {deleteRequestedHolidays.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13, padding: "8px 2px" }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "8px 2px" }}>
                   No delete requests.
                 </div>
               ) : (
@@ -1348,20 +1348,20 @@ export default function HRPage() {
                           <span style={chip}>{type}</span>
                         </div>
 
-                        <div style={{ marginTop: 6, color: UI.muted, fontSize: 13 }}>
+                        <div style={{ marginTop: 6, color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                           {fmt(fromD)} to {fmt(toD)}
                           {typeHint ? (
-                            <span style={{ marginLeft: 8, fontWeight: 900, color: UI.text }}>
+                            <span style={{ marginLeft: "var(--space-2)", fontWeight: 900, color: UI.text }}>
                               - {typeHint}
                             </span>
                           ) : null}
                         </div>
 
-                        <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
+                        <div style={{ marginTop: "var(--space-2)", color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                           Requested by: <b style={{ color: UI.text }}>{h.deleteRequestedBy || "-"}</b>
                         </div>
 
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                           <button
                             style={{
                               ...btn("approve"),
@@ -1403,7 +1403,7 @@ export default function HRPage() {
                   })}
 
                   {deleteRequestedHolidays.length > 6 ? (
-                    <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>
+                    <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 2 }}>
                       Showing 6 of {deleteRequestedHolidays.length}. Open Holiday Usage for the full list.
                     </div>
                   ) : null}
@@ -1414,7 +1414,7 @@ export default function HRPage() {
         </div>
 
         {/* HR Docs */}
-        <section style={{ marginTop: 12 }}>
+        <section style={{ marginTop: "var(--space-3)" }}>
           <div
             style={{
               display: "flex",

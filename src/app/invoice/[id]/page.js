@@ -26,22 +26,22 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
 };
 
 const pageWrap = { padding: "40px 24px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: "#fff", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const surface = { background: "var(--color-white)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const section = { ...surface, padding: 14, marginBottom: UI.gap };
-const sectionTitle = { fontSize: 16, fontWeight: 900, marginBottom: 8, color: UI.text };
-const grid = (cols = 3) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 12 });
-const k = { fontSize: 12, color: UI.muted, textTransform: "uppercase", fontWeight: 800, letterSpacing: ".02em" };
-const v = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: "#0f172a", fontSize: 12, fontWeight: 700 };
+const sectionTitle = { fontSize: "var(--font-size-lg)", fontWeight: 900, marginBottom: "var(--space-2)", color: UI.text };
+const grid = (cols = 3) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "var(--space-3)" });
+const k = { fontSize: "var(--font-size-xs)", color: UI.muted, textTransform: "uppercase", fontWeight: 800, letterSpacing: ".02em" };
+const v = { fontSize: "var(--font-size-md)", color: UI.text, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: "var(--color-text)", fontSize: "var(--font-size-xs)", fontWeight: 700 };
 
 /* ───────────────────────────────────────────
    Helpers
@@ -426,11 +426,11 @@ export default function InvoiceJobPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         {/* Back + Title */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)" }}>
           <button
             onClick={() => router.back()}
             style={{
-              backgroundColor: "#e5e7eb",
+              backgroundColor: "var(--legacy-color-e5e7eb)",
               padding: "8px 16px",
               borderRadius: "8px",
               border: "none",
@@ -441,7 +441,7 @@ export default function InvoiceJobPage() {
             ← Back
           </button>
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <span style={chip}>{statusPretty}</span>
           </div>
         </div>
@@ -466,7 +466,7 @@ export default function InvoiceJobPage() {
             <div><div style={k}>Vehicles</div><div style={v}>{vehicles}</div></div>
 
             <div><div style={k}>Equipment</div><div style={v}>{equipment}</div></div>
-            <div><div style={k}>Booking Dates (detailed)</div><div style={{ fontSize: 14 }}>{renderDates}</div></div>
+            <div><div style={k}>Booking Dates (detailed)</div><div style={{ fontSize: "var(--font-size-md)" }}>{renderDates}</div></div>
             <div><div style={k}>PO Number</div><div style={v}>{job?.finance?.poNumber || job?.poNumber || "—"}</div></div>
           </div>
         </div>
@@ -474,16 +474,16 @@ export default function InvoiceJobPage() {
         {/* Notes */}
         <div style={section}>
           <div style={sectionTitle}>Notes</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+            <div style={{ ...surface, padding: "var(--space-3)", borderRadius: UI.radiusSm }}>
               <div style={k}>General Notes</div>
-              <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{job.notes || job.generalNotes || "—"}</div>
+              <div style={{ fontSize: "var(--font-size-md)", whiteSpace: "pre-wrap" }}>{job.notes || job.generalNotes || "—"}</div>
             </div>
-            <div style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
+            <div style={{ ...surface, padding: "var(--space-3)", borderRadius: UI.radiusSm }}>
               <div style={k}>Per-Day Notes</div>
-              <div style={{ fontSize: 14 }}>
+              <div style={{ fontSize: "var(--font-size-md)" }}>
                 {job?.notesByDate && typeof job.notesByDate === "object" ? (
-                  <ul style={{ margin: 0, paddingLeft: 16 }}>
+                  <ul style={{ margin: 0, paddingLeft: "var(--space-4)" }}>
                     {Object.entries(job.notesByDate).map(([d, n]) => (
                       <li key={d} style={{ marginBottom: 6 }}>
                         <strong>{formatNotesDateKey(d)}:</strong>{" "}
@@ -506,7 +506,7 @@ export default function InvoiceJobPage() {
             <div><div style={k}>Invoiced At</div><div style={v}>{fmtLong(parseDate(job?.finance?.invoicedAt) || parseDate(job?.invoicedAt))}</div></div>
             <div><div style={k}>Paid At</div><div style={v}>{fmtLong(parseDate(job?.finance?.paidAt) || parseDate(job?.paidAt))}</div></div>
             <div><div style={k}>Payment Terms</div><div style={v}>{job?.finance?.terms || job?.paymentTerms || "—"}</div></div>
-            <div><div style={k}>Finance Notes</div><div style={{ fontSize: 14 }}>{job?.finance?.notes || "—"}</div></div>
+            <div><div style={k}>Finance Notes</div><div style={{ fontSize: "var(--font-size-md)" }}>{job?.finance?.notes || "—"}</div></div>
           </div>
         </div>
 
@@ -519,19 +519,19 @@ export default function InvoiceJobPage() {
           ) : timesheets.length === 0 ? (
             <div style={{ color: UI.muted }}>No timesheets found for this job.</div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "var(--space-3)" }}>
               {timesheets.map((ts) => {
                 const docs = collectTimesheetDocs(ts);
                 const first = docs[0];
                 const { base, ot } = tsHours(ts);
 
                 return (
-                  <div key={ts.id} style={{ ...surface, padding: 12, borderRadius: UI.radiusSm }}>
+                  <div key={ts.id} style={{ ...surface, padding: "var(--space-3)", borderRadius: UI.radiusSm }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 1fr", gap: 10, alignItems: "start" }}>
                       <div>
                         <div style={k}>Employee</div>
                         <div style={v}>{tsEmployee(ts)}</div>
-                        <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
+                        <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: "var(--space-1)" }}>
                           {ts.employeeId ? `ID: ${ts.employeeId}` : ""}
                         </div>
                       </div>
@@ -540,7 +540,7 @@ export default function InvoiceJobPage() {
                         <div style={k}>Date</div>
                         <div style={v}>{tsDate(ts)}</div>
                         {ts.startTime || ts.endTime ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: "var(--space-1)" }}>
                             {ts.startTime || "—"} – {ts.endTime || "—"} {ts.breakMins ? `(Break ${ts.breakMins}m)` : ""}
                           </div>
                         ) : null}
@@ -560,7 +560,7 @@ export default function InvoiceJobPage() {
                         <div style={k}>Total</div>
                         <div style={v}>{tsTotalMoney(ts)}</div>
                         {ts.rate || ts.overtimeRate ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 4 }}>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: "var(--space-1)" }}>
                             {ts.rate ? `Rate ${money(ts.rate)}` : ""} {ts.overtimeRate ? ` • OT ${money(ts.overtimeRate)}` : ""}
                           </div>
                         ) : null}
@@ -570,7 +570,7 @@ export default function InvoiceJobPage() {
                         <div style={k}>Status</div>
                         <div style={v}>{prettifyStatus(ts.status || ts.approvalStatus || "—")}</div>
                         {ts.notes ? (
-                          <div style={{ fontSize: 12, color: UI.muted, marginTop: 6, whiteSpace: "pre-wrap" }}>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 6, whiteSpace: "pre-wrap" }}>
                             {ts.notes}
                           </div>
                         ) : null}
@@ -581,19 +581,19 @@ export default function InvoiceJobPage() {
                     <div style={{ marginTop: 10 }}>
                       <div style={k}>Attachments</div>
                       {!docs.length ? (
-                        <div style={{ fontSize: 13, color: UI.muted }}>No files</div>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>No files</div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
                           {/* Inline preview of the first file */}
                           {first && (
                             <div style={{ ...surface, border: UI.border, borderRadius: 10, overflow: "hidden" }}>
-                              <div style={{ padding: 8, borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <strong style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{first.name}</strong>
-                                <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
+                              <div style={{ padding: "var(--space-2)", borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <strong style={{ fontSize: "var(--font-size-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{first.name}</strong>
+                                <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: "var(--font-size-sm)" }}>
                                   Open
                                 </a>
                               </div>
-                              <div style={{ padding: 8, background: "#fafafa" }}>
+                              <div style={{ padding: "var(--space-2)", background: "var(--legacy-color-fafafa)" }}>
                                 {first.kind === "pdf" ? (
                                   <iframe src={first.url} title={first.name} style={{ width: "100%", height: 340, border: 0 }} />
                                 ) : first.kind === "image" ? (
@@ -601,7 +601,7 @@ export default function InvoiceJobPage() {
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={first.url} alt={first.name} style={{ maxWidth: "100%", maxHeight: 340, display: "block" }} loading="lazy" />
                                 ) : (
-                                  <div style={{ fontSize: 13, color: UI.muted }}>
+                                  <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>
                                     File cannot be previewed.{" "}
                                     <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
                                       Download / Open
@@ -613,8 +613,8 @@ export default function InvoiceJobPage() {
                           )}
 
                           {/* List other files */}
-                          <div style={{ ...surface, padding: 8, borderRadius: 10 }}>
-                            <ul style={{ margin: 0, paddingLeft: 16 }}>
+                          <div style={{ ...surface, padding: "var(--space-2)", borderRadius: 10 }}>
+                            <ul style={{ margin: 0, paddingLeft: "var(--space-4)" }}>
                               {docs.map((d, i) => (
                                 <li key={d.url + i} style={{ marginBottom: 6 }}>
                                   <a href={d.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 700, textDecoration: "none" }}>
@@ -638,7 +638,7 @@ export default function InvoiceJobPage() {
         <div style={section}>
           <div style={sectionTitle}>Job Documents</div>
           {!jobDocs.length ? (
-            <div style={{ color: UI.muted, fontSize: 14 }}>No documents found on this job.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-md)" }}>No documents found on this job.</div>
           ) : (
             <div style={grid(3)}>
               {jobDocs.map((d, i) => (
@@ -649,11 +649,11 @@ export default function InvoiceJobPage() {
                   <div
                     style={{
                       padding: 10,
-                      borderBottom: "1px solid #e5e7eb",
+                      borderBottom: "1px solid var(--legacy-color-e5e7eb)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      gap: 8,
+                      gap: "var(--space-2)",
                     }}
                   >
                     <div
@@ -673,15 +673,15 @@ export default function InvoiceJobPage() {
                       href={d.url}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ fontWeight: 800, color: UI.brand, textDecoration: "none", fontSize: 13 }}
+                      style={{ fontWeight: 800, color: UI.brand, textDecoration: "none", fontSize: "var(--font-size-sm)" }}
                     >
                       Open
                     </a>
                   </div>
 
-                  <div style={{ padding: 10, background: "#fafafa" }}>
+                  <div style={{ padding: 10, background: "var(--legacy-color-fafafa)" }}>
                     {d.kind === "pdf" ? (
-                      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                      <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 10, overflow: "hidden", background: "var(--color-white)" }}>
                         <iframe src={d.url} title={d.name} style={{ width: "100%", height: 420, border: 0 }} />
                       </div>
                     ) : d.kind === "image" ? (
@@ -689,8 +689,8 @@ export default function InvoiceJobPage() {
                         style={{
                           display: "grid",
                           placeItems: "center",
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
+                          background: "var(--color-white)",
+                          border: "1px solid var(--legacy-color-e5e7eb)",
                           borderRadius: 10,
                           overflow: "hidden",
                         }}
@@ -705,7 +705,7 @@ export default function InvoiceJobPage() {
                         />
                       </div>
                     ) : (
-                      <div style={{ fontSize: 13, color: UI.muted }}>
+                      <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>
                         File cannot be previewed.&nbsp;
                         <a href={d.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none" }}>
                           Download / Open
@@ -726,10 +726,10 @@ export default function InvoiceJobPage() {
             disabled={saving}
             style={{
               padding: "10px 18px",
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               border: "none",
-              background: saving ? "#6b7280" : "#10b981",
-              color: "#fff",
+              background: saving ? "var(--legacy-color-6b7280)" : "var(--legacy-color-10b981)",
+              color: "var(--color-white)",
               fontWeight: 700,
               cursor: saving ? "not-allowed" : "pointer",
             }}

@@ -99,6 +99,49 @@ const matchesFieldConstraint = (row, fieldName, operator, values) => {
   if (!keys.size) return false;
   const value = row?.[fieldName];
 
+  if (fieldName === "bookingDates" && operator === "array-contains-any") {
+    const matchFromArray = Array.isArray(value) && value.some((item) => keys.has(normaliseDateKey(item)));
+    if (matchFromArray) return true;
+
+    const asDate = (raw) => {
+      if (!raw) return "";
+      if (typeof raw?.toDate === "function") {
+        const d = raw.toDate();
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toISOString().slice(0, 10);
+      }
+      if (typeof raw === "string") return raw.slice(0, 10);
+      if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? "" : raw.toISOString().slice(0, 10);
+      return "";
+    };
+
+    const date = normaliseDateKey(row.date);
+    if (date && keys.has(date)) return true;
+
+    const start = normaliseDateKey(asDate(row.startDate || row.date));
+    const end = normaliseDateKey(asDate(row.endDate || row.startDate || row.date));
+    if (!start || !end) return false;
+
+    const toMs = (key) => {
+      const [year, month, day] = String(key).split("-").map(Number);
+      if (!year || !month || !day) return NaN;
+      return Date.UTC(year, month - 1, day);
+    };
+
+    const startMs = toMs(start);
+    const endMs = toMs(end);
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) return false;
+
+    const rangeStart = Math.min(startMs, endMs);
+    const rangeEnd = Math.max(startMs, endMs);
+
+    return Array.from(keys).some((key) => {
+      const dayMs = toMs(key);
+      if (Number.isNaN(dayMs)) return false;
+      return dayMs >= rangeStart && dayMs <= rangeEnd;
+    });
+  }
+
   if (operator === "array-contains-any") {
     return Array.isArray(value) && value.some((item) => keys.has(normaliseDateKey(item)));
   }

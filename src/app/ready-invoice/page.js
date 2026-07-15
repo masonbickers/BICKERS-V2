@@ -106,24 +106,24 @@ export default function ReadyToInvoicePage() {
   /* ---------- styles ---------- */
   const cardStyle = {
     display: "block",
-    backgroundColor: "#f3f4f6",
-    border: "1px solid #d1d5db",
+    backgroundColor: "var(--legacy-color-f3f4f6)",
+    border: "1px solid var(--legacy-color-d1d5db)",
     borderRadius: "12px",
     padding: "16px",
     textDecoration: "none",
-    color: "#000",
+    color: "var(--color-black)",
   };
 
   const badge = {
     display: "inline-block",
     padding: "2px 10px",
-    fontSize: 12,
-    borderRadius: 999,
+    fontSize: "var(--font-size-xs)",
+    borderRadius: "var(--radius-pill)",
     fontWeight: 700,
-    marginLeft: 8,
-    border: "1px solid #bfdbfe",
-    background: "#dbeafe",
-    color: "#2563eb",
+    marginLeft: "var(--space-2)",
+    border: "1px solid var(--color-info-border)",
+    background: "var(--legacy-color-dbeafe)",
+    color: "var(--legacy-color-2563eb)",
   };
 
   return (
@@ -132,7 +132,7 @@ export default function ReadyToInvoicePage() {
         <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 10 }}>
           Ready to Invoice
         </h1>
-        <div style={{ color: "#6b7280", marginBottom: 24 }}>
+        <div style={{ color: "var(--legacy-color-6b7280)", marginBottom: "var(--space-6)" }}>
           Showing jobs with status <strong>“Ready to Invoice”</strong>. Invoiced/Paid are hidden.
         </div>
 
@@ -152,7 +152,7 @@ export default function ReadyToInvoicePage() {
                   Job #{job.jobNumber || job.id}
                   <span style={badge}>Ready to Invoice</span>
                 </div>
-                <div style={{ fontSize: 13 }}>
+                <div style={{ fontSize: "var(--font-size-sm)" }}>
                   <div><strong>Client:</strong> {job.client || "—"}</div>
                   <div><strong>Location:</strong> {job.location || "—"}</div>
                   <div><strong>Dates:</strong> {renderDates(job)}</div>

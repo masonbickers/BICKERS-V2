@@ -34,15 +34,15 @@ const overlay = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const card = {
   width: "min(390px, 92vw)",
-  background: "#ffffff",
-  color: "#0f172a",
-  borderRadius: 8,
-  border: "1px solid #d7dee8",
+  background: "var(--color-white)",
+  color: "var(--color-text)",
+  borderRadius: "var(--radius-md)",
+  border: "var(--border-default)",
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
   padding: 14,
 };
@@ -52,15 +52,15 @@ const topRow = {
   gridTemplateColumns: "34px minmax(0, 1fr) auto",
   alignItems: "center",
   gap: 10,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
 };
 
 const iconBox = {
   width: 34,
   height: 34,
-  borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#edf3f8",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-brand-soft)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -69,8 +69,8 @@ const iconBox = {
 const iconDot = {
   width: 12,
   height: 12,
-  borderRadius: 999,
-  background: "#1f4b7a",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--color-brand)",
   boxShadow: "0 0 0 5px rgba(31,75,122,0.12)",
 };
 
@@ -79,16 +79,16 @@ const copy = {
 };
 
 const heading = {
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   lineHeight: 1.25,
   fontWeight: 900,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const subtext = {
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   lineHeight: 1.3,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontWeight: 700,
   marginTop: 2,
 };
@@ -96,11 +96,11 @@ const subtext = {
 const percent = {
   minWidth: 54,
   padding: "5px 8px",
-  borderRadius: 999,
-  border: "1px solid #c8d6e3",
-  background: "#f8fbfe",
-  color: "#1f4b7a",
-  fontSize: 13,
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--legacy-color-f8fbfe)",
+  color: "var(--color-brand)",
+  fontSize: "var(--font-size-sm)",
   lineHeight: 1,
   fontWeight: 900,
   textAlign: "center",
@@ -109,15 +109,15 @@ const percent = {
 const track = {
   height: 8,
   width: "100%",
-  borderRadius: 999,
-  background: "#edf3f8",
-  border: "1px solid #d7dee8",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--color-brand-soft)",
+  border: "var(--border-default)",
   overflow: "hidden",
 };
 
 const fill = {
   height: "100%",
-  borderRadius: 999,
-  background: "linear-gradient(90deg, #1f4b7a 0%, #8b5e3c 100%)",
+  borderRadius: "var(--radius-pill)",
+  background: "linear-gradient(90deg, var(--color-brand) 0%, var(--legacy-color-8b5e3c) 100%)",
   transition: "width 220ms ease",
 };

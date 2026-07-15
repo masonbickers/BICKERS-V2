@@ -19,22 +19,22 @@ const UI = {
   radiusSm: 10,
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#163a63",
-  brandSoft: "#edf4fb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--legacy-color-163a63)",
+  brandSoft: "var(--legacy-color-edf4fb)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "4px 8px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-surface-subtle)",
   color: UI.text,
   fontSize: 10,
   fontWeight: 700,
@@ -225,25 +225,25 @@ export default function ClientEmailsPage() {
             display: "flex",
             alignItems: "baseline",
             justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 16,
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-4)",
             flexWrap: "wrap",
           }}
         >
           <div>
             <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Client Emails</h1>
-            <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: "var(--space-1)" }}>
               Collated email directory from booking contacts saved against jobs.
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span style={chip}>{emailRows.length} emails</span>
-            <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>{allJobs.length} job records scanned</span>
+            <span style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)" }}>{allJobs.length} job records scanned</span>
           </div>
         </div>
 
-        <div style={{ ...surface, padding: 12, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ ...surface, padding: "var(--space-3)", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <input
               type="text"
               value={search}
@@ -254,13 +254,13 @@ export default function ClientEmailsPage() {
                 minWidth: 260,
                 padding: "9px 11px",
                 borderRadius: UI.radiusSm,
-                border: "1px solid #d1d5db",
-                fontSize: 13,
+                border: "1px solid var(--legacy-color-d1d5db)",
+                fontSize: "var(--font-size-sm)",
                 outline: "none",
-                background: "#fff",
+                background: "var(--color-white)",
               }}
             />
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
               <div style={{ color: UI.muted, fontSize: 11 }}>
                 Showing <b style={{ color: UI.text }}>{filteredRows.length}</b> entries
               </div>
@@ -276,15 +276,15 @@ export default function ClientEmailsPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(240px, 1.1fr) minmax(160px, 0.7fr) minmax(140px, 0.6fr) minmax(160px, 0.7fr) minmax(140px, 0.7fr)",
-              gap: 12,
+              gap: "var(--space-3)",
               padding: "10px 12px",
               color: UI.muted,
               fontSize: 11,
               fontWeight: 800,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e5e7eb",
+              background: "var(--color-surface-subtle)",
+              borderBottom: "1px solid var(--legacy-color-e5e7eb)",
             }}
           >
             <div>Email</div>
@@ -305,24 +305,24 @@ export default function ClientEmailsPage() {
                     gap: 10,
                     padding: "10px 12px",
                     alignItems: "start",
-                    background: index % 2 ? "#fcfdff" : "#ffffff",
-                    borderBottom: "1px solid #eef2f7",
+                    background: index % 2 ? "var(--legacy-color-fcfdff)" : "var(--color-white)",
+                    borderBottom: "1px solid var(--legacy-color-eef2f7)",
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 900, color: UI.text, wordBreak: "break-word", fontSize: 13, lineHeight: 1.3 }}>{row.email}</div>
+                    <div style={{ fontWeight: 900, color: UI.text, wordBreak: "break-word", fontSize: "var(--font-size-sm)", lineHeight: 1.3 }}>{row.email}</div>
                     {!!row.phones.length && (
                       <div style={{ color: UI.muted, fontSize: 11, marginTop: 3 }}>{row.phones.slice(0, 2).join(" • ")}</div>
                     )}
                   </div>
 
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 13 }}>{row.names[0] || "-"}</div>
+                    <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)" }}>{row.names[0] || "-"}</div>
                     <div style={{ color: UI.muted, fontSize: 11, marginTop: 3 }}>{row.departments[0] || "No department"}</div>
                   </div>
 
                   <div>
-                    <div style={{ fontWeight: 900, fontSize: 16 }}>{row.totalJobs}</div>
+                    <div style={{ fontWeight: 900, fontSize: "var(--font-size-lg)" }}>{row.totalJobs}</div>
                     <div style={{ color: UI.muted, fontSize: 11, marginTop: 3 }}>
                       Active {row.activeJobs} • Deleted {row.deletedJobs}
                     </div>
@@ -331,7 +331,7 @@ export default function ClientEmailsPage() {
                   <div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {row.clients.slice(0, 3).map((client) => (
-                        <span key={client} style={{ ...chip, background: "#fff" }}>
+                        <span key={client} style={{ ...chip, background: "var(--color-white)" }}>
                           {client}
                         </span>
                       ))}
@@ -342,7 +342,7 @@ export default function ClientEmailsPage() {
                   </div>
 
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 13 }}>{fmtDate(row.lastSeenAt)}</div>
+                    <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)" }}>{fmtDate(row.lastSeenAt)}</div>
                     <div style={{ color: UI.muted, fontSize: 11, marginTop: 3 }}>First seen {fmtDate(row.firstSeenAt)}</div>
                   </div>
 
@@ -362,11 +362,11 @@ export default function ClientEmailsPage() {
                         key={jobNumber}
                         style={{
                           padding: "3px 7px",
-                          borderRadius: 999,
-                          border: "1px solid #e2e8f0",
-                          background: "#f8fafc",
+                          borderRadius: "var(--radius-pill)",
+                          border: "1px solid var(--legacy-color-e2e8f0)",
+                          background: "var(--color-surface-subtle)",
                           fontSize: 10,
-                          color: "#475569",
+                          color: "var(--legacy-color-475569)",
                           fontWeight: 700,
                         }}
                       >
@@ -377,7 +377,7 @@ export default function ClientEmailsPage() {
                 </div>
               ))
             ) : (
-              <div style={{ padding: 16, color: UI.muted, fontSize: 12 }}>No client emails match the current search.</div>
+              <div style={{ padding: "var(--space-4)", color: UI.muted, fontSize: "var(--font-size-xs)" }}>No client emails match the current search.</div>
             )}
           </div>
         </div>

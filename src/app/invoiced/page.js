@@ -22,24 +22,24 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  brandSoft: "var(--color-info-soft)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12 };
-const h1 = { color: "#0f172a", fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13 };
-const surface = { background: "#ffffff", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-3)" };
+const h1 = { color: "var(--color-text)", fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
+const sub = { color: UI.muted, fontSize: "var(--font-size-sm)" };
+const surface = { background: "var(--color-white)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const toolbar = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   display: "grid",
   gridTemplateColumns: "1fr auto auto",
   gap: 10,
@@ -55,22 +55,22 @@ const searchInput = {
   width: "100%",
   padding: "10px 44px 10px 36px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  fontSize: 14,
+  border: "1px solid var(--legacy-color-d1d5db)",
+  fontSize: "var(--font-size-md)",
   outline: "none",
-  background: "#fff",
+  background: "var(--color-white)",
 };
 const searchIcon = { position: "absolute", left: 10, width: 18, height: 18, opacity: 0.6 };
 
-const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, minWidth: 140 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: "#0f172a", fontSize: 12, fontWeight: 700 };
+const select = { padding: "8px 10px", borderRadius: UI.radiusSm, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--color-white)", fontSize: "var(--font-size-sm)", minWidth: 140 };
+const chip = { padding: "6px 10px", borderRadius: "var(--radius-pill)", border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: "var(--color-text)", fontSize: "var(--font-size-xs)", fontWeight: 700 };
 
 const sectionHeader = { display: "flex", alignItems: "center", justifyContent: "space-between", margin: "22px 2px 12px" };
-const weekTitle = { fontSize: 15, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.01em" };
-const tinyHint = { color: UI.muted, fontSize: 12 };
+const weekTitle = { fontSize: 15, fontWeight: 900, color: "var(--color-text)", letterSpacing: "-0.01em" };
+const tinyHint = { color: UI.muted, fontSize: "var(--font-size-xs)" };
 
 /* Table styles (match) */
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const tableWrap = { overflow: "auto", border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: "var(--radius-lg)", background: "var(--color-white)" };
 const tableEl = {
   width: "100%",
   tableLayout: "fixed", //  lock column widths so everything lines up
@@ -78,10 +78,10 @@ const tableEl = {
   borderSpacing: 0,
   fontSize: 13.5,
 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", position: "sticky", top: 0, background: "var(--color-surface-subtle)", zIndex: 1 };
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "top",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -177,25 +177,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+      return { bg: "var(--legacy-color-fee2e2)", border: "var(--color-danger-border)", text: "var(--color-danger)" };
     case "Complete":
-      return { bg: "#97f59bff", border: "#419e50ff", text: "#10301aff" };
+      return { bg: "var(--legacy-color-97f59bff)", border: "var(--legacy-color-419e50ff)", text: "var(--legacy-color-10301aff)" };
     case "Confirmed":
-      return { bg: "#fffd98ff", border: "#c7d134ff", text: "#504c1aff" };
+      return { bg: "var(--legacy-color-fffd98ff)", border: "var(--legacy-color-c7d134ff)", text: "var(--legacy-color-504c1aff)" };
     case "First Pencil":
-      return { bg: "#78b8ecff", border: "#2c28ffff", text: "#001affff" };
+      return { bg: "var(--legacy-color-78b8ecff)", border: "var(--legacy-color-2c28ffff)", text: "var(--legacy-color-001affff)" };
     case "Second Pencil":
-      return { bg: "#fd9a9aff", border: "#f33131ff", text: "#8b1212ff" };
+      return { bg: "var(--legacy-color-fd9a9aff)", border: "var(--legacy-color-f33131ff)", text: "var(--legacy-color-8b1212ff)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#acacacff", border: "#3f3f3fff", text: "#000000ff" };
+      return { bg: "var(--legacy-color-acacacff)", border: "var(--legacy-color-3f3f3fff)", text: "var(--legacy-color-000000ff)" };
   }
 };
 
@@ -207,7 +207,7 @@ const StatusCell = ({ raw }) => {
       style={{
         padding: "6px 10px",
         fontSize: 11,
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${c.border}`,
         background: c.bg,
         color: c.text,
@@ -478,9 +478,9 @@ const Table = ({ jobs }) => (
         {/* Content grouped by week */}
         <div style={{ marginTop: 14 }}>
           {loading ? (
-            <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>Loading jobs…</div>
+            <div style={{ ...surface, padding: "var(--space-6)", textAlign: "center", color: UI.muted }}>Loading jobs…</div>
           ) : weekKeys.length === 0 && (noDate?.length ?? 0) === 0 ? (
-            <div style={{ ...surface, padding: 24, textAlign: "center", color: UI.muted }}>No invoiced jobs awaiting payment.</div>
+            <div style={{ ...surface, padding: "var(--space-6)", textAlign: "center", color: UI.muted }}>No invoiced jobs awaiting payment.</div>
           ) : (
             <>
               {weekKeys.map((mondayTS) => {
@@ -504,7 +504,7 @@ const Table = ({ jobs }) => (
               })}
 
               {(noDate?.length ?? 0) > 0 && (
-                <section style={{ marginTop: 8 }}>
+                <section style={{ marginTop: "var(--space-2)" }}>
                   <div style={sectionHeader}>
                     <h2 style={weekTitle}>No Dates ({noDate.length})</h2>
                     <span style={tinyHint}>Jobs missing invoicedAt and booking dates</span>

@@ -290,8 +290,90 @@ service cloud.firestore {
 
     function keepsTimesheetIdentity() {
       return request.resource.data.employeeCode == resource.data.employeeCode
-        && request.resource.data.employeeName == resource.data.employeeName
-        && request.resource.data.weekStart == resource.data.weekStart;
+        && request.resource.data.weekStart == resource.data.weekStart
+        && (
+          !resource.data.keys().hasAny(["employeeId"])
+          || request.resource.data.employeeId == resource.data.employeeId
+        )
+        && (
+          !resource.data.keys().hasAny(["employeeEmail"])
+          || request.resource.data.employeeEmail == resource.data.employeeEmail
+        );
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function currentUserMatchesTimesheet(data) {
+      return activeUserDocExists()
+        && data.keys().hasAny(["employeeId", "employeeCode", "employeeEmail"])
+        && (
+          !data.keys().hasAny(["employeeId"])
+          || (
+            currentUserData().keys().hasAny(["employeeId"])
+            && data.employeeId == currentUserData().employeeId
+          )
+        )
+        && (
+          !data.keys().hasAny(["employeeCode"])
+          || (
+            currentUserData().keys().hasAny(["employeeCode"])
+            && data.employeeCode == currentUserData().employeeCode
+          )
+        )
+        && (
+          !data.keys().hasAny(["employeeEmail"])
+          || (
+            currentUserData().keys().hasAny(["email"])
+            && data.employeeEmail == currentUserData().email
+          )
+        );
+    }
+
+    function isCanonicalEmployeeTimesheetId(timesheetId) {
+      return request.resource.data.keys().hasAll(["employeeCode", "weekStart"])
+        && timesheetId == request.resource.data.employeeCode + "_" + request.resource.data.weekStart;
+    }
+
+    function validEmployeeTimesheetState() {
+      return request.resource.data.keys().hasAll(["status", "submitted", "approved"])
+        && request.resource.data.approved == false
+        && (
+          !request.resource.data.keys().hasAny(["approvedAt"])
+          || request.resource.data.approvedAt == null
+        )
+        && (
+          (request.resource.data.status == "draft" && request.resource.data.submitted == false)
+          || (request.resource.data.status == "submitted" && request.resource.data.submitted == true)
+        );
+    }
+
+    function employeeTimesheetFieldsOnlyChanged() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        "schemaVersion",
+        "days",
+        "notes",
+        "status",
+        "submitted",
+        "submittedAt",
+        "lastSubmittedAt",
+        "submissionRevision",
+        "updatedAt",
+        "jobSnapshot",
+        "jobId",
+        "jobNumber"
+      ]);
+    }
+
+    function canEmployeeUpdateTimesheet() {
+      return currentUserMatchesTimesheet(resource.data)
+        && currentUserMatchesTimesheet(request.resource.data)
+        && (!resource.data.keys().hasAny(["approved"]) || resource.data.approved != true)
+        && (!resource.data.keys().hasAny(["status"]) || resource.data.status != "approved")
+        && keepsTimesheetIdentity()
+        && validEmployeeTimesheetState()
+        && employeeTimesheetFieldsOnlyChanged();
     }
 
     function keepsTimesheetQueryIdentity() {
@@ -428,10 +510,15 @@ service cloud.firestore {
     }
 
     match /timesheets/{timesheetId} {
-      allow read: if canReadUserTenantDoc();
-      allow create: if canCreateUserTenantDoc();
-      allow update: if activeUserDocExists();
-      allow delete: if canDeleteUserTenantDoc();
+      allow read: if isAdmin() || currentUserMatchesTimesheet(resource.data);
+      allow create: if isAdmin()
+        || (
+          currentUserMatchesTimesheet(request.resource.data)
+          && isCanonicalEmployeeTimesheetId(timesheetId)
+          && validEmployeeTimesheetState()
+        );
+      allow update: if isAdmin() || canEmployeeUpdateTimesheet();
+      allow delete: if isAdmin();
     }
 
     match /timesheetQueries/{queryId} {

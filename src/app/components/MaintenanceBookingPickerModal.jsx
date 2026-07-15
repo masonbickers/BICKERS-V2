@@ -130,22 +130,22 @@ const overlay = {
 const modal = {
   width: 520,
   maxWidth: "94vw",
-  padding: 16,
+  padding: "var(--space-4)",
   borderRadius: 16,
-  background: "#fff",
-  border: "1px solid #dbe2ea",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   boxShadow: "0 18px 40px rgba(15,23,42,0.14)",
 };
 
 const title = {
   margin: 0,
-  fontSize: 16,
+  fontSize: "var(--font-size-lg)",
   fontWeight: 900,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const hint = {
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontSize: 12.5,
   marginTop: 6,
   lineHeight: 1.45,
@@ -153,26 +153,26 @@ const hint = {
 
 const fields = {
   display: "grid",
-  gap: 12,
+  gap: "var(--space-3)",
   marginTop: 14,
 };
 
 const label = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--color-text)",
   marginBottom: 6,
 };
 
 const input = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
 const actions = {
@@ -182,24 +182,24 @@ const actions = {
 };
 
 const ghostBtn = {
-  borderRadius: 12,
+  borderRadius: "var(--radius-lg)",
   padding: "10px 14px",
   fontSize: 13.5,
   fontWeight: 800,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#0f172a",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--color-white)",
+  color: "var(--color-text)",
   cursor: "pointer",
 };
 
 const primaryBtn = {
-  borderRadius: 12,
+  borderRadius: "var(--radius-lg)",
   padding: "10px 14px",
   fontSize: 13.5,
   fontWeight: 800,
-  border: "1px solid #1f4b7a",
-  background: "#1f4b7a",
-  color: "#fff",
+  border: "1px solid var(--color-brand)",
+  background: "var(--color-brand)",
+  color: "var(--color-white)",
   cursor: "pointer",
 };
 

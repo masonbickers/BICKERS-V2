@@ -36,15 +36,15 @@ const clearBookingReferenceCache = () => {
 const UI = {
   radius: 14,
   radiusSm: 10,
-  gap: 16,
+  gap: "var(--space-4)",
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowMd: "0 10px 26px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
 };
 
 const shell = { minHeight: "100vh", background: UI.bg, color: UI.text };
@@ -53,22 +53,22 @@ const headerRow = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
 };
 const h1 = { margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: "-0.01em" };
 const sub = { marginTop: 6, fontSize: 12.5, color: UI.muted };
 
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const sectionTitle = { margin: "0 0 10px", fontSize: 14, fontWeight: 950, color: UI.text };
+const sectionTitle = { margin: "0 0 10px", fontSize: "var(--font-size-md)", fontWeight: 950, color: UI.text };
 
-const grid = { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 12 };
+const grid = { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "var(--space-3)" };
 const col = (span) => ({ gridColumn: `span ${span}` });
 
 const label = {
   display: "block",
   marginBottom: 6,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
@@ -77,21 +77,21 @@ const label = {
 const input = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
-  fontSize: 13,
-  background: "#fff",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
   outline: "none",
 };
 const textarea = { ...input, minHeight: 220, resize: "vertical" };
-const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
+const helpText = { marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted };
 
-const btn = (bg = "#fff", fg = UI.text, bd = "1px solid #e5e7eb") => ({
+const btn = (bg = "var(--color-white)", fg = UI.text, bd = "1px solid var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "10px 12px",
   borderRadius: UI.radiusSm,
   border: bd,
@@ -266,11 +266,11 @@ export default function AddEquipmentPage() {
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button style={btn("#fff", UI.text)} onClick={() => router.back()}>
+              <button style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
                 ← Cancel
               </button>
               <button
-                style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 onClick={handleSave}
                 disabled={!canSave || saving}
                 title={!canSave ? "Fill Name and Category" : ""}
@@ -345,7 +345,7 @@ export default function AddEquipmentPage() {
                         setNewCategory(next);
                         setEquipment((prev) => ({ ...prev, category: next }));
                       }}
-                      style={{ ...input, marginTop: 8 }}
+                      style={{ ...input, marginTop: "var(--space-2)" }}
                       placeholder="Type new category name"
                       required
                     />
@@ -416,12 +416,12 @@ export default function AddEquipmentPage() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" style={btn("#fff", UI.text)} onClick={() => router.back()}>
+              <button type="button" style={btn("var(--color-white)", UI.text)} onClick={() => router.back()}>
                 Cancel
               </button>
               <button
                 type="submit"
-                style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--color-white)", `1px solid ${UI.brand}`)}
                 disabled={!canSave || saving}
               >
                 {saving ? "Saving…" : "Save Equipment"}

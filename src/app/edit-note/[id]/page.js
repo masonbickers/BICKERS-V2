@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { auth, db } from "../../../../firebaseConfig";
-import { signOut } from "firebase/auth";
+import { db } from "../../../../firebaseConfig";
 import {
   getDocs,
   doc,
@@ -139,7 +138,6 @@ export default function EditNotePage() {
   };
 
   const handleHome = async () => {
-    await signOut(auth);
     router.push("/home");
   };
 
@@ -170,7 +168,7 @@ export default function EditNotePage() {
             <button onClick={handleHome} style={backButtonStyle}>Back</button>
           </div>
           <h1 style={pageTitleStyle}>Edit Note</h1>
-          <p style={{ color: "#ff6b6b" }}>{error}</p>
+          <p style={{ color: "var(--legacy-color-ff6b6b)" }}>{error}</p>
           <button onClick={() => router.push("/dashboard")} style={buttonStyle}>Go to dashboard</button>
         </main>
       </div>
@@ -289,8 +287,8 @@ const mainContainerStyle = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  backgroundColor: "#1e1e1e",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-1e1e1e)",
+  color: "var(--color-white)",
   minHeight: "100vh",
   padding: "40px",
 };
@@ -298,7 +296,7 @@ const mainContainerStyle = {
 const mainContentStyle = {
   maxWidth: "800px",
   width: "100%",
-  backgroundColor: "#121212",
+  backgroundColor: "var(--legacy-color-121212)",
   padding: "20px",
   borderRadius: "10px",
   boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
@@ -312,8 +310,8 @@ const headerStyle = {
 };
 
 const backButtonStyle = {
-  backgroundColor: "#f44336",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-f44336)",
+  color: "var(--color-white)",
   border: "none",
   padding: "8px 16px",
   fontSize: "14px",
@@ -329,7 +327,7 @@ const pageTitleStyle = {
 };
 
 const formContainerStyle = {
-  backgroundColor: "#222",
+  backgroundColor: "var(--legacy-color-222)",
   padding: "30px",
   borderRadius: "8px",
   boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)",
@@ -339,7 +337,7 @@ const formTitleStyle = {
   fontSize: "24px",
   fontWeight: "bold",
   marginBottom: "20px",
-  color: "#fff",
+  color: "var(--color-white)",
 };
 
 const inputContainerStyle = { marginBottom: "15px" };
@@ -349,16 +347,16 @@ const labelStyle = {
   fontWeight: "600",
   marginBottom: "5px",
   display: "block",
-  color: "#fff",
+  color: "var(--color-white)",
 };
 
 const checkRowStyle = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   marginBottom: 15,
-  color: "#fff",
-  fontSize: 14,
+  color: "var(--color-white)",
+  fontSize: "var(--font-size-md)",
   fontWeight: 700,
 };
 
@@ -367,17 +365,17 @@ const inputStyle = {
   padding: "12px",
   marginBottom: "10px",
   borderRadius: "6px",
-  border: "1px solid #444",
+  border: "1px solid var(--legacy-color-444)",
   fontSize: "14px",
-  backgroundColor: "#333",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-333)",
+  color: "var(--color-white)",
 };
 
 const buttonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "#1976d2",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-1976d2)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",
@@ -389,8 +387,8 @@ const buttonStyle = {
 const cancelButtonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "#9e9e9e",
-  color: "#111",
+  backgroundColor: "var(--legacy-color-9e9e9e)",
+  color: "var(--legacy-color-111)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",
@@ -402,8 +400,8 @@ const cancelButtonStyle = {
 const dangerButtonStyle = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "#e53935",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-e53935)",
+  color: "var(--color-white)",
   border: "none",
   borderRadius: "6px",
   fontSize: "16px",

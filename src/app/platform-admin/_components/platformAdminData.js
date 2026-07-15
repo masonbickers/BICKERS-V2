@@ -80,60 +80,60 @@ export function statusTone(status) {
 
 export const ui = {
   card: {
-    background: "#fff",
-    border: "1px solid #d7dee8",
-    borderRadius: 8,
+    background: "var(--color-white)",
+    border: "var(--border-default)",
+    borderRadius: "var(--radius-md)",
     padding: 14,
   },
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-    gap: 12,
+    gap: "var(--space-3)",
   },
   tableWrap: {
-    background: "#fff",
-    border: "1px solid #d7dee8",
-    borderRadius: 8,
+    background: "var(--color-white)",
+    border: "var(--border-default)",
+    borderRadius: "var(--radius-md)",
     overflow: "auto",
   },
   table: { width: "100%", borderCollapse: "separate", borderSpacing: 0 },
   th: {
     textAlign: "left",
     padding: "10px 12px",
-    background: "#f8fafc",
-    color: "#64748b",
-    borderBottom: "1px solid #d7dee8",
-    fontSize: 12,
+    background: "var(--color-surface-subtle)",
+    color: "var(--color-text-subtle)",
+    borderBottom: "1px solid var(--color-border)",
+    fontSize: "var(--font-size-xs)",
     textTransform: "uppercase",
     fontWeight: 900,
   },
-  td: { padding: "11px 12px", borderBottom: "1px solid #e2e8f0", verticalAlign: "top", fontSize: 13 },
+  td: { padding: "11px 12px", borderBottom: "1px solid var(--legacy-color-e2e8f0)", verticalAlign: "top", fontSize: "var(--font-size-sm)" },
   input: {
-    height: 36,
-    border: "1px solid #cbd5e1",
-    borderRadius: 8,
+    height: "var(--control-height-md)",
+    border: "1px solid var(--legacy-color-cbd5e1)",
+    borderRadius: "var(--radius-md)",
     padding: "0 10px",
     fontWeight: 800,
-    background: "#fff",
-    color: "#0f172a",
+    background: "var(--color-white)",
+    color: "var(--color-text)",
   },
   button: {
     height: 34,
-    border: "1px solid #cbd5e1",
-    borderRadius: 8,
+    border: "1px solid var(--legacy-color-cbd5e1)",
+    borderRadius: "var(--radius-md)",
     padding: "0 10px",
-    background: "#fff",
-    color: "#0f172a",
+    background: "var(--color-white)",
+    color: "var(--color-text)",
     fontWeight: 900,
     cursor: "pointer",
   },
   dangerButton: {
     height: 34,
-    border: "1px solid #fecaca",
-    borderRadius: 8,
+    border: "1px solid var(--color-danger-border)",
+    borderRadius: "var(--radius-md)",
     padding: "0 10px",
-    background: "#fff1f2",
-    color: "#b91c1c",
+    background: "var(--legacy-color-fff1f2)",
+    color: "var(--legacy-color-b91c1c)",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -141,15 +141,15 @@ export const ui = {
 
 export function Pill({ children, tone = "blue" }) {
   const colors = {
-    blue: ["#0369a1", "#f0f9ff", "#bae6fd"],
-    green: ["#15803d", "#f0fdf4", "#bbf7d0"],
-    amber: ["#b45309", "#fffbeb", "#fed7aa"],
-    red: ["#b91c1c", "#fff1f2", "#fecaca"],
-    gray: ["#475569", "#f8fafc", "#cbd5e1"],
+    blue: ["var(--legacy-color-0369a1)", "var(--legacy-color-f0f9ff)", "var(--legacy-color-bae6fd)"],
+    green: ["var(--legacy-color-15803d)", "var(--legacy-color-f0fdf4)", "var(--color-success-border)"],
+    amber: ["var(--legacy-color-b45309)", "var(--legacy-color-fffbeb)", "var(--color-warning-border)"],
+    red: ["var(--legacy-color-b91c1c)", "var(--legacy-color-fff1f2)", "var(--color-danger-border)"],
+    gray: ["var(--legacy-color-475569)", "var(--color-surface-subtle)", "var(--legacy-color-cbd5e1)"],
   };
   const [color, bg, border] = colors[tone] || colors.blue;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 8px", borderRadius: 999, border: `1px solid ${border}`, background: bg, color, fontSize: 12, fontWeight: 900 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 8px", borderRadius: "var(--radius-pill)", border: `1px solid ${border}`, background: bg, color, fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
       {children}
     </span>
   );
@@ -158,9 +158,9 @@ export function Pill({ children, tone = "blue" }) {
 export function Metric({ label, value, detail, tone = "blue" }) {
   return (
     <div style={ui.card}>
-      <div style={{ color: "#64748b", fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "red" ? "#b91c1c" : tone === "amber" ? "#b45309" : "#0f172a" }}>{value}</div>
-      {detail ? <div style={{ marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>{detail}</div> : null}
+      <div style={{ color: "var(--color-text-subtle)", fontSize: "var(--font-size-xs)", fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "red" ? "var(--legacy-color-b91c1c)" : tone === "amber" ? "var(--legacy-color-b45309)" : "var(--color-text)" }}>{value}</div>
+      {detail ? <div style={{ marginTop: "var(--space-1)", color: "var(--color-text-subtle)", fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{detail}</div> : null}
     </div>
   );
 }

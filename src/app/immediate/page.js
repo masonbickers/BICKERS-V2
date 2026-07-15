@@ -21,13 +21,13 @@ import {
 
 /* ───────────────── Visual tokens ──────────────── */
 const UI = {
-  page: "#f3f4f6",
-  card: "#ffffff",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
+  page: "var(--legacy-color-f3f4f6)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  subtext: "var(--color-text-subtle)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   radius: 12,
-  radiusSm: 8,
+  radiusSm: "var(--radius-md)",
   shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
   shadowMd: "0 8px 24px rgba(2, 6, 23, 0.08)",
 };
@@ -41,7 +41,7 @@ const shell = {
 };
 
 const main = { flex: 1, padding: "28px 28px 40px", maxWidth: 1600, margin: "0 auto" };
-const h1 = { fontSize: 28, lineHeight: "34px", fontWeight: 800, marginBottom: 12 };
+const h1 = { fontSize: 28, lineHeight: "34px", fontWeight: 800, marginBottom: "var(--space-3)" };
 const subbar = { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 };
 
 const panel = {
@@ -49,40 +49,40 @@ const panel = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowSm,
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const filtersRow = { display: "flex", gap: 10, flexWrap: "wrap" };
 const input = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
   padding: "8px 10px",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   minWidth: 220,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 const select = { ...input, minWidth: 160 };
-const table = { width: "100%", borderCollapse: "collapse", marginTop: 12 };
-const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid #eef2f7", textAlign: "left" };
-const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const table = { width: "100%", borderCollapse: "collapse", marginTop: "var(--space-3)" };
+const th = { padding: "10px 12px", fontSize: "var(--font-size-xs)", color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid var(--legacy-color-eef2f7)", textAlign: "left" };
+const td = { padding: "10px 12px", fontSize: "var(--font-size-sm)", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
 
 const badge = (bg, fg) => ({
   display: "inline-block",
   padding: "2px 8px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   background: bg,
   color: fg,
 });
 
-const btn = (bg = "#fff", fg = "#111827") => ({
+const btn = (bg = "var(--color-white)", fg = "var(--legacy-color-111827)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   background: bg,
   color: fg,
   fontWeight: 800,
@@ -284,7 +284,7 @@ export default function ImmediateDefectsPage() {
           <div style={subbar}>
             <div>
               <h1 style={h1}>Immediate Defects</h1>
-              <div style={{ fontSize: 12, color: UI.subtext }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.subtext }}>
                 Approved defects routed to <strong>Immediate</strong> that require urgent action.
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function ImmediateDefectsPage() {
                 <option value="in_progress">In progress</option>
                 <option value="resolved">Resolved</option>
               </select>
-              <div style={{ marginLeft: "auto", fontSize: 12, color: UI.subtext, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ marginLeft: "auto", fontSize: "var(--font-size-xs)", color: UI.subtext, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                 <span>Showing</span>
                 <strong style={{ color: UI.text }}>{filtered.length}</strong>
                 <span>of {rows.length}</span>
@@ -372,11 +372,11 @@ export default function ImmediateDefectsPage() {
                           {r.photos?.length ? r.photos.length : 0}
                         </td>
                         <td style={td}>
-                          {!m && <span style={badge("#fee2e2", "#991b1b")}>Urgent</span>}
-                          {m === "in_progress" && <span style={badge("#fef9c3", "#854d0e")}>In progress</span>}
-                          {m === "resolved" && <span style={badge("#ecfdf5", "#065f46")}>Resolved</span>}
+                          {!m && <span style={badge("var(--legacy-color-fee2e2)", "var(--color-danger)")}>Urgent</span>}
+                          {m === "in_progress" && <span style={badge("var(--legacy-color-fef9c3)", "var(--legacy-color-854d0e)")}>In progress</span>}
+                          {m === "resolved" && <span style={badge("var(--color-success-soft)", "var(--legacy-color-065f46)")}>Resolved</span>}
                           {r.maintenance?.note ? (
-                            <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
+                            <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.subtext }}>
                               {r.maintenance.note}
                             </div>
                           ) : null}
@@ -392,7 +392,7 @@ export default function ImmediateDefectsPage() {
 
                           {/* Start work (in_progress) */}
                           <button
-                            style={{ ...btn("#fff"), marginRight: 6 }}
+                            style={{ ...btn("var(--color-white)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "in_progress")}
                             disabled={savingId === key}
                             title="Mark as In Progress"
@@ -402,7 +402,7 @@ export default function ImmediateDefectsPage() {
 
                           {/* Resolve */}
                           <button
-                            style={{ ...btn("#ecfdf5", "#065f46"), marginRight: 6 }}
+                            style={{ ...btn("var(--color-success-soft)", "var(--legacy-color-065f46)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "resolved")}
                             disabled={savingId === key}
                             title="Mark as Resolved"
@@ -412,7 +412,7 @@ export default function ImmediateDefectsPage() {
 
                           {/* Re-route to General */}
                           <button
-                            style={btn("#f0f9ff", "#075985")}
+                            style={btn("var(--legacy-color-f0f9ff)", "var(--legacy-color-075985)")}
                             onClick={() => rerouteToGeneral(r)}
                             disabled={savingId === key}
                             title="Move to General Maintenance"
@@ -454,7 +454,7 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
         zIndex: 1000,
         display: "grid",
         placeItems: "center",
-        padding: 16,
+        padding: "var(--space-4)",
       }}
       role="dialog"
       aria-modal="true"
@@ -462,9 +462,9 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
       <div
         style={{
           width: "min(92vw, 560px)",
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
+          background: "var(--color-white)",
+          border: "1px solid var(--legacy-color-e5e7eb)",
+          borderRadius: "var(--radius-lg)",
           boxShadow: UI.shadowMd,
           padding: 18,
         }}
@@ -472,14 +472,14 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
         <h3 style={{ margin: "2px 0 10px", fontWeight: 800 }}>
           {notesModal.newStatus === "in_progress" ? "Mark as In Progress" : "Mark as Resolved"}
         </h3>
-        <div style={{ fontSize: 13, color: UI.subtext, marginBottom: 10 }}>
+        <div style={{ fontSize: "var(--font-size-sm)", color: UI.subtext, marginBottom: 10 }}>
           <div><strong>Vehicle:</strong> {notesModal.row.vehicle || "—"}</div>
           <div><strong>Item:</strong> #{notesModal.row.defectIndex + 1} — {notesModal.row.itemLabel}</div>
           <div><strong>Date:</strong> {fmtDate(notesModal.row.dateISO)}</div>
         </div>
 
         <label
-          style={{ display: "block", fontSize: 12, fontWeight: 800, color: UI.subtext, marginBottom: 6 }}
+          style={{ display: "block", fontSize: "var(--font-size-xs)", fontWeight: 800, color: UI.subtext, marginBottom: 6 }}
         >
           {notesModal.newStatus === "in_progress"
             ? "Work note (optional)"
@@ -496,19 +496,19 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
           }
           style={{
             width: "100%",
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
+            border: "1px solid var(--legacy-color-e5e7eb)",
+            borderRadius: "var(--radius-md)",
             padding: 10,
-            fontSize: 13,
-            marginBottom: 12,
+            fontSize: "var(--font-size-sm)",
+            marginBottom: "var(--space-3)",
           }}
         />
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={btn("#fff", "#111827")}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
+          <button onClick={onClose} style={btn("var(--color-white)", "var(--legacy-color-111827)")}>
             Cancel
           </button>
-          <button onClick={onSave} style={btn("#111827", "#fff")}>
+          <button onClick={onSave} style={btn("var(--legacy-color-111827)", "var(--color-white)")}>
             Save
           </button>
         </div>

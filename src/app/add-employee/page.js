@@ -35,18 +35,18 @@ const clearBookingReferenceCache = () => {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -54,28 +54,28 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const card = { ...surface, padding: 12 };
+const card = { ...surface, padding: "var(--space-3)" };
 
 const label = { display: "block", fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", marginBottom: 6 };
 const hint = { color: UI.muted, fontSize: 12.5, marginTop: 6, lineHeight: 1.4 };
 
 const input = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -85,15 +85,15 @@ const grid2 = {
   gap: 10,
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "4px 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "4px 0" };
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -108,7 +108,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -126,8 +126,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -158,7 +158,7 @@ const formShell = {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -172,7 +172,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -348,7 +348,7 @@ export default function AddEmployeePage() {
             <section style={card}>
               <div style={sectionHeader}>
                 <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("#15803d", "#ecfdf3", "#bbf7d0")}>
+                  <span style={iconBox("var(--legacy-color-15803d)", "var(--legacy-color-ecfdf3)", "var(--color-success-border)")}>
                     <Save size={17} />
                   </span>
                   <div>
@@ -359,7 +359,7 @@ export default function AddEmployeePage() {
 
               <div style={divider} />
 
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)" }}>
                 <button style={btn()} type="submit" disabled={saving}>
                   <Save size={14} /> {saving ? "Saving..." : "Save employee"}
                 </button>
@@ -372,7 +372,7 @@ export default function AddEmployeePage() {
             <section style={card}>
               <div style={sectionHeader}>
                 <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
+                  <span style={iconBox("var(--legacy-color-7c3aed)", "var(--legacy-color-f5f3ff)", "var(--legacy-color-ddd6fe)")}>
                     <IdCard size={17} />
                   </span>
                   <div>
@@ -382,7 +382,7 @@ export default function AddEmployeePage() {
                 </div>
               </div>
               <div style={divider} />
-              <div style={{ display: "grid", gap: 8, color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)", color: UI.muted, fontSize: 12.5, lineHeight: 1.45 }}>
                 <div>Full name</div>
                 <div>Mobile number and email</div>
                 <div>Driving licence number</div>

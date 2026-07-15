@@ -11,21 +11,21 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 /* ------------------------------- Styling tokens ------------------------------- */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  dangerSoft: "#fcefee",
-  dangerText: "#991b1b",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  dangerSoft: "var(--legacy-color-fcefee)",
+  dangerText: "var(--color-danger)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -33,11 +33,11 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
@@ -46,34 +46,34 @@ const chip = {
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const fieldLabel = { fontSize: 11.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: 0 };
 const input = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--color-white)",
   fontSize: 13.5,
   outline: "none",
   color: UI.text,
   boxSizing: "border-box",
 };
-const helper = { color: UI.muted, fontSize: 12, lineHeight: 1.35, marginTop: 5 };
+const helper = { color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.35, marginTop: 5 };
 
 const btnBase = {
   width: "100%",
@@ -83,7 +83,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
@@ -93,13 +93,13 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--color-white)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "#fff" };
-const sectionTitle = { margin: 0, fontSize: 16, fontWeight: 800, color: UI.text, lineHeight: 1.2 };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "var(--color-white)" };
+const sectionTitle = { margin: 0, fontSize: "var(--font-size-lg)", fontWeight: 800, color: UI.text, lineHeight: 1.2 };
 const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 5 };
 
 const avatarWrap = {
@@ -284,7 +284,7 @@ export default function EditProfilePage() {
             <h1 style={h1}>Edit profile</h1>
             <div style={sub}>Update your account details and profile photo.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <div style={chip}>
               <UserRound size={14} />
               {loading ? "Loading..." : "Profile"}
@@ -299,7 +299,7 @@ export default function EditProfilePage() {
         </div>
 
         {loading ? (
-          <div style={{ ...surface, padding: 12, textAlign: "center", color: UI.muted }}>Loading profile...</div>
+          <div style={{ ...surface, padding: "var(--space-3)", textAlign: "center", color: UI.muted }}>Loading profile...</div>
         ) : (
           <div
             className="edit-profile-layout"
@@ -309,12 +309,12 @@ export default function EditProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={avatarWrap}>{avatarNode}</div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: UI.text }}>{name || "-"}</div>
-                  <div style={{ color: UI.muted, fontSize: 13 }}>{email || "-"}</div>
+                  <div style={{ fontWeight: 800, fontSize: "var(--font-size-lg)", color: UI.text }}>{name || "-"}</div>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>{email || "-"}</div>
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "#e7edf4", margin: "12px 0" }} />
+              <div style={{ height: 1, background: "var(--legacy-color-e7edf4)", margin: "12px 0" }} />
 
               <div className="edit-profile-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
@@ -325,13 +325,13 @@ export default function EditProfilePage() {
 
                 <div>
                   <div style={fieldLabel}>Email</div>
-                  <input value={email} disabled style={{ ...input, background: "#f8fbfd" }} />
+                  <input value={email} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
                   <div style={helper}>Email is managed by your login account.</div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>Role</div>
-                  <input value={role || "-"} disabled style={{ ...input, background: "#f8fbfd" }} />
+                  <input value={role || "-"} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
                   <div style={helper}>Role is controlled by admins.</div>
                 </div>
 
@@ -347,10 +347,10 @@ export default function EditProfilePage() {
               {error ? (
                 <div
                   style={{
-                    marginTop: 12,
+                    marginTop: "var(--space-3)",
                     padding: "8px 10px",
                     borderRadius: UI.radius,
-                    border: "1px solid #f1b8b8",
+                    border: "1px solid var(--legacy-color-f1b8b8)",
                     background: UI.dangerSoft,
                     color: UI.dangerText,
                     fontWeight: 800,
@@ -367,7 +367,7 @@ export default function EditProfilePage() {
 
               <div
                 className="edit-profile-actions"
-                style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+                style={{ marginTop: "var(--space-3)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-2)" }}
               >
                 <button type="button" style={btnSoft} onClick={() => router.push("/settings")} disabled={saving}>
                   <ArrowLeft size={14} />
@@ -386,19 +386,19 @@ export default function EditProfilePage() {
                 Keep names consistent for job sheets and staff allocation. Use a clear headshot if you add a photo.
               </div>
 
-              <div style={{ ...detailCard, marginTop: 12 }}>
+              <div style={{ ...detailCard, marginTop: "var(--space-3)" }}>
                 <div style={fieldLabel}>Preview</div>
                 <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ ...avatarWrap, width: 44, height: 44 }}>{avatarNode}</div>
+                  <div style={{ ...avatarWrap, width: 44, height: "var(--control-height-lg)" }}>{avatarNode}</div>
                   <div>
                     <div style={{ fontWeight: 800, color: UI.text }}>{name || "-"}</div>
-                    <div style={{ color: UI.muted, fontSize: 13 }}>{email || "-"}</div>
+                    <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>{email || "-"}</div>
                   </div>
                 </div>
               </div>
 
               <div style={{ ...detailCard, marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: UI.text, fontWeight: 800, fontSize: 13 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: UI.text, fontWeight: 800, fontSize: "var(--font-size-sm)" }}>
                   <ImageUp size={15} color={UI.brand} />
                   Photo and account data
                 </div>
@@ -408,7 +408,7 @@ export default function EditProfilePage() {
               </div>
 
               <div style={{ ...detailCard, marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: UI.text, fontWeight: 800, fontSize: 13 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: UI.text, fontWeight: 800, fontSize: "var(--font-size-sm)" }}>
                   <Mail size={15} color={UI.brand} />
                   Login email
                 </div>

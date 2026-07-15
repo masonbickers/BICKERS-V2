@@ -29,21 +29,21 @@ import {
 } from "lucide-react";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -51,18 +51,18 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
   marginBottom: 14,
 };
-const h1 = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 };
+const h1 = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 };
 const sub = { margin: "6px 0 0", color: UI.muted, fontSize: 13.5, lineHeight: 1.45 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...surface, padding: 12 };
+const panel = { ...surface, padding: "var(--space-3)" };
 const cardBase = {
   ...surface,
-  padding: 12,
-  background: "#ffffff",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = {
@@ -70,18 +70,18 @@ const cardHover = {
   boxShadow: UI.shadowHover,
   borderColor: UI.brandBorder,
 };
-const metricCard = { ...surface, padding: 12, minWidth: 0 };
+const metricCard = { ...surface, padding: "var(--space-3)", minWidth: 0 };
 const premiumSection = {
   ...cardBase,
-  border: "1px solid #d7e1ea",
+  border: "1px solid var(--legacy-color-d7e1ea)",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
 };
 const commandGrid = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 1fr) 360px",
-  gap: 12,
+  gap: "var(--space-3)",
   alignItems: "start",
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
 };
 const summaryGrid = {
   display: "grid",
@@ -107,7 +107,7 @@ const sectionTag = {
   display: "inline-flex",
   alignItems: "center",
   padding: "5px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -118,11 +118,11 @@ const sectionTag = {
 };
 const badge = (bg, fg) => ({
   padding: "4px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: bg,
   color: fg,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
   lineHeight: "18px",
@@ -138,7 +138,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -155,15 +155,15 @@ const btn = (kind = "primary") => {
       justifyContent: "center",
       gap: 6,
       padding: "5px 8px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
       boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12,
+      fontSize: "var(--font-size-xs)",
       lineHeight: 1.2,
     };
   }
@@ -176,8 +176,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -194,8 +194,8 @@ const input = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -210,8 +210,8 @@ const smallLabel = {
 
 const tableCell = {
   padding: "10px 12px",
-  borderBottom: "1px solid #eef2f7",
-  fontSize: 13,
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
   verticalAlign: "middle",
 };
@@ -219,7 +219,7 @@ const tableCell = {
 const tableHead = {
   ...tableCell,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -560,9 +560,9 @@ function registerState(item) {
 }
 
 function registerToneStyle(tone) {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (tone === "amber") return { background: "var(--color-warning-soft)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -576,11 +576,11 @@ function displayStatus(row) {
 
 function statusStyle(row) {
   const status = lower(row.maintenance?.status || row.status);
-  if (status === "resolved") return { background: "#e0f2fe", color: "#075985", border: "1px solid #bae6fd" };
-  if (status === "scheduled") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
-  if (status === "in_progress") return { background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" };
-  if (row.bucket === "immediate") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (row.bucket === "declined") return { background: "#ffedd5", color: "#9a3412", border: "1px solid #fed7aa" };
+  if (status === "resolved") return { background: "var(--legacy-color-e0f2fe)", color: "var(--legacy-color-075985)", border: "1px solid var(--legacy-color-bae6fd)" };
+  if (status === "scheduled") return { background: "var(--legacy-color-dcfce7)", color: "var(--color-success)", border: "1px solid var(--color-success-border)" };
+  if (status === "in_progress") return { background: "var(--legacy-color-fef3c7)", color: "var(--legacy-color-92400e)", border: "1px solid var(--legacy-color-fde68a)" };
+  if (row.bucket === "immediate") return { background: "var(--legacy-color-fee2e2)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
+  if (row.bucket === "declined") return { background: "var(--legacy-color-ffedd5)", color: "var(--color-warning)", border: "1px solid var(--color-warning-border)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -703,14 +703,14 @@ function sortRows(rows) {
 function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" },
-    amber: { bg: "#fff7ed", fg: "#9a3412", border: "#fed7aa" },
-    green: { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" },
+    danger: { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" },
+    amber: { bg: "var(--color-warning-soft)", fg: "var(--color-warning)", border: "var(--color-warning-border)" },
+    green: { bg: "var(--color-success-soft)", fg: "var(--legacy-color-065f46)", border: "var(--color-success-border)" },
   }[tone];
 
   return (
-    <div style={{ ...surface, padding: 12, minHeight: 92 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+    <div style={{ ...surface, padding: "var(--space-3)", minHeight: 92 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-2)" }}>
         <div>
           <p style={smallLabel}>{label}</p>
           <div style={{ marginTop: 7, color: UI.text, fontSize: 27, lineHeight: 1, fontWeight: 950 }}>{value}</div>
@@ -731,7 +731,7 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
           <Icon size={18} />
         </span>
       </div>
-      <div style={{ marginTop: 8, color: UI.muted, fontSize: 12.5, fontWeight: 750 }}>{detail}</div>
+      <div style={{ marginTop: "var(--space-2)", color: UI.muted, fontSize: 12.5, fontWeight: 750 }}>{detail}</div>
     </div>
   );
 }
@@ -739,9 +739,9 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
 function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" },
-    amber: { bg: "#fff7ed", fg: "#9a3412", border: "#fed7aa" },
-    green: { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" },
+    danger: { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "var(--color-danger-border)" },
+    amber: { bg: "var(--color-warning-soft)", fg: "var(--color-warning)", border: "var(--color-warning-border)" },
+    green: { bg: "var(--color-success-soft)", fg: "var(--legacy-color-065f46)", border: "var(--color-success-border)" },
   }[tone];
 
   return (
@@ -750,7 +750,7 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
       onClick={() => onOpen(path)}
       style={{
         ...surface,
-        padding: 12,
+        padding: "var(--space-3)",
         textAlign: "left",
         cursor: "pointer",
         display: "grid",
@@ -762,7 +762,7 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
       <span
         style={{
           width: 36,
-          height: 36,
+          height: "var(--control-height-md)",
           borderRadius: UI.radiusSm,
           background: colors.bg,
           color: colors.fg,
@@ -775,7 +775,7 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
         <Icon size={19} />
       </span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", color: UI.text, fontWeight: 900, fontSize: 14 }}>{title}</span>
+        <span style={{ display: "block", color: UI.text, fontWeight: 900, fontSize: "var(--font-size-md)" }}>{title}</span>
         <span style={{ display: "block", color: UI.muted, fontSize: 12.5, lineHeight: 1.3, marginTop: 2 }}>{detail}</span>
       </span>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
@@ -783,7 +783,7 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
           style={{
             minWidth: 34,
             height: 28,
-            borderRadius: 999,
+            borderRadius: "var(--radius-pill)",
             padding: "0 9px",
             display: "inline-flex",
             alignItems: "center",
@@ -791,7 +791,7 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
             background: colors.bg,
             color: colors.fg,
             border: `1px solid ${colors.border}`,
-            fontSize: 13,
+            fontSize: "var(--font-size-sm)",
             fontWeight: 950,
           }}
         >
@@ -806,25 +806,25 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
 function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
       : tone === "amber"
-      ? { bg: "#fff7ed", border: "#fed7aa", fg: "#9a3412" }
+      ? { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", fg: "var(--color-warning)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
     <div style={{ ...metricCard, minHeight: 92 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div>
-          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
-          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+          <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{title}</div>
+          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: "var(--space-2)" }}>{value}</div>
         </div>
         <span
           style={{
             width: 34,
             height: 34,
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: `1px solid ${colors.border}`,
             background: colors.bg,
             color: colors.fg,
@@ -837,7 +837,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
           <Icon size={18} strokeWidth={2.2} />
         </span>
       </div>
-      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{footer}</div>
+      <div style={{ color: colors.fg, fontSize: "var(--font-size-xs)", fontWeight: 750, marginTop: "var(--space-2)" }}>{footer}</div>
     </div>
   );
 }
@@ -845,7 +845,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
 function Tile({ title, description, onClick, rightBadges = [], icon: Icon = ShieldCheck }) {
   const baseStyle = {
     ...cardBase,
-    background: "#ffffff",
+    background: "var(--color-white)",
     height: "100%",
     minHeight: 82,
     padding: "11px 12px",
@@ -879,7 +879,7 @@ function Tile({ title, description, onClick, rightBadges = [], icon: Icon = Shie
           style={{
             width: 34,
             height: 34,
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: `1px solid ${UI.brandBorder}`,
             background: UI.brandSoft,
             color: UI.brand,
@@ -901,11 +901,11 @@ function Tile({ title, description, onClick, rightBadges = [], icon: Icon = Shie
                 const tone = item.tone || "soft";
                 const style =
                   tone === "danger"
-                    ? badge("#fef2f2", "#991b1b")
+                    ? badge("var(--color-danger-soft)", "var(--color-danger)")
                     : tone === "amber"
-                    ? badge("#fff7ed", "#9a3412")
+                    ? badge("var(--color-warning-soft)", "var(--color-warning)")
                     : tone === "green"
-                    ? badge("#ecfdf5", "#065f46")
+                    ? badge("var(--color-success-soft)", "var(--legacy-color-065f46)")
                     : badge(UI.brandSoft, UI.brand);
                 return (
                   <span key={index} style={style}>
@@ -926,17 +926,17 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
   const safeTotal = Math.max(Number(total || 0), 0);
   const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
   const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
-  const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
+  const background = `conic-gradient(var(--legacy-color-16a34a) 0 ${okPct}%, var(--legacy-color-f59e0b) ${okPct}% ${okPct + soonPct}%, var(--legacy-color-dc2626) ${okPct + soonPct}% 100%)`;
 
   return (
-    <div style={{ ...surface, padding: 12 }}>
+    <div style={{ ...surface, padding: "var(--space-3)" }}>
       <div style={{ ...sectionHeader, marginBottom: 10 }}>
         <div>
           <h2 style={{ ...titleMd, fontSize: 15 }}>{title}</h2>
           <div style={hint}>{safeTotal} records tracked</div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
         <div
           style={{
             width: 126,
@@ -953,8 +953,8 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
               width: 82,
               height: 82,
               borderRadius: "50%",
-              background: "#ffffff",
-              border: "1px solid #e5eaf0",
+              background: "var(--color-white)",
+              border: "1px solid var(--legacy-color-e5eaf0)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
@@ -965,10 +965,10 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
             {safeTotal}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <RingLegend color="#16a34a" label={labels[0]} value={ok} />
-          <RingLegend color="#f59e0b" label={labels[1]} value={soon} />
-          <RingLegend color="#dc2626" label={labels[2]} value={overdue} />
+        <div style={{ display: "grid", gap: "var(--space-2)", minWidth: 0 }}>
+          <RingLegend color="var(--legacy-color-16a34a)" label={labels[0]} value={ok} />
+          <RingLegend color="var(--legacy-color-f59e0b)" label={labels[1]} value={soon} />
+          <RingLegend color="var(--legacy-color-dc2626)" label={labels[2]} value={overdue} />
         </div>
       </div>
     </div>
@@ -977,7 +977,7 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
 
 function RingLegend({ color, label, value }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
       <span style={{ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0 }} />
       <span style={{ minWidth: 76 }}>{label}</span>
       <span style={{ color: UI.muted }}>{value}</span>
@@ -1275,7 +1275,7 @@ export default function HealthSafetyPage() {
             <h1 style={h1}>H&S</h1>
             <p style={sub}>Vehicle checks, defect routes and maintenance follow-up in one place.</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button type="button" style={btn("ghost")} onClick={loadData}>
               <RefreshCcw size={15} />
               Refresh
@@ -1288,7 +1288,7 @@ export default function HealthSafetyPage() {
         </div>
 
         {showAddRegister ? (
-          <section style={{ ...panel, marginBottom: 12 }}>
+          <section style={{ ...panel, marginBottom: "var(--space-3)" }}>
             <div style={sectionHeader}>
               <div>
                 <h2 style={titleMd}>Add H&S register item</h2>
@@ -1344,7 +1344,7 @@ export default function HealthSafetyPage() {
                 <p style={smallLabel}>Evidence label</p>
                 <input value={newRegisterItem.evidenceLabel} onChange={(event) => updateNewRegisterItem("evidenceLabel", event.target.value)} style={input} />
               </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 20, color: UI.text, fontWeight: 850 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-5)", color: UI.text, fontWeight: 850 }}>
                 <input
                   type="checkbox"
                   checked={newRegisterItem.certificateRequired}
@@ -1352,7 +1352,7 @@ export default function HealthSafetyPage() {
                 />
                 Evidence required
               </label>
-              <button type="button" style={{ ...btn("primary"), minHeight: 36, marginTop: 16 }} onClick={createRegisterItem} disabled={addingRegister}>
+              <button type="button" style={{ ...btn("primary"), minHeight: "var(--control-height-md)", marginTop: "var(--space-4)" }} onClick={createRegisterItem} disabled={addingRegister}>
                 {addingRegister ? "Creating..." : "Create Item"}
               </button>
             </div>
@@ -1364,7 +1364,7 @@ export default function HealthSafetyPage() {
         ) : null}
 
         <section className="hs-command-grid" style={commandGrid}>
-          <div style={{ ...surface, padding: 12 }}>
+          <div style={{ ...surface, padding: "var(--space-3)" }}>
             <div style={sectionHeader}>
               <div>
                 <h2 style={titleMd}>Home</h2>
@@ -1404,7 +1404,7 @@ export default function HealthSafetyPage() {
               />
             </div>
 
-            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: 8 }}>
+            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: "var(--space-2)" }}>
               <div>
                 <h2 style={{ ...titleMd, fontSize: 15 }}>H&S workspaces</h2>
                 <div style={hint}>Register areas and defect queues grouped by how they are used.</div>
@@ -1421,7 +1421,7 @@ export default function HealthSafetyPage() {
             </div>
           </div>
 
-          <aside style={{ display: "grid", gap: 12 }}>
+          <aside style={{ display: "grid", gap: "var(--space-3)" }}>
             <RiskRing
               title="Inspection Status"
               total={registerItems.length}
@@ -1449,7 +1449,7 @@ export default function HealthSafetyPage() {
                   <h2 style={titleMd}>H&S register</h2>
                   <div style={hint}>Inspection dates, certificates, workshop checks, PPE, training and policy records.</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   <div style={{ position: "relative", width: "min(320px, 100%)" }}>
                     <Search
                       size={15}
@@ -1460,7 +1460,7 @@ export default function HealthSafetyPage() {
                       value={registerQuery}
                       onChange={(event) => setRegisterQuery(event.target.value)}
                       placeholder="Search H&S register..."
-                      style={{ ...input, paddingLeft: 32 }}
+                      style={{ ...input, paddingLeft: "var(--space-8)" }}
                     />
                   </div>
                   <span style={sectionTag}>{filteredRegisterItems.length} shown</span>
@@ -1525,12 +1525,12 @@ export default function HealthSafetyPage() {
                         >
                           <td style={tableCell}>
                             <div style={{ fontWeight: 900 }}>{item.section}</div>
-                            <div style={{ color: UI.muted, fontSize: 12, marginTop: 2 }}>{item.owner}</div>
+                            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 2 }}>{item.owner}</div>
                           </td>
                           <td style={tableCell}>
                             <div style={{ fontWeight: 900 }}>{item.item}</div>
                             {item.notes ? (
-                              <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.25, marginTop: 2 }}>{item.notes}</div>
+                              <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.25, marginTop: 2 }}>{item.notes}</div>
                             ) : null}
                           </td>
                           <td style={tableCell}>{frequencyLabelFromWeeks(item.frequencyWeeks, item.frequency)}</td>
@@ -1538,7 +1538,7 @@ export default function HealthSafetyPage() {
                             <span style={{ fontWeight: 900 }}>{fmtDate(item.nextDue)}</span>
                           </td>
                           <td style={tableCell}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                               {item.certificateUrl ? (
                                 <a
                                   href={item.certificateUrl}
@@ -1550,12 +1550,12 @@ export default function HealthSafetyPage() {
                                     alignItems: "center",
                                     gap: 6,
                                     padding: "4px 8px",
-                                    borderRadius: 999,
-                                    fontSize: 12,
+                                    borderRadius: "var(--radius-pill)",
+                                    fontSize: "var(--font-size-xs)",
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "#ecfdf5",
-                                    color: "#166534",
+                                    background: "var(--color-success-soft)",
+                                    color: "var(--color-success)",
                                     textDecoration: "none",
                                   }}
                                 >
@@ -1569,11 +1569,11 @@ export default function HealthSafetyPage() {
                                     alignItems: "center",
                                     gap: 6,
                                     padding: "4px 8px",
-                                    borderRadius: 999,
-                                    fontSize: 12,
+                                    borderRadius: "var(--radius-pill)",
+                                    fontSize: "var(--font-size-xs)",
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "#f8fafc",
+                                    background: "var(--color-surface-subtle)",
                                     color: UI.muted,
                                   }}
                                 >
@@ -1588,8 +1588,8 @@ export default function HealthSafetyPage() {
                               style={{
                                 display: "inline-flex",
                                 padding: "4px 8px",
-                                borderRadius: 999,
-                                fontSize: 12,
+                                borderRadius: "var(--radius-pill)",
+                                fontSize: "var(--font-size-xs)",
                                 fontWeight: 900,
                                 ...registerToneStyle(state.tone),
                               }}

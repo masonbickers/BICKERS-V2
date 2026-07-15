@@ -29,34 +29,34 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  okBg: "#ecfdf5",
-  okFg: "#065f46",
-  okBorder: "#bbf7d0",
-  soonBg: "#fff7ed",
-  soonFg: "#9a3412",
-  soonBorder: "#fed7aa",
-  overdueBg: "#fef2f2",
-  overdueFg: "#991b1b",
-  overdueBorder: "#fecdd3",
-  bookedBg: "#eef2ff",
-  bookedFg: "#3730a3",
-  bookedBorder: "#c7d2fe",
-  tealBg: "#f0fdfa",
-  tealFg: "#115e59",
-  tealBorder: "#99f6e4",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  okBg: "var(--color-success-soft)",
+  okFg: "var(--legacy-color-065f46)",
+  okBorder: "var(--color-success-border)",
+  soonBg: "var(--color-warning-soft)",
+  soonFg: "var(--color-warning)",
+  soonBorder: "var(--color-warning-border)",
+  overdueBg: "var(--color-danger-soft)",
+  overdueFg: "var(--color-danger)",
+  overdueBorder: "var(--legacy-color-fecdd3)",
+  bookedBg: "var(--legacy-color-eef2ff)",
+  bookedFg: "var(--legacy-color-3730a3)",
+  bookedBorder: "var(--legacy-color-c7d2fe)",
+  tealBg: "var(--legacy-color-f0fdfa)",
+  tealFg: "var(--legacy-color-115e59)",
+  tealBorder: "var(--legacy-color-99f6e4)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -64,15 +64,15 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
 const subtitle = { marginTop: 6, fontSize: 13.5, lineHeight: 1.45, color: UI.muted };
 
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 12 };
+const panel = { ...card, padding: "var(--space-3)" };
 
 const btn = (kind = "ghost") => {
   const primary = kind === "primary";
@@ -80,14 +80,14 @@ const btn = (kind = "ghost") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -105,8 +105,8 @@ const input = {
   border: UI.border,
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -114,16 +114,16 @@ const input = {
 
 const select = { ...input, width: "100%", minWidth: 190 };
 
-const pill = (bg, fg, border = "#d7dee8") => ({
+const pill = (bg, fg, border = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color: fg,
   border: `1px solid ${border}`,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   whiteSpace: "nowrap",
 });
@@ -135,15 +135,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   textAlign: "left",
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
-  fontSize: 13,
-  borderBottom: "1px solid #f1f5f9",
+  fontSize: "var(--font-size-sm)",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
 };
 
@@ -151,17 +151,17 @@ const actionBtn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "5px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
   boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   lineHeight: 1.2,
 };
 
@@ -198,7 +198,7 @@ function statusFromDays(diffDays) {
 function statusPillStyle(status) {
   if (status === "overdue") return pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder);
   if (status === "soon") return pill(UI.soonBg, UI.soonFg, UI.soonBorder);
-  if (status === "unknown") return pill("#f1f5f9", UI.text);
+  if (status === "unknown") return pill("var(--legacy-color-f1f5f9)", UI.text);
   return pill(UI.okBg, UI.okFg, UI.okBorder);
 }
 
@@ -521,10 +521,10 @@ export default function ServiceOverviewPage() {
   }, [serviceRecords, serviceRows]);
 
   const rowBg = (status, bookedNow) => {
-    if (bookedNow) return { background: "#f3f5ff" };
-    if (status === "overdue") return { background: "#fff1f2" };
-    if (status === "soon") return { background: "#fffbeb" };
-    if (status === "ok") return { background: "#f0fdf4" };
+    if (bookedNow) return { background: "var(--legacy-color-f3f5ff)" };
+    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
+    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
+    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
     return {};
   };
 
@@ -538,7 +538,7 @@ export default function ServiceOverviewPage() {
       );
     }
 
-    if (!v.bookedStatus) return <span style={pill("#f1f5f9", UI.text)}>Not booked</span>;
+    if (!v.bookedStatus) return <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Not booked</span>;
 
     const w = v.bookedWindow;
     const label = w?.start && w?.end
@@ -561,7 +561,7 @@ export default function ServiceOverviewPage() {
       <style jsx global>{`
         .service-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         .service-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -615,7 +615,7 @@ export default function ServiceOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" className="service-overview-action" onClick={() => router.push("/vehicle-home")} style={btn("primary")}>
               <Truck size={15} />
               Vehicle Home
@@ -635,7 +635,7 @@ export default function ServiceOverviewPage() {
           <SummaryCard label="Completed Logs" value={kpis.completionRecords} sub="Service history records" icon={History} tone="ok" />
         </div>
 
-        <div style={{ ...card, padding: 12, marginBottom: 12 }}>
+        <div style={{ ...card, padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <div className="service-overview-filter-grid">
             <label style={{ position: "relative", display: "block" }}>
               <Search
@@ -683,18 +683,18 @@ export default function ServiceOverviewPage() {
             </button>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
             <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>Due Soon</span>
             <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
-            <span style={pill("#f1f5f9", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
         <div className="service-overview-dashboard-grid">
           <section style={panel}>
             <SectionHeader title="Priority Service Queue" meta={priorityRows.length ? "Highest risk vehicles first" : "No urgent service work"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div style={{ marginTop: 10, display: "grid", gap: "var(--space-2)" }}>
               {loading ? (
                 <EmptyLine>Loading service queue...</EmptyLine>
               ) : priorityRows.length ? (
@@ -718,7 +718,7 @@ export default function ServiceOverviewPage() {
 
           <section style={panel}>
             <SectionHeader title="Booked Pipeline" meta={bookedQueue.length ? "Upcoming active service bookings" : "No active service bookings"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div style={{ marginTop: 10, display: "grid", gap: "var(--space-2)" }}>
               {loading ? (
                 <EmptyLine>Loading bookings...</EmptyLine>
               ) : bookedQueue.length ? (
@@ -742,7 +742,7 @@ export default function ServiceOverviewPage() {
 
           <section style={panel}>
             <SectionHeader title="Recent Service Activity" meta={recentActivity.length ? "Latest completed service records" : "No recent records found"} />
-            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+            <div style={{ marginTop: 10, display: "grid", gap: "var(--space-2)" }}>
               {loading ? (
                 <EmptyLine>Loading service history...</EmptyLine>
               ) : recentActivity.length ? (
@@ -765,21 +765,21 @@ export default function ServiceOverviewPage() {
           </section>
         </div>
 
-        <section style={{ ...card, padding: 12, marginBottom: 12 }}>
+        <section style={{ ...card, padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <SectionHeader title="Fleet By Category" meta="Where service pressure is concentrated" />
           <div className="service-overview-category-grid" style={{ marginTop: 10 }}>
             {categoryRows.length ? (
               categoryRows.slice(0, 8).map((row) => (
-                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "#fff" }}>
-                  <div style={{ color: UI.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--color-white)" }}>
+                  <div style={{ color: UI.text, fontSize: "var(--font-size-sm)", fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.category}
                   </div>
-                  <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <span style={pill("#f1f5f9", UI.text)}>{row.total} total</span>
+                  <div style={{ marginTop: "var(--space-2)", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.total} total</span>
                     {row.overdue ? <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>{row.overdue} overdue</span> : null}
                     {row.soon ? <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>{row.soon} soon</span> : null}
                     {row.booked ? <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>{row.booked} booked</span> : null}
-                    {row.missing ? <span style={pill("#f1f5f9", UI.text)}>{row.missing} missing</span> : null}
+                    {row.missing ? <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.missing} missing</span> : null}
                   </div>
                 </div>
               ))
@@ -790,9 +790,9 @@ export default function ServiceOverviewPage() {
         </section>
 
         <div style={tableWrap}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "var(--space-3)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <SectionHeader title="Service Register" meta="Full vehicle service position with booking and history context" />
-            <span style={pill("#f1f5f9", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -851,7 +851,7 @@ export default function ServiceOverviewPage() {
                           >
                             {v.name}
                           </button>
-                          <div style={{ marginTop: 2, color: UI.muted, fontSize: 12, fontWeight: 800 }}>{v.reg}</div>
+                          <div style={{ marginTop: 2, color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{v.reg}</div>
                         </td>
 
                         <td style={td}>{v.category}</td>
@@ -864,7 +864,7 @@ export default function ServiceOverviewPage() {
                         <td style={td}>{v.lastServiceDate}</td>
                         <td style={td}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
                         <td style={td}>
-                          <span style={pill(historyCount ? UI.tealBg : "#f1f5f9", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "#d7dee8")}>
+                          <span style={pill(historyCount ? UI.tealBg : "var(--legacy-color-f1f5f9)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--color-border)")}>
                             {historyCount} records
                           </span>
                         </td>
@@ -923,22 +923,22 @@ function SectionHeader({ title: sectionTitle, meta }) {
 }
 
 function EmptyLine({ children }) {
-  return <div style={{ color: UI.muted, fontSize: 13, padding: "8px 0" }}>{children}</div>;
+  return <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "8px 0" }}>{children}</div>;
 }
 
 function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction, onOpen }) {
   const tones = {
     overdue: { bg: UI.overdueBg, fg: UI.overdueFg, border: UI.overdueBorder },
     soon: { bg: UI.soonBg, fg: UI.soonFg, border: UI.soonBorder },
-    unknown: { bg: "#f1f5f9", fg: UI.text, border: "#d7dee8" },
+    unknown: { bg: "var(--legacy-color-f1f5f9)", fg: UI.text, border: "var(--color-border)" },
     booked: { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder },
     ok: { bg: UI.okBg, fg: UI.okFg, border: UI.okBorder },
   };
   const style = tones[tone] || tones.unknown;
 
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "#fff", padding: 9 }}>
-      <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "var(--color-white)", padding: 9 }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "space-between", alignItems: "flex-start" }}>
         <button
           type="button"
           onClick={onOpen}
@@ -950,7 +950,7 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
             minWidth: 0,
             color: UI.text,
             fontWeight: 950,
-            fontSize: 13,
+            fontSize: "var(--font-size-sm)",
             textAlign: "left",
             cursor: onOpen ? "pointer" : "default",
             overflow: "hidden",
@@ -963,7 +963,7 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
       </div>
       <div style={{ marginTop: 5, color: UI.muted, fontSize: 12.5, lineHeight: 1.35 }}>{meta}</div>
       {onAction ? (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: "var(--space-2)" }}>
           <button type="button" className="service-overview-action" style={actionBtn} onClick={onAction}>
             <Wrench size={13} />
             {actionLabel}
@@ -985,19 +985,19 @@ function SummaryCard({ label, value, sub, icon: Icon, tone = "brand" }) {
   const toneStyles = tones[tone] || tones.brand;
 
   return (
-    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
       <div>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
           {label}
         </div>
-        <div style={{ marginTop: 4, color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
+        <div style={{ marginTop: "var(--space-1)", color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, fontWeight: 700 }}>{sub}</div>
       </div>
       <div
         style={{
           width: 40,
           height: 40,
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
           border: `1px solid ${toneStyles.border}`,
           background: toneStyles.bg,
           color: toneStyles.fg,

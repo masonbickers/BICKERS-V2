@@ -37,39 +37,39 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  okBg: "#ecfdf5",
-  okFg: "#065f46",
-  okBorder: "#bbf7d0",
-  warnBg: "#fff7ed",
-  warnFg: "#9a3412",
-  warnBorder: "#fed7aa",
-  dangerBg: "#fef2f2",
-  dangerFg: "#991b1b",
-  dangerBorder: "#fecdd3",
-  bookedBg: "#eef2ff",
-  bookedFg: "#3730a3",
-  bookedBorder: "#c7d2fe",
-  noteBg: "#f0fdfa",
-  noteFg: "#115e59",
-  noteBorder: "#99f6e4",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  okBg: "var(--color-success-soft)",
+  okFg: "var(--legacy-color-065f46)",
+  okBorder: "var(--color-success-border)",
+  warnBg: "var(--color-warning-soft)",
+  warnFg: "var(--color-warning)",
+  warnBorder: "var(--color-warning-border)",
+  dangerBg: "var(--color-danger-soft)",
+  dangerFg: "var(--color-danger)",
+  dangerBorder: "var(--legacy-color-fecdd3)",
+  bookedBg: "var(--legacy-color-eef2ff)",
+  bookedFg: "var(--legacy-color-3730a3)",
+  bookedBorder: "var(--legacy-color-c7d2fe)",
+  noteBg: "var(--legacy-color-f0fdfa)",
+  noteFg: "var(--legacy-color-115e59)",
+  noteBorder: "var(--legacy-color-99f6e4)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 12 };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
+const panel = { ...card, padding: "var(--space-3)" };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
 const sub = { marginTop: 6, fontSize: 13.5, lineHeight: 1.45, color: UI.muted };
 
 const btn = (kind = "ghost") => {
@@ -78,14 +78,14 @@ const btn = (kind = "ghost") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -103,23 +103,23 @@ const input = {
   border: UI.border,
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
   width: "100%",
   outline: "none",
 };
 
-const pill = (bg, fg, border = "#d7dee8") => ({
+const pill = (bg, fg, border = "var(--color-border)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color: fg,
   border: `1px solid ${border}`,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   whiteSpace: "nowrap",
 });
@@ -130,16 +130,16 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   textAlign: "left",
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontWeight: 900,
 };
 
 const td = {
   padding: "11px 12px",
-  fontSize: 13,
-  borderBottom: "1px solid #f1f5f9",
+  fontSize: "var(--font-size-sm)",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
 };
 
@@ -656,7 +656,7 @@ export default function UsageOverviewPage() {
       <style jsx global>{`
         .usage-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, select:focus, button:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         .usage-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -685,7 +685,7 @@ export default function UsageOverviewPage() {
           position: sticky;
           left: 0;
           z-index: 3;
-          box-shadow: 1px 0 0 #eef2f7;
+          box-shadow: 1px 0 0 var(--legacy-color-eef2f7);
         }
         .usage-matrix-table th:first-child { z-index: 4; }
         @media (max-width: 1320px) {
@@ -698,7 +698,7 @@ export default function UsageOverviewPage() {
       `}</style>
 
       <div style={pageWrap}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: 14, flexWrap: "wrap" }}>
           <div>
             <h1 style={title}>Usage Overview</h1>
             <div style={sub}>
@@ -706,7 +706,7 @@ export default function UsageOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" className="usage-overview-action" style={btn("primary")} onClick={() => router.push("/vehicle-home")}>
               <Truck size={15} />
               Vehicle Home
@@ -726,7 +726,7 @@ export default function UsageOverviewPage() {
           <SummaryCard label="Gaps" value={kpis.missingSlots} sub="No booking or note" icon={AlertTriangle} tone={kpis.missingSlots ? "danger" : "ok"} />
         </div>
 
-        <section style={{ ...card, padding: 12, marginBottom: 12 }}>
+        <section style={{ ...card, padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <div className="usage-filter-grid">
             <label style={{ position: "relative", display: "block" }}>
               <span style={fieldLabel}>Search</span>
@@ -790,7 +790,7 @@ export default function UsageOverviewPage() {
               </select>
             </Field>
 
-            <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "end" }}>
               <Field label="Sort">
                 <select style={input} value={sort} onChange={(e) => setSort(e.target.value)}>
                   <option value="risk">Gaps first</option>
@@ -821,13 +821,13 @@ export default function UsageOverviewPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
             <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
             <span style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>Manual note</span>
             <span style={pill(UI.warnBg, UI.warnFg, UI.warnBorder)}>Booking + note</span>
-            <span style={pill("#f1f5f9", UI.text)}>Blank</span>
-            <span style={pill("#f1f5f9", UI.text)}>{dayKeys.length} days</span>
-            <span style={pill("#f1f5f9", UI.text)}>{vehicleSummaries.length} vehicles shown</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Blank</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{dayKeys.length} days</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{vehicleSummaries.length} vehicles shown</span>
           </div>
         </section>
 
@@ -837,7 +837,7 @@ export default function UsageOverviewPage() {
             {loading ? (
               <EmptyLine>Loading usage data...</EmptyLine>
             ) : gapsToChase.length ? (
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)" }}>
                 {gapsToChase.map((item) => (
                   <button
                     key={`${item.vehicle.id}-${item.dateISO}`}
@@ -868,7 +868,7 @@ export default function UsageOverviewPage() {
               title="Range Breakdown"
               meta={kpis.busiest ? `Busiest: ${kpis.busiest.label} (${kpis.busiest.coveredDays} days)` : "No vehicles in range"}
             />
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               {kpis.topNotes.length ? (
                 kpis.topNotes.map(([note, count]) => (
                   <span key={note} style={pill(UI.noteBg, UI.noteFg, UI.noteBorder)}>
@@ -876,7 +876,7 @@ export default function UsageOverviewPage() {
                   </span>
                 ))
               ) : (
-                <span style={pill("#f1f5f9", UI.text)}>No manual notes in this range</span>
+                <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>No manual notes in this range</span>
               )}
               <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked days: {kpis.bookedSlots}</span>
               <span style={pill(UI.dangerBg, UI.dangerFg, UI.dangerBorder)}>Gaps: {kpis.missingSlots}</span>
@@ -884,10 +884,10 @@ export default function UsageOverviewPage() {
           </div>
         </section>
 
-        <section style={{ ...card, overflow: "hidden", marginBottom: 12 }}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <section style={{ ...card, overflow: "hidden", marginBottom: "var(--space-3)" }}>
+          <div style={{ padding: "var(--space-3)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <SectionHeader title="Vehicle Summary" meta="Sorted by the current priority" />
-            <span style={pill("#f1f5f9", UI.text)}>{loading ? "Loading..." : `${vehicleSummaries.length} rows`}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{loading ? "Loading..." : `${vehicleSummaries.length} rows`}</span>
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -927,7 +927,7 @@ export default function UsageOverviewPage() {
                       <tr key={row.id}>
                         <td style={td}>
                           <div style={{ fontWeight: 950, color: UI.text }}>{row.label}</div>
-                          <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{row.id}</div>
+                          <div style={{ marginTop: 2, fontSize: "var(--font-size-xs)", color: UI.muted }}>{row.id}</div>
                         </td>
                         <td style={td}>{row.category || "-"}</td>
                         <td style={td}>
@@ -956,9 +956,9 @@ export default function UsageOverviewPage() {
         </section>
 
         <section style={{ ...card, overflow: "hidden" }}>
-          <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "var(--space-3)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <SectionHeader title="Daily Matrix" meta="Click any cell to add or edit a day note" />
-            <span style={pill("#f1f5f9", UI.text)}>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>
               {matrixRows.length} of {vehicleSummaries.length} vehicles
             </span>
           </div>
@@ -987,9 +987,9 @@ export default function UsageOverviewPage() {
                 ) : (
                   matrixRows.map((vehicle) => (
                     <tr key={vehicle.id}>
-                      <td style={{ ...td, minWidth: 260, background: "#fff" }}>
+                      <td style={{ ...td, minWidth: 260, background: "var(--color-white)" }}>
                         <div style={{ fontWeight: 950, color: UI.text }}>{vehicle.label}</div>
-                        <div style={{ marginTop: 2, fontSize: 12, color: UI.muted }}>{vehicle.category || "-"}</div>
+                        <div style={{ marginTop: 2, fontSize: "var(--font-size-xs)", color: UI.muted }}>{vehicle.category || "-"}</div>
                       </td>
                       {dayKeys.map((dateISO) => {
                         const key = usageDocId(vehicle.id, dateISO);
@@ -1003,7 +1003,7 @@ export default function UsageOverviewPage() {
                             ? { bg: UI.noteBg, fg: UI.noteFg, border: UI.noteBorder }
                             : hasBooking
                               ? { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder }
-                              : { bg: "#ffffff", fg: UI.muted, border: "#e5eaf1" };
+                              : { bg: "var(--color-white)", fg: UI.muted, border: "var(--legacy-color-e5eaf1)" };
                         const label = hasNote ? noteShort(noteDoc) : hasBooking ? `${bookingsForDay.length} booking${bookingsForDay.length === 1 ? "" : "s"}` : "-";
                         const titleText = hasNote
                           ? displayNote(noteDoc)
@@ -1020,7 +1020,7 @@ export default function UsageOverviewPage() {
                               style={{
                                 width: "100%",
                                 minHeight: 34,
-                                borderRadius: 8,
+                                borderRadius: "var(--radius-md)",
                                 border: `1px solid ${tone.border}`,
                                 background: tone.bg,
                                 color: tone.fg,
@@ -1056,7 +1056,7 @@ export default function UsageOverviewPage() {
             zIndex: 1000,
             display: "grid",
             placeItems: "center",
-            padding: 16,
+            padding: "var(--space-4)",
           }}
           role="dialog"
           aria-modal="true"
@@ -1064,17 +1064,17 @@ export default function UsageOverviewPage() {
           <div
             style={{
               width: "min(94vw, 640px)",
-              background: "#fff",
+              background: "var(--color-white)",
               border: UI.border,
               borderRadius: UI.radius,
               boxShadow: "0 24px 70px rgba(15,23,42,0.22)",
-              padding: 16,
+              padding: "var(--space-4)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-3)" }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 950, color: UI.text }}>Set Day Note</div>
-                <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                   {fmtDate(editModal.dateISO)} - {vehicles.find((vehicle) => vehicle.id === editModal.vehicleId)?.label || editModal.vehicleId}
                 </div>
               </div>
@@ -1084,9 +1084,9 @@ export default function UsageOverviewPage() {
               </button>
             </div>
 
-            <div style={{ height: 1, background: "#e5eaf1", margin: "14px 0" }} />
+            <div style={{ height: 1, background: "var(--legacy-color-e5eaf1)", margin: "14px 0" }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-3)" }}>
               <Field label="Note">
                 <select
                   style={input}
@@ -1132,11 +1132,11 @@ export default function UsageOverviewPage() {
               </Field>
             </div>
 
-            <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: UI.muted }}>
+            <div style={{ marginTop: "var(--space-3)", fontSize: 12.5, lineHeight: 1.5, color: UI.muted }}>
               Leave note as <b>No note</b> to clear the visible cell. Existing job text is kept unless you clear it.
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 14, flexWrap: "wrap" }}>
               <button type="button" className="usage-overview-action" style={btn()} onClick={() => setEditModal(null)} disabled={!!savingKey}>
                 Cancel
               </button>
@@ -1154,7 +1154,7 @@ export default function UsageOverviewPage() {
 
 const fieldLabel = {
   display: "block",
-  marginBottom: 4,
+  marginBottom: "var(--space-1)",
   color: UI.muted,
   fontSize: 11.5,
   fontWeight: 900,
@@ -1181,17 +1181,17 @@ function SectionHeader({ title: sectionTitle, meta }) {
 }
 
 function EmptyLine({ children }) {
-  return <div style={{ color: UI.muted, fontSize: 13, padding: "10px 0" }}>{children}</div>;
+  return <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: "10px 0" }}>{children}</div>;
 }
 
 function Progress({ value }) {
-  const tone = value >= 80 ? { bg: UI.okBg, fg: UI.okFg, fill: "#16a34a" } : value >= 45 ? { bg: UI.warnBg, fg: UI.warnFg, fill: "#f59e0b" } : { bg: UI.dangerBg, fg: UI.dangerFg, fill: "#ef4444" };
+  const tone = value >= 80 ? { bg: UI.okBg, fg: UI.okFg, fill: "var(--legacy-color-16a34a)" } : value >= 45 ? { bg: UI.warnBg, fg: UI.warnFg, fill: "var(--legacy-color-f59e0b)" } : { bg: UI.dangerBg, fg: UI.dangerFg, fill: "var(--legacy-color-ef4444)" };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 150 }}>
-      <div style={{ height: 8, flex: 1, borderRadius: 999, background: tone.bg, overflow: "hidden", border: "1px solid #e5eaf1" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 150 }}>
+      <div style={{ height: 8, flex: 1, borderRadius: "var(--radius-pill)", background: tone.bg, overflow: "hidden", border: "1px solid var(--legacy-color-e5eaf1)" }}>
         <div style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: "100%", background: tone.fill }} />
       </div>
-      <span style={{ minWidth: 38, textAlign: "right", color: tone.fg, fontSize: 12, fontWeight: 950 }}>{value}%</span>
+      <span style={{ minWidth: 38, textAlign: "right", color: tone.fg, fontSize: "var(--font-size-xs)", fontWeight: 950 }}>{value}%</span>
     </div>
   );
 }
@@ -1207,19 +1207,19 @@ function SummaryCard({ label, value, sub: summary, icon: Icon, tone = "brand" })
   const toneStyles = tones[tone] || tones.brand;
 
   return (
-    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
       <div>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
           {label}
         </div>
-        <div style={{ marginTop: 4, color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
+        <div style={{ marginTop: "var(--space-1)", color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, fontWeight: 700 }}>{summary}</div>
       </div>
       <div
         style={{
           width: 40,
           height: 40,
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
           border: `1px solid ${toneStyles.border}`,
           background: toneStyles.bg,
           color: toneStyles.fg,

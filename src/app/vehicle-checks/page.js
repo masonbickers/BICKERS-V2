@@ -17,22 +17,22 @@ import { db } from "../../../firebaseConfig";
 
 /* UI tokens */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -41,19 +41,19 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const cardBase = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -66,11 +66,11 @@ const kpiGrid = {
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
-  background: "#f1f5f9",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -88,7 +88,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -97,7 +97,7 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: "var(--space-2)",
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
       fontSize: 12.5,
       lineHeight: 1.2,
@@ -106,9 +106,9 @@ const btn = (kind = "primary") => {
   if (kind === "pill") {
     return {
       padding: "5px 8px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -117,9 +117,9 @@ const btn = (kind = "primary") => {
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: "var(--space-2)",
       boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-      fontSize: 12,
+      fontSize: "var(--font-size-xs)",
       lineHeight: 1.2,
     };
   }
@@ -127,8 +127,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -136,7 +136,7 @@ const btn = (kind = "primary") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
     fontSize: 12.5,
     lineHeight: 1.2,
@@ -150,44 +150,44 @@ const inputBase = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 
 const sectionHeader = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
   flexWrap: "wrap",
 };
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: 4 };
+const hint = { color: UI.muted, fontSize: 12.5, lineHeight: 1.4, marginTop: "var(--space-1)" };
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: "var(--font-size-sm)", borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   textTransform: "uppercase",
   letterSpacing: 0,
 };
 
 /* pills */
-const pill = (bg, fg, borderColor = "#e5e7eb") => ({
+const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "5px 10px",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   background: bg,
   color: fg,
@@ -195,11 +195,11 @@ const pill = (bg, fg, borderColor = "#e5e7eb") => ({
 });
 
 const statusBadge = (state) => {
-  if (state === "OK") return pill("#ecfdf5", "#065f46", "#bbf7d0");
-  if (state === "DEFECT") return pill("#fef2f2", "#991b1b", "#fecaca");
-  if (state === "DRAFT") return pill("#f8fafc", "#111827", "#e5e7eb");
-  if (state === "MISSING") return pill("#fff7ed", "#9a3412", "#fed7aa");
-  return pill("#ffffff", "#111827");
+  if (state === "OK") return pill("var(--color-success-soft)", "var(--legacy-color-065f46)", "var(--color-success-border)");
+  if (state === "DEFECT") return pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)");
+  if (state === "DRAFT") return pill("var(--color-surface-subtle)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)");
+  if (state === "MISSING") return pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)");
+  return pill("var(--color-white)", "var(--legacy-color-111827)");
 };
 
 /* Helpers */
@@ -451,7 +451,7 @@ export default function VehicleChecksDashboardPage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .vehicle-checks-kpi-grid {
           display: grid;
@@ -481,7 +481,7 @@ export default function VehicleChecksDashboardPage() {
             <div style={sub}>Dashboard of required checks for confirmed jobs (past + today).</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Link href="/vehicle-checks/defects" className="vehicle-checks-action" style={btn("ghost")}>
               <AlertTriangle size={15} />
               Defects
@@ -513,7 +513,7 @@ export default function VehicleChecksDashboardPage() {
         </div>
 
         {/* Filters */}
-        <section style={{ ...cardBase, marginBottom: 12 }}>
+        <section style={{ ...cardBase, marginBottom: "var(--space-3)" }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Filters</h2>
@@ -536,7 +536,7 @@ export default function VehicleChecksDashboardPage() {
             </div>
           </div>
 
-          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "#fff" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: "var(--space-3)", background: "var(--color-white)" }}>
             <div className="vehicle-checks-filter-grid">
               <label style={{ position: "relative", display: "block" }}>
                 <Search
@@ -568,18 +568,18 @@ export default function VehicleChecksDashboardPage() {
             <div
               style={{
                 display: "flex",
-                gap: 8,
+                gap: "var(--space-2)",
                 alignItems: "center",
                 flexWrap: "wrap",
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 color: UI.muted,
-                marginTop: 12,
+                marginTop: "var(--space-3)",
               }}
             >
-              <span style={pill("#ecfdf5", "#065f46", "#bbf7d0")}>OK</span>
-              <span style={pill("#fef2f2", "#991b1b", "#fecaca")}>Defect</span>
-              <span style={pill("#f8fafc", "#111827", "#e5e7eb")}>Draft</span>
-              <span style={pill("#fff7ed", "#9a3412", "#fed7aa")}>Missing</span>
+              <span style={pill("var(--color-success-soft)", "var(--legacy-color-065f46)", "var(--color-success-border)")}>OK</span>
+              <span style={pill("var(--color-danger-soft)", "var(--color-danger)", "var(--color-danger-border)")}>Defect</span>
+              <span style={pill("var(--color-surface-subtle)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)")}>Draft</span>
+              <span style={pill("var(--color-warning-soft)", "var(--color-warning)", "var(--color-warning-border)")}>Missing</span>
               <span style={{ marginLeft: 6 }}>Tip: type a reg plate, job #, or driver name.</span>
             </div>
           </div>
@@ -629,7 +629,7 @@ export default function VehicleChecksDashboardPage() {
                   const openLabel = r.checks?.length ? "View" : "Create check";
 
                   return (
-                    <tr key={`${r.jobId}-${r.dateISO}-${i}`} style={{ background: i % 2 ? "#ffffff" : "#fcfdff" }}>
+                    <tr key={`${r.jobId}-${r.dateISO}-${i}`} style={{ background: i % 2 ? "var(--color-white)" : "var(--legacy-color-fcfdff)" }}>
                       <td style={thtd}>{formatDisplayDate(r.dateISO)}</td>
                       <td style={thtd}>
                         <span style={{ fontWeight: 900, color: UI.text }}>{r.jobLabel}</span>
@@ -664,8 +664,8 @@ export default function VehicleChecksDashboardPage() {
       </div>
 
       <style jsx global>{`
-        .vehicle-checks-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
-        table thead th { border-bottom: 1px solid #e5e7eb !important; }
+        .vehicle-checks-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
+        table thead th { border-bottom: 1px solid var(--legacy-color-e5e7eb) !important; }
       `}</style>
     </HeaderSidebarLayout>
   );
@@ -675,12 +675,12 @@ export default function VehicleChecksDashboardPage() {
 function KPI({ label, value, sub, tone = "default", icon: Icon = ClipboardCheck }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      ? { fg: "var(--color-danger)", bg: "var(--color-danger-soft)", border: "var(--color-danger-border)" }
       : tone === "amber"
-      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      ? { fg: "var(--color-warning)", bg: "var(--color-warning-soft)", border: "var(--color-warning-border)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--color-border)" };
 
   return (
     <div
@@ -718,7 +718,7 @@ function KPI({ label, value, sub, tone = "default", icon: Icon = ClipboardCheck 
         </span>
       </div>
 
-      {sub ? <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.3, marginTop: 8 }}>{sub}</div> : null}
+      {sub ? <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, lineHeight: 1.3, marginTop: "var(--space-2)" }}>{sub}</div> : null}
     </div>
   );
 }

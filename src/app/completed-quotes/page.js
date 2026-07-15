@@ -12,20 +12,20 @@ import { formatQuoteDate, getCompletedQuoteRows, quoteMatchesSearch } from "@/ap
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 const UI = {
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  border: "#d8e2ee",
-  borderSoft: "#e7edf5",
-  text: "#061426",
-  muted: "#586b82",
-  brand: "#1f4b7a",
-  brandSoft: "#eaf3fc",
-  green: "#16a34a",
-  greenSoft: "#dcfce7",
-  greenBorder: "#86efac",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
+  bg: "var(--color-canvas)",
+  panel: "var(--color-white)",
+  border: "var(--legacy-color-d8e2ee)",
+  borderSoft: "var(--legacy-color-e7edf5)",
+  text: "var(--legacy-color-061426)",
+  muted: "var(--legacy-color-586b82)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--legacy-color-eaf3fc)",
+  green: "var(--legacy-color-16a34a)",
+  greenSoft: "var(--legacy-color-dcfce7)",
+  greenBorder: "var(--legacy-color-86efac)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
 };
 
 const pageWrap = { minHeight: "100vh", background: UI.bg, color: UI.text, padding: "12px 14px 24px" };
@@ -33,57 +33,57 @@ const headerBar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
   flexWrap: "wrap",
 };
 const h1 = { margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: 0, color: UI.text };
-const sub = { color: UI.muted, fontSize: 13, lineHeight: 1.35, marginTop: 4 };
+const sub = { color: UI.muted, fontSize: "var(--font-size-sm)", lineHeight: 1.35, marginTop: "var(--space-1)" };
 const surface = {
   background: UI.panel,
   border: `1px solid ${UI.border}`,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
 };
 const toolbar = {
   ...surface,
   display: "grid",
   gridTemplateColumns: "minmax(260px, 1fr) 180px auto",
-  gap: 8,
+  gap: "var(--space-2)",
   alignItems: "center",
   padding: 10,
   marginBottom: 10,
 };
 const input = {
   width: "100%",
-  height: 36,
-  borderRadius: 8,
+  height: "var(--control-height-md)",
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 700,
   padding: "0 12px",
   outline: "none",
   boxSizing: "border-box",
 };
 const btn = {
-  height: 36,
+  height: "var(--control-height-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 6,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 900,
   textDecoration: "none",
   padding: "0 12px",
   whiteSpace: "nowrap",
 };
-const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "#fff" };
+const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "var(--color-white)" };
 const chip = (kind = "neutral") => {
   const base = {
     minHeight: 28,
@@ -91,11 +91,11 @@ const chip = (kind = "neutral") => {
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    borderRadius: 999,
+    borderRadius: "var(--radius-pill)",
     border: `1px solid ${UI.border}`,
     background: UI.brandSoft,
     color: UI.brand,
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     fontWeight: 900,
     padding: "0 9px",
     whiteSpace: "nowrap",
@@ -105,7 +105,7 @@ const chip = (kind = "neutral") => {
   return base;
 };
 const statGrid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, marginBottom: 10 };
-const statCard = { ...surface, padding: 12 };
+const statCard = { ...surface, padding: "var(--space-3)" };
 const statLabel = { color: UI.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase" };
 const statValue = { color: UI.text, fontSize: 24, lineHeight: 1.1, fontWeight: 900, marginTop: 3 };
 const tableWrap = { ...surface, overflowX: "auto" };
@@ -113,17 +113,17 @@ const table = { width: "100%", minWidth: 980, borderCollapse: "collapse", tableL
 const th = {
   padding: "8px 10px",
   textAlign: "left",
-  color: "#4f6278",
+  color: "var(--legacy-color-4f6278)",
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "#fbfdff",
+  background: "var(--legacy-color-fbfdff)",
 };
 const td = {
   padding: "7px 10px",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 750,
   color: UI.text,
   verticalAlign: "middle",
@@ -175,7 +175,7 @@ export default function CompletedQuotesPage() {
             <h1 style={h1}>Completed Quotes</h1>
             <div style={sub}>Saved quotes across all jobs, with direct links back into the quote builder.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Link href="/job-home" style={btn}>
               <Home size={14} />
               Jobs Home
@@ -183,6 +183,9 @@ export default function CompletedQuotesPage() {
             <Link href="/quote-templates" style={btn}>
               <Settings2 size={14} />
               Quote Templates
+            </Link>
+            <Link href="/completed-quotes/vehicle-stats" style={btn}>
+              Vehicle Stats
             </Link>
             <span style={chip("green")}>
               <FileText size={14} />

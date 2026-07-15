@@ -26,31 +26,31 @@ import {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
-  purple: "#7c3aed",
-  purpleSoft: "#f5f3ff",
-  purpleBorder: "#ddd6fe",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
+  purple: "var(--legacy-color-7c3aed)",
+  purpleSoft: "var(--legacy-color-f5f3ff)",
+  purpleBorder: "var(--legacy-color-ddd6fe)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -58,17 +58,17 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const card = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   textDecoration: "none",
   color: UI.text,
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
@@ -94,13 +94,13 @@ const chip = (kind = "neutral") => {
     alignItems: "center",
     gap: 6,
     padding: "5px 9px",
-    borderRadius: 999,
+    borderRadius: "var(--radius-pill)",
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: UI.brandBorder,
     background: UI.brandSoft,
     color: UI.text,
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     fontWeight: 800,
     whiteSpace: "nowrap",
   };
@@ -114,7 +114,7 @@ const chip = (kind = "neutral") => {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -129,7 +129,7 @@ const statCard = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
+  gap: "var(--space-2)",
   minHeight: 54,
   padding: 10,
 };
@@ -143,7 +143,7 @@ const statLabel = {
 
 const statValue = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.1,
   fontWeight: 850,
   marginTop: 3,
@@ -154,14 +154,14 @@ const actionButton = (kind = "ghost") => ({
   alignItems: "center",
   justifyContent: "center",
   gap: 6,
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-white)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 850,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   textDecoration: "none",
   boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadowSm,
   whiteSpace: "nowrap",
@@ -169,25 +169,25 @@ const actionButton = (kind = "ghost") => ({
 
 const inputStyle = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 40px 7px 34px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   outline: "none",
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
 const rowShell = {
   display: "grid",
   gridTemplateColumns: "minmax(360px, 1fr) minmax(160px, 220px) 136px 110px",
-  columnGap: 8,
+  columnGap: "var(--space-2)",
   rowGap: 0,
   alignItems: "center",
   minHeight: 34,
   padding: "0 0 0 9px",
-  borderTop: "1px solid #edf2f7",
+  borderTop: "1px solid var(--legacy-color-edf2f7)",
   textDecoration: "none",
   color: UI.text,
 };
@@ -202,13 +202,13 @@ const quoteRowShell = {
   gridTemplateColumns: "minmax(220px, 1fr) minmax(170px, 260px) 120px 120px",
 };
 
-const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "#fff" };
+const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--color-white)" };
 
 const focusCss = `
   input:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .job-home-main-grid,
@@ -289,38 +289,38 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Confirmed":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Bickers":
-      return { bg: "#ffffff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--color-white)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Stunt":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "First Pencil":
-      return { bg: "#89caf5", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Second Pencil":
-      return { bg: "#f73939", text: "#fff", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f73939)", text: "var(--color-white)", border: "var(--legacy-color-0b0b0b)" };
     case "Maintenance":
-      return { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Complete":
-      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Action Required":
-      return { bg: "#FF973B", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "DNH":
-      return { bg: "#e5e7eb", text: "#111827", border: "#d1d5db" };
+      return { bg: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-111827)", border: "var(--legacy-color-d1d5db)" };
     case "Postponed":
     case "Deleted":
-      return { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" };
+      return { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" };
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Missing":
-      return { bg: "#fff1f2", border: "#fecdd3", text: "#b91c1c" };
+      return { bg: "var(--legacy-color-fff1f2)", border: "var(--legacy-color-fecdd3)", text: "var(--legacy-color-b91c1c)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
   }
 };
 
@@ -340,7 +340,7 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
         padding: "0 8px",
         fontSize: 11.5,
         borderRadius: `0 ${isFirst ? UI.radius : 0}px ${isLast ? UI.radius : 0}px 0`,
-        border: "1px solid #0b0b0b",
+        border: "1px solid var(--legacy-color-0b0b0b)",
         borderTopWidth: isFirst ? 1 : 0,
         marginTop: 0,
         background: c.bg,
@@ -381,11 +381,11 @@ const groupButtonStyle = (active = false) => ({
   padding: "4px 7px",
   borderRadius: UI.radiusSm,
   border: active ? `2px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "#fff",
+  background: active ? UI.brandSoft : "var(--color-white)",
   color: UI.text,
   cursor: "pointer",
   fontWeight: 900,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   boxShadow: active ? "0 4px 10px rgba(31,75,122,0.08)" : UI.shadowSm,
 });
 
@@ -778,7 +778,7 @@ export default function JobHomePage() {
       onMouseLeave={(e) => Object.assign(e.currentTarget.style, card)}
     >
       <div style={{ ...sectionHeader, marginBottom: compact ? 4 : sectionHeader.marginBottom }}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0 }}>
           <span style={{ ...iconBox(color, bg, border), width: compact ? 28 : 34, height: compact ? 28 : 34 }}>
             <Icon size={17} />
           </span>
@@ -792,7 +792,7 @@ export default function JobHomePage() {
         <span style={chip()}>{pillText}</span>
       </div>
       {!compact && (
-        <div style={{ display: "flex", justifyContent: "flex-end", color: UI.brand, marginTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", color: UI.brand, marginTop: "var(--space-2)" }}>
           <ChevronRight size={17} />
         </div>
       )}
@@ -810,7 +810,7 @@ export default function JobHomePage() {
             color: UI.text,
           }}
         >
-          <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center", overflow: "hidden" }}>
             <span
               style={{
                 display: "inline-flex",
@@ -834,11 +834,11 @@ export default function JobHomePage() {
                 gap: 5,
                 height: 24,
                 padding: "0 8px",
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
                 border: UI.border,
-                background: "#fff",
+                background: "var(--color-white)",
                 color: UI.brand,
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 900,
                 textDecoration: "none",
                 whiteSpace: "nowrap",
@@ -873,7 +873,7 @@ export default function JobHomePage() {
     const pretty = prettifyStatus(j.status || "");
     return (
       <Link key={j.id} href={j.href || `/job-numbers/${j.id}`} className="job-home-row" style={jobNumberRowShell}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center", overflow: "hidden" }}>
           <span
             style={{
               display: "inline-flex",
@@ -894,7 +894,7 @@ export default function JobHomePage() {
         <div
           style={{
             color: UI.text,
-            fontSize: 12,
+            fontSize: "var(--font-size-xs)",
             fontWeight: 800,
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -905,7 +905,7 @@ export default function JobHomePage() {
           FP {j.bookingCounts?.firstPencil || 0} · Confirmed {j.bookingCounts?.confirmed || 0} · Complete{" "}
           {j.bookingCounts?.complete || 0} · D/C/P {j.bookingCounts?.notHappening || 0}
         </div>
-        <div style={{ fontSize: 13, whiteSpace: "nowrap" }}>{label}</div>
+        <div style={{ fontSize: "var(--font-size-sm)", whiteSpace: "nowrap" }}>{label}</div>
         <div
           className="job-home-row-status"
           style={{
@@ -931,7 +931,7 @@ export default function JobHomePage() {
     const pretty = prettifyStatus(j.status || "");
     return (
       <Link key={j.id} href={`/job-numbers/${j.id}`} className="job-home-row" style={rowShell}>
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center", overflow: "hidden" }}>
           <span
             style={{
               display: "inline-flex",
@@ -948,10 +948,10 @@ export default function JobHomePage() {
             {j.client || "-"}
           </span>
         </div>
-        <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+        <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {j.location || "-"}
         </div>
-        <div style={{ fontSize: 13, whiteSpace: "nowrap" }}>{label}</div>
+        <div style={{ fontSize: "var(--font-size-sm)", whiteSpace: "nowrap" }}>{label}</div>
         <div
           className="job-home-row-status"
           style={{
@@ -978,15 +978,15 @@ export default function JobHomePage() {
         className="job-home-row"
         style={quoteRowShell}
       >
-        <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", overflow: "hidden" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center", overflow: "hidden" }}>
           <span style={{ fontWeight: 900, minWidth: 0, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {quote.label || "-"}
           </span>
         </div>
-        <div style={{ color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+        <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {quote.templateName || quote.location || "-"}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 850, whiteSpace: "nowrap" }}>£{money(quote.subtotal)}</div>
+        <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 850, whiteSpace: "nowrap" }}>£{money(quote.subtotal)}</div>
         <div
           className="job-home-row-status"
           style={{
@@ -996,7 +996,7 @@ export default function JobHomePage() {
             gridTemplateColumns: "minmax(0, 1fr)",
             alignItems: "center",
             width: "100%",
-            paddingRight: 4,
+            paddingRight: "var(--space-1)",
           }}
         >
           <span
@@ -1024,7 +1024,7 @@ export default function JobHomePage() {
           <div>
             <h1 style={h1}>Jobs Home</h1>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Link href="/create-booking" style={actionButton("primary")}>
               <Plus size={14} />
               New Booking
@@ -1078,7 +1078,7 @@ export default function JobHomePage() {
 
             <div className="job-home-shortcut-grid" style={grid(2)}>
               <section style={{ ...card, padding: 10 }}>
-                <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center", marginBottom: "var(--space-2)" }}>
                   <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
                     <Search size={15} />
                   </span>
@@ -1113,7 +1113,7 @@ export default function JobHomePage() {
           </div>
 
           <section style={{ ...card, alignSelf: "stretch", padding: 10 }}>
-            <div style={{ ...sectionHeader, marginBottom: 8 }}>
+            <div style={{ ...sectionHeader, marginBottom: "var(--space-2)" }}>
               <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
                 <span style={{ ...iconBox(UI.green, UI.greenSoft, UI.greenBorder), width: 28, height: 28 }}>
                   <ChevronRight size={17} />
@@ -1137,12 +1137,12 @@ export default function JobHomePage() {
         <div className="job-home-groups-grid" style={{ display: "grid", gridTemplateColumns: "minmax(220px, 300px) minmax(0, 1fr)", gap: UI.gap, marginBottom: UI.gap }}>
           <section style={{ ...card, padding: 9 }}>
             <div style={{ ...sectionHeader, marginBottom: 6 }}>
-              <div style={{ display: "flex", gap: 8, minWidth: 0, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", minWidth: 0, alignItems: "center" }}>
                 <span style={{ ...iconBox(UI.brand, UI.brandSoft, UI.brandBorder), width: 28, height: 28 }}>
                   <FolderKanban size={15} />
                 </span>
                 <div>
-                  <h2 style={{ ...titleMd, fontSize: 16 }}>Job Number Groups</h2>
+                  <h2 style={{ ...titleMd, fontSize: "var(--font-size-lg)" }}>Job Number Groups</h2>
                 </div>
               </div>
               <span style={chip()}>{jobNumberGroups.length}</span>
@@ -1163,7 +1163,7 @@ export default function JobHomePage() {
                 const isExpanded = !!expandedJobGroups[group] || (searchTerm && hasSearchMatch);
                 const hasSubgroups = subgroups.length > 0;
                 return (
-                  <div key={group} style={{ display: "grid", gap: 4 }}>
+                  <div key={group} style={{ display: "grid", gap: "var(--space-1)" }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -1180,7 +1180,7 @@ export default function JobHomePage() {
                     </button>
 
                     {isExpanded && (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 4, paddingLeft: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "var(--space-1)", paddingLeft: "var(--space-3)" }}>
                         {subgroups.map(({ subgroup, items: subgroupItems }) => (
                           <button
                             key={subgroup}
@@ -1302,11 +1302,11 @@ function WorkflowLink({ href, label, count, tone = "neutral" }) {
         gridTemplateColumns: "minmax(0, 1fr) auto 14px",
         gap: 6,
         alignItems: "center",
-        minHeight: 32,
+        minHeight: "var(--control-height-sm)",
         padding: "5px 8px",
         borderRadius: UI.radiusSm,
         border: UI.border,
-        background: "#fff",
+        background: "var(--color-white)",
         color: UI.text,
         textDecoration: "none",
         fontSize: 12.5,
@@ -1351,7 +1351,7 @@ function PipelinePanel({
           href={href}
           style={{
             ...chip(),
-            ...(compact ? { width: 92, height: 28, justifyContent: "center", borderRadius: 6, padding: "0 8px" } : {}),
+            ...(compact ? { width: 92, height: 28, justifyContent: "center", borderRadius: "var(--radius-sm)", padding: "0 8px" } : {}),
             color: UI.brand,
             textDecoration: "none",
           }}
@@ -1361,11 +1361,11 @@ function PipelinePanel({
       </div>
       <div style={listShell}>
         {loading ? (
-          <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>Loading...</div>
+          <div style={{ padding: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>Loading...</div>
         ) : rows.length ? (
           rows.map((row, index) => renderRow(row, index, rows.length))
         ) : (
-          <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>{emptyText}</div>
+          <div style={{ padding: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>{emptyText}</div>
         )}
       </div>
     </section>

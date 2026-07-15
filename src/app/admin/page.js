@@ -47,25 +47,25 @@ import {
    Mini design system (matches your style)
 ------------------------------------------- */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
-  ok: "#15803d",
-  okSoft: "#edf7f2",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
+  ok: "var(--legacy-color-15803d)",
+  okSoft: "var(--legacy-color-edf7f2)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
 };
 
 const Tabs = {
@@ -947,8 +947,8 @@ export default function AdminPage() {
               disabled={migratingMfaSecrets}
               style={{
                 ...btnStyle,
-                background: migratingMfaSecrets ? "#f1f5f9" : UI.warnSoft,
-                borderColor: "#fed7aa",
+                background: migratingMfaSecrets ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
+                borderColor: "var(--color-warning-border)",
                 color: migratingMfaSecrets ? UI.muted : UI.warn,
                 cursor: migratingMfaSecrets ? "wait" : "pointer",
               }}
@@ -966,9 +966,9 @@ export default function AdminPage() {
                 }}
                 style={{
                   ...btnStyle,
-                  border: "1px solid #dc2626",
-                  background: "linear-gradient(135deg, #3f0000 0%, #7f1d1d 100%)",
-                  color: "#fff",
+                  border: "1px solid var(--legacy-color-dc2626)",
+                  background: "linear-gradient(135deg, var(--legacy-color-3f0000) 0%, var(--color-danger-hover) 100%)",
+                  color: "var(--color-white)",
                   fontWeight: 1000,
                 }}
                 title="Definitely do not press this"
@@ -1006,7 +1006,7 @@ export default function AdminPage() {
                   ...btnStyle,
                   border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
                   background: active ? UI.brand : UI.card,
-                  color: active ? "#fff" : UI.text,
+                  color: active ? "var(--color-white)" : UI.text,
                   fontWeight: 900,
                 }}
               >
@@ -1045,7 +1045,7 @@ export default function AdminPage() {
         )}
 
         {/* Content */}
-        <div style={{ marginTop: 16, display: "grid", gap: UI.gap }}>
+        <div style={{ marginTop: "var(--space-4)", display: "grid", gap: UI.gap }}>
           {/* ACCESS */}
           {activeTab === Tabs.ACCESS && (
             <Card title="Manage Access" subtitle="One line per user (de-duped by email or UID)">
@@ -1094,7 +1094,7 @@ export default function AdminPage() {
                                 {u.email || "-"}
                                 {locked && <span style={pillStyle}>Admin gate</span>}
                               </div>
-                              <div style={{ fontSize: 12, color: UI.muted }}>
+                              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                 {u.name || u.displayName || ""}
                               </div>
                             </Td>
@@ -1122,20 +1122,20 @@ export default function AdminPage() {
                                 {mfaEnabled ? "Enabled" : "Needs setup"}
                               </span>
                               {u.mfaResetRequired ? (
-                                <div style={{ marginTop: 3, fontSize: 12, color: UI.muted }}>
+                                <div style={{ marginTop: 3, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                   Reset requested
                                 </div>
                               ) : null}
                             </Td>
 
                             <Td>
-                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                                 <button
                                   disabled={locked}
                                   onClick={() => toggleUserEnabled(u.id, enabled)}
                                   style={{
                                     ...btnStyle,
-                                    background: locked ? "#f1f5f9" : UI.card,
+                                    background: locked ? "var(--legacy-color-f1f5f9)" : UI.card,
                                     cursor: locked ? "not-allowed" : "pointer",
                                     color: locked ? UI.muted : UI.text,
                                     fontWeight: 900,
@@ -1155,8 +1155,8 @@ export default function AdminPage() {
                                   disabled={resetInProgress}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "#fed7aa",
-                                    background: resetInProgress ? "#f1f5f9" : UI.warnSoft,
+                                    borderColor: "var(--color-warning-border)",
+                                    background: resetInProgress ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
                                     color: resetInProgress ? UI.muted : UI.warn,
                                     cursor: resetInProgress ? "wait" : "pointer",
                                   }}
@@ -1172,8 +1172,8 @@ export default function AdminPage() {
                                   disabled={deleteBlocked}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "#fecaca",
-                                    background: deleteBlocked ? "#f1f5f9" : "#fff1f2",
+                                    borderColor: "var(--color-danger-border)",
+                                    background: deleteBlocked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff1f2)",
                                     color: deleteBlocked ? UI.muted : UI.danger,
                                     cursor: deleteInProgress
                                       ? "wait"
@@ -1276,7 +1276,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
                   <button
                     onClick={() =>
                       setNewSick({
@@ -1297,7 +1297,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: `1px solid ${UI.brand}`,
                       background: UI.brand,
-                      color: "#fff",
+                      color: "var(--color-white)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1317,7 +1317,7 @@ export default function AdminPage() {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ fontWeight: 1000, color: UI.text }}>Edit sick leave</div>
-                    <div style={{ fontSize: 12, color: UI.muted }}>
+                    <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                       Record: <b>{editingSick.id}</b>
                     </div>
                   </div>
@@ -1380,7 +1380,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                  <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "flex-end", gap: 10 }}>
                     <button onClick={cancelEditSick} style={btnStyle}>
                       Cancel
                     </button>
@@ -1391,7 +1391,7 @@ export default function AdminPage() {
                         ...btnStyle,
                         border: `1px solid ${UI.brand}`,
                         background: UI.brand,
-                        color: "#fff",
+                        color: "var(--color-white)",
                         fontWeight: 1000,
                       }}
                     >
@@ -1432,7 +1432,7 @@ export default function AdminPage() {
                               <div style={{ fontWeight: 900, color: UI.text }}>
                                 {emp?.name || "Unknown"}
                               </div>
-                              <div style={{ fontSize: 12, color: UI.muted }}>
+                              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                 {emp?.email || ""}
                               </div>
                             </Td>
@@ -1466,8 +1466,8 @@ export default function AdminPage() {
                                   onClick={() => deleteSickLeave(s.id)}
                                   style={{
                                     ...btnStyle,
-                                    border: "1px solid #fecaca",
-                                    background: "#fee2e2",
+                                    border: "1px solid var(--color-danger-border)",
+                                    background: "var(--legacy-color-fee2e2)",
                                     color: UI.danger,
                                     fontWeight: 1000,
                                   }}
@@ -1503,7 +1503,7 @@ export default function AdminPage() {
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <span style={pillStyle}>Showing {filteredActivityRows.length}</span>
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", color: UI.text, fontWeight: 800 }}>
+                  <label style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", color: UI.text, fontWeight: 800 }}>
                     <span>Day</span>
                     <input
                       type="date"
@@ -1518,7 +1518,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div style={{ ...panelStyle, marginBottom: 12 }}>
+              <div style={{ ...panelStyle, marginBottom: "var(--space-3)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                   <div style={{ fontWeight: 1000, color: UI.text }}>Activity per Hour</div>
                   <span style={pillStyle}>{activityDay || "No day selected"}</span>
@@ -1540,14 +1540,14 @@ export default function AdminPage() {
                         style={{
                           height: `${Math.max(8, (item.value / activityHourMax) * 160)}px`,
                           borderRadius: "10px 10px 4px 4px",
-                          border: `1px solid ${item.value ? UI.brand : "#dbe2ea"}`,
+                          border: `1px solid ${item.value ? UI.brand : "var(--legacy-color-dbe2ea)"}`,
                           background: item.value
                             ? "linear-gradient(180deg, rgba(29,78,216,0.22) 0%, rgba(29,78,216,0.82) 100%)"
-                            : "#eef2f7",
+                            : "var(--legacy-color-eef2f7)",
                           display: "flex",
                           alignItems: "flex-start",
                           justifyContent: "center",
-                          color: item.value ? "#fff" : UI.muted,
+                          color: item.value ? "var(--color-white)" : UI.muted,
                           fontSize: 11,
                           fontWeight: 900,
                           paddingTop: 6,
@@ -1568,7 +1568,7 @@ export default function AdminPage() {
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                   gap: 10,
-                  marginBottom: 12,
+                  marginBottom: "var(--space-3)",
                 }}
               >
                 <div style={panelStyle}>
@@ -1578,7 +1578,7 @@ export default function AdminPage() {
                   <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
                     {activitySummary.total}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>activity events</div>
+                  <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>activity events</div>
                 </div>
 
                 <div style={panelStyle}>
@@ -1588,7 +1588,7 @@ export default function AdminPage() {
                   <div style={{ marginTop: 6, fontSize: 24, fontWeight: 1000, color: UI.text }}>
                     {activitySummary.uniqueUsers}
                   </div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>unique users on this day</div>
+                  <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>unique users on this day</div>
                 </div>
 
                 <div style={panelStyle}>
@@ -1604,7 +1604,7 @@ export default function AdminPage() {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 12, color: UI.muted }}>No activity on this day.</div>
+                    <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>No activity on this day.</div>
                   )}
                 </div>
               </div>
@@ -1779,11 +1779,11 @@ export default function AdminPage() {
               style={{
                 borderRadius: 22,
                 overflow: "hidden",
-                border: "1px solid #3f3f46",
+                border: "1px solid var(--legacy-color-3f3f46)",
                 boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
                 background:
-                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, #020617 100%)",
-                color: "#d1fae5",
+                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, var(--legacy-color-020617) 100%)",
+                color: "var(--legacy-color-d1fae5)",
               }}
             >
               <div
@@ -1792,20 +1792,20 @@ export default function AdminPage() {
                   borderBottom: "1px solid rgba(255,255,255,0.08)",
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: 12,
+                  gap: "var(--space-3)",
                   alignItems: "center",
                   flexWrap: "wrap",
                   background: "linear-gradient(90deg, rgba(127,29,29,0.88) 0%, rgba(17,24,39,0.88) 100%)",
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.75 }}>
+                  <div style={{ fontSize: "var(--font-size-xs)", letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.75 }}>
                     Critical Incident Console
                   </div>
-                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4, color: "#f8fafc" }}>
+                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: "var(--space-1)", color: "var(--color-surface-subtle)" }}>
                     Bickers Systems Compromised
                   </div>
-                  <div style={{ fontSize: 13, marginTop: 6, color: "#fecaca" }}>
+                  <div style={{ fontSize: "var(--font-size-sm)", marginTop: 6, color: "var(--color-danger-border)" }}>
                     Internal admin access revoked. Payroll geese now in control.
                   </div>
                 </div>
@@ -1815,9 +1815,9 @@ export default function AdminPage() {
                     onClick={() => setSystemRecovered(true)}
                     style={{
                       ...btnStyle,
-                      border: "1px solid #22c55e",
-                      background: "#14532d",
-                      color: "#ecfdf5",
+                      border: "1px solid var(--legacy-color-22c55e)",
+                      background: "var(--color-success-hover)",
+                      color: "var(--color-success-soft)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1829,7 +1829,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "rgba(255,255,255,0.06)",
-                      color: "#f8fafc",
+                      color: "var(--color-surface-subtle)",
                     }}
                   >
                     Exit prank
@@ -1837,7 +1837,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ padding: 20, display: "grid", gap: 18 }}>
+              <div style={{ padding: "var(--space-5)", display: "grid", gap: 18 }}>
                 <div
                   style={{
                     display: "grid",
@@ -1860,10 +1860,10 @@ export default function AdminPage() {
                         background: "rgba(2,6,23,0.52)",
                       }}
                     >
-                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#86efac" }}>
+                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--legacy-color-86efac)" }}>
                         {item.label}
                       </div>
-                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 1000, color: "#f0fdf4" }}>
+                      <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-xl)", fontWeight: 1000, color: "var(--legacy-color-f0fdf4)" }}>
                         {item.value}
                       </div>
                     </div>
@@ -1874,27 +1874,27 @@ export default function AdminPage() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1.25fr 0.75fr",
-                    gap: 16,
+                    gap: "var(--space-4)",
                   }}
                 >
                   <div
                     style={{
                       border: "1px solid rgba(74,222,128,0.24)",
                       borderRadius: 16,
-                      padding: 16,
+                      padding: "var(--space-4)",
                       background: "rgba(2,6,23,0.58)",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 10 }}>
+                    <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: 10 }}>
                       Live breach feed
                     </div>
-                    <div style={{ display: "grid", gap: 8, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: 13 }}>
+                    <div style={{ display: "grid", gap: "var(--space-2)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: "var(--font-size-sm)" }}>
                       {aprilFoolsFeed.map((line, index) => (
-                        <div key={line} style={{ color: index % 2 === 0 ? "#dcfce7" : "#bbf7d0" }}>
+                        <div key={line} style={{ color: index % 2 === 0 ? "var(--legacy-color-dcfce7)" : "var(--color-success-border)" }}>
                           [{String(8 + index).padStart(2, "0")}:{String((index * 7) % 60).padStart(2, "0")}:14] {line}
                         </div>
                       ))}
-                      <div style={{ color: systemRecovered ? "#86efac" : "#fca5a5", marginTop: 6 }}>
+                      <div style={{ color: systemRecovered ? "var(--legacy-color-86efac)" : "var(--legacy-color-fca5a5)", marginTop: 6 }}>
                         {systemRecovered
                           ? "[09:12:00] Recovery complete. April Fools."
                           : "[09:11:52] Suggestion: press 'Restore systems' before Finance notices."}
@@ -1906,14 +1906,14 @@ export default function AdminPage() {
                     style={{
                       border: "1px solid rgba(74,222,128,0.24)",
                       borderRadius: 16,
-                      padding: 16,
+                      padding: "var(--space-4)",
                       background: "rgba(2,6,23,0.58)",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 12 }}>
+                    <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: "var(--space-3)" }}>
                       Recovery status
                     </div>
-                    <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gap: "var(--space-3)" }}>
                       <FakeMeter label="Booking core" value={systemRecovered ? 100 : 13} />
                       <FakeMeter label="Holiday service" value={systemRecovered ? 100 : 41} />
                       <FakeMeter label="Workshop grid" value={systemRecovered ? 100 : 27} />
@@ -1926,9 +1926,9 @@ export default function AdminPage() {
                   style={{
                     border: "1px dashed rgba(134,239,172,0.32)",
                     borderRadius: 16,
-                    padding: 16,
+                    padding: "var(--space-4)",
                     background: systemRecovered ? "rgba(20,83,45,0.35)" : "rgba(127,29,29,0.22)",
-                    color: systemRecovered ? "#dcfce7" : "#fee2e2",
+                    color: systemRecovered ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
                     fontSize: 15,
                     fontWeight: 900,
                   }}
@@ -1942,7 +1942,7 @@ export default function AdminPage() {
           )}
         </div>
 
-        <div style={{ marginTop: 18, color: UI.muted, fontSize: 12 }}>
+        <div style={{ marginTop: 18, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
           Collections expected: <code>users</code>, <code>employees</code>, <code>holidays</code>,{" "}
           <code>sickLeave</code>, <code>bookings</code>, <code>maintenanceBookings</code>, <code>maintenanceJobs</code>.
           (Legacy optional: <code>holidayAllowances</code>)
@@ -1961,10 +1961,10 @@ function Card({ title, subtitle, children }) {
       style={cardStyle}
     >
       <div>
-        <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>{title}</div>
-        {subtitle && <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>{subtitle}</div>}
+        <div style={{ fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>{title}</div>
+        {subtitle && <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>{subtitle}</div>}
       </div>
-      <div style={{ marginTop: 12 }}>{children}</div>
+      <div style={{ marginTop: "var(--space-3)" }}>{children}</div>
     </div>
   );
 }
@@ -1985,7 +1985,7 @@ function AdminStat({ icon, label, value, detail }) {
 function FakeMeter({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
   const tone =
-    safeValue >= 100 ? "#22c55e" : safeValue >= 50 ? "#f59e0b" : "#ef4444";
+    safeValue >= 100 ? "var(--legacy-color-22c55e)" : safeValue >= 50 ? "var(--legacy-color-f59e0b)" : "var(--legacy-color-ef4444)";
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -1994,9 +1994,9 @@ function FakeMeter({ label, value }) {
           display: "flex",
           justifyContent: "space-between",
           gap: 10,
-          fontSize: 12,
+          fontSize: "var(--font-size-xs)",
           fontWeight: 800,
-          color: "#dcfce7",
+          color: "var(--legacy-color-dcfce7)",
         }}
       >
         <span>{label}</span>
@@ -2005,7 +2005,7 @@ function FakeMeter({ label, value }) {
       <div
         style={{
           height: 12,
-          borderRadius: 999,
+          borderRadius: "var(--radius-pill)",
           overflow: "hidden",
           background: "rgba(255,255,255,0.08)",
           border: "1px solid rgba(255,255,255,0.08)",
@@ -2015,7 +2015,7 @@ function FakeMeter({ label, value }) {
           style={{
             width: `${safeValue}%`,
             height: "100%",
-            background: `linear-gradient(90deg, ${tone} 0%, #86efac 100%)`,
+            background: `linear-gradient(90deg, ${tone} 0%, var(--legacy-color-86efac) 100%)`,
             transition: "width 240ms ease",
           }}
         />
@@ -2090,12 +2090,12 @@ function HA_balanceTone(bal) {
 
 function HA_Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fff7ed", fg: "#7c2d12", br: "#fed7aa" },
-    bad: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: UI.brandSoft, fg: UI.brand, br: "#dbeafe" },
-    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--color-success-hover)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--color-warning-soft)", fg: "var(--legacy-color-7c2d12)", br: "var(--color-warning-border)" },
+    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: UI.brandSoft, fg: UI.brand, br: "var(--legacy-color-dbeafe)" },
+    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2105,11 +2105,11 @@ function HA_Pill({ tone = "default", children }) {
         alignItems: "center",
         justifyContent: "center",
         padding: "4px 10px",
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         background: t.bg,
         color: t.fg,
         border: `1px solid ${t.br}`,
-        fontSize: 12,
+        fontSize: "var(--font-size-xs)",
         fontWeight: 900,
         whiteSpace: "nowrap",
       }}
@@ -2121,9 +2121,9 @@ function HA_Pill({ tone = "default", children }) {
 
 function HA_StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "#fff", br: "#e5e7eb" },
-    soft: { bg: UI.brandSoft, br: "#dbeafe" },
-    warn: { bg: "#fff7ed", br: "#fed7aa" },
+    default: { bg: "var(--color-white)", br: "var(--legacy-color-e5e7eb)" },
+    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
+    warn: { bg: "var(--color-warning-soft)", br: "var(--color-warning-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2131,11 +2131,11 @@ function HA_StatTile({ label, value, tone = "default" }) {
       style={{
         background: t.bg,
         border: `1px solid ${t.br}`,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: "var(--radius-lg)",
+        padding: "var(--space-3)",
       }}
     >
-      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
+      <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>
         {label}
       </div>
       <div style={{ marginTop: 6, fontSize: 20, fontWeight: 950, color: UI.text }}>{value}</div>
@@ -2532,14 +2532,14 @@ function EmployeesHolidayAllowancesTab() {
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees..." style={topSearchStyle} />
-          <span style={{ color: UI.muted, fontSize: 12 }}>
+          <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>
             Showing <b>{filteredRows.length}</b>
           </span>
         </div>
       </div>
 
       {/* Add employee */}
-      <div style={{ ...panelStyle, marginTop: 12 }}>
+      <div style={{ ...panelStyle, marginTop: "var(--space-3)" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 1000, color: UI.text }}>Add employee</div>
           <HA_Pill tone="info">Base: {HA_entitlementFor(newPattern)} days</HA_Pill>
@@ -2563,7 +2563,7 @@ function EmployeesHolidayAllowancesTab() {
           <button
             onClick={addEmployee}
             disabled={adding}
-            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
+            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-white)", fontWeight: 1000 }}
           >
             {adding ? "Adding..." : "Add"}
           </button>
@@ -2571,7 +2571,7 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10, marginTop: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 10, marginTop: "var(--space-3)" }}>
         <HA_StatTile label="People" value={kpis.people} tone="soft" />
         <HA_StatTile label="Used" value={kpis.totalUsed} />
         <HA_StatTile label="Allowance" value={kpis.totalAllowance} />
@@ -2586,7 +2586,7 @@ function EmployeesHolidayAllowancesTab() {
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: "auto", marginTop: 12 }}>
+      <div style={{ overflowX: "auto", marginTop: "var(--space-3)" }}>
         <table style={tableStyle}>
           <thead>
             <tr>
@@ -2631,7 +2631,7 @@ function EmployeesHolidayAllowancesTab() {
                 const recommendedCarry = HA_clamp(balThis, 0, HA_MAX_CARRY);
 
                 return (
-                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)" }}>
                     <Td>
                       <input
                         value={name}
@@ -2647,7 +2647,7 @@ function EmployeesHolidayAllowancesTab() {
                         <option value="three_days">{HA_PATTERN_LABEL.three_days}</option>
                       </select>
 
-                      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                         <HA_Pill tone="gray">Base {HA_entitlementFor(pattern)}</HA_Pill>
                         {pattern !== "full_time" ? <HA_Pill tone="info">Pro-rata</HA_Pill> : <HA_Pill tone="good">FT</HA_Pill>}
                       </div>
@@ -2674,11 +2674,11 @@ function EmployeesHolidayAllowancesTab() {
                           style={cellInputStyle}
                         />
                         {yearView === HA_nextYear ? (
-                          <div style={{ fontSize: 12, color: UI.muted }}>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                             Recommended (from {HA_thisYear} balance): <b>{recommendedCarry}</b> - {HA_thisYear} bal: <b>{balThis}</b>
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12, color: UI.muted }}>Current-year carry</div>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>Current-year carry</div>
                         )}
                       </div>
                     </Td>
@@ -2698,7 +2698,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => saveRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--color-white)", fontWeight: 1000 }}
                         >
                           {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                         </button>
@@ -2706,7 +2706,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => deleteRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: "1px solid #fecaca", background: "#fee2e2", color: UI.danger, fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: "1px solid var(--color-danger-border)", background: "var(--legacy-color-fee2e2)", color: UI.danger, fontWeight: 1000 }}
                         >
                           Delete
                         </button>
@@ -2720,7 +2720,7 @@ function EmployeesHolidayAllowancesTab() {
         </table>
       </div>
 
-      <div style={{ marginTop: 12, color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
+      <div style={{ marginTop: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.55 }}>
         Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
         <code>holidays.employee</code> matches the employee <code>name</code> exactly.
       </div>
@@ -2747,7 +2747,7 @@ const pageHeader = {
 
 const h1Style = {
   margin: 0,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 800,
   color: UI.text,
@@ -2763,7 +2763,7 @@ const pageSub = {
 
 const headerActions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   alignItems: "center",
   justifyContent: "flex-end",
   flexWrap: "wrap",
@@ -2772,7 +2772,7 @@ const headerActions = {
 const searchWrap = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   width: 360,
   maxWidth: "80vw",
   padding: "0 10px",
@@ -2791,7 +2791,7 @@ const headerSearchInputStyle = {
   outline: "none",
   background: "transparent",
   fontWeight: 700,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
 };
 
@@ -2799,7 +2799,7 @@ const statGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
   gap: UI.gap,
-  marginTop: 12,
+  marginTop: "var(--space-3)",
 };
 
 const cardStyle = {
@@ -2807,7 +2807,7 @@ const cardStyle = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowSm,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const statCard = {
@@ -2820,7 +2820,7 @@ const statCard = {
 const iconBox = {
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -2839,8 +2839,8 @@ const statLabel = {
 };
 
 const statValue = {
-  marginTop: 4,
-  fontSize: 22,
+  marginTop: "var(--space-1)",
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1,
   fontWeight: 900,
   color: UI.text,
@@ -2849,13 +2849,13 @@ const statValue = {
 const statDetail = {
   marginTop: 5,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
 };
 
 const tabBar = {
   display: "flex",
-  gap: 8,
-  marginTop: 12,
+  gap: "var(--space-2)",
+  marginTop: "var(--space-3)",
   flexWrap: "wrap",
 };
 
@@ -2869,12 +2869,12 @@ const thStyle = {
   textAlign: "left",
   padding: "9px 10px",
   borderBottom: UI.border,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
   whiteSpace: "nowrap",
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
 };
 
 const tdStyle = {
@@ -2885,7 +2885,7 @@ const tdStyle = {
   fontSize: 13.5,
 };
 
-const emptyTd = { padding: 12, color: UI.muted };
+const emptyTd = { padding: "var(--space-3)", color: UI.muted };
 
 const btnStyle = {
   display: "inline-flex",
@@ -2898,7 +2898,7 @@ const btnStyle = {
   background: UI.card,
   cursor: "pointer",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
   boxShadow: UI.shadowSm,
 };
@@ -2912,16 +2912,16 @@ const topSearchStyle = {
   outline: "none",
   background: UI.card,
   fontWeight: 700,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
   boxShadow: UI.shadowSm,
 };
 
 const pillStyle = {
-  marginLeft: 8,
-  fontSize: 12,
+  marginLeft: "var(--space-2)",
+  fontSize: "var(--font-size-xs)",
   padding: "3px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -2938,7 +2938,7 @@ const selectStyle = {
 };
 
 const labelStyle = {
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   color: UI.muted,
   textTransform: "uppercase",
@@ -2954,7 +2954,7 @@ const inputStyle = {
   outline: "none",
   background: UI.card,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
 };
 
@@ -2973,9 +2973,9 @@ const cellInputStyle = {
 const panelStyle = {
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#f8fafc",
-  padding: 12,
-  marginBottom: 12,
+  background: "var(--color-surface-subtle)",
+  padding: "var(--space-3)",
+  marginBottom: "var(--space-3)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",
 };
 

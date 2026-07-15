@@ -25,24 +25,25 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
+import { timesheetDetailPath } from "@/app/utils/timesheetDetail";
 
 /* ────────────────────────────────────────────────────────────
    Design tokens + layout
 ─────────────────────────────────────────────────────────────*/
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  border: "1px solid #d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  bg: "#f3f6f9",
-  bgAlt: "#fbfdff",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  chipBg: "#edf3f8",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  border: "var(--border-default)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  bg: "var(--color-canvas)",
+  bgAlt: "var(--legacy-color-fbfdff)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  chipBg: "var(--color-brand-soft)",
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
+  shadowHover: "var(--shadow-md)",
 };
 
 const LAYOUT = {
@@ -325,7 +326,7 @@ const Badge = ({ text, bg, fg, border, title }) => (
       color: fg,
       border: `1px solid ${border}`,
       padding: "3px 8px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       fontSize: 11.5,
       fontWeight: 900,
       whiteSpace: "nowrap",
@@ -342,8 +343,8 @@ const ConnectedSummaryPanel = ({ title, values }) => {
     <div
       style={{
         border: UI.border,
-        borderRadius: 8,
-        background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+        borderRadius: "var(--radius-md)",
+        background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-fbfdff) 100%)",
         minWidth: 0,
         overflow: "hidden",
       }}
@@ -353,10 +354,10 @@ const ConnectedSummaryPanel = ({ title, values }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 8,
+          gap: "var(--space-2)",
           padding: "7px 9px",
           borderBottom: UI.border,
-          background: "#f8fafc",
+          background: "var(--color-surface-subtle)",
         }}
       >
         <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>
@@ -364,9 +365,9 @@ const ConnectedSummaryPanel = ({ title, values }) => {
         </div>
         <Badge
           text={String(count)}
-          bg={count ? UI.brandSoft : "#f1f5f9"}
+          bg={count ? UI.brandSoft : "var(--legacy-color-f1f5f9)"}
           fg={count ? UI.brand : UI.muted}
-          border={count ? UI.brandBorder : "#d7dee8"}
+          border={count ? UI.brandBorder : "var(--color-border)"}
           title={`${count} ${title.toLowerCase()}`}
         />
       </div>
@@ -387,12 +388,12 @@ const ConnectedSummaryPanel = ({ title, values }) => {
               key={value}
               title={value}
               style={{
-                border: "1px solid #d7dee8",
-                borderRadius: 999,
-                background: "#fff",
+                border: "var(--border-default)",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--color-white)",
                 color: UI.text,
                 padding: "4px 8px",
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
                 fontWeight: 850,
                 lineHeight: 1.2,
                 maxWidth: "100%",
@@ -412,23 +413,23 @@ const ConnectedSummaryPanel = ({ title, values }) => {
 
 const statusColor = (status) => {
   const label = String(status || "").toLowerCase();
-  if (label === "ready to invoice") return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
-  if (label === "needs action" || label === "action required") return { bg: "#FF973B", border: "#111111", text: "#0b0b0b" };
-  if (label === "complete" || label === "completed") return { bg: "#92d18c", border: "#111111", text: "#0b0b0b" };
-  if (label === "confirmed") return { bg: "#f3f970", border: "#111111", text: "#0b0b0b" };
-  if (label === "first pencil") return { bg: "#89caf5", border: "#111111", text: "#0b0b0b" };
-  if (label === "second pencil") return { bg: "#f73939", border: "#111111", text: "#ffffff" };
-  if (label === "dnh") return { bg: "#d0d0d0", border: "#d0d0d0", text: "#0b0b0b" };
-  if (label === "cancelled" || label === "canceled") return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
-  if (label === "paid") return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
-  return { bg: "#eef3f8", border: "#d7dee8", text: UI.brand };
+  if (label === "ready to invoice") return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+  if (label === "needs action" || label === "action required") return { bg: "var(--legacy-color-ff973b)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "complete" || label === "completed") return { bg: "var(--legacy-color-92d18c)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "confirmed") return { bg: "var(--legacy-color-f3f970)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "first pencil") return { bg: "var(--legacy-color-89caf5)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "second pencil") return { bg: "var(--legacy-color-f73939)", border: "var(--legacy-color-111111)", text: "var(--color-white)" };
+  if (label === "dnh") return { bg: "var(--legacy-color-d0d0d0)", border: "var(--legacy-color-d0d0d0)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "cancelled" || label === "canceled") return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
+  if (label === "paid") return { bg: "var(--legacy-color-dcfce7)", border: "var(--legacy-color-86efac)", text: "var(--color-success)" };
+  return { bg: "var(--legacy-color-eef3f8)", border: "var(--color-border)", text: UI.brand };
 };
 
 const StatusPill = ({ value }) => {
   const color = statusColor(value);
   return <Badge text={value} bg={color.bg} fg={color.text} border={color.border} />;
 };
-const PaidPill = () => <Badge text="Paid" bg="#dcfce7" fg="#166534" border="#86efac" />;
+const PaidPill = () => <Badge text="Paid" bg="var(--legacy-color-dcfce7)" fg="var(--color-success)" border="var(--legacy-color-86efac)" />;
 
 /* ────────────────────────────────────────────────────────────
    Status auto-complete helpers (UNCHANGED)
@@ -518,19 +519,19 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
 
   const wrap = {
-    borderLeft: `3px solid ${ts.submitted ? "#86efac" : "#fde047"}`,
-    borderRadius: 6,
+    borderLeft: `3px solid ${ts.submitted ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde047)"}`,
+    borderRadius: "var(--radius-sm)",
     padding: "8px 10px",
-    marginBottom: 8,
-    backgroundColor: ts.submitted ? "#fbfdff" : "#fffbeb",
+    marginBottom: "var(--space-2)",
+    backgroundColor: ts.submitted ? "var(--legacy-color-fbfdff)" : "var(--legacy-color-fffbeb)",
     minWidth: 0,
   };
   const header = {
     display: "flex",
-    gap: 8,
+    gap: "var(--space-2)",
     alignItems: "center",
     marginBottom: 6,
-    borderBottom: "1px solid #e5eaf1",
+    borderBottom: "1px solid var(--legacy-color-e5eaf1)",
     paddingBottom: 6,
     minWidth: 0,
     flexWrap: "wrap",
@@ -546,7 +547,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     textAlign: "left",
     padding: "5px 6px",
     borderBottom: UI.border,
-    background: "#fff",
+    background: "var(--color-white)",
     color: UI.muted,
     fontSize: 10.5,
     fontWeight: 900,
@@ -558,23 +559,23 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   };
   const td = {
     padding: "5px 6px",
-    borderBottom: "1px solid #edf2f7",
+    borderBottom: "1px solid var(--legacy-color-edf2f7)",
     verticalAlign: "top",
     overflow: "hidden",
     textOverflow: "ellipsis",
   };
   const tdRight = { ...td, textAlign: "right", whiteSpace: "nowrap" };
   const dayCell = { ...td, fontWeight: 900, whiteSpace: "nowrap" };
-  const foot = { ...tdRight, fontWeight: 900, background: "#f8fafc" };
+  const foot = { ...tdRight, fontWeight: 900, background: "var(--color-surface-subtle)" };
   const notesCell = { overflowWrap: "anywhere", whiteSpace: "pre-wrap" };
 
   return (
     <div style={wrap}>
       <div style={header}>
-        <div style={{ fontSize: 13, fontWeight: 900, color: UI.text }}>
+        <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 900, color: UI.text }}>
           Week of {ws ? format(ws, "dd/MM/yyyy") : "—"}
         </div>
-        <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+        <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>
           <strong>Emp:</strong> {ts.employeeName || ts.employeeCode || "—"}
         </div>
         <div style={{ fontSize: 11.5, color: UI.muted }}>
@@ -582,20 +583,20 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
         </div>
         <div style={{ marginLeft: "auto" }}>
           {ts.submitted ? (
-            <Badge text="Submitted" bg="#dcfce7" fg="#166534" border="#86efac" />
+            <Badge text="Submitted" bg="var(--legacy-color-dcfce7)" fg="var(--color-success)" border="var(--legacy-color-86efac)" />
           ) : (
-            <Badge text="Draft" bg="#fefce8" fg="#854d0e" border="#fde047" />
+            <Badge text="Draft" bg="var(--legacy-color-fefce8)" fg="var(--legacy-color-854d0e)" border="var(--legacy-color-fde047)" />
           )}
         </div>
         <a
-          href={`/timesheet/${ts.id || `${ts.employeeCode}_${ts.weekStart}`}`}
+          href={timesheetDetailPath(ts.id || `${ts.employeeCode}_${ts.weekStart}`)}
           target="_blank"
           rel="noopener noreferrer"
           style={{
             padding: "4px 8px",
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: UI.border,
-            background: "#fff",
+            background: "var(--color-white)",
             fontSize: 11.5,
             textDecoration: "none",
             color: UI.brand,
@@ -688,12 +689,12 @@ const DisabledOverlayNote = ({ reason }) => (
   <div
     style={{
       marginTop: 10,
-      border: "1px dashed #cbd5e1",
-      background: "#f8fafc",
-      color: "#64748b",
+      border: "1px dashed var(--legacy-color-cbd5e1)",
+      background: "var(--color-surface-subtle)",
+      color: "var(--color-text-subtle)",
       borderRadius: 10,
       padding: "10px 12px",
-      fontSize: 13,
+      fontSize: "var(--font-size-sm)",
       fontWeight: 800,
     }}
   >
@@ -709,7 +710,7 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
     gap: 6,
     minHeight: 30,
     padding: "6px 10px",
-    borderRadius: 8,
+    borderRadius: "var(--radius-md)",
     border: UI.border,
     fontSize: 12.5,
     fontWeight: 900,
@@ -721,12 +722,12 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
 
   const styles =
     variant === "primary"
-      ? { ...base, background: UI.brand, color: "#fff", border: `1px solid ${UI.brand}` }
+      ? { ...base, background: UI.brand, color: "var(--color-white)", border: `1px solid ${UI.brand}` }
       : variant === "danger"
-      ? { ...base, background: "#ef4444", color: "#fff", border: "1px solid #ef4444" }
+      ? { ...base, background: "var(--legacy-color-ef4444)", color: "var(--color-white)", border: "1px solid var(--legacy-color-ef4444)" }
       : variant === "dark"
-      ? { ...base, background: "#111827", color: "#fff", border: "1px solid #111827" }
-      : { ...base, background: "#fff", color: UI.text };
+      ? { ...base, background: "var(--legacy-color-111827)", color: "var(--color-white)", border: "1px solid var(--legacy-color-111827)" }
+      : { ...base, background: "var(--color-white)", color: UI.text };
 
   return (
     <button disabled={disabled} onClick={disabled ? undefined : onClick} style={styles} title={title}>
@@ -739,7 +740,7 @@ const Card = ({ children, id, tone = "white", style }) => (
   <div
     id={id}
     style={{
-      background: tone === "alt" ? UI.bgAlt : "#fff",
+      background: tone === "alt" ? UI.bgAlt : "var(--color-white)",
       border: tone === "plain" ? "none" : UI.border,
       borderRadius: UI.radius,
       padding: tone === "plain" ? 0 : 10,
@@ -753,7 +754,7 @@ const Card = ({ children, id, tone = "white", style }) => (
 );
 
 const SectionTitle = ({ title, right }) => (
-  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: "var(--space-2)" }}>
     <div style={{ fontWeight: 900, fontSize: 14.5 }}>{title}</div>
     {right}
   </div>
@@ -1234,7 +1235,7 @@ export default function JobInfoPage() {
   if (!jobId) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 40 }}>No Job ID provided.</div>
+        <div style={{ padding: "var(--space-10)" }}>No Job ID provided.</div>
       </HeaderSidebarLayout>
     );
   }
@@ -1242,7 +1243,7 @@ export default function JobInfoPage() {
   if (!relatedJobs.length) {
     return (
       <HeaderSidebarLayout>
-        <div style={{ padding: 40 }}>Loading job details…</div>
+        <div style={{ padding: "var(--space-10)" }}>Loading job details…</div>
       </HeaderSidebarLayout>
     );
   }
@@ -1312,7 +1313,7 @@ export default function JobInfoPage() {
                 padding: `0 ${LAYOUT.PAGE_PAD_X}px`,
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: "var(--space-2)",
                 minWidth: 0,
                 paddingTop: 6,
                 paddingBottom: 6,
@@ -1323,12 +1324,12 @@ export default function JobInfoPage() {
               </Btn>
 
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 900, fontSize: 22, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontWeight: 900, fontSize: "var(--font-size-xl)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   Job #{prefix} - {mainJob.client || "Booking"}
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
                 <Btn variant="base" onClick={() => toggleAll(true)} title="Expand all">
                   Expand all
                 </Btn>
@@ -1347,7 +1348,7 @@ export default function JobInfoPage() {
               padding: `0 ${LAYOUT.PAGE_PAD_X}px 8px`,
               display: "grid",
               gridTemplateColumns: "minmax(260px, 1fr) minmax(170px, 220px) auto",
-              gap: 8,
+              gap: "var(--space-2)",
               alignItems: "center",
             }}
           >
@@ -1377,11 +1378,11 @@ export default function JobInfoPage() {
                   width: "100%",
                   height: 34,
                   padding: "0 12px 0 34px",
-                  borderRadius: 8,
+                  borderRadius: "var(--radius-md)",
                   border: UI.border,
-                  fontSize: 13,
+                  fontSize: "var(--font-size-sm)",
                   outline: "none",
-                  background: "#fff",
+                  background: "var(--color-white)",
                   fontWeight: 700,
                 }}
               />
@@ -1394,11 +1395,11 @@ export default function JobInfoPage() {
                 width: "100%",
                 height: 34,
                 padding: "0 10px",
-                borderRadius: 8,
+                borderRadius: "var(--radius-md)",
                 border: UI.border,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 outline: "none",
-                background: "#fff",
+                background: "var(--color-white)",
                 fontWeight: 800,
               }}
               aria-label="Filter by status"
@@ -1413,8 +1414,8 @@ export default function JobInfoPage() {
             <div
               style={{
                 border: UI.border,
-                background: "#fff",
-                borderRadius: 8,
+                background: "var(--color-white)",
+                borderRadius: "var(--radius-md)",
                 padding: "8px 10px",
                 fontSize: 12.5,
                 fontWeight: 900,
@@ -1440,10 +1441,10 @@ export default function JobInfoPage() {
           <div
             style={{
               border: `1px solid ${UI.brandBorder}`,
-              background: "#fff",
-              borderRadius: 8,
+              background: "var(--color-white)",
+              borderRadius: "var(--radius-md)",
               padding: 14,
-              marginBottom: 12,
+              marginBottom: "var(--space-3)",
               boxShadow: UI.shadow,
             }}
           >
@@ -1459,7 +1460,7 @@ export default function JobInfoPage() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   width: "100%",
                   alignItems: "start",
                 }}
@@ -1474,7 +1475,7 @@ export default function JobInfoPage() {
                     key={title}
                     style={{
                       padding: "4px 10px 4px 0",
-                      borderRight: title === "Previous Locations" ? "none" : "1px solid #e5eaf1",
+                      borderRight: title === "Previous Locations" ? "none" : "1px solid var(--legacy-color-e5eaf1)",
                       minWidth: 0,
                     }}
                   >
@@ -1497,29 +1498,29 @@ export default function JobInfoPage() {
                 ))}
               </div>
 
-              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)", minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
                   {statusSummary && <Badge text={statusSummary} bg={UI.brandSoft} fg={UI.brand} border={UI.brandBorder} />}
                   {notReadyCount > 0 && (
                     <Badge
                       text={`${notReadyCount} not ready for invoice`}
-                      bg="#fffbeb"
-                      fg="#92400e"
-                      border="#fde68a"
+                      bg="var(--legacy-color-fffbeb)"
+                      fg="var(--legacy-color-92400e)"
+                      border="var(--legacy-color-fde68a)"
                     />
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${notReadyCount > 0 ? 3 : 2}, minmax(0, 1fr))`, gap: 8 }}>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                <div style={{ display: "grid", gridTemplateColumns: `repeat(${notReadyCount > 0 ? 3 : 2}, minmax(0, 1fr))`, gap: "var(--space-2)" }}>
+                  <div style={{ border: UI.border, borderRadius: "var(--radius-md)", padding: "var(--space-2)", background: UI.bgAlt }}>
                     <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Bookings</div>
                     <div style={{ fontSize: 20, fontWeight: 900 }}>{allJobs.length}</div>
                   </div>
-                  <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                  <div style={{ border: UI.border, borderRadius: "var(--radius-md)", padding: "var(--space-2)", background: UI.bgAlt }}>
                     <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Shown</div>
                     <div style={{ fontSize: 20, fontWeight: 900 }}>{filteredJobs.length}</div>
                   </div>
                   {notReadyCount > 0 && (
-                    <div style={{ border: UI.border, borderRadius: 8, padding: 8, background: UI.bgAlt }}>
+                    <div style={{ border: UI.border, borderRadius: "var(--radius-md)", padding: "var(--space-2)", background: UI.bgAlt }}>
                       <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>Blocked</div>
                       <div style={{ fontSize: 20, fontWeight: 900 }}>{notReadyCount}</div>
                     </div>
@@ -1532,11 +1533,11 @@ export default function JobInfoPage() {
           {!filteredJobs.length ? (
             <div
               style={{
-                border: "1px dashed #cbd5e1",
-                background: "#f8fafc",
-                borderRadius: 8,
-                padding: 12,
-                color: "#64748b",
+                border: "1px dashed var(--legacy-color-cbd5e1)",
+                background: "var(--color-surface-subtle)",
+                borderRadius: "var(--radius-md)",
+                padding: "var(--space-3)",
+                color: "var(--color-text-subtle)",
                 fontWeight: 800,
               }}
             >
@@ -1611,9 +1612,9 @@ export default function JobInfoPage() {
                         alignItems: "center",
                         minHeight: 22,
                         padding: "2px 8px",
-                        borderRadius: 999,
+                        borderRadius: "var(--radius-pill)",
                         border: UI.border,
-                        background: "#f8fafc",
+                        background: "var(--color-surface-subtle)",
                         color: UI.muted,
                         fontSize: 11,
                         fontWeight: 900,
@@ -1655,11 +1656,11 @@ export default function JobInfoPage() {
                   id={JOB_SECTION_ID}
                   style={{
                     border: job.id === jobId ? `2px solid ${UI.brand}` : UI.border,
-                    borderRadius: 8,
-                    padding: 8,
+                    borderRadius: "var(--radius-md)",
+                    padding: "var(--space-2)",
                     marginBottom: 10,
                     boxShadow: UI.shadow,
-                    background: locked ? "#f8fafc" : job.id === jobId ? "#f8fbff" : "#fff",
+                    background: locked ? "var(--color-surface-subtle)" : job.id === jobId ? "var(--legacy-color-f8fbff)" : "var(--color-white)",
                     minWidth: 0,
                     scrollMarginTop: LAYOUT.HEADER_H + 80, // extra for search row
                     opacity: locked ? 0.82 : 1,
@@ -1671,11 +1672,11 @@ export default function JobInfoPage() {
                     onClick={() => setExpandedById((p) => ({ ...p, [job.id]: !isExpanded }))}
                     style={{
                       display: "flex",
-                      gap: 8,
+                      gap: "var(--space-2)",
                       alignItems: "center",
-                      padding: 8,
-                      borderRadius: 8,
-                      background: "#fff",
+                      padding: "var(--space-2)",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--color-white)",
                       border: UI.border,
                       cursor: "pointer",
                       userSelect: "none",
@@ -1686,9 +1687,9 @@ export default function JobInfoPage() {
                       style={{
                         width: 26,
                         height: 26,
-                        borderRadius: 8,
+                        borderRadius: "var(--radius-md)",
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         display: "grid",
                         placeItems: "center",
                         fontWeight: 900,
@@ -1706,11 +1707,11 @@ export default function JobInfoPage() {
                         minWidth: 34,
                         height: 24,
                         padding: "0 8px",
-                        borderRadius: 999,
+                        borderRadius: "var(--radius-pill)",
                         background: UI.brandSoft,
                         border: `1px solid ${UI.brandBorder}`,
                         fontWeight: 900,
-                        fontSize: 12,
+                        fontSize: "var(--font-size-xs)",
                         color: UI.brand,
                       }}
                       title="Job prefix"
@@ -1725,9 +1726,9 @@ export default function JobInfoPage() {
                         {invoiceBadge.label && (
                           <Badge
                             text={invoiceBadge.label}
-                            bg={locked ? "#f1f5f9" : invoiceBadge.ready ? "#dcfce7" : "#fffbeb"}
-                            fg={locked ? "#64748b" : invoiceBadge.ready ? "#166534" : "#92400e"}
-                            border={locked ? "#cbd5e1" : invoiceBadge.ready ? "#86efac" : "#fde68a"}
+                            bg={locked ? "var(--legacy-color-f1f5f9)" : invoiceBadge.ready ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fffbeb)"}
+                            fg={locked ? "var(--color-text-subtle)" : invoiceBadge.ready ? "var(--color-success)" : "var(--legacy-color-92400e)"}
+                            border={locked ? "var(--legacy-color-cbd5e1)" : invoiceBadge.ready ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde68a)"}
                             title={
                               locked
                                 ? "This job did not happen, so invoice readiness does not apply"
@@ -1742,9 +1743,9 @@ export default function JobInfoPage() {
                         {locked && (
                           <Badge
                             text="Locked"
-                            bg="#e2e8f0"
-                            fg="#475569"
-                            border="#cbd5e1"
+                            bg="var(--legacy-color-e2e8f0)"
+                            fg="var(--legacy-color-475569)"
+                            border="var(--legacy-color-cbd5e1)"
                             title="Cancelled/DNH/Postponed/Lost jobs are view-only"
                           />
                         )}
@@ -1765,7 +1766,7 @@ export default function JobInfoPage() {
                         {quoteNumberDisplay ? ` - ${quoteNumberDisplay}` : ""}
                       </div>
 
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, marginTop: 4, overflowWrap: "anywhere" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, marginTop: "var(--space-1)", overflowWrap: "anywhere" }}>
                         {dateSummary}
                         {dayCount ? ` - ${dayCount} day${dayCount === 1 ? "" : "s"}` : ""}
                         {job.location ? ` - ${job.location}` : ""}
@@ -1773,10 +1774,10 @@ export default function JobInfoPage() {
 
                       {!suppressMissingWarnings && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7, alignItems: "center" }}>
-                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "#fffbeb"} fg={vehicleSummary ? UI.brand : "#92400e"} border={vehicleSummary ? UI.brandBorder : "#fde68a"} />
-                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "#fffbeb" : "#f8fafc"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "#92400e" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "#fde68a" : "#d7dee8"} />
-                          <Badge text={poStatus} bg={job.po ? "#f8fafc" : "#fffbeb"} fg={job.po ? UI.text : "#92400e"} border={job.po ? "#d7dee8" : "#fde68a"} />
-                          <Badge text={timesheetStatus} bg={timesheets.length ? "#f8fafc" : "#fffbeb"} fg={timesheets.length ? UI.text : "#92400e"} border={timesheets.length ? "#d7dee8" : "#fde68a"} />
+                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "var(--legacy-color-fffbeb)"} fg={vehicleSummary ? UI.brand : "var(--legacy-color-92400e)"} border={vehicleSummary ? UI.brandBorder : "var(--legacy-color-fde68a)"} />
+                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-fffbeb)" : "var(--color-surface-subtle)"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-92400e)" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-fde68a)" : "var(--color-border)"} />
+                          <Badge text={poStatus} bg={job.po ? "var(--color-surface-subtle)" : "var(--legacy-color-fffbeb)"} fg={job.po ? UI.text : "var(--legacy-color-92400e)"} border={job.po ? "var(--color-border)" : "var(--legacy-color-fde68a)"} />
+                          <Badge text={timesheetStatus} bg={timesheets.length ? "var(--color-surface-subtle)" : "var(--legacy-color-fffbeb)"} fg={timesheets.length ? UI.text : "var(--legacy-color-92400e)"} border={timesheets.length ? "var(--color-border)" : "var(--legacy-color-fde68a)"} />
                         </div>
                       )}
                     </div>
@@ -1817,8 +1818,8 @@ export default function JobInfoPage() {
                             minHeight: 30,
                             minWidth: 34,
                             border: UI.border,
-                            borderRadius: 8,
-                            background: "#fff",
+                            borderRadius: "var(--radius-md)",
+                            background: "var(--color-white)",
                             fontWeight: 900,
                             cursor: "pointer",
                           }}
@@ -1834,8 +1835,8 @@ export default function JobInfoPage() {
                             zIndex: 4,
                             minWidth: 150,
                             border: UI.border,
-                            borderRadius: 8,
-                            background: "#fff",
+                            borderRadius: "var(--radius-md)",
+                            background: "var(--color-white)",
                             boxShadow: UI.shadowHover,
                             padding: 6,
                           }}
@@ -1848,10 +1849,10 @@ export default function JobInfoPage() {
                               width: "100%",
                               border: "none",
                               background: "transparent",
-                              color: locked ? UI.muted : "#b91c1c",
+                              color: locked ? UI.muted : "var(--legacy-color-b91c1c)",
                               textAlign: "left",
                               padding: "8px 10px",
-                              borderRadius: 6,
+                              borderRadius: "var(--radius-sm)",
                               fontWeight: 900,
                               cursor: locked ? "not-allowed" : "pointer",
                             }}
@@ -1867,7 +1868,7 @@ export default function JobInfoPage() {
 
                   {/* Collapsed body */}
                   {!isExpanded ? null : (
-                    <div style={{ marginTop: 8 }}>
+                    <div style={{ marginTop: "var(--space-2)" }}>
                       {/* Two-column layout */}
                       <div
                         style={{
@@ -1890,7 +1891,7 @@ export default function JobInfoPage() {
                                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                                 columnGap: 18,
                                 rowGap: 7,
-                                fontSize: 13,
+                                fontSize: "var(--font-size-sm)",
                                 minWidth: 0,
                               }}
                             >
@@ -1900,7 +1901,7 @@ export default function JobInfoPage() {
                                   style={{
                                     display: "grid",
                                     gridTemplateColumns: "104px minmax(0, 1fr)",
-                                    gap: 8,
+                                    gap: "var(--space-2)",
                                     alignItems: "start",
                                     minWidth: 0,
                                   }}
@@ -1931,9 +1932,9 @@ export default function JobInfoPage() {
                                     style={{
                                       whiteSpace: "pre-wrap",
                                       color: UI.text,
-                                      fontSize: 13,
-                                      background: "#f8fafc",
-                                      borderRadius: 6,
+                                      fontSize: "var(--font-size-sm)",
+                                      background: "var(--color-surface-subtle)",
+                                      borderRadius: "var(--radius-sm)",
                                       padding: "8px 10px",
                                       minWidth: 0,
                                       overflowWrap: "anywhere",
@@ -1956,7 +1957,7 @@ export default function JobInfoPage() {
                                           month: "short",
                                         });
                                         return (
-                                          <div key={dateKey} style={{ fontSize: 13, color: UI.text, overflowWrap: "anywhere" }}>
+                                          <div key={dateKey} style={{ fontSize: "var(--font-size-sm)", color: UI.text, overflowWrap: "anywhere" }}>
                                             <strong style={{ color: UI.muted }}>{nice}:</strong> {note}
                                           </div>
                                         );
@@ -1972,22 +1973,22 @@ export default function JobInfoPage() {
                             <SectionTitle
                               title="Linked Timesheets"
                               right={
-                                <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>
+                                <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 900 }}>
                                   {(timesheetsByJob[job.id] || []).length} found
                                 </span>
                               }
                             />
 
                             {cards.length ? (
-                              <div style={{ display: "grid", gap: 8, minWidth: 0 }}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
+                              <div style={{ display: "grid", gap: "var(--space-2)", minWidth: 0 }}>{cards.map((c, i) => <div key={i}>{c}</div>)}</div>
                             ) : (
                               <div
                                 style={{
                                   color: UI.muted,
                                   padding: 10,
-                                  border: "1px dashed #d1d5db",
-                                  borderRadius: 8,
-                                  background: "#fff",
+                                  border: "1px dashed var(--legacy-color-d1d5db)",
+                                  borderRadius: "var(--radius-md)",
+                                  background: "var(--color-white)",
                                 }}
                               >
                                 No timesheet days found for this job yet.
@@ -2017,7 +2018,7 @@ export default function JobInfoPage() {
                           >
                             <SectionTitle title="Status & Invoice" />
 
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginBottom: 8 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginBottom: "var(--space-2)" }}>
                               {["Ready to Invoice", "Needs Action", "Complete"].map((opt) => {
                                 const active = selected === opt;
                                 const color = statusColor(opt);
@@ -2033,10 +2034,10 @@ export default function JobInfoPage() {
                                     style={{
                                       minHeight: 30,
                                       padding: "6px 8px",
-                                      borderRadius: 8,
+                                      borderRadius: "var(--radius-md)",
                                       border: active ? `2px solid ${color.border}` : UI.border,
-                                      background: active ? color.bg : "#fff",
-                                      color: active ? color.text : "#1f2937",
+                                      background: active ? color.bg : "var(--color-white)",
+                                      color: active ? color.text : "var(--legacy-color-1f2937)",
                                       fontWeight: 900,
                                       cursor: disabled ? "not-allowed" : "pointer",
                                       opacity: disabled ? 0.55 : 1,
@@ -2067,22 +2068,22 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 10,
                                 padding: 10,
-                                borderLeft: suppressMissingWarnings ? "3px solid #cbd5e1" : invoiceReadiness.ready ? "3px solid #86efac" : "3px solid #fde68a",
-                                borderRadius: 6,
-                                background: suppressMissingWarnings ? "#f8fafc" : invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
+                                borderLeft: suppressMissingWarnings ? "3px solid var(--legacy-color-cbd5e1)" : invoiceReadiness.ready ? "3px solid var(--legacy-color-86efac)" : "3px solid var(--legacy-color-fde68a)",
+                                borderRadius: "var(--radius-sm)",
+                                background: suppressMissingWarnings ? "var(--color-surface-subtle)" : invoiceReadiness.ready ? "var(--legacy-color-f0fdf4)" : "var(--legacy-color-fffbeb)",
                               }}
                             >
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "center", marginBottom: "var(--space-2)" }}>
                                 <div style={{ fontWeight: 900, fontSize: 12.5 }}>Invoice checklist</div>
                                 <Badge
                                   text={locked ? "Not applicable" : suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
-                                  bg={suppressMissingWarnings ? "#f1f5f9" : invoiceReadiness.ready ? "#dcfce7" : "#fef3c7"}
-                                  fg={suppressMissingWarnings ? "#64748b" : invoiceReadiness.ready ? "#166534" : "#92400e"}
-                                  border={suppressMissingWarnings ? "#cbd5e1" : invoiceReadiness.ready ? "#86efac" : "#fde68a"}
+                                  bg={suppressMissingWarnings ? "var(--legacy-color-f1f5f9)" : invoiceReadiness.ready ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fef3c7)"}
+                                  fg={suppressMissingWarnings ? "var(--color-text-subtle)" : invoiceReadiness.ready ? "var(--color-success)" : "var(--legacy-color-92400e)"}
+                                  border={suppressMissingWarnings ? "var(--legacy-color-cbd5e1)" : invoiceReadiness.ready ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde68a)"}
                                 />
                               </div>
                               {suppressMissingWarnings ? (
-                                <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>
+                                <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>
                                   {locked
                                     ? "This job did not happen, so invoice checks are not required."
                                     : "This job is complete, so missing-item warnings are hidden."}
@@ -2096,9 +2097,9 @@ export default function JobInfoPage() {
                                   ["Vehicle assigned", !invoiceReadiness.missing.includes("vehicle")],
                                   ["Crew allocated", !invoiceReadiness.missing.includes("crew")],
                                 ].map(([label, ok]) => (
-                                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0", fontSize: 12, fontWeight: 800 }}>
+                                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", padding: "3px 0", fontSize: "var(--font-size-xs)", fontWeight: 800 }}>
                                     <span>{label}</span>
-                                    <span style={{ color: ok ? "#166534" : "#92400e" }}>{ok ? "OK" : "Missing"}</span>
+                                    <span style={{ color: ok ? "var(--color-success)" : "var(--legacy-color-92400e)" }}>{ok ? "OK" : "Missing"}</span>
                                   </div>
                                 ))
                               )}
@@ -2107,9 +2108,9 @@ export default function JobInfoPage() {
                             <div
                               id={NOTES_PO_ID}
                               style={{
-                                marginTop: 8,
-                                paddingTop: 8,
-                                borderTop: "1px solid #e5eaf1",
+                                marginTop: "var(--space-2)",
+                                paddingTop: "var(--space-2)",
+                                borderTop: "1px solid var(--legacy-color-e5eaf1)",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
@@ -2117,7 +2118,7 @@ export default function JobInfoPage() {
                                 Notes & PO
                               </div>
 
-                            <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
+                            <label style={{ fontWeight: 900, display: "block", marginBottom: "var(--space-1)", fontSize: 11, color: UI.muted }}>
                               General Summary
                             </label>
 
@@ -2135,11 +2136,11 @@ export default function JobInfoPage() {
                               style={{
                                 width: "100%",
                                 border: UI.border,
-                                borderRadius: 8,
+                                borderRadius: "var(--radius-md)",
                                 padding: "6px 8px",
-                                fontSize: 12,
+                                fontSize: "var(--font-size-xs)",
                                 resize: "vertical",
-                                background: locked ? "#f1f5f9" : "#fff",
+                                background: locked ? "var(--legacy-color-f1f5f9)" : "var(--color-white)",
                                 marginBottom: 7,
                                 opacity: locked ? 0.8 : 1,
                               }}
@@ -2149,8 +2150,8 @@ export default function JobInfoPage() {
                               Save Summary
                             </Btn>
 
-                            <div style={{ marginTop: 8 }}>
-                              <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
+                            <div style={{ marginTop: "var(--space-2)" }}>
+                              <label style={{ fontWeight: 900, display: "block", marginBottom: "var(--space-1)", fontSize: 11, color: UI.muted }}>
                                 Purchase Order (PO)
                               </label>
                               <input
@@ -2165,16 +2166,16 @@ export default function JobInfoPage() {
                                 style={{
                                   width: "100%",
                                   border: UI.border,
-                                  borderRadius: 8,
+                                  borderRadius: "var(--radius-md)",
                                   padding: "6px 8px",
-                                  fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  fontSize: "var(--font-size-xs)",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--color-white)",
                                   opacity: locked ? 0.8 : 1,
                                 }}
                               />
                             </div>
-                            <div style={{ marginTop: 8 }}>
-                              <label style={{ fontWeight: 900, display: "block", marginBottom: 4, fontSize: 11, color: UI.muted }}>
+                            <div style={{ marginTop: "var(--space-2)" }}>
+                              <label style={{ fontWeight: 900, display: "block", marginBottom: "var(--space-1)", fontSize: 11, color: UI.muted }}>
                                 Invoicing Contact
                               </label>
                               <input
@@ -2189,10 +2190,10 @@ export default function JobInfoPage() {
                                 style={{
                                   width: "100%",
                                   border: UI.border,
-                                  borderRadius: 8,
+                                  borderRadius: "var(--radius-md)",
                                   padding: "6px 8px",
-                                  fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  fontSize: "var(--font-size-xs)",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--color-white)",
                                   opacity: locked ? 0.8 : 1,
                                   marginBottom: 6,
                                 }}
@@ -2209,10 +2210,10 @@ export default function JobInfoPage() {
                                 style={{
                                   width: "100%",
                                   border: UI.border,
-                                  borderRadius: 8,
+                                  borderRadius: "var(--radius-md)",
                                   padding: "6px 8px",
-                                  fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  fontSize: "var(--font-size-xs)",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--color-white)",
                                   opacity: locked ? 0.8 : 1,
                                   marginBottom: 6,
                                 }}
@@ -2229,10 +2230,10 @@ export default function JobInfoPage() {
                                 style={{
                                   width: "100%",
                                   border: UI.border,
-                                  borderRadius: 8,
+                                  borderRadius: "var(--radius-md)",
                                   padding: "6px 8px",
-                                  fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  fontSize: "var(--font-size-xs)",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--color-white)",
                                   opacity: locked ? 0.8 : 1,
                                 }}
                               />
@@ -2242,9 +2243,9 @@ export default function JobInfoPage() {
                             <div
                               id={ATTACHMENTS_ID}
                               style={{
-                                marginTop: 8,
-                                paddingTop: 8,
-                                borderTop: "1px solid #e5eaf1",
+                                marginTop: "var(--space-2)",
+                                paddingTop: "var(--space-2)",
+                                borderTop: "1px solid var(--legacy-color-e5eaf1)",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
@@ -2258,7 +2259,7 @@ export default function JobInfoPage() {
                                   href={currentPdfUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  style={{ color: UI.brand, textDecoration: "underline", fontSize: 14, fontWeight: 900 }}
+                                  style={{ color: UI.brand, textDecoration: "underline", fontSize: "var(--font-size-md)", fontWeight: 900 }}
                                 >
                                   View Current PDF
                                 </a>
@@ -2266,11 +2267,11 @@ export default function JobInfoPage() {
                             )}
 
                             {Array.isArray(job.attachments) && job.attachments.length > 0 && (
-                              <div style={{ marginBottom: 8 }}>
-                                <div style={{ fontWeight: 900, marginBottom: 5, fontSize: 12 }}>Attachments</div>
+                              <div style={{ marginBottom: "var(--space-2)" }}>
+                                <div style={{ fontWeight: 900, marginBottom: 5, fontSize: "var(--font-size-xs)" }}>Attachments</div>
                                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                                   {job.attachments.map((att, i) => (
-                                    <li key={i} style={{ fontSize: 12, marginBottom: 4 }}>
+                                    <li key={i} style={{ fontSize: "var(--font-size-xs)", marginBottom: "var(--space-1)" }}>
                                       <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 900 }}>
                                         {att.name}
                                       </a>
@@ -2288,7 +2289,7 @@ export default function JobInfoPage() {
                               onChange={(e) => onPdfSelect(job.id, e.target.files?.[0])}
                               style={{
                                 marginBottom: 5,
-                                fontSize: 12,
+                                fontSize: "var(--font-size-xs)",
                                 width: "100%",
                                 opacity: locked ? 0.6 : 1,
                                 cursor: locked ? "not-allowed" : "pointer",
@@ -2311,7 +2312,7 @@ export default function JobInfoPage() {
                                 : "Select file"}
                             </Btn>
 
-                            {uploadError && <p style={{ color: "red", fontSize: 12, marginTop: 8 }}>{uploadError}</p>}
+                            {uploadError && <p style={{ color: "red", fontSize: "var(--font-size-xs)", marginTop: "var(--space-2)" }}>{uploadError}</p>}
                             </div>
                           </Card>
                         </div>

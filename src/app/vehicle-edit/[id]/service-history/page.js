@@ -12,12 +12,12 @@ const UI = {
   radiusSm: 10,
   gap: 10,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
 };
 
 const pageWrap = { padding: "16px 18px 24px", background: UI.bg, minHeight: "100vh" };
@@ -25,14 +25,14 @@ const topBar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   marginBottom: 10,
 };
 const title = { margin: 0, fontSize: 24, fontWeight: 950, letterSpacing: "-0.01em", color: UI.text };
-const subtitle = { marginTop: 4, fontSize: 12.5, color: UI.muted };
+const subtitle = { marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted };
 const card = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 12 };
+const panel = { ...card, padding: "var(--space-3)" };
 const btn = {
   display: "inline-flex",
   alignItems: "center",
@@ -40,8 +40,8 @@ const btn = {
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 900,
   cursor: "pointer",
@@ -171,12 +171,12 @@ export default function VehicleServiceHistoryPage() {
         ) : (
           <div style={{ display: "grid", gap: UI.gap }}>
             <div style={panel}>
-              <div style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginBottom: "var(--space-2)" }}>
                 Stored vehicle service history and completed service forms linked to this vehicle.
               </div>
 
               {serviceHistoryItems.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>No completed service history yet.</div>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No completed service history yet.</div>
               ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                   {serviceHistoryItems.map((item, index) => (
@@ -188,23 +188,23 @@ export default function VehicleServiceHistoryPage() {
                           : undefined
                       }
                       style={{
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 12,
+                        border: "1px solid var(--legacy-color-e5e7eb)",
+                        borderRadius: "var(--radius-lg)",
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--color-white)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>
                         {item.completedDate || "-"}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                      <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                         {item.bookingRef ? `Ref: ${item.bookingRef}` : "Ref: -"}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                      <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                         {item.location ? `Location: ${item.location}` : "Location: -"}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                      <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                         {item.odometer ? `Odometer: ${item.odometer}` : "Odometer: -"}
                       </div>
                       {item.partsUsed ? (
@@ -216,7 +216,7 @@ export default function VehicleServiceHistoryPage() {
                         <div style={{ marginTop: 6, fontSize: 12.5, color: UI.text }}>{item.notes}</div>
                       ) : null}
                       {item.bookingId ? (
-                        <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 900, color: UI.brand }}>
+                        <div style={{ marginTop: "var(--space-2)", fontSize: 11.5, fontWeight: 900, color: UI.brand }}>
                           Open full service details
                         </div>
                       ) : null}

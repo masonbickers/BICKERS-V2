@@ -27,25 +27,25 @@ import {
 
 /* UI tokens */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  okBg: "#ecfdf5",
-  okFg: "#065f46",
-  soonBg: "#fff7ed",
-  soonFg: "#9a3412",
-  overdueBg: "#fef2f2",
-  overdueFg: "#991b1b",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  okBg: "var(--color-success-soft)",
+  okFg: "var(--legacy-color-065f46)",
+  soonBg: "var(--color-warning-soft)",
+  soonFg: "var(--color-warning)",
+  overdueBg: "var(--color-danger-soft)",
+  overdueFg: "var(--color-danger)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -53,15 +53,15 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const title = { margin: 0, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
+const title = { margin: 0, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, color: UI.text };
 const subtitle = { marginTop: 6, fontSize: 13.5, lineHeight: 1.45, color: UI.muted };
 
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm };
-const panel = { ...card, padding: 12 };
+const panel = { ...card, padding: "var(--space-3)" };
 
 const btn = (kind = "ghost") => {
   const primary = kind === "primary";
@@ -69,14 +69,14 @@ const btn = (kind = "ghost") => {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: "var(--space-2)",
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--color-white)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -94,8 +94,8 @@ const input = {
   border: UI.border,
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -108,11 +108,11 @@ const pill = (bg, fg) => ({
   alignItems: "center",
   gap: 6,
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color: fg,
   border: UI.border,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   whiteSpace: "nowrap",
 });
@@ -124,15 +124,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   textAlign: "left",
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
-  fontSize: 13,
-  borderBottom: "1px solid #f1f5f9",
+  fontSize: "var(--font-size-sm)",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
 };
 
@@ -140,17 +140,17 @@ const actionBtn = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "5px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
   boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   lineHeight: 1.2,
 };
 
@@ -329,9 +329,9 @@ export default function MOTOverviewPage() {
   }, [vehicles]);
 
   const rowBg = (status) => {
-    if (status === "overdue") return { background: "#fff1f2" };
-    if (status === "soon") return { background: "#fffbeb" };
-    if (status === "ok") return { background: "#f0fdf4" };
+    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
+    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
+    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
     return {};
   };
 
@@ -340,7 +340,7 @@ export default function MOTOverviewPage() {
       <style jsx global>{`
         .mot-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         .mot-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -380,7 +380,7 @@ export default function MOTOverviewPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" className="mot-overview-action" onClick={() => router.push("/dashboard")} style={btn("primary")}>
               <CalendarCheck2 size={15} />
               Dashboard
@@ -401,7 +401,7 @@ export default function MOTOverviewPage() {
         </div>
 
         {/* Controls */}
-        <div style={{ ...card, padding: 12, marginBottom: 12 }}>
+        <div style={{ ...card, padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <div className="mot-overview-filter-grid">
             <label style={{ position: "relative", display: "block" }}>
               <Search
@@ -447,12 +447,12 @@ export default function MOTOverviewPage() {
             </button>
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
             <span style={pill(UI.overdueBg, UI.overdueFg)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg)}>Due Soon</span>
             <span style={pill(UI.okBg, UI.okFg)}>OK</span>
-            <span style={pill("#f1f5f9", UI.text)}>Missing Date</span>
-            <span style={pill("#f1f5f9", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing Date</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
@@ -523,7 +523,7 @@ export default function MOTOverviewPage() {
 
                         <td style={td}>
                           {status === "unknown" ? (
-                            <span style={pill("#f1f5f9", UI.text)}>Missing date</span>
+                            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing date</span>
                           ) : (
                             <span style={statusPill(status)}>
                               {status === "overdue" ? "Overdue" : status === "soon" ? "Due Soon" : "OK"}
@@ -576,27 +576,27 @@ export default function MOTOverviewPage() {
 
 function SummaryCard({ label, value, sub, icon: Icon, tone = "brand" }) {
   const tones = {
-    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "#fecdd3" },
-    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "#fed7aa" },
-    ok: { bg: UI.okBg, fg: UI.okFg, border: "#bbf7d0" },
+    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "var(--legacy-color-fecdd3)" },
+    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "var(--color-warning-border)" },
+    ok: { bg: UI.okBg, fg: UI.okFg, border: "var(--color-success-border)" },
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
   };
   const toneStyles = tones[tone] || tones.brand;
 
   return (
-    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ ...panel, minHeight: 82, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)" }}>
       <div>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
           {label}
         </div>
-        <div style={{ marginTop: 4, color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
+        <div style={{ marginTop: "var(--space-1)", color: UI.text, fontSize: 24, lineHeight: 1, fontWeight: 950 }}>{value}</div>
         <div style={{ marginTop: 6, color: UI.muted, fontSize: 12.5, fontWeight: 700 }}>{sub}</div>
       </div>
       <div
         style={{
           width: 40,
           height: 40,
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
           border: `1px solid ${toneStyles.border}`,
           background: toneStyles.bg,
           color: toneStyles.fg,

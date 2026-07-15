@@ -26,6 +26,15 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import {
+  combineTimesheetDayHours,
+  getHolidayDayMeta,
+  getWeekEndingDate,
+  holidayMatchesTimesheetEmployee,
+  isApprovedHolidayRecord,
+  isPendingHolidayRecord,
+  timesheetDetailPath,
+} from "@/app/utils/timesheetDetail";
+import {
   ArrowLeft,
   CheckCircle2,
   MessageSquare,
@@ -117,26 +126,26 @@ const LUNCH_DEDUCT_HRS = 0.5;
 const DEFAULT_YARD_START = "08:00";
 const DEFAULT_YARD_END = "16:30";
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  panelTint: "#ffffff",
-  ink: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "1px solid #d7dee8",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  bg: "var(--color-canvas)",
+  panel: "var(--color-white)",
+  panelTint: "var(--color-white)",
+  ink: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  border: "var(--border-default)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -153,12 +162,12 @@ const toolbarStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
   gap: 10,
   flexWrap: "wrap",
 };
 
-const actionRowStyle = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
+const actionRowStyle = { display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" };
 
 const surfaceStyle = {
   background: UI.panelTint,
@@ -187,8 +196,8 @@ const controlButton = (kind = "ghost", disabled = false) => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
@@ -205,7 +214,7 @@ const controlButton = (kind = "ghost", disabled = false) => {
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -215,11 +224,11 @@ const approveButtonStyle = (disabled = false) => ({
   ...controlButton("success", disabled),
   padding: "9px 15px",
   fontSize: 13.5,
-  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid #047857",
+  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid var(--legacy-color-047857)",
   background: disabled
     ? UI.greenSoft
-    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
-  color: disabled ? UI.green : "#fff",
+    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
+  color: disabled ? UI.green : "var(--color-white)",
   boxShadow: disabled
     ? UI.shadowSm
     : "0 10px 22px rgba(21,128,61,0.28), inset 0 1px 0 rgba(255,255,255,0.2)",
@@ -232,7 +241,7 @@ const formControlStyle = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   boxSizing: "border-box",
 };
 
@@ -257,10 +266,10 @@ function TimeSelect({ label, value, onChange }) {
         onChange={(e) => onChange(e.target.value)}
         style={{
           ...formControlStyle,
-          fontSize: 12,
+          fontSize: "var(--font-size-xs)",
           padding: "6px 8px",
-          minHeight: 32,
-          background: "#ffffff",
+          minHeight: "var(--control-height-sm)",
+          background: "var(--color-white)",
         }}
       />
       <datalist id={listId}>
@@ -273,11 +282,11 @@ function TimeSelect({ label, value, onChange }) {
 }
 
 const payAdviceCell = {
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   padding: "6px 5px",
   textAlign: "center",
-  color: "#0f172a",
-  background: "#ffffff",
+  color: "var(--color-text)",
+  background: "var(--color-white)",
 };
 
 const payAdviceInput = {
@@ -287,7 +296,7 @@ const payAdviceInput = {
   background: "transparent",
   textAlign: "center",
   fontSize: 11.5,
-  color: "#0f172a",
+  color: "var(--color-text)",
   padding: 0,
 };
 
@@ -830,29 +839,6 @@ function getTimesheetEmployeeTokens(timesheet = {}) {
   return tokens;
 }
 
-function getHolidayMatchTokens(holiday = {}) {
-  const tokens = new Set();
-  collectAssignmentTokens(
-    [
-      holiday.employee,
-      holiday.employeeName,
-      holiday.userCode,
-      holiday.employeeCode,
-      holiday.staffCode,
-      holiday.userId,
-      holiday.employeeId,
-      holiday.uid,
-      holiday.id,
-      holiday.createdBy,
-      holiday.owner,
-    ],
-    tokens
-  );
-  addAssignmentNameTokens(tokens, holiday.employee);
-  addAssignmentNameTokens(tokens, holiday.employeeName);
-  return tokens;
-}
-
 function collectAssignmentTokens(source, set = new Set()) {
   if (!source) return set;
   if (Array.isArray(source)) {
@@ -1147,8 +1133,8 @@ function printElementById(elementId, title) {
           html, body {
             margin: 0;
             padding: 0;
-            background: #ffffff;
-            color: #0f172a;
+            background: var(--color-white);
+            color: var(--color-text);
             font-family: Arial, sans-serif;
           }
           body { padding: 10px; }
@@ -1162,7 +1148,7 @@ function printElementById(elementId, title) {
             border: none !important;
             border-radius: 0 !important;
             padding: 0 !important;
-            background: #ffffff !important;
+            background: var(--color-white) !important;
             width: 100% !important;
             max-width: 100% !important;
             overflow: visible !important;
@@ -1177,7 +1163,7 @@ function printElementById(elementId, title) {
           #timesheet-print-root > div:nth-of-type(2) > div {
             min-width: 0 !important;
             padding: 8px !important;
-            border-radius: 8px !important;
+            border-radius: var(--radius-md) !important;
             font-size: 10px !important;
             break-inside: avoid;
           }
@@ -1189,7 +1175,7 @@ function printElementById(elementId, title) {
             margin-top: 8px !important;
           }
           #timesheet-print-root > div:nth-of-type(3) > div {
-            border-radius: 8px !important;
+            border-radius: var(--radius-md) !important;
           }
           #timesheet-print-root ul {
             margin-top: 2px !important;
@@ -1219,7 +1205,7 @@ function printElementById(elementId, title) {
           }
           #pay-advice-print-root th,
           #pay-advice-print-root td {
-            border: 1px solid #111827;
+            border: 1px solid var(--legacy-color-111827);
             padding: 4px 5px;
             vertical-align: middle;
             text-align: center;
@@ -1310,24 +1296,6 @@ function getHolidayDateKeys(holiday = {}) {
   return Array.from(keys);
 }
 
-function isHolidayHalfDayDoc(holiday = {}) {
-  const startHalfDay = normalizeBooleanish(holiday.startHalfDay);
-  const endHalfDay = normalizeBooleanish(holiday.endHalfDay);
-  if (startHalfDay === true || endHalfDay === true) return true;
-  if (startHalfDay === false && endHalfDay === false) return false;
-
-  const ampm = String(
-    holiday.startAMPM || holiday.startAmpm || holiday.endAMPM || holiday.endAmpm || ""
-  )
-    .toLowerCase()
-    .trim();
-  if (ampm === "am" || ampm === "pm") return true;
-
-  const duration = String(holiday.duration || "").toLowerCase();
-  if (duration.includes("half")) return true;
-  return false;
-}
-
 function getHolidayPaidLabel(holiday = {}) {
   const paidStatus = String(holiday.paidStatus || holiday.leaveType || "").trim();
   const isUnpaid = normalizeBooleanish(holiday.isUnpaid);
@@ -1340,19 +1308,16 @@ function getHolidayPaidLabel(holiday = {}) {
   return paidStatus || "";
 }
 
-function getHolidayLockForDate(holidayDocs = []) {
+function getHolidayLockForDate(holidayDocs = [], ymd = "") {
   if (!Array.isArray(holidayDocs) || !holidayDocs.length) return null;
 
-  const visible = holidayDocs.filter((h) => {
-    if (!h || typeof h !== "object") return false;
-    if (h.deleted === true || h.isDeleted === true) return false;
-    const status = String(h.status || "").trim().toLowerCase();
-    if (!status) return true;
-    return ["requested", "approved", "accepted"].includes(status);
-  });
+  const visible = holidayDocs.filter(
+    (holiday) => isApprovedHolidayRecord(holiday) && getHolidayDayMeta(holiday, ymd).applies
+  );
   if (!visible.length) return null;
 
-  const halfHoliday = visible.some((h) => isHolidayHalfDayDoc(h));
+  const dayMeta = visible.map((holiday) => getHolidayDayMeta(holiday, ymd));
+  const halfHoliday = dayMeta.some((meta) => meta.halfDay);
   const paidLabels = visible
     .map(getHolidayPaidLabel)
     .filter(Boolean)
@@ -1361,15 +1326,8 @@ function getHolidayLockForDate(holidayDocs = []) {
   const paidLabel = Array.from(new Set(paidLabels));
 
   const holidayReason = visible.find((h) => String(h.holidayReason || "").trim())?.holidayReason || "";
-  const halfLabel = visible
-    .map((h) => {
-      if (normalizeBooleanish(h.startHalfDay) === true) return "AM";
-      if (normalizeBooleanish(h.endHalfDay) === true) return "PM";
-      const ampm = String(h.startAMPM || h.endAMPM || h.startAmpm || h.endAmpm || "")
-        .trim()
-        .toUpperCase();
-      return ampm && /AM|PM/.test(ampm) ? ampm : "";
-    })
+  const halfLabel = dayMeta
+    .map((meta) => meta.period)
     .find(Boolean) || "";
 
   return {
@@ -1515,7 +1473,7 @@ export default function TimesheetDetailPage() {
         }
 
         if (picked.id !== routeId) {
-          router.replace(`/timesheet-id/${picked.id}`);
+          router.replace(timesheetDetailPath(picked.id));
         }
         setTimesheet(picked);
       } finally {
@@ -1629,7 +1587,6 @@ export default function TimesheetDetailPage() {
       try {
         const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const map = {};
-        const timesheetTokens = getTimesheetEmployeeTokens(timesheet);
         const weekStart = parseDateFlexible(timesheet?.weekStart);
         const weekEnd = weekStart ? new Date(weekStart) : null;
         if (weekEnd) weekEnd.setDate(weekEnd.getDate() + 6);
@@ -1639,23 +1596,7 @@ export default function TimesheetDetailPage() {
         snap.docs.forEach((d) => {
           const h = d.data();
 
-          const status = String(h.status || "").toLowerCase();
-          if (h.deleted === true || h.isDeleted === true || status === "deleted") return;
-
-          const holidayTokens = getHolidayMatchTokens(h);
-          const explicitCodeMatch =
-            timesheet.employeeCode &&
-            String(h.employeeCode || "").trim().toLowerCase() ===
-              String(timesheet.employeeCode).trim().toLowerCase();
-          const legacyNameMatch =
-            timesheet.employeeName &&
-            String(h.employee || "").trim().toLowerCase() === String(timesheet.employeeName).trim().toLowerCase();
-
-          const tokenMatch = Array.from(holidayTokens).some((token) =>
-            token && timesheetTokens.has(token)
-          );
-
-          if (!explicitCodeMatch && !legacyNameMatch && !tokenMatch) return;
+          if (!holidayMatchesTimesheetEmployee(timesheet, h)) return;
 
           const dateKeys = getHolidayDateKeys(h);
 
@@ -2103,6 +2044,8 @@ export default function TimesheetDetailPage() {
       const ref = doc(db, "timesheets", timesheet.id);
       await updateDoc(ref, tenantPayload(dataAccessState, {
         status: "approved",
+        submitted: true,
+        approved: true,
         approvedAt: serverTimestamp(),
       }));
 
@@ -2111,6 +2054,8 @@ export default function TimesheetDetailPage() {
           ? {
               ...prev,
               status: "approved",
+              submitted: true,
+              approved: true,
               approvedAt: new Date(),
             }
           : prev
@@ -2228,9 +2173,12 @@ export default function TimesheetDetailPage() {
       }
 
       const holidayDocsForDay = ymdForDay ? holidaysByDate?.[ymdForDay] || [] : [];
-      const hasLiveHoliday = holidayDocsForDay.length > 0;
-      const holidayLock = getHolidayLockForDate(holidayDocsForDay);
+      const holidayLock = getHolidayLockForDate(holidayDocsForDay, ymdForDay);
       const hasLiveHolidayLock = Boolean(holidayLock);
+      const hasLiveHoliday = hasLiveHolidayLock;
+      const hasPendingHoliday = holidayDocsForDay.some(
+        (holiday) => isPendingHolidayRecord(holiday) && getHolidayDayMeta(holiday, ymdForDay).applies
+      );
       const bankHolidayInfo = ymdForDay ? bankHolidaysByDate?.[ymdForDay] || null : null;
       const hasBankHoliday = Boolean(bankHolidayInfo);
       const isHalfHoliday = Boolean(holidayLock?.halfHoliday);
@@ -2238,7 +2186,8 @@ export default function TimesheetDetailPage() {
 
       const entryExists = hasMeaningfulDayEntry(entry);
 
-      let mode = detectMode(entry, isWeekend);
+      const workedMode = detectMode(entry, isWeekend);
+      let mode = workedMode;
 
       if (
         hasBankHoliday &&
@@ -2252,7 +2201,7 @@ export default function TimesheetDetailPage() {
       }
 
       if (hasLiveHolidayLock) {
-        mode = holidayLock.mode;
+        if (!isHalfHoliday) mode = holidayLock.mode;
         if (isHalfHoliday && !paidLabel) {
           paidLabel = holidayLock.halfLabel || "Half day";
         }
@@ -2265,14 +2214,12 @@ export default function TimesheetDetailPage() {
         // For now, leave as-is if saved.
       }
 
-      let dayHours = 0;
       const isBankHolidayDay = mode === "bankholiday";
       const isHalfHolidayDay = hasLiveHolidayLock && isHalfHoliday;
       const displayPaidLabel = isBankHolidayDay ? "Paid" : paidLabel || "";
       const isPaidHolidayDay =
         isBankHolidayDay ||
-        isHalfHolidayDay ||
-        (hasLiveHoliday && String(paidLabel || "").trim().toLowerCase() !== "unpaid");
+        (hasLiveHolidayLock && String(paidLabel || "").trim().toLowerCase() !== "unpaid");
       const paidHolidayLunchDeducted = isPaidHolidayDay
         ? entry?.managerLunchDeduct === true
           ? true
@@ -2286,35 +2233,26 @@ export default function TimesheetDetailPage() {
             employeeYardAutofill.rawHours - (paidHolidayLunchDeducted ? LUNCH_DEDUCT_HRS : 0)
           )
         : 0;
-      const paidHolidayHoursToUse = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
+      const holidayHours = isHalfHolidayDay ? paidHolidayHours / 2 : paidHolidayHours;
+      let workedHours = 0;
       if (entryExists) {
-        if (mode === "yard") dayHours = computeYardHours(entry);
-        if (mode === "travel") dayHours = computeTravelHours(entry);
-        if (mode === "onset") dayHours = computeOnSetHours(entry);
-        if (mode === "office") dayHours = computeOfficeHours(entry);
-
-        //  Turnaround: label as Turnaround Day, default 0 hours unless blocks exist
-        if (mode === "turnaround") dayHours = computeTurnaroundHours(entry);
-
-        if (
-          mode === "holiday" ||
-          mode === "bankholiday" ||
-          isHalfHolidayDay ||
-          mode === "off" ||
-          mode === "unpaid"
-        ) {
-          dayHours = paidHolidayHoursToUse;
-        }
-        if (mode === "unpaid") {
-          dayHours = 0;
-        }
-      } else if (mode === "holiday" || mode === "bankholiday" || isHalfHolidayDay) {
-        dayHours = paidHolidayHoursToUse;
+        if (workedMode === "yard") workedHours = computeYardHours(entry);
+        if (workedMode === "travel") workedHours = computeTravelHours(entry);
+        if (workedMode === "onset") workedHours = computeOnSetHours(entry);
+        if (workedMode === "office") workedHours = computeOfficeHours(entry);
+        if (workedMode === "turnaround") workedHours = computeTurnaroundHours(entry);
       }
 
-      total += dayHours;
+      const holidayKind = isHalfHolidayDay
+        ? "half"
+        : isBankHolidayDay || (hasLiveHolidayLock && mode === "holiday")
+        ? "full"
+        : "none";
+      const totalHours = combineTimesheetDayHours({ workedHours, holidayHours, holidayKind, mode });
 
-      const dayTotalLabel = formatHoursLabel(dayHours);
+      total += totalHours;
+
+      const dayTotalLabel = formatHoursLabel(totalHours);
       const precallLabel = entryExists ? formatPrecallMinutes(entry?.precallDuration) : "";
       const onSetBreakdown = entryExists ? computeOnSetBreakdown(entry) : null;
       const travelToHrs = onSetBreakdown?.travelToHrs || 0;
@@ -2345,14 +2283,17 @@ export default function TimesheetDetailPage() {
         hasJobs,
         mode,
         hasLiveHoliday,
+        hasPendingHoliday,
         hasBankHoliday,
         bankHolidayName: bankHolidayInfo?.title || "",
         paidLabel,
         displayPaidLabel,
         isPaidHolidayDay,
         isHalfHolidayDay,
-        paidHolidayHours,
-        paidHolidayHoursToUse,
+        workedHours,
+        holidayHours,
+        totalHours,
+        paidHolidayHoursToUse: holidayHours,
         paidHolidayLunchDeducted,
         paidHolidayTimeLabel: `${employeeYardAutofill.start} -> ${employeeYardAutofill.end}`,
         dayTotalLabel,
@@ -2405,12 +2346,8 @@ export default function TimesheetDetailPage() {
       const isTravelTimeNoteDay = hasJobOnTravelDay && dayNoteType === "travel time";
       const isHalfDayTravelNoteDay =
         hasJobOnTravelDay && (dayNoteType === "1/2 day travel" || dayNoteType === "half day travel");
-      const workshopHrs =
-        card.mode === "yard"
-          ? computeYardHours(entry)
-          : card.isPaidHolidayDay
-          ? card.paidHolidayHoursToUse || card.paidHolidayHours
-          : 0;
+      const workshopWorkedHrs = card.mode === "yard" ? card.workedHours : 0;
+      const workshopHrs = workshopWorkedHrs + card.holidayHours;
       const isTurnaroundPayDay = card.mode === "turnaround";
       const isCancellationPayDay = isCancellationDay(entry);
       const actualTravelToHrs = card.travelToHrs || 0;
@@ -2448,15 +2385,15 @@ export default function TimesheetDetailPage() {
       const onSetOvertimeHrs = card.mode === "onset" ? wrapOvertimeHrs + preCallHrs : 0;
       const payableDayTotalHrs =
         card.mode === "onset"
-          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs
+          ? actualTravelToHrs + waitingAllowanceHrs + preCallHrs + onSetHrs + wrapOvertimeHrs + travelAfterTenHrs + card.holidayHours
           : isHalfDayTravelNoteDay
-          ? onSetHrs
+          ? onSetHrs + card.holidayHours
           : isTravelTimeNoteDay
-          ? onSetHrs
+          ? onSetHrs + card.holidayHours
           : hasJobOnTravelDay
-          ? onSetHrs
+          ? onSetHrs + card.holidayHours
           : isTurnaroundPayDay || isCancellationPayDay
-          ? onSetHrs
+          ? onSetHrs + card.holidayHours
           : workshopHrs + travelHrs;
       const sundayHrs = card.day === "Sunday" && card.mode === "travel" && !hasJobOnTravelDay ? travelHrs : 0;
       const overnightUnits = entry?.overnight ? 1 : 0;
@@ -2489,7 +2426,7 @@ export default function TimesheetDetailPage() {
         dateLabel: dt ? formatShortDate(dt) : "-",
         jobName: getPayAdviceJobName(card, primaryJob),
         workshopHrs,
-        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopHrs - 8.5) : 0,
+        overtimeHrs: card.mode === "yard" ? Math.max(0, workshopWorkedHrs - 8.5) : 0,
         travelHrs,
         sundayHrs,
         onSetHrs,
@@ -2671,7 +2608,7 @@ export default function TimesheetDetailPage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <h1 style={{ fontSize: 22, fontWeight: 750, margin: 0 }}>No timesheet found</h1>
+          <h1 style={{ fontSize: "var(--font-size-xl)", fontWeight: 750, margin: 0 }}>No timesheet found</h1>
         </div>
       </HeaderSidebarLayout>
     );
@@ -2688,11 +2625,11 @@ export default function TimesheetDetailPage() {
               border: UI.border,
               borderRadius: UI.radius,
               boxShadow: UI.shadowSm,
-              padding: 16,
+              padding: "var(--space-4)",
             }}
           >
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Timesheet access restricted</h1>
-            <p style={{ margin: 0, color: UI.muted, fontSize: 14 }}>
+            <h1 style={{ fontSize: "var(--font-size-xl)", fontWeight: 800, margin: "0 0 8px" }}>Timesheet access restricted</h1>
+            <p style={{ margin: 0, color: UI.muted, fontSize: "var(--font-size-md)" }}>
               You can only view timesheets linked to your own employee record.
             </p>
           </div>
@@ -2702,21 +2639,21 @@ export default function TimesheetDetailPage() {
   }
 
   let statusLabel = "Draft (not submitted)";
-  let badgeBg = "#fed7aa";
-  let badgeBorder = "#fdba74";
-  let badgeColor = "#7c2d12";
+  let badgeBg = "var(--color-warning-border)";
+  let badgeBorder = "var(--legacy-color-fdba74)";
+  let badgeColor = "var(--legacy-color-7c2d12)";
 
   if (timesheet.submitted && !isApproved) {
     statusLabel = "Submitted";
-    badgeBg = "#bbf7d0";
-    badgeBorder = "#86efac";
-    badgeColor = "#052e16";
+    badgeBg = "var(--color-success-border)";
+    badgeBorder = "var(--legacy-color-86efac)";
+    badgeColor = "var(--legacy-color-052e16)";
   }
   if (isApproved) {
     statusLabel = "Approved";
-    badgeBg = "#dcfce7";
-    badgeBorder = "#22c55e";
-    badgeColor = "#14532d";
+    badgeBg = "var(--legacy-color-dcfce7)";
+    badgeBorder = "var(--legacy-color-22c55e)";
+    badgeColor = "var(--color-success-hover)";
   }
 
   return (
@@ -2771,7 +2708,7 @@ export default function TimesheetDetailPage() {
               backgroundColor: UI.redSoft,
               border: `1px solid ${UI.redBorder}`,
               color: UI.red,
-              fontSize: 12,
+              fontSize: "var(--font-size-xs)",
               fontWeight: 600,
             }}
           >
@@ -2785,7 +2722,7 @@ export default function TimesheetDetailPage() {
           style={{
             ...surfaceStyle,
             flex: 1,
-            padding: 12,
+            padding: "var(--space-3)",
             display: "flex",
             flexDirection: "column",
             boxSizing: "border-box",
@@ -2797,25 +2734,25 @@ export default function TimesheetDetailPage() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
-              marginBottom: 12,
+              marginBottom: "var(--space-3)",
               gap: 10,
               flexWrap: "wrap",
             }}
           >
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, marginBottom: 4, color: UI.ink }}>
+              <h1 style={{ fontSize: "var(--font-size-xl)", fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, marginBottom: "var(--space-1)", color: UI.ink }}>
                 Timesheet - {timesheet.employeeName || timesheet.employeeCode}
               </h1>
-              <p style={{ color: UI.muted, margin: 0, fontSize: 13 }}>
+              <p style={{ color: UI.muted, margin: 0, fontSize: "var(--font-size-sm)" }}>
                 Week starting{" "}
                 <strong>
                   {parseDateFlexible(timesheet.weekStart)?.toLocaleDateString("en-GB")}
                 </strong>
               </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: 10 }}>
                 <button
                   type="button"
-                  onClick={() => weekNav.previous && router.push(`/timesheet-id/${weekNav.previous.id}`)}
+                  onClick={() => weekNav.previous && router.push(timesheetDetailPath(weekNav.previous.id))}
                   disabled={!weekNav.previous}
                   style={controlButton("ghost", !weekNav.previous)}
                 >
@@ -2823,7 +2760,7 @@ export default function TimesheetDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => weekNav.next && router.push(`/timesheet-id/${weekNav.next.id}`)}
+                  onClick={() => weekNav.next && router.push(timesheetDetailPath(weekNav.next.id))}
                   disabled={!weekNav.next}
                   style={controlButton("ghost", !weekNav.next)}
                 >
@@ -2832,7 +2769,7 @@ export default function TimesheetDetailPage() {
               </div>
             </div>
 
-            <div style={{ textAlign: "right", fontSize: 12 }}>
+            <div style={{ textAlign: "right", fontSize: "var(--font-size-xs)" }}>
               <div
                 style={{
                   display: "inline-block",
@@ -2844,18 +2781,18 @@ export default function TimesheetDetailPage() {
                   backgroundColor: badgeBg,
                   borderColor: badgeBorder,
                   color: badgeColor,
-                  marginBottom: 4,
+                  marginBottom: "var(--space-1)",
                 }}
               >
                 {statusLabel}
               </div>
               {timesheet.submittedAt && (
-                <div style={{ color: UI.muted, marginTop: 4 }}>
+                <div style={{ color: UI.muted, marginTop: "var(--space-1)" }}>
                   Submitted: {parseDateFlexible(timesheet.submittedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
               {timesheet.approvedAt && (
-                <div style={{ color: "#15803d", marginTop: 2 }}>
+                <div style={{ color: "var(--legacy-color-15803d)", marginTop: 2 }}>
                   Approved: {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
@@ -2867,11 +2804,11 @@ export default function TimesheetDetailPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(7, minmax(200px, 1fr))",
-              gap: 8,
+              gap: "var(--space-2)",
               alignItems: "stretch",
-              fontSize: 13,
+              fontSize: "var(--font-size-sm)",
               overflowX: "auto",
-              paddingBottom: 4,
+              paddingBottom: "var(--space-1)",
             }}
           >
             {dayCards.map((card) => {
@@ -2884,11 +2821,11 @@ export default function TimesheetDetailPage() {
                 jobsToday,
                 mode,
                 hasLiveHoliday,
+                hasPendingHoliday,
                 bankHolidayName,
                 paidLabel,
                 displayPaidLabel,
                 isPaidHolidayDay,
-                paidHolidayHours,
                 paidHolidayLunchDeducted,
                 paidHolidayHoursToUse,
                 isHalfHolidayDay,
@@ -2919,7 +2856,7 @@ export default function TimesheetDetailPage() {
                 <div
                   key={day}
                   style={{
-                    background: "#ffffff",
+                    background: "var(--color-white)",
                     padding: 10,
                     borderRadius: UI.radius,
                     border: UI.border,
@@ -2927,7 +2864,7 @@ export default function TimesheetDetailPage() {
                     flexDirection: "column",
                     height: "100%",
                     boxSizing: "border-box",
-                    fontSize: 13,
+                    fontSize: "var(--font-size-sm)",
                     minWidth: 200,
                   }}
                 >
@@ -2957,7 +2894,7 @@ export default function TimesheetDetailPage() {
                             padding: "3px 7px",
                             borderRadius: UI.radiusSm,
                             border: `1px dashed ${UI.brandBorder}`,
-                            background: "#ffffff",
+                            background: "var(--color-white)",
                             color: UI.brand,
                             cursor: !isAdmin || manualEntrySavingDay === day ? "not-allowed" : "pointer",
                             opacity: !isAdmin || manualEntrySavingDay === day ? 0.5 : 1,
@@ -2989,7 +2926,7 @@ export default function TimesheetDetailPage() {
                           padding: "3px 7px",
                           borderRadius: UI.radiusSm,
                           border: `1px dashed ${UI.brandBorder}`,
-                          background: "#ffffff",
+                          background: "var(--color-white)",
                           color: UI.brand,
                           cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
                           opacity: !isAdmin || isApproved ? 0.5 : 1,
@@ -3001,11 +2938,28 @@ export default function TimesheetDetailPage() {
                     </div>
                   </div>
 
+                  {hasPendingHoliday && !hasLiveHoliday ? (
+                    <div
+                      style={{
+                        marginBottom: "var(--space-2)",
+                        padding: "6px 8px",
+                        borderRadius: UI.radiusSm,
+                        border: "1px solid var(--legacy-color-fde68a)",
+                        background: "var(--legacy-color-fffbeb)",
+                        color: "var(--legacy-color-92400e)",
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Holiday requested — pending approval (not included in hours)
+                    </div>
+                  ) : null}
+
                   {(isMissingCard || manualEntryDay === day) && (
-                    <div style={{ marginBottom: 8 }}>
+                    <div style={{ marginBottom: "var(--space-2)" }}>
                       {isMissingCard ? (
                         <>
-                          <div style={{ color: UI.muted, fontSize: 12, marginBottom: 7 }}>
+                          <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginBottom: 7 }}>
                             No entry submitted.
                           </div>
                           {!isApproved ? (
@@ -3029,11 +2983,11 @@ export default function TimesheetDetailPage() {
                       {manualEntryDay === day && manualEntryDraft ? (
                         <div
                           style={{
-                            marginTop: 8,
-                            padding: 8,
+                            marginTop: "var(--space-2)",
+                            padding: "var(--space-2)",
                             borderRadius: UI.radiusSm,
                             border: UI.border,
-                            background: "#f8fbfd",
+                            background: "var(--legacy-color-f8fbfd)",
                             display: "grid",
                             gap: 7,
                           }}
@@ -3041,7 +2995,7 @@ export default function TimesheetDetailPage() {
                           <select
                             value={manualEntryDraft.mode || "yard"}
                             onChange={(e) => updateManualEntryDraft({ mode: e.target.value })}
-                            style={{ ...formControlStyle, fontSize: 12, padding: "6px 8px" }}
+                            style={{ ...formControlStyle, fontSize: "var(--font-size-xs)", padding: "6px 8px" }}
                           >
                             <option value="yard">Yard</option>
                             <option value="office">Office</option>
@@ -3056,7 +3010,7 @@ export default function TimesheetDetailPage() {
                               style={{
                                 border: UI.border,
                                 borderRadius: UI.radiusSm,
-                                background: "#ffffff",
+                                background: "var(--color-white)",
                                 padding: 7,
                                 display: "grid",
                                 gap: 5,
@@ -3158,7 +3112,7 @@ export default function TimesheetDetailPage() {
                           ) : null}
 
                           {["yard", "travel", "onset"].includes(manualEntryDraft.mode) ? (
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
+                            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", fontSize: 11.5, color: UI.ink }}>
                               {manualEntryDraft.mode === "yard" ? (
                                 <label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                                   <input
@@ -3214,7 +3168,7 @@ export default function TimesheetDetailPage() {
                             value={manualEntryDraft.note || ""}
                             onChange={(e) => updateManualEntryDraft({ note: e.target.value })}
                             placeholder="Day notes..."
-                            style={{ ...formControlStyle, minHeight: 58, resize: "vertical", fontSize: 12 }}
+                            style={{ ...formControlStyle, minHeight: 58, resize: "vertical", fontSize: "var(--font-size-xs)" }}
                           />
 
                           <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
@@ -3246,13 +3200,13 @@ export default function TimesheetDetailPage() {
                   {isTurnaroundCard && (
                     <div
                       style={{
-                        background: "#f3e8ff",
-                        border: "1px solid #c4b5fd",
-                        color: "#6d28d9",
+                        background: "var(--legacy-color-f3e8ff)",
+                        border: "1px solid var(--legacy-color-c4b5fd)",
+                        color: "var(--legacy-color-6d28d9)",
                         padding: "7px 9px",
                         borderRadius: UI.radiusSm,
                         fontWeight: 900,
-                        marginBottom: 8,
+                        marginBottom: "var(--space-2)",
                       }}
                     >
                       Turnaround Day
@@ -3260,7 +3214,7 @@ export default function TimesheetDetailPage() {
                         style={{
                           fontSize: 11.5,
                           fontWeight: 700,
-                          color: "#6b7280",
+                          color: "var(--legacy-color-6b7280)",
                           marginTop: 2,
                         }}
                       >
@@ -3275,7 +3229,7 @@ export default function TimesheetDetailPage() {
                           style={{
                             fontSize: 11.5,
                             fontWeight: 700,
-                            color: "#6b7280",
+                            color: "var(--legacy-color-6b7280)",
                             marginTop: 2,
                           }}
                         >
@@ -3289,7 +3243,7 @@ export default function TimesheetDetailPage() {
                   {isHolidayCard && (
                     <div style={{ fontWeight: 600 }}>
                       <div>
-                        <span style={{ color: "#007da3ff" }}>
+                        <span style={{ color: "var(--legacy-color-007da3ff)" }}>
                           {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                         </span>
                         {displayPaidLabel && (
@@ -3297,7 +3251,7 @@ export default function TimesheetDetailPage() {
                             style={{
                               marginLeft: 6,
                               color:
-                                displayPaidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
+                                displayPaidLabel.toLowerCase() === "unpaid" ? "var(--legacy-color-8a8a8aff)" : "var(--color-info)",
                             }}
                           >
                             ({displayPaidLabel})
@@ -3320,13 +3274,13 @@ export default function TimesheetDetailPage() {
                         <>
                           <div
                             style={{
-                              marginTop: 4,
-                              fontSize: 12,
+                              marginTop: "var(--space-1)",
+                              fontSize: "var(--font-size-xs)",
                               color: UI.muted,
                               fontWeight: 600,
                             }}
                           >
-                            Paid at yard autofill: {paidHolidayTimeLabel} ({formatHoursLabel(paidHolidayHoursToUse || paidHolidayHours)})
+                            Paid at yard autofill: {paidHolidayTimeLabel} ({formatHoursLabel(paidHolidayHoursToUse)})
                             {isHalfHolidayDay ? " - half day" : ""}
                           </div>
                           <div
@@ -3334,9 +3288,9 @@ export default function TimesheetDetailPage() {
                               marginTop: 6,
                               display: "flex",
                               alignItems: "center",
-                              gap: 8,
+                              gap: "var(--space-2)",
                               fontSize: 11.5,
-                              color: "#475569",
+                              color: "var(--legacy-color-475569)",
                             }}
                           >
                             <span>
@@ -3365,8 +3319,8 @@ export default function TimesheetDetailPage() {
                       )}
                     </div>
                   )}
-                  {isOffCard && <div style={{ color: "#6b7280" }}>Day Off</div>}
-                  {isUnpaidCard && <div style={{ color: "#a16207", fontWeight: 700 }}>Unpaid day</div>}
+                  {isOffCard && <div style={{ color: "var(--legacy-color-6b7280)" }}>Day Off</div>}
+                  {isUnpaidCard && <div style={{ color: "var(--legacy-color-a16207)", fontWeight: 700 }}>Unpaid day</div>}
 
                   {/* JOB INFO (still show jobs if they exist) */}
                   {jobsToday.length > 0 && (
@@ -3375,8 +3329,8 @@ export default function TimesheetDetailPage() {
                         <div
                           key={`${job.bookingId || job.id || idx}-${idx}`}
                           style={{
-                            background: "#fefce8",
-                            border: "1px solid #facc15",
+                            background: "var(--legacy-color-fefce8)",
+                            border: "1px solid var(--legacy-color-facc15)",
                             padding: "7px 9px",
                             borderRadius: UI.radiusSm,
                           }}
@@ -3387,13 +3341,13 @@ export default function TimesheetDetailPage() {
                             </strong>
 
                             {job.client && (
-                              <span style={{ marginLeft: 6, color: "#374151", fontWeight: 500 }}>
+                              <span style={{ marginLeft: 6, color: "var(--legacy-color-374151)", fontWeight: 500 }}>
                                 - {job.client}
                               </span>
                             )}
 
                             {job.location && (
-                              <span style={{ marginLeft: 6, color: "#6b7280" }}>
+                              <span style={{ marginLeft: 6, color: "var(--legacy-color-6b7280)" }}>
                                 - {job.location}
                               </span>
                             )}
@@ -3405,7 +3359,7 @@ export default function TimesheetDetailPage() {
                               return (
                                 <div
                                   key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
-                                  style={{ color: "#047857", fontWeight: 700, fontSize: 13 }}
+                                  style={{ color: "var(--legacy-color-047857)", fontWeight: 700, fontSize: "var(--font-size-sm)" }}
                                 >
                                   {v.name} -{" "}
                                   <span style={{ fontWeight: 700 }}>{v.registration || "No Reg"}</span>
@@ -3417,8 +3371,8 @@ export default function TimesheetDetailPage() {
                             <div
                               style={{
                                 marginTop: 5,
-                                fontSize: 12,
-                                color: "#6b7280",
+                                fontSize: "var(--font-size-xs)",
+                                color: "var(--legacy-color-6b7280)",
                                 fontStyle: "italic",
                                 whiteSpace: "pre-wrap",
                               }}
@@ -3433,7 +3387,7 @@ export default function TimesheetDetailPage() {
 
                   {/* Yard blocks (hide for turnaround UNLESS blocks exist) */}
                   {entryExists && (mode === "yard" || (mode === "turnaround" && hasTimeBlocks)) && (
-                    <div style={{ fontSize: 13, marginTop: 2 }}>
+                    <div style={{ fontSize: "var(--font-size-sm)", marginTop: 2 }}>
                       <div style={{ fontWeight: 700, marginBottom: 2 }}>
                         {mode === "turnaround" ? "Time blocks (optional):" : "Yard:"}
                       </div>
@@ -3449,7 +3403,7 @@ export default function TimesheetDetailPage() {
                                 style={{
                                   marginTop: 2,
                                   color: UI.muted,
-                                  fontSize: 12,
+                                  fontSize: "var(--font-size-xs)",
                                   fontStyle: "italic",
                                   whiteSpace: "pre-wrap",
                                 }}
@@ -3461,13 +3415,13 @@ export default function TimesheetDetailPage() {
                         );
                       })}
                       {entry?.yardTravelEnabled && entry?.yardTravelLeaveTime && entry?.yardTravelArriveTime ? (
-                        <div style={{ marginTop: 4, color: UI.muted }}>
+                        <div style={{ marginTop: "var(--space-1)", color: UI.muted }}>
                           Yard travel: {entry.yardTravelLeaveTime} {"->"} {entry.yardTravelArriveTime}
                         </div>
                       ) : null}
-                      {entry?.overnight ? <div style={{ marginTop: 4 }}>- Overnight</div> : null}
+                      {entry?.overnight ? <div style={{ marginTop: "var(--space-1)" }}>- Overnight</div> : null}
                       {mode === "yard" && (
-                        <div style={{ color: "#9ca3af", fontSize: 12 }}>
+                        <div style={{ color: "var(--legacy-color-9ca3af)", fontSize: "var(--font-size-xs)" }}>
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
@@ -3478,7 +3432,7 @@ export default function TimesheetDetailPage() {
                             alignItems: "center",
                             gap: 6,
                             marginTop: 6,
-                            fontSize: 12,
+                            fontSize: "var(--font-size-xs)",
                             color: UI.ink,
                             fontWeight: 600,
                           }}
@@ -3497,12 +3451,12 @@ export default function TimesheetDetailPage() {
 
                   {/* Travel */}
                   {entryExists && mode === "travel" && (
-                    <div style={{ fontSize: 13 }}>
+                    <div style={{ fontSize: "var(--font-size-sm)" }}>
                       <div style={{ fontWeight: 700 }}>Travel:</div>
                       <div>
                         {entry.leaveTime ?? "-"} {"->"} {entry.arriveTime ?? "-"}
                       </div>
-                      {entry.travelLunchSup ? <div style={{ marginTop: 4 }}>Travel meal</div> : null}
+                      {entry.travelLunchSup ? <div style={{ marginTop: "var(--space-1)" }}>Travel meal</div> : null}
                       {entry.travelPD ? <div>Travel meal</div> : null}
                       {entry.overnight ? <div>Overnight</div> : null}
                     </div>
@@ -3510,7 +3464,7 @@ export default function TimesheetDetailPage() {
 
                   {/* Office */}
                   {entryExists && mode === "office" && (
-                    <div style={{ fontSize: 13 }}>
+                    <div style={{ fontSize: "var(--font-size-sm)" }}>
                       <div style={{ fontWeight: 700 }}>Office:</div>
                       <div>
                         {entry.startTime ?? "-"} {"->"} {entry.endTime ?? "-"}
@@ -3520,9 +3474,9 @@ export default function TimesheetDetailPage() {
 
                   {/* On Set */}
                   {entryExists && mode === "onset" && (
-                    <div style={{ marginTop: 3, fontSize: 13 }}>
+                    <div style={{ marginTop: 3, fontSize: "var(--font-size-sm)" }}>
                       <div style={{ fontWeight: 700 }}>On Set:</div>
-                      <ul style={{ marginTop: 4, marginLeft: 16, paddingLeft: 0, listStyle: "disc" }}>
+                      <ul style={{ marginTop: "var(--space-1)", marginLeft: "var(--space-4)", paddingLeft: 0, listStyle: "disc" }}>
                         {entry.leaveTime && <li>Leave: {entry.leaveTime}</li>}
                         {entry.arriveTime && <li>Arrive: {entry.arriveTime}</li>}
                         {precallLabel && <li>Pre-Call: {precallLabel}</li>}
@@ -3536,21 +3490,21 @@ export default function TimesheetDetailPage() {
                       </ul>
 
                       <div style={{ marginTop: 2 }}>
-                        <div style={{ fontWeight: 700, fontSize: 12 }}>Breakdown:</div>
-                        <div style={{ fontSize: 12 }}>Travel to: {formatHoursLabel(travelToHrs)}</div>
-                        <div style={{ fontSize: 12 }}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
-                        <div style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: "var(--font-size-xs)" }}>Breakdown:</div>
+                        <div style={{ fontSize: "var(--font-size-xs)" }}>Travel to: {formatHoursLabel(travelToHrs)}</div>
+                        <div style={{ fontSize: "var(--font-size-xs)" }}>Pre-call: {formatHoursLabel(preCallHrs)}</div>
+                        <div style={{ fontSize: "var(--font-size-xs)" }}>
                           On set{entry.callTime ? " (10-hour block)" : ""}: {formatHoursLabel(onSetPaidHrs)}
                         </div>
                         {entry.callTime ? (
-                          <div style={{ fontSize: 12 }}>
+                          <div style={{ fontSize: "var(--font-size-xs)" }}>
                             Extra after 10 hours: {formatHoursLabel(extraAfterTenHrs)}
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12 }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
+                          <div style={{ fontSize: "var(--font-size-xs)" }}>Travel back: {formatHoursLabel(travelBackHrs)}</div>
                         )}
                         {entry.callTime && entry.wrapTime ? (
-                          <div style={{ fontSize: 12, color: UI.muted }}>
+                          <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                             Actual on-set window: {formatHoursLabel(onSetBlockHrs)}
                           </div>
                         ) : null}
@@ -3560,7 +3514,7 @@ export default function TimesheetDetailPage() {
 
                   {/* NOTES */}
                   {entryExists && (entry?.note || entry?.dayNotes) && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: UI.muted, fontStyle: "italic" }}>
+                    <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted, fontStyle: "italic" }}>
                        {entry.note || entry.dayNotes}
                     </div>
                   )}
@@ -3570,9 +3524,9 @@ export default function TimesheetDetailPage() {
                     style={{
                       marginTop: "auto",
                       borderTop: UI.border,
-                      paddingTop: 8,
-                      fontSize: 12,
-                      color: "#374151",
+                      paddingTop: "var(--space-2)",
+                      fontSize: "var(--font-size-xs)",
+                      color: "var(--legacy-color-374151)",
                       textAlign: "right",
                     }}
                   >
@@ -3588,28 +3542,28 @@ export default function TimesheetDetailPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr) 260px",
-              gap: 8,
-              marginTop: 12,
+              gap: "var(--space-2)",
+              marginTop: "var(--space-3)",
               alignItems: "stretch",
             }}
           >
             <div
               style={{
-                background: "#ffffff",
+                background: "var(--color-white)",
                 borderRadius: UI.radius,
                 border: UI.border,
                 padding: 10,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
               }}
             >
-              <div style={{ fontWeight: 700, marginBottom: 4, color: UI.ink }}>General Notes</div>
-              <div style={{ color: "#4b5563", minHeight: 24 }}>{timesheet.notes || "-"}</div>
+              <div style={{ fontWeight: 700, marginBottom: "var(--space-1)", color: UI.ink }}>General Notes</div>
+              <div style={{ color: "var(--legacy-color-4b5563)", minHeight: 24 }}>{timesheet.notes || "-"}</div>
             </div>
 
             <div
               style={{
-                background: "linear-gradient(135deg, #17324f 0%, #234a71 100%)",
-                color: "#f9fafb",
+                background: "linear-gradient(135deg, var(--legacy-color-17324f) 0%, var(--legacy-color-234a71) 100%)",
+                color: "var(--legacy-color-f9fafb)",
                 borderRadius: UI.radius,
                 padding: 10,
                 display: "flex",
@@ -3620,7 +3574,7 @@ export default function TimesheetDetailPage() {
                 fontWeight: 800,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 500, opacity: 0.8, marginBottom: 4 }}>
+              <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, opacity: 0.8, marginBottom: "var(--space-1)" }}>
                 Weekly total
               </div>
               <div>{formatHoursLabel(weeklyTotal)}</div>
@@ -3633,28 +3587,28 @@ export default function TimesheetDetailPage() {
           id="pay-advice-print-root"
           style={{
             ...surfaceStyle,
-            marginTop: 12,
+            marginTop: "var(--space-3)",
             overflow: "hidden",
           }}
         >
           <div
             style={{
               padding: "12px 12px 10px",
-              background: "#f8fbfd",
+              background: "var(--legacy-color-f8fbfd)",
               borderBottom: UI.border,
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: UI.brand, letterSpacing: 0.4 }}>
+            <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 700, color: UI.brand, letterSpacing: 0.4 }}>
               Weekly Pay Advice
             </div>
-            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: UI.ink }}>
-              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(timesheet.weekStart)}
+            <div style={{ marginTop: "var(--space-1)", fontSize: 18, fontWeight: 800, color: UI.ink }}>
+              {timesheet.employeeName || timesheet.employeeCode} - W/E {formatShortDate(getWeekEndingDate(timesheet.weekStart))}
             </div>
-            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+            <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
               Auto-filled from the current timesheet. Finance can use this as the first-pass pay advice view.
             </div>
             {!needsPayAdvicePin ? (
-            <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={handleSavePayAdvice}
@@ -3665,7 +3619,7 @@ export default function TimesheetDetailPage() {
                 {payAdviceSaving ? "Saving..." : "Save Pay Advice"}
               </button>
               {payAdviceMessage ? (
-                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "#b91c1c" : "#166534" }}>
+                <div style={{ fontSize: "var(--font-size-xs)", color: payAdviceMessage.includes("Failed") ? "var(--legacy-color-b91c1c)" : "var(--color-success)" }}>
                   {payAdviceMessage}
                 </div>
               ) : null}
@@ -3683,10 +3637,10 @@ export default function TimesheetDetailPage() {
               maxWidth: 360,
             }}
           >
-            <div style={{ fontSize: 13, color: UI.muted }}>
+            <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted }}>
               Enter the PIN to view weekly pay advice.
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
               <input
                 type="password"
                 inputMode="numeric"
@@ -3709,20 +3663,20 @@ export default function TimesheetDetailPage() {
               </button>
             </div>
             {payAdvicePinError ? (
-              <div style={{ fontSize: 12, color: UI.red, fontWeight: 700 }}>
+              <div style={{ fontSize: "var(--font-size-xs)", color: UI.red, fontWeight: 700 }}>
                 {payAdvicePinError}
               </div>
             ) : null}
           </form>
           ) : (
-          <div style={{ overflowX: "auto", padding: 12 }}>
+          <div style={{ overflowX: "auto", padding: "var(--space-3)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11.5 }}>
               <thead>
-                <tr style={{ background: "#e5e7eb" }}>
+                <tr style={{ background: "var(--legacy-color-e5e7eb)" }}>
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3734,7 +3688,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3746,7 +3700,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3758,7 +3712,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3770,7 +3724,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3780,7 +3734,7 @@ export default function TimesheetDetailPage() {
                     Extra Supplements
                   </th>
                 </tr>
-                <tr style={{ background: "#f3f4f6" }}>
+                <tr style={{ background: "var(--legacy-color-f3f4f6)" }}>
                   {[
                     "Date",
                     "Job Name",
@@ -3798,7 +3752,7 @@ export default function TimesheetDetailPage() {
                     <th
                       key={heading}
                       style={{
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid var(--legacy-color-cbd5e1)",
                         padding: "7px 6px",
                         color: UI.ink,
                         fontWeight: 800,
@@ -3860,7 +3814,7 @@ export default function TimesheetDetailPage() {
                     ))}
                   </tr>
                 ))}
-                <tr style={{ background: "#f8fafc" }}>
+                <tr style={{ background: "var(--color-surface-subtle)" }}>
                   <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                     Totals
                   </td>
@@ -3875,7 +3829,7 @@ export default function TimesheetDetailPage() {
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
                 </tr>
                 {isAdmin ? (
-                  <tr style={{ background: "#eff6ff" }}>
+                  <tr style={{ background: "var(--color-info-soft)" }}>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                       Rates
                     </td>
@@ -3910,7 +3864,7 @@ export default function TimesheetDetailPage() {
                   </tr>
                 ) : null}
                 {isAdmin ? (
-                  <tr style={{ background: "#dbeafe" }}>
+                  <tr style={{ background: "var(--legacy-color-dbeafe)" }}>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                       Total Monetary
                     </td>
@@ -3932,7 +3886,7 @@ export default function TimesheetDetailPage() {
                 style={{
                   display: "flex",
                   justifyContent: "flex-end",
-                  paddingTop: 12,
+                  paddingTop: "var(--space-3)",
                 }}
               >
                 <div
@@ -3942,8 +3896,8 @@ export default function TimesheetDetailPage() {
                     gap: 3,
                     padding: "10px 12px",
                     borderRadius: UI.radius,
-                    border: "1px solid #93c5fd",
-                    background: "#eff6ff",
+                    border: "1px solid var(--legacy-color-93c5fd)",
+                    background: "var(--color-info-soft)",
                     boxShadow: UI.shadowSm,
                     textAlign: "right",
                   }}
@@ -3953,7 +3907,7 @@ export default function TimesheetDetailPage() {
                       fontSize: 10,
                       fontWeight: 800,
                       letterSpacing: 0.5,
-                      color: "#1d4ed8",
+                      color: "var(--color-info)",
                       textTransform: "uppercase",
                     }}
                   >
@@ -3981,12 +3935,12 @@ export default function TimesheetDetailPage() {
         <div
           style={{
             ...surfaceStyle,
-            marginTop: 12,
-            padding: 12,
-            fontSize: 13,
+            marginTop: "var(--space-3)",
+            padding: "var(--space-3)",
+            fontSize: "var(--font-size-sm)",
           }}
         >
-          <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, marginBottom: 8, color: UI.ink }}>
+          <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, marginBottom: "var(--space-2)", color: UI.ink }}>
             Manager queries
           </h2>
 
@@ -3996,10 +3950,10 @@ export default function TimesheetDetailPage() {
                 marginBottom: 10,
                 padding: "7px 10px",
                 borderRadius: UI.radiusSm,
-                backgroundColor: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                color: "#1e3a8a",
-                fontSize: 12,
+                backgroundColor: "var(--color-info-soft)",
+                border: "1px solid var(--color-info-border)",
+                color: "var(--legacy-color-1e3a8a)",
+                fontSize: "var(--font-size-xs)",
               }}
             >
               This timesheet is approved. Queries are now read-only - you can review existing queries
@@ -4013,14 +3967,14 @@ export default function TimesheetDetailPage() {
               style={{
                 display: "flex",
                 flexWrap: "wrap",
-                gap: 8,
+                gap: "var(--space-2)",
                 alignItems: "flex-start",
                 marginBottom: 10,
                 opacity: isApproved ? 0.6 : 1,
               }}
             >
               <div style={{ minWidth: 140 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: "var(--font-size-xs)", fontWeight: 600, marginBottom: "var(--space-1)" }}>
                   Day
                 </label>
                 <select
@@ -4029,7 +3983,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--color-white)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4043,7 +3997,7 @@ export default function TimesheetDetailPage() {
               </div>
 
               <div style={{ minWidth: 160 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: "var(--font-size-xs)", fontWeight: 600, marginBottom: "var(--space-1)" }}>
                   What are you querying?
                 </label>
                 <select
@@ -4052,7 +4006,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--color-white)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4067,7 +4021,7 @@ export default function TimesheetDetailPage() {
               </div>
 
               <div style={{ flex: 1, minWidth: 220 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: "var(--font-size-xs)", fontWeight: 600, marginBottom: "var(--space-1)" }}>
                   Query note for employee
                 </label>
                 <textarea
@@ -4083,7 +4037,7 @@ export default function TimesheetDetailPage() {
                   style={{
                     ...formControlStyle,
                     resize: "vertical",
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--color-white)",
                     cursor: isApproved ? "not-allowed" : "text",
                   }}
                 />
@@ -4105,13 +4059,13 @@ export default function TimesheetDetailPage() {
           {queryError && (
             <div
               style={{
-                marginBottom: 8,
+                marginBottom: "var(--space-2)",
                 padding: "7px 10px",
                 borderRadius: UI.radiusSm,
                 backgroundColor: UI.redSoft,
                 border: `1px solid ${UI.redBorder}`,
                 color: UI.red,
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
               }}
             >
               {queryError}
@@ -4120,13 +4074,13 @@ export default function TimesheetDetailPage() {
           {querySuccess && (
             <div
               style={{
-                marginBottom: 8,
+                marginBottom: "var(--space-2)",
                 padding: "7px 10px",
                 borderRadius: UI.radiusSm,
                 backgroundColor: UI.greenSoft,
                 border: `1px solid ${UI.greenBorder}`,
                 color: UI.green,
-                fontSize: 12,
+                fontSize: "var(--font-size-xs)",
               }}
             >
               {querySuccess}
@@ -4134,8 +4088,8 @@ export default function TimesheetDetailPage() {
           )}
 
           {queries.length > 0 && (
-            <div style={{ marginTop: 8, borderTop: UI.border, paddingTop: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: UI.ink }}>
+            <div style={{ marginTop: "var(--space-2)", borderTop: UI.border, paddingTop: "var(--space-2)" }}>
+              <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 700, marginBottom: 6, color: UI.ink }}>
                 Existing queries on this timesheet
               </div>
               <ul
@@ -4145,7 +4099,7 @@ export default function TimesheetDetailPage() {
                   margin: 0,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 4,
+                  gap: "var(--space-1)",
                 }}
               >
                 {queries.map((q) => (
@@ -4154,14 +4108,14 @@ export default function TimesheetDetailPage() {
                     style={{
                       padding: "8px 10px",
                       borderRadius: UI.radius,
-                      backgroundColor: "#ffffff",
+                      backgroundColor: "var(--color-white)",
                       border: UI.border,
-                      fontSize: 13,
+                      fontSize: "var(--font-size-sm)",
                     }}
                   >
                     <div style={{ marginBottom: 2 }}>
                       <strong>{q.day}</strong>{" "}
-                      <span style={{ color: "#6b7280" }}>({q.field || "overall"})</span>
+                      <span style={{ color: "var(--legacy-color-6b7280)" }}>({q.field || "overall"})</span>
                       {q.status && (
                         <span
                           style={{
@@ -4170,16 +4124,16 @@ export default function TimesheetDetailPage() {
                             padding: "1px 6px",
                             borderRadius: UI.radiusSm,
                             backgroundColor:
-                              String(q.status).toLowerCase() === "closed" ? "#dcfce7" : "#eef2ff",
+                              String(q.status).toLowerCase() === "closed" ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-eef2ff)",
                             color:
-                              String(q.status).toLowerCase() === "closed" ? "#166534" : "#3730a3",
+                              String(q.status).toLowerCase() === "closed" ? "var(--color-success)" : "var(--legacy-color-3730a3)",
                           }}
                         >
                           {String(q.status).toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.message || q.note}</div>
+                    <div style={{ color: "var(--legacy-color-4b5563)", marginBottom: 6 }}>{q.message || q.note}</div>
 
                     <QueryMessageThread query={q} canReply={isAdmin} />
                   </li>
@@ -4239,14 +4193,14 @@ function QueryMessageThread({ query, canReply = false }) {
   return (
     <div
       style={{
-        marginTop: 8,
+        marginTop: "var(--space-2)",
         padding: 10,
         borderRadius: UI.radius,
         border: UI.border,
-        background: "#ffffff",
+        background: "var(--color-white)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: UI.muted }}>
+      <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 700, marginBottom: 6, color: UI.muted }}>
         Messages {(isClosed || !canReply) && "(read-only)"}
       </div>
 
@@ -4254,16 +4208,16 @@ function QueryMessageThread({ query, canReply = false }) {
         style={{
           maxHeight: 200,
           overflowY: "auto",
-          background: "#ffffff",
+          background: "var(--color-white)",
           borderRadius: UI.radius,
           border: UI.border,
-          padding: 8,
-          marginBottom: 8,
-          fontSize: 12,
+          padding: "var(--space-2)",
+          marginBottom: "var(--space-2)",
+          fontSize: "var(--font-size-xs)",
         }}
       >
         {messages.length === 0 && (
-          <div style={{ color: "#9ca3af", textAlign: "center" }}>No messages yet.</div>
+          <div style={{ color: "var(--legacy-color-9ca3af)", textAlign: "center" }}>No messages yet.</div>
         )}
 
         {messages.map((m) => {
@@ -4275,8 +4229,8 @@ function QueryMessageThread({ query, canReply = false }) {
                   display: "inline-block",
                   padding: "5px 9px",
                   borderRadius: UI.radiusSm,
-                  backgroundColor: isManager ? UI.brand : "#e5e7eb",
-                  color: isManager ? "#f9fafb" : "#111827",
+                  backgroundColor: isManager ? UI.brand : "var(--legacy-color-e5e7eb)",
+                  color: isManager ? "var(--legacy-color-f9fafb)" : "var(--legacy-color-111827)",
                 }}
               >
                 {m.text}
@@ -4287,7 +4241,7 @@ function QueryMessageThread({ query, canReply = false }) {
       </div>
 
       {(isClosed || !canReply) && (
-        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, color: "var(--legacy-color-6b7280)", marginBottom: 6 }}>
           {isClosed ? "This query is closed. No further messages can be sent." : "Replies are admin-only."}
         </div>
       )}
@@ -4304,8 +4258,8 @@ function QueryMessageThread({ query, canReply = false }) {
               padding: "8px 10px",
               borderRadius: UI.radiusSm,
               border: UI.border,
-              fontSize: 12,
-              backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
+              fontSize: "var(--font-size-xs)",
+              backgroundColor: isClosed ? "var(--legacy-color-f3f4f6)" : "var(--color-white)",
               cursor: isClosed ? "not-allowed" : "text",
             }}
           />

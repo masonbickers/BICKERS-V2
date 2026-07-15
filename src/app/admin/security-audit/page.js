@@ -20,23 +20,23 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { auth } from "../../../../firebaseConfig";
 
 const UI = {
-  radius: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  ok: "#15803d",
-  okSoft: "#edf7f2",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
-  neutral: "#64748b",
-  neutralSoft: "#f1f5f9",
+  radius: "var(--radius-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  ok: "var(--legacy-color-15803d)",
+  okSoft: "var(--legacy-color-edf7f2)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
+  neutral: "var(--color-text-subtle)",
+  neutralSoft: "var(--legacy-color-f1f5f9)",
 };
 
 const STATUS_META = {
@@ -548,7 +548,7 @@ function SmallPill({ good, children }) {
         ...smallPill,
         background: good ? UI.okSoft : UI.warnSoft,
         color: good ? UI.ok : UI.warn,
-        borderColor: good ? "#bbf7d0" : "#fed7aa",
+        borderColor: good ? "var(--color-success-border)" : "var(--color-warning-border)",
       }}
     >
       {children}
@@ -605,7 +605,7 @@ function formatDateTime(value) {
 }
 
 const pageWrap = {
-  padding: 16,
+  padding: "var(--space-4)",
   minHeight: "100vh",
   background: UI.bg,
   color: UI.text,
@@ -615,7 +615,7 @@ const pageHeader = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
 };
 
@@ -629,13 +629,13 @@ const h1Style = {
 const pageSub = {
   marginTop: 5,
   color: UI.muted,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   fontWeight: 700,
 };
 
 const headerActions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   alignItems: "center",
   flexWrap: "wrap",
 };
@@ -651,7 +651,7 @@ const btnStyle = {
   background: UI.card,
   cursor: "pointer",
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
 };
 
@@ -666,7 +666,7 @@ const statCard = {
   display: "flex",
   alignItems: "center",
   gap: 10,
-  padding: 12,
+  padding: "var(--space-3)",
   border: UI.border,
   borderRadius: UI.radius,
   background: UI.card,
@@ -675,7 +675,7 @@ const statCard = {
 const statAccent = {
   minWidth: 42,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -684,7 +684,7 @@ const statAccent = {
 };
 
 const statLabel = {
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   color: UI.text,
   textTransform: "uppercase",
@@ -693,7 +693,7 @@ const statLabel = {
 
 const statSub = {
   marginTop: 3,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   color: UI.muted,
   fontWeight: 700,
 };
@@ -710,7 +710,7 @@ const toolbar = {
 const bulkBar = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   marginTop: 10,
   padding: 10,
@@ -721,14 +721,14 @@ const bulkBar = {
 
 const bulkHint = {
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
 };
 
 const searchWrap = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   width: 420,
   maxWidth: "100%",
   padding: "0 10px",
@@ -740,7 +740,7 @@ const searchWrap = {
 const searchInput = {
   width: "100%",
   minWidth: 0,
-  height: 36,
+  height: "var(--control-height-md)",
   border: 0,
   outline: "none",
   background: "transparent",
@@ -779,7 +779,7 @@ const cardStyle = {
 };
 
 const tableHeader = {
-  padding: 12,
+  padding: "var(--space-3)",
   borderBottom: UI.border,
 };
 
@@ -791,7 +791,7 @@ const cardTitle = {
 const cardSub = {
   marginTop: 3,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
 };
 
@@ -805,9 +805,9 @@ const thStyle = {
   textAlign: "left",
   padding: "9px 10px",
   borderBottom: UI.border,
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
@@ -824,7 +824,7 @@ const tdStyle = {
   padding: "10px",
   borderBottom: UI.border,
   verticalAlign: "top",
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
 };
 
 const rowStyle = {
@@ -832,7 +832,7 @@ const rowStyle = {
 };
 
 const emptyTd = {
-  padding: 16,
+  padding: "var(--space-4)",
   color: UI.muted,
   fontWeight: 800,
 };
@@ -843,9 +843,9 @@ const statusPill = {
   gap: 5,
   padding: "5px 8px",
   border: "1px solid",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   fontWeight: 900,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
 };
 
 const smallPill = {
@@ -853,8 +853,8 @@ const smallPill = {
   alignItems: "center",
   padding: "3px 7px",
   border: "1px solid",
-  borderRadius: 999,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
 };
 
@@ -873,12 +873,12 @@ const strongText = {
 const mutedText = {
   marginTop: 3,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
 };
 
 const tinyMono = {
-  marginTop: 4,
+  marginTop: "var(--space-1)",
   color: UI.muted,
   fontSize: 11,
   fontFamily: "monospace",
@@ -893,11 +893,11 @@ const issueList = {
 
 const issuePill = {
   padding: "4px 7px",
-  borderRadius: 999,
-  border: "1px solid #fed7aa",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--color-warning-border)",
   background: UI.warnSoft,
   color: UI.warn,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 850,
 };
 
@@ -907,9 +907,9 @@ const okText = {
 };
 
 const warnText = {
-  marginTop: 4,
+  marginTop: "var(--space-1)",
   color: UI.warn,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
 };
 
@@ -920,10 +920,10 @@ const deleteButton = {
   gap: 5,
   padding: "6px 8px",
   borderRadius: UI.radius,
-  border: "1px solid #fecaca",
+  border: "1px solid var(--color-danger-border)",
   background: UI.dangerSoft,
   color: UI.danger,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   cursor: "pointer",
   whiteSpace: "nowrap",
@@ -937,9 +937,9 @@ const deleteButtonDisabled = {
 };
 
 const errorBox = {
-  marginTop: 12,
-  padding: 12,
-  border: "1px solid #fecaca",
+  marginTop: "var(--space-3)",
+  padding: "var(--space-3)",
+  border: "1px solid var(--color-danger-border)",
   borderRadius: UI.radius,
   background: UI.dangerSoft,
   color: UI.danger,
@@ -947,9 +947,9 @@ const errorBox = {
 };
 
 const noticeBox = {
-  marginTop: 12,
-  padding: 12,
-  border: "1px solid #bbf7d0",
+  marginTop: "var(--space-3)",
+  padding: "var(--space-3)",
+  border: "1px solid var(--color-success-border)",
   borderRadius: UI.radius,
   background: UI.okSoft,
   color: UI.ok,

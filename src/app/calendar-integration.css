@@ -1,0 +1,55 @@
+/* Third-party react-big-calendar overrides. !important is limited to vendor rules. */
+.rbc-time-header-gutter,
+.rbc-time-gutter,
+.rbc-timeslot-group {
+  display: none !important;
+}
+
+.rbc-time-content {
+  border-top: none !important;
+  padding-top: 0;
+}
+
+.rbc-month-view .rbc-row,
+.rbc-month-view .rbc-row-content,
+.rbc-month-view .rbc-month-row,
+.rbc-month-view .rbc-cell {
+  height: auto !important;
+}
+
+.rbc-month-view .rbc-row-content {
+  overflow: visible !important;
+}
+
+.rbc-now-indicator,
+.rbc-current-time-indicator,
+.rbc-today .rbc-time-slot {
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.rbc-time-view .rbc-allday-cell,
+.rbc-time-view .rbc-day-bg {
+  position: relative;
+}
+
+.rbc-time-view .rbc-day-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 1px;
+  background: var(--color-calendar-grid);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.rbc-time-view .rbc-allday-cell.rbc-today,
+.rbc-time-view .rbc-day-slot.rbc-today {
+  background-color: var(--color-calendar-today) !important;
+}
+
+.rbc-time-view .rbc-allday-cell.job-day,
+.rbc-time-view .rbc-day-slot.job-day {
+  background-color: var(--color-calendar-job) !important;
+}

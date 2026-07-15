@@ -17,18 +17,18 @@ import {
 const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  dangerSoft: "#fef2f2",
-  amberSoft: "#fff7ed",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandBorder: "var(--color-brand-border)",
+  danger: "var(--legacy-color-dc2626)",
+  dangerSoft: "var(--color-danger-soft)",
+  amberSoft: "var(--color-warning-soft)",
 };
 
 const overlay = {
@@ -59,13 +59,13 @@ const header = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: 14,
   borderBottom: UI.border,
   background: UI.card,
 };
 
-const body = { padding: 14, display: "grid", gap: 12 };
+const body = { padding: 14, display: "grid", gap: "var(--space-3)" };
 
 const input = {
   width: "100%",
@@ -74,8 +74,8 @@ const input = {
   borderRadius: UI.radiusSm,
   border: UI.border,
   outline: "none",
-  fontSize: 13,
-  background: "#fff",
+  fontSize: "var(--font-size-sm)",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -94,9 +94,9 @@ const btn = (kind = "ghost") => {
     background: danger
       ? UI.danger
       : primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: danger || primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)"
+      : "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: danger || primary ? "var(--color-white)" : UI.text,
     fontWeight: 850,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -116,7 +116,7 @@ const label = {
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: 0,
-  marginBottom: 4,
+  marginBottom: "var(--space-1)",
 };
 
 const norm = (value) => String(value || "").trim().toLowerCase();
@@ -384,7 +384,7 @@ export default function VehicleCategorySettingsModal({
         <div style={header}>
           <div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>Fleet settings</h2>
-            <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
+            <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>
               Manage category names, display order, list colours, and compliance defaults.
             </div>
           </div>
@@ -395,9 +395,9 @@ export default function VehicleCategorySettingsModal({
         </div>
 
         <div style={body}>
-          <section style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: UI.bg }}>
+          <section style={{ border: UI.border, borderRadius: UI.radius, padding: "var(--space-3)", background: UI.bg }}>
             <div style={label}>Add category</div>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: "var(--space-2)" }}>
               <input
                 value={newCategory}
                 onChange={(event) => setNewCategory(event.target.value)}
@@ -419,13 +419,13 @@ export default function VehicleCategorySettingsModal({
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 8,
+                gap: "var(--space-2)",
                 padding: "9px 10px",
                 borderRadius: UI.radius,
                 border: UI.border,
                 background: message.includes("Cannot") || message.includes("Permission") || message.includes("Could not") ? UI.dangerSoft : UI.amberSoft,
                 color: UI.text,
-                fontSize: 13,
+                fontSize: "var(--font-size-sm)",
                 fontWeight: 800,
               }}
             >
@@ -439,11 +439,11 @@ export default function VehicleCategorySettingsModal({
               style={{
                 display: "grid",
                 gridTemplateColumns: "88px minmax(170px, 0.9fr) 76px 92px minmax(220px, 1fr) auto auto",
-                gap: 8,
+                gap: "var(--space-2)",
                 alignItems: "center",
                 minWidth: 930,
                 padding: "8px 10px",
-                background: "#f6f8fb",
+                background: "var(--legacy-color-f6f8fb)",
                 color: UI.muted,
                 fontSize: 11,
                 fontWeight: 900,
@@ -462,21 +462,21 @@ export default function VehicleCategorySettingsModal({
             {rows.length ? (
               rows.map((row, index) => {
                 const renameValue = edits[row.category] ?? row.category;
-                const color = normalizeVehicleCategoryColor(categoryMeta[row.category]?.color) || "#1f4b7a";
+                const color = normalizeVehicleCategoryColor(categoryMeta[row.category]?.color) || "var(--color-brand)";
                 return (
                   <div
                     key={row.category}
                     style={{
                       display: "grid",
                       gridTemplateColumns: "88px minmax(170px, 0.9fr) 76px 92px minmax(220px, 1fr) auto auto",
-                      gap: 8,
+                      gap: "var(--space-2)",
                       alignItems: "center",
                       minWidth: 930,
                       padding: "9px 10px",
                       borderTop: UI.border,
                     }}
                   >
-                    <div style={{ display: "flex", gap: 4 }}>
+                    <div style={{ display: "flex", gap: "var(--space-1)" }}>
                       <button
                         type="button"
                         style={iconButton}
@@ -496,16 +496,16 @@ export default function VehicleCategorySettingsModal({
                         <ArrowDown size={14} />
                       </button>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 850 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontWeight: 850 }}>
                       <span style={{ width: 12, height: 12, borderRadius: 3, background: color, border: UI.border }} />
                       <span>{row.category}</span>
                     </div>
-                    <div style={{ color: UI.muted, fontSize: 13 }}>{row.count}</div>
+                    <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>{row.count}</div>
                     <input
                       type="color"
                       value={color}
                       onChange={(event) => handleColorChange(row.category, event.target.value)}
-                      style={{ width: 48, height: 34, padding: 2, borderRadius: UI.radiusSm, border: UI.border, background: "#fff" }}
+                      style={{ width: 48, height: 34, padding: 2, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-white)" }}
                       title="Category colour"
                     />
                     <input
@@ -537,15 +537,15 @@ export default function VehicleCategorySettingsModal({
                 );
               })
             ) : (
-              <div style={{ padding: 12, color: UI.muted, fontSize: 13 }}>No categories found yet.</div>
+              <div style={{ padding: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>No categories found yet.</div>
             )}
           </section>
 
-          <section style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: UI.bg }}>
+          <section style={{ border: UI.border, borderRadius: UI.radius, padding: "var(--space-3)", background: UI.bg }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div>
                 <div style={label}>Compliance settings</div>
-                <div style={{ color: UI.muted, fontSize: 13 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                   Controls warning colours and trade plate default renewal frequency.
                 </div>
               </div>

@@ -25,30 +25,30 @@ import {
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
-  purple: "#7c3aed",
-  purpleSoft: "#f5f3ff",
-  purpleBorder: "#ddd6fe",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
+  purple: "var(--legacy-color-7c3aed)",
+  purpleSoft: "var(--legacy-color-f5f3ff)",
+  purpleBorder: "var(--legacy-color-ddd6fe)",
 };
 
 const pageWrap = { padding: "10px 12px 24px", background: UI.bg, minHeight: "100vh" };
@@ -57,19 +57,19 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 8,
+  gap: "var(--space-2)",
+  marginBottom: "var(--space-2)",
   flexWrap: "wrap",
 };
 const h1 = { color: UI.text, fontSize: 20, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 const titleMd = { fontWeight: 800, fontSize: 17, margin: 0, color: UI.text, letterSpacing: 0 };
-const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
+const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: "var(--space-1)", lineHeight: 1.4 };
 const sectionHeader = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
+  gap: "var(--space-2)",
   margin: "8px 0 5px",
   flexWrap: "wrap",
 };
@@ -80,7 +80,7 @@ const toolbar = {
   gridTemplateColumns: "minmax(240px, 1fr) minmax(150px, 1fr) 130px 122px 122px auto auto",
   gap: 5,
   alignItems: "center",
-  marginBottom: 8,
+  marginBottom: "var(--space-2)",
 };
 const inputStyle = {
   width: "100%",
@@ -88,9 +88,9 @@ const inputStyle = {
   padding: "3px 7px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   outline: "none",
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
   boxSizing: "border-box",
 };
@@ -103,10 +103,10 @@ const btn = (kind = "ghost") => ({
   padding: "4px 8px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-white)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 850,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   textDecoration: "none",
   boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadowSm,
   whiteSpace: "nowrap",
@@ -119,7 +119,7 @@ const chip = (kind = "neutral") => {
     justifyContent: "center",
     gap: 5,
     padding: "3px 8px",
-    borderRadius: 999,
+    borderRadius: "var(--radius-pill)",
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: UI.brandBorder,
@@ -138,7 +138,7 @@ const chip = (kind = "neutral") => {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -152,10 +152,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "5px 8px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -165,7 +165,7 @@ const th = {
 };
 const td = {
   padding: "5px 8px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -175,7 +175,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   @media (max-width: 1180px) {
     .review-toolbar { grid-template-columns: 1fr 1fr !important; }
@@ -236,25 +236,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Action Required":
-      return { bg: "#FF973B", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-ff973b)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Complete":
-      return { bg: "#92d18cff", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-92d18cff)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Confirmed":
-      return { bg: "#f3f970", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-f3f970)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "First Pencil":
-      return { bg: "#89caf5", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-89caf5)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Second Pencil":
-      return { bg: "#f73939", border: "#0b0b0b", text: "#fff" };
+      return { bg: "var(--legacy-color-f73939)", border: "var(--legacy-color-0b0b0b)", text: "var(--color-white)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
   }
 };
 
@@ -265,7 +265,7 @@ const StatusBadge = ({ value }) => {
       style={{
         padding: "5px 9px",
         fontSize: 11.5,
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${c.border}`,
         background: c.bg,
         color: c.text,
@@ -503,7 +503,7 @@ export default function ReviewQueuePage() {
   };
 
   const SectionTable = ({ jobs, title }) => (
-    <section style={{ marginBottom: 12 }}>
+    <section style={{ marginBottom: "var(--space-3)" }}>
       <div style={sectionHeader}>
         <div>
           <h2 style={titleMd}>{title}</h2>
@@ -568,7 +568,7 @@ export default function ReviewQueuePage() {
                   <td style={{ ...td, ...nowrap }}><DatesCell job={j} /></td>
                   <td style={{ ...td, ...nowrap }}><StatusBadge value={pretty} /></td>
                   <td style={{ ...td, ...nowrap }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", flexWrap: "nowrap", whiteSpace: "nowrap" }}>
                       {["Ready to Invoice", "Needs Action", "Complete"].map((option) => {
                         const nextStatus = option === "Needs Action" ? "Action Required" : option;
                         const currentStatus = prettifyStatus(j.status);
@@ -615,7 +615,7 @@ export default function ReviewQueuePage() {
           <div>
             <h1 style={h1}>Review Queue</h1>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <Link href="/job-home" style={btn()}>
               <Home size={14} />
               Jobs Home
@@ -659,7 +659,7 @@ export default function ReviewQueuePage() {
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={inputStyle} aria-label="From date" />
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle} aria-label="To date" />
 
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: UI.text, whiteSpace: "nowrap", fontWeight: 800 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.text, whiteSpace: "nowrap", fontWeight: 800 }}>
             <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
             Overdue
           </label>

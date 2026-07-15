@@ -18,25 +18,25 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  radius: 8,
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  border: "var(--border-default)",
+  radius: "var(--radius-md)",
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -50,16 +50,16 @@ const card = {
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadow,
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const pageHeader = {
   ...card,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
 };
 
@@ -71,17 +71,17 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--color-white)",
+  color: kind === "primary" ? "var(--color-white)" : UI.text,
   fontWeight: 800,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   cursor: "pointer",
   boxShadow: kind === "primary" ? "0 8px 18px rgba(31,75,122,0.16)" : UI.shadow,
 });
 
 const h1Style = {
   margin: 0,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 900,
   color: UI.text,
@@ -96,17 +96,17 @@ const pageSub = {
 
 const searchBox = {
   ...card,
-  marginBottom: 12,
+  marginBottom: "var(--space-3)",
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
 };
 
 const input = {
   width: "100%",
   border: "none",
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   color: UI.text,
   background: "transparent",
 };
@@ -119,7 +119,7 @@ const quoteOverlayBackdrop = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 4,
+  padding: "var(--space-1)",
 };
 
 const quoteOverlayPanel = {
@@ -127,8 +127,8 @@ const quoteOverlayPanel = {
   height: "min(760px, calc(100vh - 8px))",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 10,
   boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
   overflow: "hidden",
@@ -138,10 +138,10 @@ const quoteOverlayHeader = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: "7px 10px",
-  borderBottom: "1px solid #dbe4ef",
-  background: "#f8fafc",
+  borderBottom: "1px solid var(--legacy-color-dbe4ef)",
+  background: "var(--color-surface-subtle)",
 };
 
 const quoteOverlayEyebrow = {
@@ -164,7 +164,7 @@ const quoteOverlayTitle = {
 const quoteOverlayMeta = {
   marginTop: 2,
   color: UI.muted,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
 };
 
@@ -174,9 +174,9 @@ const quoteOverlayCloseButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #cbd5e1",
-  borderRadius: 8,
-  background: "#fff",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
   color: UI.text,
   padding: 0,
   cursor: "pointer",
@@ -186,13 +186,13 @@ const quoteOverlayFrame = {
   width: "100%",
   height: "100%",
   border: 0,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
 const pill = {
   display: "inline-flex",
   alignItems: "center",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   padding: "3px 8px",
   background: UI.brandSoft,
   border: `1px solid ${UI.brandBorder}`,
@@ -208,7 +208,7 @@ const queueChip = (kind = "neutral") => {
     justifyContent: "center",
     gap: 5,
     padding: "3px 8px",
-    borderRadius: 999,
+    borderRadius: "var(--radius-pill)",
     border: `1px solid ${UI.brandBorder}`,
     background: UI.brandSoft,
     color: UI.text,
@@ -226,7 +226,7 @@ const sectionHeader = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
+  gap: "var(--space-2)",
   margin: "2px 0 8px",
   flexWrap: "wrap",
 };
@@ -238,10 +238,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -251,7 +251,7 @@ const th = {
 };
 const td = {
   padding: "7px 8px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -479,7 +479,7 @@ export default function EnquiryPage() {
             <h1 style={h1Style}>Enquiries</h1>
             <div style={pageSub}>Saved enquiry jobs that are not shown on the calendar.</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
             <button type="button" style={btn("primary")} onClick={() => router.push("/create-enquiry")}>
               <Plus size={14} />
               New Enquiry
@@ -543,15 +543,15 @@ export default function EnquiryPage() {
                     {enquiries.map((booking) => {
                       const needsChase = enquiryNeedsChase(booking);
                       return (
-                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "#fff" }}>
+                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "var(--color-white)" }}>
                           <td style={{ ...td, ...nowrap, fontWeight: 900 }}>{booking.jobNumber || "No Job #"}</td>
                           <td style={td} title={booking.client || ""}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
                               <span
                                 style={{
                                   width: 28,
                                   height: 28,
-                                  borderRadius: 8,
+                                  borderRadius: "var(--radius-md)",
                                   display: "inline-flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -600,7 +600,7 @@ export default function EnquiryPage() {
                             )}
                           </td>
                           <td style={{ ...td, ...nowrap }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", flexWrap: "nowrap" }}>
                               <button
                                 type="button"
                                 style={{ ...btn(), minHeight: 24, padding: "3px 7px", fontSize: 11, boxShadow: "none" }}

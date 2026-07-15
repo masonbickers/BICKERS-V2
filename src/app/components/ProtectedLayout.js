@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
 
-const PUBLIC_PATHS = ["/login", "/setup-mfa", "/verify-mfa"];
+const PUBLIC_PATHS = ["/login", "/auth/complete"];
 
 export default function ProtectedLayout({ children }) {
   const router = useRouter();

@@ -8,17 +8,17 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../../../firebaseConfig";
 
 const UI = {
-  radius: 8,
+  radius: "var(--radius-md)",
   gap: 10,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 18px 24px", background: UI.bg, minHeight: "100vh" };
@@ -31,8 +31,8 @@ const topBar = {
   marginBottom: 10,
 };
 const title = { margin: 0, fontSize: 24, fontWeight: 950, color: UI.text, letterSpacing: 0 };
-const subtitle = { marginTop: 4, fontSize: 12.5, color: UI.muted };
-const panel = { background: UI.card, borderRadius: UI.radius, border: UI.border, padding: 12 };
+const subtitle = { marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted };
+const panel = { background: UI.card, borderRadius: UI.radius, border: UI.border, padding: "var(--space-3)" };
 const btn = {
   display: "inline-flex",
   alignItems: "center",
@@ -40,8 +40,8 @@ const btn = {
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radius,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
+  border: "1px solid var(--color-border-strong)",
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 900,
   cursor: "pointer",
@@ -88,9 +88,9 @@ const defectText = (defect) =>
 
 const resultStyle = (result) => {
   const value = String(result || "").toUpperCase();
-  if (value === "PASSED") return { color: "#166534", background: "#dcfce7", border: "1px solid #86efac" };
-  if (value === "FAILED") return { color: "#991b1b", background: "#fee2e2", border: "1px solid #fecaca" };
-  return { color: UI.text, background: "#f8fafc", border: UI.border };
+  if (value === "PASSED") return { color: "var(--color-success)", background: "var(--legacy-color-dcfce7)", border: "1px solid var(--legacy-color-86efac)" };
+  if (value === "FAILED") return { color: "var(--color-danger)", background: "var(--legacy-color-fee2e2)", border: "1px solid var(--color-danger-border)" };
+  return { color: UI.text, background: "var(--color-surface-subtle)", border: UI.border };
 };
 
 function getMileageAnomaly(tests) {
@@ -104,9 +104,9 @@ function getMileageAnomaly(tests) {
 
 function MiniStat({ label, value }) {
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-white)" }}>
       <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 850 }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 14, color: UI.text, fontWeight: 950 }}>{value || "-"}</div>
+      <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-md)", color: UI.text, fontWeight: 950 }}>{value || "-"}</div>
     </div>
   );
 }
@@ -174,12 +174,12 @@ export default function VehicleMotHistoryPage() {
                 <div
                   style={{
                     display: "flex",
-                    gap: 8,
+                    gap: "var(--space-2)",
                     alignItems: "flex-start",
                     marginTop: 10,
-                    border: "1px solid #f59e0b",
-                    background: "#fffbeb",
-                    color: "#92400e",
+                    border: "1px solid var(--legacy-color-f59e0b)",
+                    background: "var(--legacy-color-fffbeb)",
+                    color: "var(--legacy-color-92400e)",
                     borderRadius: UI.radius,
                     padding: 10,
                     fontSize: 12.5,
@@ -194,7 +194,7 @@ export default function VehicleMotHistoryPage() {
 
             <div style={panel}>
               {motTests.length === 0 ? (
-                <div style={{ color: UI.muted, fontSize: 13 }}>
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                   No DVSA MOT history saved yet. Go back to the vehicle, press Fetch DVSA MOT, then Save.
                 </div>
               ) : (
@@ -210,22 +210,22 @@ export default function VehicleMotHistoryPage() {
                     );
 
                     return (
-                      <div key={test.motTestNumber || `${test.completedDate}-${index}`} style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: "#fff" }}>
+                      <div key={test.motTestNumber || `${test.completedDate}-${index}`} style={{ border: UI.border, borderRadius: UI.radius, padding: "var(--space-3)", background: "var(--color-white)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
                           <div>
                             <div style={{ fontSize: 15, fontWeight: 950, color: UI.text }}>
                               {formatDisplayDate(test.completedDate)}
                             </div>
-                            <div style={{ marginTop: 4, fontSize: 12.5, color: UI.muted }}>
+                            <div style={{ marginTop: "var(--space-1)", fontSize: 12.5, color: UI.muted }}>
                               Expires: {formatDisplayDate(test.expiryDate)} · Odometer: {formatOdometer(test)}
                             </div>
                           </div>
                           <span
                             style={{
                               ...resultStyle(test.testResult),
-                              borderRadius: 999,
+                              borderRadius: "var(--radius-pill)",
                               padding: "5px 9px",
-                              fontSize: 12,
+                              fontSize: "var(--font-size-xs)",
                               fontWeight: 950,
                             }}
                           >
@@ -233,13 +233,13 @@ export default function VehicleMotHistoryPage() {
                           </span>
                         </div>
 
-                        <div style={{ marginTop: 8, fontSize: 12.5, color: UI.muted }}>
+                        <div style={{ marginTop: "var(--space-2)", fontSize: 12.5, color: UI.muted }}>
                           Test number: {test.motTestNumber || "-"}
                           {test.odometerResultType ? ` · Odometer result: ${test.odometerResultType}` : ""}
                         </div>
 
                         {serious.length ? (
-                          <div style={{ marginTop: 10, border: "1px solid #fecaca", background: "#fef2f2", color: "#991b1b", borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
+                          <div style={{ marginTop: 10, border: "1px solid var(--color-danger-border)", background: "var(--color-danger-soft)", color: "var(--color-danger)", borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
                             <div style={{ fontWeight: 950, marginBottom: 5 }}>Serious defects</div>
                             {serious.map((defect, defectIndex) => (
                               <div key={`${defectText(defect)}-${defectIndex}`} style={{ marginTop: defectIndex ? 4 : 0 }}>
@@ -251,7 +251,7 @@ export default function VehicleMotHistoryPage() {
                         ) : null}
 
                         {advisories.length ? (
-                          <div style={{ marginTop: 10, border: UI.border, background: "#f8fafc", color: UI.text, borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
+                          <div style={{ marginTop: 10, border: UI.border, background: "var(--color-surface-subtle)", color: UI.text, borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
                             <div style={{ fontWeight: 950, marginBottom: 5 }}>Advisories</div>
                             {advisories.map((defect, defectIndex) => (
                               <div key={`${defectText(defect)}-${defectIndex}`} style={{ marginTop: defectIndex ? 4 : 0 }}>

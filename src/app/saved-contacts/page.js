@@ -25,21 +25,21 @@ const UI = {
   radiusSm: 10,
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#163a63",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--legacy-color-163a63)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const chip = {
   padding: "4px 8px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-surface-subtle)",
   color: UI.text,
   fontSize: 10,
   fontWeight: 700,
@@ -151,14 +151,14 @@ export default function SavedContactsPage() {
             display: "flex",
             alignItems: "baseline",
             justifyContent: "space-between",
-            gap: 12,
-            marginBottom: 16,
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-4)",
             flexWrap: "wrap",
           }}
         >
           <div>
             <h1 style={{ color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 }}>Saved Contacts</h1>
-            <div style={{ color: UI.muted, fontSize: 13, marginTop: 4 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: "var(--space-1)" }}>
               Manage the shared saved-contact list used on create and edit booking.
             </div>
           </div>
@@ -170,7 +170,7 @@ export default function SavedContactsPage() {
           </div>
         </div>
 
-        <div style={{ ...surface, padding: 12, marginBottom: 14 }}>
+        <div style={{ ...surface, padding: "var(--space-3)", marginBottom: 14 }}>
           <input
             type="text"
             value={search}
@@ -180,10 +180,10 @@ export default function SavedContactsPage() {
               width: "100%",
               padding: "9px 11px",
               borderRadius: UI.radiusSm,
-              border: "1px solid #d1d5db",
-              fontSize: 13,
+              border: "1px solid var(--legacy-color-d1d5db)",
+              fontSize: "var(--font-size-sm)",
               outline: "none",
-              background: "#fff",
+              background: "var(--color-white)",
             }}
           />
         </div>
@@ -200,8 +200,8 @@ export default function SavedContactsPage() {
               fontWeight: 800,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e5e7eb",
+              background: "var(--color-surface-subtle)",
+              borderBottom: "1px solid var(--legacy-color-e5e7eb)",
             }}
           >
             <div>Name</div>
@@ -224,8 +224,8 @@ export default function SavedContactsPage() {
                       gap: 10,
                       padding: "10px 12px",
                       alignItems: "center",
-                      background: index % 2 ? "#fcfdff" : "#ffffff",
-                      borderBottom: "1px solid #eef2f7",
+                      background: index % 2 ? "var(--legacy-color-fcfdff)" : "var(--color-white)",
+                      borderBottom: "1px solid var(--legacy-color-eef2f7)",
                     }}
                   >
                     <div>
@@ -233,10 +233,10 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.name}
                           onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", fontSize: "var(--font-size-sm)" }}
                         />
                       ) : (
-                        <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
+                        <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)", color: UI.text }}>{contact.name || "-"}</div>
                       )}
                     </div>
 
@@ -245,10 +245,10 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.email}
                           onChange={(e) => setDraft((prev) => ({ ...prev, email: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", fontSize: "var(--font-size-sm)" }}
                         />
                       ) : (
-                        <div style={{ fontWeight: 700, fontSize: 13, color: UI.text, wordBreak: "break-word" }}>{contact.email || "-"}</div>
+                        <div style={{ fontWeight: 700, fontSize: "var(--font-size-sm)", color: UI.text, wordBreak: "break-word" }}>{contact.email || "-"}</div>
                       )}
                     </div>
 
@@ -257,10 +257,10 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.department}
                           onChange={(e) => setDraft((prev) => ({ ...prev, department: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", fontSize: "var(--font-size-sm)" }}
                         />
                       ) : (
-                        <div style={{ fontSize: 12, color: UI.muted }}>{contact.department || "-"}</div>
+                        <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>{contact.department || "-"}</div>
                       )}
                     </div>
 
@@ -269,14 +269,14 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.phone}
                           onChange={(e) => setDraft((prev) => ({ ...prev, phone: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--radius-md)", border: "1px solid var(--legacy-color-d1d5db)", fontSize: "var(--font-size-sm)" }}
                         />
                       ) : (
-                        <div style={{ fontSize: 12, color: UI.muted }}>{contact.phone || contact.number || "-"}</div>
+                        <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>{contact.phone || contact.number || "-"}</div>
                       )}
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                       {isEditing ? (
                         <>
                           <button
@@ -285,9 +285,9 @@ export default function SavedContactsPage() {
                             disabled={saving}
                             style={{
                               padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #bfdbfe",
-                              background: "#eff6ff",
+                              borderRadius: "var(--radius-pill)",
+                              border: "1px solid var(--color-info-border)",
+                              background: "var(--color-info-soft)",
                               color: UI.brand,
                               fontWeight: 800,
                               cursor: "pointer",
@@ -300,9 +300,9 @@ export default function SavedContactsPage() {
                             onClick={cancelEdit}
                             style={{
                               padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
+                              borderRadius: "var(--radius-pill)",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
+                              background: "var(--color-white)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -318,9 +318,9 @@ export default function SavedContactsPage() {
                             onClick={() => startEdit(contact)}
                             style={{
                               padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
+                              borderRadius: "var(--radius-pill)",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
+                              background: "var(--color-white)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -333,10 +333,10 @@ export default function SavedContactsPage() {
                             onClick={() => removeContact(contact)}
                             style={{
                               padding: "7px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #fecaca",
-                              background: "#fff",
-                              color: "#b91c1c",
+                              borderRadius: "var(--radius-pill)",
+                              border: "1px solid var(--color-danger-border)",
+                              background: "var(--color-white)",
+                              color: "var(--legacy-color-b91c1c)",
                               fontWeight: 700,
                               cursor: "pointer",
                             }}
@@ -350,7 +350,7 @@ export default function SavedContactsPage() {
                 );
               })
             ) : (
-              <div style={{ padding: 16, color: UI.muted, fontSize: 12 }}>No saved contacts match the current search.</div>
+              <div style={{ padding: "var(--space-4)", color: UI.muted, fontSize: "var(--font-size-xs)" }}>No saved contacts match the current search.</div>
             )}
           </div>
         </div>

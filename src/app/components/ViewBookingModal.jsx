@@ -655,7 +655,7 @@ export default function ViewBookingModal({
             <div style={eyebrow}>Job #{booking.jobNumber || "-"}</div>
             <h2 style={title}>{booking.client || "Booking Details"}</h2>
             {fromDeleted && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: "var(--legacy-color-6b7280)", fontWeight: 700 }}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
@@ -722,7 +722,7 @@ export default function ViewBookingModal({
                 <div style={{ marginTop: 10 }}>
                   <div style={{ ...fieldLabel, marginBottom: 6 }}>Hotel</div>
                   <div style={miniCard}>
-                    <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#111" }}>
+                    <div style={{ display: "grid", gap: 6, fontSize: "var(--font-size-sm)", color: "var(--legacy-color-111)" }}>
                       <div>
                         <b>Cost per night:</b> {hotel.cost ? gbp(hotel.cost) : "-"}
                       </div>
@@ -742,7 +742,7 @@ export default function ViewBookingModal({
               {additionalContacts.length > 0 && (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ ...fieldLabel, marginBottom: 6 }}>Additional Contacts</div>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "grid", gap: "var(--space-2)" }}>
                     {additionalContacts.map((c, idx) => {
                       const name = c?.name || "Contact";
                       const email = c?.email || "";
@@ -750,13 +750,13 @@ export default function ViewBookingModal({
                       const dept = c?.department || c?.role || "";
                       return (
                         <div key={idx} style={miniCard}>
-                          <div style={{ fontWeight: 800, fontSize: 13 }}>
+                          <div style={{ fontWeight: 800, fontSize: "var(--font-size-sm)" }}>
                             {name}{" "}
                             {dept ? (
                               <span style={{ opacity: 0.7, fontWeight: 700 }}>({dept})</span>
                             ) : null}
                           </div>
-                          <div style={{ fontSize: 13, color: "#111" }}>
+                          <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-111)" }}>
                             {email ? <div>Email: {email}</div> : null}
                             {phone ? <div>Phone: {phone}</div> : null}
                           </div>
@@ -839,14 +839,14 @@ export default function ViewBookingModal({
                       {Object.keys(grouped).length ? (
                         <div style={{ display: "grid", gap: 6 }}>
                           {Object.entries(grouped).map(([role, names]) => (
-                            <div key={role} style={{ fontSize: 13 }}>
+                            <div key={role} style={{ fontSize: "var(--font-size-sm)" }}>
                               <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
-                              <div style={{ color: "#111" }}>{names.join(", ")}</div>
+                              <div style={{ color: "var(--legacy-color-111)" }}>{names.join(", ")}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: "#6b7280" }}>No one assigned.</div>
+                        <div style={{ fontSize: "var(--font-size-sm)", color: "var(--legacy-color-6b7280)" }}>No one assigned.</div>
                       )}
                     </div>
                   );
@@ -928,7 +928,7 @@ export default function ViewBookingModal({
             if (!files.length) return null;
             return (
               <Section title="Attachments">
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   {files.map((f, i) => (
                     <a
                       key={f.url || i}
@@ -1016,14 +1016,14 @@ export default function ViewBookingModal({
           <details style={deleteDetails}>
             <summary style={deleteSummary}>Delete options</summary>
             <div style={deleteBody}>
-              <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: "var(--font-size-xs)", marginBottom: "var(--space-2)" }}>
                 Reason for delete (required)
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {DELETE_REASON_OPTIONS.map((r) => (
                   <label
                     key={r}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--font-size-xs)" }}
                   >
                     <input
                       type="checkbox"
@@ -1045,12 +1045,12 @@ export default function ViewBookingModal({
                   value={deleteReasonOther}
                   onChange={(e) => setDeleteReasonOther(e.target.value)}
                   style={{
-                    marginTop: 8,
+                    marginTop: "var(--space-2)",
                     width: "100%",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 8,
+                    border: "1px solid var(--legacy-color-d1d5db)",
+                    borderRadius: "var(--radius-md)",
                     padding: "7px 9px",
-                    fontSize: 12,
+                    fontSize: "var(--font-size-xs)",
                   }}
                 />
               )}
@@ -1080,10 +1080,10 @@ export default function ViewBookingModal({
         <div style={actions}>
           {fromDeleted ? (
             <>
-              <button onClick={handleRestore} style={{ ...btn, background: "#111827" }}>
+              <button onClick={handleRestore} style={{ ...btn, background: "var(--legacy-color-111827)" }}>
                 Restore
               </button>
-              <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+              <button onClick={onClose} style={{ ...btn, background: "var(--legacy-color-6c757d)" }}>
                 Close
               </button>
             </>
@@ -1095,7 +1095,7 @@ export default function ViewBookingModal({
                   disabled={editLoading}
                   style={{
                     ...btn,
-                    background: "#1f4b7a",
+                    background: "var(--color-brand)",
                     cursor: editLoading ? "not-allowed" : "pointer",
                     opacity: editLoading ? 0.58 : 1,
                   }}
@@ -1108,7 +1108,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "#0d6efd",
+                  background: "var(--legacy-color-0d6efd)",
                   cursor: editLoading ? "wait" : "pointer",
                   opacity: editLoading ? 0.82 : 1,
                 }}
@@ -1120,7 +1120,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "#dc3545",
+                  background: "var(--legacy-color-dc3545)",
                   cursor: editLoading ? "not-allowed" : "pointer",
                   opacity: editLoading ? 0.58 : 1,
                 }}
@@ -1132,7 +1132,7 @@ export default function ViewBookingModal({
                 disabled={editLoading}
                 style={{
                   ...btn,
-                  background: "#6c757d",
+                  background: "var(--legacy-color-6c757d)",
                   cursor: editLoading ? "not-allowed" : "pointer",
                   opacity: editLoading ? 0.58 : 1,
                 }}
@@ -1189,9 +1189,9 @@ const Chip = ({ good, label, title }) => (
     title={title}
     style={{
       ...chip,
-      background: good ? "#dcfce7" : "#fee2e2",
-      color: good ? "#166534" : "#991b1b",
-      borderColor: good ? "#86efac" : "#fecaca",
+      background: good ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
+      color: good ? "var(--color-success)" : "var(--color-danger)",
+      borderColor: good ? "var(--legacy-color-86efac)" : "var(--color-danger-border)",
     }}
   >
     {label} {good ? "Yes" : "No"}
@@ -1202,9 +1202,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "#dcfce7" : dark ? "#e0f2fe" : "#f8fafc",
-      color: success ? "#166534" : dark ? "#075985" : "#334155",
-      border: success ? "1px solid #86efac" : dark ? "1px solid #7dd3fc" : "1px solid #e2e8f0",
+      background: success ? "var(--legacy-color-dcfce7)" : dark ? "var(--legacy-color-e0f2fe)" : "var(--color-surface-subtle)",
+      color: success ? "var(--color-success)" : dark ? "var(--legacy-color-075985)" : "var(--legacy-color-334155)",
+      border: success ? "1px solid var(--legacy-color-86efac)" : dark ? "1px solid var(--legacy-color-7dd3fc)" : "1px solid var(--legacy-color-e2e8f0)",
     }}
   >
     {children}
@@ -1219,44 +1219,44 @@ const overlay = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  padding: 16,
+  padding: "var(--space-4)",
   zIndex: 9999,
 };
 
 const modal = {
-  background: "#f8fafc",
-  color: "#0f172a",
+  background: "var(--color-surface-subtle)",
+  color: "var(--color-text)",
   width: "min(1240px, 98vw)",
   maxHeight: "94vh",
   overflow: "auto",
   borderRadius: 14,
   border: "1px solid rgba(226,232,240,0.95)",
   boxShadow: "0 24px 70px rgba(15,23,42,0.32)",
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const header = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 7,
   paddingBottom: 7,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const eyebrow = {
   fontSize: 11,
   letterSpacing: 0,
   textTransform: "uppercase",
-  color: "#64748b",
+  color: "var(--color-text-subtle)",
   fontWeight: 800,
 };
-const title = { margin: 0, fontSize: 19, lineHeight: 1.08, color: "#0f172a", fontWeight: 900 };
+const title = { margin: 0, fontSize: 19, lineHeight: 1.08, color: "var(--color-text)", fontWeight: 900 };
 
 const badge = {
   padding: "5px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   fontSize: 11.5,
   fontWeight: 900,
   border: "1px solid rgba(15,23,42,0.18)",
@@ -1286,22 +1286,22 @@ const belowStack = {
 const sectionTitle = {
   margin: "0 0 4px 0",
   fontSize: 11.5,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   textTransform: "uppercase",
   letterSpacing: 0,
   fontWeight: 900,
 };
 const sectionCard = {
-  background: "#fff",
-  border: "1px solid #dbe4ef",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-dbe4ef)",
   borderRadius: 9,
-  padding: 8,
+  padding: "var(--space-2)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
 };
 const compactSectionCard = {
   background: "rgba(255,255,255,0.62)",
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-md)",
   padding: 6,
   boxShadow: "none",
 };
@@ -1309,26 +1309,26 @@ const compactSectionCard = {
 const fieldRow = {
   display: "grid",
   gridTemplateColumns: "118px 1fr",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "3px 0",
-  borderBottom: "1px solid #edf2f7",
+  borderBottom: "1px solid var(--legacy-color-edf2f7)",
 };
-const fieldLabel = { color: "#64748b", fontSize: 11.5, fontWeight: 700 };
-const fieldValue = { color: "#0f172a", fontSize: 12.5, fontWeight: 600 };
+const fieldLabel = { color: "var(--color-text-subtle)", fontSize: 11.5, fontWeight: 700 };
+const fieldValue = { color: "var(--color-text)", fontSize: 12.5, fontWeight: 600 };
 
 const quoteNumberActionRow = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
   minWidth: 0,
 };
 
 const viewQuoteButton = {
-  border: "1px solid #cbd5e1",
-  borderRadius: 999,
-  background: "#fff",
-  color: "#1f4b7a",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--color-white)",
+  color: "var(--color-brand)",
   padding: "2px 8px",
   fontSize: 11,
   fontWeight: 900,
@@ -1341,7 +1341,7 @@ const quoteStatusPill = {
   alignItems: "center",
   gap: 6,
   maxWidth: "100%",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   padding: "2px 7px",
   border: "1px solid",
   fontSize: 11.5,
@@ -1356,10 +1356,10 @@ const quoteStatusDetail = {
   whiteSpace: "nowrap",
 };
 const quoteStatusTone = (tone) => {
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", borderColor: "#86efac" };
-  if (tone === "blue") return { background: "#e0f2fe", color: "#075985", borderColor: "#7dd3fc" };
-  if (tone === "amber") return { background: "#fef3c7", color: "#92400e", borderColor: "#fcd34d" };
-  return { background: "#fee2e2", color: "#991b1b", borderColor: "#fecaca" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--color-success)", borderColor: "var(--legacy-color-86efac)" };
+  if (tone === "blue") return { background: "var(--legacy-color-e0f2fe)", color: "var(--legacy-color-075985)", borderColor: "var(--legacy-color-7dd3fc)" };
+  if (tone === "amber") return { background: "var(--legacy-color-fef3c7)", color: "var(--legacy-color-92400e)", borderColor: "var(--legacy-color-fcd34d)" };
+  return { background: "var(--legacy-color-fee2e2)", color: "var(--color-danger)", borderColor: "var(--color-danger-border)" };
 };
 
 const notesGrid = {
@@ -1368,21 +1368,21 @@ const notesGrid = {
   gap: 5,
 };
 const noteCard = {
-  background: "#fff",
-  border: "1px solid #e2e8f0",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 7,
   padding: "6px 8px",
 };
-const noteDate = { fontWeight: 900, fontSize: 11.5, marginBottom: 2, color: "#0f172a" };
-const noteText = { fontSize: 12, color: "#334155" };
+const noteDate = { fontWeight: 900, fontSize: 11.5, marginBottom: 2, color: "var(--color-text)" };
+const noteText = { fontSize: "var(--font-size-xs)", color: "var(--legacy-color-334155)" };
 
 const noteBox = {
-  background: "#fff",
-  border: "1px solid #dbe4ef",
+  background: "var(--color-white)",
+  border: "1px solid var(--legacy-color-dbe4ef)",
   borderRadius: 7,
   padding: "6px 8px",
   lineHeight: 1.4,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
 };
 
 const tagWrap = { display: "flex", gap: 6, flexWrap: "wrap" };
@@ -1391,35 +1391,35 @@ const tagPill = {
   alignItems: "center",
   gap: 5,
   padding: "2px 6px",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: 999,
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-pill)",
   fontSize: 10.5,
   whiteSpace: "nowrap",
-  color: "#0f172a",
+  color: "var(--color-text)",
   fontWeight: 700,
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
 const tagStatus = {
   marginLeft: 6,
   padding: "2px 6px",
-  borderRadius: 999,
-  border: "1px solid #cbd5e1",
-  background: "#fff",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--color-white)",
   fontSize: 11,
   fontWeight: 800,
 };
 
-const chip = { padding: "2px 7px", borderRadius: 999, fontSize: 10.5, border: "1px solid #cbd5e1", fontWeight: 800 };
+const chip = { padding: "2px 7px", borderRadius: "var(--radius-pill)", fontSize: 10.5, border: "1px solid var(--legacy-color-cbd5e1)", fontWeight: 800 };
 
 const tag = {
   display: "inline-flex",
   alignItems: "center",
   gap: 5,
   padding: "2px 7px",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: 999,
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-pill)",
   fontSize: 10.5,
   whiteSpace: "nowrap",
   fontWeight: 800,
@@ -1428,18 +1428,18 @@ const tag = {
 const fileBtn = {
   display: "inline-block",
   padding: "3px 7px",
-  background: "#fff",
-  color: "#0f172a",
-  borderRadius: 999,
+  background: "var(--color-white)",
+  color: "var(--color-text)",
+  borderRadius: "var(--radius-pill)",
   textDecoration: "none",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   fontSize: 10.5,
 };
 
 const historyDetails = {
   marginTop: 9,
   paddingTop: 6,
-  borderTop: "1px solid #e2e8f0",
+  borderTop: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const historySummary = {
@@ -1450,17 +1450,17 @@ const historySummary = {
   justifyContent: "space-between",
   gap: 10,
   padding: "3px 0",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const historyCount = {
   minWidth: 20,
   padding: "1px 6px",
-  borderRadius: 999,
-  background: "#e2e8f0",
-  color: "#334155",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--legacy-color-e2e8f0)",
+  color: "var(--legacy-color-334155)",
   fontSize: 11,
   textAlign: "center",
 };
@@ -1473,9 +1473,9 @@ const historyBody = {
 
 const historyItem = {
   padding: "6px 7px",
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
-  background: "#fff",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
 };
 
 const historyTopRow = {
@@ -1487,64 +1487,64 @@ const historyTopRow = {
 };
 
 const historyAction = {
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const historyMeta = {
-  fontSize: 12,
-  color: "#64748b",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--color-text-subtle)",
 };
 
 const historyNote = {
-  marginTop: 4,
-  fontSize: 12,
-  color: "#334155",
+  marginTop: "var(--space-1)",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--legacy-color-334155)",
   whiteSpace: "pre-wrap",
 };
 
 const historyChanges = {
-  marginTop: 4,
+  marginTop: "var(--space-1)",
   display: "grid",
   gap: 2,
 };
 
 const historyChangeLine = {
-  fontSize: 12,
-  color: "#334155",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--legacy-color-334155)",
 };
 
 const historyEmpty = {
-  fontSize: 12,
-  color: "#64748b",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--color-text-subtle)",
 };
 
 const historyToggleBtn = {
-  marginTop: 4,
+  marginTop: "var(--space-1)",
   padding: 0,
   border: "none",
   background: "transparent",
-  color: "#2563eb",
-  fontSize: 12,
+  color: "var(--legacy-color-2563eb)",
+  fontSize: "var(--font-size-xs)",
   fontWeight: 700,
   cursor: "pointer",
   textAlign: "left",
 };
 
 const deleteDetails = {
-  marginTop: 8,
+  marginTop: "var(--space-2)",
   paddingTop: 6,
-  borderTop: "1px solid #e2e8f0",
+  borderTop: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const deleteSummary = {
   cursor: "pointer",
   listStyle: "none",
   padding: "3px 0",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--color-text)",
 };
 
 const deleteBody = {
@@ -1552,61 +1552,61 @@ const deleteBody = {
 };
 
 const footerMeta = {
-  marginTop: 8,
-  paddingTop: 8,
-  borderTop: "1px solid #e2e8f0",
-  color: "#64748b",
+  marginTop: "var(--space-2)",
+  paddingTop: "var(--space-2)",
+  borderTop: "1px solid var(--legacy-color-e2e8f0)",
+  color: "var(--color-text-subtle)",
   fontSize: 11,
   display: "flex",
-  gap: 12,
+  gap: "var(--space-3)",
   flexWrap: "wrap",
 };
 
 const actions = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   justifyContent: "flex-end",
-  marginTop: 8,
-  paddingTop: 8,
-  borderTop: "1px solid #e2e8f0",
+  marginTop: "var(--space-2)",
+  paddingTop: "var(--space-2)",
+  borderTop: "1px solid var(--legacy-color-e2e8f0)",
   flexWrap: "wrap",
 };
 
 const btn = {
   padding: "7px 11px",
-  color: "#fff",
+  color: "var(--color-white)",
   border: "none",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   cursor: "pointer",
   fontWeight: 800,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.16)",
 };
 
 const miniCard = {
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  borderRadius: 8,
+  background: "var(--color-surface-subtle)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
+  borderRadius: "var(--radius-md)",
   padding: 7,
 };
 
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",
-    "First Pencil": "#93c5fd",
-    "Second Pencil": "#ef4444",
-    DNH: "#c2c2c2",
-    Complete: "#22c55e",
-    "Action Required": "#ff7b00",
-    Holiday: "#d1d5db",
-    Maintenance: "#fb923c",
-    Lost: "#ef4444",
-    Postponed: "#f59e0b",
-    Cancelled: "#ef4444",
-    Enquiry: "#e5e7eb",
+    Confirmed: "var(--legacy-color-fde047)",
+    "First Pencil": "var(--legacy-color-93c5fd)",
+    "Second Pencil": "var(--legacy-color-ef4444)",
+    DNH: "var(--legacy-color-c2c2c2)",
+    Complete: "var(--legacy-color-22c55e)",
+    "Action Required": "var(--legacy-color-ff7b00)",
+    Holiday: "var(--legacy-color-d1d5db)",
+    Maintenance: "var(--legacy-color-fb923c)",
+    Lost: "var(--legacy-color-ef4444)",
+    Postponed: "var(--legacy-color-f59e0b)",
+    Cancelled: "var(--legacy-color-ef4444)",
+    Enquiry: "var(--legacy-color-e5e7eb)",
   };
-  return map[status] || "#e5e7eb";
+  return map[status] || "var(--legacy-color-e5e7eb)";
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "#111" : "#fff";
+  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "var(--legacy-color-111)" : "var(--color-white)";
 }

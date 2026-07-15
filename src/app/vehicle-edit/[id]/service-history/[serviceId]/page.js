@@ -9,15 +9,15 @@ import { db } from "../../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 
 const UI = {
-  page: "#e5e7eb",
-  paper: "#ffffff",
-  ink: "#111827",
-  muted: "#4b5563",
-  line: "#6b7280",
-  softLine: "#cbd5e1",
-  header: "#e5e7eb",
-  subHeader: "#f3f4f6",
-  blue: "#1d4ed8",
+  page: "var(--legacy-color-e5e7eb)",
+  paper: "var(--color-white)",
+  ink: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-4b5563)",
+  line: "var(--legacy-color-6b7280)",
+  softLine: "var(--legacy-color-cbd5e1)",
+  header: "var(--legacy-color-e5e7eb)",
+  subHeader: "var(--legacy-color-f3f4f6)",
+  blue: "var(--color-info)",
 };
 
 const pageWrap = {
@@ -32,7 +32,7 @@ const toolbar = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  gap: 12,
+  gap: "var(--space-3)",
 };
 
 const btn = {
@@ -41,9 +41,9 @@ const btn = {
   justifyContent: "center",
   minHeight: 34,
   padding: "7px 12px",
-  borderRadius: 6,
-  border: "1px solid #9ca3af",
-  background: "#fff",
+  borderRadius: "var(--radius-sm)",
+  border: "1px solid var(--legacy-color-9ca3af)",
+  background: "var(--color-white)",
   color: UI.ink,
   fontWeight: 800,
   cursor: "pointer",
@@ -54,7 +54,7 @@ const sheet = {
   maxWidth: 1280,
   margin: "0 auto",
   background: UI.paper,
-  border: "1px solid #9ca3af",
+  border: "1px solid var(--legacy-color-9ca3af)",
   boxShadow: "0 16px 34px rgba(15,23,42,0.18)",
   padding: 18,
   color: UI.ink,
@@ -63,7 +63,7 @@ const sheet = {
 const sheetHeader = {
   display: "grid",
   gridTemplateColumns: "1fr 1.2fr 1fr",
-  gap: 12,
+  gap: "var(--space-3)",
   alignItems: "start",
   marginBottom: 10,
 };
@@ -128,16 +128,16 @@ const compactTd = { ...td, padding: "3px 4px" };
 const twoColumn = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: 12,
+  gap: "var(--space-3)",
   alignItems: "start",
 };
 
 const lowerGrid = {
   display: "grid",
   gridTemplateColumns: "0.72fr 1.28fr",
-  gap: 12,
+  gap: "var(--space-3)",
   alignItems: "start",
-  marginTop: 12,
+  marginTop: "var(--space-3)",
 };
 
 const wheelPositions = [
@@ -186,11 +186,11 @@ const checklistCategories = [
 ];
 
 const ratingStyles = {
-  green: { background: "#86efac", color: "#052e16" },
-  amber: { background: "#facc15", color: "#422006" },
-  red: { background: "#f87171", color: "#450a0a" },
-  na: { background: "#d1d5db", color: "#374151" },
-  blank: { background: "#f9fafb", color: "#6b7280" },
+  green: { background: "var(--legacy-color-86efac)", color: "var(--legacy-color-052e16)" },
+  amber: { background: "var(--legacy-color-facc15)", color: "var(--legacy-color-422006)" },
+  red: { background: "var(--legacy-color-f87171)", color: "var(--legacy-color-450a0a)" },
+  na: { background: "var(--legacy-color-d1d5db)", color: "var(--legacy-color-374151)" },
+  blank: { background: "var(--legacy-color-f9fafb)", color: "var(--legacy-color-6b7280)" },
 };
 
 const statusSymbols = {
@@ -376,12 +376,12 @@ function WheelCard({ label, data }) {
     <div
       style={{
         border: `1px solid ${UI.line}`,
-        background: "#fff",
+        background: "var(--color-white)",
         padding: 6,
         minHeight: 86,
         display: "grid",
         alignContent: "start",
-        gap: 4,
+        gap: "var(--space-1)",
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 950, textTransform: "uppercase", color: UI.ink }}>{label}</div>
@@ -414,9 +414,9 @@ function WheelOverview({ wheelInspection }) {
           "frontLeft vehicle frontRight"
           "rearLeft vehicle rearRight"
         `,
-        gap: 8,
+        gap: "var(--space-2)",
         alignItems: "center",
-        background: "#f8fafc",
+        background: "var(--color-surface-subtle)",
       }}
     >
       {wheelPositions.map((position) => (
@@ -452,7 +452,7 @@ function WheelOverview({ wheelInspection }) {
             borderLeft: `2px solid ${UI.line}`,
             borderRight: `2px solid ${UI.line}`,
             background:
-              "linear-gradient(180deg, transparent 0 26%, #cbd5e1 26% 28%, transparent 28% 72%, #cbd5e1 72% 74%, transparent 74%)",
+              "linear-gradient(180deg, transparent 0 26%, var(--legacy-color-cbd5e1) 26% 28%, transparent 28% 72%, var(--legacy-color-cbd5e1) 72% 74%, transparent 74%)",
           }}
         />
         <div
@@ -566,9 +566,9 @@ export default function VehicleServiceHistoryDetailPage() {
         <div className="service-sheet-toolbar" style={toolbar}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 950, color: UI.ink }}>Service Sheet</div>
-            <div style={{ fontSize: 12, color: UI.muted }}>{pageLabel}</div>
+            <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>{pageLabel}</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" style={btn} onClick={() => printSheet("landscape")}>
               Print Landscape
             </button>
@@ -599,7 +599,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 html,
                 body {
-                  background: #fff !important;
+                  background: var(--color-white) !important;
                   margin: 0 !important;
                   padding: 0 !important;
                 }
@@ -611,7 +611,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 .service-sheet-page {
                   padding: 0 !important;
-                  background: #fff !important;
+                  background: var(--color-white) !important;
                 }
                 .service-sheet-paper,
                 .service-sheet-paper * {
@@ -624,7 +624,7 @@ export default function VehicleServiceHistoryDetailPage() {
                   width: ${printOrientation === "portrait" ? "200mm" : "287mm"} !important;
                   max-width: none !important;
                   margin: 0 !important;
-                  background: #fff !important;
+                  background: var(--color-white) !important;
                   border: none !important;
                   box-shadow: none !important;
                   padding: 0 !important;
@@ -772,7 +772,7 @@ export default function VehicleServiceHistoryDetailPage() {
               KEY: green = satisfactory, amber = monitor, red = requires attention, N/A = not applicable
             </div>
 
-            <Section title="Checklist" style={{ marginBottom: 12 }}>
+            <Section title="Checklist" style={{ marginBottom: "var(--space-3)" }}>
               {checklistGroups.length ? (
                 <div className="service-sheet-two-column" style={twoColumn}>
                   <ChecklistCategoryTable groups={leftChecklistGroups} />
@@ -788,7 +788,7 @@ export default function VehicleServiceHistoryDetailPage() {
             </Section>
 
             <div className="service-sheet-lower-grid" style={lowerGrid}>
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: "var(--space-3)" }}>
                 <Section title="Wheel Measurement Section">
                   <div className="wheel-overview-wrap">
                     <WheelOverview wheelInspection={record.wheelInspection} />
@@ -811,7 +811,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 </Section>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: "var(--space-3)" }}>
                 <Section title="Work Summary">
                   <table style={table}>
                     <tbody>

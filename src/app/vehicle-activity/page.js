@@ -33,23 +33,23 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
   `/vehicle-edit/${encodeURIComponent(vehicleId)}/service-history/${encodeURIComponent(serviceId)}`;
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -69,7 +69,7 @@ const sectionTag = {
   display: "inline-flex",
   alignItems: "center",
   padding: "5px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -80,35 +80,35 @@ const sectionTag = {
 };
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
 const chipSoft = { ...chip, color: UI.brand };
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 const inputBase = {
   width: "100%",
   minHeight: 38,
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d7dee8",
-  background: "#fff",
+  border: "var(--border-default)",
+  background: "var(--color-white)",
   color: UI.text,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   outline: "none",
 };
 
 const badge = (bg, fg) => ({
   padding: "4px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: bg,
   color: fg,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
   lineHeight: "18px",
@@ -119,7 +119,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -136,8 +136,8 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       borderColor: UI.brand,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#ffffff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
     };
   }
@@ -235,18 +235,18 @@ const toActivitySummary = (...values) => {
 };
 
 const activityTypeConfig = {
-  service: { label: "Service", bg: "#ecfdf5", fg: "#065f46" },
-  minor_service: { label: "Minor service", bg: "#eff6ff", fg: "#1d4ed8" },
-  repair: { label: "Repair", bg: "#fff7ed", fg: "#9a3412" },
-  defect: { label: "Defect", bg: "#fef2f2", fg: "#991b1b" },
-  mot_precheck: { label: "MOT pre-check", bg: "#f5f3ff", fg: "#6d28d9" },
-  vehicle_prep: { label: "Vehicle prep", bg: "#eef2ff", fg: "#3730a3" },
-  vehicle_check: { label: "Vehicle check", bg: "#edf3f8", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "#f5ede6", fg: UI.accent },
-  legacy_service: { label: "Legacy service", bg: "#f8fafc", fg: UI.text },
-  legacy_repair: { label: "Legacy repair", bg: "#f8fafc", fg: UI.text },
-  legacy_prep: { label: "Legacy prep", bg: "#f8fafc", fg: UI.text },
-  legacy_defect: { label: "Legacy defect", bg: "#f8fafc", fg: UI.text },
+  service: { label: "Service", bg: "var(--color-success-soft)", fg: "var(--legacy-color-065f46)" },
+  minor_service: { label: "Minor service", bg: "var(--color-info-soft)", fg: "var(--color-info)" },
+  repair: { label: "Repair", bg: "var(--color-warning-soft)", fg: "var(--color-warning)" },
+  defect: { label: "Defect", bg: "var(--color-danger-soft)", fg: "var(--color-danger)" },
+  mot_precheck: { label: "MOT pre-check", bg: "var(--legacy-color-f5f3ff)", fg: "var(--legacy-color-6d28d9)" },
+  vehicle_prep: { label: "Vehicle prep", bg: "var(--legacy-color-eef2ff)", fg: "var(--legacy-color-3730a3)" },
+  vehicle_check: { label: "Vehicle check", bg: "var(--color-brand-soft)", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "var(--legacy-color-f5ede6)", fg: UI.accent },
+  legacy_service: { label: "Legacy service", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_repair: { label: "Legacy repair", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_prep: { label: "Legacy prep", bg: "var(--color-surface-subtle)", fg: UI.text },
+  legacy_defect: { label: "Legacy defect", bg: "var(--color-surface-subtle)", fg: UI.text },
 };
 
 const filterTypeOptions = [
@@ -269,7 +269,7 @@ const isCheckLike = (item) => ["vehicle_check", "vehicle_prep", "mot_precheck", 
 
 const statCard = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   minHeight: 92,
   boxShadow: UI.shadowSm,
 };
@@ -641,7 +641,7 @@ export default function VehicleActivityPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <style>{`
-          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
           .vehicle-activity-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
           .vehicle-activity-filters { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 190px auto; gap: 10px; align-items: center; }
           .vehicle-activity-list { display: grid; gap: 8px; }
@@ -659,17 +659,17 @@ export default function VehicleActivityPage() {
           }
         `}</style>
         <div style={appShell}>
-        <section style={{ ...surface, padding: 12, overflow: "hidden" }}>
+        <section style={{ ...surface, padding: "var(--space-3)", overflow: "hidden" }}>
           <div style={sectionHeader}>
             <div>
               <div style={sectionTag}>Fleet timeline</div>
-              <h1 style={{ margin: "9px 0 0", fontSize: 22, lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 }}>Vehicle activity history</h1>
-              <div style={{ ...hint, marginTop: 8 }}>
+              <h1 style={{ margin: "9px 0 0", fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, color: UI.text, letterSpacing: 0 }}>Vehicle activity history</h1>
+              <div style={{ ...hint, marginTop: "var(--space-2)" }}>
                 Service work, repairs, defect reports, MOT pre-checks, prep, driver checks and reported issues in one searchable log.
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
               <span style={chipSoft}>Live data</span>
               <span style={chip}>{filteredActivity.length} / {activity.length} records</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-home")}>
@@ -679,14 +679,14 @@ export default function VehicleActivityPage() {
             </div>
           </div>
 
-          <div className="vehicle-activity-grid" style={{ marginTop: 12 }}>
+          <div className="vehicle-activity-grid" style={{ marginTop: "var(--space-3)" }}>
             {statItems.map((item) => (
               <ActivityStatCard key={item.label} {...item} />
             ))}
           </div>
         </section>
 
-        <section style={{ ...surface, padding: 12 }}>
+        <section style={{ ...surface, padding: "var(--space-3)" }}>
           <div style={sectionHeader}>
             <div>
               <h2 style={titleMd}>Activity log</h2>
@@ -741,9 +741,9 @@ export default function VehicleActivityPage() {
           <div style={divider} />
 
           {activity.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13, padding: 18, textAlign: "center" }}>No vehicle activity found yet.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: 18, textAlign: "center" }}>No vehicle activity found yet.</div>
           ) : filteredActivity.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13, padding: 18, textAlign: "center" }}>No activity matches those filters.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", padding: 18, textAlign: "center" }}>No activity matches those filters.</div>
           ) : (
             <div className="vehicle-activity-list">
               {filteredActivity.map((item) => {
@@ -751,10 +751,10 @@ export default function VehicleActivityPage() {
                 const cardStyle = {
                   textAlign: "left",
                   width: "100%",
-                  padding: 12,
+                  padding: "var(--space-3)",
                   borderRadius: UI.radius,
                   border: UI.border,
-                  background: "#fff",
+                  background: "var(--color-white)",
                   boxShadow: UI.shadowSm,
                   cursor: item.route ? "pointer" : "default",
                   overflow: "hidden",
@@ -764,7 +764,7 @@ export default function VehicleActivityPage() {
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                       <span style={{ ...badge(typeStyle.bg, typeStyle.fg), borderColor: "transparent" }}>{typeStyle.label}</span>
-                      <div style={{ color: UI.muted, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 700, whiteSpace: "nowrap" }}>
                         {formatActivityDate(item.activityDate)}
                       </div>
                     </div>
@@ -782,7 +782,7 @@ export default function VehicleActivityPage() {
                       style={{
                         marginTop: 10,
                         color: UI.text,
-                        fontSize: 13,
+                        fontSize: "var(--font-size-sm)",
                         lineHeight: 1.5,
                         display: "-webkit-box",
                         WebkitBoxOrient: "vertical",
@@ -793,10 +793,10 @@ export default function VehicleActivityPage() {
                       {item.summary}
                     </div>
 
-                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
                       <span style={chipSoft}>{formatActivityStatus(item.status)}</span>
                       {item.person ? <span style={chip}>By {item.person}</span> : null}
-                      {item.route ? <span style={{ color: UI.brand, fontSize: 12, fontWeight: 800 }}>Open</span> : null}
+                      {item.route ? <span style={{ color: UI.brand, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>Open</span> : null}
                     </div>
                   </>
                 );
@@ -827,25 +827,25 @@ export default function VehicleActivityPage() {
 function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
       : tone === "amber"
-      ? { bg: "#fff7ed", border: "#fed7aa", fg: "#9a3412" }
+      ? { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", fg: "var(--color-warning)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
     <div style={statCard}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div>
-          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{label}</div>
-          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+          <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{label}</div>
+          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: "var(--space-2)" }}>{value}</div>
         </div>
         <span
           style={{
             width: 34,
             height: 34,
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: `1px solid ${colors.border}`,
             background: colors.bg,
             color: colors.fg,
@@ -858,7 +858,7 @@ function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
           <Icon size={18} strokeWidth={2.2} />
         </span>
       </div>
-      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{note}</div>
+      <div style={{ color: colors.fg, fontSize: "var(--font-size-xs)", fontWeight: 750, marginTop: "var(--space-2)" }}>{note}</div>
     </div>
   );
 }

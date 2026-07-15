@@ -14,6 +14,7 @@ import {
   tenantPayload,
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
+import { timesheetDetailPath, timesheetDocumentId } from "@/app/utils/timesheetDetail";
 import {
   AlertTriangle,
   BarChart3,
@@ -429,10 +430,10 @@ function getTimesheetStatus(ts) {
       key: "missing",
       label: "Missing",
       helper: "No saved timesheet for this week.",
-      text: "#9f1239",
-      bg: "#fff1f2",
-      border: "#fecdd3",
-      accent: "#e11d48",
+      text: "var(--legacy-color-9f1239)",
+      bg: "var(--legacy-color-fff1f2)",
+      border: "var(--legacy-color-fecdd3)",
+      accent: "var(--legacy-color-e11d48)",
       clickable: false,
     };
   }
@@ -447,10 +448,10 @@ function getTimesheetStatus(ts) {
       key: "approved",
       label: "Approved",
       helper: "Approved and closed for review.",
-      text: "#166534",
-      bg: "#dcfce7",
-      border: "#86efac",
-      accent: "#16a34a",
+      text: "var(--color-success)",
+      bg: "var(--legacy-color-dcfce7)",
+      border: "var(--legacy-color-86efac)",
+      accent: "var(--legacy-color-16a34a)",
       clickable: true,
     };
   }
@@ -460,10 +461,10 @@ function getTimesheetStatus(ts) {
       key: "submitted",
       label: "Submitted",
       helper: "Submitted and awaiting final review.",
-      text: "#14532d",
-      bg: "#ecfdf5",
-      border: "#86efac",
-      accent: "#22c55e",
+      text: "var(--color-success-hover)",
+      bg: "var(--color-success-soft)",
+      border: "var(--legacy-color-86efac)",
+      accent: "var(--legacy-color-22c55e)",
       clickable: true,
     };
   }
@@ -472,37 +473,37 @@ function getTimesheetStatus(ts) {
     key: "draft",
     label: "Draft",
     helper: "Saved but not submitted by the employee.",
-    text: "#92400e",
-    bg: "#fffbeb",
-    border: "#fcd34d",
-    accent: "#f59e0b",
+    text: "var(--legacy-color-92400e)",
+    bg: "var(--legacy-color-fffbeb)",
+    border: "var(--legacy-color-fcd34d)",
+    accent: "var(--legacy-color-f59e0b)",
     clickable: true,
   };
 }
 
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  ink: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "1px solid #d7dee8",
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  ink: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  border: "var(--border-default)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--color-success-border)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -519,15 +520,15 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
 
-const h1 = { fontSize: 22, fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, color: UI.ink };
+const h1 = { fontSize: "var(--font-size-xl)", fontWeight: 750, lineHeight: 1.08, letterSpacing: 0, margin: 0, color: UI.ink };
 const sub = { marginTop: 6, marginBottom: 0, fontSize: 13.5, lineHeight: 1.45, color: UI.muted, maxWidth: 760 };
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
-const cardStyle = { ...surface, padding: 12 };
+const cardStyle = { ...surface, padding: "var(--space-3)" };
 
 const sectionHeader = {
   display: "flex",
@@ -556,8 +557,8 @@ const chip = (kind = "neutral") => {
     alignItems: "center",
     gap: 6,
     padding: "5px 9px",
-    borderRadius: 999,
-    fontSize: 12,
+    borderRadius: "var(--radius-pill)",
+    fontSize: "var(--font-size-xs)",
     fontWeight: 800,
     whiteSpace: "nowrap",
     border: `1px solid ${UI.brandBorder}`,
@@ -588,15 +589,15 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+      color: "var(--color-white)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -605,7 +606,7 @@ const btn = (kind = "ghost") => {
 const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -620,7 +621,7 @@ const statCard = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   minHeight: 82,
 };
 
@@ -636,14 +637,14 @@ const statValue = {
   fontSize: 25,
   lineHeight: 1.1,
   fontWeight: 850,
-  marginTop: 8,
+  marginTop: "var(--space-2)",
 };
 
 const focusCss = `
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--color-info-border) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -809,6 +810,7 @@ export default function TimesheetListPage() {
     try {
       await updateDoc(doc(db, "timesheets", ts.id), tenantPayload(dataAccessState, {
         status: "approved",
+        submitted: true,
         approved: true,
         approvedAt: serverTimestamp(),
       }));
@@ -823,6 +825,7 @@ export default function TimesheetListPage() {
                 ? {
                     ...item,
                     status: "approved",
+                    submitted: true,
                     approved: true,
                     approvedAt: new Date(),
                   }
@@ -849,12 +852,14 @@ export default function TimesheetListPage() {
     setError("");
 
     try {
-      const newRef = doc(db, "timesheets", `${emp.code}_${weekStart}`);
+      const newRef = doc(db, "timesheets", timesheetDocumentId(emp.code, weekStart));
       const now = new Date();
       const manualTimesheet = {
+        schemaVersion: 1,
         employeeCode: emp.code,
         employeeName: emp.name || emp.employee?.name || "",
         employeeId: emp.employeeId || emp.employee?.id || "",
+        employeeEmail: emp.employee?.email || emp.employee?.workEmail || "",
         weekStart,
         days: buildManualTimesheetDays(emp.employee),
         status: "draft",
@@ -890,7 +895,7 @@ export default function TimesheetListPage() {
         };
       });
 
-      router.push(`/timesheet-id/${newRef.id}`);
+      router.push(timesheetDetailPath(newRef.id));
     } catch (err) {
       console.error("Error creating manual timesheet:", err);
       setError("Unable to create manual timesheet. Please try again.");
@@ -1174,12 +1179,12 @@ export default function TimesheetListPage() {
 
   const inputStyle = {
     width: "100%",
-    minHeight: 36,
+    minHeight: "var(--control-height-md)",
     padding: "7px 9px",
     borderRadius: UI.radiusSm,
     border: UI.border,
-    fontSize: 13,
-    background: "#fff",
+    fontSize: "var(--font-size-sm)",
+    background: "var(--color-white)",
     outline: "none",
     color: UI.ink,
   };
@@ -1249,16 +1254,16 @@ export default function TimesheetListPage() {
             <div
               style={{
                 display: "flex",
-                gap: 8,
+                gap: "var(--space-2)",
                 flexWrap: "wrap",
                 justifyContent: "flex-end",
               }}
             >
               {[
-                { label: "Approved", bg: "#dcfce7", dot: "#16a34a" },
-                { label: "Submitted", bg: "#ecfdf5", dot: "#22c55e" },
-                { label: "Draft", bg: "#fffbeb", dot: "#f59e0b" },
-                { label: "Missing", bg: "#fff1f2", dot: "#e11d48" },
+                { label: "Approved", bg: "var(--legacy-color-dcfce7)", dot: "var(--legacy-color-16a34a)" },
+                { label: "Submitted", bg: "var(--color-success-soft)", dot: "var(--legacy-color-22c55e)" },
+                { label: "Draft", bg: "var(--legacy-color-fffbeb)", dot: "var(--legacy-color-f59e0b)" },
+                { label: "Missing", bg: "var(--legacy-color-fff1f2)", dot: "var(--legacy-color-e11d48)" },
               ].map((item) => (
                 <span
                   key={item.label}
@@ -1267,21 +1272,21 @@ export default function TimesheetListPage() {
                     alignItems: "center",
                     gap: 6,
                     padding: "5px 9px",
-                    borderRadius: 999,
+                    borderRadius: "var(--radius-pill)",
                     background: item.bg,
                     borderWidth: 1,
                     borderStyle: "solid",
                     borderColor: "rgba(148,163,184,0.18)",
-                    fontSize: 12,
+                    fontSize: "var(--font-size-xs)",
                     fontWeight: 800,
-                    color: "#334155",
+                    color: "var(--legacy-color-334155)",
                   }}
                 >
                   <span
                     style={{
                       width: 8,
                       height: 8,
-                      borderRadius: 999,
+                      borderRadius: "var(--radius-pill)",
                       background: item.dot,
                     }}
                   />
@@ -1312,7 +1317,7 @@ export default function TimesheetListPage() {
               </span>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: UI.gap }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center", marginBottom: UI.gap }}>
               <button
                 type="button"
                 onClick={handleWeekWindowForward}
@@ -1464,7 +1469,7 @@ export default function TimesheetListPage() {
               </select>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -1481,7 +1486,7 @@ export default function TimesheetListPage() {
                     sort: "attention",
                   }, { history: "push" });
                 }}
-                style={{ ...btn("ghost"), minHeight: 36 }}
+                style={{ ...btn("ghost"), minHeight: "var(--control-height-md)" }}
               >
                 <RefreshCcw size={14} /> Reset
               </button>
@@ -1489,7 +1494,7 @@ export default function TimesheetListPage() {
                 <button
                   type="button"
                   onClick={() => setSettingsOpen((current) => !current)}
-                  style={{ ...btn("ghost"), minHeight: 36 }}
+                  style={{ ...btn("ghost"), minHeight: "var(--control-height-md)" }}
                   title="Hide people from this timesheet overview"
                 >
                   <Settings2 size={14} /> Settings
@@ -1506,7 +1511,7 @@ export default function TimesheetListPage() {
                   <h2 style={titleMd}>Timesheet Display Settings</h2>
                   <div style={hint}>Tick people who should be hidden from this overview.</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <button
                     type="button"
                     onClick={() => setHiddenEmployeeKeys([])}
@@ -1529,10 +1534,10 @@ export default function TimesheetListPage() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   maxHeight: 320,
                   overflowY: "auto",
-                  paddingRight: 4,
+                  paddingRight: "var(--space-1)",
                 }}
               >
                 {settingsEmployees.map((employee) => {
@@ -1547,11 +1552,11 @@ export default function TimesheetListPage() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
+                        gap: "var(--space-2)",
                         padding: "8px 9px",
                         border: UI.border,
                         borderRadius: UI.radiusSm,
-                        background: checked ? "#fff7ed" : "#fff",
+                        background: checked ? "var(--color-warning-soft)" : "var(--color-white)",
                         cursor: "pointer",
                       }}
                     >
@@ -1568,7 +1573,7 @@ export default function TimesheetListPage() {
                         }}
                       />
                       <span style={{ minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 13, fontWeight: 800, color: UI.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span style={{ display: "block", fontSize: "var(--font-size-sm)", fontWeight: 800, color: UI.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {label}
                         </span>
                         <span style={{ display: "block", fontSize: 11, color: UI.muted }}>
@@ -1588,7 +1593,7 @@ export default function TimesheetListPage() {
                 ...cardStyle,
                 padding: 18,
                 color: UI.muted,
-                fontSize: 14,
+                fontSize: "var(--font-size-md)",
               }}
             >
               Loading timesheet submissions...
@@ -1596,12 +1601,12 @@ export default function TimesheetListPage() {
           ) : error ? (
             <div
               style={{
-                background: "#fff1f2",
+                background: "var(--legacy-color-fff1f2)",
                 borderRadius: UI.radius,
                 border: `1px solid ${UI.redBorder}`,
                 padding: 18,
                 color: UI.red,
-                fontSize: 14,
+                fontSize: "var(--font-size-md)",
                 fontWeight: 600,
               }}
             >
@@ -1613,7 +1618,7 @@ export default function TimesheetListPage() {
                 ...cardStyle,
                 padding: 18,
                 color: UI.muted,
-                fontSize: 14,
+                fontSize: "var(--font-size-md)",
               }}
             >
               No matching employees found. Try widening the filters or clearing the search.
@@ -1656,7 +1661,7 @@ export default function TimesheetListPage() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 8,
+                            gap: "var(--space-2)",
                             flexWrap: "wrap",
                           }}
                         >
@@ -1679,7 +1684,7 @@ export default function TimesheetListPage() {
                             style={{
                               margin: "4px 0 0",
                               color: UI.muted,
-                              fontSize: 12,
+                              fontSize: "var(--font-size-xs)",
                             }}
                           >
                             {displayedWeeks.length === 1
@@ -1702,26 +1707,26 @@ export default function TimesheetListPage() {
                         {
                           label: "Approved",
                           value: summary.approved,
-                          bg: "#dcfce7",
-                          color: "#166534",
+                          bg: "var(--legacy-color-dcfce7)",
+                          color: "var(--color-success)",
                         },
                         {
                           label: "Submitted",
                           value: summary.submitted,
-                          bg: "#ecfdf5",
-                          color: "#166534",
+                          bg: "var(--color-success-soft)",
+                          color: "var(--color-success)",
                         },
                         {
                           label: "Draft",
                           value: summary.draft,
-                          bg: "#fffbeb",
-                          color: "#92400e",
+                          bg: "var(--legacy-color-fffbeb)",
+                          color: "var(--legacy-color-92400e)",
                         },
                         {
                           label: "Missing",
                           value: summary.missing,
-                          bg: "#fff1f2",
-                          color: "#9f1239",
+                          bg: "var(--legacy-color-fff1f2)",
+                          color: "var(--legacy-color-9f1239)",
                         },
                       ].map((item) => (
                         item.value > 0 || !compactReviewView ? (
@@ -1732,7 +1737,7 @@ export default function TimesheetListPage() {
                             alignItems: "center",
                             gap: 5,
                             padding: compactReviewView ? "3px 7px" : "6px 10px",
-                            borderRadius: 999,
+                            borderRadius: "var(--radius-pill)",
                             background: item.bg,
                             color: item.color,
                             fontSize: compactReviewView ? 10.5 : 11,
@@ -1775,9 +1780,9 @@ export default function TimesheetListPage() {
                       return (
                         <div
                           key={weekStart}
-                          onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
+                          onClick={() => ts && router.push(timesheetDetailPath(ts.id))}
                           style={{
-                            background: "#ffffff",
+                            background: "var(--color-white)",
                             borderRadius: UI.radius,
                             borderWidth: 1,
                             borderStyle: "solid",
@@ -1844,7 +1849,7 @@ export default function TimesheetListPage() {
                                 alignItems: "center",
                                 gap: 6,
                                 padding: compactReviewView ? "4px 7px" : "5px 9px",
-                                borderRadius: 999,
+                                borderRadius: "var(--radius-pill)",
                                 background: status.bg,
                                 color: status.text,
                                 fontSize: compactReviewView ? 10.5 : 11,
@@ -1856,7 +1861,7 @@ export default function TimesheetListPage() {
                                 style={{
                                   width: 8,
                                   height: 8,
-                                  borderRadius: 999,
+                                  borderRadius: "var(--radius-pill)",
                                   background: status.accent,
                                 }}
                               />
@@ -1874,7 +1879,7 @@ export default function TimesheetListPage() {
                             {!compactReviewView ? (
                               <div
                                 style={{
-                                  fontSize: 12,
+                                  fontSize: "var(--font-size-xs)",
                                   color: UI.muted,
                                   lineHeight: 1.35,
                                 }}
@@ -1891,7 +1896,7 @@ export default function TimesheetListPage() {
                                 justifyContent: compactReviewView ? "space-between" : "initial",
                                 padding: compactReviewView ? "6px 7px" : "10px 11px",
                                 borderRadius: UI.radius,
-                                background: "#f8fbfd",
+                                background: "var(--legacy-color-f8fbfd)",
                                 border: UI.border,
                               }}
                             >
@@ -1942,7 +1947,7 @@ export default function TimesheetListPage() {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              gap: 8,
+                              gap: "var(--space-2)",
                             }}
                           >
                             <span
@@ -1963,11 +1968,11 @@ export default function TimesheetListPage() {
                                   ...btn("primary"),
                                   padding: compactReviewView ? "5px 8px" : "6px 10px",
                                   fontSize: compactReviewView ? 11.5 : 12.5,
-                                  borderColor: "#047857",
+                                  borderColor: "var(--legacy-color-047857)",
                                   background: isApproving
                                     ? UI.greenSoft
-                                    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
-                                  color: isApproving ? UI.green : "#ffffff",
+                                    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
+                                  color: isApproving ? UI.green : "var(--color-white)",
                                   boxShadow: isApproving
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(21,128,61,0.22)",
@@ -1987,8 +1992,8 @@ export default function TimesheetListPage() {
                                   fontSize: compactReviewView ? 11.5 : 12.5,
                                   background: isCreatingManual
                                     ? UI.brandSoft
-                                    : "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-                                  color: isCreatingManual ? UI.brand : "#ffffff",
+                                    : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+                                  color: isCreatingManual ? UI.brand : "var(--color-white)",
                                   boxShadow: isCreatingManual
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(31,75,122,0.18)",
@@ -2000,9 +2005,9 @@ export default function TimesheetListPage() {
                             ) : (
                               <span
                                 style={{
-                                  fontSize: 16,
+                                  fontSize: "var(--font-size-lg)",
                                   fontWeight: 800,
-                                  color: status.clickable ? UI.brand : "#94a3b8",
+                                  color: status.clickable ? UI.brand : "var(--legacy-color-94a3b8)",
                                 }}
                               >
                                 {status.clickable ? <ChevronRight size={16} /> : "-"}

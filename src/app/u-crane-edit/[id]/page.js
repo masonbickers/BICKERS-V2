@@ -47,15 +47,15 @@ const getDisplayName = (row) =>
    Styles (MATCH Create booking page vibe)
 ─────────────────────────────────────────── */
 const UI = {
-  radius: 8,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#516174",
-  border: "1px solid #d7dee8",
-  borderSoft: "1px solid #dde5ef",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
+  radius: "var(--radius-md)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--legacy-color-516174)",
+  border: "var(--border-default)",
+  borderSoft: "1px solid var(--legacy-color-dde5ef)",
+  brand: "var(--color-brand)",
+  brandBorder: "var(--color-brand-border)",
   shadowSm: "0 1px 2px rgba(15, 23, 42, 0.05)",
 };
 
@@ -115,10 +115,10 @@ const inputStyle = {
   marginBottom: "10px",
   padding: "6px 9px",
   fontSize: "14px",
-  border: "1px solid #d2dce8",
+  border: "1px solid var(--legacy-color-d2dce8)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--color-white)",
   color: UI.text,
 };
 
@@ -126,10 +126,10 @@ const textArea = {
   width: "100%",
   padding: "9px 10px",
   fontSize: "14px",
-  border: "1px solid #d2dce8",
+  border: "1px solid var(--legacy-color-d2dce8)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--color-white)",
   color: UI.text,
 };
 
@@ -137,8 +137,8 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "10px",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+  color: "var(--color-white)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -147,20 +147,20 @@ const buttonStyle = {
 };
 const cancelBtn = {
   ...buttonStyle,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "none",
 };
 const dangerBtn = {
   ...buttonStyle,
-  background: "#fff1f2",
-  color: "#991b1b",
-  border: "1px solid #e9c6c4",
+  background: "var(--legacy-color-fff1f2)",
+  color: "var(--color-danger)",
+  border: "1px solid var(--legacy-color-e9c6c4)",
   boxShadow: "none",
 };
 const summaryCard = {
-  marginTop: 12,
+  marginTop: "var(--space-3)",
   padding: 14,
   backgroundColor: UI.card,
   border: UI.border,
@@ -625,7 +625,7 @@ export default function EditBookingPage() {
         <style>{pageCss}</style>
         <div className="ucrane-edit-page" style={pageBg}>
           <div style={main}>
-            <h1 style={{ color: UI.text, margin: "0 0 8px", fontSize: 22, fontWeight: 850 }}>
+            <h1 style={{ color: UI.text, margin: "0 0 8px", fontSize: "var(--font-size-xl)", fontWeight: 850 }}>
               Edit U-Crane Booking
             </h1>
             <p>Loading booking…</p>
@@ -640,9 +640,9 @@ export default function EditBookingPage() {
       <style>{pageCss}</style>
       <div className="ucrane-edit-page" style={pageBg}>
         <div style={main}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
             <div>
-              <h1 style={{ color: UI.text, margin: 0, fontSize: 22, fontWeight: 850 }}>
+              <h1 style={{ color: UI.text, margin: 0, fontSize: "var(--font-size-xl)", fontWeight: 850 }}>
                 Edit U-Crane Booking
               </h1>
               <div style={{ color: UI.muted, marginTop: 5, fontSize: 13.5, fontWeight: 700 }}>
@@ -660,7 +660,7 @@ export default function EditBookingPage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 padding: "7px 10px",
-                background: "#fff",
+                background: "var(--color-white)",
                 boxShadow: UI.shadowSm,
               }}
             >
@@ -803,7 +803,7 @@ export default function EditBookingPage() {
                                 }
                               }}
                             />
-                            <span style={{ color: disabled ? "grey" : "#333" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
                               {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
@@ -813,7 +813,7 @@ export default function EditBookingPage() {
                       })}
 
                       {(crewOptionsForRole[role] || []).length === 0 && (
-                        <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+                        <div style={{ fontSize: "var(--font-size-xs)", color: "var(--legacy-color-666)", marginBottom: 10 }}>
                           No crew set as visible for this role.
                         </div>
                       )}
@@ -821,7 +821,7 @@ export default function EditBookingPage() {
                   ))}
                 </div>
 
-                <div style={{ marginTop: 12 }}>
+                <div style={{ marginTop: "var(--space-3)" }}>
                   <h4 style={{ marginBottom: 6 }}>Add custom crew (comma separated)</h4>
                   <input
                     value={customEmployee}
@@ -868,7 +868,7 @@ export default function EditBookingPage() {
                                 )
                               }
                             />
-                            <span style={{ color: disabled ? "grey" : "#333" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
                               {vehicle.name}{" "}
                               {vehicle.registration && `– ${vehicle.registration}`}{" "}
                               {maintenanceBlocked && "(Maintenance)"} {dateBlocked && "(Booked)"}
@@ -877,7 +877,7 @@ export default function EditBookingPage() {
                         );
                       })
                     ) : (
-                      <p style={{ fontSize: "12px", color: "#666" }}>No vehicles in this category</p>
+                      <p style={{ fontSize: "12px", color: "var(--legacy-color-666)" }}>No vehicles in this category</p>
                     )}
                   </div>
                 ))}
@@ -891,7 +891,7 @@ export default function EditBookingPage() {
                     </a>
                   </p>
                 ) : (
-                  <p style={{ margin: "6px 0 10px", color: "#6b7280" }}>No quote attached</p>
+                  <p style={{ margin: "6px 0 10px", color: "var(--legacy-color-6b7280)" }}>No quote attached</p>
                 )}
 
                 <input
@@ -900,7 +900,7 @@ export default function EditBookingPage() {
                   onChange={(e) => setQuoteFile(e.target.files?.[0] || null)}
                 />
 
-                <div style={{ marginTop: 16 }}>
+                <div style={{ marginTop: "var(--space-4)" }}>
                   <label>
                     <input type="checkbox" checked={hasHS} onChange={(e) => setHasHS(e.target.checked)} />{" "}
                     Health & Safety Completed
@@ -933,7 +933,7 @@ export default function EditBookingPage() {
             </div>
 
             {/* Notes */}
-            <div style={{ marginTop: 20 }}>
+            <div style={{ marginTop: "var(--space-5)" }}>
               <h3>Notes</h3>
               <textarea
                 value={notes}
@@ -1027,7 +1027,7 @@ export default function EditBookingPage() {
 
           {/* Summary (NO equipment shown) */}
           <div style={summaryCard}>
-            <h2 style={{ margin: "0 0 10px", color: UI.text, fontSize: 16, fontWeight: 850 }}>
+            <h2 style={{ margin: "0 0 10px", color: UI.text, fontSize: "var(--font-size-lg)", fontWeight: 850 }}>
               Booking Summary
             </h2>
 

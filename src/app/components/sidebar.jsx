@@ -24,8 +24,8 @@ export default function Sidebar() {
         left: 0,
         width: "240px",
         height: "100vh",
-        backgroundColor: "#000",
-        color: "#fff",
+        backgroundColor: "var(--color-black)",
+        color: "var(--color-white)",
         padding: "24px",
         display: "flex",
         flexDirection: "column",
@@ -36,10 +36,10 @@ export default function Sidebar() {
       <img
         src="/bickers-action-logo.png"
         alt="Logo"
-        style={{ width: 180, marginBottom: 40 }}
+        style={{ width: 180, marginBottom: "var(--space-10)" }}
       />
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <nav style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         {navItems.map(({ label, path }) => (
           <button
             key={label}
@@ -47,13 +47,13 @@ export default function Sidebar() {
             style={{
               background: "none",
               border: "none",
-              color: pathname === path ? "#4caf50" : "#fff",
+              color: pathname === path ? "var(--legacy-color-4caf50)" : "var(--color-white)",
               fontWeight: pathname === path ? "bold" : "normal",
               fontSize: "16px",
               textAlign: "left",
               cursor: "pointer",
               padding: "8px 0",
-              borderBottom: "1px solid #333",
+              borderBottom: "1px solid var(--legacy-color-333)",
               width: "100%",
             }}
           >

@@ -1,18 +1,17 @@
 // src/app/layout.js
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import "./theme.css";
 import "./globals.css";
+import "./calendar-integration.css";
 import { AuthProvider } from "./context/authContext"; 
 import ProtectedLayout from "./components/ProtectedLayout"; 
 import AppCacheRefresh from "./components/AppCacheRefresh";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata = {
@@ -24,16 +23,18 @@ export default function RootLayout({ children }) {
   return (
    <html
      lang="en"
-     className={`${geistSans.variable} ${geistMono.variable}`}
+     className={inter.variable}
      suppressHydrationWarning
    >
      <body suppressHydrationWarning>
-        <AuthProvider>
-          <AppCacheRefresh />
-          <ProtectedLayout>
-            {children}
-          </ProtectedLayout>
-        </AuthProvider>
+        <ClerkProvider signInUrl="/login" signUpUrl="/login">
+          <AuthProvider>
+            <AppCacheRefresh />
+            <ProtectedLayout>
+              {children}
+            </ProtectedLayout>
+          </AuthProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

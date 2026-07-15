@@ -113,20 +113,20 @@ const dedupeRows = (rows) => {
 
 /* ---------- Visual tokens ---------- */
 const palette = {
-  bg: "#f8fafc",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "#e2e8f0",
-  cardBg: "#ffffff",
+  bg: "var(--color-surface-subtle)",
+  text: "var(--color-text)",
+  subtext: "var(--color-text-subtle)",
+  border: "var(--legacy-color-e2e8f0)",
+  cardBg: "var(--color-white)",
   shadow: "0 6px 18px rgba(2, 6, 23, 0.06)",
 };
 
 const statusChip = {
-  pending:  { bg: "#fff7ed", border: "#fed7aa", text: "#b45309", label: "Queued" },
-  ready:    { bg: "#eff6ff", border: "#bfdbfe", text: "#2563eb", label: "Ready to Invoice" },
-  invoiced: { bg: "#eef2ff", border: "#c7d2fe", text: "#4f46e5", label: "Invoiced" },
-  paid:     { bg: "#ecfdf5", border: "#bbf7d0", text: "#0f766e", label: "Paid" },
-  default:  { bg: "#f1f5f9", border: "#e2e8f0", text: "#334155", label: "TBC" },
+  pending:  { bg: "var(--color-warning-soft)", border: "var(--color-warning-border)", text: "var(--legacy-color-b45309)", label: "Queued" },
+  ready:    { bg: "var(--color-info-soft)", border: "var(--color-info-border)", text: "var(--legacy-color-2563eb)", label: "Ready to Invoice" },
+  invoiced: { bg: "var(--legacy-color-eef2ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-4f46e5)", label: "Invoiced" },
+  paid:     { bg: "var(--color-success-soft)", border: "var(--color-success-border)", text: "var(--legacy-color-0f766e)", label: "Paid" },
+  default:  { bg: "var(--legacy-color-f1f5f9)", border: "var(--legacy-color-e2e8f0)", text: "var(--legacy-color-334155)", label: "TBC" },
 };
 
 const StatusBadge = ({ status }) => {
@@ -139,8 +139,8 @@ const StatusBadge = ({ status }) => {
         gap: 6,
         alignItems: "center",
         padding: "4px 10px",
-        fontSize: 12,
-        borderRadius: 999,
+        fontSize: "var(--font-size-xs)",
+        borderRadius: "var(--radius-pill)",
         border: `1px solid ${c.border}`,
         background: c.bg,
         color: c.text,
@@ -165,14 +165,14 @@ const Toast = ({ msg, onClose }) => {
         position: "fixed",
         top: 18,
         right: 18,
-        background: "#111827",
-        color: "#fff",
-        borderRadius: 12,
+        background: "var(--legacy-color-111827)",
+        color: "var(--color-white)",
+        borderRadius: "var(--radius-lg)",
         padding: "10px 14px",
         boxShadow: palette.shadow,
         cursor: "pointer",
         zIndex: 50,
-        fontSize: 13,
+        fontSize: "var(--font-size-sm)",
         fontWeight: 600,
         opacity: 0.98,
       }}
@@ -358,7 +358,7 @@ export default function FinanceDashboard() {
     color: palette.text,
   };
 
-  const sectionTitle = { fontSize: 20, fontWeight: 800, marginBottom: 12 };
+  const sectionTitle = { fontSize: 20, fontWeight: 800, marginBottom: "var(--space-3)" };
 
   const panel = {
     background: palette.cardBg,
@@ -367,23 +367,23 @@ export default function FinanceDashboard() {
     boxShadow: palette.shadow,
   };
 
-  const statsWrap = { display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr))", gap: 16, marginBottom: 24 };
+  const statsWrap = { display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr))", gap: "var(--space-4)", marginBottom: "var(--space-6)" };
   const statCard = { ...panel, padding: 18, textAlign: "center" };
-  const statLabel = { color: palette.subtext, fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.2 };
+  const statLabel = { color: palette.subtext, fontSize: "var(--font-size-sm)", fontWeight: 700, marginBottom: 6, letterSpacing: 0.2 };
   const statNumber = { fontSize: 30, fontWeight: 900, lineHeight: 1.1 };
 
-  const controls = { display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" };
-  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "#fff" };
-  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "#fff" };
-  const btn = (bg, fg = "#fff") => ({
+  const controls = { display: "flex", gap: "var(--space-3)", alignItems: "center", marginBottom: 18, flexWrap: "wrap" };
+  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "var(--color-white)" };
+  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "var(--color-white)" };
+  const btn = (bg, fg = "var(--color-white)") => ({
     background: bg,
     color: fg,
     border: "none",
-    borderRadius: 12,
+    borderRadius: "var(--radius-lg)",
     padding: "10px 14px",
     cursor: "pointer",
     fontWeight: 800,
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     boxShadow: "0 4px 10px rgba(2,6,23,0.08)",
   });
 
@@ -393,14 +393,14 @@ export default function FinanceDashboard() {
     padding: "14px 12px",
     textAlign: "left",
     fontWeight: 800,
-    fontSize: 12,
+    fontSize: "var(--font-size-xs)",
     color: palette.subtext,
     borderBottom: `1px solid ${palette.border}`,
-    background: "#f8fafc",
+    background: "var(--color-surface-subtle)",
   };
-  const td = { padding: "14px 12px", fontSize: 13, borderBottom: `1px solid ${palette.border}` };
+  const td = { padding: "14px 12px", fontSize: "var(--font-size-sm)", borderBottom: `1px solid ${palette.border}` };
   const row = (i) => ({
-    background: i % 2 ? "#ffffff" : "#fcfdff",
+    background: i % 2 ? "var(--color-white)" : "var(--legacy-color-fcfdff)",
     cursor: "pointer",
   });
   const rowHover = {
@@ -408,7 +408,7 @@ export default function FinanceDashboard() {
   };
   const right = { textAlign: "right" };
   const link = {
-    color: "#2563eb",
+    color: "var(--legacy-color-2563eb)",
     textDecoration: "none",
     fontWeight: 700,
   };
@@ -416,8 +416,8 @@ export default function FinanceDashboard() {
   return (
     <HeaderSidebarLayout>
       <div style={pageWrap}>
-        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8 }}>Finance Dashboard</h1>
-        <div style={{ color: palette.subtext, marginBottom: 16, fontSize: 12 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: "var(--space-2)" }}>Finance Dashboard</h1>
+        <div style={{ color: palette.subtext, marginBottom: "var(--space-4)", fontSize: "var(--font-size-xs)" }}>
           Status summary — pending: {totals.pending} · ready: {totals.ready} · invoiced: {totals.invoiced} · paid: {totals.paid}
           {loading ? " (loading…)" : ""}
         </div>
@@ -437,11 +437,11 @@ export default function FinanceDashboard() {
             placeholder="Search client, location, job#, invoice#"
             style={input}
           />
-          <button onClick={load} style={btn("#111827")}>Refresh</button>
+          <button onClick={load} style={btn("var(--legacy-color-111827)")}>Refresh</button>
         </div>
 
         {/* Footer stats (optional) */}
-        <div style={{ ...statsWrap, marginTop: 24 }}>
+        <div style={{ ...statsWrap, marginTop: "var(--space-6)" }}>
           <div style={statCard}>
             <div style={statLabel}>Queued</div>
             <div style={statNumber}>{totals.pending}</div>
@@ -463,7 +463,7 @@ export default function FinanceDashboard() {
         {/* Invoices (non-paid) */}
         {filter !== "paid" && (
           <>
-            <div style={{ ...sectionTitle, marginTop: 8 }}>
+            <div style={{ ...sectionTitle, marginTop: "var(--space-2)" }}>
               {filter === "all" ? "Invoices" :
                 filter === "pending" ? "Invoices — Queued" :
                 filter === "ready" ? "Invoices — Ready" :
@@ -485,7 +485,7 @@ export default function FinanceDashboard() {
                 <tbody>
                   {invoicesList.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ ...td, padding: 24, textAlign: "center", color: palette.subtext }}>
+                      <td colSpan={7} style={{ ...td, padding: "var(--space-6)", textAlign: "center", color: palette.subtext }}>
                         {loading ? "Loading…" : "No invoices to show."}
                       </td>
                     </tr>
@@ -502,8 +502,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f5faff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "#ffffff" : "#fcfdff"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--color-white)" : "var(--legacy-color-fcfdff)"))}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>
@@ -523,7 +523,7 @@ export default function FinanceDashboard() {
                             {job.status === "ready" && (
                               <button
                                 onClick={(e) => markAsInvoiced(job, e)}
-                                style={btn("#4f46e5")}
+                                style={btn("var(--legacy-color-4f46e5)")}
                                 disabled={saving}
                                 title="Set status to Invoiced"
                               >
@@ -532,7 +532,7 @@ export default function FinanceDashboard() {
                             )}{" "}
                             <button
                               onClick={(e) => markAsPaid(job, e)}
-                              style={btn("#059669")}
+                              style={btn("var(--legacy-color-059669)")}
                               disabled={saving}
                               title="Set status to Paid"
                             >
@@ -552,7 +552,7 @@ export default function FinanceDashboard() {
         {/* Paid */}
         {(filter === "all" || filter === "paid") && (
           <>
-            <div style={{ ...sectionTitle, marginTop: 24 }}>Paid</div>
+            <div style={{ ...sectionTitle, marginTop: "var(--space-6)" }}>Paid</div>
             <div style={tableWrap}>
               <table style={table}>
                 <thead>
@@ -569,7 +569,7 @@ export default function FinanceDashboard() {
                 <tbody>
                   {paidList.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ ...td, padding: 24, textAlign: "center", color: palette.subtext }}>
+                      <td colSpan={7} style={{ ...td, padding: "var(--space-6)", textAlign: "center", color: palette.subtext }}>
                         {loading ? "Loading…" : "No paid rows."}
                       </td>
                     </tr>
@@ -585,8 +585,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f5faff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "#ffffff" : "#fcfdff"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--color-white)" : "var(--legacy-color-fcfdff)"))}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>

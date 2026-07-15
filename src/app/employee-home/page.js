@@ -34,27 +34,27 @@ import {
 
 /* Mini design system */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  danger: "#dc2626",
-  green: "#16a34a",
-  amber: "#d97706",
-  blue: "#2563eb",
-  purple: "#7c3aed",
-  teal: "#0f766e",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  danger: "var(--legacy-color-dc2626)",
+  green: "var(--legacy-color-16a34a)",
+  amber: "var(--legacy-color-d97706)",
+  blue: "var(--legacy-color-2563eb)",
+  purple: "var(--legacy-color-7c3aed)",
+  teal: "var(--legacy-color-0f766e)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -62,18 +62,18 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
 };
-const h1 = { color: UI.text, fontSize: 22, lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
+const h1 = { color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, letterSpacing: 0, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
 
 const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 
 const cardBase = {
   ...surface,
-  padding: 12,
+  padding: "var(--space-3)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = { transform: "translateY(-2px)", boxShadow: UI.shadowHover, borderColor: UI.brandBorder };
@@ -89,7 +89,7 @@ const sectionHeader = {
   alignItems: "flex-start",
   justifyContent: "space-between",
   gap: 10,
-  marginBottom: 8,
+  marginBottom: "var(--space-2)",
   flexWrap: "wrap",
 };
 const titleMd = { fontSize: 17, fontWeight: 800, color: UI.text, margin: 0, letterSpacing: "-0.01em" };
@@ -97,11 +97,11 @@ const hint = { color: UI.muted, fontSize: 12.5, marginTop: 5, lineHeight: 1.45 }
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -123,7 +123,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -140,9 +140,9 @@ const btn = (kind = "primary") => {
       justifyContent: "center",
       gap: 6,
       padding: "6px 9px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -159,8 +159,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,17 +172,17 @@ const btn = (kind = "primary") => {
 
 const inputBase = {
   width: "100%",
-  minHeight: 36,
+  minHeight: "var(--control-height-md)",
   padding: "7px 9px",
-  borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--color-white)",
 };
-const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
+const smallLabel = { fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "10px 0" };
 
 const summaryGrid = {
   display: "grid",
@@ -200,7 +200,7 @@ const dashboardGrid = {
 const iconBox = (color = UI.brand, bg = UI.brandSoft) => ({
   width: 34,
   height: 34,
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -223,19 +223,19 @@ const miniStat = {
 const progressTrack = {
   width: "100%",
   height: 7,
-  borderRadius: 999,
-  background: "#e8eef5",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--legacy-color-e8eef5)",
   overflow: "hidden",
 };
 
 const panelList = {
   display: "grid",
-  gap: 8,
+  gap: "var(--space-2)",
 };
 
 const skeleton = {
   height: 12,
-  borderRadius: 6,
+  borderRadius: "var(--radius-sm)",
   background: "linear-gradient(90deg, rgba(0,0,0,0.05), rgba(0,0,0,0.08), rgba(0,0,0,0.05))",
   backgroundSize: "200% 100%",
   animation: "shimmer 1400ms infinite",
@@ -437,28 +437,28 @@ const BREAKDOWN_COLUMNS = [
 ];
 
 const FULL_TIME_PIE_META = [
-  { key: "onSet", label: "On Set", weight: 1, color: "#1d4ed8" },
-  { key: "travel", label: "Travel", weight: 1, color: "#0f766e" },
-  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "#14b8a6" },
-  { key: "standby", label: "Standby", weight: 1, color: "#f59e0b" },
-  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "#7c3aed" },
-  { key: "recce", label: "Recce", weight: 1, color: "#ec4899" },
-  { key: "splitDay", label: "Split Day", weight: 1, color: "#ef4444" },
+  { key: "onSet", label: "On Set", weight: 1, color: "var(--color-info)" },
+  { key: "travel", label: "Travel", weight: 1, color: "var(--legacy-color-0f766e)" },
+  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "var(--legacy-color-14b8a6)" },
+  { key: "standby", label: "Standby", weight: 1, color: "var(--legacy-color-f59e0b)" },
+  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "var(--legacy-color-7c3aed)" },
+  { key: "recce", label: "Recce", weight: 1, color: "var(--legacy-color-ec4899)" },
+  { key: "splitDay", label: "Split Day", weight: 1, color: "var(--legacy-color-ef4444)" },
 ];
 
 const EMPLOYEE_SERIES_COLORS = [
-  "#1d4ed8",
-  "#0f766e",
-  "#7c3aed",
-  "#f59e0b",
-  "#ec4899",
-  "#ef4444",
-  "#0891b2",
-  "#65a30d",
-  "#9333ea",
-  "#ea580c",
-  "#2563eb",
-  "#059669",
+  "var(--color-info)",
+  "var(--legacy-color-0f766e)",
+  "var(--legacy-color-7c3aed)",
+  "var(--legacy-color-f59e0b)",
+  "var(--legacy-color-ec4899)",
+  "var(--legacy-color-ef4444)",
+  "var(--legacy-color-0891b2)",
+  "var(--legacy-color-65a30d)",
+  "var(--legacy-color-9333ea)",
+  "var(--legacy-color-ea580c)",
+  "var(--legacy-color-2563eb)",
+  "var(--legacy-color-059669)",
 ];
 
 function classifyNote(rawNote) {
@@ -916,7 +916,7 @@ export default function EmployeesHomePage() {
 
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
       `}</style>
 
@@ -928,7 +928,7 @@ export default function EmployeesHomePage() {
             <div style={sub}>Crew availability, work credits, leave and document admin for the selected reporting period.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <div style={chip}>{loading ? "Loading..." : `${kpiEmployeeRecords} records`}</div>
             <div style={chipSoft}>
               Period: <b style={{ marginLeft: 6 }}>{effectiveRange.label}</b>
@@ -991,7 +991,7 @@ export default function EmployeesHomePage() {
                 <span style={iconBox(UI.brand, UI.brandSoft)}>{React.createElement(section.icon, { size: 17 })}</span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: 15, color: UI.text, minWidth: 0 }}>{section.title}</div>
-                  <div style={{ marginTop: 5, color: UI.muted, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ marginTop: 5, color: UI.muted, fontSize: "var(--font-size-sm)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {section.description}
                   </div>
                 </div>
@@ -1011,7 +1011,7 @@ export default function EmployeesHomePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={chipSoft}>{effectiveRange.label}</span>
               <button type="button" style={btn("ghost")} onClick={() => { setMode("lastNDays"); setRangeDays(30); setFromDate(""); setToDate(""); }}>
                 Reset
@@ -1020,9 +1020,9 @@ export default function EmployeesHomePage() {
           </div>
 
           {/* Controls */}
-          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "#fff" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: "var(--radius-lg)", border: UI.border, padding: 10, background: "var(--color-white)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                 <button type="button" style={btn("pill")} onClick={() => setMode("lastNDays")}>
                   Last N days
                 </button>
@@ -1032,7 +1032,7 @@ export default function EmployeesHomePage() {
               </div>
 
               {mode === "lastNDays" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={smallLabel}>Days</span>
                     <input
@@ -1044,7 +1044,7 @@ export default function EmployeesHomePage() {
                         const v = Number(e.target.value);
                         setRangeDays(Math.max(1, Math.min(365, Number.isFinite(v) ? v : 30)));
                       }}
-                      style={{ ...inputBase, width: 84, padding: "7px 8px", borderRadius: 12 }}
+                      style={{ ...inputBase, width: 84, padding: "7px 8px", borderRadius: "var(--radius-lg)" }}
                     />
                   </div>
 
@@ -1056,8 +1056,8 @@ export default function EmployeesHomePage() {
                         type="button"
                         style={{
                           ...btn("pill"),
-                          borderColor: active ? "#bfdbfe" : "#d1d5db",
-                          background: active ? UI.brandSoft : "#fff",
+                          borderColor: active ? "var(--color-info-border)" : "var(--legacy-color-d1d5db)",
+                          background: active ? UI.brandSoft : "var(--color-white)",
                           color: active ? UI.brand : UI.text,
                         }}
                         onClick={() => setRangeDays(n)}
@@ -1068,7 +1068,7 @@ export default function EmployeesHomePage() {
                   })}
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={smallLabel}>From</span>
                     <input
@@ -1095,7 +1095,7 @@ export default function EmployeesHomePage() {
 
             <div style={divider} />
 
-            <div style={{ color: UI.muted, fontSize: 12, lineHeight: 1.5 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.5 }}>
               <b>Credit rules:</b> Half Day Travel = 0.5 - Travel Time = 0.25 - Most day types = 1 - Rest Day / Other = 0 -
               <b> Night Shoot = +1 turnaround per booking - On Set Saturdays = +0.5 - On Set Sundays = x2</b>
             </div>
@@ -1115,27 +1115,27 @@ export default function EmployeesHomePage() {
             <div style={{ height: 320, marginTop: 10 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    tick={{ fill: UI.muted, fontSize: "var(--font-size-xs)" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <YAxis
                     allowDecimals
-                    tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    tick={{ fill: UI.muted, fontSize: "var(--font-size-xs)" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                     domain={[0, "dataMax+1"]}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                      fontSize: 12,
+                      fontSize: "var(--font-size-xs)",
                       color: UI.text,
                     }}
                     formatter={(value, _name, p) => {
@@ -1151,9 +1151,9 @@ export default function EmployeesHomePage() {
                 </BarChart>
               </ResponsiveContainer>
 
-              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid #d1d5db" }} />
-                <div style={{ color: UI.muted, fontSize: 12 }}>
+              <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid var(--legacy-color-d1d5db)" }} />
+                <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                   Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday On Set extra half credit and Sunday On Set double time. Hover to view full names.
                 </div>
               </div>
@@ -1178,7 +1178,7 @@ export default function EmployeesHomePage() {
                 <div style={{ ...skeleton, width: "88%" }} />
               </div>
             ) : topCreditRows.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13 }}>No credits in range.</div>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No credits in range.</div>
             ) : (
               <div style={panelList}>
                 {topCreditRows.map((row, index) => (
@@ -1220,7 +1220,7 @@ export default function EmployeesHomePage() {
                 <div style={{ ...skeleton, width: "84%" }} />
               </div>
             ) : topWorkloadRows.length === 0 ? (
-              <div style={{ color: UI.muted, fontSize: 13 }}>No full-time workload data in range.</div>
+              <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No full-time workload data in range.</div>
             ) : (
               <div style={panelList}>
                 {topWorkloadRows.map((row) => (
@@ -1257,9 +1257,9 @@ export default function EmployeesHomePage() {
               <div style={{ ...skeleton, width: "86%" }} />
             </div>
           ) : usageBreakdownData.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>No employee work breakdown found in this reporting period.</div>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No employee work breakdown found in this reporting period.</div>
           ) : (
-            <div style={{ overflowX: "auto", marginTop: 8 }}>
+            <div style={{ overflowX: "auto", marginTop: "var(--space-2)" }}>
               <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1200 }}>
                 <thead>
                   <tr>
@@ -1320,7 +1320,7 @@ export default function EmployeesHomePage() {
               <div style={{ ...skeleton, width: "86%" }} />
             </div>
           ) : fullTimeWorkTypePieData.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>
               No full-time employee work-type totals found in this reporting period.
             </div>
           ) : (
@@ -1330,7 +1330,7 @@ export default function EmployeesHomePage() {
                 gridTemplateColumns: "minmax(320px, 520px) minmax(260px, 1fr)",
                 gap: 18,
                 alignItems: "center",
-                marginTop: 8,
+                marginTop: "var(--space-2)",
               }}
             >
               <div style={{ width: "100%", height: 320 }}>
@@ -1372,16 +1372,16 @@ export default function EmployeesHomePage() {
                       gap: 10,
                       alignItems: "center",
                       padding: "10px 12px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      background: "#fff",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
+                      borderRadius: "var(--radius-lg)",
+                      background: "var(--color-white)",
                     }}
                   >
                     <div
                       style={{
                         width: 14,
                         height: 14,
-                        borderRadius: 999,
+                        borderRadius: "var(--radius-pill)",
                         background: item.color,
                       }}
                     />
@@ -1415,39 +1415,39 @@ export default function EmployeesHomePage() {
               <div style={{ ...skeleton, width: "86%" }} />
             </div>
           ) : fullTimeEmployeeWeightedData.length === 0 ? (
-            <div style={{ color: UI.muted, fontSize: 13 }}>
+            <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>
               No per-employee weighted work-note totals found in this reporting period.
             </div>
           ) : (
-            <div style={{ width: "100%", height: Math.max(320, fullTimeEmployeeWeightedData.length * 42), marginTop: 8 }}>
+            <div style={{ width: "100%", height: Math.max(320, fullTimeEmployeeWeightedData.length * 42), marginTop: "var(--space-2)" }}>
               <ResponsiveContainer>
                 <BarChart
                   data={fullTimeEmployeeWeightedData}
                   layout="vertical"
                   margin={{ top: 8, right: 170, left: 18, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
                   <XAxis
                     type="number"
-                    tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    tick={{ fill: UI.muted, fontSize: "var(--font-size-xs)" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={120}
-                    tick={{ fill: UI.text, fontSize: 12, fontWeight: 700 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    tick={{ fill: UI.text, fontSize: "var(--font-size-xs)", fontWeight: 700 }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                      fontSize: 12,
+                      fontSize: "var(--font-size-xs)",
                       color: UI.text,
                     }}
                     formatter={(value, name, payload) => {
@@ -1467,7 +1467,7 @@ export default function EmployeesHomePage() {
                       <Cell key={entry.key} fill={entry.color} />
                     ))}
                   </Bar>
-                  <Bar dataKey="yardValue" stackId="employee" fill="#cbd5e1" radius={[0, 8, 8, 0]}>
+                  <Bar dataKey="yardValue" stackId="employee" fill="var(--legacy-color-cbd5e1)" radius={[0, 8, 8, 0]}>
                     <LabelList dataKey="totalValue" position="right" content={renderEmployeeSplitLabel} />
                   </Bar>
                 </BarChart>
@@ -1485,7 +1485,7 @@ function EmptyState() {
   return (
     <div style={{ ...surface, boxShadow: "none", padding: 13, marginTop: 10 }}>
       <div style={{ fontWeight: 800, marginBottom: 6, color: UI.text }}>No data in this reporting period</div>
-      <div style={{ color: UI.muted, fontSize: 13, lineHeight: 1.5 }}>
+      <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)", lineHeight: 1.5 }}>
         Only <b>Confirmed</b>, <b>Complete</b> and <b>Stunt</b> bookings from <b>past dates</b> are included in the selected range, with today excluded.
         Try a longer range, or confirm your bookings include <code>notesByDate[&quot;YYYY-MM-DD&quot;]</code> and/or <code>bookingDates</code>.
       </div>
@@ -1498,7 +1498,7 @@ function MetricCard({ label, value, tone, icon: Icon }) {
     <div style={miniStat}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(tone, "#f8fbfd")}>
+        <span style={iconBox(tone, "var(--legacy-color-f8fbfd)")}>
           <Icon size={17} />
         </span>
       </div>
@@ -1511,14 +1511,14 @@ function ProgressRow({ label, value, percent, color, onClick }) {
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   const content = (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ minWidth: 0, color: UI.text, fontSize: 13, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)" }}>
+        <div style={{ minWidth: 0, color: UI.text, fontSize: "var(--font-size-sm)", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {label}
         </div>
-        <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{value}</div>
+        <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800, whiteSpace: "nowrap" }}>{value}</div>
       </div>
       <div style={progressTrack}>
-        <div style={{ width: `${safePercent}%`, height: "100%", background: color, borderRadius: 999 }} />
+        <div style={{ width: `${safePercent}%`, height: "100%", background: color, borderRadius: "var(--radius-pill)" }} />
       </div>
     </>
   );
@@ -1534,7 +1534,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
           padding: 9,
           borderRadius: UI.radiusSm,
           border: UI.border,
-          background: "#fff",
+          background: "var(--color-white)",
           cursor: "pointer",
           textAlign: "left",
         }}
@@ -1545,7 +1545,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "#fff" }}>
+    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "var(--color-white)" }}>
       {content}
     </div>
   );
@@ -1553,11 +1553,11 @@ function ProgressRow({ label, value, percent, color, onClick }) {
 
 const tableHead = {
   padding: "10px 12px",
-  background: "#f8fbfd",
+  background: "var(--legacy-color-f8fbfd)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   color: UI.text,
   textAlign: "center",
@@ -1577,10 +1577,10 @@ const tableCell = {
   padding: "9px 12px",
   borderBottom: UI.border,
   borderRight: UI.border,
-  fontSize: 13,
+  fontSize: "var(--font-size-sm)",
   color: UI.text,
   textAlign: "center",
-  background: "#fff",
+  background: "var(--color-white)",
   whiteSpace: "nowrap",
 };
 

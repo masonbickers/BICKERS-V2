@@ -82,20 +82,20 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
-  danger: "#ef4444",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  brandSoft: "var(--color-info-soft)",
+  danger: "var(--legacy-color-ef4444)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
-const headerBar = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" };
+const headerBar = { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" };
 const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, letterSpacing: "-0.01em", margin: 0 };
-const sub = { color: UI.muted, fontSize: 13, marginTop: 6 };
+const sub = { color: UI.muted, fontSize: "var(--font-size-sm)", marginTop: 6 };
 
 const card = {
   background: UI.card,
@@ -109,24 +109,24 @@ const cardPad = { padding: 14 };
 const chip = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "6px 10px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
 };
 
 const input = {
   width: "100%",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--legacy-color-d1d5db)",
   borderRadius: UI.radiusSm,
   padding: "10px 12px",
   outline: "none",
-  background: "#fff",
-  fontSize: 14,
+  background: "var(--color-white)",
+  fontSize: "var(--font-size-md)",
 };
 
 const inputNum = { ...input, width: 140 };
@@ -138,8 +138,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -150,9 +150,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#7f1d1d",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--color-danger-hover)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -163,7 +163,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,12 +172,12 @@ const btn = (kind = "primary") => {
 
 function Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fff7ed", fg: "#7c2d12", br: "#fed7aa" },
-    bad: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--color-success-hover)", br: "var(--color-success-border)" },
+    warn: { bg: "var(--color-warning-soft)", fg: "var(--legacy-color-7c2d12)", br: "var(--color-warning-border)" },
+    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--color-danger-hover)", br: "var(--color-danger-border)" },
+    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
+    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -187,11 +187,11 @@ function Pill({ tone = "default", children }) {
         alignItems: "center",
         justifyContent: "center",
         padding: "4px 10px",
-        borderRadius: 999,
+        borderRadius: "var(--radius-pill)",
         background: t.bg,
         color: t.fg,
         border: `1px solid ${t.br}`,
-        fontSize: 12,
+        fontSize: "var(--font-size-xs)",
         fontWeight: 900,
         whiteSpace: "nowrap",
       }}
@@ -203,14 +203,14 @@ function Pill({ tone = "default", children }) {
 
 function StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "#fff", br: "#e5e7eb" },
-    soft: { bg: UI.brandSoft, br: "#dbeafe" },
-    warn: { bg: "#fff7ed", br: "#fed7aa" },
+    default: { bg: "var(--color-white)", br: "var(--legacy-color-e5e7eb)" },
+    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
+    warn: { bg: "var(--color-warning-soft)", br: "var(--color-warning-border)" },
   };
   const t = tones[tone] || tones.default;
   return (
-    <div style={{ background: t.bg, border: `1px solid ${t.br}`, borderRadius: 12, padding: 12 }}>
-      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
+    <div style={{ background: t.bg, border: `1px solid ${t.br}`, borderRadius: "var(--radius-lg)", padding: "var(--space-3)" }}>
+      <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
       <div style={{ marginTop: 6, fontSize: 20, fontWeight: 950, color: UI.text }}>{value}</div>
     </div>
   );
@@ -676,7 +676,7 @@ export default function EmployeesAdminPage() {
               <Pill tone="info">Base: {entitlementFor(newPattern)} days</Pill>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr auto", gap: 10, marginTop: "var(--space-3)" }}>
               <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" style={input} />
               <select value={newPattern} onChange={(e) => setNewPattern(e.target.value)} style={select}>
                 <option value="full_time">{PATTERN_LABEL.full_time}</option>
@@ -698,7 +698,7 @@ export default function EmployeesAdminPage() {
               </button>
             </div>
 
-            <div style={{ marginTop: 10, color: UI.muted, fontSize: 12, lineHeight: 1.4 }}>
+            <div style={{ marginTop: 10, color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.4 }}>
               Adds per-year values for {thisYear}. You can pre-fill {nextYear} by switching year view and saving.
             </div>
           </div>
@@ -708,7 +708,7 @@ export default function EmployeesAdminPage() {
             <div style={{ ...card, ...cardPad }}>
               <div style={{ fontWeight: 950, color: UI.text, marginBottom: 10 }}>Search</div>
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search employees..." style={input} />
-              <div style={{ marginTop: 10, color: UI.muted, fontSize: 12 }}>
+              <div style={{ marginTop: 10, color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                 Showing <b>{filteredRows.length}</b> employee{filteredRows.length === 1 ? "" : "s"}.
               </div>
             </div>
@@ -730,7 +730,7 @@ export default function EmployeesAdminPage() {
 
         {/* Table */}
         <div style={{ ...card, marginTop: UI.gap }}>
-          <div style={{ padding: 14, borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ padding: 14, borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontWeight: 950, color: UI.text }}>Allowances table</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <span style={chip}>Carry cap: {MAX_CARRY}</span>
@@ -782,7 +782,7 @@ export default function EmployeesAdminPage() {
                     const balThis = balanceForYear(r, thisYear);
                     const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
 
-                    const zebra = idx % 2 === 0 ? "#fff" : "#f8fafc";
+                    const zebra = idx % 2 === 0 ? "var(--color-white)" : "var(--color-surface-subtle)";
 
                     return (
                       <tr key={r.id} style={{ background: zebra }}>
@@ -805,7 +805,7 @@ export default function EmployeesAdminPage() {
                             <option value="three_days">{PATTERN_LABEL.three_days}</option>
                           </select>
 
-                          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div style={{ marginTop: "var(--space-2)", display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                             <Pill tone="gray">Base {entitlementFor(pattern)}</Pill>
                             {pattern !== "full_time" ? <Pill tone="info">Pro-rata</Pill> : <Pill tone="good">FT</Pill>}
                           </div>
@@ -833,11 +833,11 @@ export default function EmployeesAdminPage() {
                             />
 
                             {yearView === nextYear ? (
-                              <div style={{ fontSize: 12, color: UI.muted, lineHeight: 1.35 }}>
+                              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, lineHeight: 1.35 }}>
                                 Recommended (from {thisYear} balance): <b>{recommendedCarry}</b> • {thisYear} bal: <b>{balThis}</b>
                               </div>
                             ) : (
-                              <div style={{ fontSize: 12, color: UI.muted }}>
+                              <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                 {yearView === thisYear ? "Current-year carry" : "Carry"}
                               </div>
                             )}
@@ -875,7 +875,7 @@ export default function EmployeesAdminPage() {
             </table>
           </div>
 
-          <div style={{ padding: 14, borderTop: "1px solid #e5e7eb", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
+          <div style={{ padding: 14, borderTop: "1px solid var(--legacy-color-e5e7eb)", color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.55 }}>
             <div>
               Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
               <code>holidays.employee</code> matches the employee <code>name</code> exactly.
@@ -889,10 +889,10 @@ export default function EmployeesAdminPage() {
         {/* Year rollover info */}
         <div style={{ ...card, marginTop: UI.gap, ...cardPad }}>
           <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>What happens when the year changes?</div>
-          <div style={{ color: "#374151", fontSize: 13, lineHeight: 1.6 }}>
+          <div style={{ color: "var(--legacy-color-374151)", fontSize: "var(--font-size-sm)", lineHeight: 1.6 }}>
             On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the &quot;current year&quot;.
             It will read/write:
-            <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
+            <ul style={{ marginTop: "var(--space-2)", marginBottom: 0, paddingLeft: 18 }}>
               <li>
                 <code>{`employees.holidayAllowances["${nextYear}"]`}</code> and <code>{`employees.carryOverByYear["${nextYear}"]`}</code>
               </li>
@@ -917,18 +917,18 @@ export default function EmployeesAdminPage() {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--color-surface-subtle)",
   position: "sticky",
   top: 0,
   zIndex: 1,
   fontWeight: 950,
-  color: "#0f172a",
+  color: "var(--color-text)",
   whiteSpace: "nowrap",
 };
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "top",
 };

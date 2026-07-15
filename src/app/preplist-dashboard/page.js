@@ -3,13 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { db } from "../../../firebaseConfig";
-import { getDocs } from "firebase/firestore";
+import { doc, getDoc, getDocs, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
+import {
+  Archive, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronUp,
+  ClipboardCheck, Eye, EyeOff, Printer, RotateCcw, Search, Truck,
+} from "lucide-react";
 
-const PREP_STORAGE_KEY = "preplist:vehicle-checks:v2";
-const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v1";
+const PREP_STORAGE_KEY = "preplist:vehicle-checks:v4";
+const PREP_MANUAL_STORAGE_KEY = "preplist:manual-entries:v3";
+const PREP_SHARED_DOC_REF = doc(db, "appState", "preplistShared");
 
 const INACTIVE_STATUSES = new Set([
   "cancelled",
@@ -20,57 +25,70 @@ const INACTIVE_STATUSES = new Set([
 ]);
 
 const UI = {
-  bg: "#f6f8fb",
-  card: "#ffffff",
-  line: "#e5e7eb",
-  text: "#111827",
-  muted: "#6b7280",
-  soft: "#f8fafc",
-  green: "#166534",
-  greenBg: "#dcfce7",
-  red: "#991b1b",
-  redBg: "#fee2e2",
-  purple: "#6d28d9",
-  purpleBg: "#f3e8ff",
-  dark: "#0f172a",
+  radius: 8,
+  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
+  border: "1px solid var(--color-border)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  line: "var(--color-border)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  soft: "var(--legacy-color-f8fbfd)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-border-strong)",
+  green: "var(--color-success)",
+  greenBg: "var(--legacy-color-edf7f2)",
+  red: "var(--color-danger)",
+  redBg: "var(--legacy-color-fcefee)",
+  purple: "var(--legacy-color-5b21b6)",
+  purpleBg: "var(--legacy-color-f5f3ff)",
+  dark: "var(--color-text)",
 };
 
 const pageWrap = {
-  padding: "24px 18px 40px",
+  padding: "16px 16px 32px",
   background: UI.bg,
   minHeight: "100vh",
 };
 
 const panel = {
   background: UI.card,
-  border: `1px solid ${UI.line}`,
-  borderRadius: 18,
-  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+  border: UI.border,
+  borderRadius: UI.radius,
+  boxShadow: UI.shadowSm,
 };
 
 const statCard = {
   ...panel,
-  padding: 16,
+  padding: "var(--space-3)",
 };
 
 const buttonBase = {
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: `1px solid ${UI.line}`,
-  background: "#fff",
+  minHeight: "var(--control-height-md)",
+  padding: "7px 10px",
+  borderRadius: UI.radius,
+  border: UI.border,
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
+  fontSize: 12.5,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
 };
 
 const inputBase = {
   width: "100%",
-  padding: "11px 12px",
-  borderRadius: 12,
-  border: `1px solid ${UI.line}`,
-  fontSize: 14,
+  minHeight: "var(--control-height-md)",
+  padding: "7px 9px",
+  borderRadius: UI.radius,
+  border: UI.border,
+  fontSize: 13.5,
   color: UI.text,
-  background: "#fff",
+  background: "var(--color-white)",
   outline: "none",
 };
 
@@ -82,14 +100,29 @@ const selectBase = {
 const pill = (bg, color) => ({
   display: "inline-flex",
   alignItems: "center",
-  padding: "5px 10px",
-  borderRadius: 999,
+  padding: "4px 8px",
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color,
-  fontSize: 12,
+  fontSize: 11.5,
   fontWeight: 800,
   whiteSpace: "nowrap",
 });
+
+const dashboardCss = `
+  .prep-dashboard-filter-grid { display:grid; grid-template-columns:minmax(240px,2fr) minmax(180px,1fr) auto; gap:10px; }
+  .prep-dashboard-content-grid { display:grid; grid-template-columns:minmax(0,1.8fr) minmax(280px,.8fr); gap:12px; align-items:start; }
+  @media (max-width:1120px) {
+    .prep-dashboard-content-grid { grid-template-columns:1fr; }
+    .prep-dashboard-aside { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  }
+  @media (max-width:760px) {
+    .prep-dashboard-filter-grid,.prep-dashboard-aside { grid-template-columns:1fr !important; }
+    .prep-dashboard-stats { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+    .prep-dashboard-vehicle-row { grid-template-columns:1fr !important; }
+  }
+  @media (max-width:480px) { .prep-dashboard-stats { grid-template-columns:1fr !important; } }
+`;
 
 const toDateSafe = (v) => {
   if (!v) return null;
@@ -238,6 +271,7 @@ export default function PrepListDashboardPage() {
   const [prepRecordsByKey, setPrepRecordsByKey] = useState({});
   const [loading, setLoading] = useState(true);
   const [storageLoaded, setStorageLoaded] = useState(false);
+  const [cloudHydrated, setCloudHydrated] = useState(false);
 
   const [rangeFilter, setRangeFilter] = useState("all-upcoming");
   const [search, setSearch] = useState("");
@@ -308,6 +342,59 @@ export default function PrepListDashboardPage() {
     }
   }, [prepRecordsByKey, storageLoaded]);
 
+  useEffect(() => {
+    if (!storageLoaded) return;
+    try {
+      localStorage.setItem(PREP_MANUAL_STORAGE_KEY, JSON.stringify(manualEntries));
+    } catch (error) {
+      console.error("Failed saving manual prep entries:", error);
+    }
+  }, [manualEntries, storageLoaded]);
+
+  useEffect(() => {
+    if (!storageLoaded) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const snap = await getDoc(PREP_SHARED_DOC_REF);
+        if (!active || !snap.exists()) return;
+        const data = snap.data() || {};
+        if (data.prepRecordsByKey && typeof data.prepRecordsByKey === "object") {
+          setPrepRecordsByKey((prev) => ({ ...prev, ...data.prepRecordsByKey }));
+        }
+        if (Array.isArray(data.manualEntries)) {
+          setManualEntries((prev) => {
+            const byId = new Map();
+            prev.forEach((entry) => entry?.id && byId.set(String(entry.id), entry));
+            data.manualEntries.forEach((entry) => entry?.id && byId.set(String(entry.id), entry));
+            return Array.from(byId.values());
+          });
+        }
+      } catch (error) {
+        console.error("Failed loading shared prep dashboard data:", error);
+      } finally {
+        if (active) setCloudHydrated(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [storageLoaded]);
+
+  useEffect(() => {
+    if (!cloudHydrated) return undefined;
+    const timeout = setTimeout(async () => {
+      try {
+        await setDoc(PREP_SHARED_DOC_REF, {
+          prepRecordsByKey,
+          manualEntries,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (error) {
+        console.error("Failed saving shared prep dashboard data:", error);
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [cloudHydrated, manualEntries, prepRecordsByKey]);
+
   const vehicleById = useMemo(() => {
     const map = new Map();
     vehicles.forEach((v) => {
@@ -365,11 +452,12 @@ export default function PrepListDashboardPage() {
     });
 
     manualEntries.forEach((m, idx) => {
-      const d = toDateSafe(m?.outingDate || m?.date);
-      if (!d) return;
+      const storedPrepDate = toDateSafe(m?.prepDate);
+      const storedOutingDate = toDateSafe(m?.outingDate || m?.date);
+      if (!storedPrepDate && !storedOutingDate) return;
 
-      const outingDate = dayOnly(d);
-      const prepDate = addDays(outingDate, -1);
+      const prepDate = storedPrepDate ? dayOnly(storedPrepDate) : addDays(dayOnly(storedOutingDate), -1);
+      const outingDate = storedPrepDate ? addDays(prepDate, 1) : dayOnly(storedOutingDate);
       const outingYmd = ymd(outingDate);
       const prepYmd = ymd(prepDate);
       const vehicleLabel = String(m.vehicleLabel || "Vehicle");
@@ -627,101 +715,86 @@ export default function PrepListDashboardPage() {
 
   return (
     <HeaderSidebarLayout>
+      <style>{dashboardCss}</style>
       <div style={pageWrap}>
-        <div
-          style={{
-            ...panel,
-            padding: 18,
-            marginBottom: 16,
-            background: "linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%)",
-          }}
-        >
+        <div style={{ marginBottom: 14 }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              gap: 16,
+              gap: "var(--space-4)",
               flexWrap: "wrap",
               alignItems: "flex-start",
             }}
           >
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: UI.muted, letterSpacing: 0.5 }}>
-                PREP OPERATIONS
-              </div>
-              <h1 style={{ margin: "6px 0 0", color: UI.text, fontSize: 30, fontWeight: 900 }}>
+              <h1 style={{ margin: 0, color: UI.text, fontSize: "var(--font-size-xl)", lineHeight: 1.08, fontWeight: 750, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                <ClipboardCheck size={22} color={UI.brand} />
                 Vehicle Prep Dashboard
               </h1>
-              <div style={{ marginTop: 8, color: UI.muted, fontSize: 14, maxWidth: 760 }}>
-                Jobs appear on the day they need to be prepped, which is the day before the outing.
-                Vehicles are grouped under each job and the board now shows all upcoming prep days.
+              <div style={{ marginTop: 6, color: UI.muted, fontSize: 13.5, lineHeight: 1.45, maxWidth: 760 }}>
+                Track upcoming vehicle preparation by prep date and job.
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               <button type="button" onClick={() => router.push("/dashboard")} style={buttonBase}>
-                Back to Dashboard
+                <ArrowLeft size={14} /> Back to Dashboard
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/preplist?day=${ymd(addDays(today, 1))}`)}
+                onClick={() => router.push(`/preplist?day=${ymd(tomorrow)}`)}
                 style={{
                   ...buttonBase,
-                  background: UI.dark,
-                  borderColor: UI.dark,
-                  color: "#fff",
+                  background: UI.brand,
+                  borderColor: UI.brand,
+                  color: "var(--color-white)",
                 }}
               >
-                Open Tomorrow&apos;s Print List
+                <Printer size={14} /> Tomorrow&apos;s Print List
               </button>
             </div>
           </div>
         </div>
 
         <div
+          className="prep-dashboard-stats"
           style={{
             display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            marginBottom: 16,
+            gap: "var(--space-3)",
+            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+            marginBottom: "var(--space-3)",
           }}
         >
           <section style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Active Queue</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.text }}>{activeItems.length}</div>
+            <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>Active Queue</div>
+            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: "var(--font-size-xl)" }}>{activeItems.length}</b><Truck size={19} color={UI.brand} /></div>
           </section>
           <section style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Needs Prep</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.red }}>{queueItems.length}</div>
+            <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>Needs Prep</div>
+            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: "var(--font-size-xl)", color: UI.red }}>{queueItems.length}</b><ClipboardCheck size={19} color={UI.red} /></div>
           </section>
           <section style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Prepped</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.green }}>{preppedItems.length}</div>
+            <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>Prepped</div>
+            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: "var(--font-size-xl)", color: UI.green }}>{preppedItems.length}</b><CheckCircle2 size={19} color={UI.green} /></div>
           </section>
           <section style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Completion</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.text }}>{donePct}%</div>
+            <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>Completion</div>
+            <div style={{ marginTop: 5, fontSize: "var(--font-size-xl)", fontWeight: 800 }}>{donePct}%</div>
+            <div style={{ marginTop: 7, height: 5, borderRadius: "var(--radius-pill)", background: "var(--legacy-color-e8edf2)", overflow: "hidden" }}><div style={{ height: "100%", width: `${donePct}%`, background: UI.green }} /></div>
           </section>
           <section style={statCard}>
-            <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>Archived</div>
-            <div style={{ fontSize: 30, fontWeight: 900, color: UI.purple }}>{archivedItems.length}</div>
+            <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase" }}>Archived</div>
+            <div style={{ marginTop: 5, display: "flex", justifyContent: "space-between", alignItems: "center" }}><b style={{ fontSize: "var(--font-size-xl)", color: UI.purple }}>{archivedItems.length}</b><Archive size={19} color={UI.purple} /></div>
           </section>
         </div>
 
-        <div style={{ ...panel, padding: 14, marginBottom: 16 }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr",
-              gap: 12,
-            }}
-          >
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search vehicle, job number, client, location, staff..."
-              style={inputBase}
-            />
+        <div style={{ ...panel, padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+          <div className="prep-dashboard-filter-grid">
+            <div style={{ position: "relative" }}>
+              <Search size={15} color={UI.muted} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search vehicle, job, client, location or staff" style={{ ...inputBase, paddingLeft: "var(--space-8)" }} />
+            </div>
             <select value={rangeFilter} onChange={(e) => setRangeFilter(e.target.value)} style={selectBase}>
               <option value="today">Prep Today</option>
               <option value="tomorrow">Prep Tomorrow</option>
@@ -733,43 +806,37 @@ export default function PrepListDashboardPage() {
               onClick={() => setShowArchived((v) => !v)}
               style={{
                 ...buttonBase,
-                background: showArchived ? UI.dark : "#fff",
-                color: showArchived ? "#fff" : UI.text,
+                background: showArchived ? UI.dark : "var(--color-white)",
+                color: showArchived ? "var(--color-white)" : UI.text,
                 borderColor: showArchived ? UI.dark : UI.line,
               }}
             >
+              {showArchived ? <EyeOff size={14} /> : <Eye size={14} />}
               {showArchived ? "Hide Archived" : "Show Archived"}
             </button>
           </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 16,
-            gridTemplateColumns: "minmax(0, 1.8fr) minmax(300px, 0.9fr)",
-            alignItems: "start",
-          }}
-        >
-          <section style={{ ...panel, padding: 16 }}>
+        <div className="prep-dashboard-content-grid">
+          <section style={{ ...panel, padding: "var(--space-3)" }}>
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                gap: 12,
+                gap: "var(--space-3)",
                 flexWrap: "wrap",
                 marginBottom: 14,
                 alignItems: "center",
               }}
             >
               <div>
-                <h2 style={{ margin: 0, color: UI.text, fontSize: 20 }}>Prep Board</h2>
-                <div style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}>
+                <h2 style={{ margin: 0, color: UI.text, fontSize: "var(--font-size-lg)", fontWeight: 800 }}>Prep Board</h2>
+                <div style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-sm)" }}>
                   Grouped by prep date, then by job.
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                 <span style={pill(UI.redBg, UI.red)}>Needs Prep: {queueItems.length}</span>
                 <span style={pill(UI.greenBg, UI.green)}>Prepped: {preppedItems.length}</span>
               </div>
@@ -787,22 +854,22 @@ export default function PrepListDashboardPage() {
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        gap: 12,
+                        gap: "var(--space-3)",
                         alignItems: "center",
                         marginBottom: 10,
-                        paddingBottom: 8,
+                        paddingBottom: "var(--space-2)",
                         borderBottom: `1px solid ${UI.line}`,
                       }}
                     >
-                      <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>
+                      <div style={{ fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>
                         {fmtLong(dateGroup.prepDate)}
                       </div>
-                      <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+                      <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, fontWeight: 800 }}>
                         {dateGroup.jobs.length} job{dateGroup.jobs.length === 1 ? "" : "s"}
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gap: "var(--space-3)" }}>
                       {dateGroup.jobs.map((job) => {
                         const doneCount = job.vehicles.filter((v) => v.prepRecord?.completed).length;
                         const pendingCount = job.vehicles.length - doneCount;
@@ -812,9 +879,9 @@ export default function PrepListDashboardPage() {
                             key={job.jobKey}
                             style={{
                               border: `1px solid ${UI.line}`,
-                              borderRadius: 16,
+                              borderRadius: UI.radius,
                               overflow: "hidden",
-                              background: "#fff",
+                              background: "var(--color-white)",
                             }}
                           >
                             <div
@@ -828,7 +895,7 @@ export default function PrepListDashboardPage() {
                                 style={{
                                   display: "flex",
                                   justifyContent: "space-between",
-                                  gap: 12,
+                                  gap: "var(--space-3)",
                                   flexWrap: "wrap",
                                   alignItems: "flex-start",
                                 }}
@@ -837,17 +904,17 @@ export default function PrepListDashboardPage() {
                                   <div style={{ fontSize: 18, fontWeight: 900, color: UI.text }}>
                                     Job #{job.jobNumber} · {job.client}
                                   </div>
-                                  <div style={{ marginTop: 6, fontSize: 13, color: UI.text }}>
+                                  <div style={{ marginTop: 6, fontSize: "var(--font-size-sm)", color: UI.text }}>
                                     {job.location}
                                   </div>
-                                  <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                                  <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                     Prep {fmtShort(job.prepDate)} · Out {fmtShort(job.outingDate)} · {job.status}
                                   </div>
                                 </div>
 
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                                   {job.isManual && <span style={pill(UI.purpleBg, UI.purple)}>Manual</span>}
-                                  <span style={pill("#eef2ff", "#3730a3")}>Vehicles: {job.vehicles.length}</span>
+                                  <span style={pill("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>Vehicles: {job.vehicles.length}</span>
                                   <span style={pill(UI.redBg, UI.red)}>Pending: {pendingCount}</span>
                                   <span style={pill(UI.greenBg, UI.green)}>Done: {doneCount}</span>
                                 </div>
@@ -858,10 +925,10 @@ export default function PrepListDashboardPage() {
                                   style={{
                                     marginTop: 10,
                                     padding: "9px 10px",
-                                    background: "#fff",
+                                    background: "var(--color-white)",
                                     border: `1px solid ${UI.line}`,
                                     borderRadius: 10,
-                                    fontSize: 13,
+                                    fontSize: "var(--font-size-sm)",
                                     color: UI.text,
                                   }}
                                 >
@@ -874,7 +941,7 @@ export default function PrepListDashboardPage() {
                                   <button
                                     type="button"
                                     onClick={() => router.push(`/view-booking/${job.bookingId}`)}
-                                    style={{ ...buttonBase, padding: "8px 10px", fontSize: 12 }}
+                                    style={{ ...buttonBase, padding: "8px 10px", fontSize: "var(--font-size-xs)" }}
                                   >
                                     Open Booking
                                   </button>
@@ -892,17 +959,18 @@ export default function PrepListDashboardPage() {
                                 return (
                                   <div
                                     key={item.sectionKey}
+                                    className="prep-dashboard-vehicle-row"
                                     style={{
                                       padding: 14,
                                       borderTop: idx === 0 ? "none" : `1px solid ${UI.line}`,
-                                      background: record.completed ? "#fcfffd" : "#fff",
+                                      background: record.completed ? "var(--legacy-color-fcfffd)" : "var(--color-white)",
                                     }}
                                   >
                                     <div
                                       style={{
                                         display: "grid",
                                         gridTemplateColumns: "minmax(0,1fr) auto",
-                                        gap: 12,
+                                        gap: "var(--space-3)",
                                         alignItems: "start",
                                       }}
                                     >
@@ -911,11 +979,11 @@ export default function PrepListDashboardPage() {
                                           style={{
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: 8,
+                                            gap: "var(--space-2)",
                                             flexWrap: "wrap",
                                           }}
                                         >
-                                          <div style={{ fontSize: 16, fontWeight: 900, color: UI.text }}>
+                                          <div style={{ fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>
                                             {item.vehicleLabel}
                                           </div>
                                           {record.completed ? (
@@ -926,7 +994,7 @@ export default function PrepListDashboardPage() {
                                         </div>
 
                                         {record.completed ? (
-                                          <div style={{ marginTop: 8, fontSize: 13, color: UI.muted }}>
+                                          <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-sm)", color: UI.muted }}>
                                             Completed by <b style={{ color: UI.text }}>{record.preparedBy || "-"}</b> on{" "}
                                             <b style={{ color: UI.text }}>{fmtDateTime(record.preparedAt)}</b>
                                           </div>
@@ -935,12 +1003,12 @@ export default function PrepListDashboardPage() {
                                         {record.notes ? (
                                           <div
                                             style={{
-                                              marginTop: 8,
+                                              marginTop: "var(--space-2)",
                                               padding: "8px 10px",
                                               background: UI.soft,
                                               border: `1px solid ${UI.line}`,
                                               borderRadius: 10,
-                                              fontSize: 13,
+                                              fontSize: "var(--font-size-sm)",
                                               color: UI.text,
                                             }}
                                           >
@@ -949,17 +1017,18 @@ export default function PrepListDashboardPage() {
                                         ) : null}
                                       </div>
 
-                                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                                         {!record.completed ? (
                                           <button
                                             type="button"
                                             onClick={() => toggleExpanded(item.sectionKey)}
                                             style={{
                                               ...buttonBase,
-                                              borderColor: "#2563eb",
-                                              color: "#2563eb",
+                                              borderColor: "var(--legacy-color-2563eb)",
+                                              color: "var(--legacy-color-2563eb)",
                                             }}
                                           >
+                                            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                             {expanded ? "Close" : "Prep"}
                                           </button>
                                         ) : (
@@ -969,11 +1038,11 @@ export default function PrepListDashboardPage() {
                                               onClick={() => handleUndoPrep(item)}
                                               style={{
                                                 ...buttonBase,
-                                                borderColor: "#dc2626",
-                                                color: "#dc2626",
+                                                borderColor: "var(--legacy-color-dc2626)",
+                                                color: "var(--legacy-color-dc2626)",
                                               }}
                                             >
-                                              Undo
+                                              <RotateCcw size={14} /> Undo
                                             </button>
                                             <button
                                               type="button"
@@ -984,7 +1053,7 @@ export default function PrepListDashboardPage() {
                                                 color: UI.purple,
                                               }}
                                             >
-                                              Archive
+                                              <Archive size={14} /> Archive
                                             </button>
                                           </>
                                         )}
@@ -994,8 +1063,8 @@ export default function PrepListDashboardPage() {
                                     {expanded && !record.completed ? (
                                       <div
                                         style={{
-                                          marginTop: 12,
-                                          paddingTop: 12,
+                                          marginTop: "var(--space-3)",
+                                          paddingTop: "var(--space-3)",
                                           borderTop: `1px dashed ${UI.line}`,
                                           display: "grid",
                                           gap: 10,
@@ -1042,10 +1111,10 @@ export default function PrepListDashboardPage() {
                                               ...buttonBase,
                                               background: UI.green,
                                               borderColor: UI.green,
-                                              color: "#fff",
+                                              color: "var(--color-white)",
                                             }}
                                           >
-                                            Mark as Prepped
+                                            <CheckCircle2 size={14} /> Mark as Prepped
                                           </button>
                                         </div>
                                       </div>
@@ -1064,12 +1133,13 @@ export default function PrepListDashboardPage() {
             )}
           </section>
 
-          <aside style={{ display: "grid", gap: 16 }}>
-            <section style={{ ...panel, padding: 16 }}>
-              <h3 style={{ margin: "0 0 10px", fontSize: 18, color: UI.text }}>
+          <aside className="prep-dashboard-aside" style={{ display: "grid", gap: "var(--space-3)" }}>
+            <section style={{ ...panel, padding: "var(--space-3)" }}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "var(--font-size-lg)", color: UI.text, display: "flex", alignItems: "center", gap: 7 }}>
+                <CalendarDays size={17} color={UI.brand} />
                 Tomorrow&apos;s Prep
               </h3>
-              <div style={{ fontSize: 13, color: UI.muted, marginBottom: 12 }}>
+              <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginBottom: "var(--space-3)" }}>
                 {fmtLong(tomorrow)}
               </div>
 
@@ -1081,20 +1151,20 @@ export default function PrepListDashboardPage() {
                     <div
                       key={job.jobKey}
                       style={{
-                        padding: 12,
+                        padding: "var(--space-3)",
                         border: `1px solid ${UI.line}`,
-                        borderRadius: 12,
-                        background: "#fff",
+                        borderRadius: UI.radius,
+                        background: "var(--color-white)",
                       }}
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>
                         Job #{job.jobNumber} · {job.client}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: UI.text }}>{job.location}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+                      <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.text }}>{job.location}</div>
+                      <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
                         Outing: {fmtLong(job.outingDate)}
                       </div>
-                      <div style={{ marginTop: 8, fontSize: 12, color: UI.text }}>
+                      <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-xs)", color: UI.text }}>
                         {job.vehicles.map((v) => v.vehicleLabel).join(", ")}
                       </div>
                     </div>
@@ -1103,80 +1173,81 @@ export default function PrepListDashboardPage() {
               )}
             </section>
 
-            <section style={{ ...panel, padding: 16 }}>
-              <h3 style={{ margin: "0 0 10px", fontSize: 18, color: UI.text }}>
+            <section style={{ ...panel, padding: "var(--space-3)" }}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "var(--font-size-lg)", color: UI.text, display: "flex", alignItems: "center", gap: 7 }}>
+                <Archive size={17} color={UI.purple} />
                 Archive
               </h3>
-              <div style={{ fontSize: 13, color: UI.muted, marginBottom: 12 }}>
+              <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginBottom: "var(--space-3)" }}>
                 Jobs move here once the outing date has passed.
               </div>
 
               {groupedArchive.length === 0 ? (
                 <div style={{ color: UI.muted }}>No archived prep history yet.</div>
               ) : (
-                <div style={{ display: "grid", gap: 12, maxHeight: 760, overflowY: "auto" }}>
+                <div style={{ display: "grid", gap: "var(--space-3)", maxHeight: 760, overflowY: "auto" }}>
                   {groupedArchive.map((dateGroup) => (
                     <div key={dateGroup.prepYmd}>
                       <div
                         style={{
-                          fontSize: 13,
+                          fontSize: "var(--font-size-sm)",
                           fontWeight: 900,
                           color: UI.text,
-                          marginBottom: 8,
+                          marginBottom: "var(--space-2)",
                         }}
                       >
                         {fmtLong(dateGroup.prepDate)}
                       </div>
 
-                      <div style={{ display: "grid", gap: 8 }}>
+                      <div style={{ display: "grid", gap: "var(--space-2)" }}>
                         {dateGroup.jobs.map((job) => (
                           <div
                             key={job.jobKey}
                             style={{
                               padding: 10,
                               border: `1px solid ${UI.line}`,
-                              borderRadius: 12,
-                              background: "#fff",
+                              borderRadius: UI.radius,
+                              background: "var(--color-white)",
                             }}
                           >
                             <div style={{ fontWeight: 900, color: UI.text }}>
                               Job #{job.jobNumber} · {job.client}
                             </div>
-                            <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+                            <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
                               Outing: {fmtLong(job.outingDate)}
                             </div>
 
-                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                            <div style={{ marginTop: "var(--space-2)", display: "grid", gap: "var(--space-2)" }}>
                               {job.vehicles.map((item) => (
                                 <div
                                   key={item.sectionKey}
                                   style={{
-                                    paddingTop: 8,
+                                    paddingTop: "var(--space-2)",
                                     borderTop: `1px solid ${UI.line}`,
                                   }}
                                 >
-                                  <div style={{ fontSize: 13, fontWeight: 800, color: UI.text }}>
+                                  <div style={{ fontSize: "var(--font-size-sm)", fontWeight: 800, color: UI.text }}>
                                     {item.vehicleLabel}
                                   </div>
-                                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+                                  <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                     Completed by <b style={{ color: UI.text }}>{item.prepRecord?.preparedBy || "-"}</b>
                                   </div>
-                                  <div style={{ marginTop: 4, fontSize: 12, color: UI.muted }}>
+                                  <div style={{ marginTop: "var(--space-1)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
                                     {fmtDateTime(item.prepRecord?.preparedAt)}
                                   </div>
                                   {item.prepRecord?.notes ? (
-                                    <div style={{ marginTop: 6, fontSize: 12, color: UI.text }}>
+                                    <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.text }}>
                                       <b>Notes:</b> {item.prepRecord.notes}
                                     </div>
                                   ) : null}
                                   {item.outingYmd >= todayYmd ? (
-                                    <div style={{ marginTop: 8 }}>
+                                    <div style={{ marginTop: "var(--space-2)" }}>
                                       <button
                                         type="button"
                                         onClick={() => handleUnarchive(item)}
-                                        style={{ ...buttonBase, padding: "7px 10px", fontSize: 12 }}
+                                        style={{ ...buttonBase, padding: "7px 10px", fontSize: "var(--font-size-xs)" }}
                                       >
-                                        Unarchive
+                                        <RotateCcw size={14} /> Unarchive
                                       </button>
                                     </div>
                                   ) : null}

@@ -30,13 +30,13 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-subtle)",
+  brand: "var(--color-info)",
+  brandSoft: "var(--color-info-soft)",
 };
 
 const pageWrap = {
@@ -49,8 +49,8 @@ const headerBar = {
   display: "flex",
   alignItems: "baseline",
   justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 16,
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-4)",
 };
 
 const h1 = {
@@ -62,7 +62,7 @@ const h1 = {
   margin: 0,
 };
 
-const sub = { color: UI.muted, fontSize: 13 };
+const sub = { color: UI.muted, fontSize: "var(--font-size-sm)" };
 
 const surface = {
   background: UI.card,
@@ -73,27 +73,27 @@ const surface = {
 
 const card = {
   ...surface,
-  padding: 16,
+  padding: "var(--space-4)",
 };
 
 const sectionHeader = {
   display: "flex",
   alignItems: "baseline",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 10,
 };
 
-const titleMd = { fontSize: 16, fontWeight: 900, color: UI.text, margin: 0 };
-const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
+const titleMd = { fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text, margin: 0 };
+const hint = { color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" };
 
 const chip = {
   padding: "6px 10px",
-  borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  borderRadius: "var(--radius-pill)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -103,8 +103,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--color-white)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -115,9 +115,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#991b1b",
+      border: "1px solid var(--color-danger-border)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--color-danger)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -128,7 +128,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--color-white)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -138,11 +138,11 @@ const btn = (kind = "primary") => {
 const input = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
 const tableWrap = {
@@ -150,7 +150,7 @@ const tableWrap = {
   overflow: "auto",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
 const table = {
@@ -163,33 +163,33 @@ const table = {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--color-surface-subtle)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   color: UI.text,
 };
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "top",
 };
 
 const pill = (active) => ({
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   padding: "6px 10px",
-  borderRadius: 999,
-  border: `1px solid ${active ? "#93c5fd" : "#e5e7eb"}`,
-  background: active ? "#eff6ff" : "#f8fafc",
-  color: active ? "#1d4ed8" : UI.text,
-  fontSize: 12,
+  borderRadius: "var(--radius-pill)",
+  border: `1px solid ${active ? "var(--legacy-color-93c5fd)" : "var(--legacy-color-e5e7eb)"}`,
+  background: active ? "var(--color-info-soft)" : "var(--color-surface-subtle)",
+  color: active ? "var(--color-info)" : UI.text,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   cursor: "pointer",
   userSelect: "none",
@@ -449,15 +449,15 @@ export default function UCrewManagePage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+            <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
               Showing: {visibleCount} / {filtered.length}
             </div>
             <div
               style={{
                 ...chip,
-                background: savedPulse ? "#ecfdf5" : "#f1f5f9",
-                borderColor: savedPulse ? "#34d399" : "#e5e7eb",
-                color: savedPulse ? "#065f46" : UI.text,
+                background: savedPulse ? "var(--color-success-soft)" : "var(--legacy-color-f1f5f9)",
+                borderColor: savedPulse ? "var(--legacy-color-34d399)" : "var(--legacy-color-e5e7eb)",
+                color: savedPulse ? "var(--legacy-color-065f46)" : UI.text,
               }}
             >
               {savingKey ? "Saving…" : savedPulse ? "Saved Yes" : "Ready"}
@@ -477,7 +477,7 @@ export default function UCrewManagePage() {
               <div style={hint}>Search by name/email/job title. Filter by U-Crane role.</div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, ...chip, cursor: "pointer" }}>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", ...chip, cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={showOnlyVisible}
@@ -488,7 +488,7 @@ export default function UCrewManagePage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "var(--space-3)" }}>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -552,14 +552,14 @@ export default function UCrewManagePage() {
                     <tr
                       key={rowKey}
                       style={{
-                        background: i % 2 === 0 ? "#fff" : "#fafafa",
+                        background: i % 2 === 0 ? "var(--color-white)" : "var(--legacy-color-fafafa)",
                         opacity: savingThis ? 0.65 : 1,
                         transition: "opacity .12s ease",
                       }}
                     >
                       <td style={td}>
                         {isFreelancer ? (
-                          <div style={{ display: "grid", gap: 8 }}>
+                          <div style={{ display: "grid", gap: "var(--space-2)" }}>
                             <div style={{ fontWeight: 900, color: UI.text }}>
                               <input
                                 value={row.name || ""}
@@ -590,8 +590,8 @@ export default function UCrewManagePage() {
                         ) : (
                           <>
                             <div style={{ fontWeight: 900, color: UI.text }}>{name}</div>
-                            {email && <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{email}</div>}
-                            <div style={{ fontSize: 12, color: UI.muted, marginTop: 6 }}>
+                            {email && <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 2 }}>{email}</div>}
+                            <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 6 }}>
                               Doc ID: <code style={{ fontWeight: 800 }}>{row.id}</code>
                             </div>
                           </>
@@ -600,7 +600,7 @@ export default function UCrewManagePage() {
 
                       <td style={td}>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          <span style={{ ...chip, background: isFreelancer ? "#fff7ed" : "#f1f5f9", borderColor: isFreelancer ? "#fed7aa" : "#e5e7eb" }}>
+                          <span style={{ ...chip, background: isFreelancer ? "var(--color-warning-soft)" : "var(--legacy-color-f1f5f9)", borderColor: isFreelancer ? "var(--color-warning-border)" : "var(--legacy-color-e5e7eb)" }}>
                             {isFreelancer ? "Freelancer" : "Employee"}
                           </span>
                           {!isFreelancer &&
@@ -628,7 +628,7 @@ export default function UCrewManagePage() {
                       </td>
 
                       <td style={td}>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                           {UCRANE_ROLES.map((r) => {
                             const active = roles.some((x) => String(x).trim() === r.key);
                             return (
@@ -646,7 +646,7 @@ export default function UCrewManagePage() {
                           })}
                         </div>
 
-                        <div style={{ marginTop: 8, fontSize: 12, color: UI.muted }}>
+                        <div style={{ marginTop: "var(--space-2)", fontSize: "var(--font-size-xs)", color: UI.muted }}>
                           Stored keys:{" "}
                           <code style={{ fontWeight: 800 }}>{roles.length ? roles.join(", ") : "none"}</code>
                         </div>
@@ -664,7 +664,7 @@ export default function UCrewManagePage() {
                             Delete
                           </button>
                         ) : (
-                          <span style={{ color: UI.muted, fontSize: 12 }}>
+                          <span style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                             Edit employees in HR
                           </span>
                         )}
@@ -677,7 +677,7 @@ export default function UCrewManagePage() {
                   <tr>
                     <td style={td} colSpan={5}>
                       <div style={{ color: UI.muted, fontWeight: 700 }}>No results.</div>
-                      <div style={{ color: UI.muted, fontSize: 12, marginTop: 6 }}>
+                      <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: 6 }}>
                         Try clearing filters or searching a different name/job title.
                       </div>
                     </td>
@@ -687,7 +687,7 @@ export default function UCrewManagePage() {
             </table>
           </div>
 
-          <div style={{ marginTop: 12, color: UI.muted, fontSize: 12, lineHeight: 1.4 }}>
+          <div style={{ marginTop: "var(--space-3)", color: UI.muted, fontSize: "var(--font-size-xs)", lineHeight: 1.4 }}>
             <b>Next step (to make Create Booking obey this):</b> your Create U-Crane page must filter crew by
             <code> uCraneVisible </code> + <code> uCraneRoles </code> (instead of only <code>jobTitle</code>).
             If you paste that file path you’re using for U-Crane create, I’ll wire it in one go.
@@ -716,14 +716,14 @@ export default function UCrewManagePage() {
                 ...surface,
                 width: 620,
                 maxWidth: "95vw",
-                padding: 16,
+                padding: "var(--space-4)",
               }}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: UI.text }}>Add Freelancer</h3>
-                  <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
+                  <h3 style={{ margin: 0, fontSize: "var(--font-size-lg)", fontWeight: 900, color: UI.text }}>Add Freelancer</h3>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", marginTop: "var(--space-1)" }}>
                     Saves into Firestore: <code>uCraneFreelancers</code>
                   </div>
                 </div>
@@ -732,7 +732,7 @@ export default function UCrewManagePage() {
                 </button>
               </div>
 
-              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+              <div style={{ display: "grid", gap: 10, marginTop: "var(--space-3)" }}>
                 <input
                   style={input}
                   placeholder="Full name *"
@@ -762,7 +762,7 @@ export default function UCrewManagePage() {
                 />
 
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, ...chip, cursor: "pointer" }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)", ...chip, cursor: "pointer" }}>
                     <input
                       type="checkbox"
                       checked={!!newF.uCraneVisible}
@@ -771,12 +771,12 @@ export default function UCrewManagePage() {
                     Visible on Create
                   </label>
 
-                  <div style={{ color: UI.muted, fontSize: 12 }}>
+                  <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>
                     Pick their U-Crane roles:
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   {UCRANE_ROLES.map((r) => {
                     const active = (newF.uCraneRoles || []).includes(r.key);
                     return (
@@ -799,7 +799,7 @@ export default function UCrewManagePage() {
                   })}
                 </div>
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: "var(--space-2)" }}>
                   <button type="button" style={btn("ghost")} onClick={() => setAddOpen(false)}>
                     Cancel
                   </button>

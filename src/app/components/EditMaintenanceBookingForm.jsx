@@ -587,7 +587,7 @@ export default function EditMaintenanceBookingForm({
           <div>
             <h2 style={modalTitle}>{title}</h2>
             <div style={modalSubtitle}>
-              Vehicle: <b style={{ color: "#0f172a" }}>{vehicleLabel || "—"}</b>
+              Vehicle: <b style={{ color: "var(--color-text)" }}>{vehicleLabel || "—"}</b>
             </div>
             <div style={modalMeta}>
               Booking ID: <b>{bookingId}</b>
@@ -602,11 +602,11 @@ export default function EditMaintenanceBookingForm({
         {loadError ? (
           <div
             style={{
-              marginBottom: 12,
-              border: "1px solid #fecaca",
-              background: "#fef2f2",
-              color: "#b91c1c",
-              borderRadius: 12,
+              marginBottom: "var(--space-3)",
+              border: "1px solid var(--color-danger-border)",
+              background: "var(--color-danger-soft)",
+              color: "var(--legacy-color-b91c1c)",
+              borderRadius: "var(--radius-lg)",
               padding: "10px 12px",
               fontSize: 12.5,
               fontWeight: 700,
@@ -619,11 +619,11 @@ export default function EditMaintenanceBookingForm({
         {formError ? (
           <div
             style={{
-              marginBottom: 12,
-              border: "1px solid #fecaca",
-              background: "#fef2f2",
-              color: "#b91c1c",
-              borderRadius: 12,
+              marginBottom: "var(--space-3)",
+              border: "1px solid var(--color-danger-border)",
+              background: "var(--color-danger-soft)",
+              color: "var(--legacy-color-b91c1c)",
+              borderRadius: "var(--radius-lg)",
               padding: "10px 12px",
               fontSize: 12.5,
               fontWeight: 700,
@@ -635,7 +635,7 @@ export default function EditMaintenanceBookingForm({
         ) : null}
 
         {loading ? (
-          <div style={{ padding: 14, color: "#5f6f82", fontSize: 13, fontWeight: 800 }}>Loading booking...</div>
+          <div style={{ padding: 14, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", fontWeight: 800 }}>Loading booking...</div>
         ) : (
           <form onSubmit={handleSubmit} style={formGrid}>
             {/* Type */}
@@ -700,10 +700,10 @@ export default function EditMaintenanceBookingForm({
                   gridColumn: "1 / -1",
                   border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
                   background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
-                  color: "#0f172a",
-                  borderRadius: 8,
+                  color: "var(--color-text)",
+                  borderRadius: "var(--radius-md)",
                   padding: "10px 12px",
-                  fontSize: 13,
+                  fontSize: "var(--font-size-sm)",
                   lineHeight: 1.4,
                   fontWeight: 750,
                 }}
@@ -824,7 +824,7 @@ export default function EditMaintenanceBookingForm({
                   margin: 0,
                 }}
               >
-                <div style={{ fontWeight: 900, marginBottom: 4 }}>Booking conflict</div>
+                <div style={{ fontWeight: 900, marginBottom: "var(--space-1)" }}>Booking conflict</div>
                 <div>{conflictMsg}</div>
               </div>
             ) : null}
@@ -923,7 +923,7 @@ export default function EditMaintenanceBookingForm({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 placeholder="Drop-off times, contact, what to fix, etc…"
-                style={{ ...input, minHeight: 80, resize: "vertical", paddingTop: 12 }}
+                style={{ ...input, minHeight: 80, resize: "vertical", paddingTop: "var(--space-3)" }}
               />
             </div>
 
@@ -963,7 +963,7 @@ export default function EditMaintenanceBookingForm({
                 ...fullWidth,
                 ...dangerBtn,
                 border: "1px solid rgba(239,68,68,0.85)",
-                background: "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)",
+                background: "linear-gradient(180deg, var(--legacy-color-ef4444) 0%, var(--legacy-color-b91c1c) 100%)",
                 opacity: saving ? 0.65 : 1,
                 cursor: saving ? "not-allowed" : "pointer",
               }}
@@ -1008,11 +1008,11 @@ const modal = {
   width: "min(800px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflowY: "auto",
-  borderRadius: 8,
+  borderRadius: "var(--radius-md)",
   padding: 0,
-  color: "#0f172a",
-  background: "#f3f6f9",
-  border: "1px solid #d7dee8",
+  color: "var(--color-text)",
+  background: "var(--color-canvas)",
+  border: "var(--border-default)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
 };
 
@@ -1020,10 +1020,10 @@ const headerRow = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   padding: "14px 16px",
-  background: "#ffffff",
-  borderBottom: "1px solid #d7dee8",
+  background: "var(--color-white)",
+  borderBottom: "1px solid var(--color-border)",
 };
 
 const modalTitle = {
@@ -1035,27 +1035,27 @@ const modalTitle = {
 };
 
 const modalSubtitle = {
-  marginTop: 4,
+  marginTop: "var(--space-1)",
   fontSize: 12.5,
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontWeight: 700,
 };
 
 const modalMeta = {
-  marginTop: 4,
-  fontSize: 12,
-  color: "#7b8794",
+  marginTop: "var(--space-1)",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--legacy-color-7b8794)",
   fontWeight: 700,
 };
 
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
-  background: "#ffffff",
-  color: "#5f6f82",
-  fontSize: 14,
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
+  color: "var(--color-text-muted)",
+  fontSize: "var(--font-size-md)",
   fontWeight: 900,
   cursor: "pointer",
   lineHeight: 1,
@@ -1065,7 +1065,7 @@ const label = {
   display: "block",
   fontSize: 11.5,
   fontWeight: 900,
-  color: "#52657a",
+  color: "var(--legacy-color-52657a)",
   marginBottom: 6,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -1074,12 +1074,12 @@ const label = {
 const input = {
   width: "100%",
   padding: "9px 10px",
-  borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  backgroundColor: "#ffffff",
-  color: "#0f172a",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-border-strong)",
+  backgroundColor: "var(--color-white)",
+  color: "var(--color-text)",
   outline: "none",
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
   appearance: "none",
 };
@@ -1087,9 +1087,9 @@ const input = {
 const formGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 12,
+  gap: "var(--space-3)",
   alignItems: "start",
-  padding: 12,
+  padding: "var(--space-3)",
 };
 
 const fieldBlock = {
@@ -1102,7 +1102,7 @@ const fullWidth = {
 
 const equipmentSearchShell = {
   display: "grid",
-  gap: 8,
+  gap: "var(--space-2)",
 };
 
 const equipmentSearchBox = {
@@ -1111,26 +1111,26 @@ const equipmentSearchBox = {
 
 const selectedEquipmentWrap = {
   display: "flex",
-  gap: 8,
+  gap: "var(--space-2)",
   flexWrap: "wrap",
 };
 
 const selectedEquipmentChip = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 8,
-  border: "1px solid #b8c8d8",
-  borderRadius: 999,
-  background: "#e8f2fb",
-  color: "#1f4b7a",
+  gap: "var(--space-2)",
+  border: "1px solid var(--legacy-color-b8c8d8)",
+  borderRadius: "var(--radius-pill)",
+  background: "var(--legacy-color-e8f2fb)",
+  color: "var(--color-brand)",
   padding: "6px 9px",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const chipRemove = {
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontSize: 11,
   fontWeight: 900,
 };
@@ -1145,9 +1145,9 @@ const equipmentResults = {
   zIndex: 20,
   maxHeight: 245,
   overflowY: "auto",
-  border: "1px solid #d7dee8",
-  borderRadius: 8,
-  background: "#ffffff",
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
   padding: 6,
   boxShadow: "0 14px 30px rgba(15,23,42,0.18)",
 };
@@ -1155,10 +1155,10 @@ const equipmentResults = {
 const equipmentResultItem = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: "var(--space-2)",
   border: "1px solid transparent",
-  borderRadius: 8,
-  background: "#ffffff",
+  borderRadius: "var(--radius-md)",
+  background: "var(--color-white)",
   padding: "8px 10px",
   minWidth: 0,
   cursor: "pointer",
@@ -1171,8 +1171,8 @@ const equipmentResultText = {
 };
 
 const equipmentResultName = {
-  color: "#0f172a",
-  fontSize: 13,
+  color: "var(--color-text)",
+  fontSize: "var(--font-size-sm)",
   fontWeight: 900,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -1180,7 +1180,7 @@ const equipmentResultName = {
 };
 
 const equipmentResultCategory = {
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontSize: 11.5,
   fontWeight: 800,
   overflow: "hidden",
@@ -1190,24 +1190,24 @@ const equipmentResultCategory = {
 
 const emptySearchState = {
   padding: "10px 12px",
-  color: "#5f6f82",
+  color: "var(--color-text-muted)",
   fontSize: 12.5,
   fontWeight: 800,
 };
 
 const helperText = {
-  marginTop: 8,
-  fontSize: 12,
-  color: "#5f6f82",
+  marginTop: "var(--space-2)",
+  fontSize: "var(--font-size-xs)",
+  color: "var(--color-text-muted)",
   lineHeight: 1.4,
 };
 
 const feedbackError = {
-  margin: 12,
-  border: "1px solid #fecaca",
-  background: "#fef2f2",
-  color: "#991b1b",
-  borderRadius: 8,
+  margin: "var(--space-3)",
+  border: "1px solid var(--color-danger-border)",
+  background: "var(--color-danger-soft)",
+  color: "var(--color-danger)",
+  borderRadius: "var(--radius-md)",
   padding: "10px 12px",
   fontSize: 12.5,
   fontWeight: 800,
@@ -1217,24 +1217,24 @@ const feedbackError = {
 const primaryBtn = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #1f4b7a",
-  background: "#1f4b7a",
-  color: "#fff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--color-brand)",
+  background: "var(--color-brand)",
+  color: "var(--color-white)",
   fontWeight: 900,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
 };
 
 const dangerBtn = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #b91c1c",
-  background: "#b91c1c",
-  color: "#ffffff",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-b91c1c)",
+  background: "var(--legacy-color-b91c1c)",
+  color: "var(--color-white)",
   fontWeight: 900,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
 };
@@ -1242,11 +1242,11 @@ const dangerBtn = {
 const ghostBtn = {
   width: "100%",
   padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #b8c8d8",
-  background: "#ffffff",
-  color: "#1f4b7a",
+  borderRadius: "var(--radius-md)",
+  border: "1px solid var(--legacy-color-b8c8d8)",
+  background: "var(--color-white)",
+  color: "var(--color-brand)",
   fontWeight: 900,
-  fontSize: 14,
+  fontSize: "var(--font-size-md)",
   cursor: "pointer",
 };

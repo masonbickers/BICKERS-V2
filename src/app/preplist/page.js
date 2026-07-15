@@ -11,19 +11,19 @@ import { useAuth } from "@/app/context/authContext";
 import { dataAccessKey, tenantCollectionQuery } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#111827",
-  muted: "#6b7280",
-  border: "1px solid #e5e7eb",
-  green: "#065f46",
-  greenBg: "#ecfdf5",
-  red: "#991b1b",
-  redBg: "#fef2f2",
-  blue: "#1d4ed8",
-  blueBg: "#eff6ff",
-  purple: "#6d28d9",
-  purpleBg: "#f5f3ff",
+  bg: "var(--color-surface-subtle)",
+  card: "var(--color-surface)",
+  text: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-6b7280)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  green: "var(--legacy-color-065f46)",
+  greenBg: "var(--color-success-soft)",
+  red: "var(--color-danger)",
+  redBg: "var(--color-danger-soft)",
+  blue: "var(--color-info)",
+  blueBg: "var(--color-info-soft)",
+  purple: "var(--legacy-color-6d28d9)",
+  purpleBg: "var(--legacy-color-f5f3ff)",
 };
 
 const PREP_STORAGE_KEY = "preplist:vehicle-checks:v4";
@@ -47,28 +47,28 @@ const pageWrap = {
 const card = {
   background: UI.card,
   border: UI.border,
-  borderRadius: 12,
-  padding: 16,
+  borderRadius: "var(--radius-lg)",
+  padding: "var(--space-4)",
 };
 
 const buttonBase = {
   padding: "8px 10px",
   borderRadius: 10,
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--color-white)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
 };
 
 const inputBase = {
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
+  border: "1px solid var(--legacy-color-d1d5db)",
+  borderRadius: "var(--radius-md)",
   padding: "7px 9px",
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   width: "100%",
-  background: "#fff",
+  background: "var(--color-white)",
   color: UI.text,
 };
 
@@ -77,7 +77,7 @@ const badge = (bg, color) => ({
   alignItems: "center",
   gap: 6,
   padding: "3px 8px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   background: bg,
   color,
   fontSize: 10,
@@ -140,6 +140,13 @@ const normaliseVehicleLabel = (v, vehicleById) => {
   return String(vehicleById.get(key) || key || "Vehicle");
 };
 
+const normaliseVehicleKey = (v, fallback) => {
+  if (v && typeof v === "object") {
+    return safeLower(v.id || v.registration || v.reg || v.name || fallback);
+  }
+  return safeLower(v || fallback);
+};
+
 const defaultItemsForSection = (equipment) => [
   { id: itemId(), text: "Check clean & tidy inside & out.", checked: false, isEquipment: false },
   { id: itemId(), text: "Check work area is clean & tidy.", checked: false, isEquipment: false },
@@ -195,6 +202,8 @@ function groupSectionsByJob(list) {
   });
 
   return Array.from(map.values()).sort((a, b) => {
+    const dateCompare = String(a.prepYmd || "").localeCompare(String(b.prepYmd || ""));
+    if (dateCompare !== 0) return dateCompare;
     const jobCompare = String(a.jobNumber || "").localeCompare(String(b.jobNumber || ""));
     if (jobCompare !== 0) return jobCompare;
     return String(a.client || "").localeCompare(String(b.client || ""));
@@ -213,7 +222,8 @@ export default function PrepListPage() {
 
   const [prepRecordsByKey, setPrepRecordsByKey] = useState({});
   const [manualEntries, setManualEntries] = useState([]);
-  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedFromDay, setSelectedFromDay] = useState("");
+  const [selectedToDay, setSelectedToDay] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [cloudHydrated, setCloudHydrated] = useState(false);
@@ -421,6 +431,7 @@ export default function PrepListPage() {
 
         out.push({
           sectionKey,
+          vehicleKey: normaliseVehicleKey(vehicleValue, sectionKey),
           bookingId: b.id,
           isManual: false,
           prepDate,
@@ -453,6 +464,7 @@ export default function PrepListPage() {
 
       out.push({
         sectionKey,
+        vehicleKey: safeLower(m.vehicleId || vehicleLabel || sectionKey),
         bookingId: null,
         isManual: true,
         manualId: m.id,
@@ -572,28 +584,41 @@ export default function PrepListPage() {
 
   useEffect(() => {
     const dayParam = String(searchParams.get("day") || "").trim();
+    const fromParam = String(searchParams.get("from") || "").trim();
+    const toParam = String(searchParams.get("to") || "").trim();
 
     if (!availableDays.length) {
-      setSelectedDay("");
+      setSelectedFromDay("");
+      setSelectedToDay("");
       return;
     }
 
-    setSelectedDay((current) => {
-      if (dayParam && availableDays.includes(dayParam)) return dayParam;
-      if (current && availableDays.includes(current)) return current;
+    const fallback = availableDays.includes(todayYmd) ? todayYmd : availableDays[0];
+    const initialFrom = fromParam || dayParam || fallback;
+    const initialTo = toParam || dayParam || initialFrom;
+
+    setSelectedFromDay((current) => {
+      if (fromParam || dayParam) return initialFrom;
+      if (current) return current;
+      return fallback;
+    });
+    setSelectedToDay((current) => {
+      if (toParam || dayParam) return initialTo;
+      if (current) return current;
       return availableDays.includes(todayYmd) ? todayYmd : availableDays[0];
     });
   }, [availableDays, searchParams, todayYmd]);
 
   useEffect(() => {
-    if (!selectedDay) return;
-    setManualForm((prev) => ({ ...prev, prepDate: selectedDay }));
-    setFleetForm((prev) => ({ ...prev, prepDate: selectedDay }));
-  }, [selectedDay]);
+    if (!selectedFromDay) return;
+    setManualForm((prev) => ({ ...prev, prepDate: selectedFromDay }));
+    setFleetForm((prev) => ({ ...prev, prepDate: selectedFromDay }));
+  }, [selectedFromDay]);
 
   const visibleSections = useMemo(() => {
-    return prepItems
-      .filter((item) => !selectedDay || item.prepYmd === selectedDay)
+    const inRange = prepItems
+      .filter((item) => !selectedFromDay || item.prepYmd >= selectedFromDay)
+      .filter((item) => !selectedToDay || item.prepYmd <= selectedToDay)
       .filter((item) => {
         const record = prepRecordsByKey?.[item.sectionKey] || {};
         const archived = isArchivedRecord(record, item.outingYmd, todayYmd);
@@ -604,14 +629,27 @@ export default function PrepListPage() {
         if (completed) return false;
 
         return true;
-      })
+      });
+
+    // A vehicle can be attached to several jobs in the selected period. The
+    // prep sheet only needs its first upcoming occurrence so it is listed once.
+    const seenVehicles = new Set();
+    const uniqueVehicles = inRange.filter((item) => {
+      const key = item.vehicleKey || safeLower(item.vehicleLabel) || item.sectionKey;
+      if (seenVehicles.has(key)) return false;
+      seenVehicles.add(key);
+      return true;
+    });
+
+    return uniqueVehicles
       .sort((a, b) => {
+        if (a.prepYmd !== b.prepYmd) return a.prepYmd.localeCompare(b.prepYmd);
         if (String(a.jobNumber || "") !== String(b.jobNumber || "")) {
           return String(a.jobNumber || "").localeCompare(String(b.jobNumber || ""));
         }
         return a.vehicleLabel.localeCompare(b.vehicleLabel);
       });
-  }, [prepItems, selectedDay, prepRecordsByKey, showArchived, todayYmd]);
+  }, [prepItems, selectedFromDay, selectedToDay, prepRecordsByKey, showArchived, todayYmd]);
 
   const groupedVisibleSections = useMemo(
     () => groupSectionsByJob(visibleSections),
@@ -715,7 +753,7 @@ export default function PrepListPage() {
   };
 
   const addManualEntry = () => {
-    const prepDate = String(selectedDay || manualForm.prepDate || "").trim();
+    const prepDate = String(manualForm.prepDate || selectedFromDay || "").trim();
     const vehicleLabel = String(manualForm.vehicleLabel || "").trim();
 
     if (!prepDate) {
@@ -758,7 +796,7 @@ export default function PrepListPage() {
   };
 
   const addFleetEntry = () => {
-    const prepDate = String(selectedDay || fleetForm.prepDate || "").trim();
+    const prepDate = String(fleetForm.prepDate || selectedFromDay || "").trim();
     const vehicleId = String(fleetForm.vehicleId || "").trim();
 
     if (!prepDate) {
@@ -823,8 +861,10 @@ export default function PrepListPage() {
     setManualEntries((prev) => prev.filter((m) => m.id !== manualId));
   };
 
-  const selectedPrepDate = selectedDay ? toDateSafe(selectedDay) : null;
-  const selectedOutDayDate = selectedPrepDate ? addDays(selectedPrepDate, 1) : null;
+  const selectedFromDate = selectedFromDay ? toDateSafe(selectedFromDay) : null;
+  const selectedToDate = selectedToDay ? toDateSafe(selectedToDay) : null;
+  const selectedOutFromDate = selectedFromDate ? addDays(selectedFromDate, 1) : null;
+  const selectedOutToDate = selectedToDate ? addDays(selectedToDate, 1) : null;
   const totalVisible = visibleSections.length;
   const totalReady = visibleSections.filter((s) => !!prepRecordsByKey?.[s.sectionKey]?.ready).length;
 
@@ -872,7 +912,7 @@ export default function PrepListPage() {
           }
 
           body {
-            background: #fff !important;
+            background: var(--color-white) !important;
           }
 
           .no-print {
@@ -880,7 +920,7 @@ export default function PrepListPage() {
           }
 
           .prep-sheet {
-            background: #fff !important;
+            background: var(--color-white) !important;
             padding: 0 !important;
           }
 
@@ -908,7 +948,7 @@ export default function PrepListPage() {
           }
 
           .print-check {
-            border-color: #000 !important;
+            border-color: var(--color-black) !important;
             width: 12px !important;
             height: 12px !important;
             min-width: 12px !important;
@@ -950,12 +990,12 @@ export default function PrepListPage() {
       `}</style>
 
       <div style={pageWrap} className="prep-sheet">
-        <div style={{ ...card, marginBottom: 16 }} className="prep-card">
+        <div style={{ ...card, marginBottom: "var(--space-4)" }} className="prep-card">
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              gap: 12,
+              gap: "var(--space-3)",
               flexWrap: "wrap",
             }}
           >
@@ -969,53 +1009,62 @@ export default function PrepListPage() {
                   textDecoration: "underline",
                 }}
               >
-                Tracking Vehicle Prep List {selectedPrepDate ? fmtLong(selectedPrepDate) : fmtLong(new Date())}
+                Tracking Vehicle Prep List
               </h1>
 
               <div
                 className="print-meta"
-                style={{ marginTop: 4, color: UI.muted, fontSize: 13 }}
+                style={{ marginTop: "var(--space-1)", color: UI.muted, fontSize: "var(--font-size-sm)" }}
               >
-                Select one prep day at a time. Jobs are fetched using the same prep logic as the dashboard.
+                Choose a prep-date range. Each vehicle is shown once on its earliest matching job.
               </div>
 
               <div
                 className="print-meta"
-                style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}
+                style={{ marginTop: 6, display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}
               >
                 <span style={badge(UI.redBg, UI.red)}>Still to Prep: {totalVisible}</span>
                 <span style={badge(UI.blueBg, UI.blue)}>Ready: {totalReady}</span>
-                <span style={badge("#eef2ff", "#3730a3")}>
-                  Prep Day: {selectedPrepDate ? fmtLong(selectedPrepDate) : "Not selected"}
+                <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
+                  Prep: {selectedFromDate ? fmtLong(selectedFromDate) : "Not selected"}
+                  {selectedToDate && selectedToDay !== selectedFromDay
+                    ? ` to ${fmtLong(selectedToDate)}`
+                    : ""}
                 </span>
-                <span style={badge("#fef3c7", "#92400e")}>
-                  Going Out: {selectedOutDayDate ? fmtLong(selectedOutDayDate) : "Not selected"}
+                <span style={badge("var(--legacy-color-fef3c7)", "var(--legacy-color-92400e)")}>
+                  Going Out: {selectedOutFromDate ? fmtLong(selectedOutFromDate) : "Not selected"}
+                  {selectedOutToDate && selectedToDay !== selectedFromDay
+                    ? ` to ${fmtLong(selectedOutToDate)}`
+                    : ""}
                 </span>
               </div>
             </div>
 
-            <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <select
-                value={selectedDay}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedDay(value);
-                  setManualForm((p) => ({ ...p, prepDate: value || p.prepDate }));
-                  setFleetForm((p) => ({ ...p, prepDate: value || p.prepDate }));
-                }}
-                style={{
-                  ...buttonBase,
-                  padding: "10px 12px",
-                  fontWeight: 700,
-                  minWidth: 240,
-                }}
-              >
-                {availableDays.map((d) => (
-                  <option key={d} value={d}>
-                    {fmtLong(toDateSafe(d))}
-                  </option>
-                ))}
-              </select>
+            <div className="no-print" style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+              <label style={{ display: "grid", gap: "var(--space-1)", color: UI.muted, fontSize: 11, fontWeight: 800 }}>
+                FROM PREP DATE
+                <input
+                  type="date"
+                  value={selectedFromDay}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedFromDay(value);
+                    if (!selectedToDay || selectedToDay < value) setSelectedToDay(value);
+                  }}
+                  style={{ ...inputBase, minWidth: 170 }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: "var(--space-1)", color: UI.muted, fontSize: 11, fontWeight: 800 }}>
+                TO PREP DATE
+                <input
+                  type="date"
+                  value={selectedToDay}
+                  min={selectedFromDay}
+                  onChange={(e) => setSelectedToDay(e.target.value)}
+                  style={{ ...inputBase, minWidth: 170 }}
+                />
+              </label>
 
               <button type="button" onClick={() => router.push("/preplist-dashboard")} style={buttonBase}>
                 Prep Dashboard
@@ -1030,9 +1079,9 @@ export default function PrepListPage() {
                 onClick={() => setShowArchived((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showArchived ? "#6d28d9" : "#fff",
-                  color: showArchived ? "#fff" : UI.text,
-                  borderColor: showArchived ? "#6d28d9" : "#d1d5db",
+                  background: showArchived ? "var(--legacy-color-6d28d9)" : "var(--color-white)",
+                  color: showArchived ? "var(--color-white)" : UI.text,
+                  borderColor: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-d1d5db)",
                 }}
               >
                 {showArchived ? "Hide Removed / Archived" : "Show Removed / Archived"}
@@ -1043,9 +1092,9 @@ export default function PrepListPage() {
                 onClick={() => window.print()}
                 style={{
                   ...buttonBase,
-                  background: "#111827",
-                  color: "#fff",
-                  borderColor: "#111827",
+                  background: "var(--legacy-color-111827)",
+                  color: "var(--color-white)",
+                  borderColor: "var(--legacy-color-111827)",
                 }}
               >
                 Print Prep List
@@ -1054,25 +1103,23 @@ export default function PrepListPage() {
           </div>
         </div>
 
-        <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+        <div className="no-print" style={{ ...card, marginBottom: "var(--space-4)" }}>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, marginBottom: 10 }}>
             Add Manual Vehicle Prep
           </div>
 
           <div
             style={{
               display: "grid",
-              gap: 8,
+              gap: "var(--space-2)",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             }}
           >
             <input
               type="date"
-              value={selectedDay || manualForm.prepDate}
+              value={manualForm.prepDate}
               onChange={(e) => {
-                setSelectedDay(e.target.value);
                 setManualForm((p) => ({ ...p, prepDate: e.target.value }));
-                setFleetForm((p) => ({ ...p, prepDate: e.target.value }));
               }}
               style={inputBase}
             />
@@ -1124,9 +1171,9 @@ export default function PrepListPage() {
               onClick={addManualEntry}
               style={{
                 ...buttonBase,
-                background: "#1d4ed8",
-                borderColor: "#1d4ed8",
-                color: "#fff",
+                background: "var(--color-info)",
+                borderColor: "var(--color-info)",
+                color: "var(--color-white)",
               }}
             >
               Add Manual Vehicle
@@ -1134,25 +1181,23 @@ export default function PrepListPage() {
           </div>
         </div>
 
-        <div className="no-print" style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 10 }}>
+        <div className="no-print" style={{ ...card, marginBottom: "var(--space-4)" }}>
+          <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, marginBottom: 10 }}>
             Add Fleet Vehicle Prep
           </div>
 
           <div
             style={{
               display: "grid",
-              gap: 8,
+              gap: "var(--space-2)",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             }}
           >
             <input
               type="date"
-              value={selectedDay || fleetForm.prepDate}
+              value={fleetForm.prepDate}
               onChange={(e) => {
-                setSelectedDay(e.target.value);
                 setFleetForm((p) => ({ ...p, prepDate: e.target.value }));
-                setManualForm((p) => ({ ...p, prepDate: e.target.value }));
               }}
               style={inputBase}
             />
@@ -1209,9 +1254,9 @@ export default function PrepListPage() {
               onClick={addFleetEntry}
               style={{
                 ...buttonBase,
-                background: "#0f766e",
-                borderColor: "#0f766e",
-                color: "#fff",
+                background: "var(--legacy-color-0f766e)",
+                borderColor: "var(--legacy-color-0f766e)",
+                color: "var(--color-white)",
               }}
             >
               Add Fleet Vehicle
@@ -1229,15 +1274,15 @@ export default function PrepListPage() {
               No vehicles still need preparing for this selected prep day.
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 20 }}>
+            <div style={{ display: "grid", gap: "var(--space-5)" }}>
               {groupedVisibleSections.map((job) => (
                 <section
                   key={job.jobKey}
                   className="prep-job"
                   style={{
-                    borderBottom: "2px solid #d1d5db",
+                    borderBottom: "2px solid var(--legacy-color-d1d5db)",
                     paddingBottom: 18,
-                    marginBottom: 4,
+                    marginBottom: "var(--space-1)",
                   }}
                 >
                   <div
@@ -1245,8 +1290,8 @@ export default function PrepListPage() {
                       display: "flex",
                       alignItems: "flex-start",
                       justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 12,
+                      gap: "var(--space-3)",
+                      marginBottom: "var(--space-3)",
                       flexWrap: "wrap",
                     }}
                   >
@@ -1264,23 +1309,23 @@ export default function PrepListPage() {
                         Job #{job.jobNumber} · {job.client}
                       </div>
 
-                      <div style={{ marginTop: 6, fontSize: 14, color: UI.text }}>
+                      <div style={{ marginTop: 6, fontSize: "var(--font-size-md)", color: UI.text }}>
                         {job.location} · <span style={{ fontWeight: 800 }}>{job.status}</span>
                       </div>
 
-                      <div style={{ marginTop: 6, fontSize: 13, color: UI.muted }}>
+                      <div style={{ marginTop: 6, fontSize: "var(--font-size-sm)", color: UI.muted }}>
                         Goes out: {fmtLong(job.outingDate)}
                       </div>
 
                       {job.bookingNote ? (
                         <div
                           style={{
-                            marginTop: 8,
-                            fontSize: 13,
+                            marginTop: "var(--space-2)",
+                            fontSize: "var(--font-size-sm)",
                             color: UI.text,
-                            background: "#f8fafc",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 8,
+                            background: "var(--color-surface-subtle)",
+                            border: "1px solid var(--legacy-color-e5e7eb)",
+                            borderRadius: "var(--radius-md)",
                             padding: "8px 10px",
                             maxWidth: 900,
                           }}
@@ -1290,8 +1335,8 @@ export default function PrepListPage() {
                       ) : null}
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <span style={badge("#eef2ff", "#3730a3")}>
+                    <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                      <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
                         Vehicles still to prep: {job.vehicles.length}
                       </span>
                       {job.isManual && <span style={badge(UI.purpleBg, UI.purple)}>MANUAL</span>}
@@ -1299,7 +1344,7 @@ export default function PrepListPage() {
                         <button
                           className="no-print"
                           type="button"
-                          style={{ ...buttonBase, padding: "6px 10px", fontSize: 12 }}
+                          style={{ ...buttonBase, padding: "6px 10px", fontSize: "var(--font-size-xs)" }}
                           onClick={() => router.push(`/view-booking/${job.bookingId}`)}
                         >
                           Open Booking
@@ -1312,10 +1357,10 @@ export default function PrepListPage() {
                           style={{
                             ...buttonBase,
                             padding: "6px 10px",
-                            fontSize: 12,
-                            background: "#fff1f2",
-                            borderColor: "#fecaca",
-                            color: "#9f1239",
+                            fontSize: "var(--font-size-xs)",
+                            background: "var(--legacy-color-fff1f2)",
+                            borderColor: "var(--color-danger-border)",
+                            color: "var(--legacy-color-9f1239)",
                           }}
                           onClick={() => removeManualEntry(job.manualIds[0])}
                         >
@@ -1349,7 +1394,7 @@ export default function PrepListPage() {
                           key={s.sectionKey}
                           className="prep-section"
                           style={{
-                            border: "1px solid #e5e7eb",
+                            border: "1px solid var(--legacy-color-e5e7eb)",
                             padding: 14,
                             background: "transparent",
                             borderRadius: 10,
@@ -1360,7 +1405,7 @@ export default function PrepListPage() {
                               display: "flex",
                               alignItems: "baseline",
                               justifyContent: "space-between",
-                              gap: 12,
+                              gap: "var(--space-3)",
                             }}
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1368,7 +1413,7 @@ export default function PrepListPage() {
                                 className="prep-vehicle-title"
                                 style={{
                                   margin: 0,
-                                  fontSize: 22,
+                                  fontSize: "var(--font-size-xl)",
                                   lineHeight: 1.1,
                                   fontWeight: 800,
                                   color: UI.text,
@@ -1379,11 +1424,11 @@ export default function PrepListPage() {
 
                               <span style={badge(UI.redBg, UI.red)}>NEEDS PREP</span>
                               {isReady && <span style={badge(UI.blueBg, UI.blue)}>READY</span>}
-                              {isRemoved && <span style={badge("#fff1f2", "#9f1239")}>REMOVED</span>}
-                              {isArchived && <span style={badge("#f3e8ff", "#6d28d9")}>ARCHIVED</span>}
+                              {isRemoved && <span style={badge("var(--legacy-color-fff1f2)", "var(--legacy-color-9f1239)")}>REMOVED</span>}
+                              {isArchived && <span style={badge("var(--legacy-color-f3e8ff)", "var(--legacy-color-6d28d9)")}>ARCHIVED</span>}
                             </div>
 
-                            <span style={{ fontSize: 14, color: UI.muted, fontWeight: 700 }}>
+                            <span style={{ fontSize: "var(--font-size-md)", color: UI.muted, fontWeight: 700 }}>
                               Out: {fmtShort(s.outingDate)}
                             </span>
                           </div>
@@ -1392,11 +1437,11 @@ export default function PrepListPage() {
                             <div
                               style={{
                                 marginTop: 10,
-                                fontSize: 13,
+                                fontSize: "var(--font-size-sm)",
                                 color: UI.text,
-                                background: "#eff6ff",
-                                border: "1px solid #bfdbfe",
-                                borderRadius: 8,
+                                background: "var(--color-info-soft)",
+                                border: "1px solid var(--color-info-border)",
+                                borderRadius: "var(--radius-md)",
                                 padding: "8px 10px",
                               }}
                             >
@@ -1404,16 +1449,16 @@ export default function PrepListPage() {
                             </div>
                           ) : null}
 
-                          <div className="no-print" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <div className="no-print" style={{ marginTop: 10, display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                             <button
                               type="button"
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: "#ecfdf5",
-                                borderColor: "#86efac",
-                                color: "#166534",
+                                fontSize: "var(--font-size-xs)",
+                                background: "var(--color-success-soft)",
+                                borderColor: "var(--legacy-color-86efac)",
+                                color: "var(--color-success)",
                               }}
                               onClick={() => toggleComplete(s.sectionKey)}
                             >
@@ -1425,10 +1470,10 @@ export default function PrepListPage() {
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: isReady ? "#dbeafe" : "#fff",
-                                borderColor: "#93c5fd",
-                                color: "#1d4ed8",
+                                fontSize: "var(--font-size-xs)",
+                                background: isReady ? "var(--legacy-color-dbeafe)" : "var(--color-white)",
+                                borderColor: "var(--legacy-color-93c5fd)",
+                                color: "var(--color-info)",
                               }}
                               onClick={() => toggleReady(s.sectionKey)}
                             >
@@ -1440,10 +1485,10 @@ export default function PrepListPage() {
                               style={{
                                 ...buttonBase,
                                 padding: "6px 10px",
-                                fontSize: 12,
-                                background: isRemoved ? "#ecfdf5" : "#fff1f2",
-                                borderColor: isRemoved ? "#86efac" : "#fecaca",
-                                color: isRemoved ? "#166534" : "#9f1239",
+                                fontSize: "var(--font-size-xs)",
+                                background: isRemoved ? "var(--color-success-soft)" : "var(--legacy-color-fff1f2)",
+                                borderColor: isRemoved ? "var(--legacy-color-86efac)" : "var(--color-danger-border)",
+                                color: isRemoved ? "var(--color-success)" : "var(--legacy-color-9f1239)",
                               }}
                               onClick={() => toggleRemoved(s.sectionKey)}
                             >
@@ -1451,11 +1496,11 @@ export default function PrepListPage() {
                             </button>
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className="no-print" style={{ marginTop: "var(--space-3)" }}>
                             <div
                               style={{
                                 display: "grid",
-                                gap: 8,
+                                gap: "var(--space-2)",
                                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                               }}
                             >
@@ -1477,7 +1522,7 @@ export default function PrepListPage() {
                             </div>
                           </div>
 
-                          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                          <div style={{ marginTop: "var(--space-3)", display: "grid", gap: 10 }}>
                             {(Array.isArray(section.items) ? section.items : []).map((it) => (
                               <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <button
@@ -1486,12 +1531,12 @@ export default function PrepListPage() {
                                   style={{
                                     width: 24,
                                     height: 24,
-                                    border: "1px solid #111827",
+                                    border: "1px solid var(--legacy-color-111827)",
                                     borderRadius: 3,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    background: it.checked ? "#bbf7d0" : "#fff",
+                                    background: it.checked ? "var(--color-success-border)" : "var(--color-white)",
                                     fontWeight: 900,
                                     cursor: "pointer",
                                   }}
@@ -1506,10 +1551,10 @@ export default function PrepListPage() {
                                   style={{
                                     fontSize: 18,
                                     lineHeight: 1.2,
-                                    color: it.isEquipment ? "#b91c1c" : "#111827",
+                                    color: it.isEquipment ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-111827)",
                                     fontWeight: it.isEquipment ? 900 : 600,
                                     textDecoration: it.isEquipment ? "underline" : "none",
-                                    background: it.checked ? "#ecfccb" : "transparent",
+                                    background: it.checked ? "var(--legacy-color-ecfccb)" : "transparent",
                                     padding: "0 4px",
                                     borderRadius: 4,
                                   }}
@@ -1523,10 +1568,10 @@ export default function PrepListPage() {
                                   onClick={() => removeItem(s.sectionKey, it.id)}
                                   style={{
                                     marginLeft: "auto",
-                                    border: "1px solid #fecaca",
-                                    background: "#fff1f2",
-                                    color: "#9f1239",
-                                    borderRadius: 8,
+                                    border: "1px solid var(--color-danger-border)",
+                                    background: "var(--legacy-color-fff1f2)",
+                                    color: "var(--legacy-color-9f1239)",
+                                    borderRadius: "var(--radius-md)",
                                     padding: "6px 8px",
                                     fontWeight: 700,
                                     cursor: "pointer",
@@ -1538,7 +1583,7 @@ export default function PrepListPage() {
                             ))}
                           </div>
 
-                          <div className="no-print" style={{ marginTop: 12 }}>
+                          <div className="no-print" style={{ marginTop: "var(--space-3)" }}>
                             <PrepItemPicker
                               onQuickAdd={(item) => addItem(s.sectionKey, item)}
                               onCustomAdd={(text) => addItem(s.sectionKey, text)}

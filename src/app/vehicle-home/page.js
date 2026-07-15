@@ -72,7 +72,11 @@ const DraggableBigCalendar = dynamic(
     Promise.all([
       import("react-big-calendar"),
       import("react-big-calendar/lib/addons/dragAndDrop"),
-    ]).then(([calendarModule, dndModule]) => dndModule.default(calendarModule.Calendar)),
+    ]).then(([calendarModule, dndModule]) => {
+      // Webpack can wrap this CommonJS add-on in an extra `default` layer.
+      const withDragAndDrop = dndModule.default?.default ?? dndModule.default;
+      return withDragAndDrop(calendarModule.Calendar);
+    }),
   {
     ssr: false,
     loading: () => (
@@ -83,7 +87,7 @@ const DraggableBigCalendar = dynamic(
           alignItems: "center",
           justifyContent: "center",
           color: UI.muted,
-          fontSize: 14,
+          fontSize: "var(--font-size-md)",
           fontWeight: 700,
         }}
       >
@@ -118,24 +122,24 @@ const VEHICLE_SERVICE_HISTORY_PATH = (vehicleId, serviceId) =>
    Mini design system (MATCHES YOUR EMPLOYEES PAGE)
 ------------------------------------------- */
 const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  radius: "var(--radius-md)",
+  radiusSm: "var(--radius-md)",
+  gap: "var(--space-3)",
+  shadowSm: "var(--shadow-sm)",
+  shadowHover: "var(--shadow-md)",
+  border: "var(--border-default)",
+  bg: "var(--color-canvas)",
+  card: "var(--color-surface)",
+  text: "var(--color-text)",
+  muted: "var(--color-text-muted)",
+  brand: "var(--color-brand)",
+  brandSoft: "var(--color-brand-soft)",
+  brandBorder: "var(--color-brand-border)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = {
@@ -150,14 +154,14 @@ const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--space-3)",
   marginBottom: 14,
   flexWrap: "wrap",
   minWidth: 0,
 };
 const h1 = {
   color: UI.text,
-  fontSize: 22,
+  fontSize: "var(--font-size-xl)",
   lineHeight: 1.08,
   fontWeight: 750,
   letterSpacing: 0,
@@ -174,8 +178,8 @@ const surface = {
 };
 const cardBase = {
   ...surface,
-  padding: 12,
-  background: "#ffffff",
+  padding: "var(--space-3)",
+  background: "var(--color-white)",
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
@@ -238,7 +242,7 @@ const sectionTag = {
   display: "inline-flex",
   alignItems: "center",
   padding: "5px 10px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.brand,
@@ -250,11 +254,11 @@ const sectionTag = {
 
 const chip = {
   padding: "5px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: UI.brandSoft,
   color: UI.text,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
 };
@@ -267,11 +271,11 @@ const chipSoft = {
 
 const badge = (bg, fg) => ({
   padding: "4px 9px",
-  borderRadius: 999,
+  borderRadius: "var(--radius-pill)",
   border: `1px solid ${UI.brandBorder}`,
   background: bg,
   color: fg,
-  fontSize: 12,
+  fontSize: "var(--font-size-xs)",
   fontWeight: 800,
   whiteSpace: "nowrap",
   lineHeight: "18px",
@@ -283,7 +287,7 @@ const metricCard = {
 };
 const premiumSection = {
   ...cardBase,
-  border: "1px solid #d7e1ea",
+  border: "1px solid var(--legacy-color-d7e1ea)",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
   maxWidth: "100%",
   minWidth: 0,
@@ -291,7 +295,7 @@ const premiumSection = {
 
 const calendarFrame = {
   borderRadius: UI.radiusSm,
-  background: "#fff",
+  background: "var(--color-white)",
   border: UI.border,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
   minHeight: 620,
@@ -321,21 +325,21 @@ const vehicleHomeCalendarCss = `
 .vehicle-home-page .rbc-time-view,
 .vehicle-home-page .rbc-month-view {
   border: 0;
-  background: #fff;
+  background: var(--color-white);
 }
 .vehicle-home-page .rbc-header {
   padding: 7px 8px;
-  background: #f6f8fb;
+  background: var(--legacy-color-f6f8fb);
   color: ${UI.muted};
   font-size: 11.5px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0;
-  border-color: #e3eaf2;
+  border-color: var(--legacy-color-e3eaf2);
 }
 .vehicle-home-page .rbc-date-cell {
   padding: 5px 6px;
-  color: #64748b;
+  color: var(--color-text-subtle);
   font-size: 12px;
   font-weight: 800;
 }
@@ -343,10 +347,10 @@ const vehicleHomeCalendarCss = `
 .vehicle-home-page .rbc-day-bg,
 .vehicle-home-page .rbc-time-content,
 .vehicle-home-page .rbc-timeslot-group {
-  border-color: #e6edf5;
+  border-color: var(--legacy-color-e6edf5);
 }
 .vehicle-home-page .rbc-off-range-bg {
-  background: #f8fafc;
+  background: var(--color-surface-subtle);
 }
 .vehicle-home-page .rbc-today {
   background: rgba(31,75,122,0.08);
@@ -432,7 +436,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -446,14 +450,14 @@ const btn = (kind = "primary") => {
   if (kind === "pill") {
     return {
       padding: "5px 8px",
-      borderRadius: 999,
+      borderRadius: "var(--radius-pill)",
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--color-white) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
-      fontSize: 12,
+      fontSize: "var(--font-size-xs)",
       lineHeight: 1.2,
       boxShadow: "0 4px 10px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.75)",
       letterSpacing: "0.01em",
@@ -463,8 +467,8 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--color-brand) 100%)",
+    color: "var(--color-white)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -478,14 +482,14 @@ const btn = (kind = "primary") => {
 const inputBase = {
   width: "100%",
   padding: "8px 9px",
-  borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  borderRadius: "var(--radius-lg)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--color-white)",
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 
 const modal = {
   position: "fixed",
@@ -504,8 +508,8 @@ const modal = {
 const table = { width: "100%", borderCollapse: "collapse" };
 const thtd = {
   padding: "11px 12px",
-  fontSize: 13,
-  borderBottom: "1px solid #eef2f7",
+  fontSize: "var(--font-size-sm)",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   verticalAlign: "middle",
 };
 
@@ -513,17 +517,17 @@ const actionBtn = (kind = "ghost") => {
   if (kind === "approve") {
     return {
       ...btn("pill"),
-      borderColor: "#bbf7d0",
-      background: "#ecfdf5",
-      color: "#065f46",
+      borderColor: "var(--color-success-border)",
+      background: "var(--color-success-soft)",
+      color: "var(--legacy-color-065f46)",
     };
   }
   if (kind === "decline") {
     return {
       ...btn("pill"),
-      borderColor: "#fecaca",
-      background: "#fef2f2",
-      color: "#991b1b",
+      borderColor: "var(--color-danger-border)",
+      background: "var(--color-danger-soft)",
+      color: "var(--color-danger)",
     };
   }
   return { ...btn("pill") };
@@ -565,10 +569,12 @@ const daysInRange = (from, to) => {
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const daysUntil = (d) => {
   if (!d) return null;
+  const date = d instanceof Date ? d : parseLocalDateOnly(d) || toDate(d);
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
   const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
+  const t0 = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const t1 = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((t1 - t0) / (1000 * 60 * 60 * 24));
 };
 
 const sameCalendarDate = (a, b) => {
@@ -1163,25 +1169,25 @@ function MaintenanceCalendarEvent({ event }) {
       .replace(/\s+-\s+Brake test due$/i, "")
       .replace(/\s+-\s+PMI inspection due$/i, "");
   })();
-  const dueLabelColor = tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
+  const dueLabelColor = tone === "overdue" ? "var(--color-danger)" : tone === "soon" ? "var(--legacy-color-92400e)" : null;
   const labelColor =
     isDueBlock && dueLabelColor
       ? dueLabelColor
       : kind === "MOT"
-      ? "#b45309"
+      ? "var(--legacy-color-b45309)"
       : kind === "SERVICE"
-      ? "#047857"
+      ? "var(--legacy-color-047857)"
       : kind === "INSPECTION"
-      ? "#7c3aed"
+      ? "var(--legacy-color-7c3aed)"
       : kind === "BRAKE_TEST"
-      ? "#4f46e5"
+      ? "var(--legacy-color-4f46e5)"
       : kind === "PMI"
-      ? "#0f766e"
+      ? "var(--legacy-color-0f766e)"
       : isBookingBlock
-      ? "#1d4ed8"
+      ? "var(--color-info)"
       : kind === "MAINTENANCE"
-      ? "#475569"
-      : "#1d4ed8";
+      ? "var(--legacy-color-475569)"
+      : "var(--color-info)";
   const nextDueLabel =
     isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
       ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
@@ -1232,7 +1238,7 @@ function MaintenanceCalendarEvent({ event }) {
         fontSize: 12.5,
         lineHeight: 1.3,
         fontWeight: 900,
-        padding: 8,
+        padding: "var(--space-2)",
         letterSpacing: 0,
         whiteSpace: "normal",
         overflowWrap: "anywhere",
@@ -1240,9 +1246,9 @@ function MaintenanceCalendarEvent({ event }) {
         minWidth: 0,
       }}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      <span style={{ color: labelColor, fontWeight: 950, fontSize: "var(--font-size-xs)", whiteSpace: "normal" }}>{label}</span>
       {documentBadges.length ? (
-        <span style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ display: "flex", gap: "var(--space-1)", flexWrap: "wrap", alignItems: "center" }}>
           {documentBadges.map((badge) => (
             <span
               key={badge.key}
@@ -1256,9 +1262,9 @@ function MaintenanceCalendarEvent({ event }) {
                 minHeight: 18,
                 minWidth: badge.label === "PMI" ? 40 : 30,
                 padding: "2px 5px",
-                borderRadius: 6,
-                background: badge.good ? "#16a34a" : "#ef4444",
-                color: "#ffffff",
+                borderRadius: "var(--radius-sm)",
+                background: badge.good ? "var(--legacy-color-16a34a)" : "var(--legacy-color-ef4444)",
+                color: "var(--color-white)",
                 border: "1px solid rgba(0,0,0,0.65)",
                 fontSize: 10.5,
                 lineHeight: 1,
@@ -1272,21 +1278,21 @@ function MaintenanceCalendarEvent({ event }) {
           ))}
         </span>
       ) : null}
-      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{cleanTitle}</span>
+      <span style={{ color: "var(--color-text)", whiteSpace: "normal" }}>{cleanTitle}</span>
       {vehicleText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-text)", whiteSpace: "normal" }}>{vehicleText}</span>
       ) : null}
       {equipmentText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{equipmentText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--color-text)", whiteSpace: "normal" }}>{equipmentText}</span>
       ) : null}
       {locationText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--legacy-color-475569)", whiteSpace: "normal" }}>{locationText}</span>
       ) : null}
       {nextDueLabel ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#0f766e", whiteSpace: "normal" }}>{nextDueLabel}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--legacy-color-0f766e)", whiteSpace: "normal" }}>{nextDueLabel}</span>
       ) : null}
       {subline ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--color-text-subtle)", whiteSpace: "normal" }}>{subline}</span>
       ) : null}
     </div>
   );
@@ -2312,66 +2318,66 @@ export default function VehiclesHomePage() {
       workflowStatus === "completed" ||
       workflowStatus === "complete";
 
-    let bg = "#c4d6e4";
-    let border = "#95b3ca";
-    let text = "#172a3d";
+    let bg = "var(--legacy-color-c4d6e4)";
+    let border = "var(--legacy-color-95b3ca)";
+    let text = "var(--legacy-color-172a3d)";
 
     if (kind === "MOT") {
-      bg = "#fff7ed";
-      border = "#f59e0b";
-      text = "#713f12";
+      bg = "var(--color-warning-soft)";
+      border = "var(--legacy-color-f59e0b)";
+      text = "var(--legacy-color-713f12)";
       if (event?.booked) {
-        bg = "#fef3c7";
-        border = "#d97706";
-        text = "#713f12";
+        bg = "var(--legacy-color-fef3c7)";
+        border = "var(--legacy-color-d97706)";
+        text = "var(--legacy-color-713f12)";
       }
     } else if (kind === "MOT_BOOKING") {
-      bg = "#dbeafe";
-      border = "#2563eb";
-      text = "#102a56";
+      bg = "var(--legacy-color-dbeafe)";
+      border = "var(--legacy-color-2563eb)";
+      text = "var(--legacy-color-102a56)";
       if (String(event?.bookingStatus || "").includes("After Expiry")) {
-        bg = "#e4c0bd";
-        border = "#bf847f";
-        text = "#631f1a";
+        bg = "var(--legacy-color-e4c0bd)";
+        border = "var(--legacy-color-bf847f)";
+        text = "var(--legacy-color-631f1a)";
       }
     } else if (kind === "SERVICE") {
-      bg = "#ecfdf5";
-      border = "#10b981";
-      text = "#064e3b";
+      bg = "var(--color-success-soft)";
+      border = "var(--legacy-color-10b981)";
+      text = "var(--legacy-color-064e3b)";
       if (event?.booked) {
-        bg = "#d1fae5";
-        border = "#059669";
-        text = "#064e3b";
+        bg = "var(--legacy-color-d1fae5)";
+        border = "var(--legacy-color-059669)";
+        text = "var(--legacy-color-064e3b)";
       }
     } else if (kind === "SERVICE_BOOKING") {
-      bg = "#dbeafe";
-      border = "#2563eb";
-      text = "#102a56";
+      bg = "var(--legacy-color-dbeafe)";
+      border = "var(--legacy-color-2563eb)";
+      text = "var(--legacy-color-102a56)";
     } else if (kind === "INSPECTION") {
-      bg = "#f5f3ff";
-      border = "#8b5cf6";
-      text = "#3b0764";
+      bg = "var(--legacy-color-f5f3ff)";
+      border = "var(--legacy-color-8b5cf6)";
+      text = "var(--legacy-color-3b0764)";
       if (event?.booked) {
-        bg = "#ede9fe";
-        border = "#7c3aed";
-        text = "#3b0764";
+        bg = "var(--legacy-color-ede9fe)";
+        border = "var(--legacy-color-7c3aed)";
+        text = "var(--legacy-color-3b0764)";
       }
     } else if (kind === "INSPECTION_BOOKING") {
-      bg = "#ede9fe";
-      border = "#7c3aed";
-      text = "#321064";
+      bg = "var(--legacy-color-ede9fe)";
+      border = "var(--legacy-color-7c3aed)";
+      text = "var(--legacy-color-321064)";
     } else if (kind === "MAINTENANCE_APPOINTMENT") {
-      bg = "#f0fdfa";
-      border = "#14b8a6";
-      text = "#134e4a";
+      bg = "var(--legacy-color-f0fdfa)";
+      border = "var(--legacy-color-14b8a6)";
+      text = "var(--legacy-color-134e4a)";
     } else if (kind === "MAINTENANCE_BOOKING") {
-      bg = "#ccfbf1";
-      border = "#0d9488";
-      text = "#134e4a";
+      bg = "var(--legacy-color-ccfbf1)";
+      border = "var(--legacy-color-0d9488)";
+      text = "var(--legacy-color-134e4a)";
     } else if (kind === "MAINTENANCE") {
-      bg = "#e2e8f0";
-      border = "#64748b";
-      text = "#1e293b";
+      bg = "var(--legacy-color-e2e8f0)";
+      border = "var(--color-text-subtle)";
+      text = "var(--legacy-color-1e293b)";
     }
 
     const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
@@ -2379,20 +2385,20 @@ export default function VehiclesHomePage() {
 
     if (!suppressEscalation) {
       if (tone === "overdue") {
-        bg = "#e4c0bd";
-        border = "#bf847f";
-        text = "#631f1a";
+        bg = "var(--legacy-color-e4c0bd)";
+        border = "var(--legacy-color-bf847f)";
+        text = "var(--legacy-color-631f1a)";
       } else if (tone === "soon") {
-        bg = "#e1c79c";
-        border = "#c19458";
-        text = "#5a3918";
+        bg = "var(--legacy-color-e1c79c)";
+        border = "var(--legacy-color-c19458)";
+        text = "var(--legacy-color-5a3918)";
       }
     }
 
     if (isCompleted) {
-      bg = "#d1fae5";
-      border = "#86efac";
-      text = "#065f46";
+      bg = "var(--legacy-color-d1fae5)";
+      border = "var(--legacy-color-86efac)";
+      text = "var(--legacy-color-065f46)";
     }
 
     return {
@@ -2416,7 +2422,7 @@ export default function VehiclesHomePage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--color-info-border) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .vehicle-home-page,
         .vehicle-home-page * {
@@ -2494,7 +2500,7 @@ export default function VehiclesHomePage() {
         </div>
 
         <section className="vehicle-home-command-grid" style={commandGrid}>
-          <div style={{ ...surface, padding: 12 }}>
+          <div style={{ ...surface, padding: "var(--space-3)" }}>
             <div style={sectionHeader}>
               <div>
                 <h2 style={titleMd}>Home</h2>
@@ -2510,7 +2516,7 @@ export default function VehiclesHomePage() {
               <SummaryCard title="Usage Days" value={totalUsageDays} icon={Activity} tone="brand" footer={`${totalUsageBookings} bookings`} onClick={() => router.push("/usage-overview")} />
             </div>
 
-            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: 8 }}>
+            <div style={{ ...sectionHeader, marginTop: 14, marginBottom: "var(--space-2)" }}>
               <div>
                 <h2 style={{ ...titleMd, fontSize: 15 }}>Fleet workspaces</h2>
                 <div style={hint}>Common vehicle actions grouped by how the workshop uses them.</div>
@@ -2550,8 +2556,8 @@ export default function VehiclesHomePage() {
               soon={serviceCounts.soon}
               overdue={serviceCounts.overdue}
             />
-            <div style={{ ...surface, padding: 12 }}>
-              <div style={{ ...sectionHeader, marginBottom: 8 }}>
+            <div style={{ ...surface, padding: "var(--space-3)" }}>
+              <div style={{ ...sectionHeader, marginBottom: "var(--space-2)" }}>
                 <div>
                   <h2 style={{ ...titleMd, fontSize: 15 }}>Recent activity</h2>
                   <div style={hint}>Latest service, prep, checks and defect movement.</div>
@@ -2560,16 +2566,16 @@ export default function VehiclesHomePage() {
                   View all
                 </button>
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: "var(--space-2)" }}>
                 {recentActivity.slice(0, 4).map((activity) => (
                   <button
                     key={activity.activityId}
                     type="button"
                     onClick={() => activity.route && router.push(activity.route)}
                     style={{
-                      border: "1px solid #e5eaf0",
-                      background: "#fbfdff",
-                      borderRadius: 8,
+                      border: "1px solid var(--legacy-color-e5eaf0)",
+                      background: "var(--legacy-color-fbfdff)",
+                      borderRadius: "var(--radius-md)",
                       padding: "8px 9px",
                       textAlign: "left",
                       cursor: activity.route ? "pointer" : "default",
@@ -2578,12 +2584,12 @@ export default function VehiclesHomePage() {
                     <div style={{ fontSize: 12.5, fontWeight: 850, color: UI.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {activity.vehicleName}
                     </div>
-                    <div style={{ fontSize: 12, color: UI.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: "var(--font-size-xs)", color: UI.muted, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {activity.title}
                     </div>
                   </button>
                 ))}
-                {recentActivity.length === 0 ? <div style={{ color: UI.muted, fontSize: 13 }}>No recent activity yet.</div> : null}
+                {recentActivity.length === 0 ? <div style={{ color: UI.muted, fontSize: "var(--font-size-sm)" }}>No recent activity yet.</div> : null}
               </div>
             </div>
           </aside>
@@ -2599,7 +2605,7 @@ export default function VehiclesHomePage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
               <span style={sectionTag}>Defect queue</span>
               <span style={chipSoft}>{pendingDefects.length} pending</span>
               <button type="button" style={btn("ghost")} onClick={() => router.push("/vehicle-checks")}>
@@ -2613,7 +2619,7 @@ export default function VehiclesHomePage() {
           <div style={{ overflowX: "auto", marginTop: 0 }}>
             <table style={table}>
               <thead>
-                <tr style={{ background: "#f6f8fb" }}>
+                <tr style={{ background: "var(--legacy-color-f6f8fb)" }}>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Date</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Source</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Vehicle</th>
@@ -2638,7 +2644,7 @@ export default function VehiclesHomePage() {
                       <td style={thtd}>
                         <span
                           style={badge(
-                            d.sourceType === "vehicleIssue" ? "#f5ede6" : "#edf3f8",
+                            d.sourceType === "vehicleIssue" ? "var(--legacy-color-f5ede6)" : "var(--color-brand-soft)",
                             d.sourceType === "vehicleIssue" ? UI.accent : UI.brand
                           )}
                         >
@@ -2666,7 +2672,7 @@ export default function VehiclesHomePage() {
                       </td>
                       <td style={thtd}>
                         <div>{d.driverName || "-"}</div>
-                        {d.reporterCode ? <div style={{ color: UI.muted, fontSize: 12 }}>{d.reporterCode}</div> : null}
+                        {d.reporterCode ? <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)" }}>{d.reporterCode}</div> : null}
                       </td>
                       <td style={{ ...thtd, textAlign: "center" }}>{d.photos?.length ? d.photos.length : 0}</td>
                       <td style={{ ...thtd, textAlign: "right", whiteSpace: "nowrap" }}>
@@ -2837,16 +2843,16 @@ export default function VehiclesHomePage() {
           <div style={{ height: 320, marginTop: 10, minWidth: 0, overflow: "hidden" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
-                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
+                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: "var(--font-size-xs)" }} axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }} tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }} />
+                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: "var(--font-size-xs)" }} axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }} tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }} />
                 <Tooltip
                   cursor={{ fill: "rgba(148,163,184,0.12)" }}
                   contentStyle={{
                     borderRadius: 10,
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid var(--legacy-color-e5e7eb)",
                     boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
-                    fontSize: 12,
+                    fontSize: "var(--font-size-xs)",
                     color: UI.text,
                   }}
                   formatter={(value, name, item) => {
@@ -2905,10 +2911,10 @@ export default function VehiclesHomePage() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  gap: 12,
+                  gap: "var(--space-3)",
                   padding: "14px 16px",
                   borderBottom: UI.border,
-                  background: "#f8fafc",
+                  background: "var(--color-surface-subtle)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2916,19 +2922,19 @@ export default function VehiclesHomePage() {
                     style={{
                       width: 34,
                       height: 34,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-md)",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       background: UI.accentSoft,
-                      color: "#8b5e3c",
+                      color: "var(--legacy-color-8b5e3c)",
                       border: `1px solid ${UI.brandBorder}`,
                       flex: "0 0 auto",
                     }}
                   >
                     <Wrench size={17} />
                   </span>
-                  <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: 16, fontWeight: 950, color: UI.text }}>
+                  <h3 id="maintenance-drop-confirm-title" style={{ margin: 0, fontSize: "var(--font-size-lg)", fontWeight: 950, color: UI.text }}>
                     Confirm Date Change
                   </h3>
                 </div>
@@ -2949,7 +2955,7 @@ export default function VehiclesHomePage() {
                 </button>
               </div>
 
-              <div style={{ padding: 16 }}>
+              <div style={{ padding: "var(--space-4)" }}>
                 <div style={{ fontSize: 13.5, lineHeight: 1.45, color: UI.text, fontWeight: 750 }}>
                   You changed the date of this occurrence of{" "}
                   <span style={{ fontWeight: 950 }}>&quot;{pendingMaintenanceDrop.title}&quot;</span>.
@@ -2963,20 +2969,20 @@ export default function VehiclesHomePage() {
                     marginTop: 14,
                   }}
                 >
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--color-white)" }}>
                     <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>From</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
+                    <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
                   </div>
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fbfe" }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fbfe)" }}>
                     <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>To</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
+                    <div style={{ fontSize: "var(--font-size-md)", fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
                   </div>
                 </div>
 
                 <div style={{ marginTop: 14, fontSize: 12.5, lineHeight: 1.45, color: UI.muted, fontWeight: 700 }}>
                   To change all dates, open the series.
                 </div>
-                <div style={{ marginTop: 10, fontSize: 14, color: UI.text, fontWeight: 900 }}>
+                <div style={{ marginTop: 10, fontSize: "var(--font-size-md)", color: UI.text, fontWeight: 900 }}>
                   Do you want to change just this one?
                 </div>
               </div>
@@ -2988,7 +2994,7 @@ export default function VehiclesHomePage() {
                   gap: 10,
                   padding: "12px 16px",
                   borderTop: UI.border,
-                  background: "#f8fafc",
+                  background: "var(--color-surface-subtle)",
                 }}
               >
                 <button
@@ -3027,7 +3033,7 @@ export default function VehiclesHomePage() {
               {actionModal.decision === "approved" ? "Approve defect" : "Decline defect"}
             </h3>
 
-            <div style={{ fontSize: 13, color: UI.muted, marginBottom: 10, lineHeight: 1.45 }}>
+            <div style={{ fontSize: "var(--font-size-sm)", color: UI.muted, marginBottom: 10, lineHeight: 1.45 }}>
               <div>
                 <strong style={{ color: UI.text }}>Date:</strong> {actionModal.defect.dateLabel || "-"}
               </div>
@@ -3055,10 +3061,10 @@ export default function VehiclesHomePage() {
                   <div
                     style={{
                       whiteSpace: "pre-wrap",
-                      background: "#f8fafc",
+                      background: "var(--color-surface-subtle)",
                       border: UI.border,
-                      borderRadius: 12,
-                      padding: 12,
+                      borderRadius: "var(--radius-lg)",
+                      padding: "var(--space-3)",
                       marginTop: 6,
                       color: UI.text,
                     }}
@@ -3070,19 +3076,19 @@ export default function VehiclesHomePage() {
             </div>
 
             {actionModal.decision === "approved" && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
+              <div style={{ marginBottom: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--font-size-xs)", fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
                   Route approved defect to:
                 </div>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     onClick={() => setActionModal((m) => ({ ...m, category: "general" }))}
                     style={{
                       ...btn("pill"),
-                      borderColor: actionModal.category === "general" ? "#bfdbfe" : "#d1d5db",
-                      background: actionModal.category === "general" ? UI.brandSoft : "#fff",
+                      borderColor: actionModal.category === "general" ? "var(--color-info-border)" : "var(--legacy-color-d1d5db)",
+                      background: actionModal.category === "general" ? UI.brandSoft : "var(--color-white)",
                       color: actionModal.category === "general" ? UI.brand : UI.text,
                     }}
                     disabled={actionLoading}
@@ -3095,8 +3101,8 @@ export default function VehiclesHomePage() {
                     onClick={() => setActionModal((m) => ({ ...m, category: "immediate" }))}
                     style={{
                       ...btn("pill"),
-                      borderColor: actionModal.category === "immediate" ? "#bfdbfe" : "#d1d5db",
-                      background: actionModal.category === "immediate" ? UI.brandSoft : "#fff",
+                      borderColor: actionModal.category === "immediate" ? "var(--color-info-border)" : "var(--legacy-color-d1d5db)",
+                      background: actionModal.category === "immediate" ? UI.brandSoft : "var(--color-white)",
                       color: actionModal.category === "immediate" ? UI.brand : UI.text,
                     }}
                     disabled={actionLoading}
@@ -3105,14 +3111,14 @@ export default function VehiclesHomePage() {
                   </button>
                 </div>
 
-                <div style={{ marginTop: 6, fontSize: 12, color: UI.muted }}>
+                <div style={{ marginTop: 6, fontSize: "var(--font-size-xs)", color: UI.muted }}>
                   Pick <strong style={{ color: UI.text }}>Immediate</strong> for safety-critical issues; otherwise use{" "}
                   <strong style={{ color: UI.text }}>General</strong>.
                 </div>
               </div>
             )}
 
-            <label style={{ display: "block", fontSize: 12, fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: "var(--font-size-xs)", fontWeight: 900, color: UI.muted, marginBottom: 6 }}>
               Resolution comment (optional)
             </label>
             <textarea
@@ -3120,10 +3126,10 @@ export default function VehiclesHomePage() {
               onChange={(e) => setActionModal((m) => ({ ...m, comment: e.target.value }))}
               rows={4}
               placeholder="e.g., Minor scratch; safe to operate. Logged for bodyshop visit."
-              style={{ ...inputBase, minHeight: 96, marginBottom: 12, resize: "vertical" }}
+              style={{ ...inputBase, minHeight: 96, marginBottom: "var(--space-3)", resize: "vertical" }}
             />
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
               <button onClick={() => setActionModal(null)} style={btn("ghost")} disabled={actionLoading}>
                 Cancel
               </button>
@@ -3157,9 +3163,9 @@ export default function VehiclesHomePage() {
 function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--color-danger-soft)", border: "var(--color-danger-border)", fg: "var(--color-danger)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--color-success-soft)", border: "var(--color-success-border)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
   const clickable = typeof onClick === "function";
 
@@ -3181,14 +3187,14 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800 }}>{title}</div>
-          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: 8 }}>{value}</div>
+          <div style={{ color: UI.muted, fontSize: "var(--font-size-xs)", fontWeight: 800 }}>{title}</div>
+          <div style={{ color: UI.text, fontSize: 28, lineHeight: 1.1, fontWeight: 850, marginTop: "var(--space-2)" }}>{value}</div>
         </div>
         <span
           style={{
             width: 34,
             height: 34,
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: `1px solid ${colors.border}`,
             background: colors.bg,
             color: colors.fg,
@@ -3201,7 +3207,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick
           <Icon size={18} strokeWidth={2.2} />
         </span>
       </div>
-      <div style={{ color: colors.fg, fontSize: 12, fontWeight: 750, marginTop: 8 }}>{footer}</div>
+      <div style={{ color: colors.fg, fontSize: "var(--font-size-xs)", fontWeight: 750, marginTop: "var(--space-2)" }}>{footer}</div>
     </button>
   );
 }
@@ -3211,17 +3217,17 @@ function RiskRing({ title, total, ok, soon, overdue }) {
   const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
   const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
   const overduePct = safeTotal ? Math.max(0, 100 - okPct - soonPct) : 0;
-  const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
+  const background = `conic-gradient(var(--legacy-color-16a34a) 0 ${okPct}%, var(--legacy-color-f59e0b) ${okPct}% ${okPct + soonPct}%, var(--legacy-color-dc2626) ${okPct + soonPct}% 100%)`;
 
   return (
-    <div style={{ ...surface, padding: 12, minWidth: 0, maxWidth: "100%" }}>
+    <div style={{ ...surface, padding: "var(--space-3)", minWidth: 0, maxWidth: "100%" }}>
       <div style={{ ...sectionHeader, marginBottom: 10 }}>
         <div>
           <h2 style={{ ...titleMd, fontSize: 15 }}>{title}</h2>
           <div style={hint}>{safeTotal} vehicles tracked</div>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", minWidth: 0, flexWrap: "wrap" }}>
         <div
           style={{
             width: 126,
@@ -3238,8 +3244,8 @@ function RiskRing({ title, total, ok, soon, overdue }) {
               width: 82,
               height: 82,
               borderRadius: "50%",
-              background: "#ffffff",
-              border: "1px solid #e5eaf0",
+              background: "var(--color-white)",
+              border: "1px solid var(--legacy-color-e5eaf0)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
@@ -3250,10 +3256,10 @@ function RiskRing({ title, total, ok, soon, overdue }) {
             {safeTotal}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <RingLegend color="#16a34a" label="OK" value={ok} />
-          <RingLegend color="#f59e0b" label="Due soon" value={soon} />
-          <RingLegend color="#dc2626" label="Overdue" value={overdue} />
+        <div style={{ display: "grid", gap: "var(--space-2)", minWidth: 0 }}>
+          <RingLegend color="var(--legacy-color-16a34a)" label="OK" value={ok} />
+          <RingLegend color="var(--legacy-color-f59e0b)" label="Due soon" value={soon} />
+          <RingLegend color="var(--legacy-color-dc2626)" label="Overdue" value={overdue} />
         </div>
       </div>
     </div>
@@ -3262,7 +3268,7 @@ function RiskRing({ title, total, ok, soon, overdue }) {
 
 function RingLegend({ color, label, value }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: 12.5, color: UI.text, fontWeight: 750 }}>
       <span style={{ width: 9, height: 9, borderRadius: 2, background: color, flexShrink: 0 }} />
       <span style={{ minWidth: 72 }}>{label}</span>
       <span style={{ color: UI.muted }}>{value}</span>
@@ -3275,7 +3281,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
     <div
       style={{
         ...cardBase,
-        background: "#ffffff",
+        background: "var(--color-white)",
         height: "100%",
         minHeight: 82,
         minWidth: 0,
@@ -3300,7 +3306,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
       onMouseLeave={(e) =>
         Object.assign(e.currentTarget.style, {
           ...cardBase,
-          background: "#ffffff",
+          background: "var(--color-white)",
           height: "100%",
           minHeight: 82,
           padding: "11px 12px",
@@ -3326,7 +3332,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
           style={{
             width: 34,
             height: 34,
-            borderRadius: 8,
+            borderRadius: "var(--radius-md)",
             border: `1px solid ${UI.brandBorder}`,
             background: UI.brandSoft,
             color: UI.brand,
@@ -3365,9 +3371,9 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
                 const tone = b.tone || "soft";
                 const s =
                   tone === "danger"
-                    ? badge("#fef2f2", "#991b1b")
+                    ? badge("var(--color-danger-soft)", "var(--color-danger)")
                     : tone === "amber"
-                    ? badge("#fff7ed", "#9a3412")
+                    ? badge("var(--color-warning-soft)", "var(--color-warning)")
                     : badge(UI.brandSoft, UI.brand);
                 return (
                   <span key={idx} style={{ ...s, whiteSpace: "normal", overflowWrap: "anywhere" }}>
@@ -3394,7 +3400,7 @@ function VehicleCheckTile({ onClick }) {
       onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
       style={{
         ...cardBase,
-        background: "#ffffff",
+        background: "var(--color-white)",
         height: "100%",
         minHeight: 82,
         minWidth: 0,
@@ -3411,9 +3417,9 @@ function VehicleCheckTile({ onClick }) {
             style={{
               width: 34,
               height: 34,
-              borderRadius: 8,
+              borderRadius: "var(--radius-md)",
               border: `1px solid ${UI.brandBorder}`,
-              background: "#eef4f9",
+              background: "var(--legacy-color-eef4f9)",
               color: UI.brand,
               display: "inline-flex",
               alignItems: "center",
