@@ -1310,15 +1310,18 @@ function isHolidayHalfDayDoc(holiday = {}) {
 }
 
 function getHolidayPaidLabel(holiday = {}) {
-  const paidStatus = String(holiday.paidStatus || holiday.leaveType || "").trim();
+  const paidStatus = String(holiday.paidStatus || "").trim();
   const isUnpaid = normalizeBooleanish(holiday.isUnpaid);
   const isAccrued = normalizeBooleanish(holiday.isAccrued);
   const isPaid = normalizeBooleanish(holiday.paid);
 
+  // paidStatus is the current editable field and takes precedence over stale
+  // legacy booleans. Fall back to the old schema only when it is absent.
+  if (paidStatus) return paidStatus;
   if (isUnpaid === true) return "Unpaid";
   if (isAccrued === true) return "Accrued";
   if (isPaid === false) return "Unpaid";
-  return paidStatus || "";
+  return String(holiday.leaveType || "").trim();
 }
 
 function getHolidayLockForDate(holidayDocs = []) {

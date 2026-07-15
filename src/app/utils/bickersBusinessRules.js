@@ -56,6 +56,11 @@ export const DEFAULT_BICKERS_BUSINESS_RULES = Object.freeze({
     clientConcentration: "Share of bookings attributable to the largest client in the comparison window.",
     unpaidValue: "Reliable invoice value for invoiced jobs that are not marked paid or settled.",
     dataQualityRate: "Bookings with all core dates, status and job-number fields divided by included bookings.",
+    calendarMonthComparison: "Jobs are assigned to the month of their first scheduled booking date. A completed month is compared with the immediately preceding month.",
+    sixMonthBaseline: "The arithmetic mean of the six complete calendar months before the target month; the target month is excluded.",
+    createdToConfirmedLeadTime: "Elapsed calendar days from booking creation or lifecycle opening to the first recorded Confirmed transition.",
+    firstPencilToConfirmedLeadTime: "Elapsed calendar days from the first recorded First Pencil transition to the first recorded Confirmed transition.",
+    financeStageDuration: "Elapsed calendar days between the first reliable lifecycle timestamps for consecutive completion and finance stages.",
   },
   thresholds: {
     materialChangePercent: 20,
@@ -63,6 +68,7 @@ export const DEFAULT_BICKERS_BUSINESS_RULES = Object.freeze({
     minimumComparisonJobs: 5,
     staleInvoiceDays: 30,
     dataQualityWarningPercent: 90,
+    minimumLeadTimeSample: 5,
   },
   recommendationGuidance: [
     "Prioritise decisions supported by a named metric and comparison period.",
@@ -92,7 +98,7 @@ export function validateBickersBusinessRules(rules = {}) {
   if (!nonEmptyStrings(rules.completionCriteria)) errors.push("Completion criteria are required.");
   if (!nonEmptyStrings(rules.prohibitedAssumptions)) errors.push("At least one prohibited assumption is required.");
   const thresholds = rules.thresholds || {};
-  ["materialChangePercent", "clientConcentrationPercent", "minimumComparisonJobs", "staleInvoiceDays", "dataQualityWarningPercent"].forEach((key) => {
+  ["materialChangePercent", "clientConcentrationPercent", "minimumComparisonJobs", "staleInvoiceDays", "dataQualityWarningPercent", "minimumLeadTimeSample"].forEach((key) => {
     if (!Number.isFinite(Number(thresholds[key])) || Number(thresholds[key]) < 0) errors.push(`Threshold ${key} must be a non-negative number.`);
   });
   return { valid: errors.length === 0, errors };

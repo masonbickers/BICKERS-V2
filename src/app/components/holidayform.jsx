@@ -820,6 +820,11 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 
         holidayReason: holidayReason.trim(),
         paidStatus,
+        // Keep legacy consumers in sync while paidStatus remains canonical.
+        paid: paidStatus === "Paid",
+        isPaid: paidStatus === "Paid",
+        unpaid: paidStatus === "Unpaid",
+        isUnpaid: paidStatus === "Unpaid",
 
         status: "requested",
         requestedByUid: auth.currentUser?.uid || "",
