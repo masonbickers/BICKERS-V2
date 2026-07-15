@@ -48,6 +48,7 @@ import {
   startOfLocalDay,
 } from "../utils/maintenanceCalendar";
 import { syncEightWeekInspectionRollovers } from "../utils/inspectionRollover";
+import { calendarDayDifference } from "../utils/dateNormalization.mjs";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import DashboardMaintenanceModal from "@/app/components/DashboardMaintenanceModal";
 import { useAuth } from "@/app/context/authContext";
@@ -563,13 +564,7 @@ const daysInRange = (from, to) => {
 };
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-const daysUntil = (d) => {
-  if (!d) return null;
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.floor((t1 - t0) / (1000 * 60 * 60 * 24));
-};
+const daysUntil = (d) => calendarDayDifference(d);
 
 const sameCalendarDate = (a, b) => {
   if (!a || !b) return false;
