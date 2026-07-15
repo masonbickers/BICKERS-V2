@@ -15,6 +15,7 @@
     "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
+    "test:dates": "node --test tests/dateNormalization.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {
