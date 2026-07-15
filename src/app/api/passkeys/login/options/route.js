@@ -6,6 +6,13 @@ import { findUserByEmail, getPasskeyRequestMeta, listPasskeysForUid, passkeyErro
 export const runtime = "nodejs";
 
 export async function POST(req) {
+  if (process.env.ALLOW_LEGACY_FIREBASE_LOGIN !== "true") {
+    return NextResponse.json(
+      { error: "Passkey login has moved to Clerk." },
+      { status: 410 }
+    );
+  }
+
   try {
     const { email } = await req.json();
     const user = await findUserByEmail(email);

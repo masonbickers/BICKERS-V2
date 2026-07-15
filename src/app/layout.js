@@ -1,5 +1,6 @@
 // src/app/layout.js
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./theme.css";
 import "./globals.css";
 import "./calendar-integration.css";
@@ -26,12 +27,14 @@ export default function RootLayout({ children }) {
      suppressHydrationWarning
    >
      <body suppressHydrationWarning>
-        <AuthProvider>
-          <AppCacheRefresh />
-          <ProtectedLayout>
-            {children}
-          </ProtectedLayout>
-        </AuthProvider>
+        <ClerkProvider signInUrl="/login" signUpUrl="/login">
+          <AuthProvider>
+            <AppCacheRefresh />
+            <ProtectedLayout>
+              {children}
+            </ProtectedLayout>
+          </AuthProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

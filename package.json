@@ -19,6 +19,7 @@
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.18",
     "@fullcalendar/core": "^6.1.18",
     "@fullcalendar/daygrid": "^6.1.18",
     "@fullcalendar/interaction": "^6.1.18",

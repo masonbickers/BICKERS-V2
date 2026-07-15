@@ -246,6 +246,13 @@ function chooseExistingUserForLogin(matchingUsers, employeeUid) {
 }
 
 export async function POST(req) {
+  if (process.env.ALLOW_LEGACY_FIREBASE_LOGIN !== "true") {
+    return NextResponse.json(
+      { error: "Setup-code login has moved to Clerk." },
+      { status: 410 }
+    );
+  }
+
   let cleanEmail = "";
   let cleanCode = "";
   let ip = "";
