@@ -10,6 +10,12 @@ const STATUS_ALIASES = {
   inquiry: "Enquiry",
   "first pencil": "First Pencil",
   "second pencil": "Second Pencil",
+  "ready to invoice": "Ready to Invoice",
+  ready_to_invoice: "Ready to Invoice",
+  "ready-to-invoice": "Ready to Invoice",
+  invoiced: "Invoiced",
+  paid: "Paid",
+  settled: "Paid",
   lost: "Lost",
   postponed: "Postponed",
 };
@@ -20,6 +26,9 @@ const LIFECYCLE_FIELD_BY_STATUS = {
   "Second Pencil": "secondPencilAt",
   Confirmed: "confirmedAt",
   Complete: "completedAt",
+  "Ready to Invoice": "readyToInvoiceAt",
+  Invoiced: "invoicedAt",
+  Paid: "paidAt",
   Cancelled: "cancelledAt",
   DNH: "dnhAt",
   Lost: "lostAt",
@@ -30,13 +39,16 @@ const LIFECYCLE_FIELD_BY_STATUS = {
 const TERMINAL_STATUSES = new Set([
   "Cancelled",
   "Complete",
+  "Ready to Invoice",
+  "Invoiced",
+  "Paid",
   "DNH",
   "Deleted",
   "Lost",
   "Postponed",
 ]);
 
-const WON_STATUSES = new Set(["Complete"]);
+const WON_STATUSES = new Set(["Complete", "Ready to Invoice", "Invoiced", "Paid"]);
 const LOST_STATUSES = new Set(["Cancelled", "DNH", "Deleted", "Lost", "Postponed"]);
 const TENTATIVE_STATUSES = new Set(["Enquiry", "First Pencil", "Second Pencil"]);
 

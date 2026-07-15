@@ -1,3 +1,5 @@
+import { bookingStatusCategory, canonicalBookingStatus } from "./bookingLifecycle.js";
+
 const CREDIT_TYPES = [
   { dayType: "half_travel_day", value: 0.5, matches: ["1/2 travel day", "1/2 day travel", "half travel day", "half day travel"] },
   { dayType: "travel_time", value: 0.25, matches: ["travel time"] },
@@ -8,11 +10,6 @@ const CREDIT_TYPES = [
   { dayType: "standby_day", value: 1, matches: ["standby day", "stand by day", "standby"] },
   { dayType: "split_day", value: 1, matches: ["split day", "spilt day"] },
 ];
-
-const LOST_STATUSES = new Set(["dnh", "lost", "cancelled", "canceled"]);
-const WON_STATUSES = new Set(["complete", "completed", "paid", "settled"]);
-const CONFIRMED_STATUSES = new Set(["confirmed", "ready to invoice", "ready-to-invoice", "ready_to_invoice"]);
-const TENTATIVE_STATUSES = new Set(["first pencil", "second pencil", "enquiry", "inquiry", "postponed"]);
 
 const cleanText = (value = "") =>
   String(value || "")
@@ -125,13 +122,8 @@ export function getCreditValue(note = "") {
 }
 
 export function getStatusCategory(status = "") {
-  const clean = cleanText(status);
-
-  if (LOST_STATUSES.has(clean)) return "lost";
-  if (WON_STATUSES.has(clean)) return "won";
-  if (CONFIRMED_STATUSES.has(clean)) return "confirmed";
-  if (TENTATIVE_STATUSES.has(clean)) return "tentative";
-  return "open";
+  const category = bookingStatusCategory(canonicalBookingStatus(status));
+  return category === "active" ? "open" : category;
 }
 
 const isReadyToInvoice = (status = "") => cleanText(status).includes("ready to invoice");
@@ -272,7 +264,9 @@ export function buildBookingAnalytics(bookings = []) {
     open: normalised.filter((b) => b.statusCategory === "open").length,
     hotelCost: normalised.reduce((sum, b) => sum + b.hotel.payableTotal, 0),
   };
-  totals.conversionRate = totals.bookingCount ? Math.round((totals.won / totals.bookingCount) * 1000) / 10 : 0;
+  const decidedOutcomes = totals.won + totals.lost;
+  totals.decidedOutcomes = decidedOutcomes;
+  totals.conversionRate = decidedOutcomes ? Math.round((totals.won / decidedOutcomes) * 1000) / 10 : 0;
   totals.lostRate = totals.bookingCount ? Math.round((totals.lost / totals.bookingCount) * 1000) / 10 : 0;
 
   const dataQuality = {
