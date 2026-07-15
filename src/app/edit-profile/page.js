@@ -16,16 +16,16 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  dangerSoft: "#fcefee",
-  dangerText: "#991b1b",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  dangerSoft: "var(--legacy-color-fcefee)",
+  dangerText: "var(--legacy-color-991b1b)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -67,7 +67,7 @@ const input = {
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 13.5,
   outline: "none",
   color: UI.text,
@@ -83,7 +83,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
@@ -93,12 +93,12 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "#fff" };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)" };
 const sectionTitle = { margin: 0, fontSize: 16, fontWeight: 800, color: UI.text, lineHeight: 1.2 };
 const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginTop: 5 };
 
@@ -314,7 +314,7 @@ export default function EditProfilePage() {
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "#e7edf4", margin: "12px 0" }} />
+              <div style={{ height: 1, background: "var(--legacy-color-e7edf4)", margin: "12px 0" }} />
 
               <div className="edit-profile-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
@@ -325,13 +325,13 @@ export default function EditProfilePage() {
 
                 <div>
                   <div style={fieldLabel}>Email</div>
-                  <input value={email} disabled style={{ ...input, background: "#f8fbfd" }} />
+                  <input value={email} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
                   <div style={helper}>Email is managed by your login account.</div>
                 </div>
 
                 <div>
                   <div style={fieldLabel}>Role</div>
-                  <input value={role || "-"} disabled style={{ ...input, background: "#f8fbfd" }} />
+                  <input value={role || "-"} disabled style={{ ...input, background: "var(--legacy-color-f8fbfd)" }} />
                   <div style={helper}>Role is controlled by admins.</div>
                 </div>
 
@@ -350,7 +350,7 @@ export default function EditProfilePage() {
                     marginTop: 12,
                     padding: "8px 10px",
                     borderRadius: UI.radius,
-                    border: "1px solid #f1b8b8",
+                    border: "1px solid var(--legacy-color-f1b8b8)",
                     background: UI.dangerSoft,
                     color: UI.dangerText,
                     fontWeight: 800,

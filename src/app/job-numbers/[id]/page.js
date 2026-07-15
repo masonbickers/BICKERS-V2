@@ -32,15 +32,15 @@ import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 const UI = {
   radius: 8,
   radiusSm: 8,
-  border: "1px solid #d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  bg: "#f3f6f9",
-  bgAlt: "#fbfdff",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  chipBg: "#edf3f8",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  bg: "var(--legacy-color-f3f6f9)",
+  bgAlt: "var(--legacy-color-fbfdff)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  chipBg: "var(--legacy-color-edf3f8)",
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
 };
@@ -343,7 +343,7 @@ const ConnectedSummaryPanel = ({ title, values }) => {
       style={{
         border: UI.border,
         borderRadius: 8,
-        background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+        background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)",
         minWidth: 0,
         overflow: "hidden",
       }}
@@ -356,7 +356,7 @@ const ConnectedSummaryPanel = ({ title, values }) => {
           gap: 8,
           padding: "7px 9px",
           borderBottom: UI.border,
-          background: "#f8fafc",
+          background: "var(--legacy-color-f8fafc)",
         }}
       >
         <div style={{ color: UI.muted, fontSize: 10.5, fontWeight: 900, textTransform: "uppercase" }}>
@@ -364,9 +364,9 @@ const ConnectedSummaryPanel = ({ title, values }) => {
         </div>
         <Badge
           text={String(count)}
-          bg={count ? UI.brandSoft : "#f1f5f9"}
+          bg={count ? UI.brandSoft : "var(--legacy-color-f1f5f9)"}
           fg={count ? UI.brand : UI.muted}
-          border={count ? UI.brandBorder : "#d7dee8"}
+          border={count ? UI.brandBorder : "var(--legacy-color-d7dee8)"}
           title={`${count} ${title.toLowerCase()}`}
         />
       </div>
@@ -387,9 +387,9 @@ const ConnectedSummaryPanel = ({ title, values }) => {
               key={value}
               title={value}
               style={{
-                border: "1px solid #d7dee8",
+                border: "1px solid var(--legacy-color-d7dee8)",
                 borderRadius: 999,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 color: UI.text,
                 padding: "4px 8px",
                 fontSize: 12,
@@ -412,23 +412,23 @@ const ConnectedSummaryPanel = ({ title, values }) => {
 
 const statusColor = (status) => {
   const label = String(status || "").toLowerCase();
-  if (label === "ready to invoice") return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
-  if (label === "needs action" || label === "action required") return { bg: "#FF973B", border: "#111111", text: "#0b0b0b" };
-  if (label === "complete" || label === "completed") return { bg: "#92d18c", border: "#111111", text: "#0b0b0b" };
-  if (label === "confirmed") return { bg: "#f3f970", border: "#111111", text: "#0b0b0b" };
-  if (label === "first pencil") return { bg: "#89caf5", border: "#111111", text: "#0b0b0b" };
-  if (label === "second pencil") return { bg: "#f73939", border: "#111111", text: "#ffffff" };
-  if (label === "dnh") return { bg: "#d0d0d0", border: "#d0d0d0", text: "#0b0b0b" };
-  if (label === "cancelled" || label === "canceled") return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
-  if (label === "paid") return { bg: "#dcfce7", border: "#86efac", text: "#166534" };
-  return { bg: "#eef3f8", border: "#d7dee8", text: UI.brand };
+  if (label === "ready to invoice") return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
+  if (label === "needs action" || label === "action required") return { bg: "var(--legacy-color-ff973b)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "complete" || label === "completed") return { bg: "var(--legacy-color-92d18c)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "confirmed") return { bg: "var(--legacy-color-f3f970)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "first pencil") return { bg: "var(--legacy-color-89caf5)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "second pencil") return { bg: "var(--legacy-color-f73939)", border: "var(--legacy-color-111111)", text: "var(--legacy-color-ffffff)" };
+  if (label === "dnh") return { bg: "var(--legacy-color-d0d0d0)", border: "var(--legacy-color-d0d0d0)", text: "var(--legacy-color-0b0b0b)" };
+  if (label === "cancelled" || label === "canceled") return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
+  if (label === "paid") return { bg: "var(--legacy-color-dcfce7)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-166534)" };
+  return { bg: "var(--legacy-color-eef3f8)", border: "var(--legacy-color-d7dee8)", text: UI.brand };
 };
 
 const StatusPill = ({ value }) => {
   const color = statusColor(value);
   return <Badge text={value} bg={color.bg} fg={color.text} border={color.border} />;
 };
-const PaidPill = () => <Badge text="Paid" bg="#dcfce7" fg="#166534" border="#86efac" />;
+const PaidPill = () => <Badge text="Paid" bg="var(--legacy-color-dcfce7)" fg="var(--legacy-color-166534)" border="var(--legacy-color-86efac)" />;
 
 /* ────────────────────────────────────────────────────────────
    Status auto-complete helpers (UNCHANGED)
@@ -518,11 +518,11 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   const totalHours = rows.reduce((sum, r) => sum + (isFinite(r.hours) ? r.hours : 0), 0);
 
   const wrap = {
-    borderLeft: `3px solid ${ts.submitted ? "#86efac" : "#fde047"}`,
+    borderLeft: `3px solid ${ts.submitted ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde047)"}`,
     borderRadius: 6,
     padding: "8px 10px",
     marginBottom: 8,
-    backgroundColor: ts.submitted ? "#fbfdff" : "#fffbeb",
+    backgroundColor: ts.submitted ? "var(--legacy-color-fbfdff)" : "var(--legacy-color-fffbeb)",
     minWidth: 0,
   };
   const header = {
@@ -530,7 +530,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     gap: 8,
     alignItems: "center",
     marginBottom: 6,
-    borderBottom: "1px solid #e5eaf1",
+    borderBottom: "1px solid var(--legacy-color-e5eaf1)",
     paddingBottom: 6,
     minWidth: 0,
     flexWrap: "wrap",
@@ -546,7 +546,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
     textAlign: "left",
     padding: "5px 6px",
     borderBottom: UI.border,
-    background: "#fff",
+    background: "var(--legacy-color-fff)",
     color: UI.muted,
     fontSize: 10.5,
     fontWeight: 900,
@@ -558,14 +558,14 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
   };
   const td = {
     padding: "5px 6px",
-    borderBottom: "1px solid #edf2f7",
+    borderBottom: "1px solid var(--legacy-color-edf2f7)",
     verticalAlign: "top",
     overflow: "hidden",
     textOverflow: "ellipsis",
   };
   const tdRight = { ...td, textAlign: "right", whiteSpace: "nowrap" };
   const dayCell = { ...td, fontWeight: 900, whiteSpace: "nowrap" };
-  const foot = { ...tdRight, fontWeight: 900, background: "#f8fafc" };
+  const foot = { ...tdRight, fontWeight: 900, background: "var(--legacy-color-f8fafc)" };
   const notesCell = { overflowWrap: "anywhere", whiteSpace: "pre-wrap" };
 
   return (
@@ -582,9 +582,9 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
         </div>
         <div style={{ marginLeft: "auto" }}>
           {ts.submitted ? (
-            <Badge text="Submitted" bg="#dcfce7" fg="#166534" border="#86efac" />
+            <Badge text="Submitted" bg="var(--legacy-color-dcfce7)" fg="var(--legacy-color-166534)" border="var(--legacy-color-86efac)" />
           ) : (
-            <Badge text="Draft" bg="#fefce8" fg="#854d0e" border="#fde047" />
+            <Badge text="Draft" bg="var(--legacy-color-fefce8)" fg="var(--legacy-color-854d0e)" border="var(--legacy-color-fde047)" />
           )}
         </div>
         <a
@@ -595,7 +595,7 @@ const renderTimesheet = (ts, job, vehicleMap, onlyJobDays = true) => {
             padding: "4px 8px",
             borderRadius: 8,
             border: UI.border,
-            background: "#fff",
+            background: "var(--legacy-color-fff)",
             fontSize: 11.5,
             textDecoration: "none",
             color: UI.brand,
@@ -688,9 +688,9 @@ const DisabledOverlayNote = ({ reason }) => (
   <div
     style={{
       marginTop: 10,
-      border: "1px dashed #cbd5e1",
-      background: "#f8fafc",
-      color: "#64748b",
+      border: "1px dashed var(--legacy-color-cbd5e1)",
+      background: "var(--legacy-color-f8fafc)",
+      color: "var(--legacy-color-64748b)",
       borderRadius: 10,
       padding: "10px 12px",
       fontSize: 13,
@@ -721,12 +721,12 @@ const Btn = ({ children, disabled, onClick, variant = "base", title }) => {
 
   const styles =
     variant === "primary"
-      ? { ...base, background: UI.brand, color: "#fff", border: `1px solid ${UI.brand}` }
+      ? { ...base, background: UI.brand, color: "var(--legacy-color-fff)", border: `1px solid ${UI.brand}` }
       : variant === "danger"
-      ? { ...base, background: "#ef4444", color: "#fff", border: "1px solid #ef4444" }
+      ? { ...base, background: "var(--legacy-color-ef4444)", color: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-ef4444)" }
       : variant === "dark"
-      ? { ...base, background: "#111827", color: "#fff", border: "1px solid #111827" }
-      : { ...base, background: "#fff", color: UI.text };
+      ? { ...base, background: "var(--legacy-color-111827)", color: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-111827)" }
+      : { ...base, background: "var(--legacy-color-fff)", color: UI.text };
 
   return (
     <button disabled={disabled} onClick={disabled ? undefined : onClick} style={styles} title={title}>
@@ -739,7 +739,7 @@ const Card = ({ children, id, tone = "white", style }) => (
   <div
     id={id}
     style={{
-      background: tone === "alt" ? UI.bgAlt : "#fff",
+      background: tone === "alt" ? UI.bgAlt : "var(--legacy-color-fff)",
       border: tone === "plain" ? "none" : UI.border,
       borderRadius: UI.radius,
       padding: tone === "plain" ? 0 : 10,
@@ -1381,7 +1381,7 @@ export default function JobInfoPage() {
                   border: UI.border,
                   fontSize: 13,
                   outline: "none",
-                  background: "#fff",
+                  background: "var(--legacy-color-fff)",
                   fontWeight: 700,
                 }}
               />
@@ -1398,7 +1398,7 @@ export default function JobInfoPage() {
                 border: UI.border,
                 fontSize: 13,
                 outline: "none",
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 fontWeight: 800,
               }}
               aria-label="Filter by status"
@@ -1413,7 +1413,7 @@ export default function JobInfoPage() {
             <div
               style={{
                 border: UI.border,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 borderRadius: 8,
                 padding: "8px 10px",
                 fontSize: 12.5,
@@ -1440,7 +1440,7 @@ export default function JobInfoPage() {
           <div
             style={{
               border: `1px solid ${UI.brandBorder}`,
-              background: "#fff",
+              background: "var(--legacy-color-fff)",
               borderRadius: 8,
               padding: 14,
               marginBottom: 12,
@@ -1474,7 +1474,7 @@ export default function JobInfoPage() {
                     key={title}
                     style={{
                       padding: "4px 10px 4px 0",
-                      borderRight: title === "Previous Locations" ? "none" : "1px solid #e5eaf1",
+                      borderRight: title === "Previous Locations" ? "none" : "1px solid var(--legacy-color-e5eaf1)",
                       minWidth: 0,
                     }}
                   >
@@ -1503,9 +1503,9 @@ export default function JobInfoPage() {
                   {notReadyCount > 0 && (
                     <Badge
                       text={`${notReadyCount} not ready for invoice`}
-                      bg="#fffbeb"
-                      fg="#92400e"
-                      border="#fde68a"
+                      bg="var(--legacy-color-fffbeb)"
+                      fg="var(--legacy-color-92400e)"
+                      border="var(--legacy-color-fde68a)"
                     />
                   )}
                 </div>
@@ -1532,11 +1532,11 @@ export default function JobInfoPage() {
           {!filteredJobs.length ? (
             <div
               style={{
-                border: "1px dashed #cbd5e1",
-                background: "#f8fafc",
+                border: "1px dashed var(--legacy-color-cbd5e1)",
+                background: "var(--legacy-color-f8fafc)",
                 borderRadius: 8,
                 padding: 12,
-                color: "#64748b",
+                color: "var(--legacy-color-64748b)",
                 fontWeight: 800,
               }}
             >
@@ -1613,7 +1613,7 @@ export default function JobInfoPage() {
                         padding: "2px 8px",
                         borderRadius: 999,
                         border: UI.border,
-                        background: "#f8fafc",
+                        background: "var(--legacy-color-f8fafc)",
                         color: UI.muted,
                         fontSize: 11,
                         fontWeight: 900,
@@ -1659,7 +1659,7 @@ export default function JobInfoPage() {
                     padding: 8,
                     marginBottom: 10,
                     boxShadow: UI.shadow,
-                    background: locked ? "#f8fafc" : job.id === jobId ? "#f8fbff" : "#fff",
+                    background: locked ? "var(--legacy-color-f8fafc)" : job.id === jobId ? "var(--legacy-color-f8fbff)" : "var(--legacy-color-fff)",
                     minWidth: 0,
                     scrollMarginTop: LAYOUT.HEADER_H + 80, // extra for search row
                     opacity: locked ? 0.82 : 1,
@@ -1675,7 +1675,7 @@ export default function JobInfoPage() {
                       alignItems: "center",
                       padding: 8,
                       borderRadius: 8,
-                      background: "#fff",
+                      background: "var(--legacy-color-fff)",
                       border: UI.border,
                       cursor: "pointer",
                       userSelect: "none",
@@ -1688,7 +1688,7 @@ export default function JobInfoPage() {
                         height: 26,
                         borderRadius: 8,
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         display: "grid",
                         placeItems: "center",
                         fontWeight: 900,
@@ -1725,9 +1725,9 @@ export default function JobInfoPage() {
                         {invoiceBadge.label && (
                           <Badge
                             text={invoiceBadge.label}
-                            bg={locked ? "#f1f5f9" : invoiceBadge.ready ? "#dcfce7" : "#fffbeb"}
-                            fg={locked ? "#64748b" : invoiceBadge.ready ? "#166534" : "#92400e"}
-                            border={locked ? "#cbd5e1" : invoiceBadge.ready ? "#86efac" : "#fde68a"}
+                            bg={locked ? "var(--legacy-color-f1f5f9)" : invoiceBadge.ready ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fffbeb)"}
+                            fg={locked ? "var(--legacy-color-64748b)" : invoiceBadge.ready ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)"}
+                            border={locked ? "var(--legacy-color-cbd5e1)" : invoiceBadge.ready ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde68a)"}
                             title={
                               locked
                                 ? "This job did not happen, so invoice readiness does not apply"
@@ -1742,9 +1742,9 @@ export default function JobInfoPage() {
                         {locked && (
                           <Badge
                             text="Locked"
-                            bg="#e2e8f0"
-                            fg="#475569"
-                            border="#cbd5e1"
+                            bg="var(--legacy-color-e2e8f0)"
+                            fg="var(--legacy-color-475569)"
+                            border="var(--legacy-color-cbd5e1)"
                             title="Cancelled/DNH/Postponed/Lost jobs are view-only"
                           />
                         )}
@@ -1773,10 +1773,10 @@ export default function JobInfoPage() {
 
                       {!suppressMissingWarnings && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7, alignItems: "center" }}>
-                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "#fffbeb"} fg={vehicleSummary ? UI.brand : "#92400e"} border={vehicleSummary ? UI.brandBorder : "#fde68a"} />
-                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "#fffbeb" : "#f8fafc"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "#92400e" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "#fde68a" : "#d7dee8"} />
-                          <Badge text={poStatus} bg={job.po ? "#f8fafc" : "#fffbeb"} fg={job.po ? UI.text : "#92400e"} border={job.po ? "#d7dee8" : "#fde68a"} />
-                          <Badge text={timesheetStatus} bg={timesheets.length ? "#f8fafc" : "#fffbeb"} fg={timesheets.length ? UI.text : "#92400e"} border={timesheets.length ? "#d7dee8" : "#fde68a"} />
+                          <Badge text={`Vehicle: ${vehicleSummary || "Missing"}`} bg={vehicleSummary ? UI.brandSoft : "var(--legacy-color-fffbeb)"} fg={vehicleSummary ? UI.brand : "var(--legacy-color-92400e)"} border={vehicleSummary ? UI.brandBorder : "var(--legacy-color-fde68a)"} />
+                          <Badge text={`Crew: ${crewCount.allocated}/${crewCount.required || 0}`} bg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-fffbeb)" : "var(--legacy-color-f8fafc)"} fg={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-92400e)" : UI.text} border={crewCount.required && crewCount.allocated < crewCount.required ? "var(--legacy-color-fde68a)" : "var(--legacy-color-d7dee8)"} />
+                          <Badge text={poStatus} bg={job.po ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fffbeb)"} fg={job.po ? UI.text : "var(--legacy-color-92400e)"} border={job.po ? "var(--legacy-color-d7dee8)" : "var(--legacy-color-fde68a)"} />
+                          <Badge text={timesheetStatus} bg={timesheets.length ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fffbeb)"} fg={timesheets.length ? UI.text : "var(--legacy-color-92400e)"} border={timesheets.length ? "var(--legacy-color-d7dee8)" : "var(--legacy-color-fde68a)"} />
                         </div>
                       )}
                     </div>
@@ -1818,7 +1818,7 @@ export default function JobInfoPage() {
                             minWidth: 34,
                             border: UI.border,
                             borderRadius: 8,
-                            background: "#fff",
+                            background: "var(--legacy-color-fff)",
                             fontWeight: 900,
                             cursor: "pointer",
                           }}
@@ -1835,7 +1835,7 @@ export default function JobInfoPage() {
                             minWidth: 150,
                             border: UI.border,
                             borderRadius: 8,
-                            background: "#fff",
+                            background: "var(--legacy-color-fff)",
                             boxShadow: UI.shadowHover,
                             padding: 6,
                           }}
@@ -1848,7 +1848,7 @@ export default function JobInfoPage() {
                               width: "100%",
                               border: "none",
                               background: "transparent",
-                              color: locked ? UI.muted : "#b91c1c",
+                              color: locked ? UI.muted : "var(--legacy-color-b91c1c)",
                               textAlign: "left",
                               padding: "8px 10px",
                               borderRadius: 6,
@@ -1932,7 +1932,7 @@ export default function JobInfoPage() {
                                       whiteSpace: "pre-wrap",
                                       color: UI.text,
                                       fontSize: 13,
-                                      background: "#f8fafc",
+                                      background: "var(--legacy-color-f8fafc)",
                                       borderRadius: 6,
                                       padding: "8px 10px",
                                       minWidth: 0,
@@ -1985,9 +1985,9 @@ export default function JobInfoPage() {
                                 style={{
                                   color: UI.muted,
                                   padding: 10,
-                                  border: "1px dashed #d1d5db",
+                                  border: "1px dashed var(--legacy-color-d1d5db)",
                                   borderRadius: 8,
-                                  background: "#fff",
+                                  background: "var(--legacy-color-fff)",
                                 }}
                               >
                                 No timesheet days found for this job yet.
@@ -2035,8 +2035,8 @@ export default function JobInfoPage() {
                                       padding: "6px 8px",
                                       borderRadius: 8,
                                       border: active ? `2px solid ${color.border}` : UI.border,
-                                      background: active ? color.bg : "#fff",
-                                      color: active ? color.text : "#1f2937",
+                                      background: active ? color.bg : "var(--legacy-color-fff)",
+                                      color: active ? color.text : "var(--legacy-color-1f2937)",
                                       fontWeight: 900,
                                       cursor: disabled ? "not-allowed" : "pointer",
                                       opacity: disabled ? 0.55 : 1,
@@ -2067,18 +2067,18 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 10,
                                 padding: 10,
-                                borderLeft: suppressMissingWarnings ? "3px solid #cbd5e1" : invoiceReadiness.ready ? "3px solid #86efac" : "3px solid #fde68a",
+                                borderLeft: suppressMissingWarnings ? "3px solid var(--legacy-color-cbd5e1)" : invoiceReadiness.ready ? "3px solid var(--legacy-color-86efac)" : "3px solid var(--legacy-color-fde68a)",
                                 borderRadius: 6,
-                                background: suppressMissingWarnings ? "#f8fafc" : invoiceReadiness.ready ? "#f0fdf4" : "#fffbeb",
+                                background: suppressMissingWarnings ? "var(--legacy-color-f8fafc)" : invoiceReadiness.ready ? "var(--legacy-color-f0fdf4)" : "var(--legacy-color-fffbeb)",
                               }}
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
                                 <div style={{ fontWeight: 900, fontSize: 12.5 }}>Invoice checklist</div>
                                 <Badge
                                   text={locked ? "Not applicable" : suppressMissingWarnings ? "Complete" : invoiceReadiness.label}
-                                  bg={suppressMissingWarnings ? "#f1f5f9" : invoiceReadiness.ready ? "#dcfce7" : "#fef3c7"}
-                                  fg={suppressMissingWarnings ? "#64748b" : invoiceReadiness.ready ? "#166534" : "#92400e"}
-                                  border={suppressMissingWarnings ? "#cbd5e1" : invoiceReadiness.ready ? "#86efac" : "#fde68a"}
+                                  bg={suppressMissingWarnings ? "var(--legacy-color-f1f5f9)" : invoiceReadiness.ready ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fef3c7)"}
+                                  fg={suppressMissingWarnings ? "var(--legacy-color-64748b)" : invoiceReadiness.ready ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)"}
+                                  border={suppressMissingWarnings ? "var(--legacy-color-cbd5e1)" : invoiceReadiness.ready ? "var(--legacy-color-86efac)" : "var(--legacy-color-fde68a)"}
                                 />
                               </div>
                               {suppressMissingWarnings ? (
@@ -2098,7 +2098,7 @@ export default function JobInfoPage() {
                                 ].map(([label, ok]) => (
                                   <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "3px 0", fontSize: 12, fontWeight: 800 }}>
                                     <span>{label}</span>
-                                    <span style={{ color: ok ? "#166534" : "#92400e" }}>{ok ? "OK" : "Missing"}</span>
+                                    <span style={{ color: ok ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)" }}>{ok ? "OK" : "Missing"}</span>
                                   </div>
                                 ))
                               )}
@@ -2109,7 +2109,7 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 8,
                                 paddingTop: 8,
-                                borderTop: "1px solid #e5eaf1",
+                                borderTop: "1px solid var(--legacy-color-e5eaf1)",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >
@@ -2139,7 +2139,7 @@ export default function JobInfoPage() {
                                 padding: "6px 8px",
                                 fontSize: 12,
                                 resize: "vertical",
-                                background: locked ? "#f1f5f9" : "#fff",
+                                background: locked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff)",
                                 marginBottom: 7,
                                 opacity: locked ? 0.8 : 1,
                               }}
@@ -2168,7 +2168,7 @@ export default function JobInfoPage() {
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff)",
                                   opacity: locked ? 0.8 : 1,
                                 }}
                               />
@@ -2192,7 +2192,7 @@ export default function JobInfoPage() {
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff)",
                                   opacity: locked ? 0.8 : 1,
                                   marginBottom: 6,
                                 }}
@@ -2212,7 +2212,7 @@ export default function JobInfoPage() {
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff)",
                                   opacity: locked ? 0.8 : 1,
                                   marginBottom: 6,
                                 }}
@@ -2232,7 +2232,7 @@ export default function JobInfoPage() {
                                   borderRadius: 8,
                                   padding: "6px 8px",
                                   fontSize: 12,
-                                  background: locked ? "#f1f5f9" : "#fff",
+                                  background: locked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff)",
                                   opacity: locked ? 0.8 : 1,
                                 }}
                               />
@@ -2244,7 +2244,7 @@ export default function JobInfoPage() {
                               style={{
                                 marginTop: 8,
                                 paddingTop: 8,
-                                borderTop: "1px solid #e5eaf1",
+                                borderTop: "1px solid var(--legacy-color-e5eaf1)",
                                 scrollMarginTop: LAYOUT.HEADER_H + 80,
                               }}
                             >

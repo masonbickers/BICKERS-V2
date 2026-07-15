@@ -12,13 +12,13 @@ const UI = {
   gap: 16,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  brandSoft: "var(--legacy-color-eff6ff)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -39,7 +39,7 @@ const chip = (kind = "neutral") => {
     return {
       padding: "6px 10px",
       borderRadius: 999,
-      border: "1px solid #dbeafe",
+      border: "1px solid var(--legacy-color-dbeafe)",
       background: UI.brandSoft,
       color: UI.brand,
       fontSize: 12,
@@ -49,8 +49,8 @@ const chip = (kind = "neutral") => {
   return {
     padding: "6px 10px",
     borderRadius: 999,
-    border: "1px solid #e5e7eb",
-    background: "#f1f5f9",
+    border: "1px solid var(--legacy-color-e5e7eb)",
+    background: "var(--legacy-color-f1f5f9)",
     color: UI.text,
     fontSize: 12,
     fontWeight: 900,
@@ -85,8 +85,8 @@ const iconWrap = (open) => ({
   borderRadius: 10,
   display: "grid",
   placeItems: "center",
-  border: "1px solid #e5e7eb",
-  background: open ? "#eef2ff" : "#fff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: open ? "var(--legacy-color-eef2ff)" : "var(--legacy-color-fff)",
   color: open ? UI.brand : UI.muted,
   transform: open ? "rotate(180deg)" : "rotate(0deg)",
   transition: "transform .18s ease, background .18s ease, color .18s ease",
@@ -120,12 +120,12 @@ function PolicySection({ titleText, summary, children, defaultOpen = false }) {
       style={sectionCard}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = UI.shadowHover;
-        e.currentTarget.style.borderColor = "#dbeafe";
+        e.currentTarget.style.borderColor = "var(--legacy-color-dbeafe)";
         e.currentTarget.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = UI.shadowSm;
-        e.currentTarget.style.borderColor = "#e5e7eb";
+        e.currentTarget.style.borderColor = "var(--legacy-color-e5e7eb)";
         e.currentTarget.style.transform = "translateY(0px)";
       }}
     >

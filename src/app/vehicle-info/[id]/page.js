@@ -105,10 +105,10 @@ export default function VehicleInfoPage() {
     }
   };
 
-  if (!vehicle) return <div style={{ padding: 40, color: '#000' }}>Loading vehicle data...</div>;
+  if (!vehicle) return <div style={{ padding: 40, color: 'var(--legacy-color-000)' }}>Loading vehicle data...</div>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif", color: "#111" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--legacy-color-f4f4f5)", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-111)" }}>
       {/* Sidebar */}
 
 
@@ -116,7 +116,7 @@ export default function VehicleInfoPage() {
       <main style={{ flex: 1, padding: 40 }}>
         <button
           onClick={() => router.push("/vehicles")}
-          style={{ marginBottom: 16, padding: "8px 16px", border: "none", borderRadius: 4, backgroundColor: "#555", color: "#fff", cursor: "pointer", width: "fit-content" }}
+          style={{ marginBottom: 16, padding: "8px 16px", border: "none", borderRadius: 4, backgroundColor: "var(--legacy-color-555)", color: "var(--legacy-color-fff)", cursor: "pointer", width: "fit-content" }}
         >
           ← Back to Vehicles
         </button>
@@ -132,7 +132,7 @@ export default function VehicleInfoPage() {
             <select
               value={editableVehicle?.category || ""}
               onChange={(e) => setEditableVehicle({ ...editableVehicle, category: e.target.value })}
-              style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+              style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
             >
               <option value="Bike">Bike</option>
               <option value="Small">Small</option>
@@ -149,7 +149,7 @@ export default function VehicleInfoPage() {
     type="date"
     value={editableVehicle?.lastService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
   />
 </div>
 
@@ -159,7 +159,7 @@ export default function VehicleInfoPage() {
     type="date"
     value={editableVehicle?.nextService || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextService: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
   />
 </div>
 
@@ -169,7 +169,7 @@ export default function VehicleInfoPage() {
     type="date"
     value={editableVehicle?.lastMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, lastMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
   />
 </div>
 
@@ -179,7 +179,7 @@ export default function VehicleInfoPage() {
     type="date"
     value={editableVehicle?.nextMOT || ""}
     onChange={(e) => setEditableVehicle({ ...editableVehicle, nextMOT: e.target.value })}
-    style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+    style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
   />
 </div>
 
@@ -192,7 +192,7 @@ export default function VehicleInfoPage() {
           <textarea
             value={editableVehicle?.notes || ""}
             onChange={(e) => setEditableVehicle({ ...editableVehicle, notes: e.target.value })}
-            style={{ width: "100%", height: 120, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}
+            style={{ width: "100%", height: 120, padding: 12, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
           />
         </div>
 
@@ -201,8 +201,8 @@ export default function VehicleInfoPage() {
           onClick={handleSave}
           style={{
             padding: "10px 20px",
-            backgroundColor: "#1976d2",
-            color: "#fff",
+            backgroundColor: "var(--legacy-color-1976d2)",
+            color: "var(--legacy-color-fff)",
             border: "none",
             borderRadius: 4,
             cursor: "pointer"
@@ -216,8 +216,8 @@ export default function VehicleInfoPage() {
             onClick={handleDelete}
             style={{
               padding: "10px 20px",
-              backgroundColor: "#d32f2f",
-              color: "#fff",
+              backgroundColor: "var(--legacy-color-d32f2f)",
+              color: "var(--legacy-color-fff)",
               border: "none",
               borderRadius: 4,
               cursor: "pointer"
@@ -237,7 +237,7 @@ function Field({ label, value, onChange, suffix }) {
       <label style={{ fontWeight: "bold", display: "block", marginBottom: 4 }}>{label}</label>
       <input
         defaultValue={value}
-        style={{ width: "100%", padding: 10, border: "1px solid #ccc", borderRadius: 6 }}
+        style={{ width: "100%", padding: 10, border: "1px solid var(--legacy-color-ccc)", borderRadius: 6 }}
         onChange={(e) => onChange(e.target.value)} />
       
       {suffix && <span style={{ marginLeft: 8 }}>{suffix}</span>}
@@ -306,11 +306,11 @@ function VehicleCSVImport() {
 
 const navButton = {
   background: "transparent",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid #333"
+  borderBottom: "1px solid var(--legacy-color-333)"
 };

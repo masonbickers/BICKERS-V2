@@ -39,12 +39,12 @@ const UI = {
   gap: 16,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowMd: "0 10px 26px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
 };
 
 const shell = { minHeight: "100vh", background: UI.bg, color: UI.text };
@@ -78,16 +78,16 @@ const input = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   outline: "none",
 };
 const textarea = { ...input, minHeight: 220, resize: "vertical" };
 const helpText = { marginTop: 6, fontSize: 12, color: UI.muted };
 
-const btn = (bg = "#fff", fg = UI.text, bd = "1px solid #e5e7eb") => ({
+const btn = (bg = "var(--legacy-color-fff)", fg = UI.text, bd = "1px solid var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -266,11 +266,11 @@ export default function AddEquipmentPage() {
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button style={btn("#fff", UI.text)} onClick={() => router.back()}>
+              <button style={btn("var(--legacy-color-fff)", UI.text)} onClick={() => router.back()}>
                 ← Cancel
               </button>
               <button
-                style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
                 onClick={handleSave}
                 disabled={!canSave || saving}
                 title={!canSave ? "Fill Name and Category" : ""}
@@ -416,12 +416,12 @@ export default function AddEquipmentPage() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" style={btn("#fff", UI.text)} onClick={() => router.back()}>
+              <button type="button" style={btn("var(--legacy-color-fff)", UI.text)} onClick={() => router.back()}>
                 Cancel
               </button>
               <button
                 type="submit"
-                style={btn(UI.brand, "#fff", `1px solid ${UI.brand}`)}
+                style={btn(UI.brand, "var(--legacy-color-fff)", `1px solid ${UI.brand}`)}
                 disabled={!canSave || saving}
               >
                 {saving ? "Saving…" : "Save Equipment"}

@@ -21,11 +21,11 @@ import {
 
 /* ───────────────── Visual tokens ──────────────── */
 const UI = {
-  page: "#f3f4f6",
-  card: "#ffffff",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
+  page: "var(--legacy-color-f3f4f6)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  subtext: "var(--legacy-color-64748b)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   radius: 12,
   radiusSm: 8,
   shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
@@ -54,17 +54,17 @@ const panel = {
 
 const filtersRow = { display: "flex", gap: 10, flexWrap: "wrap" };
 const input = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
   padding: "8px 10px",
   fontSize: 13,
   minWidth: 220,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const select = { ...input, minWidth: 160 };
 const table = { width: "100%", borderCollapse: "collapse", marginTop: 12 };
-const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid #eef2f7", textAlign: "left" };
-const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const th = { padding: "10px 12px", fontSize: 12, color: UI.subtext, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: "1px solid var(--legacy-color-eef2f7)", textAlign: "left" };
+const td = { padding: "10px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
 
 const badge = (bg, fg) => ({
   display: "inline-block",
@@ -76,13 +76,13 @@ const badge = (bg, fg) => ({
   color: fg,
 });
 
-const btn = (bg = "#fff", fg = "#111827") => ({
+const btn = (bg = "var(--legacy-color-fff)", fg = "var(--legacy-color-111827)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   background: bg,
   color: fg,
   fontWeight: 800,
@@ -372,9 +372,9 @@ export default function GeneralDefectsPage() {
                           {r.photos?.length ? r.photos.length : 0}
                         </td>
                         <td style={td}>
-                          {!m && <span style={badge("#eef2ff", "#3730a3")}>Pending</span>}
-                          {m === "scheduled" && <span style={badge("#ecfdf5", "#065f46")}>Scheduled</span>}
-                          {m === "resolved" && <span style={badge("#f0f9ff", "#075985")}>Resolved</span>}
+                          {!m && <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>Pending</span>}
+                          {m === "scheduled" && <span style={badge("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)")}>Scheduled</span>}
+                          {m === "resolved" && <span style={badge("var(--legacy-color-f0f9ff)", "var(--legacy-color-075985)")}>Resolved</span>}
                           {r.maintenance?.note ? (
                             <div style={{ marginTop: 6, fontSize: 12, color: UI.subtext }}>
                               {r.maintenance.note}
@@ -392,7 +392,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Mark Scheduled */}
                           <button
-                            style={{ ...btn("#ffffff"), marginRight: 6 }}
+                            style={{ ...btn("var(--legacy-color-ffffff)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "scheduled")}
                             disabled={savingId === key}
                             title="Mark as Scheduled"
@@ -402,7 +402,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Mark Resolved */}
                           <button
-                            style={{ ...btn("#ecfdf5", "#065f46"), marginRight: 6 }}
+                            style={{ ...btn("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)"), marginRight: 6 }}
                             onClick={() => openStatusModal(r, "resolved")}
                             disabled={savingId === key}
                             title="Mark as Resolved"
@@ -412,7 +412,7 @@ export default function GeneralDefectsPage() {
 
                           {/* Re-route to Immediate */}
                           <button
-                            style={btn("#fef2f2", "#991b1b")}
+                            style={btn("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}
                             onClick={() => rerouteToImmediate(r)}
                             disabled={savingId === key}
                             title="Move to Immediate Defects"
@@ -462,8 +462,8 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
       <div
         style={{
           width: "min(92vw, 560px)",
-          background: "#fff",
-          border: "1px solid #e5e7eb",
+          background: "var(--legacy-color-fff)",
+          border: "1px solid var(--legacy-color-e5e7eb)",
           borderRadius: 12,
           boxShadow: UI.shadowMd,
           padding: 18,
@@ -496,7 +496,7 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
           }
           style={{
             width: "100%",
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--legacy-color-e5e7eb)",
             borderRadius: 8,
             padding: 10,
             fontSize: 13,
@@ -505,10 +505,10 @@ function NotesModal({ notesModal, onClose, onSave, setNotesModal }) {
         />
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onClose} style={btn("#fff", "#111827")}>
+          <button onClick={onClose} style={btn("var(--legacy-color-fff)", "var(--legacy-color-111827)")}>
             Cancel
           </button>
-          <button onClick={onSave} style={btn("#111827", "#fff")}>
+          <button onClick={onSave} style={btn("var(--legacy-color-111827)", "var(--legacy-color-fff)")}>
             Save
           </button>
         </div>

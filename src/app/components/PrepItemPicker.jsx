@@ -29,15 +29,15 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
   return (
     <div
       style={{
-        border: "1px solid #e5e7eb",
+        border: "1px solid var(--legacy-color-e5e7eb)",
         borderRadius: 10,
-        background: "#f8fafc",
+        background: "var(--legacy-color-f8fafc)",
         padding: 10,
         display: "grid",
         gap: 8,
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 800, color: "#334155" }}>Quick Add Prep Item</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "var(--legacy-color-334155)" }}>Quick Add Prep Item</div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <select
@@ -46,11 +46,11 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           style={{
             flex: 1,
             minWidth: 260,
-            border: "1px solid #d1d5db",
+            border: "1px solid var(--legacy-color-d1d5db)",
             borderRadius: 8,
             padding: "8px 10px",
             fontSize: 13,
-            background: "#fff",
+            background: "var(--legacy-color-fff)",
           }}
         >
           <option value="">Select preset item...</option>
@@ -71,9 +71,9 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           }}
           disabled={!canAddPreset}
           style={{
-            border: "1px solid #1d4ed8",
-            background: canAddPreset ? "#1d4ed8" : "#93c5fd",
-            color: "#fff",
+            border: "1px solid var(--legacy-color-1d4ed8)",
+            background: canAddPreset ? "var(--legacy-color-1d4ed8)" : "var(--legacy-color-93c5fd)",
+            color: "var(--legacy-color-fff)",
             borderRadius: 8,
             padding: "8px 12px",
             fontSize: 12,
@@ -103,11 +103,11 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           style={{
             flex: 1,
             minWidth: 240,
-            border: "1px solid #d1d5db",
+            border: "1px solid var(--legacy-color-d1d5db)",
             borderRadius: 8,
             padding: "8px 10px",
             fontSize: 13,
-            background: "#fff",
+            background: "var(--legacy-color-fff)",
           }}
         />
 
@@ -121,9 +121,9 @@ export default function PrepItemPicker({ onQuickAdd, onCustomAdd }) {
           }}
           disabled={!canAddCustom}
           style={{
-            border: "1px solid #0f766e",
-            background: canAddCustom ? "#0f766e" : "#99f6e4",
-            color: "#fff",
+            border: "1px solid var(--legacy-color-0f766e)",
+            background: canAddCustom ? "var(--legacy-color-0f766e)" : "var(--legacy-color-99f6e4)",
+            color: "var(--legacy-color-fff)",
             borderRadius: 8,
             padding: "8px 12px",
             fontSize: 12,

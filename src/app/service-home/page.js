@@ -6,11 +6,11 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 
 /* ───────────────── Visual tokens (same as your Vehicles page) ──────────────── */
 const UI = {
-  page: "#f3f4f6",
-  card: "#ffffff",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
+  page: "var(--legacy-color-f3f4f6)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  subtext: "var(--legacy-color-64748b)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   radius: 12,
   radiusSm: 8,
   shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",

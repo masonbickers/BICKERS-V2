@@ -26,6 +26,10 @@ import {
   useDataAccessState,
 } from "@/app/utils/firestoreAccess";
 import {
+  holidayMatchesTimesheetEmployee,
+  isApprovedHolidayForTimesheet,
+} from "@/app/utils/timesheetHolidayMatch";
+import {
   ArrowLeft,
   CheckCircle2,
   MessageSquare,
@@ -120,23 +124,23 @@ const UI = {
   radius: 8,
   radiusSm: 8,
   gap: 12,
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  panelTint: "#ffffff",
-  ink: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "1px solid #d7dee8",
+  bg: "var(--legacy-color-f3f6f9)",
+  panel: "var(--legacy-color-ffffff)",
+  panelTint: "var(--legacy-color-ffffff)",
+  ink: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -187,8 +191,8 @@ const controlButton = (kind = "ghost", disabled = false) => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+      color: "var(--legacy-color-fff)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
@@ -205,7 +209,7 @@ const controlButton = (kind = "ghost", disabled = false) => {
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -215,11 +219,11 @@ const approveButtonStyle = (disabled = false) => ({
   ...controlButton("success", disabled),
   padding: "9px 15px",
   fontSize: 13.5,
-  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid #047857",
+  border: disabled ? `1px solid ${UI.greenBorder}` : "1px solid var(--legacy-color-047857)",
   background: disabled
     ? UI.greenSoft
-    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
-  color: disabled ? UI.green : "#fff",
+    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
+  color: disabled ? UI.green : "var(--legacy-color-fff)",
   boxShadow: disabled
     ? UI.shadowSm
     : "0 10px 22px rgba(21,128,61,0.28), inset 0 1px 0 rgba(255,255,255,0.2)",
@@ -260,7 +264,7 @@ function TimeSelect({ label, value, onChange }) {
           fontSize: 12,
           padding: "6px 8px",
           minHeight: 32,
-          background: "#ffffff",
+          background: "var(--legacy-color-ffffff)",
         }}
       />
       <datalist id={listId}>
@@ -273,11 +277,11 @@ function TimeSelect({ label, value, onChange }) {
 }
 
 const payAdviceCell = {
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   padding: "6px 5px",
   textAlign: "center",
-  color: "#0f172a",
-  background: "#ffffff",
+  color: "var(--legacy-color-0f172a)",
+  background: "var(--legacy-color-ffffff)",
 };
 
 const payAdviceInput = {
@@ -287,7 +291,7 @@ const payAdviceInput = {
   background: "transparent",
   textAlign: "center",
   fontSize: 11.5,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   padding: 0,
 };
 
@@ -830,29 +834,6 @@ function getTimesheetEmployeeTokens(timesheet = {}) {
   return tokens;
 }
 
-function getHolidayMatchTokens(holiday = {}) {
-  const tokens = new Set();
-  collectAssignmentTokens(
-    [
-      holiday.employee,
-      holiday.employeeName,
-      holiday.userCode,
-      holiday.employeeCode,
-      holiday.staffCode,
-      holiday.userId,
-      holiday.employeeId,
-      holiday.uid,
-      holiday.id,
-      holiday.createdBy,
-      holiday.owner,
-    ],
-    tokens
-  );
-  addAssignmentNameTokens(tokens, holiday.employee);
-  addAssignmentNameTokens(tokens, holiday.employeeName);
-  return tokens;
-}
-
 function collectAssignmentTokens(source, set = new Set()) {
   if (!source) return set;
   if (Array.isArray(source)) {
@@ -1147,8 +1128,8 @@ function printElementById(elementId, title) {
           html, body {
             margin: 0;
             padding: 0;
-            background: #ffffff;
-            color: #0f172a;
+            background: var(--legacy-color-ffffff);
+            color: var(--legacy-color-0f172a);
             font-family: Arial, sans-serif;
           }
           body { padding: 10px; }
@@ -1162,7 +1143,7 @@ function printElementById(elementId, title) {
             border: none !important;
             border-radius: 0 !important;
             padding: 0 !important;
-            background: #ffffff !important;
+            background: var(--legacy-color-ffffff) !important;
             width: 100% !important;
             max-width: 100% !important;
             overflow: visible !important;
@@ -1219,7 +1200,7 @@ function printElementById(elementId, title) {
           }
           #pay-advice-print-root th,
           #pay-advice-print-root td {
-            border: 1px solid #111827;
+            border: 1px solid var(--legacy-color-111827);
             padding: 4px 5px;
             vertical-align: middle;
             text-align: center;
@@ -1343,13 +1324,7 @@ function getHolidayPaidLabel(holiday = {}) {
 function getHolidayLockForDate(holidayDocs = []) {
   if (!Array.isArray(holidayDocs) || !holidayDocs.length) return null;
 
-  const visible = holidayDocs.filter((h) => {
-    if (!h || typeof h !== "object") return false;
-    if (h.deleted === true || h.isDeleted === true) return false;
-    const status = String(h.status || "").trim().toLowerCase();
-    if (!status) return true;
-    return ["requested", "approved", "accepted"].includes(status);
-  });
+  const visible = holidayDocs.filter(isApprovedHolidayForTimesheet);
   if (!visible.length) return null;
 
   const halfHoliday = visible.some((h) => isHolidayHalfDayDoc(h));
@@ -1629,7 +1604,6 @@ export default function TimesheetDetailPage() {
       try {
         const snap = await getDocs(tenantCollectionQuery(db, "holidays", dataAccessState));
         const map = {};
-        const timesheetTokens = getTimesheetEmployeeTokens(timesheet);
         const weekStart = parseDateFlexible(timesheet?.weekStart);
         const weekEnd = weekStart ? new Date(weekStart) : null;
         if (weekEnd) weekEnd.setDate(weekEnd.getDate() + 6);
@@ -1639,23 +1613,9 @@ export default function TimesheetDetailPage() {
         snap.docs.forEach((d) => {
           const h = d.data();
 
-          const status = String(h.status || "").toLowerCase();
-          if (h.deleted === true || h.isDeleted === true || status === "deleted") return;
+          if (!isApprovedHolidayForTimesheet(h)) return;
 
-          const holidayTokens = getHolidayMatchTokens(h);
-          const explicitCodeMatch =
-            timesheet.employeeCode &&
-            String(h.employeeCode || "").trim().toLowerCase() ===
-              String(timesheet.employeeCode).trim().toLowerCase();
-          const legacyNameMatch =
-            timesheet.employeeName &&
-            String(h.employee || "").trim().toLowerCase() === String(timesheet.employeeName).trim().toLowerCase();
-
-          const tokenMatch = Array.from(holidayTokens).some((token) =>
-            token && timesheetTokens.has(token)
-          );
-
-          if (!explicitCodeMatch && !legacyNameMatch && !tokenMatch) return;
+          if (!holidayMatchesTimesheetEmployee(timesheet, h)) return;
 
           const dateKeys = getHolidayDateKeys(h);
 
@@ -2702,21 +2662,21 @@ export default function TimesheetDetailPage() {
   }
 
   let statusLabel = "Draft (not submitted)";
-  let badgeBg = "#fed7aa";
-  let badgeBorder = "#fdba74";
-  let badgeColor = "#7c2d12";
+  let badgeBg = "var(--legacy-color-fed7aa)";
+  let badgeBorder = "var(--legacy-color-fdba74)";
+  let badgeColor = "var(--legacy-color-7c2d12)";
 
   if (timesheet.submitted && !isApproved) {
     statusLabel = "Submitted";
-    badgeBg = "#bbf7d0";
-    badgeBorder = "#86efac";
-    badgeColor = "#052e16";
+    badgeBg = "var(--legacy-color-bbf7d0)";
+    badgeBorder = "var(--legacy-color-86efac)";
+    badgeColor = "var(--legacy-color-052e16)";
   }
   if (isApproved) {
     statusLabel = "Approved";
-    badgeBg = "#dcfce7";
-    badgeBorder = "#22c55e";
-    badgeColor = "#14532d";
+    badgeBg = "var(--legacy-color-dcfce7)";
+    badgeBorder = "var(--legacy-color-22c55e)";
+    badgeColor = "var(--legacy-color-14532d)";
   }
 
   return (
@@ -2855,7 +2815,7 @@ export default function TimesheetDetailPage() {
                 </div>
               )}
               {timesheet.approvedAt && (
-                <div style={{ color: "#15803d", marginTop: 2 }}>
+                <div style={{ color: "var(--legacy-color-15803d)", marginTop: 2 }}>
                   Approved: {parseDateFlexible(timesheet.approvedAt)?.toLocaleString("en-GB")}
                 </div>
               )}
@@ -2919,7 +2879,7 @@ export default function TimesheetDetailPage() {
                 <div
                   key={day}
                   style={{
-                    background: "#ffffff",
+                    background: "var(--legacy-color-ffffff)",
                     padding: 10,
                     borderRadius: UI.radius,
                     border: UI.border,
@@ -2957,7 +2917,7 @@ export default function TimesheetDetailPage() {
                             padding: "3px 7px",
                             borderRadius: UI.radiusSm,
                             border: `1px dashed ${UI.brandBorder}`,
-                            background: "#ffffff",
+                            background: "var(--legacy-color-ffffff)",
                             color: UI.brand,
                             cursor: !isAdmin || manualEntrySavingDay === day ? "not-allowed" : "pointer",
                             opacity: !isAdmin || manualEntrySavingDay === day ? 0.5 : 1,
@@ -2989,7 +2949,7 @@ export default function TimesheetDetailPage() {
                           padding: "3px 7px",
                           borderRadius: UI.radiusSm,
                           border: `1px dashed ${UI.brandBorder}`,
-                          background: "#ffffff",
+                          background: "var(--legacy-color-ffffff)",
                           color: UI.brand,
                           cursor: !isAdmin || isApproved ? "not-allowed" : "pointer",
                           opacity: !isAdmin || isApproved ? 0.5 : 1,
@@ -3033,7 +2993,7 @@ export default function TimesheetDetailPage() {
                             padding: 8,
                             borderRadius: UI.radiusSm,
                             border: UI.border,
-                            background: "#f8fbfd",
+                            background: "var(--legacy-color-f8fbfd)",
                             display: "grid",
                             gap: 7,
                           }}
@@ -3056,7 +3016,7 @@ export default function TimesheetDetailPage() {
                               style={{
                                 border: UI.border,
                                 borderRadius: UI.radiusSm,
-                                background: "#ffffff",
+                                background: "var(--legacy-color-ffffff)",
                                 padding: 7,
                                 display: "grid",
                                 gap: 5,
@@ -3246,9 +3206,9 @@ export default function TimesheetDetailPage() {
                   {isTurnaroundCard && (
                     <div
                       style={{
-                        background: "#f3e8ff",
-                        border: "1px solid #c4b5fd",
-                        color: "#6d28d9",
+                        background: "var(--legacy-color-f3e8ff)",
+                        border: "1px solid var(--legacy-color-c4b5fd)",
+                        color: "var(--legacy-color-6d28d9)",
                         padding: "7px 9px",
                         borderRadius: UI.radiusSm,
                         fontWeight: 900,
@@ -3260,7 +3220,7 @@ export default function TimesheetDetailPage() {
                         style={{
                           fontSize: 11.5,
                           fontWeight: 700,
-                          color: "#6b7280",
+                          color: "var(--legacy-color-6b7280)",
                           marginTop: 2,
                         }}
                       >
@@ -3275,7 +3235,7 @@ export default function TimesheetDetailPage() {
                           style={{
                             fontSize: 11.5,
                             fontWeight: 700,
-                            color: "#6b7280",
+                            color: "var(--legacy-color-6b7280)",
                             marginTop: 2,
                           }}
                         >
@@ -3289,7 +3249,7 @@ export default function TimesheetDetailPage() {
                   {isHolidayCard && (
                     <div style={{ fontWeight: 600 }}>
                       <div>
-                        <span style={{ color: "#007da3ff" }}>
+                        <span style={{ color: "var(--legacy-color-007da3ff)" }}>
                           {mode === "bankholiday" ? "Bank holiday" : "Holiday"}
                         </span>
                         {displayPaidLabel && (
@@ -3297,7 +3257,7 @@ export default function TimesheetDetailPage() {
                             style={{
                               marginLeft: 6,
                               color:
-                                displayPaidLabel.toLowerCase() === "unpaid" ? "#8a8a8aff" : "#1d4ed8",
+                                displayPaidLabel.toLowerCase() === "unpaid" ? "var(--legacy-color-8a8a8aff)" : "var(--legacy-color-1d4ed8)",
                             }}
                           >
                             ({displayPaidLabel})
@@ -3336,7 +3296,7 @@ export default function TimesheetDetailPage() {
                               alignItems: "center",
                               gap: 8,
                               fontSize: 11.5,
-                              color: "#475569",
+                              color: "var(--legacy-color-475569)",
                             }}
                           >
                             <span>
@@ -3365,8 +3325,8 @@ export default function TimesheetDetailPage() {
                       )}
                     </div>
                   )}
-                  {isOffCard && <div style={{ color: "#6b7280" }}>Day Off</div>}
-                  {isUnpaidCard && <div style={{ color: "#a16207", fontWeight: 700 }}>Unpaid day</div>}
+                  {isOffCard && <div style={{ color: "var(--legacy-color-6b7280)" }}>Day Off</div>}
+                  {isUnpaidCard && <div style={{ color: "var(--legacy-color-a16207)", fontWeight: 700 }}>Unpaid day</div>}
 
                   {/* JOB INFO (still show jobs if they exist) */}
                   {jobsToday.length > 0 && (
@@ -3375,8 +3335,8 @@ export default function TimesheetDetailPage() {
                         <div
                           key={`${job.bookingId || job.id || idx}-${idx}`}
                           style={{
-                            background: "#fefce8",
-                            border: "1px solid #facc15",
+                            background: "var(--legacy-color-fefce8)",
+                            border: "1px solid var(--legacy-color-facc15)",
                             padding: "7px 9px",
                             borderRadius: UI.radiusSm,
                           }}
@@ -3387,13 +3347,13 @@ export default function TimesheetDetailPage() {
                             </strong>
 
                             {job.client && (
-                              <span style={{ marginLeft: 6, color: "#374151", fontWeight: 500 }}>
+                              <span style={{ marginLeft: 6, color: "var(--legacy-color-374151)", fontWeight: 500 }}>
                                 - {job.client}
                               </span>
                             )}
 
                             {job.location && (
-                              <span style={{ marginLeft: 6, color: "#6b7280" }}>
+                              <span style={{ marginLeft: 6, color: "var(--legacy-color-6b7280)" }}>
                                 - {job.location}
                               </span>
                             )}
@@ -3405,7 +3365,7 @@ export default function TimesheetDetailPage() {
                               return (
                                 <div
                                   key={`${job.bookingId || job.id}-vehicle-${String(vKey)}-${vIdx}`}
-                                  style={{ color: "#047857", fontWeight: 700, fontSize: 13 }}
+                                  style={{ color: "var(--legacy-color-047857)", fontWeight: 700, fontSize: 13 }}
                                 >
                                   {v.name} -{" "}
                                   <span style={{ fontWeight: 700 }}>{v.registration || "No Reg"}</span>
@@ -3418,7 +3378,7 @@ export default function TimesheetDetailPage() {
                               style={{
                                 marginTop: 5,
                                 fontSize: 12,
-                                color: "#6b7280",
+                                color: "var(--legacy-color-6b7280)",
                                 fontStyle: "italic",
                                 whiteSpace: "pre-wrap",
                               }}
@@ -3467,7 +3427,7 @@ export default function TimesheetDetailPage() {
                       ) : null}
                       {entry?.overnight ? <div style={{ marginTop: 4 }}>- Overnight</div> : null}
                       {mode === "yard" && (
-                        <div style={{ color: "#9ca3af", fontSize: 12 }}>
+                        <div style={{ color: "var(--legacy-color-9ca3af)", fontSize: 12 }}>
                           {yardLunchDeducted ? "(-0.5 hr lunch)" : "(no lunch deduction)"}
                         </div>
                       )}
@@ -3572,7 +3532,7 @@ export default function TimesheetDetailPage() {
                       borderTop: UI.border,
                       paddingTop: 8,
                       fontSize: 12,
-                      color: "#374151",
+                      color: "var(--legacy-color-374151)",
                       textAlign: "right",
                     }}
                   >
@@ -3595,7 +3555,7 @@ export default function TimesheetDetailPage() {
           >
             <div
               style={{
-                background: "#ffffff",
+                background: "var(--legacy-color-ffffff)",
                 borderRadius: UI.radius,
                 border: UI.border,
                 padding: 10,
@@ -3603,13 +3563,13 @@ export default function TimesheetDetailPage() {
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4, color: UI.ink }}>General Notes</div>
-              <div style={{ color: "#4b5563", minHeight: 24 }}>{timesheet.notes || "-"}</div>
+              <div style={{ color: "var(--legacy-color-4b5563)", minHeight: 24 }}>{timesheet.notes || "-"}</div>
             </div>
 
             <div
               style={{
-                background: "linear-gradient(135deg, #17324f 0%, #234a71 100%)",
-                color: "#f9fafb",
+                background: "linear-gradient(135deg, var(--legacy-color-17324f) 0%, var(--legacy-color-234a71) 100%)",
+                color: "var(--legacy-color-f9fafb)",
                 borderRadius: UI.radius,
                 padding: 10,
                 display: "flex",
@@ -3640,7 +3600,7 @@ export default function TimesheetDetailPage() {
           <div
             style={{
               padding: "12px 12px 10px",
-              background: "#f8fbfd",
+              background: "var(--legacy-color-f8fbfd)",
               borderBottom: UI.border,
             }}
           >
@@ -3665,7 +3625,7 @@ export default function TimesheetDetailPage() {
                 {payAdviceSaving ? "Saving..." : "Save Pay Advice"}
               </button>
               {payAdviceMessage ? (
-                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "#b91c1c" : "#166534" }}>
+                <div style={{ fontSize: 12, color: payAdviceMessage.includes("Failed") ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-166534)" }}>
                   {payAdviceMessage}
                 </div>
               ) : null}
@@ -3718,11 +3678,11 @@ export default function TimesheetDetailPage() {
           <div style={{ overflowX: "auto", padding: 12 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", fontSize: 11.5 }}>
               <thead>
-                <tr style={{ background: "#e5e7eb" }}>
+                <tr style={{ background: "var(--legacy-color-e5e7eb)" }}>
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3734,7 +3694,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3746,7 +3706,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3758,7 +3718,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={2}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3770,7 +3730,7 @@ export default function TimesheetDetailPage() {
                   <th
                     colSpan={3}
                     style={{
-                      border: "1px solid #94a3b8",
+                      border: "1px solid var(--legacy-color-94a3b8)",
                       padding: "6px 5px",
                       color: UI.ink,
                       fontWeight: 800,
@@ -3780,7 +3740,7 @@ export default function TimesheetDetailPage() {
                     Extra Supplements
                   </th>
                 </tr>
-                <tr style={{ background: "#f3f4f6" }}>
+                <tr style={{ background: "var(--legacy-color-f3f4f6)" }}>
                   {[
                     "Date",
                     "Job Name",
@@ -3798,7 +3758,7 @@ export default function TimesheetDetailPage() {
                     <th
                       key={heading}
                       style={{
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid var(--legacy-color-cbd5e1)",
                         padding: "7px 6px",
                         color: UI.ink,
                         fontWeight: 800,
@@ -3860,7 +3820,7 @@ export default function TimesheetDetailPage() {
                     ))}
                   </tr>
                 ))}
-                <tr style={{ background: "#f8fafc" }}>
+                <tr style={{ background: "var(--legacy-color-f8fafc)" }}>
                   <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                     Totals
                   </td>
@@ -3875,7 +3835,7 @@ export default function TimesheetDetailPage() {
                   <td style={{ ...payAdviceCell, fontWeight: 800 }}>{payAdvice.totals.travelMealUnits.toFixed(2)}</td>
                 </tr>
                 {isAdmin ? (
-                  <tr style={{ background: "#eff6ff" }}>
+                  <tr style={{ background: "var(--legacy-color-eff6ff)" }}>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                       Rates
                     </td>
@@ -3910,7 +3870,7 @@ export default function TimesheetDetailPage() {
                   </tr>
                 ) : null}
                 {isAdmin ? (
-                  <tr style={{ background: "#dbeafe" }}>
+                  <tr style={{ background: "var(--legacy-color-dbeafe)" }}>
                     <td style={{ ...payAdviceCell, fontWeight: 800 }} colSpan={3}>
                       Total Monetary
                     </td>
@@ -3942,8 +3902,8 @@ export default function TimesheetDetailPage() {
                     gap: 3,
                     padding: "10px 12px",
                     borderRadius: UI.radius,
-                    border: "1px solid #93c5fd",
-                    background: "#eff6ff",
+                    border: "1px solid var(--legacy-color-93c5fd)",
+                    background: "var(--legacy-color-eff6ff)",
                     boxShadow: UI.shadowSm,
                     textAlign: "right",
                   }}
@@ -3953,7 +3913,7 @@ export default function TimesheetDetailPage() {
                       fontSize: 10,
                       fontWeight: 800,
                       letterSpacing: 0.5,
-                      color: "#1d4ed8",
+                      color: "var(--legacy-color-1d4ed8)",
                       textTransform: "uppercase",
                     }}
                   >
@@ -3996,9 +3956,9 @@ export default function TimesheetDetailPage() {
                 marginBottom: 10,
                 padding: "7px 10px",
                 borderRadius: UI.radiusSm,
-                backgroundColor: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                color: "#1e3a8a",
+                backgroundColor: "var(--legacy-color-eff6ff)",
+                border: "1px solid var(--legacy-color-bfdbfe)",
+                color: "var(--legacy-color-1e3a8a)",
                 fontSize: 12,
               }}
             >
@@ -4029,7 +3989,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4052,7 +4012,7 @@ export default function TimesheetDetailPage() {
                   disabled={isApproved}
                   style={{
                     ...formControlStyle,
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
                     cursor: isApproved ? "not-allowed" : "pointer",
                   }}
                 >
@@ -4083,7 +4043,7 @@ export default function TimesheetDetailPage() {
                   style={{
                     ...formControlStyle,
                     resize: "vertical",
-                    backgroundColor: isApproved ? "#f3f4f6" : "#ffffff",
+                    backgroundColor: isApproved ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
                     cursor: isApproved ? "not-allowed" : "text",
                   }}
                 />
@@ -4154,14 +4114,14 @@ export default function TimesheetDetailPage() {
                     style={{
                       padding: "8px 10px",
                       borderRadius: UI.radius,
-                      backgroundColor: "#ffffff",
+                      backgroundColor: "var(--legacy-color-ffffff)",
                       border: UI.border,
                       fontSize: 13,
                     }}
                   >
                     <div style={{ marginBottom: 2 }}>
                       <strong>{q.day}</strong>{" "}
-                      <span style={{ color: "#6b7280" }}>({q.field || "overall"})</span>
+                      <span style={{ color: "var(--legacy-color-6b7280)" }}>({q.field || "overall"})</span>
                       {q.status && (
                         <span
                           style={{
@@ -4170,16 +4130,16 @@ export default function TimesheetDetailPage() {
                             padding: "1px 6px",
                             borderRadius: UI.radiusSm,
                             backgroundColor:
-                              String(q.status).toLowerCase() === "closed" ? "#dcfce7" : "#eef2ff",
+                              String(q.status).toLowerCase() === "closed" ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-eef2ff)",
                             color:
-                              String(q.status).toLowerCase() === "closed" ? "#166534" : "#3730a3",
+                              String(q.status).toLowerCase() === "closed" ? "var(--legacy-color-166534)" : "var(--legacy-color-3730a3)",
                           }}
                         >
                           {String(q.status).toUpperCase()}
                         </span>
                       )}
                     </div>
-                    <div style={{ color: "#4b5563", marginBottom: 6 }}>{q.message || q.note}</div>
+                    <div style={{ color: "var(--legacy-color-4b5563)", marginBottom: 6 }}>{q.message || q.note}</div>
 
                     <QueryMessageThread query={q} canReply={isAdmin} />
                   </li>
@@ -4243,7 +4203,7 @@ function QueryMessageThread({ query, canReply = false }) {
         padding: 10,
         borderRadius: UI.radius,
         border: UI.border,
-        background: "#ffffff",
+        background: "var(--legacy-color-ffffff)",
       }}
     >
       <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: UI.muted }}>
@@ -4254,7 +4214,7 @@ function QueryMessageThread({ query, canReply = false }) {
         style={{
           maxHeight: 200,
           overflowY: "auto",
-          background: "#ffffff",
+          background: "var(--legacy-color-ffffff)",
           borderRadius: UI.radius,
           border: UI.border,
           padding: 8,
@@ -4263,7 +4223,7 @@ function QueryMessageThread({ query, canReply = false }) {
         }}
       >
         {messages.length === 0 && (
-          <div style={{ color: "#9ca3af", textAlign: "center" }}>No messages yet.</div>
+          <div style={{ color: "var(--legacy-color-9ca3af)", textAlign: "center" }}>No messages yet.</div>
         )}
 
         {messages.map((m) => {
@@ -4275,8 +4235,8 @@ function QueryMessageThread({ query, canReply = false }) {
                   display: "inline-block",
                   padding: "5px 9px",
                   borderRadius: UI.radiusSm,
-                  backgroundColor: isManager ? UI.brand : "#e5e7eb",
-                  color: isManager ? "#f9fafb" : "#111827",
+                  backgroundColor: isManager ? UI.brand : "var(--legacy-color-e5e7eb)",
+                  color: isManager ? "var(--legacy-color-f9fafb)" : "var(--legacy-color-111827)",
                 }}
               >
                 {m.text}
@@ -4287,7 +4247,7 @@ function QueryMessageThread({ query, canReply = false }) {
       </div>
 
       {(isClosed || !canReply) && (
-        <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, color: "var(--legacy-color-6b7280)", marginBottom: 6 }}>
           {isClosed ? "This query is closed. No further messages can be sent." : "Replies are admin-only."}
         </div>
       )}
@@ -4305,7 +4265,7 @@ function QueryMessageThread({ query, canReply = false }) {
               borderRadius: UI.radiusSm,
               border: UI.border,
               fontSize: 12,
-              backgroundColor: isClosed ? "#f3f4f6" : "#ffffff",
+              backgroundColor: isClosed ? "var(--legacy-color-f3f4f6)" : "var(--legacy-color-ffffff)",
               cursor: isClosed ? "not-allowed" : "text",
             }}
           />

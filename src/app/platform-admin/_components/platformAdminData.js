@@ -80,8 +80,8 @@ export function statusTone(status) {
 
 export const ui = {
   card: {
-    background: "#fff",
-    border: "1px solid #d7dee8",
+    background: "var(--legacy-color-fff)",
+    border: "1px solid var(--legacy-color-d7dee8)",
     borderRadius: 8,
     padding: 14,
   },
@@ -91,8 +91,8 @@ export const ui = {
     gap: 12,
   },
   tableWrap: {
-    background: "#fff",
-    border: "1px solid #d7dee8",
+    background: "var(--legacy-color-fff)",
+    border: "1px solid var(--legacy-color-d7dee8)",
     borderRadius: 8,
     overflow: "auto",
   },
@@ -100,40 +100,40 @@ export const ui = {
   th: {
     textAlign: "left",
     padding: "10px 12px",
-    background: "#f8fafc",
-    color: "#64748b",
-    borderBottom: "1px solid #d7dee8",
+    background: "var(--legacy-color-f8fafc)",
+    color: "var(--legacy-color-64748b)",
+    borderBottom: "1px solid var(--legacy-color-d7dee8)",
     fontSize: 12,
     textTransform: "uppercase",
     fontWeight: 900,
   },
-  td: { padding: "11px 12px", borderBottom: "1px solid #e2e8f0", verticalAlign: "top", fontSize: 13 },
+  td: { padding: "11px 12px", borderBottom: "1px solid var(--legacy-color-e2e8f0)", verticalAlign: "top", fontSize: 13 },
   input: {
     height: 36,
-    border: "1px solid #cbd5e1",
+    border: "1px solid var(--legacy-color-cbd5e1)",
     borderRadius: 8,
     padding: "0 10px",
     fontWeight: 800,
-    background: "#fff",
-    color: "#0f172a",
+    background: "var(--legacy-color-fff)",
+    color: "var(--legacy-color-0f172a)",
   },
   button: {
     height: 34,
-    border: "1px solid #cbd5e1",
+    border: "1px solid var(--legacy-color-cbd5e1)",
     borderRadius: 8,
     padding: "0 10px",
-    background: "#fff",
-    color: "#0f172a",
+    background: "var(--legacy-color-fff)",
+    color: "var(--legacy-color-0f172a)",
     fontWeight: 900,
     cursor: "pointer",
   },
   dangerButton: {
     height: 34,
-    border: "1px solid #fecaca",
+    border: "1px solid var(--legacy-color-fecaca)",
     borderRadius: 8,
     padding: "0 10px",
-    background: "#fff1f2",
-    color: "#b91c1c",
+    background: "var(--legacy-color-fff1f2)",
+    color: "var(--legacy-color-b91c1c)",
     fontWeight: 900,
     cursor: "pointer",
   },
@@ -141,11 +141,11 @@ export const ui = {
 
 export function Pill({ children, tone = "blue" }) {
   const colors = {
-    blue: ["#0369a1", "#f0f9ff", "#bae6fd"],
-    green: ["#15803d", "#f0fdf4", "#bbf7d0"],
-    amber: ["#b45309", "#fffbeb", "#fed7aa"],
-    red: ["#b91c1c", "#fff1f2", "#fecaca"],
-    gray: ["#475569", "#f8fafc", "#cbd5e1"],
+    blue: ["var(--legacy-color-0369a1)", "var(--legacy-color-f0f9ff)", "var(--legacy-color-bae6fd)"],
+    green: ["var(--legacy-color-15803d)", "var(--legacy-color-f0fdf4)", "var(--legacy-color-bbf7d0)"],
+    amber: ["var(--legacy-color-b45309)", "var(--legacy-color-fffbeb)", "var(--legacy-color-fed7aa)"],
+    red: ["var(--legacy-color-b91c1c)", "var(--legacy-color-fff1f2)", "var(--legacy-color-fecaca)"],
+    gray: ["var(--legacy-color-475569)", "var(--legacy-color-f8fafc)", "var(--legacy-color-cbd5e1)"],
   };
   const [color, bg, border] = colors[tone] || colors.blue;
   return (
@@ -158,9 +158,9 @@ export function Pill({ children, tone = "blue" }) {
 export function Metric({ label, value, detail, tone = "blue" }) {
   return (
     <div style={ui.card}>
-      <div style={{ color: "#64748b", fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "red" ? "#b91c1c" : tone === "amber" ? "#b45309" : "#0f172a" }}>{value}</div>
-      {detail ? <div style={{ marginTop: 4, color: "#64748b", fontSize: 12, fontWeight: 800 }}>{detail}</div> : null}
+      <div style={{ color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 950, color: tone === "red" ? "var(--legacy-color-b91c1c)" : tone === "amber" ? "var(--legacy-color-b45309)" : "var(--legacy-color-0f172a)" }}>{value}</div>
+      {detail ? <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 800 }}>{detail}</div> : null}
     </div>
   );
 }

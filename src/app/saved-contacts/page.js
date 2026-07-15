@@ -25,12 +25,12 @@ const UI = {
   radiusSm: 10,
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#163a63",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-163a63)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -38,8 +38,8 @@ const surface = { background: UI.card, borderRadius: UI.radius, border: UI.borde
 const chip = {
   padding: "4px 8px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f8fafc)",
   color: UI.text,
   fontSize: 10,
   fontWeight: 700,
@@ -180,10 +180,10 @@ export default function SavedContactsPage() {
               width: "100%",
               padding: "9px 11px",
               borderRadius: UI.radiusSm,
-              border: "1px solid #d1d5db",
+              border: "1px solid var(--legacy-color-d1d5db)",
               fontSize: 13,
               outline: "none",
-              background: "#fff",
+              background: "var(--legacy-color-fff)",
             }}
           />
         </div>
@@ -200,8 +200,8 @@ export default function SavedContactsPage() {
               fontWeight: 800,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
-              background: "#f8fafc",
-              borderBottom: "1px solid #e5e7eb",
+              background: "var(--legacy-color-f8fafc)",
+              borderBottom: "1px solid var(--legacy-color-e5e7eb)",
             }}
           >
             <div>Name</div>
@@ -224,8 +224,8 @@ export default function SavedContactsPage() {
                       gap: 10,
                       padding: "10px 12px",
                       alignItems: "center",
-                      background: index % 2 ? "#fcfdff" : "#ffffff",
-                      borderBottom: "1px solid #eef2f7",
+                      background: index % 2 ? "var(--legacy-color-fcfdff)" : "var(--legacy-color-ffffff)",
+                      borderBottom: "1px solid var(--legacy-color-eef2f7)",
                     }}
                   >
                     <div>
@@ -233,7 +233,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.name}
                           onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
                         />
                       ) : (
                         <div style={{ fontWeight: 800, fontSize: 13, color: UI.text }}>{contact.name || "-"}</div>
@@ -245,7 +245,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.email}
                           onChange={(e) => setDraft((prev) => ({ ...prev, email: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
                         />
                       ) : (
                         <div style={{ fontWeight: 700, fontSize: 13, color: UI.text, wordBreak: "break-word" }}>{contact.email || "-"}</div>
@@ -257,7 +257,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.department}
                           onChange={(e) => setDraft((prev) => ({ ...prev, department: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: UI.muted }}>{contact.department || "-"}</div>
@@ -269,7 +269,7 @@ export default function SavedContactsPage() {
                         <input
                           value={draft.phone}
                           onChange={(e) => setDraft((prev) => ({ ...prev, phone: e.target.value }))}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 13 }}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", fontSize: 13 }}
                         />
                       ) : (
                         <div style={{ fontSize: 12, color: UI.muted }}>{contact.phone || contact.number || "-"}</div>
@@ -286,8 +286,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid #bfdbfe",
-                              background: "#eff6ff",
+                              border: "1px solid var(--legacy-color-bfdbfe)",
+                              background: "var(--legacy-color-eff6ff)",
                               color: UI.brand,
                               fontWeight: 800,
                               cursor: "pointer",
@@ -301,8 +301,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
+                              background: "var(--legacy-color-fff)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -319,8 +319,8 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid #e5e7eb",
-                              background: "#fff",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
+                              background: "var(--legacy-color-fff)",
                               color: UI.text,
                               fontWeight: 700,
                               cursor: "pointer",
@@ -334,9 +334,9 @@ export default function SavedContactsPage() {
                             style={{
                               padding: "7px 10px",
                               borderRadius: 999,
-                              border: "1px solid #fecaca",
-                              background: "#fff",
-                              color: "#b91c1c",
+                              border: "1px solid var(--legacy-color-fecaca)",
+                              background: "var(--legacy-color-fff)",
+                              color: "var(--legacy-color-b91c1c)",
                               fontWeight: 700,
                               cursor: "pointer",
                             }}

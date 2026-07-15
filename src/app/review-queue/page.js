@@ -29,26 +29,26 @@ const UI = {
   radiusSm: 8,
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
-  purple: "#7c3aed",
-  purpleSoft: "#f5f3ff",
-  purpleBorder: "#ddd6fe",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
+  purple: "var(--legacy-color-7c3aed)",
+  purpleSoft: "var(--legacy-color-f5f3ff)",
+  purpleBorder: "var(--legacy-color-ddd6fe)",
 };
 
 const pageWrap = { padding: "10px 12px 24px", background: UI.bg, minHeight: "100vh" };
@@ -90,7 +90,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 12,
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   boxSizing: "border-box",
 };
@@ -103,8 +103,8 @@ const btn = (kind = "ghost") => ({
   padding: "4px 8px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
+  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
   fontWeight: 850,
   fontSize: 12,
   textDecoration: "none",
@@ -152,10 +152,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "5px 8px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -165,7 +165,7 @@ const th = {
 };
 const td = {
   padding: "5px 8px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -175,7 +175,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1180px) {
     .review-toolbar { grid-template-columns: 1fr 1fr !important; }
@@ -236,25 +236,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Action Required":
-      return { bg: "#FF973B", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-ff973b)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Complete":
-      return { bg: "#92d18cff", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-92d18cff)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Confirmed":
-      return { bg: "#f3f970", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-f3f970)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "First Pencil":
-      return { bg: "#89caf5", border: "#0b0b0b", text: "#111" };
+      return { bg: "var(--legacy-color-89caf5)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-111)" };
     case "Second Pencil":
-      return { bg: "#f73939", border: "#0b0b0b", text: "#fff" };
+      return { bg: "var(--legacy-color-f73939)", border: "var(--legacy-color-0b0b0b)", text: "var(--legacy-color-fff)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
   }
 };
 

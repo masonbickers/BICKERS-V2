@@ -30,13 +30,13 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  brandSoft: "var(--legacy-color-eff6ff)",
 };
 
 const pageWrap = {
@@ -90,8 +90,8 @@ const hint = { color: UI.muted, fontSize: 12, marginTop: 4 };
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -103,8 +103,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -115,9 +115,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#991b1b",
+      border: "1px solid var(--legacy-color-fecaca)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--legacy-color-991b1b)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -128,7 +128,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--legacy-color-fff)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -139,10 +139,10 @@ const input = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
 const tableWrap = {
@@ -150,7 +150,7 @@ const tableWrap = {
   overflow: "auto",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
 const table = {
@@ -163,10 +163,10 @@ const table = {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -176,7 +176,7 @@ const th = {
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "top",
 };
 
@@ -186,9 +186,9 @@ const pill = (active) => ({
   gap: 8,
   padding: "6px 10px",
   borderRadius: 999,
-  border: `1px solid ${active ? "#93c5fd" : "#e5e7eb"}`,
-  background: active ? "#eff6ff" : "#f8fafc",
-  color: active ? "#1d4ed8" : UI.text,
+  border: `1px solid ${active ? "var(--legacy-color-93c5fd)" : "var(--legacy-color-e5e7eb)"}`,
+  background: active ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)",
+  color: active ? "var(--legacy-color-1d4ed8)" : UI.text,
   fontSize: 12,
   fontWeight: 900,
   cursor: "pointer",
@@ -449,15 +449,15 @@ export default function UCrewManagePage() {
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+            <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
               Showing: {visibleCount} / {filtered.length}
             </div>
             <div
               style={{
                 ...chip,
-                background: savedPulse ? "#ecfdf5" : "#f1f5f9",
-                borderColor: savedPulse ? "#34d399" : "#e5e7eb",
-                color: savedPulse ? "#065f46" : UI.text,
+                background: savedPulse ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f1f5f9)",
+                borderColor: savedPulse ? "var(--legacy-color-34d399)" : "var(--legacy-color-e5e7eb)",
+                color: savedPulse ? "var(--legacy-color-065f46)" : UI.text,
               }}
             >
               {savingKey ? "Saving…" : savedPulse ? "Saved Yes" : "Ready"}
@@ -552,7 +552,7 @@ export default function UCrewManagePage() {
                     <tr
                       key={rowKey}
                       style={{
-                        background: i % 2 === 0 ? "#fff" : "#fafafa",
+                        background: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fafafa)",
                         opacity: savingThis ? 0.65 : 1,
                         transition: "opacity .12s ease",
                       }}
@@ -600,7 +600,7 @@ export default function UCrewManagePage() {
 
                       <td style={td}>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          <span style={{ ...chip, background: isFreelancer ? "#fff7ed" : "#f1f5f9", borderColor: isFreelancer ? "#fed7aa" : "#e5e7eb" }}>
+                          <span style={{ ...chip, background: isFreelancer ? "var(--legacy-color-fff7ed)" : "var(--legacy-color-f1f5f9)", borderColor: isFreelancer ? "var(--legacy-color-fed7aa)" : "var(--legacy-color-e5e7eb)" }}>
                             {isFreelancer ? "Freelancer" : "Employee"}
                           </span>
                           {!isFreelancer &&

@@ -46,13 +46,13 @@ const UI = {
   gap: 6,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  red: "#dc2626",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  red: "var(--legacy-color-dc2626)",
 };
 
 const pageWrap = { padding: "10px 18px 14px", background: UI.bg, minHeight: "100vh" };
@@ -95,9 +95,9 @@ const input = {
   width: "100%",
   padding: "6px 8px",
   borderRadius: 12,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   fontSize: 12.5,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   outline: "none",
 };
@@ -114,8 +114,8 @@ const btn = (kind = "primary") => {
       gap: 4,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -133,7 +133,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "#fff",
+      color: "var(--legacy-color-fff)",
       fontWeight: 950,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -148,7 +148,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--legacy-color-fff)",
     fontWeight: 950,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -561,11 +561,11 @@ export default function EditEquipmentPage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: #bfdbfe !important;
+          border-color: var(--legacy-color-bfdbfe) !important;
         }
         select option {
-          background: #fff;
-          color: #0f172a;
+          background: var(--legacy-color-fff);
+          color: var(--legacy-color-0f172a);
         }
         input:disabled,
         select:disabled,

@@ -43,15 +43,15 @@ export default function ContactsPage() {
   ];
 
   return (
-    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial, sans-serif", color: "#111" }}>
+    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-111)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <h1 style={{ color: "#fff" }}>Contacts</h1>
+          <h1 style={{ color: "var(--legacy-color-fff)" }}>Contacts</h1>
         </div>
         <button
           onClick={() => router.push("/dashboard")}
           style={{
-            backgroundColor: "#1976d2",
+            backgroundColor: "var(--legacy-color-1976d2)",
             color: "#white",
             border: "none",
             padding: "10px 16px",
@@ -67,7 +67,7 @@ export default function ContactsPage() {
         <div
           key={i}
           style={{
-            backgroundColor: "#f9f9f9",
+            backgroundColor: "var(--legacy-color-f9f9f9)",
             padding: "20px",
             marginBottom: "20px",
             borderRadius: "8px",

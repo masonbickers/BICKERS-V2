@@ -587,7 +587,7 @@ export default function EditMaintenanceBookingForm({
           <div>
             <h2 style={modalTitle}>{title}</h2>
             <div style={modalSubtitle}>
-              Vehicle: <b style={{ color: "#0f172a" }}>{vehicleLabel || "—"}</b>
+              Vehicle: <b style={{ color: "var(--legacy-color-0f172a)" }}>{vehicleLabel || "—"}</b>
             </div>
             <div style={modalMeta}>
               Booking ID: <b>{bookingId}</b>
@@ -603,9 +603,9 @@ export default function EditMaintenanceBookingForm({
           <div
             style={{
               marginBottom: 12,
-              border: "1px solid #fecaca",
-              background: "#fef2f2",
-              color: "#b91c1c",
+              border: "1px solid var(--legacy-color-fecaca)",
+              background: "var(--legacy-color-fef2f2)",
+              color: "var(--legacy-color-b91c1c)",
               borderRadius: 12,
               padding: "10px 12px",
               fontSize: 12.5,
@@ -620,9 +620,9 @@ export default function EditMaintenanceBookingForm({
           <div
             style={{
               marginBottom: 12,
-              border: "1px solid #fecaca",
-              background: "#fef2f2",
-              color: "#b91c1c",
+              border: "1px solid var(--legacy-color-fecaca)",
+              background: "var(--legacy-color-fef2f2)",
+              color: "var(--legacy-color-b91c1c)",
               borderRadius: 12,
               padding: "10px 12px",
               fontSize: 12.5,
@@ -635,7 +635,7 @@ export default function EditMaintenanceBookingForm({
         ) : null}
 
         {loading ? (
-          <div style={{ padding: 14, color: "#5f6f82", fontSize: 13, fontWeight: 800 }}>Loading booking...</div>
+          <div style={{ padding: 14, color: "var(--legacy-color-5f6f82)", fontSize: 13, fontWeight: 800 }}>Loading booking...</div>
         ) : (
           <form onSubmit={handleSubmit} style={formGrid}>
             {/* Type */}
@@ -700,7 +700,7 @@ export default function EditMaintenanceBookingForm({
                   gridColumn: "1 / -1",
                   border: `1px solid ${inspectionOutsideDueWeek ? "rgba(245,158,11,0.5)" : "rgba(59,130,246,0.35)"}`,
                   background: inspectionOutsideDueWeek ? "rgba(245,158,11,0.12)" : "rgba(59,130,246,0.10)",
-                  color: "#0f172a",
+                  color: "var(--legacy-color-0f172a)",
                   borderRadius: 8,
                   padding: "10px 12px",
                   fontSize: 13,
@@ -963,7 +963,7 @@ export default function EditMaintenanceBookingForm({
                 ...fullWidth,
                 ...dangerBtn,
                 border: "1px solid rgba(239,68,68,0.85)",
-                background: "linear-gradient(180deg, #ef4444 0%, #b91c1c 100%)",
+                background: "linear-gradient(180deg, var(--legacy-color-ef4444) 0%, var(--legacy-color-b91c1c) 100%)",
                 opacity: saving ? 0.65 : 1,
                 cursor: saving ? "not-allowed" : "pointer",
               }}
@@ -1010,9 +1010,9 @@ const modal = {
   overflowY: "auto",
   borderRadius: 8,
   padding: 0,
-  color: "#0f172a",
-  background: "#f3f6f9",
-  border: "1px solid #d7dee8",
+  color: "var(--legacy-color-0f172a)",
+  background: "var(--legacy-color-f3f6f9)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
 };
 
@@ -1022,8 +1022,8 @@ const headerRow = {
   justifyContent: "space-between",
   gap: 12,
   padding: "14px 16px",
-  background: "#ffffff",
-  borderBottom: "1px solid #d7dee8",
+  background: "var(--legacy-color-ffffff)",
+  borderBottom: "1px solid var(--legacy-color-d7dee8)",
 };
 
 const modalTitle = {
@@ -1037,24 +1037,24 @@ const modalTitle = {
 const modalSubtitle = {
   marginTop: 4,
   fontSize: 12.5,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontWeight: 700,
 };
 
 const modalMeta = {
   marginTop: 4,
   fontSize: 12,
-  color: "#7b8794",
+  color: "var(--legacy-color-7b8794)",
   fontWeight: 700,
 };
 
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
-  background: "#ffffff",
-  color: "#5f6f82",
+  background: "var(--legacy-color-ffffff)",
+  color: "var(--legacy-color-5f6f82)",
   fontSize: 14,
   fontWeight: 900,
   cursor: "pointer",
@@ -1065,7 +1065,7 @@ const label = {
   display: "block",
   fontSize: 11.5,
   fontWeight: 900,
-  color: "#52657a",
+  color: "var(--legacy-color-52657a)",
   marginBottom: 6,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -1075,9 +1075,9 @@ const input = {
   width: "100%",
   padding: "9px 10px",
   borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  backgroundColor: "#ffffff",
-  color: "#0f172a",
+  border: "1px solid var(--legacy-color-c8d6e3)",
+  backgroundColor: "var(--legacy-color-ffffff)",
+  color: "var(--legacy-color-0f172a)",
   outline: "none",
   fontSize: 14,
   boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
@@ -1119,10 +1119,10 @@ const selectedEquipmentChip = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  border: "1px solid #b8c8d8",
+  border: "1px solid var(--legacy-color-b8c8d8)",
   borderRadius: 999,
-  background: "#e8f2fb",
-  color: "#1f4b7a",
+  background: "var(--legacy-color-e8f2fb)",
+  color: "var(--legacy-color-1f4b7a)",
   padding: "6px 9px",
   fontSize: 12,
   fontWeight: 900,
@@ -1130,7 +1130,7 @@ const selectedEquipmentChip = {
 };
 
 const chipRemove = {
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontSize: 11,
   fontWeight: 900,
 };
@@ -1145,9 +1145,9 @@ const equipmentResults = {
   zIndex: 20,
   maxHeight: 245,
   overflowY: "auto",
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   padding: 6,
   boxShadow: "0 14px 30px rgba(15,23,42,0.18)",
 };
@@ -1158,7 +1158,7 @@ const equipmentResultItem = {
   gap: 8,
   border: "1px solid transparent",
   borderRadius: 8,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   padding: "8px 10px",
   minWidth: 0,
   cursor: "pointer",
@@ -1171,7 +1171,7 @@ const equipmentResultText = {
 };
 
 const equipmentResultName = {
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 13,
   fontWeight: 900,
   overflow: "hidden",
@@ -1180,7 +1180,7 @@ const equipmentResultName = {
 };
 
 const equipmentResultCategory = {
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontSize: 11.5,
   fontWeight: 800,
   overflow: "hidden",
@@ -1190,7 +1190,7 @@ const equipmentResultCategory = {
 
 const emptySearchState = {
   padding: "10px 12px",
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontSize: 12.5,
   fontWeight: 800,
 };
@@ -1198,15 +1198,15 @@ const emptySearchState = {
 const helperText = {
   marginTop: 8,
   fontSize: 12,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   lineHeight: 1.4,
 };
 
 const feedbackError = {
   margin: 12,
-  border: "1px solid #fecaca",
-  background: "#fef2f2",
-  color: "#991b1b",
+  border: "1px solid var(--legacy-color-fecaca)",
+  background: "var(--legacy-color-fef2f2)",
+  color: "var(--legacy-color-991b1b)",
   borderRadius: 8,
   padding: "10px 12px",
   fontSize: 12.5,
@@ -1218,9 +1218,9 @@ const primaryBtn = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid #1f4b7a",
-  background: "#1f4b7a",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-1f4b7a)",
+  background: "var(--legacy-color-1f4b7a)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   fontSize: 14,
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
@@ -1230,9 +1230,9 @@ const dangerBtn = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid #b91c1c",
-  background: "#b91c1c",
-  color: "#ffffff",
+  border: "1px solid var(--legacy-color-b91c1c)",
+  background: "var(--legacy-color-b91c1c)",
+  color: "var(--legacy-color-ffffff)",
   fontWeight: 900,
   fontSize: 14,
   cursor: "pointer",
@@ -1243,9 +1243,9 @@ const ghostBtn = {
   width: "100%",
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid #b8c8d8",
-  background: "#ffffff",
-  color: "#1f4b7a",
+  border: "1px solid var(--legacy-color-b8c8d8)",
+  background: "var(--legacy-color-ffffff)",
+  color: "var(--legacy-color-1f4b7a)",
   fontWeight: 900,
   fontSize: 14,
   cursor: "pointer",

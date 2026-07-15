@@ -27,12 +27,12 @@ import {
 ─────────────────────────────────────────── */
 const UI = {
   radius: 14,
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
 };
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -40,9 +40,9 @@ const surface = { background: UI.card, borderRadius: UI.radius, border: UI.borde
 const headerBar = { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 16 };
 const h1 = { color: UI.text, fontSize: 26, lineHeight: 1.15, fontWeight: 900, margin: 0 };
 const sub = { color: UI.muted, fontSize: 13 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: UI.text, fontSize: 12, fontWeight: 700 };
 const sectionTitle = { fontWeight: 900, fontSize: 16, marginBottom: 8 };
-const label = { color: "#6b7280", fontSize: 12, fontWeight: 800, textTransform: "uppercase" };
+const label = { color: "var(--legacy-color-6b7280)", fontSize: 12, fontWeight: 800, textTransform: "uppercase" };
 
 const btn = (variant = "default") => ({
   padding: "8px 12px",
@@ -50,12 +50,12 @@ const btn = (variant = "default") => ({
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
-  border: "1px solid #d1d5db",
-  background: variant === "primary" ? "#111827" :
-             variant === "warn" ? "#fff7ed" :
-             "#ffffff",
-  color: variant === "primary" ? "#ffffff" :
-         variant === "warn" ? "#7c2d12" :
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: variant === "primary" ? "var(--legacy-color-111827)" :
+             variant === "warn" ? "var(--legacy-color-fff7ed)" :
+             "var(--legacy-color-ffffff)",
+  color: variant === "primary" ? "var(--legacy-color-ffffff)" :
+         variant === "warn" ? "var(--legacy-color-7c2d12)" :
          UI.text,
 });
 const btnBar = { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" };
@@ -114,25 +114,25 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Action Required":
-      return { bg: "#fee2e2", border: "#fecaca", text: "#991b1b" };
+      return { bg: "var(--legacy-color-fee2e2)", border: "var(--legacy-color-fecaca)", text: "var(--legacy-color-991b1b)" };
     case "Complete":
-      return { bg: "#97f59bff", border: "#419e50ff", text: "#10301aff" };
+      return { bg: "var(--legacy-color-97f59bff)", border: "var(--legacy-color-419e50ff)", text: "var(--legacy-color-10301aff)" };
     case "Confirmed":
-      return { bg: "#fffd98ff", border: "#c7d134ff", text: "#504c1aff" };
+      return { bg: "var(--legacy-color-fffd98ff)", border: "var(--legacy-color-c7d134ff)", text: "var(--legacy-color-504c1aff)" };
     case "First Pencil":
-      return { bg: "#78b8ecff", border: "#2c28ffff", text: "#001affff" };
+      return { bg: "var(--legacy-color-78b8ecff)", border: "var(--legacy-color-2c28ffff)", text: "var(--legacy-color-001affff)" };
     case "Second Pencil":
-      return { bg: "#fd9a9aff", border: "#f33131ff", text: "#8b1212ff" };
+      return { bg: "var(--legacy-color-fd9a9aff)", border: "var(--legacy-color-f33131ff)", text: "var(--legacy-color-8b1212ff)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#acacacff", border: "#3f3f3fff", text: "#000000ff" };
+      return { bg: "var(--legacy-color-acacacff)", border: "var(--legacy-color-3f3f3fff)", text: "var(--legacy-color-000000ff)" };
   }
 };
 const StatusBadge = ({ value }) => {
@@ -261,14 +261,14 @@ const TimesheetCard = ({ ts, job }) => {
 
   const tableWrap = { overflowX: "auto", border: UI.border, borderRadius: 8 };
   const table = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13, tableLayout: "fixed" };
-  const th = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid #e5e7eb", background: "#f8fafc", position: "sticky", top: 0, zIndex: 1, whiteSpace: "nowrap" };
-  const td = { padding: "8px 10px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis" };
+  const th = { textAlign: "left", padding: "8px 10px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", position: "sticky", top: 0, zIndex: 1, whiteSpace: "nowrap" };
+  const td = { padding: "8px 10px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top", overflow: "hidden", textOverflow: "ellipsis" };
   const tdRight = { ...td, textAlign: "right", whiteSpace: "nowrap" };
   const dayCell = { ...td, fontWeight: 700, whiteSpace: "nowrap" };
-  const foot = { ...tdRight, fontWeight: 800, background: "#f8fafc" };
+  const foot = { ...tdRight, fontWeight: 800, background: "var(--legacy-color-f8fafc)" };
 
   return (
-    <div style={{ border: UI.border, borderRadius: 12, background: ts.submitted ? "#f9fafb" : "#fff7ed", padding: 12 }}>
+    <div style={{ border: UI.border, borderRadius: 12, background: ts.submitted ? "var(--legacy-color-f9fafb)" : "var(--legacy-color-fff7ed)", padding: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
         <div style={{ fontSize: 14, fontWeight: 900 }}>Week of {ws ? format(ws, "dd/MM/yyyy") : "—"}</div>
         <div style={{ color: UI.muted, fontSize: 13 }}>
@@ -472,7 +472,7 @@ export default function JobSummaryWithTimesheetsPage() {
               <span style={chip}>{dateLabel}</span>
               <StatusBadge value={prettyStatus} />
               {job.readyToInvoice ? (
-                <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a", color: "#92400e" }}>
+                <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)", color: "var(--legacy-color-92400e)" }}>
                   Ready to Invoice
                 </span>
               ) : null}
@@ -564,7 +564,7 @@ export default function JobSummaryWithTimesheetsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div style={{ color: UI.muted, padding: 10, border: "1px dashed #d1d5db", borderRadius: 6 }}>
+                  <div style={{ color: UI.muted, padding: 10, border: "1px dashed var(--legacy-color-d1d5db)", borderRadius: 6 }}>
                     No timesheet days linked to this job yet.
                   </div>
                 )}
@@ -574,7 +574,7 @@ export default function JobSummaryWithTimesheetsPage() {
               <div style={{ ...surface, padding: 14 }}>
                 <div style={sectionTitle}>Job Summary Notes</div>
                 {notesBlob ? (
-                  <div style={{ whiteSpace: "pre-wrap", fontSize: 14, background: "#f9fafb", border: UI.border, borderRadius: 8, padding: 10 }}>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 14, background: "var(--legacy-color-f9fafb)", border: UI.border, borderRadius: 8, padding: 10 }}>
                     {notesBlob}
                   </div>
                 ) : (
@@ -618,12 +618,12 @@ export default function JobSummaryWithTimesheetsPage() {
                         style={{
                           width: "100%",
                           maxWidth: 420,
-                          border: "1px solid #d1d5db",
+                          border: "1px solid var(--legacy-color-d1d5db)",
                           borderRadius: 8,
                           padding: "7px 9px",
                           fontWeight: 800,
                           color: UI.text,
-                          background: "#fff",
+                          background: "var(--legacy-color-fff)",
                         }}
                         disabled={saving}
                       >

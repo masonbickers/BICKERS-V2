@@ -934,7 +934,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   allowanceInfo.remainingPaid <= 0
                     ? "rgba(239,68,68,0.12)"
                     : "rgba(59,130,246,0.12)",
-                color: "#0f172a",
+                color: "var(--legacy-color-0f172a)",
                 borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
@@ -962,7 +962,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(239,68,68,0.45)",
                 background: "rgba(239,68,68,0.12)",
-                color: "#7f1d1d",
+                color: "var(--legacy-color-7f1d1d)",
                 borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
@@ -971,7 +971,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             >
               <div style={{ fontWeight: 900, marginBottom: 4 }}>Holiday conflict</div>
               <div>{holidayConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "#991b1b", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-991b1b)", fontWeight: 700 }}>
                 You can’t submit an overlapping holiday for the same employee (unless it’s AM vs PM half-day on the same date).
               </div>
             </div>
@@ -983,7 +983,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
               style={{
                 border: "1px solid rgba(245,158,11,0.55)",
                 background: "rgba(245,158,11,0.14)",
-                color: "#78350f",
+                color: "var(--legacy-color-78350f)",
                 borderRadius: 8,
                 padding: 10,
                 fontSize: 13,
@@ -992,7 +992,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             >
               <div style={{ fontWeight: 900, marginBottom: 4 }}>Job conflict</div>
               <div>{jobConflictMsg}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
                 Remove them from the job first, or choose different holiday dates.
               </div>
             </div>
@@ -1002,8 +1002,8 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
           <div style={halfWrap}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 13, color: "#0f172a" }}>Half day</div>
-                <div style={{ fontSize: 12, color: "#5f6f82", marginTop: 2, fontWeight: 700 }}>
+                <div style={{ fontWeight: 900, fontSize: 13, color: "var(--legacy-color-0f172a)" }}>Half day</div>
+                <div style={{ fontSize: 12, color: "var(--legacy-color-5f6f82)", marginTop: 2, fontWeight: 700 }}>
                   {isMultiDay ? "Use start and/or end half day." : "Single day can be AM or PM."}
                 </div>
               </div>
@@ -1013,7 +1013,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                   checked={startHalfDay}
                   onChange={(e) => setStartHalfDay(e.target.checked)}
                 />
-                <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>
+                <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>
                   {isMultiDay ? "Start half" : "Half day"}
                 </span>
               </label>
@@ -1039,7 +1039,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                           checked={endHalfDay}
                           onChange={(e) => setEndHalfDay(e.target.checked)}
                         />
-                        <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
+                        <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>End half</span>
                       </label>
                     </div>
 
@@ -1065,7 +1065,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
                       checked={endHalfDay}
                       onChange={(e) => setEndHalfDay(e.target.checked)}
                     />
-                    <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 800 }}>End half</span>
+                    <span style={{ fontSize: 13, color: "var(--legacy-color-0f172a)", fontWeight: 800 }}>End half</span>
                   </label>
                 </div>
 
@@ -1106,7 +1106,7 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
             </select>
 
             {paidStatus === "Paid" && paidAllowed && !paidEnoughForThisRequest ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#92400e", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-92400e)", fontWeight: 700 }}>
                 Not enough paid remaining for this request — pick Unpaid or split.
               </div>
             ) : null}
@@ -1137,12 +1137,12 @@ export default function HolidayForm({ onClose, onSaved, defaultDate = "" }) {
 }
 
 const UI = {
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "#d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  border: "var(--legacy-color-d7dee8)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
 };
 
 const overlay = {
@@ -1161,7 +1161,7 @@ const modal = {
   borderRadius: 8,
   padding: 14,
   color: UI.text,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -1173,7 +1173,7 @@ const headerRow = {
   gap: 12,
   marginBottom: 14,
   paddingBottom: 12,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const titleRow = {
@@ -1218,7 +1218,7 @@ const closeBtn = {
   height: 34,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -1247,7 +1247,7 @@ const label = {
   display: "block",
   fontSize: 12,
   fontWeight: 900,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -1256,8 +1256,8 @@ const input = {
   width: "100%",
   padding: "10px 11px",
   borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  backgroundColor: "#ffffff",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  backgroundColor: "var(--legacy-color-ffffff)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -1267,15 +1267,15 @@ const input = {
 
 const halfWrap = {
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   borderRadius: 8,
   padding: 10,
 };
 
 const globalOptionCSS = `
 select option {
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: var(--legacy-color-ffffff) !important;
+  color: var(--legacy-color-0f172a) !important;
 }
 `;
 
@@ -1295,8 +1295,8 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 800,
   fontSize: 13,
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
@@ -1310,7 +1310,7 @@ const secondaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   fontWeight: 800,
   fontSize: 13,

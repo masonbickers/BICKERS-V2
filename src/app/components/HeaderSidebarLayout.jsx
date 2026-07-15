@@ -1,5 +1,6 @@
 "use client";
 
+import layoutStyles from "./HeaderSidebarLayout.styles.module.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -45,25 +46,6 @@ const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   : BUILD_INFO.version;
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
 
-const UI = {
-  shellBg: "radial-gradient(circle at top left, #cfd8e3 0%, #bcc7d4 34%, #aebac7 100%)",
-  sidebarBg: "#000000",
-  sidebarBorder: "rgba(255,255,255,0.14)",
-  sidebarMuted: "#b4c0cf",
-  sidebarText: "#f8fbff",
-  sidebarActiveBg: "rgba(255,255,255,0.08)",
-  sidebarActiveBorder: "rgba(133,211,155,0.44)",
-  activeAccent: "#6bb37f",
-  topbarBg: "#000000",
-  topbarBorder: "rgba(255,255,255,0.12)",
-  contentBg: "transparent",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  success: "#6bb37f",
-  text: "#0f172a",
-  muted: "#5f6f82",
-};
-
 const topPillBase = {
   minHeight: 36,
   boxSizing: "border-box",
@@ -72,7 +54,7 @@ const topPillBase = {
   borderRadius: 999,
   border: "1px solid rgba(255,255,255,0.16)",
   background: "rgba(255,255,255,0.05)",
-  color: "#f8fbff",
+  color: "var(--legacy-color-f8fbff)",
 };
 
 /* -------------------------------------------
@@ -534,23 +516,23 @@ export default function HeaderSidebarLayout({
     authorised: {
       background: "rgba(107,179,127,0.14)",
       border: "1px solid rgba(107,179,127,0.38)",
-      dot: UI.success,
-      text: "#d7f6e0",
-      sub: "#a8e2b9",
+      dot: "var(--color-success-accent)",
+      text: "var(--legacy-color-d7f6e0)",
+      sub: "var(--legacy-color-a8e2b9)",
     },
     denied: {
       background: "rgba(248,113,113,0.12)",
       border: "1px solid rgba(248,113,113,0.28)",
-      dot: "#f87171",
-      text: "#ffd6d6",
-      sub: "#f8b4b4",
+      dot: "var(--legacy-color-f87171)",
+      text: "var(--legacy-color-ffd6d6)",
+      sub: "var(--legacy-color-f8b4b4)",
     },
     checking: {
       background: "rgba(251,191,36,0.12)",
       border: "1px solid rgba(251,191,36,0.28)",
-      dot: "#fbbf24",
-      text: "#fdecc8",
-      sub: "#f8d98a",
+      dot: "var(--legacy-color-fbbf24)",
+      text: "var(--legacy-color-fdecc8)",
+      sub: "var(--legacy-color-f8d98a)",
     },
   }[pageAccess.status];
 
@@ -558,14 +540,14 @@ export default function HeaderSidebarLayout({
     authorised: {
       background: "rgba(107,179,127,0.1)",
       border: "1px solid rgba(107,179,127,0.26)",
-      dot: UI.success,
-      text: "#d7f6e0",
+      dot: "var(--color-success-accent)",
+      text: "var(--legacy-color-d7f6e0)",
     },
     denied: {
       background: "rgba(248,113,113,0.12)",
       border: "1px solid rgba(248,113,113,0.28)",
-      dot: "#f87171",
-      text: "#ffd6d6",
+      dot: "var(--legacy-color-f87171)",
+      text: "var(--legacy-color-ffd6d6)",
     },
   }[dataAccess.status];
 
@@ -701,7 +683,7 @@ export default function HeaderSidebarLayout({
         minHeight: "100dvh",
         overflow: "hidden",
         fontFamily: "var(--font-inter)",
-        background: UI.shellBg,
+        background: "var(--shell-gradient)",
       }}
     >
       {/* ----------------- Sidebar ----------------- */}
@@ -710,8 +692,8 @@ export default function HeaderSidebarLayout({
           width: isCollapsed ? "60px" : "220px",
           flexShrink: 0,
           boxSizing: "border-box",
-          background: UI.sidebarBg,
-          color: UI.sidebarText,
+          background: "var(--shell-sidebar-bg)",
+          color: "var(--shell-text)",
           padding: isCollapsed ? "18px 10px" : "22px 16px",
           display: "flex",
           flexDirection: "column",
@@ -726,7 +708,7 @@ export default function HeaderSidebarLayout({
           style={{
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(255,255,255,0.12)",
-            color: UI.sidebarMuted,
+            color: "var(--shell-muted)",
             cursor: "pointer",
             fontSize: "13px",
             fontWeight: 700,
@@ -742,64 +724,40 @@ export default function HeaderSidebarLayout({
 
         {!isCollapsed ? (
           <div
-            style={{
-              padding: "4px 6px 18px",
-              marginBottom: 12,
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
-            }}
+            className={layoutStyles.extracted1}
           >
             <img
               src="/bickers-action-logo.png"
               alt="Logo"
-              style={{ width: 136, marginBottom: 14, display: "block" }}
+              className={layoutStyles.extracted2}
             />
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em" }}>
+            <div className={layoutStyles.extracted3}>
               Booking System
             </div>
-            <div style={{ fontSize: 12.5, color: UI.sidebarMuted, marginTop: 4, lineHeight: 1.4 }}>
+            <div className={layoutStyles.extracted4}>
               Operations platform
             </div>
           </div>
         ) : (
           <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: UI.sidebarText,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontWeight: 800,
-              margin: "0 auto 18px",
-            }}
+            className={layoutStyles.extracted5}
           >
             BA
           </div>
         )}
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <nav className={layoutStyles.extracted6}>
           {workspaceNavGroups.map((group) => (
             <div key={group.heading}>
               {!isCollapsed && (
                 <div
-                  style={{
-                    padding: "0 10px 8px",
-                    color: "rgba(255,255,255,0.46)",
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                  }}
+                  className={layoutStyles.extracted7}
                 >
                   {group.heading}
                 </div>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className={layoutStyles.extracted8}>
                 {group.items.map(({ label, path }) => {
                   const active =
                     pathname === path ||
@@ -814,11 +772,11 @@ export default function HeaderSidebarLayout({
                       key={label}
                       onClick={() => attemptNavigation(() => router.push(path))}
                       style={{
-                        background: active ? UI.sidebarActiveBg : "transparent",
+                        background: active ? "var(--shell-active-bg)" : "transparent",
                         border: active
-                          ? `1px solid ${UI.sidebarActiveBorder}`
+                          ? `1px solid ${"var(--shell-active-border)"}`
                           : "1px solid transparent",
-                        color: active ? UI.sidebarText : UI.sidebarMuted,
+                        color: active ? "var(--shell-text)" : "var(--shell-muted)",
                         fontSize: "14px",
                         textAlign: isCollapsed ? "center" : "left",
                         padding: isCollapsed ? "10px 8px" : "11px 14px",
@@ -826,7 +784,7 @@ export default function HeaderSidebarLayout({
                         position: "relative",
                         borderRadius: 12,
                         fontWeight: active ? 700 : 600,
-                        boxShadow: active ? `inset 3px 0 0 ${UI.activeAccent}` : "none",
+                        boxShadow: active ? `inset 3px 0 0 ${"var(--color-success-accent)"}` : "none",
                         transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
                       }}
                       title={
@@ -837,31 +795,12 @@ export default function HeaderSidebarLayout({
                     >
                       {!isCollapsed ? (
                         <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 8,
-                            width: "100%",
-                          }}
+                          className={layoutStyles.extracted9}
                         >
                           <span>{label}</span>
                           {showHrBadge && (
                             <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                minWidth: 18,
-                                height: 18,
-                                padding: "0 6px",
-                                borderRadius: 999,
-                                background: UI.success,
-                                color: "#102217",
-                                fontSize: 11,
-                                fontWeight: 900,
-                                lineHeight: "18px",
-                                marginLeft: "auto",
-                              }}
+                              className={layoutStyles.extracted10}
                             >
                               {hrBadgeTotal}
                             </span>
@@ -869,14 +808,7 @@ export default function HeaderSidebarLayout({
                         </span>
                       ) : (
                         <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "100%",
-                            fontSize: 11,
-                            fontWeight: 800,
-                          }}
+                          className={layoutStyles.extracted11}
                         >
                           {label.slice(0, 2).toUpperCase()}
                         </span>
@@ -884,15 +816,7 @@ export default function HeaderSidebarLayout({
 
                       {isCollapsed && showHrBadge && (
                         <span
-                          style={{
-                            position: "absolute",
-                            right: 10,
-                            top: 10,
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            background: UI.success,
-                          }}
+                          className={layoutStyles.extracted12}
                         />
                       )}
                     </button>
@@ -903,17 +827,10 @@ export default function HeaderSidebarLayout({
           ))}
         </nav>
 
-        <div style={{ marginTop: "auto" }}>
+        <div className={layoutStyles.extracted13}>
           <button
             onClick={() => attemptNavigation(handleLogout)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#aaa",
-              padding: "10px 16px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
+            className={layoutStyles.extracted14}
           >
             {isCollapsed ? "LO" : "Logout"}
           </button>
@@ -922,30 +839,13 @@ export default function HeaderSidebarLayout({
 
       {/* ----------------- Main ----------------- */}
       <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className={layoutStyles.extracted15}
       >
         {/* Header */}
         <header
-          style={{
-            minHeight: "62px",
-            background: UI.topbarBg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 24px",
-            borderBottom: "none",
-            boxShadow: "0 12px 30px rgba(2,6,23,0.16)",
-            position: "sticky",
-            top: 0,
-            zIndex: 20,
-          }}
+          className={layoutStyles.extracted16}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+          <div className={layoutStyles.extracted17}>
             {shouldShowBackButton && (
               <button
                 type="button"
@@ -955,9 +855,9 @@ export default function HeaderSidebarLayout({
                   alignItems: "center",
                   gap: 8,
                   borderRadius: 999,
-                  border: `1px solid ${UI.topbarBorder}`,
+                  border: `1px solid ${"var(--shell-border)"}`,
                   background: "rgba(255,255,255,0.04)",
-                  color: "#f8fbff",
+                  color: "var(--legacy-color-f8fbff)",
                   fontSize: 13,
                   fontWeight: 800,
                   padding: "8px 12px",
@@ -971,28 +871,14 @@ export default function HeaderSidebarLayout({
                 <span>{backLabel}</span>
               </button>
             )}
-            <div style={{ minWidth: 0 }}>
+            <div className={layoutStyles.extracted18}>
               <div
-                style={{
-                  color: "rgba(255,255,255,0.44)",
-                  fontSize: 10.5,
-                  fontWeight: 800,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                }}
+                className={layoutStyles.extracted19}
               >
                 User workspace
               </div>
               <div
-                style={{
-                  color: "#f8fbff",
-                  fontSize: 17,
-                  fontWeight: 800,
-                  letterSpacing: "-0.01em",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
+                className={layoutStyles.extracted20}
               >
                 {currentNavItem?.label || "Bickers Booking System"}
               </div>
@@ -1000,13 +886,7 @@ export default function HeaderSidebarLayout({
           </div>
 
           <nav
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-            }}
+            className={layoutStyles.extracted21}
           >
             <div
               style={{
@@ -1021,7 +901,7 @@ export default function HeaderSidebarLayout({
                 border: accountSetup.complete
                   ? "1px solid rgba(107,179,127,0.38)"
                   : "1px solid rgba(248,113,113,0.28)",
-                color: accountSetup.complete ? "#d7f6e0" : "#ffd6d6",
+                color: accountSetup.complete ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-ffd6d6)",
               }}
               title={accountSetup.complete ? accountSetup.detail : `Missing: ${accountSetup.detail}`}
             >
@@ -1030,18 +910,18 @@ export default function HeaderSidebarLayout({
                   width: 8,
                   height: 8,
                   borderRadius: 999,
-                  background: accountSetup.complete ? UI.success : "#f87171",
+                  background: accountSetup.complete ? "var(--color-success-accent)" : "var(--legacy-color-f87171)",
                   boxShadow: accountSetup.complete
                     ? "0 0 0 4px rgba(107,179,127,0.14)"
                     : "0 0 0 4px rgba(248,113,113,0.12)",
                 }}
               />
-              <div style={{ display: "grid", gap: 1 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.02em" }}>
+              <div className={layoutStyles.extracted22}>
+                <span className={layoutStyles.extracted23}>
                   {accountSetup.label}
                 </span>
                 {!accountSetup.complete && (
-                  <span style={{ fontSize: 10.5, color: "#f8b4b4" }}>
+                  <span className={layoutStyles.extracted24}>
                     Missing: {accountSetup.detail}
                   </span>
                 )}
@@ -1049,58 +929,25 @@ export default function HeaderSidebarLayout({
             </div>
 
             <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 9,
-                ...topPillBase,
-                padding: "4px 12px 4px 6px",
-                maxWidth: 240,
-              }}
+              className={layoutStyles.extracted25}
               title={[accountBadge.name, accountBadge.email, accountBadge.accessLabel]
                 .filter(Boolean)
                 .join(" - ")}
               aria-label={`Signed in as ${accountBadge.name}, ${accountBadge.accessLabel}`}
             >
               <span
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 999,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "#d7f6e0",
-                  color: "#102217",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  flexShrink: 0,
-                }}
+                className={layoutStyles.extracted26}
               >
                 {accountBadge.initials}
               </span>
-              <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
+              <span className={layoutStyles.extracted27}>
                 <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 900,
-                    lineHeight: 1.1,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
+                  className={layoutStyles.extracted28}
                 >
                   {accountBadge.accessLabel}
                 </span>
                 <span
-                  style={{
-                    fontSize: 10.5,
-                    lineHeight: 1.1,
-                    color: "#a8b3c2",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
+                  className={layoutStyles.extracted29}
                 >
                   {accountBadge.name}
                 </span>
@@ -1128,7 +975,7 @@ export default function HeaderSidebarLayout({
                   style={{
                     fontSize: 10.5,
                     fontWeight: 900,
-                    color: adminViewMode === "user" ? "#bfdbfe" : "#d7f6e0",
+                    color: adminViewMode === "user" ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d7f6e0)",
                     minWidth: 34,
                     textAlign: "center",
                   }}
@@ -1136,15 +983,7 @@ export default function HeaderSidebarLayout({
                   User
                 </span>
                 <span
-                  style={{
-                    width: 38,
-                    height: 20,
-                    borderRadius: 999,
-                    padding: 2,
-                    boxSizing: "border-box",
-                    background: "rgba(255,255,255,0.14)",
-                    border: "1px solid rgba(255,255,255,0.14)",
-                  }}
+                  className={layoutStyles.extracted30}
                 >
                   <span
                     style={{
@@ -1152,7 +991,7 @@ export default function HeaderSidebarLayout({
                       width: 14,
                       height: 14,
                       borderRadius: 999,
-                      background: "#f8fbff",
+                      background: "var(--legacy-color-f8fbff)",
                       transform: adminViewMode === "user" ? "translateX(0)" : "translateX(18px)",
                       transition: "transform 0.18s ease",
                     }}
@@ -1162,7 +1001,7 @@ export default function HeaderSidebarLayout({
                   style={{
                     fontSize: 10.5,
                     fontWeight: 900,
-                    color: adminViewMode === "admin" ? "#d7f6e0" : "#a8b3c2",
+                    color: adminViewMode === "admin" ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-a8b3c2)",
                     minWidth: 38,
                     textAlign: "center",
                   }}
@@ -1186,22 +1025,10 @@ export default function HeaderSidebarLayout({
                   );
                   if (selected) setAdminViewUser?.(selected);
                 }}
-                style={{
-                  ...topPillBase,
-                  minHeight: 36,
-                  padding: "0 12px",
-                  color: "#f8fbff",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  outline: "none",
-                  maxWidth: 230,
-                  cursor: "pointer",
-                }}
+                className={layoutStyles.extracted31}
                 title="View the app as another enabled user."
               >
-                <option value="" style={{ color: "#0f172a" }}>
+                <option value="" className={layoutStyles.extracted32}>
                   {viewAsLoading ? "Loading users..." : "View as current user"}
                 </option>
                 {viewAsUsers.map((row) => {
@@ -1209,7 +1036,7 @@ export default function HeaderSidebarLayout({
                   const label = row?.name || row?.email || id;
                   const suffix = row?.email && row?.name ? ` - ${row.email}` : "";
                   return (
-                    <option key={id} value={id} style={{ color: "#0f172a" }}>
+                    <option key={id} value={id} className={layoutStyles.extracted33}>
                       {label}
                       {suffix}
                     </option>
@@ -1228,7 +1055,7 @@ export default function HeaderSidebarLayout({
                 }}
                 style={{
                   ...topPillBase,
-                  color: pathname === path ? "#d7f6e0" : "#d0dae6",
+                  color: pathname === path ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-d0dae6)",
                   background: pathname === path ? "rgba(107,179,127,0.14)" : topPillBase.background,
                   border: pathname === path
                     ? "1px solid rgba(107,179,127,0.38)"
@@ -1251,7 +1078,7 @@ export default function HeaderSidebarLayout({
                       borderRadius: 999,
                       border:
                         pathname === path
-                          ? `1px solid ${UI.activeAccent}`
+                          ? `1px solid ${"var(--color-success-accent)"}`
                           : "1px solid rgba(168,179,194,0.34)",
                       background:
                         pathname === path
@@ -1273,76 +1100,38 @@ export default function HeaderSidebarLayout({
 
         {/* Content */}
         <div
-          className="app-shell-content"
+          className={`app-shell-content ${layoutStyles.extracted43}`}
           ref={contentRef}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            background: UI.contentBg,
-            padding: 0,
-          }}
+
         >
           {children}
         </div>
 
         {pendingNavigation ? (
           <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(15,23,42,0.48)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 20,
-              zIndex: 90,
-            }}
+            className={layoutStyles.extracted34}
           >
             <div
-              style={{
-                width: "min(460px, 100%)",
-                background: "#ffffff",
-                borderRadius: 18,
-                border: "1px solid #dbe3ee",
-                boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
-                padding: 20,
-                color: UI.text,
-              }}
+              className={layoutStyles.extracted35}
             >
-              <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>
+              <div className={layoutStyles.extracted36}>
                 Unsaved changes
               </div>
-              <div style={{ fontSize: 13.5, color: UI.muted, lineHeight: 1.5 }}>
+              <div className={layoutStyles.extracted37}>
                 {pendingNavigation.message}
               </div>
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted38}>
                 <button
                   type="button"
                   onClick={handleStayOnPage}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #d1d5db",
-                    background: "#fff",
-                    color: UI.text,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
+                  className={layoutStyles.extracted39}
                 >
                   Stay on page
                 </button>
                 <button
                   type="button"
                   onClick={handleLeaveWithoutSaving}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid #fecaca",
-                    background: "#fff1f2",
-                    color: "#9f1239",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
+                  className={layoutStyles.extracted40}
                 >
                   Leave without saving
                 </button>
@@ -1353,9 +1142,9 @@ export default function HeaderSidebarLayout({
                     style={{
                       padding: "10px 12px",
                       borderRadius: 12,
-                      border: `1px solid ${UI.brand}`,
-                      background: UI.brand,
-                      color: "#fff",
+                      border: `1px solid ${"var(--color-brand)"}`,
+                      background: "var(--color-brand)",
+                      color: "var(--legacy-color-fff)",
                       fontWeight: 800,
                       cursor: "pointer",
                     }}
@@ -1371,11 +1160,11 @@ export default function HeaderSidebarLayout({
         {/* Footer */}
         <footer
           style={{
-            background: "#000000",
+            background: "var(--legacy-color-000000)",
             minHeight: "26px",
             fontSize: "10px",
-            color: "#d0dae6",
-            borderTop: `1px solid ${UI.topbarBorder}`,
+            color: "var(--legacy-color-d0dae6)",
+            borderTop: `1px solid ${"var(--shell-border)"}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1385,15 +1174,7 @@ export default function HeaderSidebarLayout({
         >
           <span>Copyright {new Date().getFullYear()} Bickers Booking System v{APP_VERSION_LABEL}</span>
           <div
-            style={{
-              position: "absolute",
-              right: 18,
-              top: "50%",
-              transform: "translateY(-50%)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
+            className={layoutStyles.extracted41}
           >
             <span
               style={{
@@ -1455,17 +1236,7 @@ export default function HeaderSidebarLayout({
               <button
                 type="button"
                 onClick={() => attemptNavigation(() => router.push("/platform-admin"))}
-                style={{
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "#d0dae6",
-                  borderRadius: 999,
-                  padding: "3px 9px",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  lineHeight: 1,
-                }}
+                className={layoutStyles.extracted42}
                 title="Open Platform Admin"
               >
                 Platform

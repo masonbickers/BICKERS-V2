@@ -24,8 +24,8 @@ export default function Sidebar() {
         left: 0,
         width: "240px",
         height: "100vh",
-        backgroundColor: "#000",
-        color: "#fff",
+        backgroundColor: "var(--legacy-color-000)",
+        color: "var(--legacy-color-fff)",
         padding: "24px",
         display: "flex",
         flexDirection: "column",
@@ -47,13 +47,13 @@ export default function Sidebar() {
             style={{
               background: "none",
               border: "none",
-              color: pathname === path ? "#4caf50" : "#fff",
+              color: pathname === path ? "var(--legacy-color-4caf50)" : "var(--legacy-color-fff)",
               fontWeight: pathname === path ? "bold" : "normal",
               fontSize: "16px",
               textAlign: "left",
               cursor: "pointer",
               padding: "8px 0",
-              borderBottom: "1px solid #333",
+              borderBottom: "1px solid var(--legacy-color-333)",
               width: "100%",
             }}
           >

@@ -115,11 +115,11 @@ export default function CreateBookingPage() {
     marginBottom: "10px",
     padding: "6px 9px",
     fontSize: "14px",
-    border: "1px solid #d2dce8",
+    border: "1px solid var(--legacy-color-d2dce8)",
     borderRadius: "8px",
     boxSizing: "border-box",
-    backgroundColor: "#fff",
-    color: "#0f172a",
+    backgroundColor: "var(--legacy-color-fff)",
+    color: "var(--legacy-color-0f172a)",
   };
 
   const textAreaStyle = {
@@ -131,7 +131,7 @@ export default function CreateBookingPage() {
 
   const labelHeadingStyle = {
     marginBottom: "5px",
-    color: "#516174",
+    color: "var(--legacy-color-516174)",
     fontSize: "12px",
     fontWeight: 800,
     letterSpacing: "0.03em",
@@ -142,9 +142,9 @@ export default function CreateBookingPage() {
     flex: "1 1 300px",
     minWidth: "280px",
     padding: "12px",
-    border: "1px solid #dde5ef",
+    border: "1px solid var(--legacy-color-dde5ef)",
     borderRadius: "8px",
-    backgroundColor: "#ffffff",
+    backgroundColor: "var(--legacy-color-ffffff)",
   };
 
   const safetyHeaderStyle = {
@@ -153,8 +153,8 @@ export default function CreateBookingPage() {
     gap: "8px",
     marginBottom: "12px",
     padding: "10px 12px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #d7dee8",
+    backgroundColor: "var(--legacy-color-ffffff)",
+    border: "1px solid var(--legacy-color-d7dee8)",
     borderRadius: "8px",
     boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
   };
@@ -166,7 +166,7 @@ export default function CreateBookingPage() {
     margin: 0,
     fontSize: "14px",
     fontWeight: 700,
-    color: "#0f172a",
+    color: "var(--legacy-color-0f172a)",
   };
 
   //  This will now include Employees + U-Crane Freelancers,
@@ -559,21 +559,21 @@ export default function CreateBookingPage() {
           display: "flex",
           minHeight: "100vh",
           fontFamily: "Inter, system-ui, Arial, sans-serif",
-          backgroundColor: "#f3f6f9",
+          backgroundColor: "var(--legacy-color-f3f6f9)",
         }}
       >
         <div
           style={{
             flex: 1,
             padding: "16px",
-            color: "#0f172a",
+            color: "var(--legacy-color-0f172a)",
           }}
         >
           <div style={{ marginBottom: 12 }}>
-            <h1 style={{ color: "#0f172a", margin: 0, fontSize: "22px", fontWeight: 850 }}>
+            <h1 style={{ color: "var(--legacy-color-0f172a)", margin: 0, fontSize: "22px", fontWeight: 850 }}>
               Create U-Crane Booking
             </h1>
-            <div style={{ color: "#5f6f82", marginTop: 5, fontSize: "13.5px", fontWeight: 700 }}>
+            <div style={{ color: "var(--legacy-color-5f6f82)", marginTop: 5, fontSize: "13.5px", fontWeight: 700 }}>
               Add U-Crane work using the same structure and diary logic as the calendar.
             </div>
           </div>
@@ -619,9 +619,9 @@ export default function CreateBookingPage() {
                 flexWrap: "wrap",
                 alignItems: "flex-start",
                 marginTop: "12px",
-                backgroundColor: "#ffffff",
+                backgroundColor: "var(--legacy-color-ffffff)",
                 padding: "12px",
-                border: "1px solid #d7dee8",
+                border: "1px solid var(--legacy-color-d7dee8)",
                 borderRadius: "8px",
                 boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
                 fontSize: "14px",
@@ -698,7 +698,7 @@ export default function CreateBookingPage() {
 
               {/* Column 2: Dates + Crew */}
               <div style={formColumnStyle}>
-                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Dates</h3>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "var(--legacy-color-0f172a)" }}>Dates</h3>
                 <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <input
                     type="checkbox"
@@ -726,7 +726,7 @@ export default function CreateBookingPage() {
                 )}
 
                 {/*  Crew Roles (NOW uses crew manager controls) */}
-                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a", marginTop: "10px" }}>Crew</h3>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "var(--legacy-color-0f172a)", marginTop: "10px" }}>Crew</h3>
                 <div
                   style={{
                     display: "grid",
@@ -736,7 +736,7 @@ export default function CreateBookingPage() {
                 >
                   {UCRANE_ROLES.map(({ role, key }) => (
                     <div key={role} style={{ marginBottom: "1px" }}>
-                      <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>{role}</h4>
+                      <h4 style={{ margin: "0 0 6px", color: "var(--legacy-color-334155)", fontSize: "13px" }}>{role}</h4>
 
                       {(crewOptionsForRole[role] || []).map((person) => {
                         const personName = getDisplayName(person);
@@ -775,7 +775,7 @@ export default function CreateBookingPage() {
                                 }
                               }}
                             />
-                            <span style={{ color: disabled ? "grey" : "#333" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
                               {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
@@ -785,7 +785,7 @@ export default function CreateBookingPage() {
                       })}
 
                       {(crewOptionsForRole[role] || []).length === 0 && (
-                        <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: "var(--legacy-color-666)", marginBottom: 10 }}>
                           No crew set as visible for this role.
                         </div>
                       )}
@@ -795,7 +795,7 @@ export default function CreateBookingPage() {
 
                 {/* Optional custom names */}
                 <div style={{ marginTop: 12 }}>
-                  <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>
+                  <h4 style={{ margin: "0 0 6px", color: "var(--legacy-color-334155)", fontSize: "13px" }}>
                     Add custom crew (comma separated)
                   </h4>
                   <input
@@ -809,12 +809,12 @@ export default function CreateBookingPage() {
 
               {/* Column 3: Vehicles */}
               <div style={formColumnStyle}>
-                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Vehicles</h3>
+                <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "var(--legacy-color-0f172a)" }}>Vehicles</h3>
                 {["U-Crane", "Transport Lorry"].map((group) => {
                   const groupLabel = group === "Transport Lorry" ? "HGV" : group;
                   return (
                   <div key={group} style={{ marginBottom: "15px" }}>
-                    <h4 style={{ margin: "0 0 6px", color: "#334155", fontSize: "13px" }}>{groupLabel}</h4>
+                    <h4 style={{ margin: "0 0 6px", color: "var(--legacy-color-334155)", fontSize: "13px" }}>{groupLabel}</h4>
                     {vehicleGroups[group]?.length > 0 ? (
                       vehicleGroups[group].map((vehicle, index) => (
                         <label
@@ -846,7 +846,7 @@ export default function CreateBookingPage() {
                         </label>
                       ))
                     ) : (
-                      <p style={{ fontSize: "12px", color: "#666" }}>
+                      <p style={{ fontSize: "12px", color: "var(--legacy-color-666)" }}>
                         No vehicles in this category
                       </p>
                     )}
@@ -860,14 +860,14 @@ export default function CreateBookingPage() {
             <div
               style={{
                 marginTop: 12,
-                backgroundColor: "#ffffff",
-                border: "1px solid #d7dee8",
+                backgroundColor: "var(--legacy-color-ffffff)",
+                border: "1px solid var(--legacy-color-d7dee8)",
                 borderRadius: "8px",
                 boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
                 padding: "12px",
               }}
             >
-              <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "#0f172a" }}>Notes</h3>
+              <h3 style={{ ...labelHeadingStyle, fontSize: "13px", color: "var(--legacy-color-0f172a)" }}>Notes</h3>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -876,10 +876,10 @@ export default function CreateBookingPage() {
                   width: "100%",
                   padding: "9px 10px",
                   fontSize: "14px",
-                  border: "1px solid #d2dce8",
+                  border: "1px solid var(--legacy-color-d2dce8)",
                   borderRadius: "8px",
                   boxSizing: "border-box",
-                  color: "#0f172a",
+                  color: "var(--legacy-color-0f172a)",
                   }}
                 placeholder="Anything extra to include..."
               />
@@ -895,9 +895,9 @@ export default function CreateBookingPage() {
                 onClick={() => router.push("/u-crane")}
                 style={{
                   ...buttonStyle,
-                  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-                  color: "#0f172a",
-                  border: "1px solid #c8d6e3",
+                  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+                  color: "var(--legacy-color-0f172a)",
+                  border: "1px solid var(--legacy-color-c8d6e3)",
                   boxShadow: "none",
                 }}
               >
@@ -910,13 +910,13 @@ export default function CreateBookingPage() {
             style={{
               marginTop: 12,
               padding: 14,
-              backgroundColor: "#ffffff",
-              border: "1px solid #d7dee8",
+              backgroundColor: "var(--legacy-color-ffffff)",
+              border: "1px solid var(--legacy-color-d7dee8)",
               borderRadius: 8,
               boxShadow: "0 1px 2px rgba(15, 23, 42, 0.05)",
             }}
           >
-            <h2 style={{ margin: "0 0 10px", color: "#0f172a", fontSize: "16px" }}>
+            <h2 style={{ margin: "0 0 10px", color: "var(--legacy-color-0f172a)", fontSize: "16px" }}>
               Booking Summary
             </h2>
 
@@ -999,9 +999,9 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "0",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
-  border: "1px solid #1f4b7a",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-1f4b7a)",
   borderRadius: "8px",
   cursor: "pointer",
   fontWeight: 800,
@@ -1011,10 +1011,10 @@ const buttonStyle = {
 const navButton = {
   background: "transparent",
   border: "none",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   fontSize: "16px",
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid #333",
+  borderBottom: "1px solid var(--legacy-color-333)",
 };

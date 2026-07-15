@@ -48,14 +48,14 @@ const getDisplayName = (row) =>
 ─────────────────────────────────────────── */
 const UI = {
   radius: 8,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#516174",
-  border: "1px solid #d7dee8",
-  borderSoft: "1px solid #dde5ef",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-516174)",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  borderSoft: "1px solid var(--legacy-color-dde5ef)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
   shadowSm: "0 1px 2px rgba(15, 23, 42, 0.05)",
 };
 
@@ -115,10 +115,10 @@ const inputStyle = {
   marginBottom: "10px",
   padding: "6px 9px",
   fontSize: "14px",
-  border: "1px solid #d2dce8",
+  border: "1px solid var(--legacy-color-d2dce8)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -126,10 +126,10 @@ const textArea = {
   width: "100%",
   padding: "9px 10px",
   fontSize: "14px",
-  border: "1px solid #d2dce8",
+  border: "1px solid var(--legacy-color-d2dce8)",
   borderRadius: UI.radius,
   boxSizing: "border-box",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -137,8 +137,8 @@ const buttonStyle = {
   marginRight: "10px",
   marginTop: "10px",
   padding: "8px 13px",
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -147,16 +147,16 @@ const buttonStyle = {
 };
 const cancelBtn = {
   ...buttonStyle,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "none",
 };
 const dangerBtn = {
   ...buttonStyle,
-  background: "#fff1f2",
-  color: "#991b1b",
-  border: "1px solid #e9c6c4",
+  background: "var(--legacy-color-fff1f2)",
+  color: "var(--legacy-color-991b1b)",
+  border: "1px solid var(--legacy-color-e9c6c4)",
   boxShadow: "none",
 };
 const summaryCard = {
@@ -660,7 +660,7 @@ export default function EditBookingPage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 padding: "7px 10px",
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 boxShadow: UI.shadowSm,
               }}
             >
@@ -803,7 +803,7 @@ export default function EditBookingPage() {
                                 }
                               }}
                             />
-                            <span style={{ color: disabled ? "grey" : "#333" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
                               {personName}{" "}
                               {person.__collection === "uCraneFreelancers" ? "(Freelancer)" : ""}
                               {isBooked && " (Booked)"} {isHoliday && " (On Holiday)"} {isUnavailable && " (Unavailable)"}
@@ -813,7 +813,7 @@ export default function EditBookingPage() {
                       })}
 
                       {(crewOptionsForRole[role] || []).length === 0 && (
-                        <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: "var(--legacy-color-666)", marginBottom: 10 }}>
                           No crew set as visible for this role.
                         </div>
                       )}
@@ -868,7 +868,7 @@ export default function EditBookingPage() {
                                 )
                               }
                             />
-                            <span style={{ color: disabled ? "grey" : "#333" }}>
+                            <span style={{ color: disabled ? "grey" : "var(--legacy-color-333)" }}>
                               {vehicle.name}{" "}
                               {vehicle.registration && `– ${vehicle.registration}`}{" "}
                               {maintenanceBlocked && "(Maintenance)"} {dateBlocked && "(Booked)"}
@@ -877,7 +877,7 @@ export default function EditBookingPage() {
                         );
                       })
                     ) : (
-                      <p style={{ fontSize: "12px", color: "#666" }}>No vehicles in this category</p>
+                      <p style={{ fontSize: "12px", color: "var(--legacy-color-666)" }}>No vehicles in this category</p>
                     )}
                   </div>
                 ))}
@@ -891,7 +891,7 @@ export default function EditBookingPage() {
                     </a>
                   </p>
                 ) : (
-                  <p style={{ margin: "6px 0 10px", color: "#6b7280" }}>No quote attached</p>
+                  <p style={{ margin: "6px 0 10px", color: "var(--legacy-color-6b7280)" }}>No quote attached</p>
                 )}
 
                 <input

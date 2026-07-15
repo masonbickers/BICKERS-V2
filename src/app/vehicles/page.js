@@ -43,16 +43,16 @@ const UI = {
   gap: 6,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
@@ -72,7 +72,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -90,8 +90,8 @@ const btn = (kind = "primary") => {
     padding: "5px 8px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -109,7 +109,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -730,7 +730,7 @@ export default function VehicleMaintenancePage() {
         input:focus, select:focus, button:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: #9fb7cf !important;
+          border-color: var(--legacy-color-9fb7cf) !important;
         }
         .vehicles-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         .vehicles-filter-grid {
@@ -858,9 +858,9 @@ export default function VehicleMaintenancePage() {
             </div>
 
             <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <span style={chip("#fff", UI.text)}>{kpis.count} vehicles</span>
-              <span style={chip("#fff7ed", "#9a3412")}>Due soon: {kpis.soon}</span>
-              <span style={chip("#fef2f2", "#991b1b")}>Overdue: {kpis.overdue}</span>
+              <span style={chip("var(--legacy-color-fff)", UI.text)}>{kpis.count} vehicles</span>
+              <span style={chip("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")}>Due soon: {kpis.soon}</span>
+              <span style={chip("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}>Overdue: {kpis.overdue}</span>
 
               <button
                 type="button"
@@ -919,7 +919,7 @@ export default function VehicleMaintenancePage() {
                         padding: "3px 7px",
                         borderRadius: 999,
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         color: UI.text,
                         fontSize: 11.5,
                         fontWeight: 850,
@@ -973,8 +973,8 @@ export default function VehicleMaintenancePage() {
                         style={{
                           padding: "5px 10px",
                           background: UI.brand,
-                          color: "#fff",
-                          borderBottom: "1px solid #5b92ce",
+                          color: "var(--legacy-color-fff)",
+                          borderBottom: "1px solid var(--legacy-color-5b92ce)",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
@@ -990,7 +990,7 @@ export default function VehicleMaintenancePage() {
                         <span style={{ display: "inline-flex", flexDirection: "column", gap: 1, lineHeight: 1.1 }}>
                           <span>{header.label}</span>
                           {header.count ? (
-                            <span style={{ color: "#dbeafe", fontSize: 10.5, fontWeight: 850 }}>
+                            <span style={{ color: "var(--legacy-color-dbeafe)", fontSize: 10.5, fontWeight: 850 }}>
                               {header.count}
                             </span>
                           ) : null}
@@ -1002,7 +1002,7 @@ export default function VehicleMaintenancePage() {
 
                 {Object.entries(groupedByCategory).sort(([a], [b]) => compareVehicleCategories(a, b)).map(([category, list]) => {
                   const categoryColor = getCategoryColor(category);
-                  const categoryBackground = categoryColor ? `${categoryColor}18` : "#edf3f8";
+                  const categoryBackground = categoryColor ? `${categoryColor}18` : "var(--legacy-color-edf3f8)";
                   return (
                   <tbody key={category}>
                     <tr
@@ -1049,14 +1049,14 @@ export default function VehicleMaintenancePage() {
 
                     {expandedCategories[category] &&
                       list.map((v, i) => {
-                        const zebra = i % 2 === 0 ? "#ffffff" : "#f8fafc";
+                        const zebra = i % 2 === 0 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-f8fafc)";
                         const retentionPlate = isRetentionPlate(v);
                         const outOfUse = isVehicleOutOfUse(v);
                         const reg = v.registration || v.reg || "-";
 
                         const rowTd = {
                           padding: "4px 10px",
-                          borderBottom: "1px solid #dbe1ea",
+                          borderBottom: "1px solid var(--legacy-color-dbe1ea)",
                           whiteSpace: "nowrap",
                           verticalAlign: "middle",
                         };
@@ -1094,7 +1094,7 @@ export default function VehicleMaintenancePage() {
                             : 21,
                           suppressStatus: outOfUse,
                         };
-                        const rowBackground = outOfUse ? "#f1f5f9" : zebra;
+                        const rowBackground = outOfUse ? "var(--legacy-color-f1f5f9)" : zebra;
 
                         return (
                           <tr
@@ -1137,7 +1137,7 @@ export default function VehicleMaintenancePage() {
                               <select
                                 style={{
                                   ...miniSelect,
-                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "#000" } : {}),
+                                  ...(insuranceStatus === "Not Insured" && !outOfUse ? { color: "var(--legacy-color-000)" } : {}),
                                 }}
                                 value={insuranceStatus}
                                 onChange={(e) => handleInsuranceStatusChange(v, e.target.value)}
@@ -1411,9 +1411,9 @@ function renderDateCell(raw, baseStyle, options) {
 const miniSelect = {
   width: "100%",
   padding: "3px 8px",
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 12,
   cursor: "pointer",
 };

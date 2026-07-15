@@ -21,15 +21,15 @@ const UI = {
   gap: 6,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "10px 18px 18px", background: UI.bg, minHeight: "100vh" };
@@ -60,8 +60,8 @@ const btn = (kind = "primary") => {
       gap: 5,
       padding: "7px 10px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -77,7 +77,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--legacy-color-fff)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -88,10 +88,10 @@ const input = {
   width: "100%",
   padding: "6px 9px",
   borderRadius: 10,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -114,7 +114,7 @@ const chip = (bg, fg) => ({
   fontWeight: 900,
   background: bg,
   color: fg,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   whiteSpace: "nowrap",
 });
 
@@ -139,15 +139,15 @@ const dateInfo = (raw) => {
 
 function statusPillStyle(statusRaw) {
   const s = safeLower(statusRaw);
-  if (!s) return chip("#e2e8f0", "#0f172a");
-  if (s.includes("out") || s.includes("broken") || s.includes("repair")) return chip("#fee2e2", "#991b1b");
+  if (!s) return chip("var(--legacy-color-e2e8f0)", "var(--legacy-color-0f172a)");
+  if (s.includes("out") || s.includes("broken") || s.includes("repair")) return chip("var(--legacy-color-fee2e2)", "var(--legacy-color-991b1b)");
   if (s.includes("due") || s.includes("inspect") || s.includes("soon") || s.includes("maintenance")) {
-    return chip("#ffedd5", "#9a3412");
+    return chip("var(--legacy-color-ffedd5)", "var(--legacy-color-9a3412)");
   }
   if (s.includes("active") || s.includes("ok") || s.includes("ready") || s.includes("available") || s.includes("in")) {
-    return chip("#dcfce7", "#166534");
+    return chip("var(--legacy-color-dcfce7)", "var(--legacy-color-166534)");
   }
-  return chip("#e2e8f0", "#0f172a");
+  return chip("var(--legacy-color-e2e8f0)", "var(--legacy-color-0f172a)");
 }
 
 const COLS = 6;
@@ -275,7 +275,7 @@ export default function EquipmentPage() {
         input:focus, select:focus, button:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29,78,216,0.14);
-          border-color: #bfdbfe !important;
+          border-color: var(--legacy-color-bfdbfe) !important;
         }
         .equipment-sticky thead th { position: sticky; top: 0; z-index: 5; }
         .equipment-sticky .catRow { position: sticky; top: 29px; z-index: 4; }
@@ -335,9 +335,9 @@ export default function EquipmentPage() {
             </div>
 
             <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <span style={chip("#fff", UI.text)}>{kpis.count} equipment</span>
-              <span style={chip("#fff7ed", "#9a3412")}>Due soon: {kpis.soon}</span>
-              <span style={chip("#fef2f2", "#991b1b")}>Overdue: {kpis.overdue}</span>
+              <span style={chip("var(--legacy-color-fff)", UI.text)}>{kpis.count} equipment</span>
+              <span style={chip("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")}>Due soon: {kpis.soon}</span>
+              <span style={chip("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")}>Overdue: {kpis.overdue}</span>
 
               <button
                 type="button"
@@ -375,9 +375,9 @@ export default function EquipmentPage() {
                         key={h}
                         style={{
                           padding: "5px 10px",
-                          background: "#0f172a",
-                          color: "#fff",
-                          borderBottom: "1px solid #0b1220",
+                          background: "var(--legacy-color-0f172a)",
+                          color: "var(--legacy-color-fff)",
+                          borderBottom: "1px solid var(--legacy-color-0b1220)",
                           whiteSpace: "nowrap",
                           textAlign: "left",
                           fontWeight: 900,
@@ -398,10 +398,10 @@ export default function EquipmentPage() {
                         onClick={() => toggleCategory(category)}
                         className="catRow"
                         style={{
-                          background: "#f3f4f6",
+                          background: "var(--legacy-color-f3f4f6)",
                           cursor: "pointer",
-                          borderTop: "1px solid #dbe1ea",
-                          borderBottom: "1px solid #dbe1ea",
+                          borderTop: "1px solid var(--legacy-color-dbe1ea)",
+                          borderBottom: "1px solid var(--legacy-color-dbe1ea)",
                         }}
                         title="Click to expand/collapse"
                       >
@@ -423,11 +423,11 @@ export default function EquipmentPage() {
 
                       {expandedCategories[category] &&
                         list.map((e, i) => {
-                          const zebra = i % 2 === 0 ? "#ffffff" : "#f3f4f6";
+                          const zebra = i % 2 === 0 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-f3f4f6)";
                           const nextInspection = dateInfo(e.nextInspection);
                           const rowTd = {
                             padding: "4px 10px",
-                            borderBottom: "1px solid #dbe1ea",
+                            borderBottom: "1px solid var(--legacy-color-dbe1ea)",
                             whiteSpace: "nowrap",
                             verticalAlign: "middle",
                           };

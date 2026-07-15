@@ -5,6 +5,7 @@ import Link from "next/link";
 import { onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../../firebaseConfig";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
+import DailyBriefingPanel from "./DailyBriefingPanel";
 import { buildBookingAnalytics, normaliseBookingForAnalytics } from "@/app/utils/bookingAnalytics";
 import {
   dataAccessKey,
@@ -32,20 +33,20 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  successSoft: "#ecfdf5",
-  successText: "#166534",
-  warningSoft: "#fff7ed",
-  warningBorder: "#fed7aa",
-  dangerSoft: "#fcefee",
-  dangerText: "#991b1b",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  successSoft: "var(--legacy-color-ecfdf5)",
+  successText: "var(--legacy-color-166534)",
+  warningSoft: "var(--legacy-color-fff7ed)",
+  warningBorder: "var(--legacy-color-fed7aa)",
+  dangerSoft: "var(--legacy-color-fcefee)",
+  dangerText: "var(--legacy-color-991b1b)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -99,7 +100,7 @@ const filterSelectStyle = {
   border: UI.border,
   fontSize: 13.5,
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   boxSizing: "border-box",
 };
@@ -174,9 +175,9 @@ function downloadCSV(filename, rows) {
 }
 
 const severityStyles = {
-  high: { border: "#f1b8b8", bg: UI.dangerSoft, text: UI.dangerText },
-  medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "#92400e" },
-  neutral: { border: "#d7dee8", bg: "#fff", text: UI.text },
+  high: { border: "var(--legacy-color-f1b8b8)", bg: UI.dangerSoft, text: UI.dangerText },
+  medium: { border: UI.warningBorder, bg: UI.warningSoft, text: "var(--legacy-color-92400e)" },
+  neutral: { border: "var(--legacy-color-d7dee8)", bg: "var(--legacy-color-fff)", text: UI.text },
 };
 
 /* Section */
@@ -307,41 +308,41 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Confirmed":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "First Pencil":
-      return { bg: "#89caf5", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Second Pencil":
-      return { bg: "#f73939", text: "#fff", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" };
     case "Complete":
-      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Action Required":
-      return { bg: "#FF973B", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Maintenance":
-      return { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Bickers":
-      return { bg: "#ffffff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-ffffff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Stunt":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Holiday":
-      return { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-d3d3d3)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "DNH":
     case "Postponed":
     case "Deleted":
-      return { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" };
+      return { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" };
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Cancelled":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     case "Enquiry":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
   }
 };
 
@@ -735,7 +736,7 @@ function BarChart({ title, subtitle, data = [], rightLabel = "Count", valueForma
               </div>
               <div
                 style={{
-                  background: "#edf3f8",
+                  background: "var(--legacy-color-edf3f8)",
                   border: UI.border,
                   height: 10,
                   borderRadius: 999,
@@ -836,7 +837,7 @@ function StackedBarChart({ title, subtitle, data = [], rightLabel = "Count", val
               <div
                 title={(row.segments || []).map((s) => `${s.label}: ${s.value}`).join(", ")}
                 style={{
-                  background: "#edf3f8",
+                  background: "var(--legacy-color-edf3f8)",
                   border: UI.border,
                   height: 12,
                   borderRadius: 999,
@@ -931,7 +932,7 @@ function UsageTable({ title, rows = [], onRowClick }) {
               gap: 8,
               alignItems: "center",
               border: "none",
-              borderTop: "1px solid #e7edf4",
+              borderTop: "1px solid var(--legacy-color-e7edf4)",
               padding: "6px 0 0",
               background: "transparent",
               color: UI.text,
@@ -978,7 +979,7 @@ function MonthlyPerformanceTable({ rows = [], onMonthClick }) {
               gap: 8,
               minWidth: 680,
               border: "none",
-              borderTop: "1px solid #e7edf4",
+              borderTop: "1px solid var(--legacy-color-e7edf4)",
               padding: "6px 0 0",
               background: "transparent",
               color: UI.text,
@@ -1047,7 +1048,7 @@ function DrilldownPanel({ drilldown, onClose, onExport, formatVehicle }) {
               gridTemplateColumns: "90px 180px 120px 90px 90px 90px 80px 220px 220px",
               gap: 8,
               minWidth: 1180,
-              borderTop: "1px solid #e7edf4",
+              borderTop: "1px solid var(--legacy-color-e7edf4)",
               paddingTop: 6,
               color: UI.text,
               textDecoration: "none",
@@ -2161,7 +2162,7 @@ export default function StatisticsPage() {
           gridTemplateColumns: "minmax(180px,1fr) 160px 120px auto",
           gap: 8,
           padding: "8px 10px",
-          borderTop: "1px solid #e7edf4",
+          borderTop: "1px solid var(--legacy-color-e7edf4)",
           textDecoration: "none",
           color: UI.text,
         }}
@@ -2200,7 +2201,7 @@ export default function StatisticsPage() {
         Object.assign(e.currentTarget.style, {
           transform: "none",
           boxShadow: UI.shadowSm,
-          borderColor: "#d7dee8",
+          borderColor: "var(--legacy-color-d7dee8)",
         })
       }
     >
@@ -2240,7 +2241,7 @@ export default function StatisticsPage() {
               <BriefcaseBusiness size={14} />
               {loading ? "Loading..." : `${jobsAll.length} jobs`}
             </div>
-            <div style={{ ...chip, background: UI.successSoft, borderColor: "#bbf7d0", color: UI.successText }}>
+            <div style={{ ...chip, background: UI.successSoft, borderColor: "var(--legacy-color-bbf7d0)", color: UI.successText }}>
               <Filter size={14} />
               Filtered: <b style={{ marginLeft: 6 }}>{jobsFiltered.length}</b>
             </div>
@@ -2248,16 +2249,18 @@ export default function StatisticsPage() {
               <CalendarDays size={14} />
               Deleted in scope: <b style={{ marginLeft: 6 }}>{deletedJobsFiltered.length}</b>
             </div>
-            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+            <button type="button" onClick={exportAnalyticsSummary} style={{ ...chip, cursor: "pointer", background: "var(--legacy-color-fff)" }}>
               <Download size={14} />
               Export summary CSV
             </button>
-            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+            <button type="button" onClick={exportDrilldown} style={{ ...chip, cursor: "pointer", background: "var(--legacy-color-fff)" }}>
               <Download size={14} />
               Export drill-down CSV
             </button>
           </div>
         </div>
+
+        <DailyBriefingPanel />
 
         <div style={{ ...panel, marginBottom: UI.gap }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
@@ -2269,7 +2272,7 @@ export default function StatisticsPage() {
               <div style={sectionMeta}>Refine the dashboard before analytics are calculated.</div>
             </div>
             {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "#fff" }}>
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--legacy-color-fff)" }}>
                 <X size={14} />
                 Clear filters
               </button>
@@ -2297,7 +2300,7 @@ export default function StatisticsPage() {
                   border: UI.border,
                   fontSize: 13.5,
                   outline: "none",
-                  background: "#fff",
+                  background: "var(--legacy-color-fff)",
                   color: UI.text,
                   boxSizing: "border-box",
                 }}
@@ -2324,7 +2327,7 @@ export default function StatisticsPage() {
               title="Month A"
               style={{
                 ...filterSelectStyle,
-                background: rangeMode === "month" ? "#fff" : "#f8fbfd",
+                background: rangeMode === "month" ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fbfd)",
                 fontWeight: 800,
                 color: rangeMode === "month" ? UI.text : UI.muted,
                 cursor: rangeMode === "month" ? "pointer" : "not-allowed",
@@ -2339,7 +2342,7 @@ export default function StatisticsPage() {
               title="Month B"
               style={{
                 ...filterSelectStyle,
-                background: rangeMode === "month" ? "#fff" : "#f8fbfd",
+                background: rangeMode === "month" ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fbfd)",
                 fontWeight: 800,
                 color: rangeMode === "month" ? UI.text : UI.muted,
                 cursor: rangeMode === "month" ? "pointer" : "not-allowed",
@@ -2441,7 +2444,7 @@ export default function StatisticsPage() {
               Broaden the date range, clear a client/vehicle/crew filter, or reset everything to return to the full dashboard.
             </div>
             {hasActiveFilters && (
-              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "#fff", marginTop: 12 }}>
+              <button type="button" onClick={clearFilters} style={{ ...chip, cursor: "pointer", background: "var(--legacy-color-fff)", marginTop: 12 }}>
                 <X size={14} />
                 Clear filters
               </button>
@@ -2519,7 +2522,7 @@ export default function StatisticsPage() {
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Has date &gt;= today</div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#d1fae5" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-d1fae5)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg job length</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{jobLengthStats.avgLengthDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2527,7 +2530,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#d1fae5" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-d1fae5)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed length</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{jobLengthStats.avgConfirmedLengthDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2535,7 +2538,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#cffafe" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-cffafe)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg crew / job</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{crewStats.avgCrewPerJob}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2543,7 +2546,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#cffafe" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-cffafe)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg confirmed crew</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{crewStats.avgConfirmedCrewPerJob}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2551,7 +2554,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#fde68a" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-fde68a)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Added to confirmed</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{timelineStats.avgCreateToConfirmedDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2559,7 +2562,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#fde68a" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-fde68a)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Added to first shoot</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{timelineStats.avgCreateToShootDays}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2567,7 +2570,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#bfdbfe" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-bfdbfe)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil cohort</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.total}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2575,7 +2578,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#bfdbfe" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-bfdbfe)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil to confirmed</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.confirmedRate}%</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2583,7 +2586,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#fecaca" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-fecaca)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>First pencil dead outcomes</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{firstPencilFunnel.deadRate}%</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2591,7 +2594,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-e9d5ff)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Hotel cost (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.totalHotelCost)}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2599,7 +2602,7 @@ export default function StatisticsPage() {
               </div>
             </div>
 
-            <div style={{ ...card, padding: 12, borderColor: "#e9d5ff" }}>
+            <div style={{ ...card, padding: 12, borderColor: "var(--legacy-color-e9d5ff)" }}>
               <div style={{ color: UI.muted, fontSize: 12, fontWeight: 800, textTransform: "uppercase" }}>Avg hotel / night (payable)</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{gbp(hotelStats.avgPerNight)}</div>
               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
@@ -2628,43 +2631,43 @@ export default function StatisticsPage() {
 
           <div style={{ ...surface, padding: 12, marginTop: 12 }}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ ...chip, background: "#fff7ed" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-fff7ed)" }}>
                 Missing HS: <b style={{ marginLeft: 6 }}>{kpis.missingHS}</b>
               </span>
-              <span style={{ ...chip, background: "#fff7ed" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-fff7ed)" }}>
                 Missing RA: <b style={{ marginLeft: 6 }}>{kpis.missingRA}</b>
               </span>
-              <span style={{ ...chip, background: "#f3f4f6" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-f3f4f6)" }}>
                 Cancelled: <b style={{ marginLeft: 6 }}>{kpis.cancelledJobs}</b>
               </span>
-              <span style={{ ...chip, background: "#eff6ff", borderColor: "#bfdbfe" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-eff6ff)", borderColor: "var(--legacy-color-bfdbfe)" }}>
                 First pencil confirmed: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.confirmedRate}%</b>
               </span>
-              <span style={{ ...chip, background: "#fef2f2", borderColor: "#fecaca" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-fef2f2)", borderColor: "var(--legacy-color-fecaca)" }}>
                 First pencil dead: <b style={{ marginLeft: 6 }}>{firstPencilFunnel.deadRate}%</b>
               </span>
-              <span style={{ ...chip, background: "#ecfccb", borderColor: "#bef264" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-ecfccb)", borderColor: "var(--legacy-color-bef264)" }}>
                 Avg job length: <b style={{ marginLeft: 6 }}>{jobLengthStats.avgLengthDays}</b> day(s)
               </span>
-              <span style={{ ...chip, background: "#ecfeff", borderColor: "#a5f3fc" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-ecfeff)", borderColor: "var(--legacy-color-a5f3fc)" }}>
                 Avg crew / job: <b style={{ marginLeft: 6 }}>{crewStats.avgCrewPerJob}</b>
               </span>
-              <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)" }}>
                 Added to confirmed: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToConfirmedDays}</b> day(s)
               </span>
-              <span style={{ ...chip, background: "#fffbeb", borderColor: "#fde68a" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-fffbeb)", borderColor: "var(--legacy-color-fde68a)" }}>
                 Added to first shoot: <b style={{ marginLeft: 6 }}>{timelineStats.avgCreateToShootDays}</b> day(s)
               </span>
               <span style={{ ...chip, background: UI.brandSoft, borderColor: UI.brandBorder }}>
                 Shoot days (total): <b style={{ marginLeft: 6 }}>{shootKpis.totalShootDays}</b>
               </span>
-              <span style={{ ...chip, background: "#ecfeff", borderColor: "#a5f3fc" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-ecfeff)", borderColor: "var(--legacy-color-a5f3fc)" }}>
                 Credits: <b style={{ marginLeft: 6 }}>{formatCredits(totalCredits)}</b>
               </span>
-              <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-f3e8ff)", borderColor: "var(--legacy-color-e9d5ff)" }}>
                 Avg hotel / job (payable): <b style={{ marginLeft: 6 }}>{gbp(hotelStats.avgPerHotelJob)}</b>
               </span>
-              <span style={{ ...chip, background: "#f3e8ff", borderColor: "#e9d5ff" }}>
+              <span style={{ ...chip, background: "var(--legacy-color-f3e8ff)", borderColor: "var(--legacy-color-e9d5ff)" }}>
                 Production-paid: <b style={{ marginLeft: 6 }}>{hotelStats.productionPaidHotelNights}</b> nights
               </span>
             </div>
@@ -2790,7 +2793,7 @@ export default function StatisticsPage() {
                       gap: 8,
                       alignItems: "center",
                       fontSize: 12,
-                      borderTop: idx ? "1px solid #e7edf4" : "none",
+                      borderTop: idx ? "1px solid var(--legacy-color-e7edf4)" : "none",
                       paddingTop: idx ? 6 : 0,
                     }}
                   >
@@ -2806,7 +2809,7 @@ export default function StatisticsPage() {
                     >
                       {row.note || "No note"}{row.client ? ` - ${row.client}` : ""}
                     </span>
-                    <span style={{ color: row.counted ? "#065f46" : UI.muted, fontSize: 11 }}>{row.reason}</span>
+                    <span style={{ color: row.counted ? "var(--legacy-color-065f46)" : UI.muted, fontSize: 11 }}>{row.reason}</span>
                     <b style={{ textAlign: "right", color: row.counted ? UI.text : UI.muted }}>{formatCredits(row.credit)}</b>
                   </div>
                 ))

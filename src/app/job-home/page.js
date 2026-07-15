@@ -31,26 +31,26 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
-  purple: "#7c3aed",
-  purpleSoft: "#f5f3ff",
-  purpleBorder: "#ddd6fe",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
+  purple: "var(--legacy-color-7c3aed)",
+  purpleSoft: "var(--legacy-color-f5f3ff)",
+  purpleBorder: "var(--legacy-color-ddd6fe)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -158,8 +158,8 @@ const actionButton = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
+  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
   fontWeight: 850,
   fontSize: 13,
   textDecoration: "none",
@@ -175,7 +175,7 @@ const inputStyle = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -187,7 +187,7 @@ const rowShell = {
   alignItems: "center",
   minHeight: 34,
   padding: "0 0 0 9px",
-  borderTop: "1px solid #edf2f7",
+  borderTop: "1px solid var(--legacy-color-edf2f7)",
   textDecoration: "none",
   color: UI.text,
 };
@@ -202,13 +202,13 @@ const quoteRowShell = {
   gridTemplateColumns: "minmax(220px, 1fr) minmax(170px, 260px) 120px 120px",
 };
 
-const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "#fff" };
+const listShell = { border: UI.border, borderRadius: UI.radius, overflow: "hidden", background: "var(--legacy-color-fff)" };
 
 const focusCss = `
   input:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1180px) {
     .job-home-main-grid,
@@ -289,38 +289,38 @@ const prettifyStatus = (raw) => {
 const statusColors = (label) => {
   switch (label) {
     case "Confirmed":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Bickers":
-      return { bg: "#ffffff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-ffffff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Stunt":
-      return { bg: "#f3f970", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "First Pencil":
-      return { bg: "#89caf5", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Second Pencil":
-      return { bg: "#f73939", text: "#fff", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" };
     case "Maintenance":
-      return { bg: "#da8e58ff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-da8e58ff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Complete":
-      return { bg: "#92d18cff", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "Action Required":
-      return { bg: "#FF973B", text: "#111", border: "#0b0b0b" };
+      return { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" };
     case "DNH":
-      return { bg: "#e5e7eb", text: "#111827", border: "#d1d5db" };
+      return { bg: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-111827)", border: "var(--legacy-color-d1d5db)" };
     case "Postponed":
     case "Deleted":
-      return { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" };
+      return { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" };
     case "Ready to Invoice":
-      return { bg: "#fef3c7", border: "#fde68a", text: "#92400e" };
+      return { bg: "var(--legacy-color-fef3c7)", border: "var(--legacy-color-fde68a)", text: "var(--legacy-color-92400e)" };
     case "Invoiced":
-      return { bg: "#e0e7ff", border: "#c7d2fe", text: "#3730a3" };
+      return { bg: "var(--legacy-color-e0e7ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-3730a3)" };
     case "Paid":
-      return { bg: "#d1fae5", border: "#86efac", text: "#065f46" };
+      return { bg: "var(--legacy-color-d1fae5)", border: "var(--legacy-color-86efac)", text: "var(--legacy-color-065f46)" };
     case "Missing":
-      return { bg: "#fff1f2", border: "#fecdd3", text: "#b91c1c" };
+      return { bg: "var(--legacy-color-fff1f2)", border: "var(--legacy-color-fecdd3)", text: "var(--legacy-color-b91c1c)" };
     case "TBC":
-      return { bg: "#f3f4f6", border: "#e5e7eb", text: "#374151" };
+      return { bg: "var(--legacy-color-f3f4f6)", border: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-374151)" };
     default:
-      return { bg: "#e5e7eb", border: "#d1d5db", text: "#111827" };
+      return { bg: "var(--legacy-color-e5e7eb)", border: "var(--legacy-color-d1d5db)", text: "var(--legacy-color-111827)" };
   }
 };
 
@@ -340,7 +340,7 @@ const StatusBadge = ({ value, rowIndex = 0, rowCount = 1 }) => {
         padding: "0 8px",
         fontSize: 11.5,
         borderRadius: `0 ${isFirst ? UI.radius : 0}px ${isLast ? UI.radius : 0}px 0`,
-        border: "1px solid #0b0b0b",
+        border: "1px solid var(--legacy-color-0b0b0b)",
         borderTopWidth: isFirst ? 1 : 0,
         marginTop: 0,
         background: c.bg,
@@ -381,7 +381,7 @@ const groupButtonStyle = (active = false) => ({
   padding: "4px 7px",
   borderRadius: UI.radiusSm,
   border: active ? `2px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "#fff",
+  background: active ? UI.brandSoft : "var(--legacy-color-fff)",
   color: UI.text,
   cursor: "pointer",
   fontWeight: 900,
@@ -836,7 +836,7 @@ export default function JobHomePage() {
                 padding: "0 8px",
                 borderRadius: 6,
                 border: UI.border,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 color: UI.brand,
                 fontSize: 12,
                 fontWeight: 900,
@@ -1306,7 +1306,7 @@ function WorkflowLink({ href, label, count, tone = "neutral" }) {
         padding: "5px 8px",
         borderRadius: UI.radiusSm,
         border: UI.border,
-        background: "#fff",
+        background: "var(--legacy-color-fff)",
         color: UI.text,
         textDecoration: "none",
         fontSize: 12.5,

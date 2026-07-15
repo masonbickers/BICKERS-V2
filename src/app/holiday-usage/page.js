@@ -115,19 +115,19 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#16a34a",
-  amber: "#d97706",
-  red: "#dc2626",
-  blue: "#2563eb",
-  teal: "#0f766e",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-16a34a)",
+  amber: "var(--legacy-color-d97706)",
+  red: "var(--legacy-color-dc2626)",
+  blue: "var(--legacy-color-2563eb)",
+  teal: "var(--legacy-color-0f766e)",
 };
 
 const pageWrap = {
@@ -186,7 +186,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -204,9 +204,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#7f1d1d",
+      border: "1px solid var(--legacy-color-fecaca)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--legacy-color-7f1d1d)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -222,8 +222,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -236,7 +236,7 @@ const btn = (kind = "primary") => {
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -260,7 +260,7 @@ const inputBase = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -470,12 +470,12 @@ function getStatus(rec) {
 
 function Pill({ children, tone = "default" }) {
   const tones = {
-    default: { bg: "#f8fbfd", fg: UI.text, br: "#d7dee8" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-    gray: { bg: "#f1f5f9", fg: "#374151", br: "#d1d5db" },
-    pending: { bg: "#fef3c7", fg: "#92400e", br: "#fde68a" },
+    default: { bg: "var(--legacy-color-f8fbfd)", fg: UI.text, br: "var(--legacy-color-d7dee8)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
+    warn: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
+    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
+    gray: { bg: "var(--legacy-color-f1f5f9)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
+    pending: { bg: "var(--legacy-color-fef3c7)", fg: "var(--legacy-color-92400e)", br: "var(--legacy-color-fde68a)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -499,11 +499,11 @@ function Pill({ children, tone = "default" }) {
 
 function StatTile({ label, value, tone = "default", icon: Icon }) {
   const tones = {
-    default: { bg: "#ffffff", br: "#d7dee8", fg: UI.brand },
+    default: { bg: "var(--legacy-color-ffffff)", br: "var(--legacy-color-d7dee8)", fg: UI.brand },
     soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
-    warn: { bg: "#fff7ed", br: "#fed7aa", fg: "#9a3412" },
-    good: { bg: "#ecfdf5", br: "#bbf7d0", fg: "#065f46" },
-    danger: { bg: "#fef2f2", br: "#fecaca", fg: "#991b1b" },
+    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" },
+    good: { bg: "var(--legacy-color-ecfdf5)", br: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" },
+    danger: { bg: "var(--legacy-color-fef2f2)", br: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -531,7 +531,7 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
           {label}
         </div>
         {Icon ? (
-          <span style={iconBox(t.fg, "#fff", t.br)}>
+          <span style={iconBox(t.fg, "var(--legacy-color-fff)", t.br)}>
             <Icon size={17} />
           </span>
         ) : null}
@@ -589,7 +589,7 @@ function MiniQueue({ title, rows, empty, renderRow, onRowClick }) {
               padding: "8px 9px",
               borderRadius: UI.radiusSm,
               border: UI.border,
-              background: "#fff",
+              background: "var(--legacy-color-fff)",
               color: UI.text,
               textAlign: "left",
               cursor: onRowClick ? "pointer" : "default",
@@ -667,7 +667,7 @@ const drawerOverlay = {
 const drawerPanel = {
   width: "min(720px, 94vw)",
   height: "100%",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   borderLeft: UI.border,
   boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
   display: "flex",
@@ -1037,10 +1037,10 @@ export default function HolidayUsagePage() {
     if (event?.bankHoliday) {
       return {
         style: {
-          backgroundColor: "#eef2f7",
+          backgroundColor: "var(--legacy-color-eef2f7)",
           borderRadius: "8px",
           border: UI.border,
-          color: "#111827",
+          color: "var(--legacy-color-111827)",
           padding: "4px 6px",
           fontWeight: 900,
         },
@@ -1051,21 +1051,21 @@ export default function HolidayUsagePage() {
     if (event?.pending) {
       return {
         style: {
-          backgroundColor: "#fef3c7",
+          backgroundColor: "var(--legacy-color-fef3c7)",
           borderRadius: "8px",
           border: "1px dashed rgba(146,64,14,0.45)",
-          color: "#92400e",
+          color: "var(--legacy-color-92400e)",
           padding: "4px 6px",
           fontWeight: 900,
         },
       };
     }
 
-    let bg = event.color || "#cbd5e1";
-    let textColor = "#0f172a";
+    let bg = event.color || "var(--legacy-color-cbd5e1)";
+    let textColor = "var(--legacy-color-0f172a)";
     if (event.unpaid) {
-      bg = "#fee2e2";
-      textColor = "#7f1d1d";
+      bg = "var(--legacy-color-fee2e2)";
+      textColor = "var(--legacy-color-7f1d1d)";
     }
     return {
       style: {
@@ -1202,7 +1202,7 @@ export default function HolidayUsagePage() {
   return (
     <HeaderSidebarLayout>
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         @media (max-width: 1180px) {
           .holiday-main-grid { grid-template-columns: 1fr !important; }
@@ -1219,7 +1219,7 @@ export default function HolidayUsagePage() {
           font-size: 12.5px;
           font-weight: 800;
           padding: 6px 9px;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
+          background: linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%);
           box-shadow: 0 4px 10px rgba(15,23,42,0.04);
         }
         .holiday-calendar .rbc-toolbar button.rbc-active {
@@ -1239,7 +1239,7 @@ export default function HolidayUsagePage() {
           overflow: hidden;
         }
         .holiday-calendar .rbc-header {
-          background: #f6f8fb;
+          background: var(--legacy-color-f6f8fb);
           color: ${UI.muted};
           font-size: 11.5px;
           font-weight: 900;
@@ -1342,10 +1342,10 @@ export default function HolidayUsagePage() {
                   justifyContent: "flex-end",
                 }}
               >
-                <LegendSwatch color="#eef2f7" label="Bank holiday" />
-                <LegendSwatch color="#fef3c7" label="Pending" />
-                <LegendSwatch color="#fee2e2" label="Unpaid" />
-                <LegendSwatch color="#cbd5e1" label="Paid (per employee)" />
+                <LegendSwatch color="var(--legacy-color-eef2f7)" label="Bank holiday" />
+                <LegendSwatch color="var(--legacy-color-fef3c7)" label="Pending" />
+                <LegendSwatch color="var(--legacy-color-fee2e2)" label="Unpaid" />
+                <LegendSwatch color="var(--legacy-color-cbd5e1)" label="Paid (per employee)" />
               </div>
             </div>
 
@@ -1355,7 +1355,7 @@ export default function HolidayUsagePage() {
                 border: UI.border,
                 borderRadius: UI.radius,
                 overflow: "hidden",
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
               }}
               className="holiday-calendar"
             >
@@ -1386,7 +1386,7 @@ export default function HolidayUsagePage() {
                 marginTop: UI.gap,
                 border: UI.border,
                 borderRadius: UI.radius,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 padding: 12,
               }}
             >
@@ -1440,7 +1440,7 @@ export default function HolidayUsagePage() {
                         <tr
                           key={row.name}
                           style={{
-                            backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
+                            backgroundColor: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fbfdff)",
                             cursor: "pointer",
                           }}
                           onClick={() => setSelectedName(row.name)}
@@ -1666,7 +1666,7 @@ export default function HolidayUsagePage() {
                         width: "100%",
                         borderRadius: UI.radiusSm,
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         padding: 9,
                         cursor: "pointer",
                         display: "grid",
@@ -1676,7 +1676,7 @@ export default function HolidayUsagePage() {
                         (e.currentTarget.style.borderColor = UI.brandBorder)
                       }
                       onMouseLeave={(e) =>
-                        (e.currentTarget.style.borderColor = "#d7dee8")
+                        (e.currentTarget.style.borderColor = "var(--legacy-color-d7dee8)")
                       }
                     >
                       <div
@@ -1802,7 +1802,7 @@ export default function HolidayUsagePage() {
                           <tr
                             key={row.id}
                             style={{
-                              backgroundColor: i % 2 === 0 ? "#fff" : "#fbfdff",
+                              backgroundColor: i % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-fbfdff)",
                             }}
                           >
                             <td style={td}>{format(row.start, "EEE d MMM")}</td>
@@ -1821,7 +1821,7 @@ export default function HolidayUsagePage() {
                                 }}
                               >
                                 {halfPrefix ? (
-                                  <span style={{ ...chip, background: "#fff7ed" }}>
+                                  <span style={{ ...chip, background: "var(--legacy-color-fff7ed)" }}>
                                     {halfPrefix}
                                   </span>
                                 ) : null}
@@ -1948,7 +1948,7 @@ const tableWrap = {
   overflow: "auto",
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const tableEl = {
   width: "100%",
@@ -1959,10 +1959,10 @@ const tableEl = {
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   position: "sticky",
   top: 0,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   zIndex: 1,
   whiteSpace: "nowrap",
   color: UI.muted,
@@ -1972,7 +1972,7 @@ const th = {
 };
 const td = {
   padding: "9px 11px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
   fontSize: 13,
 };

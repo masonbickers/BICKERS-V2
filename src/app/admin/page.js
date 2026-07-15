@@ -52,20 +52,20 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
-  ok: "#15803d",
-  okSoft: "#edf7f2",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
+  ok: "var(--legacy-color-15803d)",
+  okSoft: "var(--legacy-color-edf7f2)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
 };
 
 const Tabs = {
@@ -947,8 +947,8 @@ export default function AdminPage() {
               disabled={migratingMfaSecrets}
               style={{
                 ...btnStyle,
-                background: migratingMfaSecrets ? "#f1f5f9" : UI.warnSoft,
-                borderColor: "#fed7aa",
+                background: migratingMfaSecrets ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
+                borderColor: "var(--legacy-color-fed7aa)",
                 color: migratingMfaSecrets ? UI.muted : UI.warn,
                 cursor: migratingMfaSecrets ? "wait" : "pointer",
               }}
@@ -966,9 +966,9 @@ export default function AdminPage() {
                 }}
                 style={{
                   ...btnStyle,
-                  border: "1px solid #dc2626",
-                  background: "linear-gradient(135deg, #3f0000 0%, #7f1d1d 100%)",
-                  color: "#fff",
+                  border: "1px solid var(--legacy-color-dc2626)",
+                  background: "linear-gradient(135deg, var(--legacy-color-3f0000) 0%, var(--legacy-color-7f1d1d) 100%)",
+                  color: "var(--legacy-color-fff)",
                   fontWeight: 1000,
                 }}
                 title="Definitely do not press this"
@@ -1006,7 +1006,7 @@ export default function AdminPage() {
                   ...btnStyle,
                   border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
                   background: active ? UI.brand : UI.card,
-                  color: active ? "#fff" : UI.text,
+                  color: active ? "var(--legacy-color-fff)" : UI.text,
                   fontWeight: 900,
                 }}
               >
@@ -1135,7 +1135,7 @@ export default function AdminPage() {
                                   onClick={() => toggleUserEnabled(u.id, enabled)}
                                   style={{
                                     ...btnStyle,
-                                    background: locked ? "#f1f5f9" : UI.card,
+                                    background: locked ? "var(--legacy-color-f1f5f9)" : UI.card,
                                     cursor: locked ? "not-allowed" : "pointer",
                                     color: locked ? UI.muted : UI.text,
                                     fontWeight: 900,
@@ -1155,8 +1155,8 @@ export default function AdminPage() {
                                   disabled={resetInProgress}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "#fed7aa",
-                                    background: resetInProgress ? "#f1f5f9" : UI.warnSoft,
+                                    borderColor: "var(--legacy-color-fed7aa)",
+                                    background: resetInProgress ? "var(--legacy-color-f1f5f9)" : UI.warnSoft,
                                     color: resetInProgress ? UI.muted : UI.warn,
                                     cursor: resetInProgress ? "wait" : "pointer",
                                   }}
@@ -1172,8 +1172,8 @@ export default function AdminPage() {
                                   disabled={deleteBlocked}
                                   style={{
                                     ...btnStyle,
-                                    borderColor: "#fecaca",
-                                    background: deleteBlocked ? "#f1f5f9" : "#fff1f2",
+                                    borderColor: "var(--legacy-color-fecaca)",
+                                    background: deleteBlocked ? "var(--legacy-color-f1f5f9)" : "var(--legacy-color-fff1f2)",
                                     color: deleteBlocked ? UI.muted : UI.danger,
                                     cursor: deleteInProgress
                                       ? "wait"
@@ -1297,7 +1297,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: `1px solid ${UI.brand}`,
                       background: UI.brand,
-                      color: "#fff",
+                      color: "var(--legacy-color-fff)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1391,7 +1391,7 @@ export default function AdminPage() {
                         ...btnStyle,
                         border: `1px solid ${UI.brand}`,
                         background: UI.brand,
-                        color: "#fff",
+                        color: "var(--legacy-color-fff)",
                         fontWeight: 1000,
                       }}
                     >
@@ -1466,8 +1466,8 @@ export default function AdminPage() {
                                   onClick={() => deleteSickLeave(s.id)}
                                   style={{
                                     ...btnStyle,
-                                    border: "1px solid #fecaca",
-                                    background: "#fee2e2",
+                                    border: "1px solid var(--legacy-color-fecaca)",
+                                    background: "var(--legacy-color-fee2e2)",
                                     color: UI.danger,
                                     fontWeight: 1000,
                                   }}
@@ -1540,14 +1540,14 @@ export default function AdminPage() {
                         style={{
                           height: `${Math.max(8, (item.value / activityHourMax) * 160)}px`,
                           borderRadius: "10px 10px 4px 4px",
-                          border: `1px solid ${item.value ? UI.brand : "#dbe2ea"}`,
+                          border: `1px solid ${item.value ? UI.brand : "var(--legacy-color-dbe2ea)"}`,
                           background: item.value
                             ? "linear-gradient(180deg, rgba(29,78,216,0.22) 0%, rgba(29,78,216,0.82) 100%)"
-                            : "#eef2f7",
+                            : "var(--legacy-color-eef2f7)",
                           display: "flex",
                           alignItems: "flex-start",
                           justifyContent: "center",
-                          color: item.value ? "#fff" : UI.muted,
+                          color: item.value ? "var(--legacy-color-fff)" : UI.muted,
                           fontSize: 11,
                           fontWeight: 900,
                           paddingTop: 6,
@@ -1779,11 +1779,11 @@ export default function AdminPage() {
               style={{
                 borderRadius: 22,
                 overflow: "hidden",
-                border: "1px solid #3f3f46",
+                border: "1px solid var(--legacy-color-3f3f46)",
                 boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
                 background:
-                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, #020617 100%)",
-                color: "#d1fae5",
+                  "radial-gradient(circle at top, rgba(34,197,94,0.18) 0%, rgba(4,9,14,0.96) 36%, var(--legacy-color-020617) 100%)",
+                color: "var(--legacy-color-d1fae5)",
               }}
             >
               <div
@@ -1802,10 +1802,10 @@ export default function AdminPage() {
                   <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.75 }}>
                     Critical Incident Console
                   </div>
-                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4, color: "#f8fafc" }}>
+                  <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4, color: "var(--legacy-color-f8fafc)" }}>
                     Bickers Systems Compromised
                   </div>
-                  <div style={{ fontSize: 13, marginTop: 6, color: "#fecaca" }}>
+                  <div style={{ fontSize: 13, marginTop: 6, color: "var(--legacy-color-fecaca)" }}>
                     Internal admin access revoked. Payroll geese now in control.
                   </div>
                 </div>
@@ -1815,9 +1815,9 @@ export default function AdminPage() {
                     onClick={() => setSystemRecovered(true)}
                     style={{
                       ...btnStyle,
-                      border: "1px solid #22c55e",
-                      background: "#14532d",
-                      color: "#ecfdf5",
+                      border: "1px solid var(--legacy-color-22c55e)",
+                      background: "var(--legacy-color-14532d)",
+                      color: "var(--legacy-color-ecfdf5)",
                       fontWeight: 1000,
                     }}
                   >
@@ -1829,7 +1829,7 @@ export default function AdminPage() {
                       ...btnStyle,
                       border: "1px solid rgba(255,255,255,0.18)",
                       background: "rgba(255,255,255,0.06)",
-                      color: "#f8fafc",
+                      color: "var(--legacy-color-f8fafc)",
                     }}
                   >
                     Exit prank
@@ -1860,10 +1860,10 @@ export default function AdminPage() {
                         background: "rgba(2,6,23,0.52)",
                       }}
                     >
-                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#86efac" }}>
+                      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--legacy-color-86efac)" }}>
                         {item.label}
                       </div>
-                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 1000, color: "#f0fdf4" }}>
+                      <div style={{ marginTop: 8, fontSize: 22, fontWeight: 1000, color: "var(--legacy-color-f0fdf4)" }}>
                         {item.value}
                       </div>
                     </div>
@@ -1885,16 +1885,16 @@ export default function AdminPage() {
                       background: "rgba(2,6,23,0.58)",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: 10 }}>
                       Live breach feed
                     </div>
                     <div style={{ display: "grid", gap: 8, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: 13 }}>
                       {aprilFoolsFeed.map((line, index) => (
-                        <div key={line} style={{ color: index % 2 === 0 ? "#dcfce7" : "#bbf7d0" }}>
+                        <div key={line} style={{ color: index % 2 === 0 ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-bbf7d0)" }}>
                           [{String(8 + index).padStart(2, "0")}:{String((index * 7) % 60).padStart(2, "0")}:14] {line}
                         </div>
                       ))}
-                      <div style={{ color: systemRecovered ? "#86efac" : "#fca5a5", marginTop: 6 }}>
+                      <div style={{ color: systemRecovered ? "var(--legacy-color-86efac)" : "var(--legacy-color-fca5a5)", marginTop: 6 }}>
                         {systemRecovered
                           ? "[09:12:00] Recovery complete. April Fools."
                           : "[09:11:52] Suggestion: press 'Restore systems' before Finance notices."}
@@ -1910,7 +1910,7 @@ export default function AdminPage() {
                       background: "rgba(2,6,23,0.58)",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "#86efac", marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--legacy-color-86efac)", marginBottom: 12 }}>
                       Recovery status
                     </div>
                     <div style={{ display: "grid", gap: 12 }}>
@@ -1928,7 +1928,7 @@ export default function AdminPage() {
                     borderRadius: 16,
                     padding: 16,
                     background: systemRecovered ? "rgba(20,83,45,0.35)" : "rgba(127,29,29,0.22)",
-                    color: systemRecovered ? "#dcfce7" : "#fee2e2",
+                    color: systemRecovered ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
                     fontSize: 15,
                     fontWeight: 900,
                   }}
@@ -1985,7 +1985,7 @@ function AdminStat({ icon, label, value, detail }) {
 function FakeMeter({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
   const tone =
-    safeValue >= 100 ? "#22c55e" : safeValue >= 50 ? "#f59e0b" : "#ef4444";
+    safeValue >= 100 ? "var(--legacy-color-22c55e)" : safeValue >= 50 ? "var(--legacy-color-f59e0b)" : "var(--legacy-color-ef4444)";
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -1996,7 +1996,7 @@ function FakeMeter({ label, value }) {
           gap: 10,
           fontSize: 12,
           fontWeight: 800,
-          color: "#dcfce7",
+          color: "var(--legacy-color-dcfce7)",
         }}
       >
         <span>{label}</span>
@@ -2015,7 +2015,7 @@ function FakeMeter({ label, value }) {
           style={{
             width: `${safeValue}%`,
             height: "100%",
-            background: `linear-gradient(90deg, ${tone} 0%, #86efac 100%)`,
+            background: `linear-gradient(90deg, ${tone} 0%, var(--legacy-color-86efac) 100%)`,
             transition: "width 240ms ease",
           }}
         />
@@ -2090,12 +2090,12 @@ function HA_balanceTone(bal) {
 
 function HA_Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fff7ed", fg: "#7c2d12", br: "#fed7aa" },
-    bad: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: UI.brandSoft, fg: UI.brand, br: "#dbeafe" },
-    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
+    warn: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-7c2d12)", br: "var(--legacy-color-fed7aa)" },
+    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
+    info: { bg: UI.brandSoft, fg: UI.brand, br: "var(--legacy-color-dbeafe)" },
+    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2121,9 +2121,9 @@ function HA_Pill({ tone = "default", children }) {
 
 function HA_StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "#fff", br: "#e5e7eb" },
-    soft: { bg: UI.brandSoft, br: "#dbeafe" },
-    warn: { bg: "#fff7ed", br: "#fed7aa" },
+    default: { bg: "var(--legacy-color-fff)", br: "var(--legacy-color-e5e7eb)" },
+    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
+    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -2563,7 +2563,7 @@ function EmployeesHolidayAllowancesTab() {
           <button
             onClick={addEmployee}
             disabled={adding}
-            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
+            style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 1000 }}
           >
             {adding ? "Adding..." : "Add"}
           </button>
@@ -2631,7 +2631,7 @@ function EmployeesHolidayAllowancesTab() {
                 const recommendedCarry = HA_clamp(balThis, 0, HA_MAX_CARRY);
 
                 return (
-                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                  <tr key={r.id} style={{ background: idx % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fafc)" }}>
                     <Td>
                       <input
                         value={name}
@@ -2698,7 +2698,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => saveRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 1000 }}
                         >
                           {saving[r.id] ? "Saving..." : `Save (${yearView})`}
                         </button>
@@ -2706,7 +2706,7 @@ function EmployeesHolidayAllowancesTab() {
                         <button
                           onClick={() => deleteRow(r)}
                           disabled={!!saving[r.id]}
-                          style={{ ...btnStyle, border: "1px solid #fecaca", background: "#fee2e2", color: UI.danger, fontWeight: 1000 }}
+                          style={{ ...btnStyle, border: "1px solid var(--legacy-color-fecaca)", background: "var(--legacy-color-fee2e2)", color: UI.danger, fontWeight: 1000 }}
                         >
                           Delete
                         </button>
@@ -2874,7 +2874,7 @@ const thStyle = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
   whiteSpace: "nowrap",
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
 };
 
 const tdStyle = {
@@ -2973,7 +2973,7 @@ const cellInputStyle = {
 const panelStyle = {
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: 12,
   marginBottom: 12,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",

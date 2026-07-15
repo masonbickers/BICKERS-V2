@@ -113,9 +113,9 @@ export default function BookWorkPage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ padding: 40, maxWidth: 700, color: "#111" }}>
+      <div style={{ padding: 40, maxWidth: 700, color: "var(--legacy-color-111)" }}>
         <h1>Book Maintenance for Vehicle</h1>
-        <h2 style={{ marginTop: 10, color: "#111" }}>
+        <h2 style={{ marginTop: 10, color: "var(--legacy-color-111)" }}>
           {vehicle?.name || vehicle?.registration || "Loading..."}
         </h2>
 
@@ -170,7 +170,7 @@ export default function BookWorkPage() {
 
         {existingBookings.length > 0 && (
           <div style={{ marginTop: 30 }}>
-            <h3 style={{ color: "#dc2626" }}>Warning Conflicting Bookings:</h3>
+            <h3 style={{ color: "var(--legacy-color-dc2626)" }}>Warning Conflicting Bookings:</h3>
             <ul>
               {existingBookings.map((b, i) => (
                 <li key={i}>
@@ -191,15 +191,15 @@ const input = {
   width: "100%",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #ccc",
+  border: "1px solid var(--legacy-color-ccc)",
   fontSize: 14,
   marginTop: 5,
 };
 const submitBtn = {
   marginTop: 20,
   padding: "10px 20px",
-  backgroundColor: "#10b981",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-10b981)",
+  color: "var(--legacy-color-fff)",
   border: "none",
   borderRadius: 6,
   cursor: "pointer",
@@ -207,22 +207,22 @@ const submitBtn = {
 };
 const cancelBtn = {
   ...submitBtn,
-  backgroundColor: "#ef4444",
+  backgroundColor: "var(--legacy-color-ef4444)",
 };
 const checkBtn = {
   ...submitBtn,
-  backgroundColor: "#3b82f6",
+  backgroundColor: "var(--legacy-color-3b82f6)",
 };
 const modeBtn = {
   padding: "8px 12px",
   borderRadius: 6,
-  border: "1px solid #ccc",
-  background: "#f3f4f6",
+  border: "1px solid var(--legacy-color-ccc)",
+  background: "var(--legacy-color-f3f4f6)",
   cursor: "pointer",
 };
 const activeMode = {
   ...modeBtn,
-  backgroundColor: "#10b981",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-10b981)",
+  color: "var(--legacy-color-fff)",
   border: "none",
 };

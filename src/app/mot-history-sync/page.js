@@ -9,16 +9,16 @@ import { db } from "../../../firebaseConfig";
 
 const UI = {
   radius: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 18px 28px", background: UI.bg, minHeight: "100vh" };
@@ -31,7 +31,7 @@ const btn = {
   padding: "7px 10px",
   borderRadius: UI.radius,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   fontWeight: 850,
   cursor: "pointer",
@@ -40,14 +40,14 @@ const btn = {
 const th = {
   padding: "8px 10px",
   background: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   textAlign: "left",
   fontSize: 12,
   fontWeight: 900,
 };
 const td = {
   padding: "8px 10px",
-  borderBottom: "1px solid #e5eaf1",
+  borderBottom: "1px solid var(--legacy-color-e5eaf1)",
   fontSize: 13,
   verticalAlign: "top",
 };

@@ -9,7 +9,7 @@ import EditMaintenanceBookingForm from "@/app/components/EditMaintenanceBookingF
 const pageWrap = {
   minHeight: "100%",
   padding: "24px 18px 40px",
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
 };
 
 const shell = {
@@ -18,16 +18,16 @@ const shell = {
 };
 
 const heroCard = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 18,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
   padding: "18px 20px",
 };
 
 const eyebrow = {
   margin: 0,
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   textTransform: "uppercase",
   letterSpacing: ".08em",
   fontSize: 11,
@@ -36,7 +36,7 @@ const eyebrow = {
 
 const heading = {
   margin: "8px 0 6px",
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 28,
   fontWeight: 900,
   letterSpacing: "-0.02em",
@@ -44,7 +44,7 @@ const heading = {
 
 const subtext = {
   margin: 0,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   fontSize: 14,
   lineHeight: 1.5,
 };
@@ -57,9 +57,9 @@ const backBtn = {
   gap: 8,
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid #cbd5e1",
-  background: "#fff",
-  color: "#0f172a",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 800,
   cursor: "pointer",
 };

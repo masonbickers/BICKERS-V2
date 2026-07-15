@@ -34,29 +34,29 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  okBg: "#ecfdf5",
-  okFg: "#065f46",
-  okBorder: "#bbf7d0",
-  soonBg: "#fff7ed",
-  soonFg: "#9a3412",
-  soonBorder: "#fed7aa",
-  overdueBg: "#fef2f2",
-  overdueFg: "#991b1b",
-  overdueBorder: "#fecdd3",
-  bookedBg: "#eef2ff",
-  bookedFg: "#3730a3",
-  bookedBorder: "#c7d2fe",
-  tealBg: "#f0fdfa",
-  tealFg: "#115e59",
-  tealBorder: "#99f6e4",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  okBg: "var(--legacy-color-ecfdf5)",
+  okFg: "var(--legacy-color-065f46)",
+  okBorder: "var(--legacy-color-bbf7d0)",
+  soonBg: "var(--legacy-color-fff7ed)",
+  soonFg: "var(--legacy-color-9a3412)",
+  soonBorder: "var(--legacy-color-fed7aa)",
+  overdueBg: "var(--legacy-color-fef2f2)",
+  overdueFg: "var(--legacy-color-991b1b)",
+  overdueBorder: "var(--legacy-color-fecdd3)",
+  bookedBg: "var(--legacy-color-eef2ff)",
+  bookedFg: "var(--legacy-color-3730a3)",
+  bookedBorder: "var(--legacy-color-c7d2fe)",
+  tealBg: "var(--legacy-color-f0fdfa)",
+  tealFg: "var(--legacy-color-115e59)",
+  tealBorder: "var(--legacy-color-99f6e4)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -85,9 +85,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
+      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--legacy-color-fff)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -106,7 +106,7 @@ const input = {
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -114,7 +114,7 @@ const input = {
 
 const select = { ...input, width: "100%", minWidth: 190 };
 
-const pill = (bg, fg, border = "#d7dee8") => ({
+const pill = (bg, fg, border = "var(--legacy-color-d7dee8)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -135,15 +135,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   textAlign: "left",
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
 };
 
@@ -155,7 +155,7 @@ const actionBtn = {
   padding: "5px 8px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
@@ -198,7 +198,7 @@ function statusFromDays(diffDays) {
 function statusPillStyle(status) {
   if (status === "overdue") return pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder);
   if (status === "soon") return pill(UI.soonBg, UI.soonFg, UI.soonBorder);
-  if (status === "unknown") return pill("#f1f5f9", UI.text);
+  if (status === "unknown") return pill("var(--legacy-color-f1f5f9)", UI.text);
   return pill(UI.okBg, UI.okFg, UI.okBorder);
 }
 
@@ -521,10 +521,10 @@ export default function ServiceOverviewPage() {
   }, [serviceRecords, serviceRows]);
 
   const rowBg = (status, bookedNow) => {
-    if (bookedNow) return { background: "#f3f5ff" };
-    if (status === "overdue") return { background: "#fff1f2" };
-    if (status === "soon") return { background: "#fffbeb" };
-    if (status === "ok") return { background: "#f0fdf4" };
+    if (bookedNow) return { background: "var(--legacy-color-f3f5ff)" };
+    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
+    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
+    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
     return {};
   };
 
@@ -538,7 +538,7 @@ export default function ServiceOverviewPage() {
       );
     }
 
-    if (!v.bookedStatus) return <span style={pill("#f1f5f9", UI.text)}>Not booked</span>;
+    if (!v.bookedStatus) return <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Not booked</span>;
 
     const w = v.bookedWindow;
     const label = w?.start && w?.end
@@ -561,7 +561,7 @@ export default function ServiceOverviewPage() {
       <style jsx global>{`
         .service-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         .service-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -687,7 +687,7 @@ export default function ServiceOverviewPage() {
             <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>Due Soon</span>
             <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>Booked</span>
-            <span style={pill("#f1f5f9", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
@@ -770,16 +770,16 @@ export default function ServiceOverviewPage() {
           <div className="service-overview-category-grid" style={{ marginTop: 10 }}>
             {categoryRows.length ? (
               categoryRows.slice(0, 8).map((row) => (
-                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "#fff" }}>
+                <div key={row.category} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--legacy-color-fff)" }}>
                   <div style={{ color: UI.text, fontSize: 13, fontWeight: 950, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.category}
                   </div>
                   <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <span style={pill("#f1f5f9", UI.text)}>{row.total} total</span>
+                    <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.total} total</span>
                     {row.overdue ? <span style={pill(UI.overdueBg, UI.overdueFg, UI.overdueBorder)}>{row.overdue} overdue</span> : null}
                     {row.soon ? <span style={pill(UI.soonBg, UI.soonFg, UI.soonBorder)}>{row.soon} soon</span> : null}
                     {row.booked ? <span style={pill(UI.bookedBg, UI.bookedFg, UI.bookedBorder)}>{row.booked} booked</span> : null}
-                    {row.missing ? <span style={pill("#f1f5f9", UI.text)}>{row.missing} missing</span> : null}
+                    {row.missing ? <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{row.missing} missing</span> : null}
                   </div>
                 </div>
               ))
@@ -792,7 +792,7 @@ export default function ServiceOverviewPage() {
         <div style={tableWrap}>
           <div style={{ padding: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <SectionHeader title="Service Register" meta="Full vehicle service position with booking and history context" />
-            <span style={pill("#f1f5f9", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>{loading ? "Loading..." : `${filtered.length} rows`}</span>
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -864,7 +864,7 @@ export default function ServiceOverviewPage() {
                         <td style={td}>{v.lastServiceDate}</td>
                         <td style={td}>{v.odometer ? v.odometer.toLocaleString("en-GB") : "-"}</td>
                         <td style={td}>
-                          <span style={pill(historyCount ? UI.tealBg : "#f1f5f9", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "#d7dee8")}>
+                          <span style={pill(historyCount ? UI.tealBg : "var(--legacy-color-f1f5f9)", historyCount ? UI.tealFg : UI.text, historyCount ? UI.tealBorder : "var(--legacy-color-d7dee8)")}>
                             {historyCount} records
                           </span>
                         </td>
@@ -930,14 +930,14 @@ function QueueItem({ title: itemTitle, meta, status, tone, actionLabel, onAction
   const tones = {
     overdue: { bg: UI.overdueBg, fg: UI.overdueFg, border: UI.overdueBorder },
     soon: { bg: UI.soonBg, fg: UI.soonFg, border: UI.soonBorder },
-    unknown: { bg: "#f1f5f9", fg: UI.text, border: "#d7dee8" },
+    unknown: { bg: "var(--legacy-color-f1f5f9)", fg: UI.text, border: "var(--legacy-color-d7dee8)" },
     booked: { bg: UI.bookedBg, fg: UI.bookedFg, border: UI.bookedBorder },
     ok: { bg: UI.okBg, fg: UI.okFg, border: UI.okBorder },
   };
   const style = tones[tone] || tones.unknown;
 
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "#fff", padding: 9 }}>
+    <div style={{ border: UI.border, borderRadius: UI.radiusSm, background: "var(--legacy-color-fff)", padding: 9 }}>
       <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "flex-start" }}>
         <button
           type="button"

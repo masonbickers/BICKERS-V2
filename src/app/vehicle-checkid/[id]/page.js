@@ -10,11 +10,11 @@ import { db } from "../../../../firebaseConfig";
 
 /* UI tokens (unchanged) */
 const UI = {
-  page: "#f3f4f6",
-  card: "#ffffff",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "1px solid #e5e7eb",
+  page: "var(--legacy-color-f3f4f6)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  subtext: "var(--legacy-color-64748b)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   radius: 12,
   radiusSm: 8,
   shadowSm: "0 4px 12px rgba(2, 6, 23, 0.06)",
@@ -27,7 +27,7 @@ const meta = { fontSize: 13, color: UI.subtext };
 const card = { background: UI.card, border: UI.border, borderRadius: UI.radius, boxShadow: UI.shadowSm, padding: 16 };
 const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
 const value = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid #eef2f7", padding: "8px 0" };
+const itemRow = { display: "grid", gridTemplateColumns: "58px 1fr 110px", alignItems: "center", gap: 10, borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" };
 const badge = (variant) => ({
   display: "inline-flex",
   alignItems: "center",
@@ -36,9 +36,9 @@ const badge = (variant) => ({
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 800,
-  border: "1px solid #e5e7eb",
-  background: variant === "submitted" ? "#ecfdf5" : variant === "draft" ? "#f8fafc" : "#fff",
-  color: variant === "submitted" ? "#065f46" : "#111827",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: variant === "submitted" ? "var(--legacy-color-ecfdf5)" : variant === "draft" ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fff)",
+  color: variant === "submitted" ? "var(--legacy-color-065f46)" : "var(--legacy-color-111827)",
 });
 const statusChip = (s) => ({
   display: "inline-flex",
@@ -46,11 +46,11 @@ const statusChip = (s) => ({
   minWidth: 84,
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   fontSize: 12,
   fontWeight: 800,
-  background: s === "serviceable" ? "#f0fdf4" : s === "defect" ? "#fef2f2" : s === "na" ? "#f8fafc" : "#fff",
-  color: s === "serviceable" ? "#166534" : s === "defect" ? "#991b1b" : "#111827",
+  background: s === "serviceable" ? "var(--legacy-color-f0fdf4)" : s === "defect" ? "var(--legacy-color-fef2f2)" : s === "na" ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fff)",
+  color: s === "serviceable" ? "var(--legacy-color-166534)" : s === "defect" ? "var(--legacy-color-991b1b)" : "var(--legacy-color-111827)",
 });
 
 export default function VehicleCheckDetailPage() {
@@ -125,10 +125,10 @@ export default function VehicleCheckDetailPage() {
                     display: "inline-flex",
                     gap: 8,
                     padding: "6px 10px",
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid var(--legacy-color-e5e7eb)",
                     borderRadius: 8,
                     fontWeight: 800,
-                    background: "#fff",
+                    background: "var(--legacy-color-fff)",
                   }}
                 >
                   ← Back to list
@@ -175,8 +175,8 @@ export default function VehicleCheckDetailPage() {
                 <div
                   style={{
                     whiteSpace: "pre-wrap",
-                    background: "#fafafa",
-                    border: "1px solid #e5e7eb",
+                    background: "var(--legacy-color-fafafa)",
+                    border: "1px solid var(--legacy-color-e5e7eb)",
                     borderRadius: 8,
                     padding: 12,
                     fontSize: 13,
@@ -211,15 +211,15 @@ export default function VehicleCheckDetailPage() {
             <div style={{ ...card, marginTop: 14 }}>
               <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 16 }}>Defect Notes</div>
               {items.filter((i) => i.status === "defect").map((it, idx) => (
-                <div key={`def-${idx}`} style={{ borderBottom: "1px solid #eef2f7", padding: "8px 0" }}>
+                <div key={`def-${idx}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", padding: "8px 0" }}>
                   <div style={{ fontWeight: 800 }}>
                     {String(it.i ?? idx + 1).padStart(2, "0")} · {it.label}
                   </div>
                   <div
                     style={{
                       whiteSpace: "pre-wrap",
-                      background: "#fafafa",
-                      border: "1px solid #e5e7eb",
+                      background: "var(--legacy-color-fafafa)",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       borderRadius: 8,
                       padding: 10,
                       fontSize: 13,
@@ -248,10 +248,10 @@ export default function VehicleCheckDetailPage() {
                     rel="noopener noreferrer"
                     style={{
                       display: "block",
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       borderRadius: 8,
                       overflow: "hidden",
-                      background: "#fafafa",
+                      background: "var(--legacy-color-fafafa)",
                     }}
                     title="Open full image"
                   >
@@ -270,9 +270,9 @@ export default function VehicleCheckDetailPage() {
                 display: "inline-flex",
                 gap: 8,
                 padding: "8px 12px",
-                border: "1px solid #e5e7eb",
+                border: "1px solid var(--legacy-color-e5e7eb)",
                 borderRadius: 8,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 fontWeight: 800,
               }}
             >
@@ -289,7 +289,7 @@ export default function VehicleCheckDetailPage() {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, color: "var(--legacy-color-64748b)", fontWeight: 700, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );

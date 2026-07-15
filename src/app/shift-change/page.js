@@ -35,23 +35,23 @@ const ADMIN_EMAILS = new Set([
 
 const UI = {
   radius: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fee2e2",
-  redBorder: "#fecaca",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fee2e2)",
+  redBorder: "var(--legacy-color-fecaca)",
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -456,14 +456,14 @@ const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr
 const statCard = { ...panel, display: "flex", alignItems: "center", gap: 10 };
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 };
 const labelStyle = { color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".035em" };
-const input = { width: "100%", minHeight: 36, border: "1px solid #c8d6e3", borderRadius: 8, padding: "8px 10px", color: UI.text, background: "#fff", fontSize: 13.5 };
+const input = { width: "100%", minHeight: 36, border: "1px solid var(--legacy-color-c8d6e3)", borderRadius: 8, padding: "8px 10px", color: UI.text, background: "var(--legacy-color-fff)", fontSize: 13.5 };
 const checkRow = { gridColumn: "1 / -1", display: "inline-flex", alignItems: "center", gap: 8, color: UI.text, fontSize: 13, fontWeight: 850 };
 const notice = { marginBottom: 12, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, borderRadius: UI.radius, padding: "9px 11px", fontSize: 13, fontWeight: 800 };
 const chip = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 999, border: `1px solid ${UI.brandBorder}`, background: UI.brandSoft, color: UI.text, fontSize: 12, fontWeight: 850 };
 const list = { display: "grid", gap: 8, maxHeight: 650, overflowY: "auto", paddingRight: 2 };
-const requestCard = { border: UI.border, borderRadius: UI.radius, background: "#fff", padding: 11, display: "grid", gap: 8 };
-const reasonBox = { border: "1px solid #e5e7eb", borderRadius: 8, background: "#f8fafc", padding: "8px 9px", color: UI.text, fontSize: 13, lineHeight: 1.4 };
-const empty = { border: "1px dashed #c8d6e3", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: 13, fontWeight: 800, textAlign: "center" };
+const requestCard = { border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)", padding: 11, display: "grid", gap: 8 };
+const reasonBox = { border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 8, background: "var(--legacy-color-f8fafc)", padding: "8px 9px", color: UI.text, fontSize: 13, lineHeight: 1.4 };
+const empty = { border: "1px dashed var(--legacy-color-c8d6e3)", borderRadius: UI.radius, padding: 18, color: UI.muted, fontSize: 13, fontWeight: 800, textAlign: "center" };
 const iconBox = (color, bg, border) => ({
   width: 34,
   height: 34,
@@ -491,8 +491,8 @@ const pill = (color, bg, border) => ({
 const btn = (kind = "primary") => {
   if (kind === "approve") return { ...buttonBase, border: `1px solid ${UI.greenBorder}`, background: UI.greenSoft, color: UI.green };
   if (kind === "decline") return { ...buttonBase, border: `1px solid ${UI.redBorder}`, background: UI.redSoft, color: UI.red };
-  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "#fff", color: UI.text };
-  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", gridColumn: "1 / -1" };
+  if (kind === "ghost") return { ...buttonBase, border: `1px solid ${UI.brandBorder}`, background: "var(--legacy-color-fff)", color: UI.text };
+  return { ...buttonBase, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", gridColumn: "1 / -1" };
 };
 const buttonBase = {
   display: "inline-flex",

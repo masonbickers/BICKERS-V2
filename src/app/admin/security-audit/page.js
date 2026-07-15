@@ -21,22 +21,22 @@ import { auth } from "../../../../firebaseConfig";
 
 const UI = {
   radius: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  ok: "#15803d",
-  okSoft: "#edf7f2",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
-  neutral: "#64748b",
-  neutralSoft: "#f1f5f9",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  ok: "var(--legacy-color-15803d)",
+  okSoft: "var(--legacy-color-edf7f2)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
+  neutral: "var(--legacy-color-64748b)",
+  neutralSoft: "var(--legacy-color-f1f5f9)",
 };
 
 const STATUS_META = {
@@ -548,7 +548,7 @@ function SmallPill({ good, children }) {
         ...smallPill,
         background: good ? UI.okSoft : UI.warnSoft,
         color: good ? UI.ok : UI.warn,
-        borderColor: good ? "#bbf7d0" : "#fed7aa",
+        borderColor: good ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fed7aa)",
       }}
     >
       {children}
@@ -805,7 +805,7 @@ const thStyle = {
   textAlign: "left",
   padding: "9px 10px",
   borderBottom: UI.border,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   color: UI.muted,
   fontSize: 12,
   fontWeight: 900,
@@ -894,7 +894,7 @@ const issueList = {
 const issuePill = {
   padding: "4px 7px",
   borderRadius: 999,
-  border: "1px solid #fed7aa",
+  border: "1px solid var(--legacy-color-fed7aa)",
   background: UI.warnSoft,
   color: UI.warn,
   fontSize: 12,
@@ -920,7 +920,7 @@ const deleteButton = {
   gap: 5,
   padding: "6px 8px",
   borderRadius: UI.radius,
-  border: "1px solid #fecaca",
+  border: "1px solid var(--legacy-color-fecaca)",
   background: UI.dangerSoft,
   color: UI.danger,
   fontSize: 12,
@@ -939,7 +939,7 @@ const deleteButtonDisabled = {
 const errorBox = {
   marginTop: 12,
   padding: 12,
-  border: "1px solid #fecaca",
+  border: "1px solid var(--legacy-color-fecaca)",
   borderRadius: UI.radius,
   background: UI.dangerSoft,
   color: UI.danger,
@@ -949,7 +949,7 @@ const errorBox = {
 const noticeBox = {
   marginTop: 12,
   padding: 12,
-  border: "1px solid #bbf7d0",
+  border: "1px solid var(--legacy-color-bbf7d0)",
   borderRadius: UI.radius,
   background: UI.okSoft,
   color: UI.ok,

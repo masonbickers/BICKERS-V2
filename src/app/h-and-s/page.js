@@ -33,17 +33,17 @@ const UI = {
   radiusSm: 8,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -62,7 +62,7 @@ const panel = { ...surface, padding: 12 };
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 const cardHover = {
@@ -73,7 +73,7 @@ const cardHover = {
 const metricCard = { ...surface, padding: 12, minWidth: 0 };
 const premiumSection = {
   ...cardBase,
-  border: "1px solid #d7e1ea",
+  border: "1px solid var(--legacy-color-d7e1ea)",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
 };
 const commandGrid = {
@@ -138,7 +138,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -157,7 +157,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -176,8 +176,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -195,7 +195,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -210,7 +210,7 @@ const smallLabel = {
 
 const tableCell = {
   padding: "10px 12px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   fontSize: 13,
   color: UI.text,
   verticalAlign: "middle",
@@ -219,7 +219,7 @@ const tableCell = {
 const tableHead = {
   ...tableCell,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -560,9 +560,9 @@ function registerState(item) {
 }
 
 function registerToneStyle(tone) {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
+  if (tone === "amber") return { background: "var(--legacy-color-fff7ed)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -576,11 +576,11 @@ function displayStatus(row) {
 
 function statusStyle(row) {
   const status = lower(row.maintenance?.status || row.status);
-  if (status === "resolved") return { background: "#e0f2fe", color: "#075985", border: "1px solid #bae6fd" };
-  if (status === "scheduled") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
-  if (status === "in_progress") return { background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" };
-  if (row.bucket === "immediate") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (row.bucket === "declined") return { background: "#ffedd5", color: "#9a3412", border: "1px solid #fed7aa" };
+  if (status === "resolved") return { background: "var(--legacy-color-e0f2fe)", color: "var(--legacy-color-075985)", border: "1px solid var(--legacy-color-bae6fd)" };
+  if (status === "scheduled") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
+  if (status === "in_progress") return { background: "var(--legacy-color-fef3c7)", color: "var(--legacy-color-92400e)", border: "1px solid var(--legacy-color-fde68a)" };
+  if (row.bucket === "immediate") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
+  if (row.bucket === "declined") return { background: "var(--legacy-color-ffedd5)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -703,9 +703,9 @@ function sortRows(rows) {
 function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" },
-    amber: { bg: "#fff7ed", fg: "#9a3412", border: "#fed7aa" },
-    green: { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" },
+    danger: { bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)", border: "var(--legacy-color-fecaca)" },
+    amber: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)", border: "var(--legacy-color-fed7aa)" },
+    green: { bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)", border: "var(--legacy-color-bbf7d0)" },
   }[tone];
 
   return (
@@ -739,9 +739,9 @@ function KpiCard({ label, value, detail, icon: Icon, tone = "brand" }) {
 function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
   const colors = {
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
-    danger: { bg: "#fef2f2", fg: "#991b1b", border: "#fecaca" },
-    amber: { bg: "#fff7ed", fg: "#9a3412", border: "#fed7aa" },
-    green: { bg: "#ecfdf5", fg: "#065f46", border: "#bbf7d0" },
+    danger: { bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)", border: "var(--legacy-color-fecaca)" },
+    amber: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)", border: "var(--legacy-color-fed7aa)" },
+    green: { bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)", border: "var(--legacy-color-bbf7d0)" },
   }[tone];
 
   return (
@@ -806,11 +806,11 @@ function QueueCard({ title, detail, value, icon: Icon, tone, path, onOpen }) {
 function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" }
       : tone === "amber"
-      ? { bg: "#fff7ed", border: "#fed7aa", fg: "#9a3412" }
+      ? { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (
@@ -845,7 +845,7 @@ function SummaryCard({ title, value, footer, icon: Icon, tone = "brand" }) {
 function Tile({ title, description, onClick, rightBadges = [], icon: Icon = ShieldCheck }) {
   const baseStyle = {
     ...cardBase,
-    background: "#ffffff",
+    background: "var(--legacy-color-ffffff)",
     height: "100%",
     minHeight: 82,
     padding: "11px 12px",
@@ -901,11 +901,11 @@ function Tile({ title, description, onClick, rightBadges = [], icon: Icon = Shie
                 const tone = item.tone || "soft";
                 const style =
                   tone === "danger"
-                    ? badge("#fef2f2", "#991b1b")
+                    ? badge("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")
                     : tone === "amber"
-                    ? badge("#fff7ed", "#9a3412")
+                    ? badge("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")
                     : tone === "green"
-                    ? badge("#ecfdf5", "#065f46")
+                    ? badge("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)")
                     : badge(UI.brandSoft, UI.brand);
                 return (
                   <span key={index} style={style}>
@@ -926,7 +926,7 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
   const safeTotal = Math.max(Number(total || 0), 0);
   const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
   const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
-  const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
+  const background = `conic-gradient(var(--legacy-color-16a34a) 0 ${okPct}%, var(--legacy-color-f59e0b) ${okPct}% ${okPct + soonPct}%, var(--legacy-color-dc2626) ${okPct + soonPct}% 100%)`;
 
   return (
     <div style={{ ...surface, padding: 12 }}>
@@ -953,8 +953,8 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
               width: 82,
               height: 82,
               borderRadius: "50%",
-              background: "#ffffff",
-              border: "1px solid #e5eaf0",
+              background: "var(--legacy-color-ffffff)",
+              border: "1px solid var(--legacy-color-e5eaf0)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
@@ -966,9 +966,9 @@ function RiskRing({ title, total, ok, soon, overdue, labels = ["OK", "Due soon",
           </div>
         </div>
         <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <RingLegend color="#16a34a" label={labels[0]} value={ok} />
-          <RingLegend color="#f59e0b" label={labels[1]} value={soon} />
-          <RingLegend color="#dc2626" label={labels[2]} value={overdue} />
+          <RingLegend color="var(--legacy-color-16a34a)" label={labels[0]} value={ok} />
+          <RingLegend color="var(--legacy-color-f59e0b)" label={labels[1]} value={soon} />
+          <RingLegend color="var(--legacy-color-dc2626)" label={labels[2]} value={overdue} />
         </div>
       </div>
     </div>
@@ -1554,8 +1554,8 @@ export default function HealthSafetyPage() {
                                     fontSize: 12,
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "#ecfdf5",
-                                    color: "#166534",
+                                    background: "var(--legacy-color-ecfdf5)",
+                                    color: "var(--legacy-color-166534)",
                                     textDecoration: "none",
                                   }}
                                 >
@@ -1573,7 +1573,7 @@ export default function HealthSafetyPage() {
                                     fontSize: 12,
                                     fontWeight: 900,
                                     border: UI.border,
-                                    background: "#f8fafc",
+                                    background: "var(--legacy-color-f8fafc)",
                                     color: UI.muted,
                                   }}
                                 >

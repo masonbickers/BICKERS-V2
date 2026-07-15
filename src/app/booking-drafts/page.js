@@ -8,20 +8,20 @@ import { Clock3, FileText, LayoutDashboard, PencilLine, Plus, Trash2 } from "luc
 const DRAFTS_STORAGE_KEY = "create-booking:drafts:v1";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   radius: 8,
   radiusSm: 8,
   gap: 12,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
 };
 
 const pageWrap = {
@@ -49,15 +49,15 @@ const btn = (kind = "ghost") => ({
     kind === "primary"
       ? `1px solid ${UI.brand}`
       : kind === "danger"
-      ? "1px solid #fecdd3"
+      ? "1px solid var(--legacy-color-fecdd3)"
       : `1px solid ${UI.brandBorder}`,
   background:
     kind === "primary"
       ? UI.brand
       : kind === "danger"
       ? UI.dangerSoft
-      : "#fff",
-  color: kind === "primary" ? "#fff" : kind === "danger" ? UI.danger : UI.text,
+      : "var(--legacy-color-fff)",
+  color: kind === "primary" ? "var(--legacy-color-fff)" : kind === "danger" ? UI.danger : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -141,7 +141,7 @@ const draftRow = {
   gap: 10,
   alignItems: "center",
   flexWrap: "wrap",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   boxShadow: UI.shadow,
 };
 

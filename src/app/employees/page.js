@@ -33,16 +33,16 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#16a34a",
-  greenSoft: "#dcfce7",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-16a34a)",
+  greenSoft: "var(--legacy-color-dcfce7)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -87,7 +87,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -105,9 +105,9 @@ const btn = (kind = "primary") => {
       gap: 7,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #86efac",
+      border: "1px solid var(--legacy-color-86efac)",
       background: UI.greenSoft,
-      color: "#065f46",
+      color: "var(--legacy-color-065f46)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -123,8 +123,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -139,7 +139,7 @@ const input = {
   padding: "7px 9px",
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 13,
   outline: "none",
   color: UI.text,
@@ -148,7 +148,7 @@ const input = {
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
 
@@ -191,15 +191,15 @@ const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) =
   flex: "0 0 auto",
 });
 
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "#fff" };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13 };
 const th = {
   textAlign: "left",
   padding: "9px 11px",
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   position: "sticky",
   top: 0,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 900,
@@ -207,7 +207,7 @@ const th = {
   fontSize: 11.5,
   textTransform: "uppercase",
 };
-const td = { padding: "9px 11px", borderBottom: "1px solid #f1f5f9", verticalAlign: "middle", color: UI.text };
+const td = { padding: "9px 11px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "middle", color: UI.text };
 
 const badge = {
   background: UI.brandSoft,
@@ -222,12 +222,12 @@ const badge = {
 
 const rowHover = `
   tr[data-row="true"]:hover td {
-    background: #fbfdff;
+    background: var(--legacy-color-fbfdff);
   }
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1180px) {
     .employees-tools-grid,
@@ -498,16 +498,16 @@ export default function EmployeeListPage() {
                     <td style={td}>{employee.mobile || "-"}</td>
                     <td style={td}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ ...badge, background: personnel.hasPassport ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.hasPassport ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                           Passport {personnel.hasPassport ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.hasLicence ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.hasLicence ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                           Licence {personnel.hasLicence ? "added" : "missing"}
                         </span>
-                        <span style={{ ...badge, background: personnel.emergencyCount ? "#ecfdf5" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.emergencyCount ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                           Emergency {personnel.emergencyCount}
                         </span>
-                        <span style={{ ...badge, background: personnel.documentCount ? "#eff6ff" : "#f8fafc" }}>
+                        <span style={{ ...badge, background: personnel.documentCount ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
                           Docs {personnel.documentCount}
                         </span>
                       </div>
@@ -541,13 +541,13 @@ function MetricCard({ label, value, icon: Icon, tone = "default" }) {
   const colors =
     tone === "soft"
       ? { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand }
-      : { bg: "#ffffff", border: "#d7dee8", fg: UI.brand };
+      : { bg: "var(--legacy-color-ffffff)", border: "var(--legacy-color-d7dee8)", fg: UI.brand };
 
   return (
     <div style={{ ...surface, padding: 11, minHeight: 92, boxShadow: "none", background: colors.bg, border: `1px solid ${colors.border}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(colors.fg, "#fff", colors.border)}>
+        <span style={iconBox(colors.fg, "var(--legacy-color-fff)", colors.border)}>
           <Icon size={17} />
         </span>
       </div>

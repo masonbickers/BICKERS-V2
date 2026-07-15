@@ -39,8 +39,8 @@ export default function ProfilePage() {
           width: 60,
           height: 60,
           borderRadius: "50%",
-          backgroundColor: "#4caf50",
-          color: "#fff",
+          backgroundColor: "var(--legacy-color-4caf50)",
+          color: "var(--legacy-color-fff)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -56,9 +56,9 @@ export default function ProfilePage() {
 
   return (
     <HeaderSidebarLayout>
-      <div style={{ backgroundColor: "#f4f4f5", padding: "28px 20px 36px" }}>
+      <div style={{ backgroundColor: "var(--legacy-color-f4f4f5)", padding: "28px 20px 36px" }}>
         <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "32px", color: "#111" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "32px", color: "var(--legacy-color-111)" }}>
             Account Settings
           </h1>
 
@@ -68,16 +68,16 @@ export default function ProfilePage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "24px",
-                backgroundColor: "#fff",
+                backgroundColor: "var(--legacy-color-fff)",
                 padding: "32px",
                 borderRadius: "12px",
-                boxShadow: "0 0 0 1px #ddd",
+                boxShadow: "0 0 0 1px var(--legacy-color-ddd)",
               }}
             >
               <div style={{ marginBottom: "16px", alignSelf: "center" }}>{renderAvatar()}</div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "#333" }}>Name</label>
+                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Name</label>
                 <input
                   type="text"
                   value={displayName}
@@ -88,19 +88,19 @@ export default function ProfilePage() {
                     marginTop: "6px",
                     padding: "10px",
                     borderRadius: "6px",
-                    border: "1px solid #ccc",
-                    backgroundColor: "#fafafa",
-                    color: "#333",
+                    border: "1px solid var(--legacy-color-ccc)",
+                    backgroundColor: "var(--legacy-color-fafafa)",
+                    color: "var(--legacy-color-333)",
                     fontSize: "14px",
                   }}
                 />
-                <small style={{ color: "#666", fontSize: "12px" }}>
+                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
                   The name associated with this account
                 </small>
               </div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "#333" }}>Email address</label>
+                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Email address</label>
                 <input
                   type="text"
                   value={user.email}
@@ -110,19 +110,19 @@ export default function ProfilePage() {
                     marginTop: "6px",
                     padding: "10px",
                     borderRadius: "6px",
-                    border: "1px solid #ccc",
-                    backgroundColor: "#fafafa",
-                    color: "#888",
+                    border: "1px solid var(--legacy-color-ccc)",
+                    backgroundColor: "var(--legacy-color-fafafa)",
+                    color: "var(--legacy-color-888)",
                     fontSize: "14px",
                   }}
                 />
-                <small style={{ color: "#666", fontSize: "12px" }}>
+                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
                   The email address associated with this account
                 </small>
               </div>
 
               <div>
-                <label style={{ fontSize: "14px", color: "#333" }}>Phone number</label>
+                <label style={{ fontSize: "14px", color: "var(--legacy-color-333)" }}>Phone number</label>
                 <input
                   type="text"
                   value={user.phoneNumber || "+44"}
@@ -132,13 +132,13 @@ export default function ProfilePage() {
                     marginTop: "6px",
                     padding: "10px",
                     borderRadius: "6px",
-                    border: "1px solid #ccc",
-                    backgroundColor: "#fafafa",
-                    color: "#888",
+                    border: "1px solid var(--legacy-color-ccc)",
+                    backgroundColor: "var(--legacy-color-fafafa)",
+                    color: "var(--legacy-color-888)",
                     fontSize: "14px",
                   }}
                 />
-                <small style={{ color: "#666", fontSize: "12px" }}>
+                <small style={{ color: "var(--legacy-color-666)", fontSize: "12px" }}>
                   The phone number associated with this account
                 </small>
               </div>
@@ -148,10 +148,10 @@ export default function ProfilePage() {
                 style={{
                   marginTop: "10px",
                   padding: "10px 20px",
-                  backgroundColor: "#bfbfbf",
+                  backgroundColor: "var(--legacy-color-bfbfbf)",
                   border: "none",
                   borderRadius: "6px",
-                  color: "#fff",
+                  color: "var(--legacy-color-fff)",
                   fontWeight: "bold",
                   cursor: "pointer",
                   fontSize: "14px",
@@ -162,11 +162,11 @@ export default function ProfilePage() {
               </button>
 
               {status && (
-                <p style={{ color: "#4caf50", fontSize: "13px", marginTop: "-12px" }}>{status}</p>
+                <p style={{ color: "var(--legacy-color-4caf50)", fontSize: "13px", marginTop: "-12px" }}>{status}</p>
               )}
             </div>
           ) : (
-            <p style={{ fontSize: "14px", color: "#555" }}>Loading user data...</p>
+            <p style={{ fontSize: "14px", color: "var(--legacy-color-555)" }}>Loading user data...</p>
           )}
         </div>
       </div>

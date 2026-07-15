@@ -275,7 +275,7 @@ function ToggleRow({ label, checked, onChange }) {
   return (
     <label style={toggleRow}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "#0369a1" }} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
     </label>
   );
 }
@@ -298,13 +298,13 @@ const summaryBar = {
   flexWrap: "wrap",
 };
 const smallCaps = {
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   fontSize: 12,
   fontWeight: 900,
   textTransform: "uppercase",
 };
 const tabRow = { display: "flex", gap: 8, flexWrap: "wrap" };
-const activeTab = { borderColor: "#0369a1", background: "#f0f9ff", color: "#0369a1" };
+const activeTab = { borderColor: "var(--legacy-color-0369a1)", background: "var(--legacy-color-f0f9ff)", color: "var(--legacy-color-0369a1)" };
 const formGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -323,7 +323,7 @@ const toggleGrid = {
 const fieldStyle = {
   display: "grid",
   gap: 6,
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -336,21 +336,21 @@ const textareaStyle = {
   fontFamily: "Arial, sans-serif",
 };
 const toggleRow = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "10px 12px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 8,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 850,
 };
 const infoCard = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "10px 12px",
   display: "grid",
   gap: 6,
@@ -364,27 +364,27 @@ const saveBar = {
 };
 const primaryButton = {
   height: 36,
-  border: "1px solid #0369a1",
+  border: "1px solid var(--legacy-color-0369a1)",
   borderRadius: 8,
   padding: "0 12px",
-  background: "#0369a1",
-  color: "#fff",
+  background: "var(--legacy-color-0369a1)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   cursor: "pointer",
 };
 const noticeWarn = {
   ...ui.card,
-  borderColor: "#fed7aa",
-  background: "#fffbeb",
-  color: "#b45309",
+  borderColor: "var(--legacy-color-fed7aa)",
+  background: "var(--legacy-color-fffbeb)",
+  color: "var(--legacy-color-b45309)",
   marginBottom: 12,
   fontWeight: 900,
 };
 const noticeOk = {
   ...ui.card,
-  borderColor: "#bbf7d0",
-  background: "#f0fdf4",
-  color: "#15803d",
+  borderColor: "var(--legacy-color-bbf7d0)",
+  background: "var(--legacy-color-f0fdf4)",
+  color: "var(--legacy-color-15803d)",
   marginBottom: 12,
   fontWeight: 900,
 };

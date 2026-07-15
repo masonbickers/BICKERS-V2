@@ -82,14 +82,14 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
-  danger: "#ef4444",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  brandSoft: "var(--legacy-color-eff6ff)",
+  danger: "var(--legacy-color-ef4444)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -112,8 +112,8 @@ const chip = {
   gap: 8,
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 900,
@@ -121,11 +121,11 @@ const chip = {
 
 const input = {
   width: "100%",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--legacy-color-d1d5db)",
   borderRadius: UI.radiusSm,
   padding: "10px 12px",
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 14,
 };
 
@@ -138,8 +138,8 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #d1d5db",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-d1d5db)",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -150,9 +150,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "10px 12px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "#fee2e2",
-      color: "#7f1d1d",
+      border: "1px solid var(--legacy-color-fecaca)",
+      background: "var(--legacy-color-fee2e2)",
+      color: "var(--legacy-color-7f1d1d)",
       fontWeight: 900,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -163,7 +163,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--legacy-color-fff)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,12 +172,12 @@ const btn = (kind = "primary") => {
 
 function Pill({ tone = "default", children }) {
   const tones = {
-    default: { bg: "#f3f4f6", fg: "#111827", br: "#e5e7eb" },
-    good: { bg: "#dcfce7", fg: "#14532d", br: "#bbf7d0" },
-    warn: { bg: "#fff7ed", fg: "#7c2d12", br: "#fed7aa" },
-    bad: { bg: "#fee2e2", fg: "#7f1d1d", br: "#fecaca" },
-    info: { bg: "#e0f2fe", fg: "#0c4a6e", br: "#bae6fd" },
-    gray: { bg: "#e5e7eb", fg: "#374151", br: "#d1d5db" },
+    default: { bg: "var(--legacy-color-f3f4f6)", fg: "var(--legacy-color-111827)", br: "var(--legacy-color-e5e7eb)" },
+    good: { bg: "var(--legacy-color-dcfce7)", fg: "var(--legacy-color-14532d)", br: "var(--legacy-color-bbf7d0)" },
+    warn: { bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-7c2d12)", br: "var(--legacy-color-fed7aa)" },
+    bad: { bg: "var(--legacy-color-fee2e2)", fg: "var(--legacy-color-7f1d1d)", br: "var(--legacy-color-fecaca)" },
+    info: { bg: "var(--legacy-color-e0f2fe)", fg: "var(--legacy-color-0c4a6e)", br: "var(--legacy-color-bae6fd)" },
+    gray: { bg: "var(--legacy-color-e5e7eb)", fg: "var(--legacy-color-374151)", br: "var(--legacy-color-d1d5db)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -203,9 +203,9 @@ function Pill({ tone = "default", children }) {
 
 function StatTile({ label, value, tone = "default" }) {
   const tones = {
-    default: { bg: "#fff", br: "#e5e7eb" },
-    soft: { bg: UI.brandSoft, br: "#dbeafe" },
-    warn: { bg: "#fff7ed", br: "#fed7aa" },
+    default: { bg: "var(--legacy-color-fff)", br: "var(--legacy-color-e5e7eb)" },
+    soft: { bg: UI.brandSoft, br: "var(--legacy-color-dbeafe)" },
+    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)" },
   };
   const t = tones[tone] || tones.default;
   return (
@@ -730,7 +730,7 @@ export default function EmployeesAdminPage() {
 
         {/* Table */}
         <div style={{ ...card, marginTop: UI.gap }}>
-          <div style={{ padding: 14, borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ padding: 14, borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontWeight: 950, color: UI.text }}>Allowances table</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <span style={chip}>Carry cap: {MAX_CARRY}</span>
@@ -782,7 +782,7 @@ export default function EmployeesAdminPage() {
                     const balThis = balanceForYear(r, thisYear);
                     const recommendedCarry = clamp(balThis, 0, MAX_CARRY);
 
-                    const zebra = idx % 2 === 0 ? "#fff" : "#f8fafc";
+                    const zebra = idx % 2 === 0 ? "var(--legacy-color-fff)" : "var(--legacy-color-f8fafc)";
 
                     return (
                       <tr key={r.id} style={{ background: zebra }}>
@@ -875,7 +875,7 @@ export default function EmployeesAdminPage() {
             </table>
           </div>
 
-          <div style={{ padding: 14, borderTop: "1px solid #e5e7eb", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
+          <div style={{ padding: 14, borderTop: "1px solid var(--legacy-color-e5e7eb)", color: UI.muted, fontSize: 12, lineHeight: 1.55 }}>
             <div>
               Tip: &quot;Used&quot; is calculated from the <code>holidays</code> collection (Mon-Fri only). Ensure{" "}
               <code>holidays.employee</code> matches the employee <code>name</code> exactly.
@@ -889,7 +889,7 @@ export default function EmployeesAdminPage() {
         {/* Year rollover info */}
         <div style={{ ...card, marginTop: UI.gap, ...cardPad }}>
           <div style={{ fontWeight: 950, color: UI.text, marginBottom: 6 }}>What happens when the year changes?</div>
-          <div style={{ color: "#374151", fontSize: 13, lineHeight: 1.6 }}>
+          <div style={{ color: "var(--legacy-color-374151)", fontSize: 13, lineHeight: 1.6 }}>
             On <b>1 January {nextYear}</b>, this page automatically treats {nextYear} as the &quot;current year&quot;.
             It will read/write:
             <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18 }}>
@@ -917,18 +917,18 @@ export default function EmployeesAdminPage() {
 const th = {
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #e5e7eb",
-  background: "#f8fafc",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f8fafc)",
   position: "sticky",
   top: 0,
   zIndex: 1,
   fontWeight: 950,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   whiteSpace: "nowrap",
 };
 
 const td = {
   padding: "10px 12px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "top",
 };

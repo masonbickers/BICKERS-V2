@@ -113,7 +113,7 @@ export default function PlatformAdminSectionPage({ section }) {
 
   return (
     <PlatformAdminShell title={copy[0]} subtitle={copy[1]} onRefresh={load} loading={loading}>
-      {notice ? <div style={{ ...ui.card, borderColor: "#fecaca", color: "#b91c1c", marginBottom: 12, fontWeight: 900 }}>{notice}</div> : null}
+      {notice ? <div style={{ ...ui.card, borderColor: "var(--legacy-color-fecaca)", color: "var(--legacy-color-b91c1c)", marginBottom: 12, fontWeight: 900 }}>{notice}</div> : null}
       {section !== "dashboard" && section !== "companies" && section !== "users" ? (
         <Toolbar
           query={query}
@@ -290,10 +290,10 @@ const brandingFields = [
   ["appName", "App name", "BAS Software"],
   ["companyLogo", "Company logo URL", ""],
   ["platformLogo", "Platform logo URL", "/bas-software-logo.png"],
-  ["primaryColor", "Primary colour", "#0f172a"],
-  ["secondaryColor", "Secondary colour", "#0369a1"],
-  ["accentColor", "Accent colour", "#f59e0b"],
-  ["sidebarColor", "Sidebar colour", "#0f172a"],
+  ["primaryColor", "Primary colour", "var(--legacy-color-0f172a)"],
+  ["secondaryColor", "Secondary colour", "var(--legacy-color-0369a1)"],
+  ["accentColor", "Accent colour", "var(--legacy-color-f59e0b)"],
+  ["sidebarColor", "Sidebar colour", "var(--legacy-color-0f172a)"],
   ["loginTitle", "Login page title", "BAS Software"],
   ["loginSubtitle", "Login page subtitle", "Secure company access"],
   ["mobileAppName", "Mobile app name", "BAS Mobile"],
@@ -623,7 +623,7 @@ function ToggleRow({ label, checked, onChange }) {
   return (
     <label style={toggleRow}>
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "#0369a1" }} />
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
     </label>
   );
 }
@@ -1338,13 +1338,13 @@ function RolesView({ data }) {
           {PLATFORM_ROLES.map((role) => {
             const def = ROLE_DEFINITIONS[role];
             return (
-              <div key={role} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, background: "#f8fafc" }}>
+              <div key={role} style={{ border: "1px solid var(--legacy-color-e2e8f0)", borderRadius: 8, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
                 <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ color: "#0f172a" }}>{def.label}</strong>
+                  <strong style={{ color: "var(--legacy-color-0f172a)" }}>{def.label}</strong>
                   <Pill tone={role === "platformAdmin" ? "blue" : "gray"}>{def.scope}</Pill>
                 </div>
-                <div style={{ marginTop: 8, color: "#475569", fontSize: 13, fontWeight: 750 }}>{def.description}</div>
-                <div style={{ marginTop: 8, color: "#64748b", fontSize: 12, fontWeight: 900 }}>Default: {def.defaultWorkspace}</div>
+                <div style={{ marginTop: 8, color: "var(--legacy-color-475569)", fontSize: 13, fontWeight: 750 }}>{def.description}</div>
+                <div style={{ marginTop: 8, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 900 }}>Default: {def.defaultWorkspace}</div>
               </div>
             );
           })}
@@ -1353,7 +1353,7 @@ function RolesView({ data }) {
 
       <section style={ui.card}>
         <h2 style={heading}>Permission Matrix</h2>
-        <div style={{ marginTop: 4, color: "#64748b", fontSize: 13, fontWeight: 800 }}>
+        <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 13, fontWeight: 800 }}>
           Module permissions come from the shared access-control helpers and are combined with company modules, appAccess and isEnabled checks.
         </div>
         <div style={{ marginTop: 12 }}>
@@ -1372,7 +1372,7 @@ function RolesView({ data }) {
 
       <section style={ui.card}>
         <h2 style={heading}>Required User Access Fields</h2>
-        <div style={{ marginTop: 4, color: "#64748b", fontSize: 13, fontWeight: 800 }}>
+        <div style={{ marginTop: 4, color: "var(--legacy-color-64748b)", fontSize: 13, fontWeight: 800 }}>
           Every user record should carry these fields so access decisions do not rely on email or duplicated permission rules.
         </div>
         <div style={{ marginTop: 12 }}>
@@ -1606,8 +1606,8 @@ function CleanupView({ data, load }) {
               }}
               style={{
                 ...cleanupTaskButton,
-                borderColor: selectedTask?.id === task.id ? "#0369a1" : "#e2e8f0",
-                background: selectedTask?.id === task.id ? "#f0f9ff" : "#fff",
+                borderColor: selectedTask?.id === task.id ? "var(--legacy-color-0369a1)" : "var(--legacy-color-e2e8f0)",
+                background: selectedTask?.id === task.id ? "var(--legacy-color-f0f9ff)" : "var(--legacy-color-fff)",
               }}
             >
               <span>
@@ -1829,7 +1829,7 @@ function ColourInput({ label, value, onChange }) {
   return (
     <Field label={label}>
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#0f172a"} onChange={(event) => onChange(event.target.value)} style={colourSwatchInput} />
+        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "var(--legacy-color-0f172a)"} onChange={(event) => onChange(event.target.value)} style={colourSwatchInput} />
         <input value={value} onChange={(event) => onChange(event.target.value)} style={{ ...ui.input, minWidth: 110, flex: 1 }} />
       </span>
     </Field>
@@ -1838,13 +1838,13 @@ function ColourInput({ label, value, onChange }) {
 
 function BrandPreview({ branding }) {
   return (
-    <div style={{ ...brandPreview, borderColor: branding.secondaryColor || "#0369a1" }}>
-      <div style={{ ...brandPreviewSidebar, background: branding.sidebarColor || "#0f172a" }} />
+    <div style={{ ...brandPreview, borderColor: branding.secondaryColor || "var(--legacy-color-0369a1)" }}>
+      <div style={{ ...brandPreviewSidebar, background: branding.sidebarColor || "var(--legacy-color-0f172a)" }} />
       <div>
-        <strong style={{ color: branding.primaryColor || "#0f172a" }}>{branding.appName || "BAS Software"}</strong>
+        <strong style={{ color: branding.primaryColor || "var(--legacy-color-0f172a)" }}>{branding.appName || "BAS Software"}</strong>
         <Small>{branding.loginTitle || "Login page"} · {branding.mobileAppName || "Mobile app"}</Small>
         <span style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          {["primaryColor", "secondaryColor", "accentColor"].map((key) => <span key={key} style={{ ...brandSwatch, background: branding[key] || "#cbd5e1" }} />)}
+          {["primaryColor", "secondaryColor", "accentColor"].map((key) => <span key={key} style={{ ...brandSwatch, background: branding[key] || "var(--legacy-color-cbd5e1)" }} />)}
         </span>
       </div>
     </div>
@@ -1943,7 +1943,7 @@ function FeatureFlagsView({ data, load }) {
               {featureFlagLabels.map(([key, label]) => (
                 <Td key={`${company.id}-${key}`}>
                   <label style={featureMiniToggle}>
-                    <input type="checkbox" checked={draft[key] === true} onChange={(event) => patchCompany(company.id, key, event.target.checked)} style={{ accentColor: "#0369a1" }} />
+                    <input type="checkbox" checked={draft[key] === true} onChange={(event) => patchCompany(company.id, key, event.target.checked)} style={{ accentColor: "var(--legacy-color-0369a1)" }} />
                     <span>{draft[key] ? "On" : "Off"}</span>
                   </label>
                 </Td>
@@ -1994,7 +1994,7 @@ function Recent({ title, rows, full = false }) {
   const displayRows = full ? rows : rows.slice(0, 8);
   return (
     <div style={ui.tableWrap}>
-      <div style={{ padding: 12, borderBottom: "1px solid #d7dee8" }}><h2 style={heading}>{title}</h2></div>
+      <div style={{ padding: 12, borderBottom: "1px solid var(--legacy-color-d7dee8)" }}><h2 style={heading}>{title}</h2></div>
       <table style={ui.table}>
         <thead><tr><th style={ui.th}>When</th><th style={ui.th}>Actor/User</th><th style={ui.th}>Action</th><th style={ui.th}>Target</th></tr></thead>
         <tbody>
@@ -2028,7 +2028,7 @@ function Td({ children, colSpan }) {
 }
 
 function Small({ children }) {
-  return <div style={{ marginTop: 3, color: "#64748b", fontSize: 12, fontWeight: 800 }}>{children}</div>;
+  return <div style={{ marginTop: 3, color: "var(--legacy-color-64748b)", fontSize: 12, fontWeight: 800 }}>{children}</div>;
 }
 
 function AuditJson({ value }) {
@@ -2152,8 +2152,8 @@ function companyBrandingDrafts(companies = []) {
 }
 
 const heading = { margin: 0, fontSize: 15, fontWeight: 950 };
-const muted = { color: "#64748b", fontWeight: 800 };
-const warningLine = { padding: "8px 0", borderTop: "1px solid #e2e8f0", color: "#b45309", fontWeight: 850 };
+const muted = { color: "var(--legacy-color-64748b)", fontWeight: 800 };
+const warningLine = { padding: "8px 0", borderTop: "1px solid var(--legacy-color-e2e8f0)", color: "var(--legacy-color-b45309)", fontWeight: 850 };
 const quickActionGrid = {
   display: "flex",
   gap: 8,
@@ -2192,19 +2192,19 @@ const companiesToolbar = {
 };
 const primaryActionButton = {
   height: 36,
-  border: "1px solid #0369a1",
+  border: "1px solid var(--legacy-color-0369a1)",
   borderRadius: 8,
   padding: "0 12px",
-  background: "#0369a1",
-  color: "#fff",
+  background: "var(--legacy-color-0369a1)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   cursor: "pointer",
 };
 const companyNotice = {
   ...ui.card,
-  borderColor: "#fed7aa",
-  background: "#fffbeb",
-  color: "#b45309",
+  borderColor: "var(--legacy-color-fed7aa)",
+  background: "var(--legacy-color-fffbeb)",
+  color: "var(--legacy-color-b45309)",
   fontWeight: 900,
 };
 const companyActionGrid = {
@@ -2217,8 +2217,8 @@ const companyActionGrid = {
 const companyDrawer = {
   position: "sticky",
   top: 14,
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: 14,
   boxShadow: "0 18px 34px rgba(15, 23, 42, 0.14)",
@@ -2232,7 +2232,7 @@ const drawerHeader = {
   gap: 12,
 };
 const smallCaps = {
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   fontSize: 12,
   fontWeight: 900,
   textTransform: "uppercase",
@@ -2250,7 +2250,7 @@ const drawerFields = {
 const drawerField = {
   display: "grid",
   gap: 6,
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -2269,15 +2269,15 @@ const toggleGrid = {
   gap: 8,
 };
 const toggleRow = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "8px 10px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   gap: 8,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 13,
   fontWeight: 850,
 };
@@ -2286,7 +2286,7 @@ const drawerFooter = {
   justifyContent: "flex-end",
   gap: 8,
   flexWrap: "wrap",
-  borderTop: "1px solid #e2e8f0",
+  borderTop: "1px solid var(--legacy-color-e2e8f0)",
   paddingTop: 12,
 };
 const usersLayout = {
@@ -2309,19 +2309,19 @@ const usersToolbar = {
 };
 const userNotice = {
   ...ui.card,
-  borderColor: "#bae6fd",
-  background: "#f0f9ff",
-  color: "#0369a1",
+  borderColor: "var(--legacy-color-bae6fd)",
+  background: "var(--legacy-color-f0f9ff)",
+  color: "var(--legacy-color-0369a1)",
   fontWeight: 900,
 };
 const selectedRowStyle = {
-  background: "#f0f9ff",
+  background: "var(--legacy-color-f0f9ff)",
 };
 const userSelectButton = {
   border: 0,
   background: "transparent",
   padding: 0,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   textAlign: "left",
   cursor: "pointer",
   font: "inherit",
@@ -2329,8 +2329,8 @@ const userSelectButton = {
 const userPanel = {
   position: "sticky",
   top: 14,
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: 14,
   boxShadow: "0 18px 34px rgba(15, 23, 42, 0.14)",
@@ -2349,13 +2349,13 @@ const detailGrid = {
   gap: 8,
 };
 const detailItem = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "8px 10px",
   display: "grid",
   gap: 4,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 12,
 };
 const userActionGrid = {
@@ -2366,7 +2366,7 @@ const userActionGrid = {
 const auditDateField = {
   display: "inline-grid",
   gap: 4,
-  color: "#64748b",
+  color: "var(--legacy-color-64748b)",
   fontSize: 12,
   fontWeight: 900,
 };
@@ -2375,11 +2375,11 @@ const auditToggle = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: "0 10px",
-  background: "#fff",
-  color: "#0f172a",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 13,
   fontWeight: 900,
 };
@@ -2392,9 +2392,9 @@ const auditJson = {
   overflowWrap: "anywhere",
   fontSize: 11,
   lineHeight: 1.35,
-  color: "#334155",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
+  color: "var(--legacy-color-334155)",
+  background: "var(--legacy-color-f8fafc)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
   padding: 8,
 };
@@ -2409,11 +2409,11 @@ const cleanupTaskList = {
   gap: 10,
 };
 const cleanupTaskButton = {
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
   padding: 12,
-  background: "#fff",
-  color: "#0f172a",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-0f172a)",
   cursor: "pointer",
   textAlign: "left",
   display: "flex",
@@ -2423,9 +2423,9 @@ const cleanupTaskButton = {
 };
 const cleanupActionBox = {
   marginTop: 12,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 8,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: 12,
   display: "flex",
   gap: 10,
@@ -2440,14 +2440,14 @@ const featureMiniToggle = {
   gap: 7,
   fontSize: 12,
   fontWeight: 900,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   whiteSpace: "nowrap",
 };
 const brandPreview = {
   minWidth: 220,
-  border: "1px solid #bae6fd",
+  border: "1px solid var(--legacy-color-bae6fd)",
   borderRadius: 8,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   padding: 10,
   display: "grid",
   gridTemplateColumns: "12px 1fr",
@@ -2462,15 +2462,15 @@ const brandSwatch = {
   width: 22,
   height: 22,
   borderRadius: 6,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
 };
 const colourSwatchInput = {
   width: 36,
   height: 36,
   padding: 0,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const linkingLayout = {
   display: "grid",
@@ -2487,5 +2487,5 @@ const sectionHeading = {
   margin: 0,
   fontSize: 16,
   fontWeight: 950,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
 };

@@ -30,21 +30,21 @@ const UI = {
   radiusSm: 10,
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  good: "#065f46",
-  goodBg: "#d1fae5",
-  goodBorder: "#86efac",
-  warn: "#92400e",
-  warnBg: "#fffbeb",
-  warnBorder: "#fde68a",
-  danger: "#991b1b",
-  dangerBg: "#fee2e2",
-  dangerBorder: "#fecaca",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  good: "var(--legacy-color-065f46)",
+  goodBg: "var(--legacy-color-d1fae5)",
+  goodBorder: "var(--legacy-color-86efac)",
+  warn: "var(--legacy-color-92400e)",
+  warnBg: "var(--legacy-color-fffbeb)",
+  warnBorder: "var(--legacy-color-fde68a)",
+  danger: "var(--legacy-color-991b1b)",
+  dangerBg: "var(--legacy-color-fee2e2)",
+  dangerBorder: "var(--legacy-color-fecaca)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -61,29 +61,29 @@ const chip = (kind = "neutral") => {
   if (kind === "good") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.goodBorder}`, background: UI.goodBg, color: UI.good, fontSize: 12, fontWeight: 900 };
   if (kind === "warn") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.warnBorder}`, background: UI.warnBg, color: UI.warn, fontSize: 12, fontWeight: 900 };
   if (kind === "danger") return { padding: "6px 10px", borderRadius: 999, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontSize: 12, fontWeight: 900 };
-  return { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: UI.text, fontSize: 12, fontWeight: 900 };
+  return { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: UI.text, fontSize: 12, fontWeight: 900 };
 };
 
 const btn = (kind = "primary") => {
   if (kind === "ghost") {
-    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid #d1d5db", background: "#fff", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+    return { padding: "10px 12px", borderRadius: UI.radiusSm, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", color: UI.text, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
   if (kind === "danger") {
     return { padding: "8px 10px", borderRadius: UI.radiusSm, border: `1px solid ${UI.dangerBorder}`, background: UI.dangerBg, color: UI.danger, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
   }
-  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "#fff", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
+  return { padding: "10px 12px", borderRadius: UI.radiusSm, border: `1px solid ${UI.brand}`, background: UI.brand, color: "var(--legacy-color-fff)", fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap" };
 };
 
 const grid2 = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 };
 const label = { display: "block", fontSize: 12, fontWeight: 900, color: UI.text, marginBottom: 6 };
-const input = { width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #e5e7eb", outline: "none", fontSize: 13.5, background: "#fff" };
+const input = { width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--legacy-color-e5e7eb)", outline: "none", fontSize: 13.5, background: "var(--legacy-color-fff)" };
 const textarea = { ...input, minHeight: 92, resize: "vertical" };
-const divider = { height: 1, background: "#e5e7eb", margin: "14px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e5e7eb)", margin: "14px 0" };
 
-const tableWrap = { overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff" };
+const tableWrap = { overflow: "auto", border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, background: "var(--legacy-color-fff)" };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1, whiteSpace: "nowrap" };
-const td = { padding: "10px 12px", borderBottom: "1px solid #f1f5f9", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-e5e7eb)", position: "sticky", top: 0, background: "var(--legacy-color-f8fafc)", zIndex: 1, whiteSpace: "nowrap" };
+const td = { padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-f1f5f9)", verticalAlign: "top" };
 
 /* ───────── date helpers ───────── */
 function toDate(v) {
@@ -452,7 +452,7 @@ export default function Page() {
                 <div style={hint}>Leave blank for single-day.</div>
               </div>
 
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#f8fafc" }}>
+              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>Start half day</div>
                   <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -462,7 +462,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, background: "#f8fafc" }}>
+              <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 12, padding: 12, background: "var(--legacy-color-f8fafc)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 900, color: UI.text, fontSize: 13 }}>End half day</div>
                   <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>

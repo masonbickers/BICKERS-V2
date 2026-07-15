@@ -22,8 +22,8 @@ export default function Header() {
         left: 0,
         width: "100%",
         height: "60px",
-        backgroundColor: "#000",
-        color: "#fff",
+        backgroundColor: "var(--legacy-color-000)",
+        color: "var(--legacy-color-fff)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -43,7 +43,7 @@ export default function Header() {
               key={label}
               href={path}
               style={{
-                color: pathname === path ? "#4caf50" : "#fff",
+                color: pathname === path ? "var(--legacy-color-4caf50)" : "var(--legacy-color-fff)",
                 fontWeight: pathname === path ? "bold" : "normal",
                 textDecoration: "none",
                 fontSize: "14px",
@@ -61,7 +61,7 @@ export default function Header() {
             style={{
               background: "none",
               border: "none",
-              color: "#fff",
+              color: "var(--legacy-color-fff)",
               fontSize: "14px",
               cursor: "pointer",
               display: "flex",
@@ -83,8 +83,8 @@ export default function Header() {
                 position: "absolute",
                 top: "110%",
                 right: 0,
-                backgroundColor: "#fff",
-                color: "#000",
+                backgroundColor: "var(--legacy-color-fff)",
+                color: "var(--legacy-color-000)",
                 boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 borderRadius: "6px",
                 padding: "10px 0",
@@ -98,9 +98,9 @@ export default function Header() {
                   display: "block",
                   padding: "10px 16px",
                   textDecoration: "none",
-                  color: "#000",
+                  color: "var(--legacy-color-000)",
                   fontSize: "14px",
-                  borderBottom: "1px solid #eee",
+                  borderBottom: "1px solid var(--legacy-color-eee)",
                 }}
               >
                 Settings
@@ -111,7 +111,7 @@ export default function Header() {
                   display: "block",
                   padding: "10px 16px",
                   textDecoration: "none",
-                  color: "#000",
+                  color: "var(--legacy-color-000)",
                   fontSize: "14px",
                 }}
               >

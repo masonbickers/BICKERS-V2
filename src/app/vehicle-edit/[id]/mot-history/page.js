@@ -10,15 +10,15 @@ import { db } from "../../../../../firebaseConfig";
 const UI = {
   radius: 8,
   gap: 10,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 18px 24px", background: UI.bg, minHeight: "100vh" };
@@ -40,8 +40,8 @@ const btn = {
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radius,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-c8d6e3)",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 900,
   cursor: "pointer",
@@ -88,9 +88,9 @@ const defectText = (defect) =>
 
 const resultStyle = (result) => {
   const value = String(result || "").toUpperCase();
-  if (value === "PASSED") return { color: "#166534", background: "#dcfce7", border: "1px solid #86efac" };
-  if (value === "FAILED") return { color: "#991b1b", background: "#fee2e2", border: "1px solid #fecaca" };
-  return { color: UI.text, background: "#f8fafc", border: UI.border };
+  if (value === "PASSED") return { color: "var(--legacy-color-166534)", background: "var(--legacy-color-dcfce7)", border: "1px solid var(--legacy-color-86efac)" };
+  if (value === "FAILED") return { color: "var(--legacy-color-991b1b)", background: "var(--legacy-color-fee2e2)", border: "1px solid var(--legacy-color-fecaca)" };
+  return { color: UI.text, background: "var(--legacy-color-f8fafc)", border: UI.border };
 };
 
 function getMileageAnomaly(tests) {
@@ -104,7 +104,7 @@ function getMileageAnomaly(tests) {
 
 function MiniStat({ label, value }) {
   return (
-    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-fff)" }}>
       <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 850 }}>{label}</div>
       <div style={{ marginTop: 4, fontSize: 14, color: UI.text, fontWeight: 950 }}>{value || "-"}</div>
     </div>
@@ -177,9 +177,9 @@ export default function VehicleMotHistoryPage() {
                     gap: 8,
                     alignItems: "flex-start",
                     marginTop: 10,
-                    border: "1px solid #f59e0b",
-                    background: "#fffbeb",
-                    color: "#92400e",
+                    border: "1px solid var(--legacy-color-f59e0b)",
+                    background: "var(--legacy-color-fffbeb)",
+                    color: "var(--legacy-color-92400e)",
                     borderRadius: UI.radius,
                     padding: 10,
                     fontSize: 12.5,
@@ -210,7 +210,7 @@ export default function VehicleMotHistoryPage() {
                     );
 
                     return (
-                      <div key={test.motTestNumber || `${test.completedDate}-${index}`} style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: "#fff" }}>
+                      <div key={test.motTestNumber || `${test.completedDate}-${index}`} style={{ border: UI.border, borderRadius: UI.radius, padding: 12, background: "var(--legacy-color-fff)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
                           <div>
                             <div style={{ fontSize: 15, fontWeight: 950, color: UI.text }}>
@@ -239,7 +239,7 @@ export default function VehicleMotHistoryPage() {
                         </div>
 
                         {serious.length ? (
-                          <div style={{ marginTop: 10, border: "1px solid #fecaca", background: "#fef2f2", color: "#991b1b", borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
+                          <div style={{ marginTop: 10, border: "1px solid var(--legacy-color-fecaca)", background: "var(--legacy-color-fef2f2)", color: "var(--legacy-color-991b1b)", borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
                             <div style={{ fontWeight: 950, marginBottom: 5 }}>Serious defects</div>
                             {serious.map((defect, defectIndex) => (
                               <div key={`${defectText(defect)}-${defectIndex}`} style={{ marginTop: defectIndex ? 4 : 0 }}>
@@ -251,7 +251,7 @@ export default function VehicleMotHistoryPage() {
                         ) : null}
 
                         {advisories.length ? (
-                          <div style={{ marginTop: 10, border: UI.border, background: "#f8fafc", color: UI.text, borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
+                          <div style={{ marginTop: 10, border: UI.border, background: "var(--legacy-color-f8fafc)", color: UI.text, borderRadius: UI.radius, padding: 10, fontSize: 12.5 }}>
                             <div style={{ fontWeight: 950, marginBottom: 5 }}>Advisories</div>
                             {advisories.map((defect, defectIndex) => (
                               <div key={`${defectText(defect)}-${defectIndex}`} style={{ marginTop: defectIndex ? 4 : 0 }}>

@@ -34,17 +34,17 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -88,7 +88,7 @@ const chip = {
   padding: "5px 9px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "#f1f5f9",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 800,
@@ -102,7 +102,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -122,7 +122,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -141,9 +141,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #bbf7d0",
-      background: "linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%)",
-      color: "#065f46",
+      border: "1px solid var(--legacy-color-bbf7d0)",
+      background: "linear-gradient(180deg, var(--legacy-color-f0fdf4) 0%, var(--legacy-color-ecfdf5) 100%)",
+      color: "var(--legacy-color-065f46)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -161,9 +161,9 @@ const btn = (kind = "primary") => {
     return {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #fecaca",
-      background: "linear-gradient(180deg, #fff7f7 0%, #fef2f2 100%)",
-      color: "#991b1b",
+      border: "1px solid var(--legacy-color-fecaca)",
+      background: "linear-gradient(180deg, var(--legacy-color-fff7f7) 0%, var(--legacy-color-fef2f2) 100%)",
+      color: "var(--legacy-color-991b1b)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -181,8 +181,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -205,19 +205,19 @@ const inputBase = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden" };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   letterSpacing: 0,
   textTransform: "uppercase",
@@ -236,7 +236,7 @@ const modalOverlay = {
 };
 const modalCard = {
   width: "min(92vw, 560px)",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
@@ -244,7 +244,7 @@ const modalCard = {
 };
 
 /* immediate status badges */
-const pill = (bg, fg, borderColor = "#e5e7eb") => ({
+const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -257,11 +257,11 @@ const pill = (bg, fg, borderColor = "#e5e7eb") => ({
   border: `1px solid ${borderColor}`,
 });
 const maintenanceBadge = (m) => {
-  if (!m) return pill("#fef2f2", "#991b1b", "#fecaca"); // urgent / pending
-  if (m === "in_progress") return pill("#fff7ed", "#9a3412", "#fed7aa");
-  if (m === "resolved") return pill("#ecfdf5", "#065f46", "#bbf7d0");
-  if (m === "scheduled") return pill("#eef2ff", "#3730a3", "#c7d2fe");
-  return pill("#f8fafc", "#111827", "#e5e7eb");
+  if (!m) return pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)"); // urgent / pending
+  if (m === "in_progress") return pill("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)", "var(--legacy-color-fed7aa)");
+  if (m === "resolved") return pill("var(--legacy-color-ecfdf5)", "var(--legacy-color-065f46)", "var(--legacy-color-bbf7d0)");
+  if (m === "scheduled") return pill("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)", "var(--legacy-color-c7d2fe)");
+  return pill("var(--legacy-color-f8fafc)", "var(--legacy-color-111827)", "var(--legacy-color-e5e7eb)");
 };
 
 const CHECK_DETAIL_PATH = (id) => `/vehicle-checkid/${encodeURIComponent(id)}`;
@@ -589,7 +589,7 @@ export default function ImmediateDefectsPage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, button:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .defects-immediate-kpi-grid {
           display: grid;
@@ -659,7 +659,7 @@ export default function ImmediateDefectsPage() {
             </div>
           </div>
 
-          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "#fff" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--legacy-color-fff)" }}>
             <div className="defects-immediate-filter-grid">
               <label style={{ position: "relative", display: "block" }}>
                 <Search
@@ -738,7 +738,7 @@ export default function ImmediateDefectsPage() {
                     const m = r.maintenance?.status;
 
                     return (
-                      <tr key={key} style={{ background: idx % 2 ? "#ffffff" : "#fcfdff" }}>
+                      <tr key={key} style={{ background: idx % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)" }}>
                         <td style={thtd}>{fmtDate(r.dateISO)}</td>
 
                         <td style={thtd}>
@@ -857,7 +857,7 @@ export default function ImmediateDefectsPage() {
                 </button>
               </div>
 
-              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "#fff" }}>
+              <div style={{ ...surface, boxShadow: "none", borderRadius: UI.radius, border: UI.border, padding: 12, background: "var(--legacy-color-fff)" }}>
                 <div style={{ fontSize: 11.5, color: UI.muted, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0 }}>
                   Note (optional)
                 </div>
@@ -895,8 +895,8 @@ export default function ImmediateDefectsPage() {
       </div>
 
       <style jsx global>{`
-        table thead th { border-bottom: 1px solid #e5e7eb !important; }
-        .defects-immediate-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        table thead th { border-bottom: 1px solid var(--legacy-color-e5e7eb) !important; }
+        .defects-immediate-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
       `}</style>
     </HeaderSidebarLayout>
   );
@@ -905,14 +905,14 @@ export default function ImmediateDefectsPage() {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ShieldAlert }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
       : tone === "amber"
-      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
       : tone === "ok"
-      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      ? { fg: "var(--legacy-color-065f46)", bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
 
   return (
     <div

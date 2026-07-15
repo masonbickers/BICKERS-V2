@@ -38,19 +38,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   radius: 8,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
 };
 
 const pageWrap = {
@@ -154,7 +154,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radius,
   border: UI.border,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -169,7 +169,7 @@ const input = {
   padding: "7px 9px",
   fontSize: 13,
   color: UI.text,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   boxSizing: "border-box",
 };
 
@@ -188,8 +188,8 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
+  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -224,7 +224,7 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e2e8f0", margin: "12px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
 const FILM_DEPARTMENTS = [
   "Production",
   "Director",
@@ -246,7 +246,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -683,7 +683,7 @@ export default function CreateEnquiryPage() {
                   <input value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} required style={input} />
 
                   <label style={label}>Status</label>
-                  <input value="Enquiry" readOnly style={{ ...input, background: "#f8fafc", color: UI.muted }} />
+                  <input value="Enquiry" readOnly style={{ ...input, background: "var(--legacy-color-f8fafc)", color: UI.muted }} />
 
                   <div style={divider} />
 
@@ -705,7 +705,7 @@ export default function CreateEnquiryPage() {
                   <label style={label}>Location</label>
                   <input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="Optional at enquiry stage" />
 
-                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#f8fafc" }}>
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--legacy-color-f8fafc)" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
                       <input type="checkbox" checked={showInvoicingDetails} onChange={(e) => setShowInvoicingDetails(e.target.checked)} />
                       Add invoicing details
@@ -714,21 +714,21 @@ export default function CreateEnquiryPage() {
                       <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Purchase Order (PO)</label>
-                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                          <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="PO reference for invoicing" />
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Invoicing contact</label>
-                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Name" />
+                            <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="Name" />
                           </div>
                           <div>
                             <label style={{ ...label, marginTop: 0 }}>Email</label>
-                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="accounts@example.com" />
+                            <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="accounts@example.com" />
                           </div>
                         </div>
                         <div>
                           <label style={{ ...label, marginTop: 0 }}>Phone</label>
-                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "#fff" }} placeholder="Optional phone number" />
+                          <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...input, background: "var(--legacy-color-fff)" }} placeholder="Optional phone number" />
                         </div>
                       </div>
                     )}
@@ -742,7 +742,7 @@ export default function CreateEnquiryPage() {
                       padding: 10,
                       borderRadius: UI.radius,
                       border: UI.border,
-                      background: "#f8fafc",
+                      background: "var(--legacy-color-f8fafc)",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -759,8 +759,8 @@ export default function CreateEnquiryPage() {
                           marginBottom: 8,
                           padding: 8,
                           borderRadius: UI.radius,
-                          background: "#ffffff",
-                          border: "1px solid #e5e7eb",
+                          background: "var(--legacy-color-ffffff)",
+                          border: "1px solid var(--legacy-color-e5e7eb)",
                         }}
                       >
                         <div className="create-enquiry-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -811,9 +811,9 @@ export default function CreateEnquiryPage() {
                               padding: "4px 8px",
                               fontSize: 11,
                               borderRadius: 999,
-                              border: "1px solid #dc2626",
-                              color: "#dc2626",
-                              background: "#fff",
+                              border: "1px solid var(--legacy-color-dc2626)",
+                              color: "var(--legacy-color-dc2626)",
+                              background: "var(--legacy-color-fff)",
                             }}
                           >
                             Remove
@@ -899,7 +899,7 @@ export default function CreateEnquiryPage() {
                       <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isRange} style={{ ...input, opacity: isRange ? 1 : 0.55 }} />
                     </>
                   ) : (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13 }}>
                       No dates recorded yet.
                     </div>
                   )}
@@ -921,7 +921,7 @@ export default function CreateEnquiryPage() {
                   </div>
 
                   {referenceDataLoading && (
-                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13, marginBottom: 10 }}>
                       Loading vehicles and equipment...
                     </div>
                   )}

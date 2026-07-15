@@ -287,12 +287,12 @@ export default function CreateNote({ onClose, onSaved, defaultDate = "" }) {
 }
 
 const UI = {
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "#d7dee8",
-  text: "#0f172a",
-  muted: "#5f6f82",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  border: "var(--legacy-color-d7dee8)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
 };
 
 const overlay = {
@@ -311,7 +311,7 @@ const modal = {
   borderRadius: 8,
   padding: 14,
   color: UI.text,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   border: `1px solid ${UI.border}`,
   boxShadow: "0 18px 46px rgba(15,23,42,0.24)",
 };
@@ -323,7 +323,7 @@ const headerRow = {
   gap: 12,
   marginBottom: 14,
   paddingBottom: 12,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const titleRow = {
@@ -368,7 +368,7 @@ const closeBtn = {
   height: 34,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.muted,
   cursor: "pointer",
   display: "inline-flex",
@@ -397,7 +397,7 @@ const label = {
   display: "block",
   fontSize: 12,
   fontWeight: 900,
-  color: "#475569",
+  color: "var(--legacy-color-475569)",
   textTransform: "uppercase",
   letterSpacing: "0.03em",
 };
@@ -410,14 +410,14 @@ const checkRow = {
   fontSize: 13,
   fontWeight: 800,
   border: `1px solid ${UI.border}`,
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   borderRadius: 8,
   padding: "9px 10px",
 };
 
 const helpText = {
   marginTop: -4,
-  color: "#991b1b",
+  color: "var(--legacy-color-991b1b)",
   fontSize: 12,
   fontWeight: 700,
 };
@@ -426,8 +426,8 @@ const input = {
   width: "100%",
   padding: "10px 11px",
   borderRadius: 8,
-  border: "1px solid #cbd5e1",
-  backgroundColor: "#ffffff",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  backgroundColor: "var(--legacy-color-ffffff)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -444,8 +444,8 @@ const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 800,
   fontSize: 13,
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
@@ -459,7 +459,7 @@ const secondaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   fontWeight: 800,
   fontSize: 13,

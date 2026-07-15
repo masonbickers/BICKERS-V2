@@ -23,18 +23,18 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  successSoft: "#ecfdf5",
-  successText: "#166534",
-  dangerSoft: "#fcefee",
-  dangerText: "#991b1b",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  successSoft: "var(--legacy-color-ecfdf5)",
+  successText: "var(--legacy-color-166534)",
+  dangerSoft: "var(--legacy-color-fcefee)",
+  dangerText: "var(--legacy-color-991b1b)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -79,7 +79,7 @@ const input = {
   padding: "7px 9px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 13.5,
   outline: "none",
   color: UI.text,
@@ -96,7 +96,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   display: "inline-flex",
   alignItems: "center",
@@ -106,13 +106,13 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
 const iconButton = { ...btnBase, width: 38, minWidth: 38, minHeight: 36, padding: 0 };
-const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "#fff" };
+const detailCard = { padding: 10, border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)" };
 const sectionTitle = { fontWeight: 800, fontSize: 17, color: UI.text, marginBottom: 5 };
 const sectionSub = { color: UI.muted, fontSize: 12.5, lineHeight: 1.45, marginBottom: 10 };
 const changePasswordCss = `
@@ -244,7 +244,7 @@ export default function ChangePasswordPage() {
                 For security, you must confirm your current password before setting a new one.
               </div>
 
-              <div style={{ height: 1, background: "#eef2f7", margin: "12px 0" }} />
+              <div style={{ height: 1, background: "var(--legacy-color-eef2f7)", margin: "12px 0" }} />
 
               <div style={{ display: "grid", gap: 10 }}>
                 <div>
@@ -324,7 +324,7 @@ export default function ChangePasswordPage() {
                     marginTop: 12,
                     padding: "8px 10px",
                     borderRadius: UI.radius,
-                    border: "1px solid #fecaca",
+                    border: "1px solid var(--legacy-color-fecaca)",
                     background: UI.dangerSoft,
                     color: UI.dangerText,
                     fontWeight: 800,
@@ -345,7 +345,7 @@ export default function ChangePasswordPage() {
                     marginTop: 12,
                     padding: "8px 10px",
                     borderRadius: UI.radius,
-                    border: "1px solid #86efac",
+                    border: "1px solid var(--legacy-color-86efac)",
                     background: UI.successSoft,
                     color: UI.successText,
                     fontWeight: 800,

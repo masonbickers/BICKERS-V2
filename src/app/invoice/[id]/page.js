@@ -26,22 +26,22 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
 };
 
 const pageWrap = { padding: "40px 24px", background: UI.bg, minHeight: "100vh" };
-const surface = { background: "#fff", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const surface = { background: "var(--legacy-color-fff)", borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
 const section = { ...surface, padding: 14, marginBottom: UI.gap };
 const sectionTitle = { fontSize: 16, fontWeight: 900, marginBottom: 8, color: UI.text };
 const grid = (cols = 3) => ({ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 12 });
 const k = { fontSize: 12, color: UI.muted, textTransform: "uppercase", fontWeight: 800, letterSpacing: ".02em" };
 const v = { fontSize: 14, color: UI.text, fontWeight: 700 };
-const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f1f5f9", color: "#0f172a", fontSize: 12, fontWeight: 700 };
+const chip = { padding: "6px 10px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f1f5f9)", color: "var(--legacy-color-0f172a)", fontSize: 12, fontWeight: 700 };
 
 /* ───────────────────────────────────────────
    Helpers
@@ -430,7 +430,7 @@ export default function InvoiceJobPage() {
           <button
             onClick={() => router.back()}
             style={{
-              backgroundColor: "#e5e7eb",
+              backgroundColor: "var(--legacy-color-e5e7eb)",
               padding: "8px 16px",
               borderRadius: "8px",
               border: "none",
@@ -587,13 +587,13 @@ export default function InvoiceJobPage() {
                           {/* Inline preview of the first file */}
                           {first && (
                             <div style={{ ...surface, border: UI.border, borderRadius: 10, overflow: "hidden" }}>
-                              <div style={{ padding: 8, borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ padding: 8, borderBottom: "1px solid var(--legacy-color-e5e7eb)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <strong style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{first.name}</strong>
                                 <a href={first.url} target="_blank" rel="noreferrer" style={{ color: UI.brand, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
                                   Open
                                 </a>
                               </div>
-                              <div style={{ padding: 8, background: "#fafafa" }}>
+                              <div style={{ padding: 8, background: "var(--legacy-color-fafafa)" }}>
                                 {first.kind === "pdf" ? (
                                   <iframe src={first.url} title={first.name} style={{ width: "100%", height: 340, border: 0 }} />
                                 ) : first.kind === "image" ? (
@@ -649,7 +649,7 @@ export default function InvoiceJobPage() {
                   <div
                     style={{
                       padding: 10,
-                      borderBottom: "1px solid #e5e7eb",
+                      borderBottom: "1px solid var(--legacy-color-e5e7eb)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -679,9 +679,9 @@ export default function InvoiceJobPage() {
                     </a>
                   </div>
 
-                  <div style={{ padding: 10, background: "#fafafa" }}>
+                  <div style={{ padding: 10, background: "var(--legacy-color-fafafa)" }}>
                     {d.kind === "pdf" ? (
-                      <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                      <div style={{ border: "1px solid var(--legacy-color-e5e7eb)", borderRadius: 10, overflow: "hidden", background: "var(--legacy-color-fff)" }}>
                         <iframe src={d.url} title={d.name} style={{ width: "100%", height: 420, border: 0 }} />
                       </div>
                     ) : d.kind === "image" ? (
@@ -689,8 +689,8 @@ export default function InvoiceJobPage() {
                         style={{
                           display: "grid",
                           placeItems: "center",
-                          background: "#fff",
-                          border: "1px solid #e5e7eb",
+                          background: "var(--legacy-color-fff)",
+                          border: "1px solid var(--legacy-color-e5e7eb)",
                           borderRadius: 10,
                           overflow: "hidden",
                         }}
@@ -728,8 +728,8 @@ export default function InvoiceJobPage() {
               padding: "10px 18px",
               borderRadius: 8,
               border: "none",
-              background: saving ? "#6b7280" : "#10b981",
-              color: "#fff",
+              background: saving ? "var(--legacy-color-6b7280)" : "var(--legacy-color-10b981)",
+              color: "var(--legacy-color-fff)",
               fontWeight: 700,
               cursor: saving ? "not-allowed" : "pointer",
             }}

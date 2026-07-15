@@ -123,19 +123,19 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = {
@@ -175,7 +175,7 @@ const surface = {
 const cardBase = {
   ...surface,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   transition:
     "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
 };
@@ -283,7 +283,7 @@ const metricCard = {
 };
 const premiumSection = {
   ...cardBase,
-  border: "1px solid #d7e1ea",
+  border: "1px solid var(--legacy-color-d7e1ea)",
   boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
   maxWidth: "100%",
   minWidth: 0,
@@ -291,7 +291,7 @@ const premiumSection = {
 
 const calendarFrame = {
   borderRadius: UI.radiusSm,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   border: UI.border,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
   minHeight: 620,
@@ -321,21 +321,21 @@ const vehicleHomeCalendarCss = `
 .vehicle-home-page .rbc-time-view,
 .vehicle-home-page .rbc-month-view {
   border: 0;
-  background: #fff;
+  background: var(--legacy-color-fff);
 }
 .vehicle-home-page .rbc-header {
   padding: 7px 8px;
-  background: #f6f8fb;
+  background: var(--legacy-color-f6f8fb);
   color: ${UI.muted};
   font-size: 11.5px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0;
-  border-color: #e3eaf2;
+  border-color: var(--legacy-color-e3eaf2);
 }
 .vehicle-home-page .rbc-date-cell {
   padding: 5px 6px;
-  color: #64748b;
+  color: var(--legacy-color-64748b);
   font-size: 12px;
   font-weight: 800;
 }
@@ -343,10 +343,10 @@ const vehicleHomeCalendarCss = `
 .vehicle-home-page .rbc-day-bg,
 .vehicle-home-page .rbc-time-content,
 .vehicle-home-page .rbc-timeslot-group {
-  border-color: #e6edf5;
+  border-color: var(--legacy-color-e6edf5);
 }
 .vehicle-home-page .rbc-off-range-bg {
-  background: #f8fafc;
+  background: var(--legacy-color-f8fafc);
 }
 .vehicle-home-page .rbc-today {
   background: rgba(31,75,122,0.08);
@@ -432,7 +432,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -448,7 +448,7 @@ const btn = (kind = "primary") => {
       padding: "5px 8px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -463,8 +463,8 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -479,13 +479,13 @@ const inputBase = {
   width: "100%",
   padding: "8px 9px",
   borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 
 const modal = {
   position: "fixed",
@@ -505,7 +505,7 @@ const table = { width: "100%", borderCollapse: "collapse" };
 const thtd = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   verticalAlign: "middle",
 };
 
@@ -513,17 +513,17 @@ const actionBtn = (kind = "ghost") => {
   if (kind === "approve") {
     return {
       ...btn("pill"),
-      borderColor: "#bbf7d0",
-      background: "#ecfdf5",
-      color: "#065f46",
+      borderColor: "var(--legacy-color-bbf7d0)",
+      background: "var(--legacy-color-ecfdf5)",
+      color: "var(--legacy-color-065f46)",
     };
   }
   if (kind === "decline") {
     return {
       ...btn("pill"),
-      borderColor: "#fecaca",
-      background: "#fef2f2",
-      color: "#991b1b",
+      borderColor: "var(--legacy-color-fecaca)",
+      background: "var(--legacy-color-fef2f2)",
+      color: "var(--legacy-color-991b1b)",
     };
   }
   return { ...btn("pill") };
@@ -1163,25 +1163,25 @@ function MaintenanceCalendarEvent({ event }) {
       .replace(/\s+-\s+Brake test due$/i, "")
       .replace(/\s+-\s+PMI inspection due$/i, "");
   })();
-  const dueLabelColor = tone === "overdue" ? "#991b1b" : tone === "soon" ? "#92400e" : null;
+  const dueLabelColor = tone === "overdue" ? "var(--legacy-color-991b1b)" : tone === "soon" ? "var(--legacy-color-92400e)" : null;
   const labelColor =
     isDueBlock && dueLabelColor
       ? dueLabelColor
       : kind === "MOT"
-      ? "#b45309"
+      ? "var(--legacy-color-b45309)"
       : kind === "SERVICE"
-      ? "#047857"
+      ? "var(--legacy-color-047857)"
       : kind === "INSPECTION"
-      ? "#7c3aed"
+      ? "var(--legacy-color-7c3aed)"
       : kind === "BRAKE_TEST"
-      ? "#4f46e5"
+      ? "var(--legacy-color-4f46e5)"
       : kind === "PMI"
-      ? "#0f766e"
+      ? "var(--legacy-color-0f766e)"
       : isBookingBlock
-      ? "#1d4ed8"
+      ? "var(--legacy-color-1d4ed8)"
       : kind === "MAINTENANCE"
-      ? "#475569"
-      : "#1d4ed8";
+      ? "var(--legacy-color-475569)"
+      : "var(--legacy-color-1d4ed8)";
   const nextDueLabel =
     isCompleted && kind === "MOT_BOOKING" && event?.nextMOT
       ? `Next MOT Due: ${new Date(event.nextMOT).toLocaleDateString("en-GB")}`
@@ -1257,8 +1257,8 @@ function MaintenanceCalendarEvent({ event }) {
                 minWidth: badge.label === "PMI" ? 40 : 30,
                 padding: "2px 5px",
                 borderRadius: 6,
-                background: badge.good ? "#16a34a" : "#ef4444",
-                color: "#ffffff",
+                background: badge.good ? "var(--legacy-color-16a34a)" : "var(--legacy-color-ef4444)",
+                color: "var(--legacy-color-ffffff)",
                 border: "1px solid rgba(0,0,0,0.65)",
                 fontSize: 10.5,
                 lineHeight: 1,
@@ -1272,21 +1272,21 @@ function MaintenanceCalendarEvent({ event }) {
           ))}
         </span>
       ) : null}
-      <span style={{ color: "#0f172a", whiteSpace: "normal" }}>{cleanTitle}</span>
+      <span style={{ color: "var(--legacy-color-0f172a)", whiteSpace: "normal" }}>{cleanTitle}</span>
       {vehicleText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{vehicleText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--legacy-color-0f172a)", whiteSpace: "normal" }}>{vehicleText}</span>
       ) : null}
       {equipmentText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#0f172a", whiteSpace: "normal" }}>{equipmentText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--legacy-color-0f172a)", whiteSpace: "normal" }}>{equipmentText}</span>
       ) : null}
       {locationText ? (
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: "#475569", whiteSpace: "normal" }}>{locationText}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--legacy-color-475569)", whiteSpace: "normal" }}>{locationText}</span>
       ) : null}
       {nextDueLabel ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#0f766e", whiteSpace: "normal" }}>{nextDueLabel}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--legacy-color-0f766e)", whiteSpace: "normal" }}>{nextDueLabel}</span>
       ) : null}
       {subline ? (
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "#64748b", whiteSpace: "normal" }}>{subline}</span>
+        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--legacy-color-64748b)", whiteSpace: "normal" }}>{subline}</span>
       ) : null}
     </div>
   );
@@ -2312,66 +2312,66 @@ export default function VehiclesHomePage() {
       workflowStatus === "completed" ||
       workflowStatus === "complete";
 
-    let bg = "#c4d6e4";
-    let border = "#95b3ca";
-    let text = "#172a3d";
+    let bg = "var(--legacy-color-c4d6e4)";
+    let border = "var(--legacy-color-95b3ca)";
+    let text = "var(--legacy-color-172a3d)";
 
     if (kind === "MOT") {
-      bg = "#fff7ed";
-      border = "#f59e0b";
-      text = "#713f12";
+      bg = "var(--legacy-color-fff7ed)";
+      border = "var(--legacy-color-f59e0b)";
+      text = "var(--legacy-color-713f12)";
       if (event?.booked) {
-        bg = "#fef3c7";
-        border = "#d97706";
-        text = "#713f12";
+        bg = "var(--legacy-color-fef3c7)";
+        border = "var(--legacy-color-d97706)";
+        text = "var(--legacy-color-713f12)";
       }
     } else if (kind === "MOT_BOOKING") {
-      bg = "#dbeafe";
-      border = "#2563eb";
-      text = "#102a56";
+      bg = "var(--legacy-color-dbeafe)";
+      border = "var(--legacy-color-2563eb)";
+      text = "var(--legacy-color-102a56)";
       if (String(event?.bookingStatus || "").includes("After Expiry")) {
-        bg = "#e4c0bd";
-        border = "#bf847f";
-        text = "#631f1a";
+        bg = "var(--legacy-color-e4c0bd)";
+        border = "var(--legacy-color-bf847f)";
+        text = "var(--legacy-color-631f1a)";
       }
     } else if (kind === "SERVICE") {
-      bg = "#ecfdf5";
-      border = "#10b981";
-      text = "#064e3b";
+      bg = "var(--legacy-color-ecfdf5)";
+      border = "var(--legacy-color-10b981)";
+      text = "var(--legacy-color-064e3b)";
       if (event?.booked) {
-        bg = "#d1fae5";
-        border = "#059669";
-        text = "#064e3b";
+        bg = "var(--legacy-color-d1fae5)";
+        border = "var(--legacy-color-059669)";
+        text = "var(--legacy-color-064e3b)";
       }
     } else if (kind === "SERVICE_BOOKING") {
-      bg = "#dbeafe";
-      border = "#2563eb";
-      text = "#102a56";
+      bg = "var(--legacy-color-dbeafe)";
+      border = "var(--legacy-color-2563eb)";
+      text = "var(--legacy-color-102a56)";
     } else if (kind === "INSPECTION") {
-      bg = "#f5f3ff";
-      border = "#8b5cf6";
-      text = "#3b0764";
+      bg = "var(--legacy-color-f5f3ff)";
+      border = "var(--legacy-color-8b5cf6)";
+      text = "var(--legacy-color-3b0764)";
       if (event?.booked) {
-        bg = "#ede9fe";
-        border = "#7c3aed";
-        text = "#3b0764";
+        bg = "var(--legacy-color-ede9fe)";
+        border = "var(--legacy-color-7c3aed)";
+        text = "var(--legacy-color-3b0764)";
       }
     } else if (kind === "INSPECTION_BOOKING") {
-      bg = "#ede9fe";
-      border = "#7c3aed";
-      text = "#321064";
+      bg = "var(--legacy-color-ede9fe)";
+      border = "var(--legacy-color-7c3aed)";
+      text = "var(--legacy-color-321064)";
     } else if (kind === "MAINTENANCE_APPOINTMENT") {
-      bg = "#f0fdfa";
-      border = "#14b8a6";
-      text = "#134e4a";
+      bg = "var(--legacy-color-f0fdfa)";
+      border = "var(--legacy-color-14b8a6)";
+      text = "var(--legacy-color-134e4a)";
     } else if (kind === "MAINTENANCE_BOOKING") {
-      bg = "#ccfbf1";
-      border = "#0d9488";
-      text = "#134e4a";
+      bg = "var(--legacy-color-ccfbf1)";
+      border = "var(--legacy-color-0d9488)";
+      text = "var(--legacy-color-134e4a)";
     } else if (kind === "MAINTENANCE") {
-      bg = "#e2e8f0";
-      border = "#64748b";
-      text = "#1e293b";
+      bg = "var(--legacy-color-e2e8f0)";
+      border = "var(--legacy-color-64748b)";
+      text = "var(--legacy-color-1e293b)";
     }
 
     const tone = event?.dueDate && !isBookingBlock ? dueTone(event.dueDate) : "soft";
@@ -2379,20 +2379,20 @@ export default function VehiclesHomePage() {
 
     if (!suppressEscalation) {
       if (tone === "overdue") {
-        bg = "#e4c0bd";
-        border = "#bf847f";
-        text = "#631f1a";
+        bg = "var(--legacy-color-e4c0bd)";
+        border = "var(--legacy-color-bf847f)";
+        text = "var(--legacy-color-631f1a)";
       } else if (tone === "soon") {
-        bg = "#e1c79c";
-        border = "#c19458";
-        text = "#5a3918";
+        bg = "var(--legacy-color-e1c79c)";
+        border = "var(--legacy-color-c19458)";
+        text = "var(--legacy-color-5a3918)";
       }
     }
 
     if (isCompleted) {
-      bg = "#d1fae5";
-      border = "#86efac";
-      text = "#065f46";
+      bg = "var(--legacy-color-d1fae5)";
+      border = "var(--legacy-color-86efac)";
+      text = "var(--legacy-color-065f46)";
     }
 
     return {
@@ -2416,7 +2416,7 @@ export default function VehiclesHomePage() {
     <HeaderSidebarLayout>
       {/* subtle focus ring */}
       <style>{`
-        input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
         .vehicle-home-page,
         .vehicle-home-page * {
@@ -2567,8 +2567,8 @@ export default function VehiclesHomePage() {
                     type="button"
                     onClick={() => activity.route && router.push(activity.route)}
                     style={{
-                      border: "1px solid #e5eaf0",
-                      background: "#fbfdff",
+                      border: "1px solid var(--legacy-color-e5eaf0)",
+                      background: "var(--legacy-color-fbfdff)",
                       borderRadius: 8,
                       padding: "8px 9px",
                       textAlign: "left",
@@ -2613,7 +2613,7 @@ export default function VehiclesHomePage() {
           <div style={{ overflowX: "auto", marginTop: 0 }}>
             <table style={table}>
               <thead>
-                <tr style={{ background: "#f6f8fb" }}>
+                <tr style={{ background: "var(--legacy-color-f6f8fb)" }}>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Date</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Source</th>
                   <th style={{ ...thtd, textAlign: "left", fontWeight: 800, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.05em", fontSize: 11.5 }}>Vehicle</th>
@@ -2638,7 +2638,7 @@ export default function VehiclesHomePage() {
                       <td style={thtd}>
                         <span
                           style={badge(
-                            d.sourceType === "vehicleIssue" ? "#f5ede6" : "#edf3f8",
+                            d.sourceType === "vehicleIssue" ? "var(--legacy-color-f5ede6)" : "var(--legacy-color-edf3f8)",
                             d.sourceType === "vehicleIssue" ? UI.accent : UI.brand
                           )}
                         >
@@ -2837,14 +2837,14 @@ export default function VehiclesHomePage() {
           <div style={{ height: 320, marginTop: 10, minWidth: 0, overflow: "hidden" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={usageData} margin={{ top: 18, right: 24, left: 0, bottom: 18 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
-                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "#e5e7eb" }} tickLine={{ stroke: "#e5e7eb" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
+                <XAxis dataKey="name" tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }} tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }} />
+                <YAxis allowDecimals={false} tick={{ fill: UI.muted, fontSize: 12 }} axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }} tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }} />
                 <Tooltip
                   cursor={{ fill: "rgba(148,163,184,0.12)" }}
                   contentStyle={{
                     borderRadius: 10,
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid var(--legacy-color-e5e7eb)",
                     boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                     fontSize: 12,
                     color: UI.text,
@@ -2908,7 +2908,7 @@ export default function VehiclesHomePage() {
                   gap: 12,
                   padding: "14px 16px",
                   borderBottom: UI.border,
-                  background: "#f8fafc",
+                  background: "var(--legacy-color-f8fafc)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2921,7 +2921,7 @@ export default function VehiclesHomePage() {
                       alignItems: "center",
                       justifyContent: "center",
                       background: UI.accentSoft,
-                      color: "#8b5e3c",
+                      color: "var(--legacy-color-8b5e3c)",
                       border: `1px solid ${UI.brandBorder}`,
                       flex: "0 0 auto",
                     }}
@@ -2963,11 +2963,11 @@ export default function VehiclesHomePage() {
                     marginTop: 14,
                   }}
                 >
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fff" }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-fff)" }}>
                     <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>From</div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.fromLabel}</div>
                   </div>
-                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#f8fbfe" }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-f8fbfe)" }}>
                     <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>To</div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: UI.text }}>{pendingMaintenanceDrop.toLabel}</div>
                   </div>
@@ -2988,7 +2988,7 @@ export default function VehiclesHomePage() {
                   gap: 10,
                   padding: "12px 16px",
                   borderTop: UI.border,
-                  background: "#f8fafc",
+                  background: "var(--legacy-color-f8fafc)",
                 }}
               >
                 <button
@@ -3055,7 +3055,7 @@ export default function VehiclesHomePage() {
                   <div
                     style={{
                       whiteSpace: "pre-wrap",
-                      background: "#f8fafc",
+                      background: "var(--legacy-color-f8fafc)",
                       border: UI.border,
                       borderRadius: 12,
                       padding: 12,
@@ -3081,8 +3081,8 @@ export default function VehiclesHomePage() {
                     onClick={() => setActionModal((m) => ({ ...m, category: "general" }))}
                     style={{
                       ...btn("pill"),
-                      borderColor: actionModal.category === "general" ? "#bfdbfe" : "#d1d5db",
-                      background: actionModal.category === "general" ? UI.brandSoft : "#fff",
+                      borderColor: actionModal.category === "general" ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d1d5db)",
+                      background: actionModal.category === "general" ? UI.brandSoft : "var(--legacy-color-fff)",
                       color: actionModal.category === "general" ? UI.brand : UI.text,
                     }}
                     disabled={actionLoading}
@@ -3095,8 +3095,8 @@ export default function VehiclesHomePage() {
                     onClick={() => setActionModal((m) => ({ ...m, category: "immediate" }))}
                     style={{
                       ...btn("pill"),
-                      borderColor: actionModal.category === "immediate" ? "#bfdbfe" : "#d1d5db",
-                      background: actionModal.category === "immediate" ? UI.brandSoft : "#fff",
+                      borderColor: actionModal.category === "immediate" ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d1d5db)",
+                      background: actionModal.category === "immediate" ? UI.brandSoft : "var(--legacy-color-fff)",
                       color: actionModal.category === "immediate" ? UI.brand : UI.text,
                     }}
                     disabled={actionLoading}
@@ -3157,9 +3157,9 @@ export default function VehiclesHomePage() {
 function SummaryCard({ title, value, footer, icon: Icon, tone = "brand", onClick }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
   const clickable = typeof onClick === "function";
 
@@ -3211,7 +3211,7 @@ function RiskRing({ title, total, ok, soon, overdue }) {
   const okPct = safeTotal ? Math.round((Number(ok || 0) / safeTotal) * 100) : 100;
   const soonPct = safeTotal ? Math.round((Number(soon || 0) / safeTotal) * 100) : 0;
   const overduePct = safeTotal ? Math.max(0, 100 - okPct - soonPct) : 0;
-  const background = `conic-gradient(#16a34a 0 ${okPct}%, #f59e0b ${okPct}% ${okPct + soonPct}%, #dc2626 ${okPct + soonPct}% 100%)`;
+  const background = `conic-gradient(var(--legacy-color-16a34a) 0 ${okPct}%, var(--legacy-color-f59e0b) ${okPct}% ${okPct + soonPct}%, var(--legacy-color-dc2626) ${okPct + soonPct}% 100%)`;
 
   return (
     <div style={{ ...surface, padding: 12, minWidth: 0, maxWidth: "100%" }}>
@@ -3238,8 +3238,8 @@ function RiskRing({ title, total, ok, soon, overdue }) {
               width: 82,
               height: 82,
               borderRadius: "50%",
-              background: "#ffffff",
-              border: "1px solid #e5eaf0",
+              background: "var(--legacy-color-ffffff)",
+              border: "1px solid var(--legacy-color-e5eaf0)",
               display: "grid",
               placeItems: "center",
               color: UI.text,
@@ -3251,9 +3251,9 @@ function RiskRing({ title, total, ok, soon, overdue }) {
           </div>
         </div>
         <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-          <RingLegend color="#16a34a" label="OK" value={ok} />
-          <RingLegend color="#f59e0b" label="Due soon" value={soon} />
-          <RingLegend color="#dc2626" label="Overdue" value={overdue} />
+          <RingLegend color="var(--legacy-color-16a34a)" label="OK" value={ok} />
+          <RingLegend color="var(--legacy-color-f59e0b)" label="Due soon" value={soon} />
+          <RingLegend color="var(--legacy-color-dc2626)" label="Overdue" value={overdue} />
         </div>
       </div>
     </div>
@@ -3275,7 +3275,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
     <div
       style={{
         ...cardBase,
-        background: "#ffffff",
+        background: "var(--legacy-color-ffffff)",
         height: "100%",
         minHeight: 82,
         minWidth: 0,
@@ -3300,7 +3300,7 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
       onMouseLeave={(e) =>
         Object.assign(e.currentTarget.style, {
           ...cardBase,
-          background: "#ffffff",
+          background: "var(--legacy-color-ffffff)",
           height: "100%",
           minHeight: 82,
           padding: "11px 12px",
@@ -3365,9 +3365,9 @@ function Tile({ title, description, onClick, rightBadges = [], disabled = false,
                 const tone = b.tone || "soft";
                 const s =
                   tone === "danger"
-                    ? badge("#fef2f2", "#991b1b")
+                    ? badge("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)")
                     : tone === "amber"
-                    ? badge("#fff7ed", "#9a3412")
+                    ? badge("var(--legacy-color-fff7ed)", "var(--legacy-color-9a3412)")
                     : badge(UI.brandSoft, UI.brand);
                 return (
                   <span key={idx} style={{ ...s, whiteSpace: "normal", overflowWrap: "anywhere" }}>
@@ -3394,7 +3394,7 @@ function VehicleCheckTile({ onClick }) {
       onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? onClick() : null)}
       style={{
         ...cardBase,
-        background: "#ffffff",
+        background: "var(--legacy-color-ffffff)",
         height: "100%",
         minHeight: 82,
         minWidth: 0,
@@ -3413,7 +3413,7 @@ function VehicleCheckTile({ onClick }) {
               height: 34,
               borderRadius: 8,
               border: `1px solid ${UI.brandBorder}`,
-              background: "#eef4f9",
+              background: "var(--legacy-color-eef4f9)",
               color: UI.brand,
               display: "inline-flex",
               alignItems: "center",

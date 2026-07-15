@@ -16,19 +16,19 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#111827",
-  muted: "#6b7280",
-  border: "1px solid #e5e7eb",
-  green: "#065f46",
-  greenBg: "#ecfdf5",
-  red: "#991b1b",
-  redBg: "#fef2f2",
-  blue: "#1d4ed8",
-  blueBg: "#eff6ff",
-  purple: "#6d28d9",
-  purpleBg: "#f5f3ff",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-6b7280)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  green: "var(--legacy-color-065f46)",
+  greenBg: "var(--legacy-color-ecfdf5)",
+  red: "var(--legacy-color-991b1b)",
+  redBg: "var(--legacy-color-fef2f2)",
+  blue: "var(--legacy-color-1d4ed8)",
+  blueBg: "var(--legacy-color-eff6ff)",
+  purple: "var(--legacy-color-6d28d9)",
+  purpleBg: "var(--legacy-color-f5f3ff)",
 };
 
 const PREP_STORAGE_KEY = "stunt-prep:vehicle-checks:v1";
@@ -63,20 +63,20 @@ const card = {
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
 };
 
 const inputBase = {
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--legacy-color-d1d5db)",
   borderRadius: 8,
   padding: "8px 10px",
   fontSize: 13,
   width: "100%",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -756,7 +756,7 @@ export default function StuntPrepPage() {
           }
 
           body {
-            background: #fff !important;
+            background: var(--legacy-color-fff) !important;
           }
 
           .no-print {
@@ -764,7 +764,7 @@ export default function StuntPrepPage() {
           }
 
           .prep-sheet {
-            background: #fff !important;
+            background: var(--legacy-color-fff) !important;
             padding: 0 !important;
           }
 
@@ -792,7 +792,7 @@ export default function StuntPrepPage() {
           }
 
           .print-check {
-            border-color: #000 !important;
+            border-color: var(--legacy-color-000) !important;
             width: 12px !important;
             height: 12px !important;
             min-width: 12px !important;
@@ -906,9 +906,9 @@ export default function StuntPrepPage() {
                 onClick={() => setShowCompleted((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showCompleted ? "#111827" : "#fff",
-                  color: showCompleted ? "#fff" : UI.text,
-                  borderColor: showCompleted ? "#111827" : "#d1d5db",
+                  background: showCompleted ? "var(--legacy-color-111827)" : "var(--legacy-color-fff)",
+                  color: showCompleted ? "var(--legacy-color-fff)" : UI.text,
+                  borderColor: showCompleted ? "var(--legacy-color-111827)" : "var(--legacy-color-d1d5db)",
                 }}
               >
                 {showCompleted ? "Hide Prepped" : "Show Prepped"}
@@ -919,9 +919,9 @@ export default function StuntPrepPage() {
                 onClick={() => setShowArchived((v) => !v)}
                 style={{
                   ...buttonBase,
-                  background: showArchived ? "#6d28d9" : "#fff",
-                  color: showArchived ? "#fff" : UI.text,
-                  borderColor: showArchived ? "#6d28d9" : "#d1d5db",
+                  background: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-fff)",
+                  color: showArchived ? "var(--legacy-color-fff)" : UI.text,
+                  borderColor: showArchived ? "var(--legacy-color-6d28d9)" : "var(--legacy-color-d1d5db)",
                 }}
               >
                 {showArchived ? "Hide Archived" : "Show Archived"}
@@ -932,9 +932,9 @@ export default function StuntPrepPage() {
                 onClick={() => window.print()}
                 style={{
                   ...buttonBase,
-                  background: "#111827",
-                  color: "#fff",
-                  borderColor: "#111827",
+                  background: "var(--legacy-color-111827)",
+                  color: "var(--legacy-color-fff)",
+                  borderColor: "var(--legacy-color-111827)",
                 }}
               >
                 Print Prep List
@@ -1021,9 +1021,9 @@ export default function StuntPrepPage() {
               onClick={addManualEntry}
               style={{
                 ...buttonBase,
-                background: "#1d4ed8",
-                borderColor: "#1d4ed8",
-                color: "#fff",
+                background: "var(--legacy-color-1d4ed8)",
+                borderColor: "var(--legacy-color-1d4ed8)",
+                color: "var(--legacy-color-fff)",
               }}
             >
               Add Manual Vehicle
@@ -1114,9 +1114,9 @@ export default function StuntPrepPage() {
               onClick={addFleetEntry}
               style={{
                 ...buttonBase,
-                background: "#0f766e",
-                borderColor: "#0f766e",
-                color: "#fff",
+                background: "var(--legacy-color-0f766e)",
+                borderColor: "var(--legacy-color-0f766e)",
+                color: "var(--legacy-color-fff)",
               }}
             >
               Add Fleet Vehicle
@@ -1142,7 +1142,7 @@ export default function StuntPrepPage() {
                   key={job.jobKey}
                   className="prep-job"
                   style={{
-                    borderBottom: "2px solid #d1d5db",
+                    borderBottom: "2px solid var(--legacy-color-d1d5db)",
                     paddingBottom: 18,
                     marginBottom: 4,
                   }}
@@ -1178,7 +1178,7 @@ export default function StuntPrepPage() {
                     </div>
 
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <span style={badge("#eef2ff", "#3730a3")}>
+                      <span style={badge("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>
                         Vehicles: {job.vehicles.length}
                       </span>
                       {job.hasFleet && <span style={badge(UI.blueBg, UI.blue)}>FLEET</span>}
@@ -1191,9 +1191,9 @@ export default function StuntPrepPage() {
                             ...buttonBase,
                             padding: "6px 10px",
                             fontSize: 12,
-                            background: "#fff1f2",
-                            borderColor: "#fecaca",
-                            color: "#9f1239",
+                            background: "var(--legacy-color-fff1f2)",
+                            borderColor: "var(--legacy-color-fecaca)",
+                            color: "var(--legacy-color-9f1239)",
                           }}
                           onClick={() => removeManualEntry(job.manualIds[0])}
                         >
@@ -1228,9 +1228,9 @@ export default function StuntPrepPage() {
                           key={s.sectionKey}
                           className="prep-section"
                           style={{
-                            border: "1px solid #e5e7eb",
+                            border: "1px solid var(--legacy-color-e5e7eb)",
                             padding: 14,
-                            background: isCompleted ? "#f0fdf4" : "transparent",
+                            background: isCompleted ? "var(--legacy-color-f0fdf4)" : "transparent",
                             borderRadius: 10,
                           }}
                         >
@@ -1263,8 +1263,8 @@ export default function StuntPrepPage() {
                               )}
 
                               {isReady && <span style={badge(UI.blueBg, UI.blue)}>READY</span>}
-                              {isRemoved && <span style={badge("#fff1f2", "#9f1239")}>REMOVED</span>}
-                              {isArchived && <span style={badge("#f3e8ff", "#6d28d9")}>ARCHIVED</span>}
+                              {isRemoved && <span style={badge("var(--legacy-color-fff1f2)", "var(--legacy-color-9f1239)")}>REMOVED</span>}
+                              {isArchived && <span style={badge("var(--legacy-color-f3e8ff)", "var(--legacy-color-6d28d9)")}>ARCHIVED</span>}
                             </div>
 
                             <span style={{ fontSize: 14, color: UI.muted, fontWeight: 700 }}>
@@ -1279,9 +1279,9 @@ export default function StuntPrepPage() {
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: isCompleted ? "#fee2e2" : "#ecfdf5",
-                                borderColor: isCompleted ? "#fecaca" : "#86efac",
-                                color: isCompleted ? "#991b1b" : "#166534",
+                                background: isCompleted ? "var(--legacy-color-fee2e2)" : "var(--legacy-color-ecfdf5)",
+                                borderColor: isCompleted ? "var(--legacy-color-fecaca)" : "var(--legacy-color-86efac)",
+                                color: isCompleted ? "var(--legacy-color-991b1b)" : "var(--legacy-color-166534)",
                               }}
                               onClick={() => toggleComplete(s.sectionKey)}
                             >
@@ -1294,9 +1294,9 @@ export default function StuntPrepPage() {
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: isReady ? "#dbeafe" : "#fff",
-                                borderColor: "#93c5fd",
-                                color: "#1d4ed8",
+                                background: isReady ? "var(--legacy-color-dbeafe)" : "var(--legacy-color-fff)",
+                                borderColor: "var(--legacy-color-93c5fd)",
+                                color: "var(--legacy-color-1d4ed8)",
                               }}
                               onClick={() => toggleReady(s.sectionKey)}
                             >
@@ -1309,9 +1309,9 @@ export default function StuntPrepPage() {
                                 ...buttonBase,
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                background: isRemoved ? "#ecfdf5" : "#fff1f2",
-                                borderColor: isRemoved ? "#86efac" : "#fecaca",
-                                color: isRemoved ? "#166534" : "#9f1239",
+                                background: isRemoved ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-fff1f2)",
+                                borderColor: isRemoved ? "var(--legacy-color-86efac)" : "var(--legacy-color-fecaca)",
+                                color: isRemoved ? "var(--legacy-color-166534)" : "var(--legacy-color-9f1239)",
                               }}
                               onClick={() => toggleRemoved(s.sectionKey)}
                             >
@@ -1326,8 +1326,8 @@ export default function StuntPrepPage() {
                                   style={{
                                     fontSize: 13,
                                     color: UI.text,
-                                    background: "#eff6ff",
-                                    border: "1px solid #bfdbfe",
+                                    background: "var(--legacy-color-eff6ff)",
+                                    border: "1px solid var(--legacy-color-bfdbfe)",
                                     borderRadius: 8,
                                     padding: "8px 10px",
                                   }}
@@ -1380,12 +1380,12 @@ export default function StuntPrepPage() {
                                   style={{
                                     width: 24,
                                     height: 24,
-                                    border: "1px solid #111827",
+                                    border: "1px solid var(--legacy-color-111827)",
                                     borderRadius: 3,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    background: it.checked ? "#bbf7d0" : "#fff",
+                                    background: it.checked ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fff)",
                                     fontWeight: 900,
                                     cursor: "pointer",
                                   }}
@@ -1400,10 +1400,10 @@ export default function StuntPrepPage() {
                                   style={{
                                     fontSize: 18,
                                     lineHeight: 1.2,
-                                    color: it.isEquipment ? "#b91c1c" : "#111827",
+                                    color: it.isEquipment ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-111827)",
                                     fontWeight: it.isEquipment ? 900 : 600,
                                     textDecoration: it.isEquipment ? "underline" : "none",
-                                    background: it.checked ? "#ecfccb" : "transparent",
+                                    background: it.checked ? "var(--legacy-color-ecfccb)" : "transparent",
                                     padding: "0 4px",
                                     borderRadius: 4,
                                   }}
@@ -1417,9 +1417,9 @@ export default function StuntPrepPage() {
                                   onClick={() => removeItem(s.sectionKey, it.id)}
                                   style={{
                                     marginLeft: "auto",
-                                    border: "1px solid #fecaca",
-                                    background: "#fff1f2",
-                                    color: "#9f1239",
+                                    border: "1px solid var(--legacy-color-fecaca)",
+                                    background: "var(--legacy-color-fff1f2)",
+                                    color: "var(--legacy-color-9f1239)",
                                     borderRadius: 8,
                                     padding: "6px 8px",
                                     fontWeight: 700,

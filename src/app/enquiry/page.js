@@ -18,25 +18,25 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   radius: 8,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -71,8 +71,8 @@ const btn = (kind = "ghost") => ({
   padding: "8px 11px",
   borderRadius: UI.radius,
   border: kind === "primary" ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
-  background: kind === "primary" ? UI.brand : "#fff",
-  color: kind === "primary" ? "#fff" : UI.text,
+  background: kind === "primary" ? UI.brand : "var(--legacy-color-fff)",
+  color: kind === "primary" ? "var(--legacy-color-fff)" : UI.text,
   fontWeight: 800,
   fontSize: 13,
   cursor: "pointer",
@@ -127,8 +127,8 @@ const quoteOverlayPanel = {
   height: "min(760px, calc(100vh - 8px))",
   display: "grid",
   gridTemplateRows: "auto minmax(0, 1fr)",
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 10,
   boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
   overflow: "hidden",
@@ -140,8 +140,8 @@ const quoteOverlayHeader = {
   justifyContent: "space-between",
   gap: 12,
   padding: "7px 10px",
-  borderBottom: "1px solid #dbe4ef",
-  background: "#f8fafc",
+  borderBottom: "1px solid var(--legacy-color-dbe4ef)",
+  background: "var(--legacy-color-f8fafc)",
 };
 
 const quoteOverlayEyebrow = {
@@ -174,9 +174,9 @@ const quoteOverlayCloseButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   padding: 0,
   cursor: "pointer",
@@ -186,7 +186,7 @@ const quoteOverlayFrame = {
   width: "100%",
   height: "100%",
   border: 0,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
 const pill = {
@@ -238,10 +238,10 @@ const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, f
 const th = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid #e5e7eb",
+  borderBottom: "1px solid var(--legacy-color-e5e7eb)",
   position: "sticky",
   top: 0,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   zIndex: 1,
   color: UI.muted,
   fontSize: 10.5,
@@ -251,7 +251,7 @@ const th = {
 };
 const td = {
   padding: "7px 8px",
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -543,7 +543,7 @@ export default function EnquiryPage() {
                     {enquiries.map((booking) => {
                       const needsChase = enquiryNeedsChase(booking);
                       return (
-                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "#fff" }}>
+                        <tr key={booking.id} style={{ background: needsChase ? UI.amberSoft : "var(--legacy-color-fff)" }}>
                           <td style={{ ...td, ...nowrap, fontWeight: 900 }}>{booking.jobNumber || "No Job #"}</td>
                           <td style={td} title={booking.client || ""}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>

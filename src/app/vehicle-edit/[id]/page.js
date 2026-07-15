@@ -62,20 +62,20 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  red: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
-  line: "#d7dee8",
-  softBlue: "#edf3f8",
-  softSlate: "#f1f5f9",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  red: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
+  line: "var(--legacy-color-d7dee8)",
+  softBlue: "var(--legacy-color-edf3f8)",
+  softSlate: "var(--legacy-color-f1f5f9)",
 };
 
 const pageWrap = {
@@ -99,7 +99,7 @@ const panel = { ...card, padding: 12 };
 const heroCard = {
   ...card,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   border: UI.border,
 };
 
@@ -113,7 +113,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -134,7 +134,7 @@ const btn = (kind = "primary") => {
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.red}`,
       background: UI.red,
-      color: "#fff",
+      color: "var(--legacy-color-fff)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -150,9 +150,9 @@ const btn = (kind = "primary") => {
       gap: 6,
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
-      border: "1px solid #bbf7d0",
-      background: "#ecfdf5",
-      color: "#065f46",
+      border: "1px solid var(--legacy-color-bbf7d0)",
+      background: "var(--legacy-color-ecfdf5)",
+      color: "var(--legacy-color-065f46)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -168,8 +168,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -195,7 +195,7 @@ const inputField = {
   fontSize: 13,
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   color: UI.text,
   outline: "none",
 };
@@ -1556,7 +1556,7 @@ export default function EditVehiclePage() {
     return (
       <HeaderSidebarLayout>
         <div style={pageWrap}>
-          <div style={{ ...panel, textAlign: "center", color: loadError ? "#dc2626" : UI.muted }}>
+          <div style={{ ...panel, textAlign: "center", color: loadError ? "var(--legacy-color-dc2626)" : UI.muted }}>
             {loadError || "Loading vehicle..."}
           </div>
         </div>
@@ -1574,7 +1574,7 @@ export default function EditVehiclePage() {
           textarea:focus {
             outline: none;
             box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-            border-color: #bfdbfe !important;
+            border-color: var(--legacy-color-bfdbfe) !important;
           }
         `}</style>
 
@@ -1637,7 +1637,7 @@ export default function EditVehiclePage() {
 
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={labelStyle}>Category</label>
-                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "#f8fafc" }} />
+                <input value={RETENTION_PLATE_CATEGORY} readOnly style={{ ...inputField, background: "var(--legacy-color-f8fafc)" }} />
               </div>
 
               <div style={{ gridColumn: "1 / -1" }}>
@@ -1669,8 +1669,8 @@ export default function EditVehiclePage() {
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 950,
-      border: "1px solid #e5e7eb",
-      background: "#fff",
+      border: "1px solid var(--legacy-color-e5e7eb)",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       whiteSpace: "nowrap",
     };
@@ -1747,11 +1747,11 @@ export default function EditVehiclePage() {
         textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.14);
-          border-color: #bfdbfe !important;
+          border-color: var(--legacy-color-bfdbfe) !important;
         }
         select option {
-          background: #fff;
-          color: #0f172a;
+          background: var(--legacy-color-fff);
+          color: var(--legacy-color-0f172a);
         }
         @media (max-width: 1180px) {
           .vehicle-edit-layout { grid-template-columns: 1fr !important; }
@@ -2148,9 +2148,9 @@ export default function EditVehiclePage() {
                         display: "flex",
                         gap: 8,
                         alignItems: "flex-start",
-                        border: "1px solid #f59e0b",
-                        background: "#fffbeb",
-                        color: "#92400e",
+                        border: "1px solid var(--legacy-color-f59e0b)",
+                        background: "var(--legacy-color-fffbeb)",
+                        color: "var(--legacy-color-92400e)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2165,9 +2165,9 @@ export default function EditVehiclePage() {
                   {dvsaLatestSeriousDefects.length ? (
                     <div
                       style={{
-                        border: "1px solid #fecaca",
-                        background: "#fef2f2",
-                        color: "#991b1b",
+                        border: "1px solid var(--legacy-color-fecaca)",
+                        background: "var(--legacy-color-fef2f2)",
+                        color: "var(--legacy-color-991b1b)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2189,7 +2189,7 @@ export default function EditVehiclePage() {
                     <div
                       style={{
                         border: UI.border,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         borderRadius: UI.radius,
                         padding: 10,
                         fontSize: 12.5,
@@ -2236,10 +2236,10 @@ export default function EditVehiclePage() {
                         <div
                           key={item.bookingId || `${item.completedDate}-${index}`}
                           style={{
-                            border: "1px solid #e5e7eb",
+                            border: "1px solid var(--legacy-color-e5e7eb)",
                             borderRadius: 12,
                             padding: 10,
-                            background: "#fff",
+                            background: "var(--legacy-color-fff)",
                           }}
                         >
                           <div style={{ fontWeight: 900, color: UI.text }}>
@@ -2292,7 +2292,7 @@ export default function EditVehiclePage() {
                         alignItems: "center",
                         gap: 7,
                         border: checked ? `1px solid ${UI.brandBorder}` : UI.border,
-                        background: checked ? UI.brandSoft : "#fff",
+                        background: checked ? UI.brandSoft : "var(--legacy-color-fff)",
                         color: UI.text,
                         borderRadius: UI.radius,
                         padding: "7px 9px",
@@ -2381,7 +2381,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                       }}
                     >
                       <div
@@ -2404,7 +2404,7 @@ export default function EditVehiclePage() {
                             border: UI.border,
                             borderRadius: 999,
                             padding: "4px 8px",
-                            background: "#f8fafc",
+                            background: "var(--legacy-color-f8fafc)",
                           }}
                         >
                           {b.status || "Booked"}
@@ -2471,7 +2471,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                       title={item.bookingId ? "Open booking" : "No linked booking record"}
@@ -2531,7 +2531,7 @@ export default function EditVehiclePage() {
                         border: UI.border,
                         borderRadius: UI.radius,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         cursor: "pointer",
                       }}
                       title={item.bookingId ? "Open full service details" : "Open service history"}
@@ -2793,8 +2793,8 @@ function FileUploadField({ label, field, files, onUpload, uploadingField }) {
                 textDecoration: "none",
                 padding: "8px 10px",
                 borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
+                border: "1px solid var(--legacy-color-e5e7eb)",
+                background: "var(--legacy-color-fff)",
               }}
               title={f.url}
             >
@@ -2849,8 +2849,8 @@ function MetaPill({ label, value }) {
         gap: 6,
         padding: "6px 10px",
         borderRadius: 999,
-        border: "1px solid #e5e7eb",
-        background: "#fff",
+        border: "1px solid var(--legacy-color-e5e7eb)",
+        background: "var(--legacy-color-fff)",
         fontSize: 12,
       }}
     >
@@ -2899,7 +2899,7 @@ const modalTitle = {
 const closeBtn = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   color: UI.muted,
   fontSize: 20,
   cursor: "pointer",
@@ -2920,7 +2920,7 @@ const modalInput = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  backgroundColor: "#ffffff",
+  backgroundColor: "var(--legacy-color-ffffff)",
   color: UI.text,
   outline: "none",
   fontSize: 14,
@@ -2932,8 +2932,8 @@ const primaryBtn = {
   padding: "8px 12px",
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.brand}`,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 800,
   fontSize: 14,
 };
@@ -2944,7 +2944,7 @@ const dangerBtn = {
   borderRadius: UI.radiusSm,
   border: `1px solid ${UI.red}`,
   background: UI.red,
-  color: "#ffffff",
+  color: "var(--legacy-color-ffffff)",
   fontWeight: 800,
   fontSize: 14,
   cursor: "pointer",

@@ -32,20 +32,20 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  okBg: "#ecfdf5",
-  okFg: "#065f46",
-  soonBg: "#fff7ed",
-  soonFg: "#9a3412",
-  overdueBg: "#fef2f2",
-  overdueFg: "#991b1b",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  okBg: "var(--legacy-color-ecfdf5)",
+  okFg: "var(--legacy-color-065f46)",
+  soonBg: "var(--legacy-color-fff7ed)",
+  soonFg: "var(--legacy-color-9a3412)",
+  overdueBg: "var(--legacy-color-fef2f2)",
+  overdueFg: "var(--legacy-color-991b1b)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -74,9 +74,9 @@ const btn = (kind = "ghost") => {
     borderRadius: UI.radiusSm,
     border: primary ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
     background: primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
+      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: primary ? "var(--legacy-color-fff)" : UI.text,
     fontWeight: 800,
     cursor: "pointer",
     textDecoration: "none",
@@ -95,7 +95,7 @@ const input = {
   borderRadius: UI.radiusSm,
   padding: "8px 10px",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   width: "100%",
   outline: "none",
@@ -124,15 +124,15 @@ const th = {
   color: UI.muted,
   textTransform: "uppercase",
   letterSpacing: 0,
-  borderBottom: "1px solid #eef2f7",
+  borderBottom: "1px solid var(--legacy-color-eef2f7)",
   textAlign: "left",
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontWeight: 900,
 };
 const td = {
   padding: "11px 12px",
   fontSize: 13,
-  borderBottom: "1px solid #f1f5f9",
+  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
   verticalAlign: "middle",
 };
 
@@ -144,7 +144,7 @@ const actionBtn = {
   padding: "5px 8px",
   borderRadius: 999,
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.brand,
   fontWeight: 800,
   cursor: "pointer",
@@ -329,9 +329,9 @@ export default function MOTOverviewPage() {
   }, [vehicles]);
 
   const rowBg = (status) => {
-    if (status === "overdue") return { background: "#fff1f2" };
-    if (status === "soon") return { background: "#fffbeb" };
-    if (status === "ok") return { background: "#f0fdf4" };
+    if (status === "overdue") return { background: "var(--legacy-color-fff1f2)" };
+    if (status === "soon") return { background: "var(--legacy-color-fffbeb)" };
+    if (status === "ok") return { background: "var(--legacy-color-f0fdf4)" };
     return {};
   };
 
@@ -340,7 +340,7 @@ export default function MOTOverviewPage() {
       <style jsx global>{`
         .mot-overview-action:hover { transform: translateY(-1px); box-shadow: ${UI.shadowHover} !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: #9fb7cf !important; }
+        input:focus, select:focus, button:focus { outline: none; box-shadow: 0 0 0 4px rgba(31,75,122,0.14); border-color: var(--legacy-color-9fb7cf) !important; }
         .mot-overview-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -451,8 +451,8 @@ export default function MOTOverviewPage() {
             <span style={pill(UI.overdueBg, UI.overdueFg)}>Overdue</span>
             <span style={pill(UI.soonBg, UI.soonFg)}>Due Soon</span>
             <span style={pill(UI.okBg, UI.okFg)}>OK</span>
-            <span style={pill("#f1f5f9", UI.text)}>Missing Date</span>
-            <span style={pill("#f1f5f9", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing Date</span>
+            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Showing {filtered.length} / {kpis.total}</span>
           </div>
         </div>
 
@@ -523,7 +523,7 @@ export default function MOTOverviewPage() {
 
                         <td style={td}>
                           {status === "unknown" ? (
-                            <span style={pill("#f1f5f9", UI.text)}>Missing date</span>
+                            <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>Missing date</span>
                           ) : (
                             <span style={statusPill(status)}>
                               {status === "overdue" ? "Overdue" : status === "soon" ? "Due Soon" : "OK"}
@@ -576,9 +576,9 @@ export default function MOTOverviewPage() {
 
 function SummaryCard({ label, value, sub, icon: Icon, tone = "brand" }) {
   const tones = {
-    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "#fecdd3" },
-    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "#fed7aa" },
-    ok: { bg: UI.okBg, fg: UI.okFg, border: "#bbf7d0" },
+    danger: { bg: UI.overdueBg, fg: UI.overdueFg, border: "var(--legacy-color-fecdd3)" },
+    amber: { bg: UI.soonBg, fg: UI.soonFg, border: "var(--legacy-color-fed7aa)" },
+    ok: { bg: UI.okBg, fg: UI.okFg, border: "var(--legacy-color-bbf7d0)" },
     brand: { bg: UI.brandSoft, fg: UI.brand, border: UI.brandBorder },
   };
   const toneStyles = tones[tone] || tones.brand;

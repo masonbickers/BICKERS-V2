@@ -336,6 +336,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Served only through authenticated APIs so audience-specific finance
+    // redaction happens before a briefing reaches the browser.
+    match /aiBusinessRules/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiStatisticsBriefings/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiInsightFeedback/{docId} {
+      allow read, write: if false;
+    }
+
     match /loginSecurityLogs/{logId} {
       allow read: if isAdmin();
       allow write: if false;

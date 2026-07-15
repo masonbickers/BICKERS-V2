@@ -21,14 +21,14 @@ const UI = {
   radius: 8,
   radiusSm: 8,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -64,15 +64,15 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
 const ppeTh = {
   padding: "7px 8px",
   background: UI.brand,
-  color: "#fff",
-  borderBottom: "1px solid #183d64",
+  color: "var(--legacy-color-fff)",
+  borderBottom: "1px solid var(--legacy-color-183d64)",
   borderRight: "1px solid rgba(255,255,255,0.16)",
   textAlign: "left",
   fontSize: 11.5,
@@ -82,8 +82,8 @@ const ppeTh = {
 
 const ppeTd = {
   padding: "5px 7px",
-  borderBottom: "1px solid #dbe1ea",
-  borderRight: "1px solid #e5eaf0",
+  borderBottom: "1px solid var(--legacy-color-dbe1ea)",
+  borderRight: "1px solid var(--legacy-color-e5eaf0)",
   fontSize: 12.5,
   color: UI.text,
   verticalAlign: "middle",
@@ -99,7 +99,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -118,8 +118,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -299,9 +299,9 @@ function registerState(item) {
 }
 
 function toneStyle(tone) {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
+  if (tone === "amber") return { background: "var(--legacy-color-fff7ed)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 }
 
@@ -426,8 +426,8 @@ function PpeIssueRegisterPage() {
   const ppeTheme = {
     bg: UI.bg,
     panel: UI.card,
-    panel2: "#f8fbfe",
-    border: "#d7dee8",
+    panel2: "var(--legacy-color-f8fbfe)",
+    border: "var(--legacy-color-d7dee8)",
     text: UI.text,
     muted: UI.muted,
     accent: UI.brand,
@@ -457,9 +457,9 @@ function PpeIssueRegisterPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                border: "1px solid #bbf7d0",
-                background: "#dcfce7",
-                color: "#166534",
+                border: "1px solid var(--legacy-color-bbf7d0)",
+                background: "var(--legacy-color-dcfce7)",
+                color: "var(--legacy-color-166534)",
                 borderRadius: 8,
                 padding: "9px 12px",
                 fontWeight: 900,
@@ -477,9 +477,9 @@ function PpeIssueRegisterPage() {
             {loadNotice ? (
               <div
                 style={{
-                  border: "1px solid #fed7aa",
-                  background: "#fff7ed",
-                  color: "#9a3412",
+                  border: "1px solid var(--legacy-color-fed7aa)",
+                  background: "var(--legacy-color-fff7ed)",
+                  color: "var(--legacy-color-9a3412)",
                   borderRadius: 8,
                   padding: "9px 10px",
                   fontSize: 12.5,
@@ -501,7 +501,7 @@ function PpeIssueRegisterPage() {
                   style={{
                     ...input,
                     paddingLeft: 32,
-                    background: "#fff",
+                    background: "var(--legacy-color-fff)",
                     border: UI.border,
                     color: ppeTheme.text,
                   }}
@@ -523,13 +523,13 @@ function PpeIssueRegisterPage() {
                     style={{
                       textAlign: "left",
                       border: `1px solid ${active ? ppeTheme.accent : ppeTheme.border}`,
-                      background: active ? ppeTheme.accentSoft : "#ffffff",
+                      background: active ? ppeTheme.accentSoft : "var(--legacy-color-ffffff)",
                       color: active ? ppeTheme.accent : ppeTheme.text,
                       borderRadius: 8,
                       padding: "11px 12px",
                       cursor: "pointer",
                       fontWeight: 900,
-                      boxShadow: active ? "inset 3px 0 0 #1f4b7a" : "none",
+                      boxShadow: active ? "inset 3px 0 0 var(--legacy-color-1f4b7a)" : "none",
                     }}
                   >
                     {employeeDisplayName(employee)}
@@ -589,7 +589,7 @@ function PpeIssueRegisterPage() {
                     style={{
                       ...surface,
                       padding: 14,
-                      background: "#ffffff",
+                      background: "var(--legacy-color-ffffff)",
                       transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease",
                     }}
                   >
@@ -614,10 +614,10 @@ function PpeIssueRegisterPage() {
                         width: "100%",
                         marginTop: 14,
                         minHeight: 44,
-                        border: `1px solid ${selectedEmployee ? UI.brand : "#cbd5e1"}`,
+                        border: `1px solid ${selectedEmployee ? UI.brand : "var(--legacy-color-cbd5e1)"}`,
                         borderRadius: 8,
-                        background: selectedEmployee ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)" : "#e2e8f0",
-                        color: "#fff",
+                        background: selectedEmployee ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)" : "var(--legacy-color-e2e8f0)",
+                        color: "var(--legacy-color-fff)",
                         fontWeight: 950,
                         cursor: selectedEmployee ? "pointer" : "not-allowed",
                         fontSize: 14,
@@ -656,7 +656,7 @@ function PpeIssueRegisterPage() {
                                 gap: 8,
                                 border: UI.border,
                                 borderRadius: 8,
-                                background: "#f8fafc",
+                                background: "var(--legacy-color-f8fafc)",
                                 padding: "8px 9px",
                                 color: ppeTheme.text,
                                 fontSize: 12.5,
@@ -1261,7 +1261,7 @@ function LegacyHsRegisterDetailPage() {
                     <tbody>
                       {employees.map((employee, index) => {
                         const issueRow = form.ppeIssueRows?.[employee.id] || {};
-                        const bg = index % 2 === 0 ? "#ffffff" : "#f8fafc";
+                        const bg = index % 2 === 0 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-f8fafc)";
 
                         return (
                           <tr key={employee.id} style={{ background: bg }}>
@@ -1318,7 +1318,7 @@ function LegacyHsRegisterDetailPage() {
                                       height: 28,
                                       borderRadius: 8,
                                       border: `1px solid ${UI.brandBorder}`,
-                                      background: "#fff",
+                                      background: "var(--legacy-color-fff)",
                                       color: UI.brand,
                                       display: "inline-flex",
                                       alignItems: "center",
@@ -1361,7 +1361,7 @@ function LegacyHsRegisterDetailPage() {
                 {isWorkshopWeeklyCheck ? (
                   <div className="workshop-check-grid">
                     {WORKSHOP_CHECK_ITEMS.map((checkItem) => (
-                      <label key={checkItem.id} style={{ border: UI.border, borderRadius: UI.radius, background: "#f8fafc", padding: 10 }}>
+                      <label key={checkItem.id} style={{ border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-f8fafc)", padding: 10 }}>
                         <p style={smallLabel}>{checkItem.label}</p>
                         <select
                           value={checkDraft.workshopResults?.[checkItem.id] || "ok"}
@@ -1553,7 +1553,7 @@ function LegacyHsRegisterDetailPage() {
                         style={{
                           border: UI.border,
                           borderRadius: UI.radius,
-                          background: "#f8fafc",
+                          background: "var(--legacy-color-f8fafc)",
                           padding: 10,
                         }}
                       >
@@ -1570,8 +1570,8 @@ function LegacyHsRegisterDetailPage() {
                                 ...btn("ghost"),
                                 minHeight: 26,
                                 padding: "3px 7px",
-                                color: "#b91c1c",
-                                borderColor: "#fecdd3",
+                                color: "var(--legacy-color-b91c1c)",
+                                borderColor: "var(--legacy-color-fecdd3)",
                                 boxShadow: "none",
                               }}
                               title="Delete this check"
@@ -1654,7 +1654,7 @@ function LegacyHsRegisterDetailPage() {
               </div>
 
               <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "#fbfdff" }}>
+                <div style={{ border: UI.border, borderRadius: UI.radius, padding: 10, background: "var(--legacy-color-fbfdff)" }}>
                   <p style={smallLabel}>Current evidence</p>
                   <div style={{ marginTop: 6, fontWeight: 900, color: UI.text }}>
                     {certificateDocuments(item).length ? `${certificateDocuments(item).length} document${certificateDocuments(item).length === 1 ? "" : "s"} uploaded` : "No certificate uploaded"}
@@ -1718,7 +1718,7 @@ function LegacyHsRegisterDetailPage() {
 
                 {selectedPpeHistory ? (
                   <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ border: UI.border, borderRadius: UI.radius, background: "#fbfdff", padding: 10 }}>
+                    <div style={{ border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fbfdff)", padding: 10 }}>
                       <p style={smallLabel}>Employee</p>
                       <div style={{ marginTop: 5, color: UI.text, fontWeight: 900 }}>{selectedPpeHistory.employeeName}</div>
                       <div style={{ marginTop: 3, color: UI.muted, fontSize: 12.5 }}>{selectedPpeHistory.ppeLabel}</div>
@@ -1736,7 +1736,7 @@ function LegacyHsRegisterDetailPage() {
                               gap: 8,
                               border: UI.border,
                               borderRadius: UI.radius,
-                              background: "#fff",
+                              background: "var(--legacy-color-fff)",
                               padding: "8px 10px",
                             }}
                           >
@@ -1842,7 +1842,7 @@ function Field({ label, value, onChange, readOnly = false, type = "text" }) {
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange?.(event.target.value)}
-        style={{ ...input, background: readOnly ? "#f8fafc" : "#fff", fontWeight: readOnly ? 850 : 700 }}
+        style={{ ...input, background: readOnly ? "var(--legacy-color-f8fafc)" : "var(--legacy-color-fff)", fontWeight: readOnly ? 850 : 700 }}
       />
     </label>
   );
@@ -1850,7 +1850,7 @@ function Field({ label, value, onChange, readOnly = false, type = "text" }) {
 
 function InfoRow({ label, value, icon: Icon }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 8, alignItems: "center", padding: "9px 0", borderTop: "1px solid #eef2f7" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", gap: 8, alignItems: "center", padding: "9px 0", borderTop: "1px solid var(--legacy-color-eef2f7)" }}>
       <span
         style={{
           width: 28,

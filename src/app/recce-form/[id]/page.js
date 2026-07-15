@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../../../../firebaseConfig";
 
-const UI = { text:"#111827", muted:"#6b7280", bg:"#ffffff", border:"1px solid #e5e7eb", radiusLg:12, radius:8, shadow:"0 6px 16px rgba(0,0,0,0.06)" };
+const UI = { text:"var(--legacy-color-111827)", muted:"var(--legacy-color-6b7280)", bg:"var(--legacy-color-ffffff)", border:"1px solid var(--legacy-color-e5e7eb)", radiusLg:12, radius:8, shadow:"0 6px 16px rgba(0,0,0,0.06)" };
 const card = { background:UI.bg, border:UI.border, borderRadius:UI.radiusLg, boxShadow:UI.shadow, padding:16 };
 
 const Row = ({ label, value }) =>
@@ -117,44 +117,44 @@ export default function RecceFormPage() {
   const bust = updatedAt ? String(updatedAt.getTime()) : "";
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f3f4f6", padding:24 }}>
+    <div style={{ minHeight:"100vh", background:"var(--legacy-color-f3f4f6)", padding:24 }}>
       <div style={{ maxWidth:900, margin:"0 auto", display:"grid", gap:16 }}>
         {/* Header */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <h1 style={{ margin:0, fontSize:22, fontWeight:800, color:UI.text }}>Recce Form</h1>
           <div style={{ display:"flex", gap:8 }}>
-            <button onClick={() => router.back()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid #e5e7eb", background:"#f9fafb", fontWeight:700, cursor:"pointer" }}>← Back</button>
-            <button onClick={() => window.location.reload()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid #e5e7eb", background:"#f9fafb", fontWeight:700, cursor:"pointer" }} title="Force refresh">Refresh</button>
-            <button onClick={() => window.print()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid #111827", background:"#111827", color:"#fff", fontWeight:700, cursor:"pointer" }}>Print</button>
+            <button onClick={() => router.back()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)", fontWeight:700, cursor:"pointer" }}>← Back</button>
+            <button onClick={() => window.location.reload()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)", fontWeight:700, cursor:"pointer" }} title="Force refresh">Refresh</button>
+            <button onClick={() => window.print()} style={{ padding:"8px 12px", borderRadius:8, border:"1px solid var(--legacy-color-111827)", background:"var(--legacy-color-111827)", color:"var(--legacy-color-fff)", fontWeight:700, cursor:"pointer" }}>Print</button>
           </div>
         </div>
 
         {/* Status / meta */}
         <div style={{ ...card }}>
           {loading && <div style={{ color:UI.muted, fontWeight:700 }}>Loading…</div>}
-          {error && <div style={{ color:"#b91c1c", fontWeight:800 }}>{error}</div>}
+          {error && <div style={{ color:"var(--legacy-color-b91c1c)", fontWeight:800 }}>{error}</div>}
 
           {!loading && !error && recce && (
             <div style={{ display:"grid", gap:16 }}>
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:String(recce.status||"").toLowerCase()==="approved"?"#34d399":"#7cff9a", border:"1px solid #0b0b0b", color:"#111" }}>
+                <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:String(recce.status||"").toLowerCase()==="approved"?"var(--legacy-color-34d399)":"var(--legacy-color-7cff9a)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
                   {(recce.status || "Submitted").toUpperCase()}
                 </span>
 
                 {recce.bookingId && (
-                  <span title="Booking ID" style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"#e5e7eb", border:"1px solid #0b0b0b", color:"#111" }}>
+                  <span title="Booking ID" style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-e5e7eb)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
                     Booking: {recce.bookingId}
                   </span>
                 )}
 
                 {submittedAt && (
-                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"#e5e7eb", border:"1px solid #0b0b0b", color:"#111" }}>
+                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-e5e7eb)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
                     Submitted {submittedAt.toLocaleString("en-GB")}
                   </span>
                 )}
 
                 {updatedAt && (
-                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"#eef2ff", border:"1px solid #0b0b0b", color:"#111" }}>
+                  <span style={{ fontSize:12, fontWeight:800, padding:"4px 8px", borderRadius:999, background:"var(--legacy-color-eef2ff)", border:"1px solid var(--legacy-color-0b0b0b)", color:"var(--legacy-color-111)" }}>
                     Last updated {updatedAt.toLocaleString("en-GB")}
                   </span>
                 )}
@@ -186,7 +186,7 @@ export default function RecceFormPage() {
                       {photoUrls.map((url, i) => {
                         const src = bust ? `${url}${url.includes("?") ? "&" : "?"}v=${bust}` : url;
                         return (
-                          <a key={`${url}-${i}`} href={url} target="_blank" rel="noreferrer" title="Open full size" style={{ display:"block", borderRadius:10, overflow:"hidden", border:"1px solid #e5e7eb", background:"#f9fafb" }}>
+                          <a key={`${url}-${i}`} href={url} target="_blank" rel="noreferrer" title="Open full size" style={{ display:"block", borderRadius:10, overflow:"hidden", border:"1px solid var(--legacy-color-e5e7eb)", background:"var(--legacy-color-f9fafb)" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={src} alt={`Recce photo ${i + 1}`} style={{ width:"100%", height:140, objectFit:"cover", display:"block" }} />
                           </a>
@@ -200,7 +200,7 @@ export default function RecceFormPage() {
                 {Object.keys(answers).length > 0 && (
                   <details style={{ marginTop:12 }}>
                     <summary style={{ cursor:"pointer", fontWeight:800, color:UI.muted }}>Raw data (debug)</summary>
-                    <pre style={{ marginTop:8, fontSize:12, background:"#f8fafc", padding:12, borderRadius:8, overflowX:"auto" }}>
+                    <pre style={{ marginTop:8, fontSize:12, background:"var(--legacy-color-f8fafc)", padding:12, borderRadius:8, overflowX:"auto" }}>
 {JSON.stringify(answers, null, 2)}
                     </pre>
                   </details>

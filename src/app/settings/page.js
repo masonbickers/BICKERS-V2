@@ -10,6 +10,7 @@ import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import {
   ArrowRight,
   BriefcaseBusiness,
+  BrainCircuit,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -25,19 +26,19 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  successSoft: "#ecfdf5",
-  successText: "#166534",
-  warnSoft: "#fff7ed",
-  warnText: "#9a3412",
-  dangerSoft: "#fcefee",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  successSoft: "var(--legacy-color-ecfdf5)",
+  successText: "var(--legacy-color-166534)",
+  warnSoft: "var(--legacy-color-fff7ed)",
+  warnText: "var(--legacy-color-9a3412)",
+  dangerSoft: "var(--legacy-color-fcefee)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -108,7 +109,7 @@ const btnBase = {
   fontWeight: 800,
   cursor: "pointer",
   border: `1px solid ${UI.brandBorder}`,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   textDecoration: "none",
   display: "inline-flex",
@@ -119,12 +120,12 @@ const btnBase = {
 };
 const btnPrimary = {
   ...btnBase,
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
 };
 const btnSoft = { ...btnBase, background: UI.brandSoft, borderColor: UI.brandBorder, color: UI.brand };
-const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "#e9c6c4", color: "#991b1b" };
+const btnDanger = { ...btnBase, background: UI.dangerSoft, borderColor: "var(--legacy-color-e9c6c4)", color: "var(--legacy-color-991b1b)" };
 
 const avatarWrap = {
   width: 50,
@@ -143,7 +144,7 @@ const detailCard = {
   padding: 10,
   border: UI.border,
   borderRadius: UI.radius,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   minWidth: 0,
 };
 
@@ -182,7 +183,7 @@ function statusPill(label, ok) {
     style: {
       ...chip,
       background: ok ? UI.successSoft : UI.warnSoft,
-      borderColor: ok ? "#bbf7d0" : "#fed7aa",
+      borderColor: ok ? "var(--legacy-color-bbf7d0)" : "var(--legacy-color-fed7aa)",
       color: ok ? UI.successText : UI.warnText,
     },
   };
@@ -279,6 +280,11 @@ export default function SettingsPage() {
     return items.length ? items.join(" / ") : "Standard access";
   }, [userDocData]);
 
+  const canManageAiRules = useMemo(() => {
+    const role = String(userData?.role || "").trim().toLowerCase().replaceAll(" ", "");
+    return role === "admin" || role === "platformadmin" || role === "superadmin";
+  }, [userData?.role]);
+
   const securitySummary = useMemo(
     () => ({
       accountStatus: userDocData?.isEnabled === false ? "Disabled" : "Active",
@@ -346,7 +352,7 @@ export default function SettingsPage() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
             <div style={chip}>{loading ? "Loading..." : "Account"}</div>
             {userData?.role ? (
-              <div style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
+              <div style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)", color: UI.brand }}>
                 <UserCog size={14} />
                 Role: <b style={{ marginLeft: 6 }}>{userData.role}</b>
               </div>
@@ -389,7 +395,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ height: 1, background: "#eef2f7", margin: "12px 0" }} />
+                <div style={{ height: 1, background: "var(--legacy-color-eef2f7)", margin: "12px 0" }} />
 
                 <div className="settings-triple" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
@@ -534,6 +540,7 @@ export default function SettingsPage() {
                   {actionCard("/edit-profile", "Edit profile", "Update your name, profile photo, and contact details", "Open", PencilLine)}
                   {actionCard("/change-password", "Change password", "Refresh your sign-in credentials and keep your account secure", "Open", KeyRound)}
                   {actionCard("/job-home", "Jobs Home", "Return to the main operational dashboard", "Open", LayoutDashboard)}
+                  {canManageAiRules ? actionCard("/settings/ai-business-rules", "AI Business Rules", "Review and publish how daily statistics interpret Bickers operations", "Admin", BrainCircuit) : null}
                 </div>
               </div>
 

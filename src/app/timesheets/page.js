@@ -429,10 +429,10 @@ function getTimesheetStatus(ts) {
       key: "missing",
       label: "Missing",
       helper: "No saved timesheet for this week.",
-      text: "#9f1239",
-      bg: "#fff1f2",
-      border: "#fecdd3",
-      accent: "#e11d48",
+      text: "var(--legacy-color-9f1239)",
+      bg: "var(--legacy-color-fff1f2)",
+      border: "var(--legacy-color-fecdd3)",
+      accent: "var(--legacy-color-e11d48)",
       clickable: false,
     };
   }
@@ -447,10 +447,10 @@ function getTimesheetStatus(ts) {
       key: "approved",
       label: "Approved",
       helper: "Approved and closed for review.",
-      text: "#166534",
-      bg: "#dcfce7",
-      border: "#86efac",
-      accent: "#16a34a",
+      text: "var(--legacy-color-166534)",
+      bg: "var(--legacy-color-dcfce7)",
+      border: "var(--legacy-color-86efac)",
+      accent: "var(--legacy-color-16a34a)",
       clickable: true,
     };
   }
@@ -460,10 +460,10 @@ function getTimesheetStatus(ts) {
       key: "submitted",
       label: "Submitted",
       helper: "Submitted and awaiting final review.",
-      text: "#14532d",
-      bg: "#ecfdf5",
-      border: "#86efac",
-      accent: "#22c55e",
+      text: "var(--legacy-color-14532d)",
+      bg: "var(--legacy-color-ecfdf5)",
+      border: "var(--legacy-color-86efac)",
+      accent: "var(--legacy-color-22c55e)",
       clickable: true,
     };
   }
@@ -472,10 +472,10 @@ function getTimesheetStatus(ts) {
     key: "draft",
     label: "Draft",
     helper: "Saved but not submitted by the employee.",
-    text: "#92400e",
-    bg: "#fffbeb",
-    border: "#fcd34d",
-    accent: "#f59e0b",
+    text: "var(--legacy-color-92400e)",
+    bg: "var(--legacy-color-fffbeb)",
+    border: "var(--legacy-color-fcd34d)",
+    accent: "var(--legacy-color-f59e0b)",
     clickable: true,
   };
 }
@@ -484,25 +484,25 @@ const UI = {
   radius: 8,
   radiusSm: 8,
   gap: 12,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  ink: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  border: "1px solid #d7dee8",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  ink: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -588,15 +588,15 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+      color: "var(--legacy-color-fff)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
     };
   }
   return {
     ...base,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.ink,
     boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
   };
@@ -643,7 +643,7 @@ const focusCss = `
   input:focus, select:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -1179,7 +1179,7 @@ export default function TimesheetListPage() {
     borderRadius: UI.radiusSm,
     border: UI.border,
     fontSize: 13,
-    background: "#fff",
+    background: "var(--legacy-color-fff)",
     outline: "none",
     color: UI.ink,
   };
@@ -1255,10 +1255,10 @@ export default function TimesheetListPage() {
               }}
             >
               {[
-                { label: "Approved", bg: "#dcfce7", dot: "#16a34a" },
-                { label: "Submitted", bg: "#ecfdf5", dot: "#22c55e" },
-                { label: "Draft", bg: "#fffbeb", dot: "#f59e0b" },
-                { label: "Missing", bg: "#fff1f2", dot: "#e11d48" },
+                { label: "Approved", bg: "var(--legacy-color-dcfce7)", dot: "var(--legacy-color-16a34a)" },
+                { label: "Submitted", bg: "var(--legacy-color-ecfdf5)", dot: "var(--legacy-color-22c55e)" },
+                { label: "Draft", bg: "var(--legacy-color-fffbeb)", dot: "var(--legacy-color-f59e0b)" },
+                { label: "Missing", bg: "var(--legacy-color-fff1f2)", dot: "var(--legacy-color-e11d48)" },
               ].map((item) => (
                 <span
                   key={item.label}
@@ -1274,7 +1274,7 @@ export default function TimesheetListPage() {
                     borderColor: "rgba(148,163,184,0.18)",
                     fontSize: 12,
                     fontWeight: 800,
-                    color: "#334155",
+                    color: "var(--legacy-color-334155)",
                   }}
                 >
                   <span
@@ -1551,7 +1551,7 @@ export default function TimesheetListPage() {
                         padding: "8px 9px",
                         border: UI.border,
                         borderRadius: UI.radiusSm,
-                        background: checked ? "#fff7ed" : "#fff",
+                        background: checked ? "var(--legacy-color-fff7ed)" : "var(--legacy-color-fff)",
                         cursor: "pointer",
                       }}
                     >
@@ -1596,7 +1596,7 @@ export default function TimesheetListPage() {
           ) : error ? (
             <div
               style={{
-                background: "#fff1f2",
+                background: "var(--legacy-color-fff1f2)",
                 borderRadius: UI.radius,
                 border: `1px solid ${UI.redBorder}`,
                 padding: 18,
@@ -1702,26 +1702,26 @@ export default function TimesheetListPage() {
                         {
                           label: "Approved",
                           value: summary.approved,
-                          bg: "#dcfce7",
-                          color: "#166534",
+                          bg: "var(--legacy-color-dcfce7)",
+                          color: "var(--legacy-color-166534)",
                         },
                         {
                           label: "Submitted",
                           value: summary.submitted,
-                          bg: "#ecfdf5",
-                          color: "#166534",
+                          bg: "var(--legacy-color-ecfdf5)",
+                          color: "var(--legacy-color-166534)",
                         },
                         {
                           label: "Draft",
                           value: summary.draft,
-                          bg: "#fffbeb",
-                          color: "#92400e",
+                          bg: "var(--legacy-color-fffbeb)",
+                          color: "var(--legacy-color-92400e)",
                         },
                         {
                           label: "Missing",
                           value: summary.missing,
-                          bg: "#fff1f2",
-                          color: "#9f1239",
+                          bg: "var(--legacy-color-fff1f2)",
+                          color: "var(--legacy-color-9f1239)",
                         },
                       ].map((item) => (
                         item.value > 0 || !compactReviewView ? (
@@ -1777,7 +1777,7 @@ export default function TimesheetListPage() {
                           key={weekStart}
                           onClick={() => ts && router.push(`/timesheet-id/${ts.id}`)}
                           style={{
-                            background: "#ffffff",
+                            background: "var(--legacy-color-ffffff)",
                             borderRadius: UI.radius,
                             borderWidth: 1,
                             borderStyle: "solid",
@@ -1891,7 +1891,7 @@ export default function TimesheetListPage() {
                                 justifyContent: compactReviewView ? "space-between" : "initial",
                                 padding: compactReviewView ? "6px 7px" : "10px 11px",
                                 borderRadius: UI.radius,
-                                background: "#f8fbfd",
+                                background: "var(--legacy-color-f8fbfd)",
                                 border: UI.border,
                               }}
                             >
@@ -1963,11 +1963,11 @@ export default function TimesheetListPage() {
                                   ...btn("primary"),
                                   padding: compactReviewView ? "5px 8px" : "6px 10px",
                                   fontSize: compactReviewView ? 11.5 : 12.5,
-                                  borderColor: "#047857",
+                                  borderColor: "var(--legacy-color-047857)",
                                   background: isApproving
                                     ? UI.greenSoft
-                                    : "linear-gradient(180deg, #22c55e 0%, #15803d 100%)",
-                                  color: isApproving ? UI.green : "#ffffff",
+                                    : "linear-gradient(180deg, var(--legacy-color-22c55e) 0%, var(--legacy-color-15803d) 100%)",
+                                  color: isApproving ? UI.green : "var(--legacy-color-ffffff)",
                                   boxShadow: isApproving
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(21,128,61,0.22)",
@@ -1987,8 +1987,8 @@ export default function TimesheetListPage() {
                                   fontSize: compactReviewView ? 11.5 : 12.5,
                                   background: isCreatingManual
                                     ? UI.brandSoft
-                                    : "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-                                  color: isCreatingManual ? UI.brand : "#ffffff",
+                                    : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+                                  color: isCreatingManual ? UI.brand : "var(--legacy-color-ffffff)",
                                   boxShadow: isCreatingManual
                                     ? UI.shadowSm
                                     : "0 8px 18px rgba(31,75,122,0.18)",
@@ -2002,7 +2002,7 @@ export default function TimesheetListPage() {
                                 style={{
                                   fontSize: 16,
                                   fontWeight: 800,
-                                  color: status.clickable ? UI.brand : "#94a3b8",
+                                  color: status.clickable ? UI.brand : "var(--legacy-color-94a3b8)",
                                 }}
                               >
                                 {status.clickable ? <ChevronRight size={16} /> : "-"}

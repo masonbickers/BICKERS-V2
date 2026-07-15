@@ -409,24 +409,24 @@ export default function ViewMaintenanceModal({
         <div style={actions}>
 <button
   onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-  style={{ ...btn, background: "#0d6efd" }}
+  style={{ ...btn, background: "var(--legacy-color-0d6efd)" }}
 >
   Edit Maintenance
 </button>
 
 
-          <button onClick={handleDelete} style={{ ...btn, background: "#dc3545" }}>
+          <button onClick={handleDelete} style={{ ...btn, background: "var(--legacy-color-dc3545)" }}>
             Delete
           </button>
 
           <button
             onClick={() => router.push(`/maintenance/${id}?returnTo=${encodeURIComponent("/dashboard")}`)}
-            style={{ ...btn, background: "#111" }}
+            style={{ ...btn, background: "var(--legacy-color-111)" }}
           >
             Open full page
           </button>
 
-          <button onClick={onClose} style={{ ...btn, background: "#6c757d" }}>
+          <button onClick={onClose} style={{ ...btn, background: "var(--legacy-color-6c757d)" }}>
             Close
           </button>
         </div>
@@ -455,7 +455,7 @@ function Field({ label, value }) {
 }
 
 const Chip = ({ good, label, title }) => (
-  <span title={title} style={{ ...chip, background: good ? "#22c55e" : "#ef4444", color: "#fff" }}>
+  <span title={title} style={{ ...chip, background: good ? "var(--legacy-color-22c55e)" : "var(--legacy-color-ef4444)", color: "var(--legacy-color-fff)" }}>
     {label} {good ? "Yes" : "No"}
   </span>
 );
@@ -464,9 +464,9 @@ const Tag = ({ children, dark, success }) => (
   <span
     style={{
       ...tag,
-      background: success ? "#22c55e" : dark ? "#111" : "#f3f4f6",
-      color: success || dark ? "#fff" : "#111",
-      border: success || dark ? "1px solid #111" : "1px solid #e5e7eb",
+      background: success ? "var(--legacy-color-22c55e)" : dark ? "var(--legacy-color-111)" : "var(--legacy-color-f3f4f6)",
+      color: success || dark ? "var(--legacy-color-fff)" : "var(--legacy-color-111)",
+      border: success || dark ? "1px solid var(--legacy-color-111)" : "1px solid var(--legacy-color-e5e7eb)",
     }}
   >
     {children}
@@ -486,8 +486,8 @@ const overlay = {
 };
 
 const modal = {
-  background: "#fff",
-  color: "#111",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-111)",
   width: "min(900px, 96vw)",
   maxHeight: "90vh",
   overflow: "auto",
@@ -504,7 +504,7 @@ const header = {
   marginBottom: 10,
 };
 
-const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#6b7280" };
+const eyebrow = { fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "var(--legacy-color-6b7280)" };
 const title = { margin: 0, fontSize: 22, lineHeight: 1.2 };
 
 const badge = {
@@ -512,7 +512,7 @@ const badge = {
   borderRadius: 999,
   fontSize: 12,
   fontWeight: 700,
-  border: "1px solid #111",
+  border: "1px solid var(--legacy-color-111)",
 };
 
 const chipRow = { display: "flex", gap: 8, flexWrap: "wrap", margin: "8px 0 16px" };
@@ -526,14 +526,14 @@ const grid = {
 const sectionTitle = {
   margin: "0 0 8px 0",
   fontSize: 14,
-  color: "#374151",
+  color: "var(--legacy-color-374151)",
   textTransform: "uppercase",
   letterSpacing: 0.6,
 };
 
 const sectionCard = {
-  background: "#fafafa",
-  border: "1px solid #e5e7eb",
+  background: "var(--legacy-color-fafafa)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
   padding: 14,
 };
@@ -543,14 +543,14 @@ const fieldRow = {
   gridTemplateColumns: "160px 1fr",
   gap: 10,
   padding: "8px 0",
-  borderBottom: "1px dashed #e5e7eb",
+  borderBottom: "1px dashed var(--legacy-color-e5e7eb)",
 };
-const fieldLabel = { color: "#6b7280", fontSize: 13 };
-const fieldValue = { color: "#111", fontSize: 14 };
+const fieldLabel = { color: "var(--legacy-color-6b7280)", fontSize: 13 };
+const fieldValue = { color: "var(--legacy-color-111)", fontSize: 14 };
 
 const noteBox = {
-  background: "#fff",
-  border: "1px solid #e5e7eb",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 8,
   padding: 12,
   lineHeight: 1.4,
@@ -562,29 +562,29 @@ const tag = {
   alignItems: "center",
   gap: 6,
   padding: "4px 8px",
-  background: "#f3f4f6",
-  border: "1px solid #e5e7eb",
+  background: "var(--legacy-color-f3f4f6)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 999,
   fontSize: 12,
   whiteSpace: "nowrap",
 };
 const tagSub = { opacity: 0.7, fontSize: 11 };
 
-const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid #111" };
+const chip = { padding: "4px 8px", borderRadius: 999, fontSize: 12, border: "1px solid var(--legacy-color-111)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
-  background: "#111",
-  color: "#fff",
+  background: "var(--legacy-color-111)",
+  color: "var(--legacy-color-fff)",
   borderRadius: 8,
   textDecoration: "none",
-  border: "1px solid #111",
+  border: "1px solid var(--legacy-color-111)",
 };
 const historyDetails = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 12,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   overflow: "hidden",
 };
 const historySummary = {
@@ -596,7 +596,7 @@ const historySummary = {
   gap: 12,
   padding: "14px 16px",
   fontWeight: 700,
-  color: "#111",
+  color: "var(--legacy-color-111)",
 };
 const historyCount = {
   minWidth: 28,
@@ -606,8 +606,8 @@ const historyCount = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#e5e7eb",
-  color: "#111",
+  background: "var(--legacy-color-e5e7eb)",
+  color: "var(--legacy-color-111)",
   fontSize: 12,
   fontWeight: 700,
 };
@@ -617,9 +617,9 @@ const historyBody = {
   padding: "0 16px 16px",
 };
 const historyItem = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   borderRadius: 10,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   padding: 12,
 };
 const historyTopRow = {
@@ -631,15 +631,15 @@ const historyTopRow = {
 };
 const historyAction = {
   fontWeight: 700,
-  color: "#111",
+  color: "var(--legacy-color-111)",
 };
 const historyMeta = {
-  color: "#6b7280",
+  color: "var(--legacy-color-6b7280)",
   fontSize: 12,
 };
 const historyNote = {
   marginTop: 8,
-  color: "#374151",
+  color: "var(--legacy-color-374151)",
   whiteSpace: "pre-wrap",
   lineHeight: 1.45,
 };
@@ -649,19 +649,19 @@ const historyChanges = {
   gap: 6,
 };
 const historyChangeLine = {
-  color: "#374151",
+  color: "var(--legacy-color-374151)",
   fontSize: 13,
   lineHeight: 1.4,
 };
 const historyEmpty = {
-  color: "#6b7280",
+  color: "var(--legacy-color-6b7280)",
   fontSize: 13,
 };
 const historyToggleBtn = {
   justifySelf: "flex-start",
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-111)",
   borderRadius: 999,
   padding: "8px 12px",
   fontWeight: 700,
@@ -671,8 +671,8 @@ const historyToggleBtn = {
 const footerMeta = {
   marginTop: 12,
   paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
-  color: "#6b7280",
+  borderTop: "1px solid var(--legacy-color-e5e7eb)",
+  color: "var(--legacy-color-6b7280)",
   fontSize: 12,
   display: "flex",
   gap: 16,
@@ -685,12 +685,12 @@ const actions = {
   justifyContent: "flex-end",
   marginTop: 14,
   paddingTop: 12,
-  borderTop: "1px solid #e5e7eb",
+  borderTop: "1px solid var(--legacy-color-e5e7eb)",
 };
 
 const btn = {
   padding: "10px 14px",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: "none",
   borderRadius: 8,
   cursor: "pointer",
@@ -699,23 +699,23 @@ const btn = {
 
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",
-    "First Pencil": "#93c5fd",
-    "Second Pencil": "#ef4444",
-    DNH: "#c2c2c2",
-    Complete: "#22c55e",
-    Completed: "#22c55e",
-    "Action Required": "#ff7b00",
-    Holiday: "#d1d5db",
-    Maintenance: "#fb923c",
-    Lost: "#ef4444",
-    Postponed: "#f59e0b",
-    Cancelled: "#ef4444",
+    Confirmed: "var(--legacy-color-fde047)",
+    "First Pencil": "var(--legacy-color-93c5fd)",
+    "Second Pencil": "var(--legacy-color-ef4444)",
+    DNH: "var(--legacy-color-c2c2c2)",
+    Complete: "var(--legacy-color-22c55e)",
+    Completed: "var(--legacy-color-22c55e)",
+    "Action Required": "var(--legacy-color-ff7b00)",
+    Holiday: "var(--legacy-color-d1d5db)",
+    Maintenance: "var(--legacy-color-fb923c)",
+    Lost: "var(--legacy-color-ef4444)",
+    Postponed: "var(--legacy-color-f59e0b)",
+    Cancelled: "var(--legacy-color-ef4444)",
   };
-  return map[status] || "#e5e7eb";
+  return map[status] || "var(--legacy-color-e5e7eb)";
 }
 function onStatusColor(status = "") {
   return ["Confirmed", "DNH", "Holiday", "Maintenance", "Booked", "Requested"].includes(status)
-    ? "#111"
-    : "#fff";
+    ? "var(--legacy-color-111)"
+    : "var(--legacy-color-fff)";
 }

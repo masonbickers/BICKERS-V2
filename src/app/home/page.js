@@ -1,6 +1,9 @@
 // src/app/dashboard/page.js
 "use client";
 
+import "./home.layout.css";
+import layoutStyles from "./page.styles.module.css";
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
@@ -42,53 +45,32 @@ import {
   Package,
 } from "lucide-react";
 
-/* ───────────────────────────────────────────
-   Mini design system (matches your Jobs Home)
-─────────────────────────────────────────── */
-const UI = {
-  radius: 8,
-  radiusSm: 8,
-  gap: 12,
-  shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-};
-
-const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
+const pageWrap = { padding: "16px 16px 32px", background: "var(--color-canvas)", minHeight: "100vh" };
 const headerBar = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
-  gap: UI.gap,
+  gap: "var(--space-3)",
   marginBottom: 12,
   flexWrap: "wrap",
 };
 const h1 = {
-  color: UI.text,
+  color: "var(--color-text)",
   fontSize: 22,
   lineHeight: 1.08,
   fontWeight: 800,
   letterSpacing: 0,
   margin: 0,
 };
-const sub = { color: UI.muted, fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const surface = { background: UI.card, borderRadius: UI.radius, border: UI.border, boxShadow: UI.shadowSm };
+const sub = { color: "var(--color-text-muted)", fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
+const surface = { background: "var(--color-surface)", borderRadius: "var(--radius-md)", border: "var(--border-default)", boxShadow: "var(--shadow-sm)" };
 
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.text,
+  border: `1px solid ${"var(--color-brand-border)"}`,
+  background: "var(--color-brand-soft)",
+  color: "var(--color-text)",
   fontSize: 11.5,
   fontWeight: 800,
 };
@@ -96,25 +78,25 @@ const chip = {
 const card = {
   ...surface,
   padding: 12,
-  background: UI.card,
+  background: "var(--color-surface)",
 };
 
-const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: UI.text, letterSpacing: 0 };
-const cardHint = { color: UI.muted, fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
+const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: "var(--color-text)", letterSpacing: 0 };
+const cardHint = { color: "var(--color-text-muted)", fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
 
 const grid = (cols = 12) => ({
   display: "grid",
   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: UI.gap,
+  gap: "var(--space-3)",
 });
 
 const btnChip = (active) => ({
   padding: "6px 10px",
   borderRadius: 999,
-  border: active ? `1px solid ${UI.brand}` : `1px solid ${UI.brandBorder}`,
+  border: active ? `1px solid ${"var(--color-brand)"}` : `1px solid ${"var(--color-brand-border)"}`,
   boxShadow: active ? "0 8px 18px rgba(24,63,103,0.14)" : "none",
-  background: active ? UI.brand : "#fff",
-  color: active ? "#fff" : UI.text,
+  background: active ? "var(--color-brand)" : "var(--legacy-color-fff)",
+  color: active ? "var(--legacy-color-fff)" : "var(--color-text)",
   cursor: "pointer",
   fontSize: 12.5,
   fontWeight: 800,
@@ -135,7 +117,7 @@ const titleRow = {
   gap: 8,
 };
 
-const iconBox = (color = UI.brand, bg = UI.brandSoft, border = UI.brandBorder) => ({
+const iconBox = (color = "var(--color-brand)", bg = "var(--color-brand-soft)", border = "var(--color-brand-border)") => ({
   width: 34,
   height: 34,
   borderRadius: 8,
@@ -153,9 +135,9 @@ const sectionTag = {
   alignItems: "center",
   padding: "4px 9px",
   borderRadius: 999,
-  border: `1px solid ${UI.brandBorder}`,
-  background: UI.brandSoft,
-  color: UI.brand,
+  border: `1px solid ${"var(--color-brand-border)"}`,
+  background: "var(--color-brand-soft)",
+  color: "var(--color-brand)",
   fontSize: 10.5,
   fontWeight: 800,
   textTransform: "uppercase",
@@ -164,20 +146,20 @@ const sectionTag = {
 
 const executivePanel = {
   ...surface,
-  background: UI.card,
-  color: UI.text,
+  background: "var(--color-surface)",
+  color: "var(--color-text)",
   padding: 12,
 };
 
 const executiveGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
-  gap: UI.gap,
-  marginBottom: UI.gap - 2,
+  gap: "var(--space-3)",
+  marginBottom: "var(--space-3)" - 2,
 };
 
 const executiveStat = {
-  borderRadius: UI.radiusSm,
+  borderRadius: "var(--radius-md)",
   border: "1px solid rgba(255,255,255,0.10)",
   background: "rgba(255,255,255,0.04)",
   padding: 10,
@@ -186,47 +168,47 @@ const executiveStat = {
 
 const tableWrap = {
   overflow: "auto",
-  border: UI.border,
-  borderRadius: UI.radiusSm,
-  background: "#fff",
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
+  background: "var(--legacy-color-fff)",
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
 const th = {
   textAlign: "left",
   padding: "9px 10px",
-  borderBottom: UI.border,
+  borderBottom: "var(--border-default)",
   position: "sticky",
   top: 0,
-  background: "#f7f9fc",
+  background: "var(--legacy-color-f7f9fc)",
   zIndex: 1,
   whiteSpace: "nowrap",
   fontWeight: 800,
   fontSize: 12,
-  color: UI.muted,
+  color: "var(--color-text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const td = { padding: "9px 10px", borderBottom: UI.border, verticalAlign: "top" };
+const td = { padding: "9px 10px", borderBottom: "var(--border-default)", verticalAlign: "top" };
 
 const listReset = { listStyle: "none", padding: 0, margin: 0 };
 const liItem = {
-  border: UI.border,
-  borderRadius: UI.radiusSm,
+  border: "var(--border-default)",
+  borderRadius: "var(--radius-md)",
   padding: "9px 11px",
   marginBottom: 7,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   display: "grid",
   gap: 3,
-  boxShadow: UI.shadowSm,
+  boxShadow: "var(--shadow-sm)",
 };
 const tag = (kind) => {
   const map = {
-    "first pencil": { bg: "#e4edf8", border: "#bfd0e2", col: "#2f4e6f" },
-    "second pencil": { bg: "#f8e7e3", border: "#e0b9b0", col: "#7b3a32" },
-    confirmed: { bg: "#e9f0d8", border: "#bed0ae", col: "#31462f" },
+    "first pencil": { bg: "var(--legacy-color-e4edf8)", border: "var(--legacy-color-bfd0e2)", col: "var(--legacy-color-2f4e6f)" },
+    "second pencil": { bg: "var(--legacy-color-f8e7e3)", border: "var(--legacy-color-e0b9b0)", col: "var(--legacy-color-7b3a32)" },
+    confirmed: { bg: "var(--legacy-color-e9f0d8)", border: "var(--legacy-color-bed0ae)", col: "var(--legacy-color-31462f)" },
   };
-  const t = map[kind] || { bg: UI.brandSoft, border: UI.brandBorder, col: UI.brand };
+  const t = map[kind] || { bg: "var(--color-brand-soft)", border: "var(--color-brand-border)", col: "var(--color-brand)" };
   return {
     display: "inline-block",
     marginLeft: 8,
@@ -247,10 +229,10 @@ const btnPrimary = {
   justifyContent: "center",
   gap: 6,
   padding: "8px 11px",
-  borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.brand}`,
-  background: UI.brand,
-  color: "#fff",
+  borderRadius: "var(--radius-md)",
+  border: `1px solid ${"var(--color-brand)"}`,
+  background: "var(--color-brand)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 800,
   cursor: "pointer",
   boxShadow: "0 8px 18px rgba(24,63,103,0.14)",
@@ -261,118 +243,13 @@ const btnGhost = {
   justifyContent: "center",
   gap: 6,
   padding: "8px 11px",
-  borderRadius: UI.radiusSm,
-  border: `1px solid ${UI.brandBorder}`,
-  background: "#fff",
-  color: UI.text,
+  borderRadius: "var(--radius-md)",
+  border: `1px solid ${"var(--color-brand-border)"}`,
+  background: "var(--legacy-color-fff)",
+  color: "var(--color-text)",
   fontWeight: 800,
   cursor: "pointer",
 };
-
-const homeResponsiveCss = `
-  .home-puzzle-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 12px;
-    align-items: stretch;
-    grid-auto-flow: dense;
-  }
-  .home-tile {
-    min-width: 0;
-    height: 100%;
-  }
-  .home-window-tile { grid-column: span 3; }
-  .home-stats-tile { grid-column: span 7; }
-  .home-action-tile { grid-column: span 2; }
-  .home-calendar-tile { grid-column: span 7; }
-  .home-right-rail {
-    grid-column: span 5;
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    min-height: 0;
-  }
-  .home-followup-tile,
-  .home-conflict-tile {
-    grid-column: 1 / -1;
-    overflow: auto;
-  }
-  .home-prep-tile { grid-column: span 6; }
-  .home-fleet-tile { grid-column: span 3; }
-  .home-assistant-tile { grid-column: span 3; }
-  .home-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
-    height: 100%;
-  }
-  .home-fleet-grid {
-    display: grid;
-    gap: 8px;
-    grid-template-columns: 1fr;
-  }
-  .home-calendar-tile .fc {
-    font-size: 12px;
-  }
-  .home-calendar-tile .fc .fc-toolbar {
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .home-calendar-tile .fc .fc-toolbar-title {
-    font-size: 16px;
-    font-weight: 900;
-  }
-  .home-calendar-tile .fc .fc-button {
-    padding: 4px 7px;
-    font-size: 11px;
-    font-weight: 800;
-  }
-  .home-calendar-tile .fc .fc-daygrid-day-frame {
-    min-height: 66px;
-  }
-  .home-calendar-tile .fc .fc-event {
-    border-radius: 4px;
-    padding: 1px 3px;
-    font-size: 11px;
-  }
-  @media (max-width: 1280px) {
-    .home-window-tile,
-    .home-stats-tile,
-    .home-action-tile,
-    .home-calendar-tile,
-    .home-right-rail,
-    .home-prep-tile,
-    .home-fleet-tile,
-    .home-assistant-tile {
-      grid-column: 1 / -1 !important;
-    }
-    .home-right-rail {
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      grid-template-rows: auto !important;
-    }
-    .home-followup-tile,
-    .home-conflict-tile {
-      grid-column: span 1 !important;
-      overflow: visible !important;
-    }
-    .home-stat-grid {
-      grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    }
-  }
-  @media (max-width: 760px) {
-    .home-puzzle-grid,
-    .home-right-rail,
-    .home-stat-grid,
-    .home-fleet-grid {
-      grid-template-columns: 1fr !important;
-    }
-    .home-followup-tile,
-    .home-conflict-tile {
-      grid-column: 1 / -1 !important;
-    }
-  }
-`;
 
 /* ────────────────────────────────────────────────────────────────────────────
    Date + normalisers
@@ -412,25 +289,25 @@ const getColorByStatus = (status = "") => {
   const s = status.toLowerCase();
   switch (s) {
     case "confirmed":
-      return "#f3f970";
+      return "var(--legacy-color-f3f970)";
     case "second pencil":
-      return "#f73939";
+      return "var(--legacy-color-f73939)";
     case "first pencil":
-      return "#89caf5";
+      return "var(--legacy-color-89caf5)";
     case "cancelled":
-      return "#c2c2c2";
+      return "var(--legacy-color-c2c2c2)";
     case "maintenance":
-      return "#f97316";
+      return "var(--legacy-color-f97316)";
     case "holiday":
-      return "#d3d3d3";
+      return "var(--legacy-color-d3d3d3)";
     case "note":
-      return "#ccfbf1";
+      return "var(--legacy-color-ccfbf1)";
     case "workshop":
-      return "#da8e58ff";
+      return "var(--legacy-color-da8e58ff)";
     case "complete":
-      return "#92d18cff";
+      return "var(--legacy-color-92d18cff)";
     default:
-      return "#c2c2c2";
+      return "var(--legacy-color-c2c2c2)";
   }
 };
 
@@ -482,18 +359,10 @@ const isApptAfterExpiry = (appt, expiry) => {
 function StatBlock({ label, value }) {
   return (
     <div
-      style={{
-        ...surface,
-        display: "grid",
-        gap: 4,
-        minWidth: 0,
-        padding: "10px 11px",
-        alignContent: "center",
-        minHeight: 74,
-      }}
+      className={layoutStyles.extracted1}
     >
-      <div style={{ fontSize: 24, fontWeight: 900, color: UI.text, lineHeight: 0.95 }}>{value}</div>
-      <div style={{ fontSize: 10.5, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+      <div className={layoutStyles.extracted2}>{value}</div>
+      <div className={layoutStyles.extracted3}>
         {label}
       </div>
     </div>
@@ -502,22 +371,22 @@ function StatBlock({ label, value }) {
 
 function Bucket({ title, items }) {
   return (
-    <div style={{ ...surface, padding: 10 }}>
-      <div style={sectionHeader}>
-        <div style={{ fontWeight: 900, fontSize: 15, color: UI.text }}>{title}</div>
+    <div className={layoutStyles.extracted4}>
+      <div className={layoutStyles.extracted5}>
+        <div className={layoutStyles.extracted6}>{title}</div>
         <span style={{ ...chip, padding: "4px 8px", fontSize: 10.5 }}>Top 5</span>
       </div>
       {items && items.length ? (
-        <ul style={listReset}>
+        <ul className={layoutStyles.extracted7}>
           {items.slice(0, 5).map((v) => (
-            <li key={v.id} style={{ ...liItem, padding: "8px 9px", marginBottom: 6 }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                <strong style={{ color: UI.text }}>
+            <li key={v.id} className={layoutStyles.extracted8}>
+              <div className={layoutStyles.extracted9}>
+                <strong className={layoutStyles.extracted10}>
                   {v.name || v.registration || "-"}
                 </strong>
-                <span style={{ color: UI.muted, fontSize: 12 }}>{v.category || "-"}</span>
+                <span className={layoutStyles.extracted11}>{v.category || "-"}</span>
               </div>
-              <div style={{ fontSize: 12.5, color: "#374151" }}>
+              <div className={layoutStyles.extracted12}>
                 MOT: {v.nextMOT ? moment(v.nextMOT).format("MMM D, YYYY") : "-"} | Service:{" "}
                 {v.nextService ? moment(v.nextService).format("MMM D, YYYY") : "-"}
               </div>
@@ -525,7 +394,7 @@ function Bucket({ title, items }) {
           ))}
         </ul>
       ) : (
-        <div style={{ color: UI.muted, fontSize: 13 }}>None.</div>
+        <div className={layoutStyles.extracted13}>None.</div>
       )}
     </div>
   );
@@ -914,43 +783,42 @@ export default function HomePage() {
   return (
     <ProtectedRoute>
       <HeaderSidebarLayout>
-        <style>{homeResponsiveCss}</style>
-        <div style={pageWrap}>
-          <div style={headerBar}>
+        <div className={layoutStyles.extracted14}>
+          <div className={layoutStyles.extracted15}>
             <div>
-              <h1 style={h1}>Home</h1>
-              <div style={sub}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
+              <h1 className={layoutStyles.extracted16}>Home</h1>
+              <div className={layoutStyles.extracted17}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className={layoutStyles.extracted18}>
               <span style={chip}>Operations overview</span>
               <span
                 style={{
                   ...chip,
                   background:
                     dataState.status === "ready"
-                      ? "#ecfdf5"
+                      ? "var(--legacy-color-ecfdf5)"
                       : dataState.status === "denied" || dataState.status === "error"
-                        ? "#fef2f2"
-                        : "#fffbeb",
+                        ? "var(--legacy-color-fef2f2)"
+                        : "var(--legacy-color-fffbeb)",
                   borderColor:
                     dataState.status === "ready"
-                      ? "#bbf7d0"
+                      ? "var(--legacy-color-bbf7d0)"
                       : dataState.status === "denied" || dataState.status === "error"
-                        ? "#fecaca"
-                        : "#fde68a",
+                        ? "var(--legacy-color-fecaca)"
+                        : "var(--legacy-color-fde68a)",
                   color:
                     dataState.status === "ready"
-                      ? "#166534"
+                      ? "var(--legacy-color-166534)"
                       : dataState.status === "denied" || dataState.status === "error"
-                        ? "#991b1b"
-                        : "#92400e",
+                        ? "var(--legacy-color-991b1b)"
+                        : "var(--legacy-color-92400e)",
                 }}
                 title={dataState.message || "Home data loaded."}
               >
                 Data: {dataState.status === "ready" ? "Loaded" : dataState.status}
               </span>
-              <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe", color: UI.brand }}>
-                Window: <b style={{ marginLeft: 6 }}>{windowDays}d</b>
+              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--legacy-color-dbeafe)", color: "var(--color-brand)" }}>
+                Window: <b className={layoutStyles.extracted19}>{windowDays}d</b>
               </span>
             </div>
           </div>
@@ -961,9 +829,9 @@ export default function HomePage() {
                 ...surface,
                 padding: "10px 12px",
                 marginBottom: 12,
-                background: dataState.status === "denied" || dataState.status === "error" ? "#fef2f2" : "#fffbeb",
-                borderColor: dataState.status === "denied" || dataState.status === "error" ? "#fecaca" : "#fde68a",
-                color: dataState.status === "denied" || dataState.status === "error" ? "#991b1b" : "#92400e",
+                background: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-fef2f2)" : "var(--legacy-color-fffbeb)",
+                borderColor: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-fecaca)" : "var(--legacy-color-fde68a)",
+                color: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-991b1b)" : "var(--legacy-color-92400e)",
                 fontSize: 13,
                 fontWeight: 800,
               }}
@@ -973,24 +841,24 @@ export default function HomePage() {
           )}
 
           <div className="home-puzzle-grid">
-            <section className="home-tile home-window-tile" style={{ ...executivePanel, display: "grid", gap: 10 }}>
-              <span style={{ ...titleRow, color: UI.text, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <section className={`home-tile home-window-tile ${layoutStyles.extracted78}`} >
+              <span className={layoutStyles.extracted20}>
                 <CalendarDays size={16} />
                 Reporting window
               </span>
-              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              <div className={layoutStyles.extracted21}>
                 {[7, 14, 30, 90].map((d) => (
                   <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
                     {d}d
                   </button>
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: UI.muted, fontWeight: 800 }}>
+              <div className={layoutStyles.extracted22}>
                 {moment(now).format("D MMM")} to {moment(windowEnd).format("D MMM YYYY")}
               </div>
             </section>
 
-            <section className="home-tile home-stats-tile" style={{ ...card, padding: 8 }}>
+            <section className={`home-tile home-stats-tile ${layoutStyles.extracted79}`} >
               <div className="home-stat-grid">
                 <StatBlock label="Total Jobs" value={jobCounts.total} />
                 <StatBlock label="Enquiry" value={jobCounts.enquiry} />
@@ -1000,8 +868,8 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="home-tile home-action-tile" style={{ ...card, display: "grid", gap: 8, alignContent: "center" }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <section className={`home-tile home-action-tile ${layoutStyles.extracted80}`} >
+              <div className={layoutStyles.extracted23}>
                 Primary action
               </div>
               <button
@@ -1020,21 +888,21 @@ export default function HomePage() {
               </button>
             </section>
 
-            <section className="home-tile home-calendar-tile" style={card}>
-              <div style={sectionHeader}>
-                <div style={titleRow}>
+            <section className={`home-tile home-calendar-tile ${layoutStyles.extracted81}`} >
+              <div className={layoutStyles.extracted24}>
+                <div className={layoutStyles.extracted25}>
                   <span style={iconBox()}>
                     <CalendarDays size={17} />
                   </span>
                   <div>
-                    <h2 style={cardTitle}>Operations Calendar</h2>
-                    <div style={cardHint}>Review the current booking programme and open any entry for full detail.</div>
+                    <h2 className={layoutStyles.extracted26}>Operations Calendar</h2>
+                    <div className={layoutStyles.extracted27}>Review the current booking programme and open any entry for full detail.</div>
                   </div>
                 </div>
                 <span style={sectionTag}>Month view</span>
               </div>
 
-              <div style={{ overflow: "visible" }}>
+              <div className={layoutStyles.extracted28}>
                 <FullCalendar
                   plugins={[dayGridPlugin, interactionPlugin]}
                   initialView="dayGridMonth"
@@ -1073,10 +941,10 @@ export default function HomePage() {
                   }}
                   eventDidMount={(info) => {
                     // keep readable on bright blocks
-                    info.el.style.color = "#000";
+                    info.el.style.color = "var(--legacy-color-000)";
                     const titleEl = info.el.querySelector(".fc-event-title");
                     if (titleEl) {
-                      titleEl.style.color = "#000";
+                      titleEl.style.color = "var(--legacy-color-000)";
                       titleEl.style.fontWeight = "700";
                     }
                   }}
@@ -1084,42 +952,42 @@ export default function HomePage() {
               </div>
 
               {/* Legend */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
+              <div className={layoutStyles.extracted29}>
                 {[
-                  { label: "Confirmed", color: "#f3f970" },
-                  { label: "First Pencil", color: "#89caf5" },
-                  { label: "Second Pencil", color: "#f73939" },
-                  { label: "Maintenance", color: "#f97316" },
-                  { label: "Holiday", color: "#d3d3d3" },
-                  { label: "Note", color: "#ccfbf1" },
+                  { label: "Confirmed", color: "var(--legacy-color-f3f970)" },
+                  { label: "First Pencil", color: "var(--legacy-color-89caf5)" },
+                  { label: "Second Pencil", color: "var(--legacy-color-f73939)" },
+                  { label: "Maintenance", color: "var(--legacy-color-f97316)" },
+                  { label: "Holiday", color: "var(--legacy-color-d3d3d3)" },
+                  { label: "Note", color: "var(--legacy-color-ccfbf1)" },
                 ].map((item) => (
-                  <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid #d1d5db", borderRadius: 3 }} />
-                    <span style={{ fontSize: 13, color: UI.text, fontWeight: 800 }}>{item.label}</span>
+                  <div key={item.label} className={layoutStyles.extracted30}>
+                    <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid var(--legacy-color-d1d5db)", borderRadius: 3 }} />
+                    <span className={layoutStyles.extracted31}>{item.label}</span>
                   </div>
                 ))}
               </div>
             </section>
 
             <section className="home-right-rail">
-              <div className="home-tile home-followup-tile" style={card}>
-                <div style={sectionHeader}>
+              <div className={`home-tile home-followup-tile ${layoutStyles.extracted82}`} >
+                <div className={layoutStyles.extracted32}>
                   <div>
-                    <h2 style={cardTitle}>Follow-Up Queue</h2>
-                    <div style={cardHint}>First pencil bookings starting in the next 72 hours.</div>
+                    <h2 className={layoutStyles.extracted33}>Follow-Up Queue</h2>
+                    <div className={layoutStyles.extracted34}>First pencil bookings starting in the next 72 hours.</div>
                   </div>
                   <span style={sectionTag}>{firstPencils72h.length} items</span>
                 </div>
 
                 {firstPencils72h.length ? (
-                  <ul style={listReset}>
+                  <ul className={layoutStyles.extracted35}>
                     {firstPencils72h.map((e) => (
-                      <li key={e.id} style={{ ...liItem, cursor: "pointer" }} onClick={() => setSelectedBookingId(e.id)}>
-                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                          <strong style={{ color: UI.text }}>{e.jobNumber}</strong>
-                          <span style={{ color: UI.muted, fontSize: 12, fontWeight: 900 }}>{moment(e.start).format("MMM D")}</span>
+                      <li key={e.id} className={layoutStyles.extracted36} onClick={() => setSelectedBookingId(e.id)}>
+                        <div className={layoutStyles.extracted37}>
+                          <strong className={layoutStyles.extracted38}>{e.jobNumber}</strong>
+                          <span className={layoutStyles.extracted39}>{moment(e.start).format("MMM D")}</span>
                         </div>
-                        <div style={{ color: UI.text, fontSize: 13 }}>{e.client}</div>
+                        <div className={layoutStyles.extracted40}>{e.client}</div>
                         <div>
                           <span style={tag("first pencil")}>First Pencil</span>
                         </div>
@@ -1127,33 +995,33 @@ export default function HomePage() {
                     ))}
                   </ul>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No first pencils in the next 72 hours.</div>
+                  <div className={layoutStyles.extracted41}>No first pencils in the next 72 hours.</div>
                 )}
               </div>
 
-              <div className="home-tile home-conflict-tile" style={card}>
-                <div style={sectionHeader}>
+              <div className={`home-tile home-conflict-tile ${layoutStyles.extracted83}`} >
+                <div className={layoutStyles.extracted42}>
                   <div>
-                    <h2 style={cardTitle}>Scheduling Conflicts</h2>
-                    <div style={cardHint}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
+                    <h2 className={layoutStyles.extracted43}>Scheduling Conflicts</h2>
+                    <div className={layoutStyles.extracted44}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
                   </div>
                   <span style={sectionTag}>{clashesSecondVsFirm.length} flagged</span>
                 </div>
 
                 {clashesSecondVsFirm.length ? (
-                  <ul style={listReset}>
+                  <ul className={layoutStyles.extracted45}>
                     {clashesSecondVsFirm.slice(0, 8).map((c, i) => (
-                      <li key={i} style={liItem}>
-                        <strong style={{ color: UI.text }}>
+                      <li key={i} className={layoutStyles.extracted46}>
+                        <strong className={layoutStyles.extracted47}>
                           {vehicleLabel(c.vehicle)}
                         </strong>
 
-                        <div style={{ fontSize: 13, color: "#374151" }}>
+                        <div className={layoutStyles.extracted48}>
                           2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
                           <span style={tag("second pencil")}>Second</span>
                         </div>
 
-                        <div style={{ fontSize: 13, color: "#374151" }}>
+                        <div className={layoutStyles.extracted49}>
                           Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
                           <span style={tag(c.firm.status)}>{c.firm.status}</span>
                         </div>
@@ -1161,35 +1029,35 @@ export default function HomePage() {
                     ))}
                   </ul>
                 ) : (
-                  <div style={{ color: UI.muted, fontSize: 13 }}>No second-pencil clashes.</div>
+                  <div className={layoutStyles.extracted50}>No second-pencil clashes.</div>
                 )}
               </div>
             </section>
 
-            <section className="home-tile home-prep-tile" style={card}>
-              <div style={sectionHeader}>
-                <div style={titleRow}>
-                  <span style={iconBox("#0f766e", "#f0fdfa", "#99f6e4")}>
+            <section className={`home-tile home-prep-tile ${layoutStyles.extracted84}`} >
+              <div className={layoutStyles.extracted51}>
+                <div className={layoutStyles.extracted52}>
+                  <span style={iconBox("var(--legacy-color-0f766e)", "var(--legacy-color-f0fdfa)", "var(--legacy-color-99f6e4)")}>
                     <ClipboardList size={17} />
                   </span>
                   <div>
-                    <h2 style={cardTitle}>Preparation Queue</h2>
-                    <div style={cardHint}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
+                    <h2 className={layoutStyles.extracted53}>Preparation Queue</h2>
+                    <div className={layoutStyles.extracted54}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
                   </div>
                 </div>
                 <span style={sectionTag}>{prepList.length} upcoming</span>
               </div>
 
               {prepList.length ? (
-                <div style={{ ...tableWrap, maxHeight: 330 }}>
-                  <table style={tableEl}>
+                <div className={layoutStyles.extracted55}>
+                  <table className={layoutStyles.extracted56}>
                     <thead>
                       <tr>
-                        <th style={th}>Job #</th>
-                        <th style={th}>Vehicles</th>
-                        <th style={th}>Equipment</th>
-                        <th style={th}>Notes</th>
-                        <th style={th}>Start</th>
+                        <th className={layoutStyles.extracted57}>Job #</th>
+                        <th className={layoutStyles.extracted58}>Vehicles</th>
+                        <th className={layoutStyles.extracted59}>Equipment</th>
+                        <th className={layoutStyles.extracted60}>Notes</th>
+                        <th className={layoutStyles.extracted61}>Start</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1197,32 +1065,32 @@ export default function HomePage() {
                         <tr
                           key={it.id}
                           onClick={() => setSelectedBookingId(it.id)}
-                          style={{ cursor: "pointer" }}
+                          className={layoutStyles.extracted62}
                         >
-                          <td style={{ ...td, fontWeight: 900, whiteSpace: "nowrap" }}>{it.jobNumber}</td>
-                          <td style={td}>{it.vehicles?.join(", ") || "-"}</td>
-                          <td style={td}>{it.equipment || "-"}</td>
-                          <td style={td}>{it.notes || "-"}</td>
-                          <td style={{ ...td, whiteSpace: "nowrap" }}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
+                          <td className={layoutStyles.extracted63}>{it.jobNumber}</td>
+                          <td className={layoutStyles.extracted64}>{it.vehicles?.join(", ") || "-"}</td>
+                          <td className={layoutStyles.extracted65}>{it.equipment || "-"}</td>
+                          <td className={layoutStyles.extracted66}>{it.notes || "-"}</td>
+                          <td className={layoutStyles.extracted67}>{it.start ? moment(it.start).format("MMM D, YYYY") : "-"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <div style={{ color: UI.muted, fontSize: 13 }}>No jobs starting in the next 2 days.</div>
+                <div className={layoutStyles.extracted68}>No jobs starting in the next 2 days.</div>
               )}
             </section>
 
-            <section className="home-tile home-fleet-tile" style={card}>
-              <div style={sectionHeader}>
-                <div style={titleRow}>
-                  <span style={iconBox(UI.accent, UI.accentSoft, "#dcc8b8")}>
+            <section className={`home-tile home-fleet-tile ${layoutStyles.extracted85}`} >
+              <div className={layoutStyles.extracted69}>
+                <div className={layoutStyles.extracted70}>
+                  <span style={iconBox("var(--color-accent)", "var(--color-accent-soft)", "var(--legacy-color-dcc8b8)")}>
                     <Wrench size={17} />
                   </span>
                   <div>
-                    <h2 style={cardTitle}>Fleet Compliance</h2>
-                    <div style={cardHint}>Overdue items and due dates within the next 3 weeks.</div>
+                    <h2 className={layoutStyles.extracted71}>Fleet Compliance</h2>
+                    <div className={layoutStyles.extracted72}>Overdue items and due dates within the next 3 weeks.</div>
                   </div>
                 </div>
                 <span style={sectionTag}>Vehicle review</span>
@@ -1236,20 +1104,20 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="home-tile home-assistant-tile" style={card}>
-              <div style={sectionHeader}>
-                <div style={titleRow}>
-                  <span style={iconBox("#1f4b7a", "#edf3f8", "#c8d6e3")}>
+            <section className={`home-tile home-assistant-tile ${layoutStyles.extracted86}`} >
+              <div className={layoutStyles.extracted73}>
+                <div className={layoutStyles.extracted74}>
+                  <span style={iconBox("var(--legacy-color-1f4b7a)", "var(--legacy-color-edf3f8)", "var(--legacy-color-c8d6e3)")}>
                     <Plus size={17} />
                   </span>
                   <div>
-                    <h2 style={cardTitle}>Quick Actions</h2>
-                    <div style={cardHint}>Open the core operational sections from the home hub.</div>
+                    <h2 className={layoutStyles.extracted75}>Quick Actions</h2>
+                    <div className={layoutStyles.extracted76}>Open the core operational sections from the home hub.</div>
                   </div>
                 </div>
                 <span style={sectionTag}>v1.0 links</span>
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className={layoutStyles.extracted77}>
                 {[
                   { label: "Create Booking", href: "/create-booking", icon: <Plus size={14} /> },
                   { label: "Employees", href: "/employee-home", icon: <Users size={14} /> },

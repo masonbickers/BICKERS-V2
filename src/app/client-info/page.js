@@ -20,13 +20,13 @@ const UI = {
   gap: 18,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
   shadowHover: "0 10px 24px rgba(0,0,0,0.10)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
-  brandSoft: "#eff6ff",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
+  brandSoft: "var(--legacy-color-eff6ff)",
 };
 
 const pageWrap = { padding: "24px 18px 40px", background: UI.bg, minHeight: "100vh" };
@@ -34,8 +34,8 @@ const surface = { background: UI.card, borderRadius: UI.radius, border: UI.borde
 const chip = {
   padding: "6px 10px",
   borderRadius: 999,
-  border: "1px solid #e5e7eb",
-  background: "#f1f5f9",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  background: "var(--legacy-color-f1f5f9)",
   color: UI.text,
   fontSize: 12,
   fontWeight: 700,
@@ -380,9 +380,9 @@ export default function ClientInfoPage() {
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <span style={chip}>{clients.length} clients</span>
-            <span style={{ ...chip, background: UI.brandSoft, borderColor: "#dbeafe" }}>{bookings.length} active bookings</span>
-            <span style={{ ...chip, background: "#fef3c7", borderColor: "#fde68a" }}>{deletedJobs.length} deleted records</span>
-            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "#fff" }}>
+            <span style={{ ...chip, background: UI.brandSoft, borderColor: "var(--legacy-color-dbeafe)" }}>{bookings.length} active bookings</span>
+            <span style={{ ...chip, background: "var(--legacy-color-fef3c7)", borderColor: "var(--legacy-color-fde68a)" }}>{deletedJobs.length} deleted records</span>
+            <Link href="/client-emails" style={{ ...chip, textDecoration: "none", background: "var(--legacy-color-fff)" }}>
               View emails →
             </Link>
           </div>
@@ -398,10 +398,10 @@ export default function ClientInfoPage() {
               width: "100%",
               padding: "10px 12px",
               borderRadius: UI.radiusSm,
-              border: "1px solid #d1d5db",
+              border: "1px solid var(--legacy-color-d1d5db)",
               fontSize: 14,
               outline: "none",
-              background: "#fff",
+              background: "var(--legacy-color-fff)",
             }}
           />
         </div>
@@ -426,8 +426,8 @@ export default function ClientInfoPage() {
                         textAlign: "left",
                         padding: 12,
                         borderRadius: 12,
-                        border: isSelected ? "1px solid #93c5fd" : "1px solid #e5e7eb",
-                        background: isSelected ? "#eff6ff" : "#fff",
+                        border: isSelected ? "1px solid var(--legacy-color-93c5fd)" : "1px solid var(--legacy-color-e5e7eb)",
+                        background: isSelected ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-fff)",
                         boxShadow: isSelected ? UI.shadowHover : "none",
                         cursor: "pointer",
                       }}
@@ -523,7 +523,7 @@ export default function ClientInfoPage() {
                               gap: 10,
                               padding: 10,
                               borderRadius: 10,
-                              border: "1px solid #e5e7eb",
+                              border: "1px solid var(--legacy-color-e5e7eb)",
                               textDecoration: "none",
                               color: UI.text,
                               alignItems: "center",
@@ -550,7 +550,7 @@ export default function ClientInfoPage() {
                       <div style={{ display: "grid", gap: 8 }}>
                         {selectedClient.contacts.length ? (
                           selectedClient.contacts.map((contact) => (
-                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} style={{ borderBottom: "1px solid #eef2f7", paddingBottom: 8 }}>
+                            <div key={`${contact.email}-${contact.phone}-${contact.name}`} style={{ borderBottom: "1px solid var(--legacy-color-eef2f7)", paddingBottom: 8 }}>
                               <div style={{ fontWeight: 800 }}>{contactTitle(contact)}</div>
                               <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>
                                 {[contact.email, contact.phone].filter(Boolean).join(" • ") || "No direct detail saved"}
@@ -584,7 +584,7 @@ export default function ClientInfoPage() {
                           </div>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {selectedClient.aliases.map((alias) => (
-                              <span key={alias} style={{ ...chip, background: "#fff" }}>
+                              <span key={alias} style={{ ...chip, background: "var(--legacy-color-fff)" }}>
                                 {alias}
                               </span>
                             ))}

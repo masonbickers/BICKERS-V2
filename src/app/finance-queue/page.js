@@ -16,27 +16,27 @@ import {
 import { useSessionScroll, useSessionState } from "../utils/useSessionState";
 
 const UI = {
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  border: "#d8e2ee",
-  borderSoft: "#e7edf5",
-  text: "#061426",
-  muted: "#586b82",
-  brand: "#1f4b7a",
-  brandSoft: "#eaf3fc",
-  green: "#16a34a",
-  greenSoft: "#dcfce7",
-  greenBorder: "#86efac",
-  amber: "#f59e0b",
-  amberSoft: "#fef3c7",
-  amberBorder: "#fde68a",
-  purple: "#6d4aff",
-  purpleSoft: "#f0ebff",
-  purpleBorder: "#d8ccff",
-  red: "#ef4444",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
-  slateSoft: "#eef3f8",
+  bg: "var(--legacy-color-f3f6f9)",
+  panel: "var(--legacy-color-ffffff)",
+  border: "var(--legacy-color-d8e2ee)",
+  borderSoft: "var(--legacy-color-e7edf5)",
+  text: "var(--legacy-color-061426)",
+  muted: "var(--legacy-color-586b82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-eaf3fc)",
+  green: "var(--legacy-color-16a34a)",
+  greenSoft: "var(--legacy-color-dcfce7)",
+  greenBorder: "var(--legacy-color-86efac)",
+  amber: "var(--legacy-color-f59e0b)",
+  amberSoft: "var(--legacy-color-fef3c7)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  purple: "var(--legacy-color-6d4aff)",
+  purpleSoft: "var(--legacy-color-f0ebff)",
+  purpleBorder: "var(--legacy-color-d8ccff)",
+  red: "var(--legacy-color-ef4444)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
+  slateSoft: "var(--legacy-color-eef3f8)",
 };
 
 const pageWrap = {
@@ -83,7 +83,7 @@ const inputStyle = {
   height: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -99,7 +99,7 @@ const btn = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -113,7 +113,7 @@ const primaryBtn = {
   ...btn,
   background: UI.brand,
   borderColor: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
 };
 
 const chip = {
@@ -147,12 +147,12 @@ const tableEl = {
 const th = {
   padding: "7px 10px",
   textAlign: "left",
-  color: "#4f6278",
+  color: "var(--legacy-color-4f6278)",
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "#fbfdff",
+  background: "var(--legacy-color-fbfdff)",
 };
 
 const td = {
@@ -174,52 +174,52 @@ const statusStyles = {
   "Ready to Invoice": {
     background: UI.amberSoft,
     borderColor: UI.amberBorder,
-    color: "#92400e",
+    color: "var(--legacy-color-92400e)",
   },
   Invoiced: {
-    background: "#e0e7ff",
-    borderColor: "#c7d2fe",
-    color: "#3730a3",
+    background: "var(--legacy-color-e0e7ff)",
+    borderColor: "var(--legacy-color-c7d2fe)",
+    color: "var(--legacy-color-3730a3)",
   },
   Paid: {
     background: UI.greenSoft,
     borderColor: UI.greenBorder,
-    color: "#166534",
+    color: "var(--legacy-color-166534)",
   },
   Complete: {
-    background: "#92d18c",
-    borderColor: "#111111",
-    color: "#0b0b0b",
+    background: "var(--legacy-color-92d18c)",
+    borderColor: "var(--legacy-color-111111)",
+    color: "var(--legacy-color-0b0b0b)",
   },
   "Action Required": {
-    background: "#FF973B",
-    borderColor: "#111111",
-    color: "#0b0b0b",
+    background: "var(--legacy-color-ff973b)",
+    borderColor: "var(--legacy-color-111111)",
+    color: "var(--legacy-color-0b0b0b)",
   },
   Confirmed: {
-    background: "#f3f970",
-    borderColor: "#111111",
-    color: "#0b0b0b",
+    background: "var(--legacy-color-f3f970)",
+    borderColor: "var(--legacy-color-111111)",
+    color: "var(--legacy-color-0b0b0b)",
   },
   "First Pencil": {
-    background: "#89caf5",
-    borderColor: "#111111",
-    color: "#0b0b0b",
+    background: "var(--legacy-color-89caf5)",
+    borderColor: "var(--legacy-color-111111)",
+    color: "var(--legacy-color-0b0b0b)",
   },
   "Second Pencil": {
-    background: "#f73939",
-    borderColor: "#111111",
-    color: "#ffffff",
+    background: "var(--legacy-color-f73939)",
+    borderColor: "var(--legacy-color-111111)",
+    color: "var(--legacy-color-ffffff)",
   },
   DNH: {
-    background: "#d0d0d0",
-    borderColor: "#d0d0d0",
-    color: "#0b0b0b",
+    background: "var(--legacy-color-d0d0d0)",
+    borderColor: "var(--legacy-color-d0d0d0)",
+    color: "var(--legacy-color-0b0b0b)",
   },
   Cancelled: {
-    background: "#e5e7eb",
-    borderColor: "#d1d5db",
-    color: "#111827",
+    background: "var(--legacy-color-e5e7eb)",
+    borderColor: "var(--legacy-color-d1d5db)",
+    color: "var(--legacy-color-111827)",
   },
   Enquiry: {
     background: UI.purpleSoft,
@@ -235,11 +235,11 @@ const statusStyles = {
 
 const focusCss = `
   .finance-control:focus {
-    border-color: #1f4b7a !important;
+    border-color: var(--legacy-color-1f4b7a) !important;
     box-shadow: 0 0 0 3px rgba(31, 75, 122, 0.14);
   }
   .finance-row:hover {
-    background: #f8fbff;
+    background: var(--legacy-color-f8fbff);
   }
   @media (max-width: 980px) {
     .finance-header {

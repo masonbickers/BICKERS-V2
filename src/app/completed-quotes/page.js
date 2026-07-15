@@ -12,20 +12,20 @@ import { formatQuoteDate, getCompletedQuoteRows, quoteMatchesSearch } from "@/ap
 import { useSessionScroll, useSessionState } from "@/app/utils/useSessionState";
 
 const UI = {
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  border: "#d8e2ee",
-  borderSoft: "#e7edf5",
-  text: "#061426",
-  muted: "#586b82",
-  brand: "#1f4b7a",
-  brandSoft: "#eaf3fc",
-  green: "#16a34a",
-  greenSoft: "#dcfce7",
-  greenBorder: "#86efac",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
+  bg: "var(--legacy-color-f3f6f9)",
+  panel: "var(--legacy-color-ffffff)",
+  border: "var(--legacy-color-d8e2ee)",
+  borderSoft: "var(--legacy-color-e7edf5)",
+  text: "var(--legacy-color-061426)",
+  muted: "var(--legacy-color-586b82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-eaf3fc)",
+  green: "var(--legacy-color-16a34a)",
+  greenSoft: "var(--legacy-color-dcfce7)",
+  greenBorder: "var(--legacy-color-86efac)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
 };
 
 const pageWrap = { minHeight: "100vh", background: UI.bg, color: UI.text, padding: "12px 14px 24px" };
@@ -59,7 +59,7 @@ const input = {
   height: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -75,7 +75,7 @@ const btn = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -83,7 +83,7 @@ const btn = {
   padding: "0 12px",
   whiteSpace: "nowrap",
 };
-const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "#fff" };
+const primaryBtn = { ...btn, background: UI.brand, borderColor: UI.brand, color: "var(--legacy-color-fff)" };
 const chip = (kind = "neutral") => {
   const base = {
     minHeight: 28,
@@ -113,12 +113,12 @@ const table = { width: "100%", minWidth: 980, borderCollapse: "collapse", tableL
 const th = {
   padding: "8px 10px",
   textAlign: "left",
-  color: "#4f6278",
+  color: "var(--legacy-color-4f6278)",
   fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   borderBottom: `1px solid ${UI.borderSoft}`,
-  background: "#fbfdff",
+  background: "var(--legacy-color-fbfdff)",
 };
 const td = {
   padding: "7px 10px",

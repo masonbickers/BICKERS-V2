@@ -22,7 +22,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="App" style={{ padding: "2rem", color: "#fff" }}>
+    <div className="App" style={{ padding: "2rem", color: "var(--legacy-color-fff)" }}>
       <h2>Upload File</h2>
       <input
         type="file"

@@ -42,17 +42,17 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -96,10 +96,10 @@ const inputBase = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
-const pill = (bg, fg, borderColor = "#e5e7eb") => ({
+const pill = (bg, fg, borderColor = "var(--legacy-color-e5e7eb)") => ({
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -119,8 +119,8 @@ const btn = (kind = "ghost") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brand}`,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#fff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+      color: "var(--legacy-color-fff)",
       fontWeight: 800,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -138,7 +138,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -156,12 +156,12 @@ const btn = (kind = "ghost") => {
 
 /* table */
 const tableWrap = { ...surface, overflowX: "auto", overflowY: "hidden", marginTop: 12 };
-const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid #eef2f7", verticalAlign: "middle" };
+const thtd = { padding: "11px 12px", fontSize: 13, borderBottom: "1px solid var(--legacy-color-eef2f7)", verticalAlign: "middle" };
 const theadTh = {
   ...thtd,
   fontWeight: 900,
   color: UI.muted,
-  background: "#f6f8fb",
+  background: "var(--legacy-color-f6f8fb)",
   fontSize: 11.5,
   letterSpacing: 0,
   textTransform: "uppercase",
@@ -188,7 +188,7 @@ const modalOverlay = {
 };
 const modalCard = {
   width: "min(92vw, 560px)",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   border: UI.border,
   borderRadius: UI.radius,
   boxShadow: UI.shadowHover,
@@ -334,10 +334,10 @@ export default function DeclinedDefectsPage() {
         input:focus, button:focus, select:focus, textarea:focus {
           outline: none;
           box-shadow: 0 0 0 4px rgba(31,75,122,0.14);
-          border-color: #9fb7cf !important;
+          border-color: var(--legacy-color-9fb7cf) !important;
         }
         button:disabled { opacity: .55; cursor: not-allowed; }
-        .declined-defects-action:hover { background: #f8fbfe !important; border-color: #b8c8d8 !important; }
+        .declined-defects-action:hover { background: var(--legacy-color-f8fbfe) !important; border-color: var(--legacy-color-b8c8d8) !important; }
         .declined-defects-kpi-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -403,7 +403,7 @@ export default function DeclinedDefectsPage() {
             </label>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <span style={pill("#fef2f2", "#991b1b", "#fecaca")}>Declined</span>
+              <span style={pill("var(--legacy-color-fef2f2)", "var(--legacy-color-991b1b)", "var(--legacy-color-fecaca)")}>Declined</span>
               <span style={pill(UI.brandSoft, UI.brand, UI.brandBorder)}>
                 Showing <b style={{ marginLeft: 6 }}>{filtered.length}</b> / {total}
               </span>
@@ -457,7 +457,7 @@ export default function DeclinedDefectsPage() {
                     const key = `${r.checkId}:${r.defectIndex}`;
                     const isBusy = reopeningId === key;
                     return (
-                      <tr key={key} style={{ background: i % 2 ? "#fff" : "#fcfdff" }}>
+                      <tr key={key} style={{ background: i % 2 ? "var(--legacy-color-fff)" : "var(--legacy-color-fcfdff)" }}>
                         <td style={thtd}>{fmtDate(r.reviewedAt)}</td>
                         <td style={thtd}>{fmtDate(r.dateISO)}</td>
 
@@ -486,7 +486,7 @@ export default function DeclinedDefectsPage() {
 
                         <td style={thtd}>{r.reviewedBy}</td>
                         <td style={{ ...thtd, textAlign: "center" }}>
-                          <span style={pill("#f1f5f9", UI.text)}>
+                          <span style={pill("var(--legacy-color-f1f5f9)", UI.text)}>
                             <Camera size={13} />
                             {r.photosCount}
                           </span>
@@ -551,7 +551,7 @@ export default function DeclinedDefectsPage() {
                 <div style={{ marginTop: 10, fontSize: 12, color: UI.muted }}>
                   Current note:
                 </div>
-                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "#fff", fontSize: 13 }}>
+                <div style={{ marginTop: 6, padding: 10, borderRadius: UI.radius, border: UI.border, background: "var(--legacy-color-fff)", fontSize: 13 }}>
                   {confirmModal.row.defectNote || "-"}
                   {confirmModal.row.comment ? (
                     <div style={{ marginTop: 8, color: UI.muted, fontSize: 12 }}>
@@ -586,14 +586,14 @@ export default function DeclinedDefectsPage() {
 function SummaryCard({ label, value, sub, tone = "default", icon: Icon = ClipboardList }) {
   const toneStyles =
     tone === "danger"
-      ? { fg: "#991b1b", bg: "#fef2f2", border: "#fecaca" }
+      ? { fg: "var(--legacy-color-991b1b)", bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)" }
       : tone === "amber"
-      ? { fg: "#9a3412", bg: "#fff7ed", border: "#fed7aa" }
+      ? { fg: "var(--legacy-color-9a3412)", bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)" }
       : tone === "ok"
-      ? { fg: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" }
+      ? { fg: "var(--legacy-color-065f46)", bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)" }
       : tone === "brand" || tone === "soft"
       ? { fg: UI.brand, bg: UI.brandSoft, border: UI.brandBorder }
-      : { fg: UI.text, bg: "#f6f8fb", border: "#d7dee8" };
+      : { fg: UI.text, bg: "var(--legacy-color-f6f8fb)", border: "var(--legacy-color-d7dee8)" };
 
   return (
     <div

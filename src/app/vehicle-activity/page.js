@@ -38,18 +38,18 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  accent: "var(--legacy-color-8b5e3c)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -89,14 +89,14 @@ const chip = {
   whiteSpace: "nowrap",
 };
 const chipSoft = { ...chip, color: UI.brand };
-const divider = { height: 1, background: "#dde5ee", margin: "12px 0 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "12px 0 0" };
 const inputBase = {
   width: "100%",
   minHeight: 38,
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d7dee8",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   outline: "none",
@@ -119,7 +119,7 @@ const btn = (kind = "ghost") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brandBorder}`,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+    background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
     color: UI.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -136,8 +136,8 @@ const btn = (kind = "ghost") => {
     return {
       ...base,
       borderColor: UI.brand,
-      background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-      color: "#ffffff",
+      background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+      color: "var(--legacy-color-ffffff)",
       boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
     };
   }
@@ -235,18 +235,18 @@ const toActivitySummary = (...values) => {
 };
 
 const activityTypeConfig = {
-  service: { label: "Service", bg: "#ecfdf5", fg: "#065f46" },
-  minor_service: { label: "Minor service", bg: "#eff6ff", fg: "#1d4ed8" },
-  repair: { label: "Repair", bg: "#fff7ed", fg: "#9a3412" },
-  defect: { label: "Defect", bg: "#fef2f2", fg: "#991b1b" },
-  mot_precheck: { label: "MOT pre-check", bg: "#f5f3ff", fg: "#6d28d9" },
-  vehicle_prep: { label: "Vehicle prep", bg: "#eef2ff", fg: "#3730a3" },
-  vehicle_check: { label: "Vehicle check", bg: "#edf3f8", fg: UI.brand },
-  vehicle_issue: { label: "Vehicle issue", bg: "#f5ede6", fg: UI.accent },
-  legacy_service: { label: "Legacy service", bg: "#f8fafc", fg: UI.text },
-  legacy_repair: { label: "Legacy repair", bg: "#f8fafc", fg: UI.text },
-  legacy_prep: { label: "Legacy prep", bg: "#f8fafc", fg: UI.text },
-  legacy_defect: { label: "Legacy defect", bg: "#f8fafc", fg: UI.text },
+  service: { label: "Service", bg: "var(--legacy-color-ecfdf5)", fg: "var(--legacy-color-065f46)" },
+  minor_service: { label: "Minor service", bg: "var(--legacy-color-eff6ff)", fg: "var(--legacy-color-1d4ed8)" },
+  repair: { label: "Repair", bg: "var(--legacy-color-fff7ed)", fg: "var(--legacy-color-9a3412)" },
+  defect: { label: "Defect", bg: "var(--legacy-color-fef2f2)", fg: "var(--legacy-color-991b1b)" },
+  mot_precheck: { label: "MOT pre-check", bg: "var(--legacy-color-f5f3ff)", fg: "var(--legacy-color-6d28d9)" },
+  vehicle_prep: { label: "Vehicle prep", bg: "var(--legacy-color-eef2ff)", fg: "var(--legacy-color-3730a3)" },
+  vehicle_check: { label: "Vehicle check", bg: "var(--legacy-color-edf3f8)", fg: UI.brand },
+  vehicle_issue: { label: "Vehicle issue", bg: "var(--legacy-color-f5ede6)", fg: UI.accent },
+  legacy_service: { label: "Legacy service", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
+  legacy_repair: { label: "Legacy repair", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
+  legacy_prep: { label: "Legacy prep", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
+  legacy_defect: { label: "Legacy defect", bg: "var(--legacy-color-f8fafc)", fg: UI.text },
 };
 
 const filterTypeOptions = [
@@ -641,7 +641,7 @@ export default function VehicleActivityPage() {
     <HeaderSidebarLayout>
       <div style={pageWrap}>
         <style>{`
-          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+          input:focus, textarea:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
           .vehicle-activity-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
           .vehicle-activity-filters { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 190px auto; gap: 10px; align-items: center; }
           .vehicle-activity-list { display: grid; gap: 8px; }
@@ -754,7 +754,7 @@ export default function VehicleActivityPage() {
                   padding: 12,
                   borderRadius: UI.radius,
                   border: UI.border,
-                  background: "#fff",
+                  background: "var(--legacy-color-fff)",
                   boxShadow: UI.shadowSm,
                   cursor: item.route ? "pointer" : "default",
                   overflow: "hidden",
@@ -827,11 +827,11 @@ export default function VehicleActivityPage() {
 function ActivityStatCard({ label, value, note, icon: Icon, tone = "brand" }) {
   const colors =
     tone === "danger"
-      ? { bg: "#fef2f2", border: "#fecaca", fg: "#991b1b" }
+      ? { bg: "var(--legacy-color-fef2f2)", border: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" }
       : tone === "amber"
-      ? { bg: "#fff7ed", border: "#fed7aa", fg: "#9a3412" }
+      ? { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" }
       : tone === "ok"
-      ? { bg: "#ecfdf5", border: "#bbf7d0", fg: "#065f46" }
+      ? { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" }
       : { bg: UI.brandSoft, border: UI.brandBorder, fg: UI.brand };
 
   return (

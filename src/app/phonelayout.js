@@ -14,7 +14,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#1976d2" />
+        <meta name="theme-color" content="var(--legacy-color-1976d2)" />
       </head>
       <body className={inter.className}>{children}</body>
     </html>

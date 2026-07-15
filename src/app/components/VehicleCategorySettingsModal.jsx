@@ -19,16 +19,16 @@ const RETENTION_PLATE_CATEGORY = "Number Plates On Retention";
 const UI = {
   radius: 8,
   radiusSm: 8,
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  dangerSoft: "#fef2f2",
-  amberSoft: "#fff7ed",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-dc2626)",
+  dangerSoft: "var(--legacy-color-fef2f2)",
+  amberSoft: "var(--legacy-color-fff7ed)",
 };
 
 const overlay = {
@@ -75,7 +75,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -94,9 +94,9 @@ const btn = (kind = "ghost") => {
     background: danger
       ? UI.danger
       : primary
-      ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)"
-      : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
-    color: danger || primary ? "#fff" : UI.text,
+      ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)"
+      : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
+    color: danger || primary ? "var(--legacy-color-fff)" : UI.text,
     fontWeight: 850,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -443,7 +443,7 @@ export default function VehicleCategorySettingsModal({
                 alignItems: "center",
                 minWidth: 930,
                 padding: "8px 10px",
-                background: "#f6f8fb",
+                background: "var(--legacy-color-f6f8fb)",
                 color: UI.muted,
                 fontSize: 11,
                 fontWeight: 900,
@@ -462,7 +462,7 @@ export default function VehicleCategorySettingsModal({
             {rows.length ? (
               rows.map((row, index) => {
                 const renameValue = edits[row.category] ?? row.category;
-                const color = normalizeVehicleCategoryColor(categoryMeta[row.category]?.color) || "#1f4b7a";
+                const color = normalizeVehicleCategoryColor(categoryMeta[row.category]?.color) || "var(--legacy-color-1f4b7a)";
                 return (
                   <div
                     key={row.category}
@@ -505,7 +505,7 @@ export default function VehicleCategorySettingsModal({
                       type="color"
                       value={color}
                       onChange={(event) => handleColorChange(row.category, event.target.value)}
-                      style={{ width: 48, height: 34, padding: 2, borderRadius: UI.radiusSm, border: UI.border, background: "#fff" }}
+                      style={{ width: 48, height: 34, padding: 2, borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-fff)" }}
                       title="Category colour"
                     />
                     <input

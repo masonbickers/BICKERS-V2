@@ -748,7 +748,7 @@ const modal = {
   width: "min(520px, 95vw)",
   borderRadius: 16,
   padding: 18,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   background: "linear-gradient(180deg, rgba(22,22,22,0.95) 0%, rgba(12,12,12,0.98) 100%)",
   border: "1px solid rgba(255,255,255,0.08)",
   boxShadow: "0 20px 60px rgba(0,0,0,0.55)",
@@ -772,7 +772,7 @@ const modalTitle = {
 const closeBtn = {
   border: "none",
   background: "transparent",
-  color: "#cbd5e1",
+  color: "var(--legacy-color-cbd5e1)",
   fontSize: 20,
   cursor: "pointer",
   padding: 6,
@@ -793,7 +793,7 @@ const input = {
   borderRadius: 10,
   border: "1px solid rgba(255,255,255,0.10)",
   backgroundColor: "rgba(255,255,255,0.14)",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   outline: "none",
   fontSize: 14,
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
@@ -809,8 +809,8 @@ const halfWrap = {
 
 const globalOptionCSS = `
 select option {
-  background: #0b0b0b !important;
-  color: #fff !important;
+  background: var(--legacy-color-0b0b0b) !important;
+  color: var(--legacy-color-fff) !important;
 }
 `;
 
@@ -826,8 +826,8 @@ const primaryBtn = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid rgba(37,99,235,0.55)",
-  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2563eb) 0%, var(--legacy-color-1d4ed8) 100%)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 800,
   fontSize: 14,
 };
@@ -837,8 +837,8 @@ const dangerBtn = {
   padding: 12,
   borderRadius: 10,
   border: "1px solid rgba(185,28,28,0.55)",
-  background: "linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)",
-  color: "#fee2e2",
+  background: "linear-gradient(180deg, var(--legacy-color-991b1b) 0%, var(--legacy-color-7f1d1d) 100%)",
+  color: "var(--legacy-color-fee2e2)",
   fontWeight: 800,
   fontSize: 14,
 };

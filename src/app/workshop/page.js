@@ -24,17 +24,17 @@ import {
 import { db } from "../../../firebaseConfig";
 
 const UI = {
-  bg: "#f4f7fb",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  border: "1px solid #e5e7eb",
+  bg: "var(--legacy-color-f4f7fb)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  border: "1px solid var(--legacy-color-e5e7eb)",
   shadow: "0 10px 30px rgba(15,23,42,0.06)",
-  maintenance: "#f97316",
-  service: "#2563eb",
-  mot: "#dc2626",
-  dueService: "#93c5fd",
-  dueMot: "#fca5a5",
+  maintenance: "var(--legacy-color-f97316)",
+  service: "var(--legacy-color-2563eb)",
+  mot: "var(--legacy-color-dc2626)",
+  dueService: "var(--legacy-color-93c5fd)",
+  dueMot: "var(--legacy-color-fca5a5)",
 };
 
 const pageWrap = {
@@ -134,7 +134,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "#0f172a",
+          textColor: "var(--legacy-color-0f172a)",
           extendedProps: event,
         };
       }),
@@ -160,7 +160,7 @@ export default function WorkshopPage() {
           allDay: true,
           backgroundColor: color,
           borderColor: color,
-          textColor: "#0f172a",
+          textColor: "var(--legacy-color-0f172a)",
           extendedProps: event,
         };
       }),
@@ -177,7 +177,7 @@ export default function WorkshopPage() {
         allDay: true,
         backgroundColor: UI.maintenance,
         borderColor: UI.maintenance,
-        textColor: "#0f172a",
+        textColor: "var(--legacy-color-0f172a)",
         extendedProps: event,
       })),
     [maintenanceJobs]
@@ -236,8 +236,8 @@ export default function WorkshopPage() {
               style={{
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid #d1d5db",
-                background: "#fff",
+                border: "1px solid var(--legacy-color-d1d5db)",
+                background: "var(--legacy-color-fff)",
                 color: UI.text,
                 fontWeight: 900,
                 cursor: "pointer",
@@ -256,11 +256,11 @@ export default function WorkshopPage() {
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={legendPill("#fff7ed", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
-            <span style={legendPill("#fff7ed", UI.maintenance)}>Job cards: {counts.jobs}</span>
-            <span style={legendPill("#eff6ff", UI.service)}>Service booked: {counts.service}</span>
-            <span style={legendPill("#fef2f2", UI.mot)}>MOT booked: {counts.mot}</span>
-            <span style={legendPill("#f8fafc", UI.text)}>Due dates: {counts.due}</span>
+            <span style={legendPill("var(--legacy-color-fff7ed)", UI.maintenance)}>Maintenance: {counts.maintenance}</span>
+            <span style={legendPill("var(--legacy-color-fff7ed)", UI.maintenance)}>Job cards: {counts.jobs}</span>
+            <span style={legendPill("var(--legacy-color-eff6ff)", UI.service)}>Service booked: {counts.service}</span>
+            <span style={legendPill("var(--legacy-color-fef2f2)", UI.mot)}>MOT booked: {counts.mot}</span>
+            <span style={legendPill("var(--legacy-color-f8fafc)", UI.text)}>Due dates: {counts.due}</span>
           </div>
         </div>
       </div>
@@ -352,7 +352,7 @@ function legendPill(bg, fg) {
     alignItems: "center",
     padding: "7px 10px",
     borderRadius: 999,
-    border: "1px solid #e5e7eb",
+    border: "1px solid var(--legacy-color-e5e7eb)",
     background: bg,
     color: fg,
     fontSize: 12,

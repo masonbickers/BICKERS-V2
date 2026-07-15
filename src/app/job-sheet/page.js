@@ -39,23 +39,23 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -79,7 +79,7 @@ const toolbar = {
 };
 
 const searchWrap = { position: "relative", display: "flex", alignItems: "center" };
-const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "#fff", color: UI.text };
+const searchInput = { width: "100%", minHeight: 36, padding: "7px 42px 7px 34px", borderRadius: UI.radiusSm, border: UI.border, fontSize: 13, outline: "none", background: "var(--legacy-color-fff)", color: UI.text };
 const searchIcon = { position: "absolute", left: 10, width: 17, height: 17, color: UI.muted };
 
 const pillBtn = (active = false) => ({
@@ -90,7 +90,7 @@ const pillBtn = (active = false) => ({
   padding: "6px 9px",
   borderRadius: UI.radiusSm,
   border: active ? `1px solid ${UI.brand}` : UI.border,
-  background: active ? UI.brandSoft : "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: active ? UI.brandSoft : "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: active ? UI.brand : UI.text,
   fontSize: 12.5,
   fontWeight: 800,
@@ -100,7 +100,7 @@ const pillBtn = (active = false) => ({
 });
 
 const tabsWrap = { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" };
-const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "#fff", color: UI.text, fontSize: 12.5, minWidth: 140 };
+const select = { minHeight: 36, padding: "7px 9px", borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-fff)", color: UI.text, fontSize: 12.5, minWidth: 140 };
 const chip = {
   display: "inline-flex",
   alignItems: "center",
@@ -141,7 +141,7 @@ const focusCss = `
   input:focus, select:focus, button:focus, a:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1180px) {
     .job-sheet-toolbar,
@@ -297,13 +297,13 @@ const statusColors = (label) => {
     case "Confirmed":
       return { bg: UI.amberSoft, border: UI.amberBorder, text: UI.amber };
     case "First Pencil":
-      return { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" };
+      return { bg: "var(--legacy-color-eff6ff)", border: "var(--legacy-color-bfdbfe)", text: "var(--legacy-color-1d4ed8)" };
     case "Second Pencil":
       return { bg: UI.redSoft, border: UI.redBorder, text: UI.red };
     case "TBC":
-      return { bg: "#f8fafc", border: "#e2e8f0", text: UI.muted };
+      return { bg: "var(--legacy-color-f8fafc)", border: "var(--legacy-color-e2e8f0)", text: UI.muted };
     default:
-      return { bg: "#f8fafc", border: "#dbe5ef", text: UI.text };
+      return { bg: "var(--legacy-color-f8fafc)", border: "var(--legacy-color-dbe5ef)", text: UI.text };
   }
 };
 
@@ -321,9 +321,9 @@ const CheckBadge = ({ label, ok }) => (
       gap: 6,
       padding: "4px 8px",
       borderRadius: 999,
-      border: `1px solid ${ok ? "#86efac" : "#fecaca"}`,
-      background: ok ? "#dcfce7" : "#fee2e2",
-      color: ok ? "#166534" : "#991b1b",
+      border: `1px solid ${ok ? "var(--legacy-color-86efac)" : "var(--legacy-color-fecaca)"}`,
+      background: ok ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fee2e2)",
+      color: ok ? "var(--legacy-color-166534)" : "var(--legacy-color-991b1b)",
       fontSize: 10.5,
       fontWeight: 800,
       whiteSpace: "nowrap",
@@ -334,7 +334,7 @@ const CheckBadge = ({ label, ok }) => (
         width: 7,
         height: 7,
         borderRadius: 999,
-        background: ok ? "#16a34a" : "#dc2626",
+        background: ok ? "var(--legacy-color-16a34a)" : "var(--legacy-color-dc2626)",
       }}
     />
     {label}
@@ -363,10 +363,10 @@ const StatusBadge = ({ job, section }) => {
 };
 
 /* Table styles */
-const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "#fff", boxShadow: UI.shadowSm };
+const tableWrap = { overflow: "auto", border: UI.border, borderRadius: UI.radius, background: "var(--legacy-color-fff)", boxShadow: UI.shadowSm };
 const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid #dde5ee", position: "sticky", top: 0, background: "#f7f9fc", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
-const td = { padding: "9px 12px", borderBottom: "1px solid #edf2f7", verticalAlign: "top" };
+const th = { textAlign: "left", padding: "10px 12px", borderBottom: "1px solid var(--legacy-color-dde5ee)", position: "sticky", top: 0, background: "var(--legacy-color-f7f9fc)", zIndex: 1, fontSize: 12, color: UI.muted, textTransform: "uppercase", letterSpacing: "0.04em" };
+const td = { padding: "9px 12px", borderBottom: "1px solid var(--legacy-color-edf2f7)", verticalAlign: "top" };
 
 /* Page */
 export default function JobSheetPage() {
@@ -776,7 +776,7 @@ export default function JobSheetPage() {
       padding: "5px 8px",
       borderRadius: UI.radiusSm,
       border: UI.border,
-      background: "#ffffff",
+      background: "var(--legacy-color-ffffff)",
       color: UI.text,
       fontSize: 11.5,
       fontWeight: 800,
@@ -804,7 +804,7 @@ export default function JobSheetPage() {
           }}
         >
           <div style={{ display: "flex", minWidth: 0, gap: 8, alignItems: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13.5 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 20, minWidth: 26, padding: "0 6px", borderRadius: 6, background: "#eef2ff", border: "1px solid #e5e7eb", fontWeight: 800, fontSize: 11, color: "#3730a3" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 20, minWidth: 26, padding: "0 6px", borderRadius: 6, background: "var(--legacy-color-eef2ff)", border: "1px solid var(--legacy-color-e5e7eb)", fontWeight: 800, fontSize: 11, color: "var(--legacy-color-3730a3)" }}>
               {prefix}
             </span>
             <span style={{ fontWeight: 900, fontSize: 13.5 }}>#{job.jobNumber || job.id}</span>
@@ -835,9 +835,9 @@ export default function JobSheetPage() {
             <CheckBadge label="Notes" ok={checks.notes} />
             <CheckBadge label="PO" ok={checks.po} />
             <CheckBadge label="Quote" ok={checks.quote} />
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
-            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #e5e7eb", background: "#f8fafc", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {team}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {vehicles}</span>
+            <span style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--legacy-color-e5e7eb)", background: "var(--legacy-color-f8fafc)", fontSize: 11.5, fontWeight: 700 }}> {equipment}</span>
           </div>
         </Link>
       );
@@ -879,11 +879,11 @@ export default function JobSheetPage() {
                 height: 22,
                 padding: "0 6px",
                 borderRadius: 8,
-                background: "#eef2ff",
-                border: "1px solid #e5e7eb",
+                background: "var(--legacy-color-eef2ff)",
+                border: "1px solid var(--legacy-color-e5e7eb)",
                 fontWeight: 900,
                 fontSize: 11.5,
-                color: "#3730a3",
+                color: "var(--legacy-color-3730a3)",
               }}
             >
               {getJobPrefix(job)}
@@ -895,30 +895,30 @@ export default function JobSheetPage() {
           {statusBadge}
         </div>
 
-        <div style={{ height: 1, background: "#f1f5f9", margin: "4px 0 8px" }} />
+        <div style={{ height: 1, background: "var(--legacy-color-f1f5f9)", margin: "4px 0 8px" }} />
 
         {/* Info grid */}
         <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: denseNow ? 4 : 6, columnGap: denseNow ? 8 : 10, fontSize: 13.5, lineHeight: 1.32 }}>
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Client</span>
           <span>{job.client || "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Location</span>
           <span>{job.location || "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Dates</span>
           <span>{range}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Employees</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Employees</span>
           <span>
             {Array.isArray(job.employees) && job.employees.length
               ? job.employees.map((e) => (typeof e === "string" ? e : e?.name)).filter(Boolean).join(", ")
               : "-"}
           </span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Vehicles</span>
           <span>{resolveVehicleNames(job).length ? resolveVehicleNames(job).join(", ") : "-"}</span>
 
-          <span style={{ color: "#64748b", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
+          <span style={{ color: "var(--legacy-color-64748b)", fontSize: 11.5, fontWeight: 800, textTransform: "uppercase" }}>Equipment</span>
           <span>{equipment}</span>
         </div>
 
@@ -1024,21 +1024,21 @@ export default function JobSheetPage() {
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Ready to Invoice")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Ready
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "Action Required")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Action
                     </button>
                     <button
                       type="button"
                       onClick={() => updateJobStatus(job, "complete")}
-                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "5px 8px", borderRadius: 8, border: "1px solid var(--legacy-color-d1d5db)", background: "var(--legacy-color-fff)", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}
                     >
                       Complete
                     </button>
@@ -1174,7 +1174,7 @@ export default function JobSheetPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)" }}>
+        <div style={{ ...surface, marginTop: 12, padding: 10, background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)" }}>
           <div style={{ ...tabsWrap, justifyContent: "space-between", rowGap: 8 }}>
             <div style={tabsWrap}>
               {[
@@ -1219,7 +1219,7 @@ export default function JobSheetPage() {
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 900, color: UI.text, marginTop: 6 }}>{visibleChecks.notes}</div>
               </div>
-              <span style={iconBox(UI.brand, "#f8fafc", "#dbe5ef")}><Filter size={17} /></span>
+              <span style={iconBox(UI.brand, "var(--legacy-color-f8fafc)", "var(--legacy-color-dbe5ef)")}><Filter size={17} /></span>
             </div>
             <div style={{ color: UI.muted, fontSize: 12, marginTop: 4 }}>Jobs with notes entered</div>
           </div>

@@ -121,20 +121,20 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -188,7 +188,7 @@ const btn = (kind = "primary") => {
     return {
       ...base,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
     };
@@ -204,8 +204,8 @@ const btn = (kind = "primary") => {
   return {
     ...base,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
   };
 };
@@ -226,8 +226,8 @@ function Pill({ active, children, onClick }) {
         justifyContent: "center",
         padding: "6px 9px",
         borderRadius: 999,
-        border: `1px solid ${active ? UI.brandBorder : "#d7dee8"}`,
-        background: active ? UI.brandSoft : "#fff",
+        border: `1px solid ${active ? UI.brandBorder : "var(--legacy-color-d7dee8)"}`,
+        background: active ? UI.brandSoft : "var(--legacy-color-fff)",
         color: UI.text,
         fontSize: 12,
         fontWeight: 800,
@@ -237,7 +237,7 @@ function Pill({ active, children, onClick }) {
       }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = UI.brandBorder)}
       onMouseLeave={(e) =>
-        (e.currentTarget.style.borderColor = active ? UI.brandBorder : "#d7dee8")
+        (e.currentTarget.style.borderColor = active ? UI.brandBorder : "var(--legacy-color-d7dee8)")
       }
     >
       {children}
@@ -253,7 +253,7 @@ const inputBase = {
   border: UI.border,
   fontSize: 13,
   outline: "none",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -284,9 +284,9 @@ const inlineNotice = (tone = "success") => ({
   fontSize: 12,
   fontWeight: 700,
   border:
-    tone === "error" ? "1px solid #fecdd3" : "1px solid #bbf7d0",
-  background: tone === "error" ? "#fff1f2" : "#ecfdf5",
-  color: tone === "error" ? "#9f1239" : "#166534",
+    tone === "error" ? "1px solid var(--legacy-color-fecdd3)" : "1px solid var(--legacy-color-bbf7d0)",
+  background: tone === "error" ? "var(--legacy-color-fff1f2)" : "var(--legacy-color-ecfdf5)",
+  color: tone === "error" ? "var(--legacy-color-9f1239)" : "var(--legacy-color-166534)",
 });
 
 const personnelSection = {
@@ -1835,7 +1835,7 @@ export default function EditEmployeePage() {
                       Dual-access users will land here unless they have an active workspace saved locally.
                     </div>
                     {accessErrors.defaultWorkspace && (
-                      <div style={{ ...helperStyle, color: "#9f1239", fontWeight: 700 }}>
+                      <div style={{ ...helperStyle, color: "var(--legacy-color-9f1239)", fontWeight: 700 }}>
                         {accessErrors.defaultWorkspace}
                       </div>
                     )}
@@ -1845,7 +1845,7 @@ export default function EditEmployeePage() {
                     style={{
                       border: UI.border,
                       borderRadius: UI.radiusSm,
-                      background: "#f8fbfd",
+                      background: "var(--legacy-color-f8fbfd)",
                       padding: 10,
                       display: "grid",
                       gap: 6,
@@ -2007,16 +2007,16 @@ export default function EditEmployeePage() {
                       Personnel file
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "#ecfdf5" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: formData.passport?.number || formData.passport?.documentUrl ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                         Passport: {formData.passport?.number || formData.passport?.documentUrl ? "Added" : "Missing"}
                       </span>
-                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "#ecfdf5" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: formData.licenceNumber || formData.drivingLicence?.documentUrl ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                         Licence: {formData.licenceNumber || formData.drivingLicence?.documentUrl ? "Added" : "Missing"}
                       </span>
-                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "#ecfdf5" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: (formData.emergencyContacts || []).length ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                         Emergency: {(formData.emergencyContacts || []).length || 0}
                       </span>
-                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "#eff6ff" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: (formData.personnelDocuments || []).length ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
                         Docs: {(formData.personnelDocuments || []).length || 0}
                       </span>
                     </div>
@@ -2031,10 +2031,10 @@ export default function EditEmployeePage() {
                       Access
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <span style={{ ...chip, background: formData.appAccess.user ? "#ecfdf5" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: formData.appAccess.user ? "var(--legacy-color-ecfdf5)" : "var(--legacy-color-f8fafc)" }}>
                         User: {formData.appAccess.user ? "On" : "Off"}
                       </span>
-                      <span style={{ ...chip, background: formData.appAccess.service ? "#eff6ff" : "#f8fafc" }}>
+                      <span style={{ ...chip, background: formData.appAccess.service ? "var(--legacy-color-eff6ff)" : "var(--legacy-color-f8fafc)" }}>
                         Service: {formData.appAccess.service ? "On" : "Off"}
                       </span>
                     </div>

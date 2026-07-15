@@ -67,7 +67,7 @@ export default function LorryDashboardPage() {
   const filteredLorries = applyFilter(lorries);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif", color: "#333" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--legacy-color-f4f4f5)", fontFamily: "Arial, sans-serif", color: "var(--legacy-color-333)" }}>
       {/* Sidebar */}
 
 
@@ -80,8 +80,8 @@ export default function LorryDashboardPage() {
             padding: "8px 16px",
             border: "none",
             borderRadius: 4,
-            backgroundColor: "#555",
-            color: "#fff",
+            backgroundColor: "var(--legacy-color-555)",
+            color: "var(--legacy-color-fff)",
             cursor: "pointer",
             width: "fit-content"
           }}
@@ -102,8 +102,8 @@ export default function LorryDashboardPage() {
           </select>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "#fff", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-          <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", backgroundColor: "var(--legacy-color-fff)", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+          <thead style={{ backgroundColor: "var(--legacy-color-1976d2)", color: "var(--legacy-color-fff)" }}>
             <tr>
               <th style={thStyle}>Name</th>
               <th style={thStyle}>Type</th>
@@ -120,7 +120,7 @@ export default function LorryDashboardPage() {
           </thead>
           <tbody>
             {filteredLorries.map(lorry => (
-              <tr key={lorry.id} style={{ borderBottom: "1px solid #ddd" }}>
+              <tr key={lorry.id} style={{ borderBottom: "1px solid var(--legacy-color-ddd)" }}>
                 <td style={tdStyle}>{lorry.name}</td>
                 <td style={tdStyle}>{lorry.type}</td>
                 <td style={tdStyle}>{lorry.registration}</td>
@@ -150,18 +150,18 @@ export default function LorryDashboardPage() {
 // Styles
 const navButton = {
   background: "transparent",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid #333",
+  borderBottom: "1px solid var(--legacy-color-333)",
 };
 
 const inputStyle = {
   padding: "8px 12px",
-  border: "1px solid #ccc",
+  border: "1px solid var(--legacy-color-ccc)",
   borderRadius: "4px",
 };
 
@@ -178,8 +178,8 @@ const tdStyle = {
 
 const addButton = {
   padding: "10px 20px",
-  backgroundColor: "#1976d2",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-1976d2)",
+  color: "var(--legacy-color-fff)",
   border: "none",
   borderRadius: 4,
   cursor: "pointer",
@@ -187,8 +187,8 @@ const addButton = {
 
 const editButton = {
   padding: "6px 12px",
-  backgroundColor: "#4caf50",
-  color: "#fff",
+  backgroundColor: "var(--legacy-color-4caf50)",
+  color: "var(--legacy-color-fff)",
   border: "none",
   borderRadius: 4,
   cursor: "pointer",

@@ -30,8 +30,8 @@ export default function CreateBookingPage() {
     <HeaderSidebarLayout>
       <div
         style={{
-          backgroundColor: "#f4f4f5",
-          color: "#333",
+          backgroundColor: "var(--legacy-color-f4f4f5)",
+          color: "var(--legacy-color-333)",
           fontFamily: "Arial, sans-serif",
           padding: "24px 20px 32px",
         }}
@@ -62,17 +62,17 @@ export default function CreateBookingPage() {
 
 const navButton = {
   background: "transparent",
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: "none",
   fontSize: 16,
   padding: "10px 0",
   textAlign: "left",
   cursor: "pointer",
-  borderBottom: "1px solid #333"
+  borderBottom: "1px solid var(--legacy-color-333)"
 };
 
 const cardStyle = {
-  backgroundColor: "#fff",
+  backgroundColor: "var(--legacy-color-fff)",
   padding: "20px",
   borderRadius: 8,
   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",

@@ -9,15 +9,15 @@ import { db } from "../../../../../../firebaseConfig";
 import { formatDateForDisplay, normalizeServiceRecord } from "@/app/utils/serviceRecordCompat";
 
 const UI = {
-  page: "#e5e7eb",
-  paper: "#ffffff",
-  ink: "#111827",
-  muted: "#4b5563",
-  line: "#6b7280",
-  softLine: "#cbd5e1",
-  header: "#e5e7eb",
-  subHeader: "#f3f4f6",
-  blue: "#1d4ed8",
+  page: "var(--legacy-color-e5e7eb)",
+  paper: "var(--legacy-color-ffffff)",
+  ink: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-4b5563)",
+  line: "var(--legacy-color-6b7280)",
+  softLine: "var(--legacy-color-cbd5e1)",
+  header: "var(--legacy-color-e5e7eb)",
+  subHeader: "var(--legacy-color-f3f4f6)",
+  blue: "var(--legacy-color-1d4ed8)",
 };
 
 const pageWrap = {
@@ -42,8 +42,8 @@ const btn = {
   minHeight: 34,
   padding: "7px 12px",
   borderRadius: 6,
-  border: "1px solid #9ca3af",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-9ca3af)",
+  background: "var(--legacy-color-fff)",
   color: UI.ink,
   fontWeight: 800,
   cursor: "pointer",
@@ -54,7 +54,7 @@ const sheet = {
   maxWidth: 1280,
   margin: "0 auto",
   background: UI.paper,
-  border: "1px solid #9ca3af",
+  border: "1px solid var(--legacy-color-9ca3af)",
   boxShadow: "0 16px 34px rgba(15,23,42,0.18)",
   padding: 18,
   color: UI.ink,
@@ -186,11 +186,11 @@ const checklistCategories = [
 ];
 
 const ratingStyles = {
-  green: { background: "#86efac", color: "#052e16" },
-  amber: { background: "#facc15", color: "#422006" },
-  red: { background: "#f87171", color: "#450a0a" },
-  na: { background: "#d1d5db", color: "#374151" },
-  blank: { background: "#f9fafb", color: "#6b7280" },
+  green: { background: "var(--legacy-color-86efac)", color: "var(--legacy-color-052e16)" },
+  amber: { background: "var(--legacy-color-facc15)", color: "var(--legacy-color-422006)" },
+  red: { background: "var(--legacy-color-f87171)", color: "var(--legacy-color-450a0a)" },
+  na: { background: "var(--legacy-color-d1d5db)", color: "var(--legacy-color-374151)" },
+  blank: { background: "var(--legacy-color-f9fafb)", color: "var(--legacy-color-6b7280)" },
 };
 
 const statusSymbols = {
@@ -376,7 +376,7 @@ function WheelCard({ label, data }) {
     <div
       style={{
         border: `1px solid ${UI.line}`,
-        background: "#fff",
+        background: "var(--legacy-color-fff)",
         padding: 6,
         minHeight: 86,
         display: "grid",
@@ -416,7 +416,7 @@ function WheelOverview({ wheelInspection }) {
         `,
         gap: 8,
         alignItems: "center",
-        background: "#f8fafc",
+        background: "var(--legacy-color-f8fafc)",
       }}
     >
       {wheelPositions.map((position) => (
@@ -452,7 +452,7 @@ function WheelOverview({ wheelInspection }) {
             borderLeft: `2px solid ${UI.line}`,
             borderRight: `2px solid ${UI.line}`,
             background:
-              "linear-gradient(180deg, transparent 0 26%, #cbd5e1 26% 28%, transparent 28% 72%, #cbd5e1 72% 74%, transparent 74%)",
+              "linear-gradient(180deg, transparent 0 26%, var(--legacy-color-cbd5e1) 26% 28%, transparent 28% 72%, var(--legacy-color-cbd5e1) 72% 74%, transparent 74%)",
           }}
         />
         <div
@@ -599,7 +599,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 html,
                 body {
-                  background: #fff !important;
+                  background: var(--legacy-color-fff) !important;
                   margin: 0 !important;
                   padding: 0 !important;
                 }
@@ -611,7 +611,7 @@ export default function VehicleServiceHistoryDetailPage() {
                 }
                 .service-sheet-page {
                   padding: 0 !important;
-                  background: #fff !important;
+                  background: var(--legacy-color-fff) !important;
                 }
                 .service-sheet-paper,
                 .service-sheet-paper * {
@@ -624,7 +624,7 @@ export default function VehicleServiceHistoryDetailPage() {
                   width: ${printOrientation === "portrait" ? "200mm" : "287mm"} !important;
                   max-width: none !important;
                   margin: 0 !important;
-                  background: #fff !important;
+                  background: var(--legacy-color-fff) !important;
                   border: none !important;
                   box-shadow: none !important;
                   padding: 0 !important;

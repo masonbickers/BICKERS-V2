@@ -13,16 +13,16 @@ import {
 } from "@/app/utils/firestoreAccess";
 
 const UI = {
-  bg: "#edf3f8",
-  shell: "#ffffff",
-  shellAlt: "#f7fafc",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  border: "1px solid #dbe2ea",
+  bg: "var(--legacy-color-edf3f8)",
+  shell: "var(--legacy-color-ffffff)",
+  shellAlt: "var(--legacy-color-f7fafc)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  accent: "var(--legacy-color-8b5e3c)",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   shadow: "0 18px 40px rgba(15,23,42,0.08)",
 };
 
@@ -300,7 +300,7 @@ export default function AssistantPage() {
         >
           <aside
             style={{
-              background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+              background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)",
               border: UI.border,
               borderRadius: 18,
               boxShadow: UI.shadow,
@@ -368,7 +368,7 @@ export default function AssistantPage() {
                       padding: "10px 12px",
                       borderRadius: 12,
                       border: `1px solid ${UI.brandBorder}`,
-                      background: "#fff",
+                      background: "var(--legacy-color-fff)",
                       color: UI.text,
                       cursor: loading ? "not-allowed" : "pointer",
                       fontSize: 12.5,
@@ -385,7 +385,7 @@ export default function AssistantPage() {
               style={{
                 border: UI.border,
                 borderRadius: 14,
-                background: "#fff",
+                background: "var(--legacy-color-fff)",
                 padding: 14,
               }}
             >
@@ -411,7 +411,7 @@ export default function AssistantPage() {
           <section
             style={{
               minHeight: "74vh",
-              background: "linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)",
+              background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfdff) 100%)",
               border: UI.border,
               borderRadius: 22,
               boxShadow: UI.shadow,
@@ -425,8 +425,8 @@ export default function AssistantPage() {
                 padding: "16px 18px",
                 borderBottom: UI.border,
                 background:
-                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, #162434 0%, #22364c 100%)",
-                color: "#eef5fb",
+                  "radial-gradient(circle at top right, rgba(107,179,127,0.14), transparent 30%), linear-gradient(135deg, var(--legacy-color-162434) 0%, var(--legacy-color-22364c) 100%)",
+                color: "var(--legacy-color-eef5fb)",
               }}
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>Bickers Assistant</div>
@@ -443,7 +443,7 @@ export default function AssistantPage() {
                 display: "grid",
                 gap: 14,
                 background:
-                  "radial-gradient(circle at top left, rgba(237,243,248,0.9), transparent 35%), linear-gradient(180deg, #f8fbfd 0%, #fdfefe 100%)",
+                  "radial-gradient(circle at top left, rgba(237,243,248,0.9), transparent 35%), linear-gradient(180deg, var(--legacy-color-f8fbfd) 0%, var(--legacy-color-fdfefe) 100%)",
               }}
             >
               {messages.map((message, index) => {
@@ -462,8 +462,8 @@ export default function AssistantPage() {
                         borderRadius: 18,
                         padding: "12px 14px",
                         border: isUser ? `1px solid ${UI.brand}` : UI.border,
-                        background: isUser ? "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)" : "#ffffff",
-                        color: isUser ? "#fff" : UI.text,
+                        background: isUser ? "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)" : "var(--legacy-color-ffffff)",
+                        color: isUser ? "var(--legacy-color-fff)" : UI.text,
                         whiteSpace: "pre-wrap",
                         lineHeight: 1.6,
                         fontSize: 14,
@@ -486,7 +486,7 @@ export default function AssistantPage() {
                       borderRadius: 18,
                       padding: "12px 14px",
                       border: UI.border,
-                      background: "#ffffff",
+                      background: "var(--legacy-color-ffffff)",
                       color: UI.muted,
                       fontSize: 14,
                     }}
@@ -497,16 +497,16 @@ export default function AssistantPage() {
               ) : null}
             </div>
 
-            <div style={{ borderTop: UI.border, padding: 16, background: "#fff" }}>
+            <div style={{ borderTop: UI.border, padding: 16, background: "var(--legacy-color-fff)" }}>
               {error ? (
                 <div
                   style={{
                     marginBottom: 10,
                     padding: "10px 12px",
                     borderRadius: 12,
-                    border: "1px solid #fecaca",
-                    background: "#fff1f2",
-                    color: "#991b1b",
+                    border: "1px solid var(--legacy-color-fecaca)",
+                    background: "var(--legacy-color-fff1f2)",
+                    color: "var(--legacy-color-991b1b)",
                     fontSize: 12.5,
                     fontWeight: 700,
                   }}
@@ -531,7 +531,7 @@ export default function AssistantPage() {
                     outline: "none",
                     fontSize: 14,
                     color: UI.text,
-                    background: "#fff",
+                    background: "var(--legacy-color-fff)",
                     boxSizing: "border-box",
                   }}
                 />
@@ -546,9 +546,9 @@ export default function AssistantPage() {
                     borderRadius: 14,
                     border: `1px solid ${UI.brand}`,
                     background: loading || !String(input).trim()
-                      ? "#d7e1ea"
-                      : "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-                    color: loading || !String(input).trim() ? "#6b7280" : "#fff",
+                      ? "var(--legacy-color-d7e1ea)"
+                      : "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+                    color: loading || !String(input).trim() ? "var(--legacy-color-6b7280)" : "var(--legacy-color-fff)",
                     fontWeight: 800,
                     cursor: loading || !String(input).trim() ? "not-allowed" : "pointer",
                     minWidth: 118,

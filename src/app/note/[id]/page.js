@@ -197,7 +197,7 @@ export default function EditNoteForm() {
                 onClick={handleDelete}
                 style={{
                     ...cancelButtonStyle,
-                    backgroundColor: "#880808", // darker red
+                    backgroundColor: "var(--legacy-color-880808)", // darker red
                     marginTop: "10px",
                 }}
                 >
@@ -212,17 +212,17 @@ export default function EditNoteForm() {
 }
 
 //  Styles (reuse from original NoteForm)
-const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "#1e1e1e", color: "#fff", minHeight: "100vh", padding: "40px" };
-const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "#121212", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const mainContainerStyle = { display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "var(--legacy-color-1e1e1e)", color: "var(--legacy-color-fff)", minHeight: "100vh", padding: "40px" };
+const mainContentStyle = { maxWidth: "800px", width: "100%", backgroundColor: "var(--legacy-color-121212)", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
 const headerStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" };
 const logoStyle = { width: "180px", height: "auto" };
-const backButtonStyle = { backgroundColor: "#f44336", color: "#fff", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
+const backButtonStyle = { backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", padding: "8px 16px", fontSize: "14px", cursor: "pointer", borderRadius: "6px" };
 const pageTitleStyle = { fontSize: "32px", fontWeight: "bold", textAlign: "center", marginBottom: "20px" };
-const formContainerStyle = { backgroundColor: "#222", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
-const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "#fff" };
+const formContainerStyle = { backgroundColor: "var(--legacy-color-222)", padding: "30px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0, 0, 0, 0.3)" };
+const formTitleStyle = { fontSize: "24px", fontWeight: "bold", marginBottom: "20px", color: "var(--legacy-color-fff)" };
 const inputContainerStyle = { marginBottom: "15px" };
-const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "#fff" };
-const checkRowStyle = { display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 15, color: "#fff", fontSize: 14, fontWeight: 700 };
-const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid #444", fontSize: "14px", backgroundColor: "#333", color: "#fff" };
-const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "#1976d2", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
-const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "#f44336", color: "#fff", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };
+const labelStyle = { fontSize: "14px", fontWeight: "600", marginBottom: "5px", display: "block", color: "var(--legacy-color-fff)" };
+const checkRowStyle = { display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 15, color: "var(--legacy-color-fff)", fontSize: 14, fontWeight: 700 };
+const inputStyle = { width: "100%", padding: "12px", marginBottom: "10px", borderRadius: "6px", border: "1px solid var(--legacy-color-444)", fontSize: "14px", backgroundColor: "var(--legacy-color-333)", color: "var(--legacy-color-fff)" };
+const buttonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-1976d2)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" };
+const cancelButtonStyle = { width: "100%", padding: "12px", backgroundColor: "var(--legacy-color-f44336)", color: "var(--legacy-color-fff)", border: "none", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "10px" };

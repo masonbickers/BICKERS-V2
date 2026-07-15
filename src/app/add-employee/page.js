@@ -39,14 +39,14 @@ const UI = {
   radiusSm: 8,
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -75,7 +75,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -85,7 +85,7 @@ const grid2 = {
   gap: 10,
 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "4px 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "4px 0" };
 
 const chip = {
   padding: "5px 9px",
@@ -108,7 +108,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -126,8 +126,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -172,7 +172,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   button:disabled { opacity: .55; cursor: not-allowed; }
   @media (max-width: 1180px) {
@@ -348,7 +348,7 @@ export default function AddEmployeePage() {
             <section style={card}>
               <div style={sectionHeader}>
                 <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("#15803d", "#ecfdf3", "#bbf7d0")}>
+                  <span style={iconBox("var(--legacy-color-15803d)", "var(--legacy-color-ecfdf3)", "var(--legacy-color-bbf7d0)")}>
                     <Save size={17} />
                   </span>
                   <div>
@@ -372,7 +372,7 @@ export default function AddEmployeePage() {
             <section style={card}>
               <div style={sectionHeader}>
                 <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
-                  <span style={iconBox("#7c3aed", "#f5f3ff", "#ddd6fe")}>
+                  <span style={iconBox("var(--legacy-color-7c3aed)", "var(--legacy-color-f5f3ff)", "var(--legacy-color-ddd6fe)")}>
                     <IdCard size={17} />
                   </span>
                   <div>

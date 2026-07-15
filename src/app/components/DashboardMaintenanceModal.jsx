@@ -1186,12 +1186,12 @@ const modal = {
   width: "min(760px, calc(100vw - 32px))",
   maxHeight: "90vh",
   overflow: "auto",
-  background: "#f3f6f9",
-  border: "1px solid #d7dee8",
+  background: "var(--legacy-color-f3f6f9)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
   boxShadow: "0 22px 60px rgba(15,23,42,0.28)",
   padding: 0,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
 };
 
 const header = {
@@ -1200,13 +1200,13 @@ const header = {
   alignItems: "center",
   gap: 12,
   padding: "14px 16px",
-  background: "#ffffff",
-  borderBottom: "1px solid #d7dee8",
+  background: "var(--legacy-color-ffffff)",
+  borderBottom: "1px solid var(--legacy-color-d7dee8)",
 };
 
 const eyebrow = {
   fontSize: 11,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   textTransform: "uppercase",
   letterSpacing: ".08em",
   fontWeight: 900,
@@ -1216,7 +1216,7 @@ const title = {
   margin: "3px 0 0",
   fontSize: 22,
   lineHeight: 1.08,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 900,
   letterSpacing: 0,
 };
@@ -1224,21 +1224,21 @@ const title = {
 const closeBtn = {
   width: 34,
   height: 34,
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   fontSize: 14,
   lineHeight: 1,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontWeight: 900,
   cursor: "pointer",
 };
 
 const card = {
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
   padding: 10,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   margin: 12,
   overflow: "hidden",
 };
@@ -1251,8 +1251,8 @@ const summaryStrip = {
 };
 
 const summaryTile = {
-  border: "1px solid #d7dee8",
-  background: "#f8fafc",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  background: "var(--legacy-color-f8fafc)",
   borderRadius: 8,
   padding: "10px 11px",
   minWidth: 0,
@@ -1260,7 +1260,7 @@ const summaryTile = {
 
 const summaryLabel = {
   fontSize: 11,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".04em",
@@ -1269,32 +1269,32 @@ const summaryLabel = {
 
 const summaryValue = {
   fontSize: 13.5,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 900,
   lineHeight: 1.35,
   overflowWrap: "anywhere",
 };
 
 const detailsPanel = {
-  border: "1px solid #e3ebf3",
+  border: "1px solid var(--legacy-color-e3ebf3)",
   borderRadius: 8,
   overflow: "hidden",
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
 };
 
 const documentUploadCard = {
   margin: "0 12px 12px",
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
 };
 
 const documentsBlock = {
   padding: 10,
-  borderTop: "1px solid #e3ebf3",
-  background: "#ffffff",
+  borderTop: "1px solid var(--legacy-color-e3ebf3)",
+  background: "var(--legacy-color-ffffff)",
 };
 
 const documentLinks = {
@@ -1309,9 +1309,9 @@ const documentLink = {
   alignItems: "center",
   padding: "5px 8px",
   borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#edf3f8",
-  color: "#1f4b7a",
+  border: "1px solid var(--legacy-color-c8d6e3)",
+  background: "var(--legacy-color-edf3f8)",
+  color: "var(--legacy-color-1f4b7a)",
   fontSize: 12,
   fontWeight: 800,
   textDecoration: "none",
@@ -1319,7 +1319,7 @@ const documentLink = {
 
 const fileHint = {
   marginTop: 6,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontSize: 12,
   fontWeight: 700,
   overflowWrap: "anywhere",
@@ -1330,13 +1330,13 @@ const row = {
   gridTemplateColumns: "150px minmax(0, 1fr)",
   gap: 14,
   padding: "8px 11px",
-  borderBottom: "1px solid #e8eef5",
+  borderBottom: "1px solid var(--legacy-color-e8eef5)",
   alignItems: "start",
 };
 
 const labelStyle = {
   fontSize: 11.5,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: ".035em",
@@ -1345,7 +1345,7 @@ const labelStyle = {
 
 const valueStyle = {
   fontSize: 13.5,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 800,
   lineHeight: 1.4,
   overflowWrap: "anywhere",
@@ -1355,11 +1355,11 @@ const notesBlock = {
   display: "grid",
   gap: 6,
   padding: "10px 11px",
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
 };
 
 const notesText = {
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 13.5,
   fontWeight: 800,
   lineHeight: 1.45,
@@ -1377,9 +1377,9 @@ const actions = {
 const primaryBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid #1f4b7a",
-  background: "#1f4b7a",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-1f4b7a)",
+  background: "var(--legacy-color-1f4b7a)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(31,75,122,0.16)",
@@ -1388,9 +1388,9 @@ const primaryBtn = {
 const ghostBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
-  color: "#0f172a",
+  border: "1px solid var(--legacy-color-c8d6e3)",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-0f172a)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
@@ -1399,9 +1399,9 @@ const ghostBtn = {
 const successBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid #15803d",
-  background: "#15803d",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-15803d)",
+  background: "var(--legacy-color-15803d)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(21,128,61,0.16)",
@@ -1410,9 +1410,9 @@ const successBtn = {
 const dangerBtn = {
   padding: "9px 12px",
   borderRadius: 8,
-  border: "1px solid #b91c1c",
-  background: "#b91c1c",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-b91c1c)",
+  background: "var(--legacy-color-b91c1c)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   cursor: "pointer",
   boxShadow: "0 6px 12px rgba(185,28,28,0.14)",
@@ -1420,23 +1420,23 @@ const dangerBtn = {
 
 const jobEditorCard = {
   margin: "0 12px 12px",
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
   padding: 12,
-  background: "#ffffff",
+  background: "var(--legacy-color-ffffff)",
 };
 
 const jobEditorTitle = {
   fontSize: 16,
   fontWeight: 800,
-  color: "#0f172a",
+  color: "var(--legacy-color-0f172a)",
   marginBottom: 6,
 };
 
 const jobEditorSubtitle = {
   fontSize: 13,
   lineHeight: 1.45,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   marginBottom: 12,
 };
 
@@ -1448,7 +1448,7 @@ const jobGrid = {
 
 const fieldLabel = {
   fontSize: 12,
-  color: "#5f6f82",
+  color: "var(--legacy-color-5f6f82)",
   fontWeight: 900,
   textTransform: "uppercase",
   marginBottom: 6,
@@ -1458,9 +1458,9 @@ const fieldInput = {
   width: "100%",
   padding: "9px 10px",
   borderRadius: 8,
-  border: "1px solid #c8d6e3",
-  background: "#fff",
-  color: "#0f172a",
+  border: "1px solid var(--legacy-color-c8d6e3)",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-0f172a)",
   fontSize: 14,
 };
 
@@ -1474,16 +1474,16 @@ const feedbackBase = {
 
 const feedbackError = {
   ...feedbackBase,
-  background: "#fef2f2",
-  border: "1px solid #fecaca",
-  color: "#991b1b",
+  background: "var(--legacy-color-fef2f2)",
+  border: "1px solid var(--legacy-color-fecaca)",
+  color: "var(--legacy-color-991b1b)",
 };
 
 const feedbackSuccess = {
   ...feedbackBase,
-  background: "#eff6ff",
-  border: "1px solid #bfdbfe",
-  color: "#1d4ed8",
+  background: "var(--legacy-color-eff6ff)",
+  border: "1px solid var(--legacy-color-bfdbfe)",
+  color: "var(--legacy-color-1d4ed8)",
 };
 
 const fullField = {

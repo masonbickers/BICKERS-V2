@@ -113,20 +113,20 @@ const dedupeRows = (rows) => {
 
 /* ---------- Visual tokens ---------- */
 const palette = {
-  bg: "#f8fafc",
-  text: "#0f172a",
-  subtext: "#64748b",
-  border: "#e2e8f0",
-  cardBg: "#ffffff",
+  bg: "var(--legacy-color-f8fafc)",
+  text: "var(--legacy-color-0f172a)",
+  subtext: "var(--legacy-color-64748b)",
+  border: "var(--legacy-color-e2e8f0)",
+  cardBg: "var(--legacy-color-ffffff)",
   shadow: "0 6px 18px rgba(2, 6, 23, 0.06)",
 };
 
 const statusChip = {
-  pending:  { bg: "#fff7ed", border: "#fed7aa", text: "#b45309", label: "Queued" },
-  ready:    { bg: "#eff6ff", border: "#bfdbfe", text: "#2563eb", label: "Ready to Invoice" },
-  invoiced: { bg: "#eef2ff", border: "#c7d2fe", text: "#4f46e5", label: "Invoiced" },
-  paid:     { bg: "#ecfdf5", border: "#bbf7d0", text: "#0f766e", label: "Paid" },
-  default:  { bg: "#f1f5f9", border: "#e2e8f0", text: "#334155", label: "TBC" },
+  pending:  { bg: "var(--legacy-color-fff7ed)", border: "var(--legacy-color-fed7aa)", text: "var(--legacy-color-b45309)", label: "Queued" },
+  ready:    { bg: "var(--legacy-color-eff6ff)", border: "var(--legacy-color-bfdbfe)", text: "var(--legacy-color-2563eb)", label: "Ready to Invoice" },
+  invoiced: { bg: "var(--legacy-color-eef2ff)", border: "var(--legacy-color-c7d2fe)", text: "var(--legacy-color-4f46e5)", label: "Invoiced" },
+  paid:     { bg: "var(--legacy-color-ecfdf5)", border: "var(--legacy-color-bbf7d0)", text: "var(--legacy-color-0f766e)", label: "Paid" },
+  default:  { bg: "var(--legacy-color-f1f5f9)", border: "var(--legacy-color-e2e8f0)", text: "var(--legacy-color-334155)", label: "TBC" },
 };
 
 const StatusBadge = ({ status }) => {
@@ -165,8 +165,8 @@ const Toast = ({ msg, onClose }) => {
         position: "fixed",
         top: 18,
         right: 18,
-        background: "#111827",
-        color: "#fff",
+        background: "var(--legacy-color-111827)",
+        color: "var(--legacy-color-fff)",
         borderRadius: 12,
         padding: "10px 14px",
         boxShadow: palette.shadow,
@@ -373,9 +373,9 @@ export default function FinanceDashboard() {
   const statNumber = { fontSize: 30, fontWeight: 900, lineHeight: 1.1 };
 
   const controls = { display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" };
-  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "#fff" };
-  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "#fff" };
-  const btn = (bg, fg = "#fff") => ({
+  const selector = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, background: "var(--legacy-color-fff)" };
+  const input = { padding: "10px 12px", borderRadius: 10, border: `1px solid ${palette.border}`, minWidth: 260, background: "var(--legacy-color-fff)" };
+  const btn = (bg, fg = "var(--legacy-color-fff)") => ({
     background: bg,
     color: fg,
     border: "none",
@@ -396,11 +396,11 @@ export default function FinanceDashboard() {
     fontSize: 12,
     color: palette.subtext,
     borderBottom: `1px solid ${palette.border}`,
-    background: "#f8fafc",
+    background: "var(--legacy-color-f8fafc)",
   };
   const td = { padding: "14px 12px", fontSize: 13, borderBottom: `1px solid ${palette.border}` };
   const row = (i) => ({
-    background: i % 2 ? "#ffffff" : "#fcfdff",
+    background: i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)",
     cursor: "pointer",
   });
   const rowHover = {
@@ -408,7 +408,7 @@ export default function FinanceDashboard() {
   };
   const right = { textAlign: "right" };
   const link = {
-    color: "#2563eb",
+    color: "var(--legacy-color-2563eb)",
     textDecoration: "none",
     fontWeight: 700,
   };
@@ -437,7 +437,7 @@ export default function FinanceDashboard() {
             placeholder="Search client, location, job#, invoice#"
             style={input}
           />
-          <button onClick={load} style={btn("#111827")}>Refresh</button>
+          <button onClick={load} style={btn("var(--legacy-color-111827)")}>Refresh</button>
         </div>
 
         {/* Footer stats (optional) */}
@@ -502,8 +502,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f5faff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "#ffffff" : "#fcfdff"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)"))}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>
@@ -523,7 +523,7 @@ export default function FinanceDashboard() {
                             {job.status === "ready" && (
                               <button
                                 onClick={(e) => markAsInvoiced(job, e)}
-                                style={btn("#4f46e5")}
+                                style={btn("var(--legacy-color-4f46e5)")}
                                 disabled={saving}
                                 title="Set status to Invoiced"
                               >
@@ -532,7 +532,7 @@ export default function FinanceDashboard() {
                             )}{" "}
                             <button
                               onClick={(e) => markAsPaid(job, e)}
-                              style={btn("#059669")}
+                              style={btn("var(--legacy-color-059669)")}
                               disabled={saving}
                               title="Set status to Paid"
                             >
@@ -585,8 +585,8 @@ export default function FinanceDashboard() {
                           tabIndex={0}
                           role="button"
                           title="Open job"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f5faff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "#ffffff" : "#fcfdff"))}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--legacy-color-f5faff)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = (i % 2 ? "var(--legacy-color-ffffff)" : "var(--legacy-color-fcfdff)"))}
                         >
                           <td style={td}>
                             <a href={href} onClick={(e) => e.stopPropagation()} style={link}>

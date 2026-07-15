@@ -12,12 +12,12 @@ const UI = {
   radiusSm: 10,
   gap: 10,
   shadowSm: "0 4px 14px rgba(0,0,0,0.06)",
-  border: "1px solid #e5e7eb",
-  bg: "#f8fafc",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#64748b",
-  brand: "#1d4ed8",
+  border: "1px solid var(--legacy-color-e5e7eb)",
+  bg: "var(--legacy-color-f8fafc)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-64748b)",
+  brand: "var(--legacy-color-1d4ed8)",
 };
 
 const pageWrap = { padding: "16px 18px 24px", background: UI.bg, minHeight: "100vh" };
@@ -40,8 +40,8 @@ const btn = {
   gap: 6,
   padding: "8px 11px",
   borderRadius: UI.radiusSm,
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-d1d5db)",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 900,
   cursor: "pointer",
@@ -188,10 +188,10 @@ export default function VehicleServiceHistoryPage() {
                           : undefined
                       }
                       style={{
-                        border: "1px solid #e5e7eb",
+                        border: "1px solid var(--legacy-color-e5e7eb)",
                         borderRadius: 12,
                         padding: 10,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                         cursor: item.bookingId ? "pointer" : "default",
                       }}
                     >

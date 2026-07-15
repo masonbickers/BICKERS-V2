@@ -41,23 +41,23 @@ const ADMIN_EMAILS = ["mason@bickers.co.uk"];
 
 /* -------------------------- tiny visual tokens only -------------------------- */
 const UI = {
-  text: "#0f172a",
-  muted: "#5f6f82",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  border: "1px solid #d7dee8",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   radius: 8,
   radiusSm: 8,
   gap: 12,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#b91c1c",
-  dangerSoft: "#fff1f2",
-  ok: "#15803d",
-  okSoft: "#edf7f2",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-b91c1c)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
+  ok: "var(--legacy-color-15803d)",
+  okSoft: "var(--legacy-color-edf7f2)",
 };
 
 const pageWrap = {
@@ -111,7 +111,7 @@ const btnBase = {
 const btnDark = {
   ...btnBase,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: `1px solid ${UI.brand}`,
 };
 
@@ -119,7 +119,7 @@ const btnDanger = {
   ...btnBase,
   background: UI.dangerSoft,
   color: UI.danger,
-  border: "1px solid #fecdd3",
+  border: "1px solid var(--legacy-color-fecdd3)",
 };
 
 const tableWrap = {
@@ -142,7 +142,7 @@ const th = {
   fontWeight: 700,
   fontSize: 12,
   color: UI.muted,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "9px 10px",
   borderBottom: UI.border,
   position: "sticky",
@@ -165,7 +165,7 @@ const mono = {
     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
 };
 
-const pill = (bg, color = "#111") => ({
+const pill = (bg, color = "var(--legacy-color-111)") => ({
   display: "inline-flex",
   alignItems: "center",
   padding: "3px 8px",
@@ -378,20 +378,20 @@ const toAttachmentList = (b = {}) => {
 
 /* ---- status colours ---- */
 const STATUS_COLORS = {
-  Confirmed: { bg: "#f3f970", text: "#111", border: "#0b0b0b" },
-  "First Pencil": { bg: "#89caf5", text: "#111", border: "#0b0b0b" },
-  "Second Pencil": { bg: "#f73939", text: "#fff", border: "#0b0b0b" },
-  Holiday: { bg: "#d3d3d3", text: "#111", border: "#0b0b0b" },
-  Maintenance: { bg: "#f97316", text: "#111", border: "#0b0b0b" },
-  Complete: { bg: "#92d18cff", text: "#111", border: "#0b0b0b" },
-  "Action Required": { bg: "#FF973B", text: "#111", border: "#0b0b0b" },
-  DNH: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  Lost: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  Postponed: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
-  Cancelled: { bg: "#c2c2c2", text: "#111", border: "#c2c2c2" },
+  Confirmed: { bg: "var(--legacy-color-f3f970)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "First Pencil": { bg: "var(--legacy-color-89caf5)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Second Pencil": { bg: "var(--legacy-color-f73939)", text: "var(--legacy-color-fff)", border: "var(--legacy-color-0b0b0b)" },
+  Holiday: { bg: "var(--legacy-color-d3d3d3)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Maintenance: { bg: "var(--legacy-color-f97316)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  Complete: { bg: "var(--legacy-color-92d18cff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  "Action Required": { bg: "var(--legacy-color-ff973b)", text: "var(--legacy-color-111)", border: "var(--legacy-color-0b0b0b)" },
+  DNH: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  Lost: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  Postponed: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
+  Cancelled: { bg: "var(--legacy-color-c2c2c2)", text: "var(--legacy-color-111)", border: "var(--legacy-color-c2c2c2)" },
 };
 const getStatusStyle = (s = "") =>
-  STATUS_COLORS[s] || { bg: "#e5e7eb", text: "#111", border: "#e5e7eb" };
+  STATUS_COLORS[s] || { bg: "var(--legacy-color-e5e7eb)", text: "var(--legacy-color-111)", border: "var(--legacy-color-e5e7eb)" };
 
 const formatReasons = (reasons = [], other = "") => {
   if (!Array.isArray(reasons) || !reasons.length) return "-";
@@ -812,13 +812,13 @@ export default function DeletedBookingsPage() {
                           key={r.id}
                           onClick={() => openDeletedBooking(r)}
                           style={{
-                            background: i % 2 === 0 ? UI.card : "#f8fafc",
+                            background: i % 2 === 0 ? UI.card : "var(--legacy-color-f8fafc)",
                             transition: "background-color .15s ease",
                             cursor: "pointer",
                           }}
                           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = UI.brandSoft)}
                           onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = i % 2 === 0 ? UI.card : "#f8fafc")
+                            (e.currentTarget.style.backgroundColor = i % 2 === 0 ? UI.card : "var(--legacy-color-f8fafc)")
                           }
                         >
                           <td style={td}>
@@ -926,7 +926,7 @@ export default function DeletedBookingsPage() {
                                   marginTop: 10,
                                   border: UI.border,
                                   borderRadius: UI.radiusSm,
-                                  background: "#f8fafc",
+                                  background: "var(--legacy-color-f8fafc)",
                                   padding: 10,
                                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.65)",
                                 }}
@@ -960,8 +960,8 @@ export default function DeletedBookingsPage() {
                                     margin: 0,
                                     whiteSpace: "pre-wrap",
                                     wordBreak: "break-word",
-                                    background: "#0b1220",
-                                    color: "#e5e7eb",
+                                    background: "var(--legacy-color-0b1220)",
+                                    color: "var(--legacy-color-e5e7eb)",
                                     borderRadius: UI.radius,
                                     padding: 10,
                                     overflow: "auto",

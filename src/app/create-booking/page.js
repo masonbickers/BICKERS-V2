@@ -64,24 +64,24 @@ const UI = {
   radiusXs: 8,
   shadow: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#ffffff",
-  bgAlt: "#f8fafc",
-  page: "#f3f6f9",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  green: "#15803d",
-  greenSoft: "#ecfdf3",
-  greenBorder: "#bbf7d0",
-  amber: "#b45309",
-  amberSoft: "#fffbeb",
-  amberBorder: "#fde68a",
-  red: "#b91c1c",
-  redSoft: "#fff1f2",
-  redBorder: "#fecdd3",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-ffffff)",
+  bgAlt: "var(--legacy-color-f8fafc)",
+  page: "var(--legacy-color-f3f6f9)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  green: "var(--legacy-color-15803d)",
+  greenSoft: "var(--legacy-color-ecfdf3)",
+  greenBorder: "var(--legacy-color-bbf7d0)",
+  amber: "var(--legacy-color-b45309)",
+  amberSoft: "var(--legacy-color-fffbeb)",
+  amberBorder: "var(--legacy-color-fde68a)",
+  red: "var(--legacy-color-b91c1c)",
+  redSoft: "var(--legacy-color-fff1f2)",
+  redBorder: "var(--legacy-color-fecdd3)",
 };
 
 const pageWrap = {
@@ -181,7 +181,7 @@ const field = {
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "#fff",
+    background: "var(--legacy-color-fff)",
     color: UI.text,
     boxSizing: "border-box",
   },
@@ -192,7 +192,7 @@ const field = {
     fontSize: 13,
     borderRadius: UI.radiusXs,
     border: UI.border,
-    background: "#fff",
+    background: "var(--legacy-color-fff)",
     color: UI.text,
     boxSizing: "border-box",
   },
@@ -214,7 +214,7 @@ const accordionBtn = {
   padding: "8px 10px",
   borderRadius: UI.radiusSm,
   border: UI.border,
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   cursor: "pointer",
   fontWeight: 800,
   fontSize: 12.5,
@@ -234,7 +234,7 @@ const pill = {
   fontWeight: 700,
 };
 
-const divider = { height: 1, background: "#e2e8f0", margin: "12px 0" };
+const divider = { height: 1, background: "var(--legacy-color-e2e8f0)", margin: "12px 0" };
 
 const checkboxGrid = {
   display: "grid",
@@ -269,7 +269,7 @@ const subCard = {
   padding: 10,
   borderRadius: UI.radiusSm,
   background: UI.bgAlt,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
 };
 
 const DatePicker = dynamic(() => import("react-multi-date-picker"), {
@@ -292,12 +292,12 @@ const btn = {
 const btnPrimary = {
   ...btn,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   boxShadow: "0 8px 18px rgba(31,75,122,0.16)",
 };
 const btnGhost = {
   ...btn,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
 };
@@ -315,7 +315,7 @@ const summaryRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed #d6e0ea",
+  borderBottom: "1px dashed var(--legacy-color-d6e0ea)",
 };
 const summaryGrid = {
   display: "grid",
@@ -325,7 +325,7 @@ const summaryGrid = {
 const summarySection = {
   border: UI.border,
   borderRadius: UI.radiusSm,
-  background: "#f8fafc",
+  background: "var(--legacy-color-f8fafc)",
   padding: "8px 10px",
 };
 const summarySectionTitle = {
@@ -398,7 +398,7 @@ const focusCss = `
   input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(29,78,216,0.15);
-    border-color: #bfdbfe !important;
+    border-color: var(--legacy-color-bfdbfe) !important;
   }
   @media (max-width: 1280px) {
     .create-booking-grid { grid-template-columns: 1fr !important; }
@@ -2439,8 +2439,8 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         marginBottom: 8,
                         padding: 8,
                         borderRadius: UI.radiusXs,
-                        background: "#ffffff",
-                        border: "1px solid #e5e7eb",
+                        background: "var(--legacy-color-ffffff)",
+                        border: "1px solid var(--legacy-color-e5e7eb)",
                       }}
                     >
                       <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -2491,9 +2491,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             padding: "4px 8px",
                             fontSize: 11,
                             borderRadius: 999,
-                            borderColor: "#dc2626",
-                            color: "#dc2626",
-                            background: "#fff",
+                            borderColor: "var(--legacy-color-dc2626)",
+                            color: "var(--legacy-color-dc2626)",
+                            background: "var(--legacy-color-fff)",
                           }}
                         >
                           Remove
@@ -2569,21 +2569,21 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Purchase Order (PO)</label>
-                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="PO reference for invoicing" />
+                        <input value={po} onChange={(e) => setPo(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="PO reference for invoicing" />
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Invoicing contact</label>
-                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Name" />
+                          <input value={invoiceContactName} onChange={(e) => setInvoiceContactName(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="Name" />
                         </div>
                         <div>
                           <label style={{ ...field.label, marginTop: 0 }}>Email</label>
-                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="accounts@example.com" />
+                          <input type="email" value={invoiceContactEmail} onChange={(e) => setInvoiceContactEmail(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="accounts@example.com" />
                         </div>
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Phone</label>
-                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "#fff" }} placeholder="Optional phone number" />
+                        <input type="tel" value={invoiceContactPhone} onChange={(e) => setInvoiceContactPhone(e.target.value)} style={{ ...field.input, background: "var(--legacy-color-fff)" }} placeholder="Optional phone number" />
                       </div>
                       <div>
                         <label style={{ ...field.label, marginTop: 0 }}>Invoice details document</label>
@@ -2591,7 +2591,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                           type="file"
                           accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,image/jpeg,image/png"
                           onChange={(e) => setInvoiceDocumentFile(e.target.files?.[0] || null)}
-                          style={{ ...field.input, height: "auto", padding: 10, background: "#fff" }}
+                          style={{ ...field.input, height: "auto", padding: 10, background: "var(--legacy-color-fff)" }}
                         />
                         {invoiceDocumentFile && (
                           <div style={{ marginTop: 5, fontSize: 12, color: UI.muted }}>
@@ -2612,7 +2612,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       value={riggingAddress}
                       onChange={(e) => setRiggingAddress(e.target.value)}
                       rows={3}
-                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "#fff" }}
+                      style={{ ...field.textarea, minHeight: 70, marginTop: 8, background: "var(--legacy-color-fff)" }}
                       placeholder="Enter rigging address..."
                     />
                   )}
@@ -2689,7 +2689,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     )}
                   </>
                 ) : (
-                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "#f8fafc", color: UI.muted, fontSize: 13 }}>
+                  <div style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 10, background: "var(--legacy-color-f8fafc)", color: UI.muted, fontSize: 13 }}>
                     No dates recorded yet.
                   </div>
                 )}
@@ -2705,7 +2705,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         const customOtherValue = notesByDate[`${date}-other`] || "";
                         const callTimeForDate = callTimesByDate[date] || "";
                         return (
-                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "#f8fafc" }}>
+                          <div key={date} style={{ border: UI.border, borderRadius: UI.radiusSm, padding: 8, background: "var(--legacy-color-f8fafc)" }}>
                             <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 13.5, lineHeight: 1.15 }}>{new Date(date).toDateString()}</div>
 
                             <div className="create-booking-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -2832,7 +2832,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {!isBooked && isHeld && "(Held)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -2841,9 +2841,9 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                 </div>
 
                 {/* Required crew guidance + manual crewed checkbox */}
-                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "#f8fafc" }}>
+                <div style={{ marginTop: 8, padding: 6, borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-f8fafc)" }}>
                   <div className="create-booking-crew-box" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 76px 76px auto", gap: 6, alignItems: "stretch" }}>
-                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <label style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, minHeight: 36, padding: "0 8px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <input
                         type="checkbox"
                         checked={isCrewed}
@@ -2852,7 +2852,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                       />
                       Crewed
                     </label>
-                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "grid", gap: 2, padding: "4px 6px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <label style={{ ...field.label, marginTop: 0, marginBottom: 0, fontSize: 9.5, lineHeight: 1 }}>Required</label>
                       <input
                         type="number"
@@ -2866,11 +2866,11 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                         style={{ ...field.input, height: 20, width: "100%", textAlign: "right", padding: 0, border: "none", background: "transparent", boxShadow: "none", fontWeight: 800 }}
                       />
                     </div>
-                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "#fff", border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "grid", gap: 2, alignContent: "center", padding: "4px 8px", borderRadius: UI.radiusXs, background: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-e2e8f0)" }}>
                       <span style={{ fontSize: 9.5, color: UI.muted, fontWeight: 800, textTransform: "uppercase", lineHeight: 1 }}>Allocated</span>
                       <span style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15 }}>{allocatedCrewCount} / {Math.max(0, Number(requiredCrewCount) || 0)}</span>
                     </div>
-                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "#166534" : "#92400e", background: isCrewed ? "#dcfce7" : "#fff7ed", border: `1px solid ${isCrewed ? "#86efac" : "#fed7aa"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
+                    <span style={{ alignSelf: "center", justifySelf: "end", fontSize: 11.5, color: isCrewed ? "var(--legacy-color-166534)" : "var(--legacy-color-92400e)", background: isCrewed ? "var(--legacy-color-dcfce7)" : "var(--legacy-color-fff7ed)", border: `1px solid ${isCrewed ? "var(--legacy-color-86efac)" : "var(--legacy-color-fed7aa)"}`, borderRadius: 999, padding: "5px 10px", fontWeight: 900 }}>
                       {isCrewed ? "Crewed" : "Manual"}
                     </span>
                   </div>
@@ -2906,7 +2906,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                             }
                           }}
                         />{" "}
-                        <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                        <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                           {name} {isBooked && "(Booked)"} {isHoliday && "(Holiday)"} {isUnavailable && "(Unavailable)"}
                         </span>
                       </label>
@@ -3045,7 +3045,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                   }
                                 >
                                   <input type="checkbox" checked={isSelected} disabled={disabled} onChange={(e) => toggleVehicle(key, e.target.checked)} />
-                                  <span style={{ flex: 1, color: disabled ? "#6e6f70ff" : UI.text }}>
+                                  <span style={{ flex: 1, color: disabled ? "var(--legacy-color-6e6f70ff)" : UI.text }}>
                                     {vehicle.name}
                                     {vehicle.registration ? ` - ${vehicle.registration}` : ""}
                                     {isDefectBlocked && !isBooked && !isMaintBlocked && ` (${defectReason})`}
@@ -3136,7 +3136,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                                       else setEquipment((prev) => prev.filter((x) => x !== name));
                                     }}
                                   />{" "}
-                                  <span style={{ color: disabled ? "#9ca3af" : UI.text }}>
+                                  <span style={{ color: disabled ? "var(--legacy-color-9ca3af)" : UI.text }}>
                                     {name}
                                     {isMaintBlocked && !isBooked && ` (${maintReason})`}
                                     {isBooked && " (Booked)"}
@@ -3218,7 +3218,7 @@ export default function CreateBookingPage({ initialStatus = "Confirmed" } = {}) 
                     <h3 style={cardTitle}>Notes</h3>
                   </div>
                   <label style={{ ...field.label, marginTop: 0, marginBottom: 3 }}>Additional Notes</label>
-                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "#fff" }} placeholder="Anything extra to include for this booking..." />
+                  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} style={{ ...field.textarea, minHeight: 92, background: "var(--legacy-color-fff)" }} placeholder="Anything extra to include for this booking..." />
 
                   <label style={{ ...field.checkboxRow, marginBottom: 0, marginTop: 2 }}>
                     <input type="checkbox" checked={hasHotel} onChange={(e) => setHasHotel(e.target.checked)} />

@@ -19,17 +19,17 @@ import {
 const UI = {
   radius: 8,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  danger: "#dc2626",
-  amber: "#d97706",
-  green: "#16a34a",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  danger: "var(--legacy-color-dc2626)",
+  amber: "var(--legacy-color-d97706)",
+  green: "var(--legacy-color-16a34a)",
 };
 
 const TRAINING_ITEMS = [
@@ -76,7 +76,7 @@ const input = {
   border: UI.border,
   outline: "none",
   fontSize: 13,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
@@ -90,7 +90,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radius,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -109,8 +109,8 @@ const btn = (kind = "primary") => {
     padding: "8px 10px",
     borderRadius: UI.radius,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 850,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -184,9 +184,9 @@ const statusFor = (record) => {
 };
 
 const toneStyle = (tone) => {
-  if (tone === "danger") return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" };
-  if (tone === "amber") return { background: "#fff7ed", color: "#9a3412", border: "1px solid #fed7aa" };
-  if (tone === "green") return { background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" };
+  if (tone === "danger") return { background: "var(--legacy-color-fee2e2)", color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-fecaca)" };
+  if (tone === "amber") return { background: "var(--legacy-color-fff7ed)", color: "var(--legacy-color-9a3412)", border: "1px solid var(--legacy-color-fed7aa)" };
+  if (tone === "green") return { background: "var(--legacy-color-dcfce7)", color: "var(--legacy-color-166534)", border: "1px solid var(--legacy-color-bbf7d0)" };
   return { background: UI.brandSoft, color: UI.brand, border: `1px solid ${UI.brandBorder}` };
 };
 
@@ -438,13 +438,13 @@ export default function TrainingPolicyPage() {
                     style={{
                       textAlign: "left",
                       border: `1px solid ${active ? UI.brand : UI.brandBorder}`,
-                      background: active ? UI.brandSoft : "#ffffff",
+                      background: active ? UI.brandSoft : "var(--legacy-color-ffffff)",
                       color: active ? UI.brand : UI.text,
                       borderRadius: 8,
                       padding: "11px 12px",
                       cursor: "pointer",
                       fontWeight: 900,
-                      boxShadow: active ? "inset 3px 0 0 #1f4b7a" : "none",
+                      boxShadow: active ? "inset 3px 0 0 var(--legacy-color-1f4b7a)" : "none",
                     }}
                   >
                     {employeeDisplayName(employee)}
@@ -476,7 +476,7 @@ export default function TrainingPolicyPage() {
               {selectedRecords.slice(0, 5).length ? (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {selectedRecords.slice(0, 5).map((record) => (
-                    <span key={record.id} style={{ border: UI.border, background: "#f8fbfe", color: UI.text, borderRadius: 999, padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
+                    <span key={record.id} style={{ border: UI.border, background: "var(--legacy-color-f8fbfe)", color: UI.text, borderRadius: 999, padding: "6px 9px", fontSize: 12.5, fontWeight: 850 }}>
                       {record.itemName} / expires {fmtDate(record.expiresAt)}
                     </span>
                   ))}
@@ -555,7 +555,7 @@ export default function TrainingPolicyPage() {
                       {draft.documents?.length ? (
                         <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                           {draft.documents.map((file, index) => (
-                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "#f8fbfe", padding: "7px 8px" }}>
+                            <div key={`${file.name}-${file.size}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: UI.border, borderRadius: 8, background: "var(--legacy-color-f8fbfe)", padding: "7px 8px" }}>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, color: UI.text, fontSize: 12.5, fontWeight: 850 }}>
                                 <Paperclip size={13} style={{ flex: "0 0 auto" }} />
                                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
@@ -598,7 +598,7 @@ export default function TrainingPolicyPage() {
                       <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                         {itemRecords.length ? (
                           itemRecords.map((record) => (
-                            <div key={record.id} style={{ border: UI.border, borderRadius: 8, background: "#f8fafc", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
+                            <div key={record.id} style={{ border: UI.border, borderRadius: 8, background: "var(--legacy-color-f8fafc)", padding: "8px 9px", color: UI.text, fontSize: 12.5, fontWeight: 800 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                                 <span>Completed {fmtDate(record.completedAt)}</span>
                                 <span>Expires {fmtDate(record.expiresAt)}</span>

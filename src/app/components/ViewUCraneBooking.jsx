@@ -475,14 +475,14 @@ export default function ViewUCraneBookingModal({
             <div style={eyebrow}>
               U-Crane Booking • Job #{booking.jobNumber || "—"}
               {!isLikelyUCraneBooking && (
-                <span style={{ marginLeft: 8, fontSize: 12, color: "#ef4444", fontWeight: 800 }}>
+                <span style={{ marginLeft: 8, fontSize: 12, color: "var(--legacy-color-ef4444)", fontWeight: 800 }}>
                   (No U-Crane vehicle found)
                 </span>
               )}
             </div>
             <h2 style={title}>{booking.client || "U-Crane Booking Details"}</h2>
             {fromDeleted && (
-              <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280", fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--legacy-color-6b7280)", fontWeight: 700 }}>
                 Deleted {fmtGB(toDateSafe(booking?.__deletedMeta?.deletedAt))}{" "}
                 {booking?.__deletedMeta?.deletedBy ? `by ${booking.__deletedMeta.deletedBy}` : ""}
               </div>
@@ -542,7 +542,7 @@ export default function ViewUCraneBookingModal({
                             <span style={{ opacity: 0.7, fontWeight: 700 }}>({role})</span>
                           ) : null}
                         </div>
-                        <div style={{ fontSize: 13, color: "#111" }}>
+                        <div style={{ fontSize: 13, color: "var(--legacy-color-111)" }}>
                           {email ? <div>Email: {email}</div> : null}
                           {phone ? <div>Phone: {phone}</div> : null}
                         </div>
@@ -618,12 +618,12 @@ export default function ViewUCraneBookingModal({
                           {Object.entries(grouped).map(([role, names]) => (
                             <div key={role} style={{ fontSize: 13 }}>
                               <div style={{ fontWeight: 800, marginBottom: 2 }}>{role}</div>
-                              <div style={{ color: "#111" }}>{names.join(", ")}</div>
+                              <div style={{ color: "var(--legacy-color-111)" }}>{names.join(", ")}</div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 13, color: "#6b7280" }}>No one assigned.</div>
+                        <div style={{ fontSize: 13, color: "var(--legacy-color-6b7280)" }}>No one assigned.</div>
                       )}
                     </div>
                   );
@@ -743,7 +743,7 @@ export default function ViewUCraneBookingModal({
         <div style={actions}>
           {fromDeleted ? (
             <>
-              <button onClick={handleRestore} style={{ ...btn, background: "#111827" }}>
+              <button onClick={handleRestore} style={{ ...btn, background: "var(--legacy-color-111827)" }}>
                 Restore
               </button>
               <button onClick={onClose} style={{ ...btn, ...btnSecondary }}>
@@ -820,16 +820,16 @@ const Tag = ({ children, dark, success }) => (
 /* ---------- styles ---------- */
 const UI = {
   radius: 8,
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  border: "1px solid #d7dee8",
-  borderSoft: "1px solid #e4ebf3",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  dangerSoft: "#fff1f2",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  borderSoft: "1px solid var(--legacy-color-e4ebf3)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  dangerSoft: "var(--legacy-color-fff1f2)",
   shadow: "0 24px 70px rgba(15,23,42,0.28)",
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
 };
@@ -909,17 +909,17 @@ const fieldRow = {
   gridTemplateColumns: "150px 1fr",
   gap: 10,
   padding: "7px 0",
-  borderBottom: "1px dashed #dce6f0",
+  borderBottom: "1px dashed var(--legacy-color-dce6f0)",
 };
 const fieldLabel = { color: UI.muted, fontSize: 12.5, fontWeight: 800 };
 const fieldValue = { color: UI.text, fontSize: 13.5, fontWeight: 650, minWidth: 0 };
 
 const notesGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 };
-const noteCard = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
+const noteCard = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: 10 };
 const noteDate = { fontWeight: 850, fontSize: 12.5, marginBottom: 6, color: UI.text };
 const noteText = { fontSize: 13.5, color: UI.text };
 
-const noteBox = { background: "#f8fbfe", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
+const noteBox = { background: "var(--legacy-color-f8fbfe)", border: UI.borderSoft, borderRadius: UI.radius, padding: 12, lineHeight: 1.4 };
 
 const tagWrap = { display: "flex", gap: 8, flexWrap: "wrap" };
 const tagPill = {
@@ -927,7 +927,7 @@ const tagPill = {
   alignItems: "center",
   gap: 6,
   padding: "4px 9px",
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   color: UI.text,
   border: UI.borderSoft,
   borderRadius: 999,
@@ -941,7 +941,7 @@ const tagStatus = {
   padding: "2px 6px",
   borderRadius: 999,
   border: UI.borderSoft,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontSize: 11,
   fontWeight: 800,
 };
@@ -953,16 +953,16 @@ const chip = {
   fontWeight: 850,
   border: UI.borderSoft,
 };
-const chipGood = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
-const chipBad = { background: UI.dangerSoft, color: "#991b1b", border: "1px solid #e9c6c4" };
-const tagSuccess = { background: "#edf7f2", color: "#065f46", border: "1px solid #b7dec7" };
-const tagDark = { background: "#10233a", color: "#fff", border: "1px solid #10233a" };
+const chipGood = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
+const chipBad = { background: UI.dangerSoft, color: "var(--legacy-color-991b1b)", border: "1px solid var(--legacy-color-e9c6c4)" };
+const tagSuccess = { background: "var(--legacy-color-edf7f2)", color: "var(--legacy-color-065f46)", border: "1px solid var(--legacy-color-b7dec7)" };
+const tagDark = { background: "var(--legacy-color-10233a)", color: "var(--legacy-color-fff)", border: "1px solid var(--legacy-color-10233a)" };
 
 const fileBtn = {
   display: "inline-block",
   padding: "8px 12px",
   background: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   borderRadius: UI.radius,
   textDecoration: "none",
   border: `1px solid ${UI.brand}`,
@@ -996,8 +996,8 @@ const btn = {
   justifyContent: "center",
   minHeight: 36,
   padding: "8px 13px",
-  background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-  color: "#fff",
+  background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+  color: "var(--legacy-color-fff)",
   border: `1px solid ${UI.brand}`,
   borderRadius: UI.radius,
   cursor: "pointer",
@@ -1005,15 +1005,15 @@ const btn = {
   boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
 };
 const btnSecondary = {
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+  background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
   color: UI.text,
   border: `1px solid ${UI.brandBorder}`,
   boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
 };
 const btnDanger = {
   background: UI.dangerSoft,
-  color: "#991b1b",
-  border: "1px solid #e9c6c4",
+  color: "var(--legacy-color-991b1b)",
+  border: "1px solid var(--legacy-color-e9c6c4)",
   boxShadow: "none",
 };
 const btnBusy = {
@@ -1022,7 +1022,7 @@ const btnBusy = {
 };
 
 const miniCard = {
-  background: "#f8fbfe",
+  background: "var(--legacy-color-f8fbfe)",
   border: UI.borderSoft,
   borderRadius: UI.radius,
   padding: 10,
@@ -1030,21 +1030,21 @@ const miniCard = {
 
 function statusColor(status = "") {
   const map = {
-    Confirmed: "#fde047",
-    "First Pencil": "#93c5fd",
-    "Second Pencil": "#ef4444",
-    DNH: "#c2c2c2",
-    Complete: "#22c55e",
-    "Action Required": "#ff7b00",
-    Holiday: "#d1d5db",
-    Maintenance: "#fb923c",
-    Lost: "#ef4444",
-    Postponed: "#f59e0b",
-    Cancelled: "#ef4444",
-    Enquiry: "#e5e7eb",
+    Confirmed: "var(--legacy-color-fde047)",
+    "First Pencil": "var(--legacy-color-93c5fd)",
+    "Second Pencil": "var(--legacy-color-ef4444)",
+    DNH: "var(--legacy-color-c2c2c2)",
+    Complete: "var(--legacy-color-22c55e)",
+    "Action Required": "var(--legacy-color-ff7b00)",
+    Holiday: "var(--legacy-color-d1d5db)",
+    Maintenance: "var(--legacy-color-fb923c)",
+    Lost: "var(--legacy-color-ef4444)",
+    Postponed: "var(--legacy-color-f59e0b)",
+    Cancelled: "var(--legacy-color-ef4444)",
+    Enquiry: "var(--legacy-color-e5e7eb)",
   };
-  return map[status] || "#e5e7eb";
+  return map[status] || "var(--legacy-color-e5e7eb)";
 }
 function onStatusColor(status = "") {
-  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "#111" : "#fff";
+  return ["Confirmed", "DNH", "Holiday"].includes(status) ? "var(--legacy-color-111)" : "var(--legacy-color-fff)";
 }

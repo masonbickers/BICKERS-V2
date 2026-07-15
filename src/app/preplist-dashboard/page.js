@@ -20,19 +20,19 @@ const INACTIVE_STATUSES = new Set([
 ]);
 
 const UI = {
-  bg: "#f6f8fb",
-  card: "#ffffff",
-  line: "#e5e7eb",
-  text: "#111827",
-  muted: "#6b7280",
-  soft: "#f8fafc",
-  green: "#166534",
-  greenBg: "#dcfce7",
-  red: "#991b1b",
-  redBg: "#fee2e2",
-  purple: "#6d28d9",
-  purpleBg: "#f3e8ff",
-  dark: "#0f172a",
+  bg: "var(--legacy-color-f6f8fb)",
+  card: "var(--legacy-color-ffffff)",
+  line: "var(--legacy-color-e5e7eb)",
+  text: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-6b7280)",
+  soft: "var(--legacy-color-f8fafc)",
+  green: "var(--legacy-color-166534)",
+  greenBg: "var(--legacy-color-dcfce7)",
+  red: "var(--legacy-color-991b1b)",
+  redBg: "var(--legacy-color-fee2e2)",
+  purple: "var(--legacy-color-6d28d9)",
+  purpleBg: "var(--legacy-color-f3e8ff)",
+  dark: "var(--legacy-color-0f172a)",
 };
 
 const pageWrap = {
@@ -57,7 +57,7 @@ const buttonBase = {
   padding: "10px 12px",
   borderRadius: 12,
   border: `1px solid ${UI.line}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 800,
   cursor: "pointer",
@@ -70,7 +70,7 @@ const inputBase = {
   border: `1px solid ${UI.line}`,
   fontSize: 14,
   color: UI.text,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   outline: "none",
 };
 
@@ -633,7 +633,7 @@ export default function PrepListDashboardPage() {
             ...panel,
             padding: 18,
             marginBottom: 16,
-            background: "linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%)",
+            background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-fbfcfe) 100%)",
           }}
         >
           <div
@@ -669,7 +669,7 @@ export default function PrepListDashboardPage() {
                   ...buttonBase,
                   background: UI.dark,
                   borderColor: UI.dark,
-                  color: "#fff",
+                  color: "var(--legacy-color-fff)",
                 }}
               >
                 Open Tomorrow&apos;s Print List
@@ -733,8 +733,8 @@ export default function PrepListDashboardPage() {
               onClick={() => setShowArchived((v) => !v)}
               style={{
                 ...buttonBase,
-                background: showArchived ? UI.dark : "#fff",
-                color: showArchived ? "#fff" : UI.text,
+                background: showArchived ? UI.dark : "var(--legacy-color-fff)",
+                color: showArchived ? "var(--legacy-color-fff)" : UI.text,
                 borderColor: showArchived ? UI.dark : UI.line,
               }}
             >
@@ -814,7 +814,7 @@ export default function PrepListDashboardPage() {
                               border: `1px solid ${UI.line}`,
                               borderRadius: 16,
                               overflow: "hidden",
-                              background: "#fff",
+                              background: "var(--legacy-color-fff)",
                             }}
                           >
                             <div
@@ -847,7 +847,7 @@ export default function PrepListDashboardPage() {
 
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                   {job.isManual && <span style={pill(UI.purpleBg, UI.purple)}>Manual</span>}
-                                  <span style={pill("#eef2ff", "#3730a3")}>Vehicles: {job.vehicles.length}</span>
+                                  <span style={pill("var(--legacy-color-eef2ff)", "var(--legacy-color-3730a3)")}>Vehicles: {job.vehicles.length}</span>
                                   <span style={pill(UI.redBg, UI.red)}>Pending: {pendingCount}</span>
                                   <span style={pill(UI.greenBg, UI.green)}>Done: {doneCount}</span>
                                 </div>
@@ -858,7 +858,7 @@ export default function PrepListDashboardPage() {
                                   style={{
                                     marginTop: 10,
                                     padding: "9px 10px",
-                                    background: "#fff",
+                                    background: "var(--legacy-color-fff)",
                                     border: `1px solid ${UI.line}`,
                                     borderRadius: 10,
                                     fontSize: 13,
@@ -895,7 +895,7 @@ export default function PrepListDashboardPage() {
                                     style={{
                                       padding: 14,
                                       borderTop: idx === 0 ? "none" : `1px solid ${UI.line}`,
-                                      background: record.completed ? "#fcfffd" : "#fff",
+                                      background: record.completed ? "var(--legacy-color-fcfffd)" : "var(--legacy-color-fff)",
                                     }}
                                   >
                                     <div
@@ -956,8 +956,8 @@ export default function PrepListDashboardPage() {
                                             onClick={() => toggleExpanded(item.sectionKey)}
                                             style={{
                                               ...buttonBase,
-                                              borderColor: "#2563eb",
-                                              color: "#2563eb",
+                                              borderColor: "var(--legacy-color-2563eb)",
+                                              color: "var(--legacy-color-2563eb)",
                                             }}
                                           >
                                             {expanded ? "Close" : "Prep"}
@@ -969,8 +969,8 @@ export default function PrepListDashboardPage() {
                                               onClick={() => handleUndoPrep(item)}
                                               style={{
                                                 ...buttonBase,
-                                                borderColor: "#dc2626",
-                                                color: "#dc2626",
+                                                borderColor: "var(--legacy-color-dc2626)",
+                                                color: "var(--legacy-color-dc2626)",
                                               }}
                                             >
                                               Undo
@@ -1042,7 +1042,7 @@ export default function PrepListDashboardPage() {
                                               ...buttonBase,
                                               background: UI.green,
                                               borderColor: UI.green,
-                                              color: "#fff",
+                                              color: "var(--legacy-color-fff)",
                                             }}
                                           >
                                             Mark as Prepped
@@ -1084,7 +1084,7 @@ export default function PrepListDashboardPage() {
                         padding: 12,
                         border: `1px solid ${UI.line}`,
                         borderRadius: 12,
-                        background: "#fff",
+                        background: "var(--legacy-color-fff)",
                       }}
                     >
                       <div style={{ fontWeight: 900, color: UI.text }}>
@@ -1136,7 +1136,7 @@ export default function PrepListDashboardPage() {
                               padding: 10,
                               border: `1px solid ${UI.line}`,
                               borderRadius: 12,
-                              background: "#fff",
+                              background: "var(--legacy-color-fff)",
                             }}
                           >
                             <div style={{ fontWeight: 900, color: UI.text }}>

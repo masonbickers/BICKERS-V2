@@ -19,17 +19,17 @@ import {
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 
 const UI = {
-  page: "#ffffff",
-  paper: "#ffffff",
-  text: "#111827",
-  muted: "#5f6f82",
-  border: "#111827",
-  grid: "#9ca3af",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
+  page: "var(--legacy-color-ffffff)",
+  paper: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-111827)",
+  muted: "var(--legacy-color-5f6f82)",
+  border: "var(--legacy-color-111827)",
+  grid: "var(--legacy-color-9ca3af)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
 };
 
-const QUOTE_SECTION_GREY = "#bfbfbf";
+const QUOTE_SECTION_GREY = "var(--legacy-color-bfbfbf)";
 const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
@@ -1988,13 +1988,13 @@ export default function QuotePage() {
           @media screen {
             html,
             body {
-              background: #fff !important;
+              background: var(--legacy-color-fff) !important;
             }
 
             .quote-print-page {
               min-height: calc(100vh - 72px);
               overflow: auto !important;
-              background: #fff !important;
+              background: var(--legacy-color-fff) !important;
             }
 
             footer {
@@ -2003,7 +2003,7 @@ export default function QuotePage() {
 
             .quote-scale-shell {
               display: flex !important;
-              background: #fff !important;
+              background: var(--legacy-color-fff) !important;
             }
 
             .quote-scale-shell .quote-print-paper {
@@ -2053,7 +2053,7 @@ export default function QuotePage() {
 
           @media print {
             body {
-              background: #fff !important;
+              background: var(--legacy-color-fff) !important;
               margin: 0 !important;
               overflow: visible !important;
             }
@@ -2092,7 +2092,7 @@ export default function QuotePage() {
 
             .quote-print-page {
               padding: 0 !important;
-              background: #fff !important;
+              background: var(--legacy-color-fff) !important;
               overflow: visible !important;
             }
 
@@ -2105,7 +2105,7 @@ export default function QuotePage() {
               display: block !important;
               box-shadow: none !important;
               border: none !important;
-              color: #000 !important;
+              color: var(--legacy-color-000) !important;
               box-sizing: border-box !important;
               transform: none !important;
               break-inside: avoid;
@@ -2116,8 +2116,8 @@ export default function QuotePage() {
               width: 182mm !important;
               height: 259mm !important;
               margin: 19mm auto 0 !important;
-              border: 1px solid #000 !important;
-              background: #fff !important;
+              border: 1px solid var(--legacy-color-000) !important;
+              background: var(--legacy-color-fff) !important;
               box-sizing: border-box !important;
               display: flex !important;
               flex-direction: column !important;
@@ -2175,14 +2175,14 @@ export default function QuotePage() {
           }
 
           .quote-spreadsheet-row:hover .quote-spreadsheet-input {
-            background: #f7fbff !important;
+            background: var(--legacy-color-f7fbff) !important;
           }
 
           .quote-spreadsheet-row:hover .quote-discount-input,
           .quote-discount-input:hover,
           .quote-discount-input:focus {
-            background: #ff0000 !important;
-            color: #fff !important;
+            background: var(--legacy-color-ff0000) !important;
+            color: var(--legacy-color-fff) !important;
           }
 
           .quote-print-paper table tr > :first-child {
@@ -2194,17 +2194,17 @@ export default function QuotePage() {
           }
 
           .quote-spreadsheet-input:focus {
-            background: #fff !important;
-            outline: 2px solid #217346 !important;
+            background: var(--legacy-color-fff) !important;
+            outline: 2px solid var(--legacy-color-217346) !important;
             outline-offset: -2px !important;
           }
 
           .quote-spreadsheet-select:focus {
-            color: #000 !important;
+            color: var(--legacy-color-000) !important;
           }
 
           .quote-spreadsheet-select.quote-discount-input:focus {
-            color: #fff !important;
+            color: var(--legacy-color-fff) !important;
           }
         `}</style>
       </div>
@@ -2235,16 +2235,16 @@ const screenEditor = {
 };
 
 const screenPanel = {
-  background: "#fff",
-  border: "1px solid #d7dee8",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 8,
   boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
   padding: 10,
 };
 
 const screenQuoteTop = {
-  background: "#fff",
-  border: "2px solid #000",
+  background: "var(--legacy-color-fff)",
+  border: "2px solid var(--legacy-color-000)",
   borderRadius: 2,
   overflow: "hidden",
 };
@@ -2254,9 +2254,9 @@ const screenTotal = {
   display: "grid",
   gap: 2,
   textAlign: "right",
-  color: "#fff",
-  background: "#000",
-  border: "1px solid #000",
+  color: "var(--legacy-color-fff)",
+  background: "var(--legacy-color-000)",
+  border: "1px solid var(--legacy-color-000)",
   padding: "5px 10px",
   fontSize: 11,
   fontWeight: 800,
@@ -2266,13 +2266,13 @@ const screenTotal = {
 const screenHeaderGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  borderBottom: "2px solid #000",
+  borderBottom: "2px solid var(--legacy-color-000)",
 };
 
 const screenInfoCell = {
-  borderRight: "2px solid #000",
-  borderBottom: "1px solid #000",
-  background: "#fff",
+  borderRight: "2px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--legacy-color-000)",
+  background: "var(--legacy-color-fff)",
   minHeight: 40,
   textAlign: "center",
   overflow: "hidden",
@@ -2280,7 +2280,7 @@ const screenInfoCell = {
 
 const screenInfoLabel = {
   color: UI.text,
-  background: "#c7c7c7",
+  background: "var(--legacy-color-c7c7c7)",
   fontSize: 11,
   fontWeight: 900,
   lineHeight: 1,
@@ -2314,7 +2314,7 @@ const screenFieldLabel = {
 
 const screenInput = {
   height: 28,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 4,
   padding: "4px 7px",
   color: UI.text,
@@ -2331,8 +2331,8 @@ const screenSectionsStack = {
 };
 
 const screenSectionBlock = {
-  background: "#fff",
-  border: "2px solid #000",
+  background: "var(--legacy-color-fff)",
+  border: "2px solid var(--legacy-color-000)",
   borderRadius: 2,
   overflow: "hidden",
 };
@@ -2342,8 +2342,8 @@ const screenSectionHeader = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 6,
-  background: "#c7c7c7",
-  borderBottom: "1px solid #000",
+  background: "var(--legacy-color-c7c7c7)",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "5px 8px",
 };
 
@@ -2369,9 +2369,9 @@ const screenSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 3,
-  border: "1px solid #94a3b8",
+  border: "1px solid var(--legacy-color-94a3b8)",
   borderRadius: 4,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   padding: "3px 6px",
   fontSize: 10,
@@ -2381,9 +2381,9 @@ const screenSectionButton = {
 
 const screenSectionDangerButton = {
   ...screenSectionButton,
-  border: "1px solid #fecaca",
-  background: "#fff7f7",
-  color: "#b91c1c",
+  border: "1px solid var(--legacy-color-fecaca)",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
 };
 
 const screenLinesOneCol = {
@@ -2397,22 +2397,22 @@ const screenLineCard = {
   gridTemplateColumns: "minmax(0, 1fr) 54px 70px 86px 84px",
   gap: 4,
   alignItems: "center",
-  background: "#fff",
-  borderBottom: "1px solid #000",
+  background: "var(--legacy-color-fff)",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: 4,
   minWidth: 0,
 };
 
 const screenDiscountLineCard = {
   ...screenLineCard,
-  background: "#ff0000",
-  borderBottom: "1px solid #b40000",
+  background: "var(--legacy-color-ff0000)",
+  borderBottom: "1px solid var(--legacy-color-b40000)",
 };
 
 const screenLineDescription = {
   minWidth: 0,
   height: 26,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 5,
   padding: "4px 6px",
   fontSize: 11.5,
@@ -2421,15 +2421,15 @@ const screenLineDescription = {
 
 const screenDiscountLineDescription = {
   ...screenLineDescription,
-  background: "#ff0000",
-  border: "1px solid #ff0000",
-  color: "#fff",
+  background: "var(--legacy-color-ff0000)",
+  border: "1px solid var(--legacy-color-ff0000)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
 };
 
 const screenSmallInput = {
   height: 26,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 5,
   padding: "4px 5px",
   fontSize: 11.5,
@@ -2439,27 +2439,27 @@ const screenSmallInput = {
 
 const screenDiscountSmallInput = {
   ...screenSmallInput,
-  background: "#ff0000",
-  border: "1px solid #ff0000",
-  color: "#fff",
+  background: "var(--legacy-color-ff0000)",
+  border: "1px solid var(--legacy-color-ff0000)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
 };
 
 const screenTotalSelect = {
   height: 26,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 5,
   padding: "3px 4px",
   fontSize: 11,
   color: UI.text,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
 const screenDiscountTotalSelect = {
   ...screenTotalSelect,
-  background: "#ff0000",
-  border: "1px solid #ff0000",
-  color: "#fff",
+  background: "var(--legacy-color-ff0000)",
+  border: "1px solid var(--legacy-color-ff0000)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
 };
 
@@ -2469,10 +2469,10 @@ const screenIconButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #fecaca",
+  border: "1px solid var(--legacy-color-fecaca)",
   borderRadius: 5,
-  background: "#fff1f2",
-  color: "#b91c1c",
+  background: "var(--legacy-color-fff1f2)",
+  color: "var(--legacy-color-b91c1c)",
   cursor: "pointer",
 };
 
@@ -2510,8 +2510,8 @@ const summaryPanel = {
   flex: "0 0 330px",
   maxWidth: 330,
   minWidth: 300,
-  background: "#fff",
-  border: "1px solid #cbd5e1",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   boxShadow: "0 10px 30px rgba(15,23,42,0.12)",
   padding: 14,
@@ -2549,10 +2549,10 @@ const summaryTitle = {
 };
 
 const summaryStatus = {
-  border: "1px solid #bbf7d0",
+  border: "1px solid var(--legacy-color-bbf7d0)",
   borderRadius: 999,
-  background: "#ecfdf3",
-  color: "#166534",
+  background: "var(--legacy-color-ecfdf3)",
+  color: "var(--legacy-color-166534)",
   padding: "5px 9px",
   fontSize: 11,
   fontWeight: 900,
@@ -2561,8 +2561,8 @@ const summaryStatus = {
 const summaryTotalBox = {
   display: "grid",
   gap: 2,
-  background: "#000",
-  color: "#fff",
+  background: "var(--legacy-color-000)",
+  color: "var(--legacy-color-fff)",
   padding: "10px 12px",
   marginBottom: 12,
   borderRadius: 6,
@@ -2574,12 +2574,12 @@ const summaryTotalBox = {
 const summaryGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  border: "1px solid #000",
+  border: "1px solid var(--legacy-color-000)",
   marginBottom: 12,
 };
 
 const summarySection = {
-  border: "1px solid #d7dee8",
+  border: "1px solid var(--legacy-color-d7dee8)",
   borderRadius: 6,
   overflow: "hidden",
   marginBottom: 10,
@@ -2587,8 +2587,8 @@ const summarySection = {
 
 const summarySectionTitle = {
   margin: 0,
-  background: "#c7c7c7",
-  borderBottom: "1px solid #d7dee8",
+  background: "var(--legacy-color-c7c7c7)",
+  borderBottom: "1px solid var(--legacy-color-d7dee8)",
   color: UI.text,
   padding: "6px 8px",
   fontSize: 12,
@@ -2603,7 +2603,7 @@ const summaryRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 8,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
   padding: "7px 8px",
   fontSize: 12,
   lineHeight: 1.2,
@@ -2617,7 +2617,7 @@ const bookingSummaryRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 10,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
   padding: "7px 8px",
   color: UI.muted,
   fontSize: 12,
@@ -2627,7 +2627,7 @@ const bookingSummaryRow = {
 const bookingSummaryBlock = {
   display: "grid",
   gap: 3,
-  borderBottom: "1px solid #e2e8f0",
+  borderBottom: "1px solid var(--legacy-color-e2e8f0)",
   padding: "7px 8px",
   color: UI.muted,
   fontSize: 12,
@@ -2669,7 +2669,7 @@ const toolbar = {
   maxWidth: 1680,
   margin: "0 auto 14px",
   background: "rgba(255,255,255,0.94)",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 10,
   boxShadow: "0 10px 26px rgba(15,23,42,0.08)",
   padding: 10,
@@ -2717,7 +2717,7 @@ const toolbarVersionBadge = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   background: UI.brandSoft,
   color: UI.brand,
@@ -2731,10 +2731,10 @@ const quoteNameInput = {
   minHeight: 36,
   flex: "1 1 280px",
   minWidth: 240,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: "7px 10px",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 800,
   boxSizing: "border-box",
@@ -2780,8 +2780,8 @@ const toolbarTitle = {
 
 const toolbarMeta = {
   color: UI.muted,
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
+  background: "var(--legacy-color-f8fafc)",
+  border: "1px solid var(--legacy-color-e2e8f0)",
   borderRadius: 999,
   padding: "5px 9px",
   fontSize: 11,
@@ -2815,10 +2815,10 @@ const templateSearchIcon = {
 const templateSearchInput = {
   width: "100%",
   minHeight: 36,
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: "7px 9px 7px 34px",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 700,
   boxSizing: "border-box",
@@ -2830,9 +2830,9 @@ const ghostButton = {
   gap: 6,
   minHeight: 36,
   minWidth: "max-content",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   padding: "7px 10px",
   fontWeight: 800,
@@ -2848,16 +2848,16 @@ const screenRowActions = {
 
 const screenMoveButton = {
   ...screenIconButton,
-  border: "1px solid #cbd5e1",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-cbd5e1)",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
 };
 
 const dangerGhostButton = {
   ...ghostButton,
-  border: "1px solid #fecaca",
-  background: "#fff7f7",
-  color: "#b91c1c",
+  border: "1px solid var(--legacy-color-fecaca)",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
 };
 
 const backButton = {
@@ -2869,17 +2869,17 @@ const backButton = {
 const primaryButton = {
   ...ghostButton,
   background: UI.brand,
-  color: "#fff",
+  color: "var(--legacy-color-fff)",
   border: `1px solid ${UI.brand}`,
 };
 
 const toolbarSelect = {
   minHeight: 36,
   width: "100%",
-  border: "1px solid #cbd5e1",
+  border: "1px solid var(--legacy-color-cbd5e1)",
   borderRadius: 8,
   padding: "7px 9px",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontWeight: 700,
 };
@@ -2907,8 +2907,8 @@ const printFrame = {
   width: "182mm",
   height: "259mm",
   margin: "19mm auto 0",
-  background: "#fff",
-  border: "1px solid #000",
+  background: "var(--legacy-color-fff)",
+  border: "1px solid var(--legacy-color-000)",
   boxSizing: "border-box",
   display: "flex",
   flexDirection: "column",
@@ -2924,8 +2924,8 @@ const quoteBanner = {
   width: "100%",
   height: "28mm",
   flex: "0 0 auto",
-  borderBottom: "3px solid #000",
-  background: "#111",
+  borderBottom: "3px solid var(--legacy-color-000)",
+  background: "var(--legacy-color-111)",
 };
 
 const quoteBannerImage = {
@@ -2943,51 +2943,51 @@ const headerTable = {
 };
 
 const labelCell = {
-  borderLeft: "1px solid #000",
-  borderRight: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderRight: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1.08,
   fontWeight: 900,
   textAlign: "center",
   background: QUOTE_SECTION_GREY,
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 
 const valueCell = {
-  borderLeft: "1px solid #000",
-  borderRight: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderRight: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   minHeight: 16,
   fontSize: 10.5,
   lineHeight: 1.08,
   textAlign: "center",
-  background: "#fff",
-  color: "#000",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-000)",
 };
 
 const descriptionLabel = {
-  borderTop: "1px solid #000",
-  borderBottom: "1px solid #000",
+  borderTop: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1,
   textAlign: "center",
   fontWeight: 900,
   background: QUOTE_SECTION_GREY,
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 
 const serviceInput = {
   width: "100%",
   border: "none",
-  borderBottom: "1px solid #000",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.4,
   lineHeight: 1.05,
   fontWeight: 900,
   textAlign: "center",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   marginBottom: 0,
   boxSizing: "border-box",
 };
@@ -2996,14 +2996,14 @@ const quoteTable = {
   width: "100%",
   borderCollapse: "collapse",
   tableLayout: "fixed",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontFamily: "Arial, Helvetica, sans-serif",
 };
 
 const descriptionHeader = {
-  border: "1px solid #000",
-  background: "#000",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-000)",
+  background: "var(--legacy-color-000)",
+  color: "var(--legacy-color-fff)",
   padding: "2px 6px",
   textAlign: "left",
   width: "74.1%",
@@ -3033,10 +3033,10 @@ const totalHeader = {
 };
 
 const sectionCell = {
-  borderLeft: "1px solid #000",
-  borderRight: "1px solid #000",
-  borderTop: "1px solid #000",
-  borderBottom: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderRight: "1px solid var(--legacy-color-000)",
+  borderTop: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontWeight: 900,
   textAlign: "center",
@@ -3044,7 +3044,7 @@ const sectionCell = {
   fontSize: 10.2,
   lineHeight: 1,
   height: 14,
-  color: "#000",
+  color: "var(--legacy-color-000)",
   boxSizing: "border-box",
 };
 
@@ -3075,10 +3075,10 @@ const quoteSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 2,
-  border: "1px solid #64748b",
+  border: "1px solid var(--legacy-color-64748b)",
   borderRadius: 3,
-  background: "#fff",
-  color: "#111827",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-111827)",
   padding: "1px 5px",
   fontSize: 9,
   lineHeight: 1,
@@ -3088,17 +3088,17 @@ const quoteSectionButton = {
 
 const quoteSectionDangerButton = {
   ...quoteSectionButton,
-  border: "1px solid #fecaca",
-  background: "#fff7f7",
-  color: "#b91c1c",
+  border: "1px solid var(--legacy-color-fecaca)",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
 };
 
 const quoteCell = {
-  border: "1px solid #000",
+  border: "1px solid var(--legacy-color-000)",
   padding: 0,
   verticalAlign: "middle",
   height: 14,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   boxSizing: "border-box",
 };
 
@@ -3108,7 +3108,7 @@ const lineInput = {
   outline: "none",
   fontSize: 10,
   lineHeight: "13px",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   background: "transparent",
   padding: "0 5px",
   margin: 0,
@@ -3131,10 +3131,10 @@ const quoteLineDeleteButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #fecaca",
+  border: "1px solid var(--legacy-color-fecaca)",
   borderRadius: 2,
-  background: "#fff7f7",
-  color: "#b91c1c",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
   padding: 0,
   cursor: "pointer",
 };
@@ -3142,7 +3142,7 @@ const quoteLineDeleteButton = {
 const qtyInput = {
   ...lineInput,
   textAlign: "center",
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 
 const moneyInput = {
@@ -3165,20 +3165,20 @@ const totalSelect = {
   appearance: "none",
   WebkitAppearance: "none",
   MozAppearance: "none",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   boxSizing: "border-box",
 };
 
 const discountQuoteCell = {
   ...quoteCell,
-  background: "#ff0000",
-  borderColor: "#ff0000",
+  background: "var(--legacy-color-ff0000)",
+  borderColor: "var(--legacy-color-ff0000)",
 };
 
 const discountLineInput = {
   ...lineInput,
-  color: "#fff",
-  background: "#ff0000",
+  color: "var(--legacy-color-fff)",
+  background: "var(--legacy-color-ff0000)",
   fontWeight: 900,
 };
 
@@ -3195,8 +3195,8 @@ const discountMoneyInput = {
 
 const discountTotalSelect = {
   ...totalSelect,
-  color: "#fff",
-  background: "#ff0000",
+  color: "var(--legacy-color-fff)",
+  background: "var(--legacy-color-ff0000)",
   fontWeight: 900,
 };
 
@@ -3217,13 +3217,13 @@ const quoteFooter = {
 const quotePrintSpacer = {
   flex: "1 1 auto",
   minHeight: 0,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 
 const footerBlackFill = {
   flex: 1,
   minHeight: 27,
-  background: "#000",
+  background: "var(--legacy-color-000)",
   display: "flex",
   alignItems: "center",
   paddingLeft: 8,
@@ -3231,15 +3231,15 @@ const footerBlackFill = {
 
 const totalRows = {
   minWidth: 210,
-  background: "#000",
-  color: "#fff",
+  background: "var(--legacy-color-000)",
+  color: "var(--legacy-color-fff)",
 };
 
 const totalRow = {
   display: "flex",
   justifyContent: "space-between",
   gap: 24,
-  borderLeft: "2px solid #fff",
+  borderLeft: "2px solid var(--legacy-color-fff)",
   padding: "3px 8px 1px",
   fontSize: 11,
   lineHeight: 1,
@@ -3247,7 +3247,7 @@ const totalRow = {
 };
 
 const vatText = {
-  borderLeft: "2px solid #fff",
+  borderLeft: "2px solid var(--legacy-color-fff)",
   padding: "1px 8px 3px",
   textAlign: "left",
   fontWeight: 900,
@@ -3259,7 +3259,7 @@ const notesInput = {
   minHeight: 36,
   marginTop: 0,
   border: "none",
-  borderTop: "2px solid #000",
+  borderTop: "2px solid var(--legacy-color-000)",
   padding: 6,
   fontSize: 11,
   boxSizing: "border-box",
@@ -3267,9 +3267,9 @@ const notesInput = {
 
 const warningBox = {
   margin: "6px 14px 5px",
-  border: "1px solid #c7c7c7",
-  color: "#ff0000",
-  background: "#fff",
+  border: "1px solid var(--legacy-color-c7c7c7)",
+  color: "var(--legacy-color-ff0000)",
+  background: "var(--legacy-color-fff)",
   textAlign: "center",
   fontWeight: 900,
   fontSize: 9.8,
@@ -3293,7 +3293,7 @@ const contactPair = {
   display: "grid",
   gridTemplateColumns: "78px 1fr",
   alignItems: "center",
-  border: "1px solid #d0021b",
+  border: "1px solid var(--legacy-color-d0021b)",
   minHeight: 22,
 };
 
@@ -3302,8 +3302,8 @@ const contactLabel = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "#c90016",
-  color: "#fff",
+  background: "var(--legacy-color-c90016)",
+  color: "var(--legacy-color-fff)",
   fontWeight: 900,
   fontSize: 10.5,
 };

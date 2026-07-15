@@ -18,18 +18,18 @@ const UI = {
   radiusSm: 12,
   gap: 12,
   shadowSm: "0 12px 32px rgba(15,23,42,0.07)",
-  border: "1px solid #dbe2ea",
-  bg: "#edf3f8",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  good: "#166534",
-  goodSoft: "#ecfdf5",
-  warn: "#b45309",
-  warnSoft: "#fffbeb",
+  border: "1px solid var(--legacy-color-dbe2ea)",
+  bg: "var(--legacy-color-edf3f8)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  good: "var(--legacy-color-166534)",
+  goodSoft: "var(--legacy-color-ecfdf5)",
+  warn: "var(--legacy-color-b45309)",
+  warnSoft: "var(--legacy-color-fffbeb)",
 };
 
 const pageWrap = { padding: "14px 12px 20px", background: UI.bg, minHeight: "100vh" };
@@ -48,10 +48,10 @@ const inputBase = {
   width: "100%",
   padding: "8px 9px",
   borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 const btn = (kind = "primary") => {
@@ -60,7 +60,7 @@ const btn = (kind = "primary") => {
       padding: "9px 11px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -72,7 +72,7 @@ const btn = (kind = "primary") => {
       padding: "7px 9px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 900,
       cursor: "pointer",
@@ -84,7 +84,7 @@ const btn = (kind = "primary") => {
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
     background: UI.brand,
-    color: "#fff",
+    color: "var(--legacy-color-fff)",
     fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -291,7 +291,7 @@ function eachDateYMD(startRaw, endRaw) {
 }
 
 const summaryCard = {
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   border: UI.border,
   borderRadius: 10,
   padding: "6px 9px",
@@ -619,10 +619,10 @@ export default function EmployeeWorkBreakdownPage() {
 
           <div style={{ display: "grid", gap: 6 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "#fff", color: mode === "lastNDays" ? UI.brand : UI.text }}>
+              <button type="button" onClick={() => setMode("lastNDays")} style={{ ...btn("pill"), background: mode === "lastNDays" ? UI.brandSoft : "var(--legacy-color-fff)", color: mode === "lastNDays" ? UI.brand : UI.text }}>
                 Last N Days
               </button>
-              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "#fff", color: mode === "customRange" ? UI.brand : UI.text }}>
+              <button type="button" onClick={() => setMode("customRange")} style={{ ...btn("pill"), background: mode === "customRange" ? UI.brandSoft : "var(--legacy-color-fff)", color: mode === "customRange" ? UI.brand : UI.text }}>
                 Custom Range
               </button>
             </div>
@@ -644,7 +644,7 @@ export default function EmployeeWorkBreakdownPage() {
                   <button
                     key={n}
                     type="button"
-                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "#fff", color: rangeDays === n ? UI.brand : UI.text }}
+                    style={{ ...btn("pill"), background: rangeDays === n ? UI.brandSoft : "var(--legacy-color-fff)", color: rangeDays === n ? UI.brand : UI.text }}
                     onClick={() => setRangeDays(n)}
                   >
                     {n}d
@@ -808,8 +808,8 @@ export default function EmployeeWorkBreakdownPage() {
                           style={{
                             padding: "4px 8px",
                             borderRadius: 999,
-                            border: `1px solid ${row.source === "holiday" ? "#fcd34d" : row.source === "booking" ? UI.brandBorder : "#d1d5db"}`,
-                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "#f8fafc",
+                            border: `1px solid ${row.source === "holiday" ? "var(--legacy-color-fcd34d)" : row.source === "booking" ? UI.brandBorder : "var(--legacy-color-d1d5db)"}`,
+                            background: row.source === "holiday" ? UI.warnSoft : row.source === "booking" ? UI.brandSoft : "var(--legacy-color-f8fafc)",
                             color: row.source === "holiday" ? UI.warn : row.source === "booking" ? UI.brand : UI.muted,
                             fontSize: 12,
                             fontWeight: 800,
@@ -836,7 +836,7 @@ export default function EmployeeWorkBreakdownPage() {
 
 const tableHead = {
   padding: "8px 10px",
-  background: "#f8fbfd",
+  background: "var(--legacy-color-f8fbfd)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
@@ -860,7 +860,7 @@ const tableCell = {
   fontSize: 12.5,
   color: UI.text,
   textAlign: "center",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   whiteSpace: "nowrap",
 };
 

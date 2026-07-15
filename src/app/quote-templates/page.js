@@ -16,13 +16,13 @@ import {
 import { FULL_SIZE_TRACKING_QUOTE_TEMPLATES } from "@/app/utils/quoteTemplates";
 
 const UI = {
-  bg: "#f3f6f9",
-  panel: "#ffffff",
-  border: "#d8e2ee",
-  text: "#061426",
-  muted: "#586b82",
-  brand: "#1f4b7a",
-  red: "#b91c1c",
+  bg: "var(--legacy-color-f3f6f9)",
+  panel: "var(--legacy-color-ffffff)",
+  border: "var(--legacy-color-d8e2ee)",
+  text: "var(--legacy-color-061426)",
+  muted: "var(--legacy-color-586b82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  red: "var(--legacy-color-b91c1c)",
 };
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -42,7 +42,7 @@ const slugify = (value) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || `quote-template-${Date.now()}`;
 
-const QUOTE_SECTION_GREY = "#bfbfbf";
+const QUOTE_SECTION_GREY = "var(--legacy-color-bfbfbf)";
 const DISCOUNT_OPTIONS = ["5%", "10%", "15%", "20%", "50%"];
 const DEFAULT_DISCOUNT = "10%";
 
@@ -263,7 +263,7 @@ const button = {
   gap: 6,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 900,
@@ -271,19 +271,19 @@ const button = {
   textDecoration: "none",
   cursor: "pointer",
 };
-const primaryButton = { ...button, background: UI.brand, borderColor: UI.brand, color: "#fff" };
-const dangerButton = { ...button, borderColor: "#fecdd3", background: "#fff1f2", color: UI.red };
+const primaryButton = { ...button, background: UI.brand, borderColor: UI.brand, color: "var(--legacy-color-fff)" };
+const dangerButton = { ...button, borderColor: "var(--legacy-color-fecdd3)", background: "var(--legacy-color-fff1f2)", color: UI.red };
 const smallButton = { ...button, minHeight: 30, padding: "0 9px", fontSize: 12 };
 const tabButton = (active) => ({
   ...button,
   borderColor: active ? UI.brand : UI.border,
-  background: active ? UI.brand : "#fff",
-  color: active ? "#fff" : UI.text,
+  background: active ? UI.brand : "var(--legacy-color-fff)",
+  color: active ? "var(--legacy-color-fff)" : UI.text,
 });
 const notice = {
-  border: "1px solid #bfdbfe",
-  background: "#eff6ff",
-  color: "#1e3a8a",
+  border: "1px solid var(--legacy-color-bfdbfe)",
+  background: "var(--legacy-color-eff6ff)",
+  color: "var(--legacy-color-1e3a8a)",
   borderRadius: 8,
   padding: "9px 10px",
   fontSize: 12,
@@ -294,7 +294,7 @@ const input = {
   minHeight: 36,
   borderRadius: 8,
   border: `1px solid ${UI.border}`,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   color: UI.text,
   fontSize: 13,
   fontWeight: 700,
@@ -307,7 +307,7 @@ const label = { display: "block", color: UI.muted, fontSize: 11, fontWeight: 900
 const previewShell = {
   border: `1px solid ${UI.border}`,
   borderRadius: 8,
-  background: "#e5ebf2",
+  background: "var(--legacy-color-e5ebf2)",
   padding: 10,
   overflowX: "auto",
 };
@@ -315,10 +315,10 @@ const previewPaper = {
   width: 760,
   minHeight: 980,
   margin: "0 auto",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   boxShadow: "0 16px 35px rgba(15, 23, 42, 0.16)",
   fontFamily: "Arial, Helvetica, sans-serif",
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 const previewFrame = {
   minHeight: 980,
@@ -329,8 +329,8 @@ const quoteBanner = {
   width: "100%",
   height: 106,
   flex: "0 0 auto",
-  borderBottom: "3px solid #000",
-  background: "#111",
+  borderBottom: "3px solid var(--legacy-color-000)",
+  background: "var(--legacy-color-111)",
 };
 const quoteBannerImage = {
   width: "100%",
@@ -344,60 +344,60 @@ const headerTable = {
   tableLayout: "fixed",
 };
 const labelCell = {
-  borderLeft: "1px solid #000",
-  borderRight: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderRight: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1.08,
   fontWeight: 900,
   textAlign: "center",
   background: QUOTE_SECTION_GREY,
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 const valueCell = {
-  borderLeft: "1px solid #000",
-  borderRight: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderRight: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   minHeight: 16,
   fontSize: 10.5,
   lineHeight: 1.08,
   textAlign: "center",
-  background: "#fff",
-  color: "#000",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-000)",
 };
 const descriptionLabel = {
-  borderTop: "1px solid #000",
-  borderBottom: "1px solid #000",
+  borderTop: "1px solid var(--legacy-color-000)",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.2,
   lineHeight: 1,
   textAlign: "center",
   fontWeight: 900,
   background: QUOTE_SECTION_GREY,
-  color: "#000",
+  color: "var(--legacy-color-000)",
 };
 const servicePreview = {
   width: "100%",
-  borderBottom: "1px solid #000",
+  borderBottom: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontSize: 11.4,
   lineHeight: 1.05,
   fontWeight: 900,
   textAlign: "center",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   boxSizing: "border-box",
 };
 const quoteTable = {
   width: "100%",
   borderCollapse: "collapse",
   tableLayout: "fixed",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   fontFamily: "Arial, Helvetica, sans-serif",
 };
 const descriptionHeader = {
-  border: "1px solid #000",
-  background: "#000",
-  color: "#fff",
+  border: "1px solid var(--legacy-color-000)",
+  background: "var(--legacy-color-000)",
+  color: "var(--legacy-color-fff)",
   padding: "2px 6px",
   textAlign: "left",
   width: "74.1%",
@@ -411,7 +411,7 @@ const qtyHeader = { ...descriptionHeader, width: "4.25%", textAlign: "center" };
 const unitPriceHeader = { ...descriptionHeader, width: "10.25%", textAlign: "center" };
 const totalHeader = { ...descriptionHeader, width: "11.4%", textAlign: "center" };
 const sectionCell = {
-  border: "1px solid #000",
+  border: "1px solid var(--legacy-color-000)",
   padding: "1px 8px",
   fontWeight: 900,
   textAlign: "center",
@@ -419,7 +419,7 @@ const sectionCell = {
   fontSize: 10.2,
   lineHeight: 1,
   height: 14,
-  color: "#000",
+  color: "var(--legacy-color-000)",
   boxSizing: "border-box",
 };
 const sectionCellInner = {
@@ -435,7 +435,7 @@ const sectionTitleInput = {
   border: "none",
   outline: "none",
   background: "transparent",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   textAlign: "center",
   fontSize: 10.2,
   lineHeight: 1,
@@ -455,10 +455,10 @@ const quoteSectionButton = {
   alignItems: "center",
   justifyContent: "center",
   gap: 2,
-  border: "1px solid #64748b",
+  border: "1px solid var(--legacy-color-64748b)",
   borderRadius: 3,
-  background: "#fff",
-  color: "#111827",
+  background: "var(--legacy-color-fff)",
+  color: "var(--legacy-color-111827)",
   padding: "1px 5px",
   fontSize: 9,
   lineHeight: 1,
@@ -467,18 +467,18 @@ const quoteSectionButton = {
 };
 const quoteSectionDangerButton = {
   ...quoteSectionButton,
-  border: "1px solid #fecaca",
-  background: "#fff7f7",
-  color: "#b91c1c",
+  border: "1px solid var(--legacy-color-fecaca)",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
 };
 const quoteCell = {
   borderWidth: 1,
   borderStyle: "solid",
-  borderColor: "#000",
+  borderColor: "var(--legacy-color-000)",
   padding: 0,
   verticalAlign: "middle",
   height: 14,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   boxSizing: "border-box",
 };
 const quoteLineDescriptionWrap = {
@@ -494,18 +494,18 @@ const quoteLineDeleteButton = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  border: "1px solid #fecaca",
+  border: "1px solid var(--legacy-color-fecaca)",
   borderRadius: 2,
-  background: "#fff7f7",
-  color: "#b91c1c",
+  background: "var(--legacy-color-fff7f7)",
+  color: "var(--legacy-color-b91c1c)",
   padding: 0,
   cursor: "pointer",
 };
 const quoteLineLockButton = {
   ...quoteLineDeleteButton,
-  border: "1px solid #bfdbfe",
-  background: "#eff6ff",
-  color: "#1d4ed8",
+  border: "1px solid var(--legacy-color-bfdbfe)",
+  background: "var(--legacy-color-eff6ff)",
+  color: "var(--legacy-color-1d4ed8)",
 };
 const statusPill = (kind = "shared") => ({
   display: "inline-flex",
@@ -514,9 +514,9 @@ const statusPill = (kind = "shared") => ({
   minHeight: 14,
   padding: "0 5px",
   borderRadius: 999,
-  border: kind === "custom" ? "1px solid #fbbf24" : kind === "excluded" ? "1px solid #fecaca" : "1px solid #bfdbfe",
-  background: kind === "custom" ? "#fffbeb" : kind === "excluded" ? "#fff1f2" : "#eff6ff",
-  color: kind === "custom" ? "#92400e" : kind === "excluded" ? "#b91c1c" : "#1d4ed8",
+  border: kind === "custom" ? "1px solid var(--legacy-color-fbbf24)" : kind === "excluded" ? "1px solid var(--legacy-color-fecaca)" : "1px solid var(--legacy-color-bfdbfe)",
+  background: kind === "custom" ? "var(--legacy-color-fffbeb)" : kind === "excluded" ? "var(--legacy-color-fff1f2)" : "var(--legacy-color-eff6ff)",
+  color: kind === "custom" ? "var(--legacy-color-92400e)" : kind === "excluded" ? "var(--legacy-color-b91c1c)" : "var(--legacy-color-1d4ed8)",
   fontSize: 8.5,
   lineHeight: 1,
   fontWeight: 900,
@@ -528,7 +528,7 @@ const lineText = {
   outline: "none",
   fontSize: 10,
   lineHeight: "13px",
-  color: "#000",
+  color: "var(--legacy-color-000)",
   background: "transparent",
   padding: "0 5px",
   margin: 0,
@@ -541,20 +541,20 @@ const moneyText = { ...lineText, textAlign: "right", paddingRight: 7 };
 const totalText = { ...lineText, textAlign: "right", padding: "0 5px 0 2px" };
 const discountQuoteCell = {
   ...quoteCell,
-  background: "#ff0000",
-  borderColor: "#ff0000",
+  background: "var(--legacy-color-ff0000)",
+  borderColor: "var(--legacy-color-ff0000)",
 };
 const discountLineText = {
   ...lineText,
-  color: "#fff",
-  background: "#ff0000",
+  color: "var(--legacy-color-fff)",
+  background: "var(--legacy-color-ff0000)",
   fontWeight: 900,
 };
 const discountQtyText = { ...discountLineText, textAlign: "center" };
 const discountMoneyText = { ...discountLineText, textAlign: "right", paddingRight: 7 };
-const discountTotalText = { ...totalText, color: "#fff", background: "#ff0000", fontWeight: 900 };
+const discountTotalText = { ...totalText, color: "var(--legacy-color-fff)", background: "var(--legacy-color-ff0000)", fontWeight: 900 };
 const emptyPreviewCell = {
-  border: "1px solid #000",
+  border: "1px solid var(--legacy-color-000)",
   padding: 14,
   color: UI.muted,
   textAlign: "center",
@@ -564,7 +564,7 @@ const emptyPreviewCell = {
 const quotePrintSpacer = {
   flex: "1 1 auto",
   minHeight: 0,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const quoteFooter = {
   display: "flex",
@@ -572,11 +572,11 @@ const quoteFooter = {
   alignItems: "stretch",
   justifyContent: "space-between",
 };
-const footerBlackFill = { flex: 1, background: "#000", minHeight: 34 };
+const footerBlackFill = { flex: 1, background: "var(--legacy-color-000)", minHeight: 34 };
 const totalRows = {
   width: 230,
-  borderLeft: "1px solid #000",
-  borderTop: "1px solid #000",
+  borderLeft: "1px solid var(--legacy-color-000)",
+  borderTop: "1px solid var(--legacy-color-000)",
 };
 const totalRow = {
   display: "flex",
@@ -586,7 +586,7 @@ const totalRow = {
   padding: "3px 8px",
   fontSize: 11,
   fontWeight: 900,
-  borderBottom: "1px solid #000",
+  borderBottom: "1px solid var(--legacy-color-000)",
 };
 const vatText = {
   padding: "3px 8px",
@@ -667,7 +667,7 @@ function QuoteTemplatePreview({
           <input
             value={template?.serviceDescription || ""}
             onChange={(event) => onTemplateChange?.({ serviceDescription: event.target.value })}
-            style={{ ...servicePreview, border: "none", borderBottom: "1px solid #000", outline: "none" }}
+            style={{ ...servicePreview, border: "none", borderBottom: "1px solid var(--legacy-color-000)", outline: "none" }}
             placeholder="Description of services"
           />
 
@@ -1245,7 +1245,7 @@ export default function QuoteTemplatesPage() {
           </div>
         </div>
 
-        {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "#166534", fontWeight: 800 }}>{message}</div> : null}
+        {message ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: "var(--legacy-color-166534)", fontWeight: 800 }}>{message}</div> : null}
         {error ? <div style={{ ...surface, padding: 10, marginBottom: 10, color: UI.red, fontWeight: 800 }}>{error}</div> : null}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1287,7 +1287,7 @@ export default function QuoteTemplatesPage() {
                       padding: 9,
                       borderRadius: 8,
                       border: `1px solid ${active ? UI.brand : UI.border}`,
-                      background: active ? "#edf3f8" : "#fff",
+                      background: active ? "var(--legacy-color-edf3f8)" : "var(--legacy-color-fff)",
                       color: UI.text,
                       cursor: "pointer",
                     }}
@@ -1325,8 +1325,8 @@ export default function QuoteTemplatesPage() {
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    border: `1px solid ${selectedTemplate.excludeFromSharedRates ? "#fbbf24" : UI.border}`,
-                    background: selectedTemplate.excludeFromSharedRates ? "#fffbeb" : "#fff",
+                    border: `1px solid ${selectedTemplate.excludeFromSharedRates ? "var(--legacy-color-fbbf24)" : UI.border}`,
+                    background: selectedTemplate.excludeFromSharedRates ? "var(--legacy-color-fffbeb)" : "var(--legacy-color-fff)",
                     borderRadius: 8,
                     padding: 10,
                     fontSize: 13,
@@ -1341,7 +1341,7 @@ export default function QuoteTemplatesPage() {
                   />
                   Exclude this template from Shared Rates updates
                   {selectedTemplate.excludeFromSharedRates ? (
-                    <span style={{ color: "#92400e", fontSize: 12 }}>Excluded from Shared Rates</span>
+                    <span style={{ color: "var(--legacy-color-92400e)", fontSize: 12 }}>Excluded from Shared Rates</span>
                   ) : (
                     <span style={{ color: UI.muted, fontSize: 12 }}>Template can receive Shared Rate updates</span>
                   )}
@@ -1353,8 +1353,8 @@ export default function QuoteTemplatesPage() {
                       Edit lines directly on the quote layout.
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 5 }}>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: "#1d4ed8" }}>Shared Rate = can update globally</span>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: "#92400e" }}>Custom Price = skipped by Shared Rates</span>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: "var(--legacy-color-1d4ed8)" }}>Shared Rate = can update globally</span>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: "var(--legacy-color-92400e)" }}>Custom Price = skipped by Shared Rates</span>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1431,9 +1431,9 @@ export default function QuoteTemplatesPage() {
                         gap: 6,
                         alignItems: "center",
                         padding: 6,
-                        border: `1px solid ${hasVariance ? "#fbbf24" : UI.border}`,
+                        border: `1px solid ${hasVariance ? "var(--legacy-color-fbbf24)" : UI.border}`,
                         borderRadius: 8,
-                        background: hasVariance ? "#fffbeb" : "#f8fafc",
+                        background: hasVariance ? "var(--legacy-color-fffbeb)" : "var(--legacy-color-f8fafc)",
                       }}
                     >
                       <div>
@@ -1449,7 +1449,7 @@ export default function QuoteTemplatesPage() {
                         style={compactInput}
                         placeholder="Unit"
                       />
-                      <div style={{ color: hasVariance ? "#92400e" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
+                      <div style={{ color: hasVariance ? "var(--legacy-color-92400e)" : UI.muted, fontSize: 11, fontWeight: 800, lineHeight: 1.35 }}>
                         {summary.unitPrices.length > 1 ? `Varies: ${summary.unitPriceSummary}` : `Unit: ${summary.unitPriceSummary}`}
                         <br />
                         {summary.totalModes.length > 1 ? `Modes vary: ${summary.totalModeSummary}` : `Mode: ${summary.totalModeSummary}`}
@@ -1564,7 +1564,7 @@ export default function QuoteTemplatesPage() {
                 </div>
               </div>
               <label style={label}>Preview Affected Lines</label>
-              <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${UI.border}`, borderRadius: 8, marginBottom: 14, background: "#f8fafc" }}>
+              <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${UI.border}`, borderRadius: 8, marginBottom: 14, background: "var(--legacy-color-f8fafc)" }}>
                 <div
                   style={{
                     minWidth: 860,
@@ -1572,7 +1572,7 @@ export default function QuoteTemplatesPage() {
                     gridTemplateColumns: "1.1fr 1.3fr 90px 90px 105px 105px 145px",
                     gap: 0,
                     padding: 7,
-                    background: "#e5e7eb",
+                    background: "var(--legacy-color-e5e7eb)",
                     color: UI.text,
                     fontSize: 10.5,
                     fontWeight: 900,

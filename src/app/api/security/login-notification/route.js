@@ -71,7 +71,7 @@ async function sendLoginEmail({ to, ip, location, userAgent, timestamp, manageUr
       to,
       subject: "Security alert: new Bickers Booking login",
       html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:var(--legacy-color-111827)">
           <h2 style="margin:0 0 12px">New login to Bickers Booking</h2>
           <p>Your account was just used to sign in.</p>
           <table style="border-collapse:collapse;margin:16px 0">

@@ -39,22 +39,22 @@ const UI = {
   gap: 12,
   shadowSm: "0 1px 2px rgba(15,23,42,0.05)",
   shadowHover: "0 8px 18px rgba(15,23,42,0.08)",
-  border: "1px solid #d7dee8",
-  bg: "#f3f6f9",
-  card: "#ffffff",
-  text: "#0f172a",
-  muted: "#5f6f82",
-  brand: "#1f4b7a",
-  brandSoft: "#edf3f8",
-  brandBorder: "#c8d6e3",
-  accent: "#8b5e3c",
-  accentSoft: "#f5ede6",
-  danger: "#dc2626",
-  green: "#16a34a",
-  amber: "#d97706",
-  blue: "#2563eb",
-  purple: "#7c3aed",
-  teal: "#0f766e",
+  border: "1px solid var(--legacy-color-d7dee8)",
+  bg: "var(--legacy-color-f3f6f9)",
+  card: "var(--legacy-color-ffffff)",
+  text: "var(--legacy-color-0f172a)",
+  muted: "var(--legacy-color-5f6f82)",
+  brand: "var(--legacy-color-1f4b7a)",
+  brandSoft: "var(--legacy-color-edf3f8)",
+  brandBorder: "var(--legacy-color-c8d6e3)",
+  accent: "var(--legacy-color-8b5e3c)",
+  accentSoft: "var(--legacy-color-f5ede6)",
+  danger: "var(--legacy-color-dc2626)",
+  green: "var(--legacy-color-16a34a)",
+  amber: "var(--legacy-color-d97706)",
+  blue: "var(--legacy-color-2563eb)",
+  purple: "var(--legacy-color-7c3aed)",
+  teal: "var(--legacy-color-0f766e)",
 };
 
 const pageWrap = { padding: "16px 16px 32px", background: UI.bg, minHeight: "100vh" };
@@ -123,7 +123,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: UI.radiusSm,
       border: `1px solid ${UI.brandBorder}`,
-      background: "linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%)",
+      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -142,7 +142,7 @@ const btn = (kind = "primary") => {
       padding: "6px 9px",
       borderRadius: 999,
       border: `1px solid ${UI.brandBorder}`,
-      background: "#fff",
+      background: "var(--legacy-color-fff)",
       color: UI.text,
       fontWeight: 800,
       cursor: "pointer",
@@ -159,8 +159,8 @@ const btn = (kind = "primary") => {
     padding: "6px 9px",
     borderRadius: UI.radiusSm,
     border: `1px solid ${UI.brand}`,
-    background: "linear-gradient(180deg, #2a5f96 0%, #1f4b7a 100%)",
-    color: "#fff",
+    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
+    color: "var(--legacy-color-fff)",
     fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
@@ -175,14 +175,14 @@ const inputBase = {
   minHeight: 36,
   padding: "7px 9px",
   borderRadius: 12,
-  border: "1px solid #dbe2ea",
+  border: "1px solid var(--legacy-color-dbe2ea)",
   outline: "none",
   fontSize: 13.5,
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
 };
 const smallLabel = { fontSize: 12, color: UI.muted, fontWeight: 800 };
 
-const divider = { height: 1, background: "#dde5ee", margin: "10px 0" };
+const divider = { height: 1, background: "var(--legacy-color-dde5ee)", margin: "10px 0" };
 
 const summaryGrid = {
   display: "grid",
@@ -224,7 +224,7 @@ const progressTrack = {
   width: "100%",
   height: 7,
   borderRadius: 999,
-  background: "#e8eef5",
+  background: "var(--legacy-color-e8eef5)",
   overflow: "hidden",
 };
 
@@ -437,28 +437,28 @@ const BREAKDOWN_COLUMNS = [
 ];
 
 const FULL_TIME_PIE_META = [
-  { key: "onSet", label: "On Set", weight: 1, color: "#1d4ed8" },
-  { key: "travel", label: "Travel", weight: 1, color: "#0f766e" },
-  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "#14b8a6" },
-  { key: "standby", label: "Standby", weight: 1, color: "#f59e0b" },
-  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "#7c3aed" },
-  { key: "recce", label: "Recce", weight: 1, color: "#ec4899" },
-  { key: "splitDay", label: "Split Day", weight: 1, color: "#ef4444" },
+  { key: "onSet", label: "On Set", weight: 1, color: "var(--legacy-color-1d4ed8)" },
+  { key: "travel", label: "Travel", weight: 1, color: "var(--legacy-color-0f766e)" },
+  { key: "halfTravel", label: "Half Travel", weight: 0.5, color: "var(--legacy-color-14b8a6)" },
+  { key: "standby", label: "Standby", weight: 1, color: "var(--legacy-color-f59e0b)" },
+  { key: "nightShoot", label: "Night Shoot", weight: 1, color: "var(--legacy-color-7c3aed)" },
+  { key: "recce", label: "Recce", weight: 1, color: "var(--legacy-color-ec4899)" },
+  { key: "splitDay", label: "Split Day", weight: 1, color: "var(--legacy-color-ef4444)" },
 ];
 
 const EMPLOYEE_SERIES_COLORS = [
-  "#1d4ed8",
-  "#0f766e",
-  "#7c3aed",
-  "#f59e0b",
-  "#ec4899",
-  "#ef4444",
-  "#0891b2",
-  "#65a30d",
-  "#9333ea",
-  "#ea580c",
-  "#2563eb",
-  "#059669",
+  "var(--legacy-color-1d4ed8)",
+  "var(--legacy-color-0f766e)",
+  "var(--legacy-color-7c3aed)",
+  "var(--legacy-color-f59e0b)",
+  "var(--legacy-color-ec4899)",
+  "var(--legacy-color-ef4444)",
+  "var(--legacy-color-0891b2)",
+  "var(--legacy-color-65a30d)",
+  "var(--legacy-color-9333ea)",
+  "var(--legacy-color-ea580c)",
+  "var(--legacy-color-2563eb)",
+  "var(--legacy-color-059669)",
 ];
 
 function classifyNote(rawNote) {
@@ -916,7 +916,7 @@ export default function EmployeesHomePage() {
 
       {/* subtle focus ring */}
       <style>{`
-        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: #bfdbfe !important; }
+        input:focus, button:focus, select:focus { outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.15); border-color: var(--legacy-color-bfdbfe) !important; }
         button:disabled { opacity: .55; cursor: not-allowed; }
       `}</style>
 
@@ -1020,7 +1020,7 @@ export default function EmployeesHomePage() {
           </div>
 
           {/* Controls */}
-          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "#fff" }}>
+          <div style={{ ...surface, boxShadow: "none", borderRadius: 12, border: UI.border, padding: 10, background: "var(--legacy-color-fff)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="button" style={btn("pill")} onClick={() => setMode("lastNDays")}>
@@ -1056,8 +1056,8 @@ export default function EmployeesHomePage() {
                         type="button"
                         style={{
                           ...btn("pill"),
-                          borderColor: active ? "#bfdbfe" : "#d1d5db",
-                          background: active ? UI.brandSoft : "#fff",
+                          borderColor: active ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d1d5db)",
+                          background: active ? UI.brandSoft : "var(--legacy-color-fff)",
                           color: active ? UI.brand : UI.text,
                         }}
                         onClick={() => setRangeDays(n)}
@@ -1115,25 +1115,25 @@ export default function EmployeesHomePage() {
             <div style={{ height: 320, marginTop: 10 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={usageData} margin={{ top: 14, right: 20, left: 0, bottom: 14 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
                   <XAxis
                     dataKey="name"
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <YAxis
                     allowDecimals
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                     domain={[0, "dataMax+1"]}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                       fontSize: 12,
                       color: UI.text,
@@ -1152,7 +1152,7 @@ export default function EmployeesHomePage() {
               </ResponsiveContainer>
 
               <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid #d1d5db" }} />
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: UI.brand, border: "1px solid var(--legacy-color-d1d5db)" }} />
                 <div style={{ color: UI.muted, fontSize: 12 }}>
                   Bars show total employee credits, including fractional travel credits, night shoot turnaround credit, Saturday On Set extra half credit and Sunday On Set double time. Hover to view full names.
                 </div>
@@ -1372,9 +1372,9 @@ export default function EmployeesHomePage() {
                       gap: 10,
                       alignItems: "center",
                       padding: "10px 12px",
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       borderRadius: 12,
-                      background: "#fff",
+                      background: "var(--legacy-color-fff)",
                     }}
                   >
                     <div
@@ -1426,26 +1426,26 @@ export default function EmployeesHomePage() {
                   layout="vertical"
                   margin={{ top: 8, right: 170, left: 18, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--legacy-color-e5e7eb)" />
                   <XAxis
                     type="number"
                     tick={{ fill: UI.muted, fontSize: 12 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     width={120}
                     tick={{ fill: UI.text, fontSize: 12, fontWeight: 700 }}
-                    axisLine={{ stroke: "#e5e7eb" }}
-                    tickLine={{ stroke: "#e5e7eb" }}
+                    axisLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
+                    tickLine={{ stroke: "var(--legacy-color-e5e7eb)" }}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(148,163,184,0.12)" }}
                     contentStyle={{
                       borderRadius: 10,
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid var(--legacy-color-e5e7eb)",
                       boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
                       fontSize: 12,
                       color: UI.text,
@@ -1467,7 +1467,7 @@ export default function EmployeesHomePage() {
                       <Cell key={entry.key} fill={entry.color} />
                     ))}
                   </Bar>
-                  <Bar dataKey="yardValue" stackId="employee" fill="#cbd5e1" radius={[0, 8, 8, 0]}>
+                  <Bar dataKey="yardValue" stackId="employee" fill="var(--legacy-color-cbd5e1)" radius={[0, 8, 8, 0]}>
                     <LabelList dataKey="totalValue" position="right" content={renderEmployeeSplitLabel} />
                   </Bar>
                 </BarChart>
@@ -1498,7 +1498,7 @@ function MetricCard({ label, value, tone, icon: Icon }) {
     <div style={miniStat}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div style={{ color: UI.muted, fontSize: 11.5, fontWeight: 900, textTransform: "uppercase" }}>{label}</div>
-        <span style={iconBox(tone, "#f8fbfd")}>
+        <span style={iconBox(tone, "var(--legacy-color-f8fbfd)")}>
           <Icon size={17} />
         </span>
       </div>
@@ -1534,7 +1534,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
           padding: 9,
           borderRadius: UI.radiusSm,
           border: UI.border,
-          background: "#fff",
+          background: "var(--legacy-color-fff)",
           cursor: "pointer",
           textAlign: "left",
         }}
@@ -1545,7 +1545,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
   }
 
   return (
-    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "#fff" }}>
+    <div style={{ display: "grid", gap: 7, padding: 9, borderRadius: UI.radiusSm, border: UI.border, background: "var(--legacy-color-fff)" }}>
       {content}
     </div>
   );
@@ -1553,7 +1553,7 @@ function ProgressRow({ label, value, percent, color, onClick }) {
 
 const tableHead = {
   padding: "10px 12px",
-  background: "#f8fbfd",
+  background: "var(--legacy-color-f8fbfd)",
   borderTop: UI.border,
   borderBottom: UI.border,
   borderRight: UI.border,
@@ -1580,7 +1580,7 @@ const tableCell = {
   fontSize: 13,
   color: UI.text,
   textAlign: "center",
-  background: "#fff",
+  background: "var(--legacy-color-fff)",
   whiteSpace: "nowrap",
 };
 
