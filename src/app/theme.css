@@ -113,6 +113,7 @@
   --legacy-color-0f172a: #0f172a;
   --legacy-color-0f766e: #0f766e;
   --legacy-color-101720: #101720;
+  --legacy-color-102217: #102217;
   --legacy-color-10233a: #10233a;
   --legacy-color-102a56: #102a56;
   --legacy-color-10301aff: #10301aff;
@@ -162,6 +163,7 @@
   --legacy-color-34d399: #34d399;
   --legacy-color-3730a3: #3730a3;
   --legacy-color-374151: #374151;
+  --legacy-color-383838: #383838;
   --legacy-color-3b0764: #3b0764;
   --legacy-color-3b82f6: #3b82f6;
   --legacy-color-3d8b37: #3d8b37;
@@ -242,7 +244,6 @@
   --legacy-color-a95622: #a95622;
   --legacy-color-aaa: #aaa;
   --legacy-color-acacacff: #acacacff;
-  --legacy-color-aebac7: #aebac7;
   --legacy-color-b40000: #b40000;
   --legacy-color-b45309: #b45309;
   --legacy-color-b4c0cf: #b4c0cf;
@@ -251,7 +252,6 @@
   --legacy-color-b91c1c: #b91c1c;
   --legacy-color-bae6fd: #bae6fd;
   --legacy-color-bbf7d0: #bbf7d0;
-  --legacy-color-bcc7d4: #bcc7d4;
   --legacy-color-bed0ae: #bed0ae;
   --legacy-color-bef264: #bef264;
   --legacy-color-bf847f: #bf847f;
@@ -270,7 +270,6 @@
   --legacy-color-cbd5e1: #cbd5e1;
   --legacy-color-ccc: #ccc;
   --legacy-color-ccfbf1: #ccfbf1;
-  --legacy-color-cfd8e3: #cfd8e3;
   --legacy-color-cffafe: #cffafe;
   --legacy-color-d0021b: #d0021b;
   --legacy-color-d0d0d0: #d0d0d0;
@@ -292,6 +291,7 @@
   --legacy-color-da8e58ff: #da8e58ff;
   --legacy-color-dbe1ea: #dbe1ea;
   --legacy-color-dbe2ea: #dbe2ea;
+  --legacy-color-dbe3ee: #dbe3ee;
   --legacy-color-dbe4ef: #dbe4ef;
   --legacy-color-dbe5ef: #dbe5ef;
   --legacy-color-dbeafe: #dbeafe;
@@ -359,6 +359,7 @@
   --legacy-color-f0fdfa: #f0fdfa;
   --legacy-color-f1b8b8: #f1b8b8;
   --legacy-color-f1f5f9: #f1f5f9;
+  --legacy-color-f2f2f2: #f2f2f2;
   --legacy-color-f33131ff: #f33131ff;
   --legacy-color-f3e8ff: #f3e8ff;
   --legacy-color-f3f4f6: #f3f4f6;
@@ -399,7 +400,6 @@
   --legacy-color-fca5a5: #fca5a5;
   --legacy-color-fcd34d: #fcd34d;
   --legacy-color-fcefee: #fcefee;
-  --legacy-color-fcf3e6: #fcf3e6;
   --legacy-color-fcfdff: #fcfdff;
   --legacy-color-fcfffd: #fcfffd;
   --legacy-color-fd9a9aff: #fd9a9aff;

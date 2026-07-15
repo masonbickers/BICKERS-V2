@@ -13,12 +13,15 @@
     "lint": "eslint .",
     "audit:access": "node scripts/security-access-audit.mjs",
     "audit:auth-repair": "node scripts/auth-access-repair-report.mjs",
+    "audit:styles": "node scripts/style-audit.mjs",
+    "audit:styles:check": "node scripts/style-audit.mjs --check",
     "test:access": "node --test tests/accessControl.test.mjs",
     "test:statistics": "node --test tests/statisticsInsights.test.mjs",
     "test:dates": "node --test tests/dateNormalization.test.mjs",
     "migrate:employee-access": "node scripts/migrate-employee-access.mjs"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.18",
     "@fullcalendar/core": "^6.1.18",
     "@fullcalendar/daygrid": "^6.1.18",
     "@fullcalendar/interaction": "^6.1.18",

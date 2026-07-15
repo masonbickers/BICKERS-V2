@@ -15,5 +15,10 @@ export async function GET(req) {
     });
   }
   const result = await readLatestBriefing(access.companyId, access.variant);
-  return Response.json({ ...result, setupRequired: false, canManageRules: access.canManageRules, variant: access.variant });
+  const briefing = result.briefing ? { ...result.briefing } : null;
+  if (briefing) {
+    delete briefing.generationError;
+    delete briefing.sourceSnapshotHash;
+  }
+  return Response.json({ ...result, briefing, stale: result.stale || briefing?.stale === true, setupRequired: false, canManageRules: access.canManageRules, variant: access.variant });
 }

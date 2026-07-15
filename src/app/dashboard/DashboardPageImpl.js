@@ -104,6 +104,7 @@ import {
   tenantPayload,
 } from "@/app/utils/firestoreAccess";
 import { clearPagePermissionDenied } from "@/app/utils/pageAccessEvents";
+import { Button, Input } from "@/app/components/ui";
 
 const OFF_ROAD_ALLOWED_GROUPS = new Set([
   "bike",
@@ -112,372 +113,6 @@ const OFF_ROAD_ALLOWED_GROUPS = new Set([
 ]);
 const isOffRoadAllowedGroup = (group) =>
   OFF_ROAD_ALLOWED_GROUPS.has(String(group || "").trim().toLowerCase());
-
-const pageWrap = {
-  padding: "16px 16px 32px",
-  background: "var(--color-canvas)",
-  minHeight: "100vh",
-};
-
-const quoteOverlayBackdrop = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 140,
-  background: "rgba(2,6,23,0.66)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 4,
-};
-
-const quoteOverlayPanel = {
-  width: "min(900px, 99vw)",
-  height: "min(760px, calc(100vh - 8px))",
-  display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr)",
-  background: "var(--legacy-color-fff)",
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  borderRadius: 10,
-  boxShadow: "0 24px 70px rgba(2,6,23,0.38)",
-  overflow: "hidden",
-};
-
-const quoteOverlayHeader = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  padding: "7px 10px",
-  borderBottom: "1px solid var(--legacy-color-dbe4ef)",
-  background: "var(--legacy-color-f8fafc)",
-};
-
-const quoteOverlayEyebrow = {
-  color: "var(--color-text-muted)",
-  fontSize: 10.5,
-  fontWeight: 900,
-  textTransform: "uppercase",
-};
-
-const quoteOverlayTitle = {
-  color: "var(--color-text)",
-  fontSize: 15,
-  lineHeight: 1.2,
-  fontWeight: 900,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const quoteOverlayMeta = {
-  marginTop: 2,
-  color: "var(--color-text-muted)",
-  fontSize: 12,
-  fontWeight: 800,
-};
-
-const quoteOverlayActions = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  gap: 8,
-  flexWrap: "wrap",
-};
-
-const quoteOverlayButton = {
-  minHeight: 34,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 5,
-  border: "1px solid var(--legacy-color-cbd5e1)",
-  borderRadius: 8,
-  background: "var(--legacy-color-fff)",
-  color: "var(--color-text)",
-  padding: "6px 10px",
-  fontSize: 12,
-  fontWeight: 900,
-  cursor: "pointer",
-};
-
-const quoteOverlayPrimaryButton = {
-  ...quoteOverlayButton,
-  background: "var(--color-brand)",
-  borderColor: "var(--color-brand)",
-  color: "var(--legacy-color-fff)",
-};
-
-const quoteOverlayCloseButton = {
-  ...quoteOverlayButton,
-  width: 34,
-  padding: 0,
-};
-
-const quoteOverlayFrame = {
-  width: "100%",
-  height: "100%",
-  border: 0,
-  background: "var(--legacy-color-fff)",
-};
-
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 12,
-  marginBottom: 14,
-  flexWrap: "wrap",
-};
-
-const h1 = {
-  color: "var(--color-text)",
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 750,
-  letterSpacing: 0,
-  margin: 0,
-};
-
-const headerActions = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "nowrap",
-  justifyContent: "flex-end",
-  alignItems: "center",
-  minWidth: 0,
-};
-
-const headerSearchWrap = {
-  position: "relative",
-  flex: "0 1 300px",
-  minWidth: 220,
-  maxWidth: 320,
-  width: 300,
-};
-
-const headerSearchInput = {
-  width: "100%",
-  minHeight: 36,
-  padding: "7px 9px 7px 34px",
-  borderRadius: "var(--radius-md)",
-  border: "var(--border-default)",
-  background: "var(--legacy-color-fff)",
-  color: "var(--color-text)",
-  fontSize: 13.5,
-  outline: "none",
-};
-
-const surface = {
-  background: "var(--color-surface)",
-  borderRadius: "var(--radius-md)",
-  border: "var(--border-default)",
-  boxShadow: "var(--shadow-sm)",
-};
-
-const card = {
-  ...surface,
-  padding: 12,
-  marginBottom: "var(--space-3)",
-};
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 10,
-  marginBottom: 8,
-  flexWrap: "wrap",
-};
-
-const titleMd = { fontSize: 17, fontWeight: 800, color: "var(--color-text)", margin: 0, letterSpacing: 0 };
-const hint = { color: "var(--color-text-muted)", fontSize: 12.5, marginTop: 5, lineHeight: 1.45 };
-const labelTiny = {
-  marginBottom: 4,
-  fontSize: 11,
-  fontWeight: 900,
-  color: "var(--color-text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: ".04em",
-};
-
-const sectionTitleWrap = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  minWidth: 0,
-};
-
-const sectionActions = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-  alignItems: "center",
-};
-
-const chip = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "5px 9px",
-  borderRadius: 999,
-  border: `1px solid ${"var(--color-brand-border)"}`,
-  background: "var(--color-brand-soft)",
-  color: "var(--color-text)",
-  fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: "nowrap",
-};
-
-const miniCountBadge = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  minWidth: 22,
-  height: 22,
-  padding: "0 7px",
-  borderRadius: 999,
-  border: `1px solid ${"var(--color-brand)"}`,
-  background: "var(--color-brand)",
-  color: "var(--legacy-color-fff)",
-  fontSize: 11.5,
-  fontWeight: 900,
-  lineHeight: 1,
-  boxShadow: "0 5px 12px rgba(31,75,122,0.22)",
-};
-
-const btn = (kind = "primary") => {
-  const base = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    padding: "6px 9px",
-    borderRadius: "var(--radius-md)",
-    fontWeight: 800,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    fontSize: 12.5,
-    lineHeight: 1.2,
-  };
-  if (kind === "ghost") {
-    return {
-      ...base,
-      border: `1px solid ${"var(--color-brand-border)"}`,
-      background: "linear-gradient(180deg, var(--legacy-color-ffffff) 0%, var(--legacy-color-f8fbfe) 100%)",
-      color: "var(--color-text)",
-      boxShadow: "0 4px 10px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.75)",
-    };
-  }
-  if (kind === "danger") {
-    return {
-      ...base,
-      border: "1px solid var(--legacy-color-e9c6c4)",
-      background: "var(--color-danger-soft)",
-      color: "var(--legacy-color-991b1b)",
-    };
-  }
-  return {
-    ...base,
-    border: `1px solid ${"var(--color-brand)"}`,
-    background: "linear-gradient(180deg, var(--legacy-color-2a5f96) 0%, var(--legacy-color-1f4b7a) 100%)",
-    color: "var(--legacy-color-fff)",
-    boxShadow: "0 8px 18px rgba(31,75,122,0.18), inset 0 1px 0 rgba(255,255,255,0.16)",
-  };
-};
-
-const btnDisabled = (base) => ({
-  ...base,
-  opacity: 0.45,
-  cursor: "not-allowed",
-  pointerEvents: "none",
-  filter: "grayscale(0.2)",
-});
-
-const successBanner = {
-  background: "var(--color-success-soft)",
-  color: "var(--legacy-color-065f46)",
-  border: "1px solid var(--legacy-color-b7dec7)",
-  borderRadius: "var(--radius-md)",
-  padding: "7px 10px",
-  fontSize: 13,
-  fontWeight: 800,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 7,
-};
-
-const tableWrap = {
-  width: "100%",
-  overflow: "auto",
-  borderRadius: "var(--radius-md)",
-  border: "var(--border-default)",
-  background: "var(--legacy-color-fff)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
-};
-const table = {
-  width: "100%",
-  borderCollapse: "separate",
-  borderSpacing: 0,
-  fontSize: 13.5,
-};
-const th = {
-  textAlign: "left",
-  padding: "9px 10px",
-  borderBottom: "1px solid var(--legacy-color-eef2f7)",
-  position: "sticky",
-  top: 0,
-  background: "var(--legacy-color-f6f8fb)",
-  zIndex: 1,
-  whiteSpace: "nowrap",
-  fontWeight: 900,
-  fontSize: 11.5,
-  color: "var(--color-text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: 0,
-};
-const td = {
-  padding: "9px 10px",
-  borderBottom: "1px solid var(--legacy-color-f1f5f9)",
-  verticalAlign: "middle",
-  fontSize: 13,
-};
-
-const calendarFrame = {
-  borderRadius: "var(--radius-md)",
-  background: "var(--legacy-color-fff)",
-  border: "var(--border-default)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
-  minHeight: 620,
-  overflow: "hidden",
-};
-
-const compactCalendarFrame = {
-  ...calendarFrame,
-  minHeight: 0,
-  height: "auto",
-  overflow: "visible",
-};
-
-const monthCalendarFrame = {
-  ...calendarFrame,
-  minHeight: 620,
-  height: "auto",
-  overflow: "visible",
-};
-
-const iconBox = (color = "var(--color-brand)", bg = "var(--color-brand-soft)") => ({
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: bg,
-  color,
-  border: `1px solid ${"var(--color-brand-border)"}`,
-  flex: "0 0 auto",
-});
 
 const NIGHT_SHOOT_STYLE = { bg: "var(--legacy-color-f796dfff)", text: "var(--legacy-color-111)", border: "var(--legacy-color-de24e4ff)" };
 
@@ -1378,27 +1013,7 @@ const getCrewNeeded = (bookingOrEvent) => {
 
 function EventMetaBadge({ Icon, good, title, children }) {
   return (
-    <span
-      title={title}
-      aria-label={title}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-        minHeight: 20,
-        minWidth: children ? 34 : 24,
-        padding: children ? "2px 6px" : "2px 5px",
-        borderRadius: 6,
-        backgroundColor: good ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
-        color: "var(--legacy-color-fff)",
-        border: "1px solid rgba(0,0,0,0.8)",
-        fontSize: "0.72rem",
-        fontWeight: 800,
-        lineHeight: 1,
-        whiteSpace: "nowrap",
-      }}
-    >
+    <span title={title} aria-label={title} className={layoutStyles.metaBadge} data-good={good}>
       <Icon size={12} strokeWidth={3} />
       {children ? children : good ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
     </span>
@@ -1540,26 +1155,11 @@ function CalendarEvent({ event, onViewQuote }) {
                 )}
               </div>
 
-              <span
-                style={{
-                  backgroundColor:
-                    event.shootType === "Night"
-                      ? "purple"
-                      : event.shootType === "Day"
-                      ? "white"
-                      : "var(--legacy-color-ffffffff)",
-                  color: event.shootType === "Night" ? "var(--legacy-color-fff)" : "var(--legacy-color-000)",
-                  padding: "2px 4px",
-                  borderRadius: 6,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  border: "1px solid var(--legacy-color-0b0b0b)",
-                }}
-              >
+              <span className={layoutStyles.jobNumber} data-shoot={String(event.shootType || "").toLowerCase()}>
                 {event.jobNumber}
               </span>
               {canViewQuote ? (
-                <button
+                <Button bare
                   type="button"
                   onClick={(clickEvent) => {
                     clickEvent.preventDefault();
@@ -1577,7 +1177,7 @@ function CalendarEvent({ event, onViewQuote }) {
                   className={layoutStyles.extracted17}
                 >
                   <FileText size={14} strokeWidth={2.7} />
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -1715,20 +1315,9 @@ function CalendarEvent({ event, onViewQuote }) {
                     ? NIGHT_SHOOT_STYLE
                     : getVehicleStatusPillStyle(itemStatus);
 
+                // style-audit-allow runtime: booking status palette
                 return (
-                  <span
-                    key={i}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "0px 0px",
-                      borderRadius: 2,
-                      backgroundColor: style.bg,
-                      color: style.text,
-                      border: `0px solid ${style.border}`,
-                      marginTop: 1,
-                    }}
+                  <span key={i} className={layoutStyles.vehiclePill} style={{ "--pill-background": style.bg, "--pill-text": style.text }}
                     title={`Vehicle status: ${itemStatus}`}
                   >
                     {name}
@@ -1816,7 +1405,7 @@ function CalendarEvent({ event, onViewQuote }) {
 
               {event.notes && (
                 <>
-                  <button
+                  <Button bare
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowNotes((s) => !s);
@@ -1824,7 +1413,7 @@ function CalendarEvent({ event, onViewQuote }) {
                     className={layoutStyles.extracted27}
                   >
                     {showNotes ? "Hide Notes" : "Show Notes"}
-                  </button>
+                  </Button>
 
                   {showNotes && (
                     <div
@@ -1857,27 +1446,7 @@ function CalendarEvent({ event, onViewQuote }) {
                 )}
 
                 {!isBickersJob && (
-                  <span
-                    title={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
-                    aria-label={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 4,
-                      minHeight: 20,
-                      minWidth: 34,
-                      fontSize: "0.72rem",
-                      fontWeight: 400,
-                      padding: "2px 6px",
-                      borderRadius: 6,
-                      backgroundColor: event.hasRiskAssessment ? "var(--legacy-color-4caf50)" : "var(--legacy-color-f44336)",
-                      color: "var(--legacy-color-fff)",
-                      border: "1px solid rgba(0,0,0,0.8)",
-                      lineHeight: 1,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <span title={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"} aria-label={event.hasRiskAssessment ? "Risk assessment present" : "No risk assessment"} className={layoutStyles.metaBadge} data-good={event.hasRiskAssessment}>
                     RA {event.hasRiskAssessment ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
                   </span>
                 )}
@@ -1906,7 +1475,7 @@ function CalendarEvent({ event, onViewQuote }) {
           {/* RECCE LINK ONLY (jobs) */}
           {!isMaintenance && event.hasRecce && event.recceId && (
             <div className={layoutStyles.extracted30}>
-              <button
+              <Button bare
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push(`/recce-form/${event.recceId}`);
@@ -1922,7 +1491,7 @@ function CalendarEvent({ event, onViewQuote }) {
                     {(event.recceStatus || "Submitted").toUpperCase()}
                   </span>
                 )}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1937,8 +1506,9 @@ function CalendarEvent({ event, onViewQuote }) {
               <div
                 className={layoutStyles.extracted35}
               >
+                {/* style-audit-allow runtime: spacing between calculated risk reasons */}
                 {event.riskReasons.map((r, i) => (
-                  <div key={i} style={{ marginTop: i ? 3 : 0 }}>
+                  <div key={i} className={layoutStyles.riskReason} style={{ "--risk-margin": i ? "3px" : 0 }}>
                     {r}
                   </div>
                 ))}
@@ -2223,7 +1793,8 @@ function MaintenanceCalendarEvent({ event }) {
       title={event?.title || ""}
       className={layoutStyles.extracted36}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 12, whiteSpace: "normal" }}>{label}</span>
+      {/* style-audit-allow runtime: status label colour */}
+      <span className={layoutStyles.eventLabel} style={{ "--event-label-color": labelColor }}>{label}</span>
       <span className={layoutStyles.extracted37}>{cleanTitle}</span>
       {vehicleText ? (
         <span className={layoutStyles.extracted38}>{vehicleText}</span>
@@ -2264,21 +1835,13 @@ function HolidayNotesCalendarEvent({ event }) {
       title={event.title || title}
       className={layoutStyles.extracted43}
     >
-      <span style={{ color: labelColor, fontWeight: 950, fontSize: 11, whiteSpace: "normal" }}>{label}</span>
-      <span
-        style={{
-          color: "var(--legacy-color-0f172a)",
-          whiteSpace: "normal",
-          display: "-webkit-box",
-          WebkitLineClamp: shouldCollapse && !expanded ? 4 : "unset",
-          WebkitBoxOrient: "vertical",
-          overflow: shouldCollapse && !expanded ? "hidden" : "visible",
-        }}
-      >
+      {/* style-audit-allow runtime: holiday/note label colour */}
+      <span className={`${layoutStyles.eventLabel} ${layoutStyles.eventLabelSmall}`} style={{ "--event-label-color": labelColor }}>{label}</span>
+      <span className={layoutStyles.holidayTitle} data-collapsed={shouldCollapse && !expanded}>
         {displayTitle}
       </span>
       {shouldCollapse ? (
-        <button
+        <Button bare
           type="button"
           onClick={(clickEvent) => {
             clickEvent.preventDefault();
@@ -2288,7 +1851,7 @@ function HolidayNotesCalendarEvent({ event }) {
           className={layoutStyles.extracted44}
         >
           {expanded ? "Show less" : "Show more"}
-        </button>
+        </Button>
       ) : null}
       {detail ? (
         <span className={layoutStyles.extracted45}>{detail}</span>
@@ -2365,22 +1928,22 @@ function QuoteDashboardOverlay({ viewer, onClose, onMove }) {
           <div className={layoutStyles.extracted53}>
             {hasMany ? (
               <>
-                <button type="button" className={layoutStyles.extracted54} onClick={() => onMove?.(-1)}>
+                <Button bare type="button" className={layoutStyles.extracted54} onClick={() => onMove?.(-1)}>
                   <ChevronLeft size={15} />
                   Previous
-                </button>
-                <button type="button" className={layoutStyles.extracted55} onClick={() => onMove?.(1)}>
+                </Button>
+                <Button bare type="button" className={layoutStyles.extracted55} onClick={() => onMove?.(1)}>
                   Next
                   <ChevronRight size={15} />
-                </button>
+                </Button>
               </>
             ) : null}
-            <button type="button" className={layoutStyles.extracted56} onClick={handleEditBooking}>
+            <Button bare type="button" className={layoutStyles.extracted56} onClick={handleEditBooking}>
               Edit Booking
-            </button>
-            <button type="button" className={layoutStyles.extracted57} onClick={onClose} aria-label="Close quote viewer">
+            </Button>
+            <Button bare type="button" className={layoutStyles.extracted57} onClick={onClose} aria-label="Close quote viewer">
               <X size={18} />
-            </button>
+            </Button>
           </div>
         </div>
         <iframe title="Quote viewer" src={quoteSrc} className={layoutStyles.extracted58} />
@@ -3871,7 +3434,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 size={15}
                 className={layoutStyles.extracted63}
               />
-              <input
+              <Input bare
                 type="text"
                 value={dashboardSearch}
                 onChange={(e) => setDashboardSearch(e.target.value)}
@@ -3884,7 +3447,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 >
                   {dashboardSearchResults.length ? (
                     dashboardSearchResults.map((booking) => (
-                      <button
+                      <Button bare
                         key={booking.id}
                         type="button"
                         onClick={() => {
@@ -3904,7 +3467,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                         <div className={layoutStyles.extracted68}>
                           {formatSearchBookingDates(booking)} - {formatSearchBookingVehicles(booking)} - {booking.location || "No location"}
                         </div>
-                      </button>
+                      </Button>
                     ))
                   ) : (
                     <div className={layoutStyles.extracted69}>
@@ -3914,16 +3477,16 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 </div>
               )}
             </div>
-            <button
-              style={btn("ghost")}
+            <Button bare
+              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
               type="button"
               onClick={() => router.push("/booking-drafts")}
             >
               <FileText size={14} />
               Drafts
-            </button>
-            <button
-              style={isRestricted ? btnDisabled(btn("ghost")) : btn("ghost")}
+            </Button>
+            <Button bare
+              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
               type="button"
               onClick={() => {
                 if (isRestricted) return;
@@ -3934,42 +3497,42 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
             >
               <Plus size={14} />
               Enquiries
-              <span style={miniCountBadge}>{enquiryCount}</span>
-            </button>
-            <button
-              style={btn("ghost")}
+              <span className={layoutStyles.countBadge}>{enquiryCount}</span>
+            </Button>
+            <Button bare
+              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
               type="button"
               onClick={() => router.push("/preplist-dashboard")}
             >
               <ClipboardList size={14} />
               Prep Dashboard
-            </button>
-            <button
-              style={btn("ghost")}
+            </Button>
+            <Button bare
+              className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
               type="button"
               onClick={() => router.push("/stunt-prep")}
             >
               <Wrench size={14} />
               Stunt Prep
-            </button>
+            </Button>
             {canSeeDeletedOnCalendar && (
-              <button
-                style={showDeletedInView ? btn("ghost") : btn("danger")}
+              <Button bare
+                className={`${layoutStyles.button} ${showDeletedInView ? layoutStyles.buttonSecondary : layoutStyles.buttonDanger}`}
                 onClick={() => setShowDeletedInView((v) => !v)}
                 type="button"
               >
                 {showDeletedInView ? <EyeOff size={14} /> : <Eye size={14} />}
                 {showDeletedInView ? "Hide Deleted" : "Show Deleted"}
-              </button>
+              </Button>
             )}
-            <button
-              style={showInactiveInView ? btn("ghost") : btn("danger")}
+            <Button bare
+              className={`${layoutStyles.button} ${showInactiveInView ? layoutStyles.buttonSecondary : layoutStyles.buttonDanger}`}
               onClick={() => setShowInactiveInView((v) => !v)}
               type="button"
             >
               {showInactiveInView ? <EyeOff size={14} /> : <Eye size={14} />}
               {showInactiveInView ? "Hide Inactive" : "Show Inactive"}
-            </button>
+            </Button>
             {bookingSaved && (
               <div className={layoutStyles.extracted70}>
                 <Check size={14} strokeWidth={3} />
@@ -3983,15 +3546,15 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <section ref={workDiarySectionRef} className={layoutStyles.extracted71}>
           <div className={layoutStyles.extracted72}>
             <div className={layoutStyles.extracted73}>
-              <div style={iconBox("var(--color-brand)", "var(--color-brand-soft)")}>
+              <div className={layoutStyles.iconBox}>
                 <CalendarDays size={17} />
               </div>
               <div>
                 <h2 className={layoutStyles.extracted74}>Work Diary</h2>
                 <div className={layoutStyles.extracted75}>Bookings, bank holidays and operational visibility.</div>
               </div>
-              <button
-                style={btn("ghost")}
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
                 onClick={() => {
                   const today = new Date();
                   setCurrentDate(today);
@@ -4001,11 +3564,11 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 <CalendarDays size={14} />
                 Today
-              </button>
+              </Button>
             </div>
             <div className={layoutStyles.extracted76}>
-              <button
-                style={btn("ghost")}
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
                 onClick={() => {
                   setCurrentDate((prev) => shiftByDays(prev, -7));
                   setMaintenanceDate((prev) => shiftByDays(prev, -7));
@@ -4014,10 +3577,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 <ChevronLeft size={14} />
                 Previous Week
-              </button>
+              </Button>
 
-              <button
-                style={btn("ghost")}
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
                 onClick={() => {
                   setCurrentDate((prev) => shiftByDays(prev, 7));
                   setMaintenanceDate((prev) => shiftByDays(prev, 7));
@@ -4026,16 +3589,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 Next Week
                 <ChevronRight size={14} />
-              </button>
+              </Button>
 
-              <button
-                style={
-                  isRestricted
-                    ? btnDisabled(btn())
-                    : createBookingOpening
-                      ? { ...btn(), opacity: 0.82, cursor: "wait" }
-                      : btn()
-                }
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
                 onClick={goToCreateBooking}
                 disabled={isRestricted || createBookingOpening || createEnquiryOpening}
                 aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
@@ -4044,16 +3601,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 <Plus size={14} />
                 {createBookingOpening ? `Opening ${createBookingProgress}%` : "Add Booking"}
-              </button>
+              </Button>
 
-              <button
-                style={
-                  isRestricted
-                    ? btnDisabled(btn())
-                    : createEnquiryOpening
-                      ? { ...btn(), opacity: 0.82, cursor: "wait" }
-                      : btn()
-                }
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
                 onClick={goToCreateEnquiry}
                 disabled={isRestricted || createBookingOpening || createEnquiryOpening}
                 aria-disabled={isRestricted || createBookingOpening || createEnquiryOpening}
@@ -4062,10 +3613,10 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 <Plus size={14} />
                 {createEnquiryOpening ? `Opening ${createEnquiryProgress}%` : "Add Enquiry"}
-              </button>
+              </Button>
 
-              <button
-                style={isRestricted ? btnDisabled(btn()) : btn()}
+              <Button bare
+                className={`${layoutStyles.button} ${layoutStyles.buttonPrimary} ${isRestricted ? layoutStyles.buttonDisabled : ""}`}
                 onClick={goToCreateMaintenance}
                 aria-disabled={isRestricted}
                 title={isRestricted ? "Your account is not allowed to create maintenance" : ""}
@@ -4073,9 +3624,9 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               >
                 <Plus size={14} />
                 Add Maintenance
-              </button>
+              </Button>
 
-              <div style={{ ...chip, color: "var(--color-brand)" }}>
+              <div className={`${layoutStyles.chip} ${layoutStyles.brandChip}`}>
                 {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
             </div>
@@ -4107,7 +3658,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               nowIndicator={false}
               getNow={getCalendarNow}
               formats={dashboardCalendarFormats}
-              className={calendarView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
               dayPropGetter={(date) => {
                 const todayD = new Date();
                 const isToday =
@@ -4133,7 +3683,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   },
                 };
               }}
-              style={calendarView === "week" ? compactCalendarFrame : monthCalendarFrame}
+              className={`${calendarView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"} ${layoutStyles.calendarFrame} ${calendarView === "week" ? layoutStyles.calendarCompact : layoutStyles.calendarMonth}`}
               onSelectEvent={(e) => {
                 if (!e) return;
 
@@ -4245,7 +3795,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <section className={layoutStyles.extracted77}>
           <div className={layoutStyles.extracted78}>
             <div className={layoutStyles.extracted79}>
-              <div style={iconBox("var(--legacy-color-8b5e3c)", "var(--color-accent-soft)")}>
+              <div className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
                 <Wrench size={17} />
               </div>
               <div>
@@ -4256,23 +3806,23 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
 
             <div className={layoutStyles.extracted82}>
 
-              <button
+              <Button bare
                 type="button"
-                style={maintenanceView === "week" ? btn() : btn("ghost")}
+                className={`${layoutStyles.button} ${maintenanceView === "week" ? layoutStyles.buttonPrimary : layoutStyles.buttonSecondary}`}
                 onClick={() => setMaintenanceView("week")}
               >
                 Week
-              </button>
+              </Button>
 
-              <button
+              <Button bare
                 type="button"
-                style={maintenanceView === "month" ? btn() : btn("ghost")}
+                className={`${layoutStyles.button} ${maintenanceView === "month" ? layoutStyles.buttonPrimary : layoutStyles.buttonSecondary}`}
                 onClick={() => setMaintenanceView("month")}
               >
                 Month
-              </button>
+              </Button>
 
-              <div style={chip}>
+              <div className={layoutStyles.chip}>
                 {maintenanceDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
               </div>
             </div>
@@ -4309,7 +3859,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               setSelectedMaintenanceEvent(e);
             }}
             eventPropGetter={maintenanceEventPropGetter}
-            className={maintenanceView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"}
+            className={`${maintenanceView === "week" ? "dashboard-compact-calendar" : "dashboard-month-calendar"} ${layoutStyles.calendarFrame} ${maintenanceView === "week" ? layoutStyles.calendarCompact : layoutStyles.calendarMonth}`}
             dayPropGetter={(date) => {
               const todayD = new Date();
               const isToday =
@@ -4324,7 +3874,6 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 },
               };
             }}
-            style={maintenanceView === "week" ? compactCalendarFrame : monthCalendarFrame}
           />
 
           {selectedMaintenanceEvent && (
@@ -4353,28 +3902,22 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                   className={layoutStyles.extracted85}
                 >
                   <div className={layoutStyles.extracted86}>
-                    <div style={iconBox("var(--legacy-color-8b5e3c)", "var(--color-accent-soft)")}>
+                    <div className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
                       <Wrench size={17} />
                     </div>
                     <h3 id="maintenance-drop-confirm-title" className={layoutStyles.extracted87}>
                       Confirm Date Change
                     </h3>
                   </div>
-                  <button
+                  <Button bare
                     type="button"
                     onClick={cancelPendingMaintenanceDrop}
                     disabled={pendingMaintenanceDrop.saving}
                     aria-label="Cancel date change"
-                    style={{
-                      ...btn("ghost"),
-                      width: 34,
-                      height: 34,
-                      padding: 0,
-                      opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
-                    }}
+                    className={`${layoutStyles.button} ${layoutStyles.buttonSecondary} ${layoutStyles.iconButton}`}
                   >
                     <X size={16} />
-                  </button>
+                  </Button>
                 </div>
 
                 <div className={layoutStyles.extracted88}>
@@ -4407,30 +3950,22 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 <div
                   className={layoutStyles.extracted100}
                 >
-                  <button
+                  <Button bare
                     type="button"
                     onClick={cancelPendingMaintenanceDrop}
                     disabled={pendingMaintenanceDrop.saving}
-                    style={{
-                      ...btn("ghost"),
-                      opacity: pendingMaintenanceDrop.saving ? 0.55 : 1,
-                      cursor: pendingMaintenanceDrop.saving ? "not-allowed" : "pointer",
-                    }}
+                    className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}
                   >
                     No
-                  </button>
-                  <button
+                  </Button>
+                  <Button bare
                     type="button"
                     onClick={confirmPendingMaintenanceDrop}
                     disabled={pendingMaintenanceDrop.saving}
-                    style={{
-                      ...btn(),
-                      opacity: pendingMaintenanceDrop.saving ? 0.82 : 1,
-                      cursor: pendingMaintenanceDrop.saving ? "wait" : "pointer",
-                    }}
+                    className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`}
                   >
                     {pendingMaintenanceDrop.saving ? "Saving..." : "Yes"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -4441,7 +3976,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
         <section className={layoutStyles.extracted101}>
           <div className={layoutStyles.extracted102}>
             <div className={layoutStyles.extracted103}>
-              <div style={iconBox("var(--legacy-color-7c3aed)", "var(--legacy-color-f5f3ff)")}>
+              <div className={`${layoutStyles.iconBox} ${layoutStyles.iconNote}`}>
                 <StickyNote size={17} />
               </div>
               <div>
@@ -4450,18 +3985,18 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
               </div>
             </div>
             <div className={layoutStyles.extracted106}>
-              <button style={btn()} type="button" onClick={() => setHolidayModalOpen(true)}>
+              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => setHolidayModalOpen(true)}>
                 <Plus size={14} />
                 Add Holiday
-              </button>
-              <button style={btn()} type="button" onClick={() => router.push("/shift-change")}>
+              </Button>
+              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => router.push("/shift-change")}>
                 <Clock3 size={14} />
                 Shift Change
-              </button>
-              <button style={btn()} type="button" onClick={() => setCreateNoteOpen(true)}>
+              </Button>
+              <Button bare className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`} type="button" onClick={() => setCreateNoteOpen(true)}>
                 <Plus size={14} />
                 Add Note
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -4490,8 +4025,7 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 setNoteModalOpen(true);
               }
             }}
-            className={calendarView === "week" ? "dashboard-compact-calendar" : ""}
-            style={calendarView === "week" ? compactCalendarFrame : calendarFrame}
+            className={`${calendarView === "week" ? "dashboard-compact-calendar" : ""} ${layoutStyles.calendarFrame} ${calendarView === "week" ? layoutStyles.calendarCompact : ""}`}
             components={{
               event: HolidayNotesCalendarEvent,
             }}
@@ -4529,25 +4063,25 @@ export default function DashboardPage({ bookingSaved, initialDate = "", initialV
                 }}
                 className={layoutStyles.extracted110}
               >
-                <input
+                <Input bare
                   name="client"
                   placeholder="Client"
                   required
                   className={layoutStyles.extracted111}
                 />
-                <input
+                <Input bare
                   name="location"
                   placeholder="Location"
                   required
                   className={layoutStyles.extracted112}
                 />
                 <div className={layoutStyles.extracted113}>
-                  <button type="button" onClick={() => setShowModal(false)} style={btn("ghost")}>
+                  <Button bare type="button" onClick={() => setShowModal(false)} className={`${layoutStyles.button} ${layoutStyles.buttonSecondary}`}>
                     Cancel
-                  </button>
-                  <button type="submit" style={btn()}>
+                  </Button>
+                  <Button bare type="submit" className={`${layoutStyles.button} ${layoutStyles.buttonPrimary}`}>
                     Save
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>

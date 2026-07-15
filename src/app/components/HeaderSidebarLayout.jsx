@@ -29,6 +29,7 @@ import {
   tenantCollectionQuery,
 } from "@/app/utils/firestoreAccess";
 import { useAuth } from "@/app/context/authContext";
+import { Button, Modal, Select } from "@/app/components/ui";
 import {
   UNSAVED_CHANGES_EVENT,
   bypassUnsavedChangesOnce,
@@ -45,17 +46,6 @@ const APP_VERSION_LABEL = BUILD_INFO.shortCommit
   ? `${BUILD_INFO.version} · ${BUILD_INFO.shortCommit}`
   : BUILD_INFO.version;
 const CALENDAR_ACCESS_OPTIONS = { requireCompany: false, signedInWide: true };
-
-const topPillBase = {
-  minHeight: 36,
-  boxSizing: "border-box",
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.16)",
-  background: "rgba(255,255,255,0.05)",
-  color: "var(--legacy-color-f8fbff)",
-};
 
 /* -------------------------------------------
    Date helpers (match HR page logic)
@@ -173,6 +163,7 @@ export default function HeaderSidebarLayout({
   const router = useRouter();
   const {
     user,
+    realUser,
     userDoc,
     employeeAccess,
     isAdmin,
@@ -193,6 +184,8 @@ export default function HeaderSidebarLayout({
   const [permissionIssue, setPermissionIssue] = useState(null);
   const [viewAsUsers, setViewAsUsers] = useState([]);
   const [viewAsLoading, setViewAsLoading] = useState(false);
+  const [viewAsError, setViewAsError] = useState("");
+  const [viewAsReloadKey, setViewAsReloadKey] = useState(0);
 
   //  HR notification state
   const [hrNotif, setHrNotif] = useState({ requests: 0, deletes: 0 });
@@ -212,13 +205,20 @@ export default function HeaderSidebarLayout({
   const canSeeHrBadge = !!isAdmin;
 
   useEffect(() => {
-    if (!canUseAdminViewSwitch || viewAsUsers.length || viewAsLoading) return;
+    if (!canUseAdminViewSwitch) {
+      setViewAsUsers([]);
+      setViewAsError("");
+      setViewAsLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     const loadUsers = async () => {
       setViewAsLoading(true);
+      setViewAsError("");
       try {
-        const token = await user?.getIdToken?.();
-        if (!token) return;
+        const token = await realUser?.getIdToken?.();
+        if (!token) throw new Error("Your admin session is not ready.");
         const res = await fetch("/api/admin/overview", {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
@@ -236,6 +236,10 @@ export default function HeaderSidebarLayout({
         );
       } catch (error) {
         console.warn("[view-as] user list unavailable:", error);
+        if (!cancelled) {
+          setViewAsUsers([]);
+          setViewAsError(error?.message || "Could not load users.");
+        }
       } finally {
         if (!cancelled) setViewAsLoading(false);
       }
@@ -244,7 +248,7 @@ export default function HeaderSidebarLayout({
     return () => {
       cancelled = true;
     };
-  }, [canUseAdminViewSwitch, user, viewAsLoading, viewAsUsers.length]);
+  }, [canUseAdminViewSwitch, realUser, viewAsReloadKey]);
 
   useEffect(() => {
     if (!employeeAccess) return;
@@ -675,52 +679,16 @@ export default function HeaderSidebarLayout({
   }, [scrollRestoreKey]);
 
   return (
-    <div
-      className={inter.variable}
-      style={{
-        display: "flex",
-        height: "100dvh",
-        minHeight: "100dvh",
-        overflow: "hidden",
-        fontFamily: "var(--font-inter)",
-        background: "var(--shell-gradient)",
-      }}
-    >
+    <div className={`${inter.variable} ${layoutStyles.shellRoot}`}>
       {/* ----------------- Sidebar ----------------- */}
-      <aside
-        style={{
-          width: isCollapsed ? "60px" : "220px",
-          flexShrink: 0,
-          boxSizing: "border-box",
-          background: "var(--shell-sidebar-bg)",
-          color: "var(--shell-text)",
-          padding: isCollapsed ? "18px 10px" : "22px 16px",
-          display: "flex",
-          flexDirection: "column",
-          borderRight: "none",
-          boxShadow: "16px 0 36px rgba(2,6,23,0.18)",
-          position: "relative",
-          transition: "width 0.3s ease",
-        }}
-      >
-        <button
+      {/* style-audit-allow runtime: responsive sidebar geometry */}
+      <aside className={layoutStyles.sidebar} style={{ "--sidebar-width": isCollapsed ? "var(--shell-sidebar-collapsed-width)" : "var(--shell-sidebar-width)", "--sidebar-padding": isCollapsed ? "18px 10px" : "22px 16px" }}>
+        <Button bare
           onClick={() => setIsCollapsed(!isCollapsed)}
-          style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            color: "var(--shell-muted)",
-            cursor: "pointer",
-            fontSize: "13px",
-            fontWeight: 700,
-            marginBottom: "18px",
-            borderRadius: 10,
-            width: isCollapsed ? 40 : 36,
-            height: 36,
-            alignSelf: isCollapsed ? "center" : "flex-start",
-          }}
+          className={`${layoutStyles.collapseButton} ${isCollapsed ? layoutStyles.collapseButtonCollapsed : ""}`}
         >
           {isCollapsed ? ">" : "<"}
-        </button>
+        </Button>
 
         {!isCollapsed ? (
           <div
@@ -768,25 +736,10 @@ export default function HeaderSidebarLayout({
                   const isHrItem = path === "/hr";
                   const showHrBadge = isHrItem && canSeeHrBadge && hrBadgeTotal > 0;
                   return (
-                    <button
+                    <Button bare
                       key={label}
                       onClick={() => attemptNavigation(() => router.push(path))}
-                      style={{
-                        background: active ? "var(--shell-active-bg)" : "transparent",
-                        border: active
-                          ? `1px solid ${"var(--shell-active-border)"}`
-                          : "1px solid transparent",
-                        color: active ? "var(--shell-text)" : "var(--shell-muted)",
-                        fontSize: "14px",
-                        textAlign: isCollapsed ? "center" : "left",
-                        padding: isCollapsed ? "10px 8px" : "11px 14px",
-                        cursor: "pointer",
-                        position: "relative",
-                        borderRadius: 12,
-                        fontWeight: active ? 700 : 600,
-                        boxShadow: active ? `inset 3px 0 0 ${"var(--color-success-accent)"}` : "none",
-                        transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
-                      }}
+                      className={`${layoutStyles.navButton} ${active ? layoutStyles.navButtonActive : ""} ${isCollapsed ? layoutStyles.navButtonCollapsed : ""}`}
                       title={
                         showHrBadge
                           ? `${label}: ${hrNotif.requests} holiday request(s), ${hrNotif.deletes} delete request(s)`
@@ -819,7 +772,7 @@ export default function HeaderSidebarLayout({
                           className={layoutStyles.extracted12}
                         />
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -828,12 +781,12 @@ export default function HeaderSidebarLayout({
         </nav>
 
         <div className={layoutStyles.extracted13}>
-          <button
+          <Button bare
             onClick={() => attemptNavigation(handleLogout)}
             className={layoutStyles.extracted14}
           >
             {isCollapsed ? "LO" : "Logout"}
-          </button>
+          </Button>
         </div>
       </aside>
 
@@ -847,29 +800,16 @@ export default function HeaderSidebarLayout({
         >
           <div className={layoutStyles.extracted17}>
             {shouldShowBackButton && (
-              <button
+              <Button bare
                 type="button"
                 onClick={handleBack}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  borderRadius: 999,
-                  border: `1px solid ${"var(--shell-border)"}`,
-                  background: "rgba(255,255,255,0.04)",
-                  color: "var(--legacy-color-f8fbff)",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
+                className={layoutStyles.backButton}
                 aria-label={backLabel}
                 title={backLabel}
               >
                 <span aria-hidden="true">&larr;</span>
                 <span>{backLabel}</span>
-              </button>
+              </Button>
             )}
             <div className={layoutStyles.extracted18}>
               <div
@@ -888,34 +828,10 @@ export default function HeaderSidebarLayout({
           <nav
             className={layoutStyles.extracted21}
           >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 10,
-                ...topPillBase,
-                padding: "6px 12px",
-                background: accountSetup.complete
-                  ? "rgba(107,179,127,0.14)"
-                  : "rgba(248,113,113,0.12)",
-                border: accountSetup.complete
-                  ? "1px solid rgba(107,179,127,0.38)"
-                  : "1px solid rgba(248,113,113,0.28)",
-                color: accountSetup.complete ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-ffd6d6)",
-              }}
+            <div className={layoutStyles.statusPill} data-complete={accountSetup.complete}
               title={accountSetup.complete ? accountSetup.detail : `Missing: ${accountSetup.detail}`}
             >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: accountSetup.complete ? "var(--color-success-accent)" : "var(--legacy-color-f87171)",
-                  boxShadow: accountSetup.complete
-                    ? "0 0 0 4px rgba(107,179,127,0.14)"
-                    : "0 0 0 4px rgba(248,113,113,0.12)",
-                }}
-              />
+              <span className={layoutStyles.statusDot} data-complete={accountSetup.complete} />
               <div className={layoutStyles.extracted22}>
                 <span className={layoutStyles.extracted23}>
                   {accountSetup.label}
@@ -955,65 +871,33 @@ export default function HeaderSidebarLayout({
             </div>
 
             {canUseAdminViewSwitch && (
-              <button
+              <Button bare
                 type="button"
                 onClick={() => setAdminViewMode?.(adminViewMode === "user" ? "admin" : "user")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  ...topPillBase,
-                  padding: "5px 8px",
-                  cursor: "pointer",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  background: adminViewMode === "user" ? "rgba(59,130,246,0.18)" : "rgba(107,179,127,0.14)",
-                }}
-                title="Switch between your real admin view and a normal user view."
+                className={layoutStyles.viewSwitch}
+                data-mode={adminViewMode}
+                title={adminViewMode === "user" ? "Return to your admin view." : "Test the app with normal user permissions."}
                 aria-label={`Testing view: ${adminViewMode === "user" ? "User" : "Admin"}`}
+                aria-pressed={adminViewMode === "user"}
               >
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 900,
-                    color: adminViewMode === "user" ? "var(--legacy-color-bfdbfe)" : "var(--legacy-color-d7f6e0)",
-                    minWidth: 34,
-                    textAlign: "center",
-                  }}
-                >
+                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "user" ? layoutStyles.viewLabelActive : ""}`}>
                   User
                 </span>
                 <span
                   className={layoutStyles.extracted30}
                 >
-                  <span
-                    style={{
-                      display: "block",
-                      width: 14,
-                      height: 14,
-                      borderRadius: 999,
-                      background: "var(--legacy-color-f8fbff)",
-                      transform: adminViewMode === "user" ? "translateX(0)" : "translateX(18px)",
-                      transition: "transform 0.18s ease",
-                    }}
-                  />
+                  <span className={layoutStyles.switchKnob} data-mode={adminViewMode} />
                 </span>
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 900,
-                    color: adminViewMode === "admin" ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-a8b3c2)",
-                    minWidth: 38,
-                    textAlign: "center",
-                  }}
-                >
+                <span className={`${layoutStyles.viewLabel} ${adminViewMode === "admin" ? layoutStyles.viewLabelActive : ""}`}>
                   Admin
                 </span>
-              </button>
+              </Button>
             )}
 
             {canUseAdminViewSwitch && (
-              <select
+              <Select bare
                 value={adminViewUserId || ""}
+                disabled={viewAsLoading}
                 onChange={(event) => {
                   const selectedId = event.target.value;
                   if (!selectedId) {
@@ -1025,11 +909,19 @@ export default function HeaderSidebarLayout({
                   );
                   if (selected) setAdminViewUser?.(selected);
                 }}
+                onClick={() => {
+                  if (viewAsError) setViewAsReloadKey((key) => key + 1);
+                }}
                 className={layoutStyles.extracted31}
-                title="View the app as another enabled user."
+                title={viewAsError ? `${viewAsError} Click to retry.` : "View the app as another enabled user."}
+                aria-label="User account to test as"
               >
                 <option value="" className={layoutStyles.extracted32}>
-                  {viewAsLoading ? "Loading users..." : "View as current user"}
+                  {viewAsLoading
+                    ? "Loading users..."
+                    : viewAsError
+                      ? "Could not load users - retry"
+                      : "View as current user"}
                 </option>
                 {viewAsUsers.map((row) => {
                   const id = String(row?.uid || row?.id || "");
@@ -1042,7 +934,7 @@ export default function HeaderSidebarLayout({
                     </option>
                   );
                 })}
-              </select>
+              </Select>
             )}
 
             {headerLinks.map(({ label, path, icon }) => (
@@ -1053,42 +945,10 @@ export default function HeaderSidebarLayout({
                   event.preventDefault();
                   attemptNavigation(() => router.push(path));
                 }}
-                style={{
-                  ...topPillBase,
-                  color: pathname === path ? "var(--legacy-color-d7f6e0)" : "var(--legacy-color-d0dae6)",
-                  background: pathname === path ? "rgba(107,179,127,0.14)" : topPillBase.background,
-                  border: pathname === path
-                    ? "1px solid rgba(107,179,127,0.38)"
-                    : topPillBase.border,
-                  fontSize: 11,
-                  textDecoration: "none",
-                  fontWeight: 900,
-                  padding: "6px 12px",
-                  gap: 7,
-                }}
+                className={`${layoutStyles.topLink} ${pathname === path ? layoutStyles.topLinkActive : ""}`}
               >
                 {icon ? (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      border:
-                        pathname === path
-                          ? `1px solid ${"var(--color-success-accent)"}`
-                          : "1px solid rgba(168,179,194,0.34)",
-                      background:
-                        pathname === path
-                          ? "rgba(107,179,127,0.16)"
-                          : "rgba(255,255,255,0.04)",
-                      fontSize: 10.5,
-                      fontWeight: 900,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
+                  <span className={`${layoutStyles.topLinkIcon} ${pathname === path ? layoutStyles.topLinkIconActive : ""}`}>
                     {icon}
                   </span>
                 ) : null}
@@ -1107,140 +967,41 @@ export default function HeaderSidebarLayout({
           {children}
         </div>
 
-        {pendingNavigation ? (
-          <div
-            className={layoutStyles.extracted34}
-          >
-            <div
-              className={layoutStyles.extracted35}
-            >
-              <div className={layoutStyles.extracted36}>
-                Unsaved changes
-              </div>
-              <div className={layoutStyles.extracted37}>
-                {pendingNavigation.message}
-              </div>
-              <div className={layoutStyles.extracted38}>
-                <button
-                  type="button"
-                  onClick={handleStayOnPage}
-                  className={layoutStyles.extracted39}
-                >
-                  Stay on page
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLeaveWithoutSaving}
-                  className={layoutStyles.extracted40}
-                >
-                  Leave without saving
-                </button>
-                {pendingNavigation.canSave ? (
-                  <button
-                    type="button"
-                    onClick={handleSaveAndLeave}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: `1px solid ${"var(--color-brand)"}`,
-                      background: "var(--color-brand)",
-                      color: "var(--legacy-color-fff)",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {pendingNavigation.saveLabel}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <Modal open={Boolean(pendingNavigation)} onClose={handleStayOnPage} title="Unsaved changes" description={pendingNavigation?.message} size="sm" footer={<><Button variant="secondary" onClick={handleStayOnPage}>Stay on page</Button><Button variant="danger" onClick={handleLeaveWithoutSaving}>Leave without saving</Button>{pendingNavigation?.canSave ? <Button onClick={handleSaveAndLeave}>{pendingNavigation.saveLabel}</Button> : null}</>} />
 
         {/* Footer */}
-        <footer
-          style={{
-            background: "var(--legacy-color-000000)",
-            minHeight: "26px",
-            fontSize: "10px",
-            color: "var(--legacy-color-d0dae6)",
-            borderTop: `1px solid ${"var(--shell-border)"}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
-            padding: "0 18px",
-          }}
-        >
+        <footer className={layoutStyles.footer}>
           <span>Copyright {new Date().getFullYear()} Bickers Booking System v{APP_VERSION_LABEL}</span>
           <div
             className={layoutStyles.extracted41}
           >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                border: pageAccessTone.border,
-                background: pageAccessTone.background,
-                color: pageAccessTone.text,
-                borderRadius: 999,
-                padding: "3px 8px",
-                fontSize: 10,
-                fontWeight: 800,
-                lineHeight: 1,
-              }}
+            {/* style-audit-allow runtime: access state tone */}
+            <span className={layoutStyles.accessPill} style={{ "--access-border": pageAccessTone.border, "--access-background": pageAccessTone.background, "--access-text": pageAccessTone.text }}
               title={pageAccess.detail}
               aria-label={`Page access ${pageAccess.label}: ${pageAccess.detail}`}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 999,
-                  background: pageAccessTone.dot,
-                  flexShrink: 0,
-                }}
-              />
+              {/* style-audit-allow runtime: access state dot */}
+              <span className={layoutStyles.accessDot} style={{ "--access-dot": pageAccessTone.dot }} />
               Page: {pageAccess.label}
             </span>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                border: dataAccessTone.border,
-                background: dataAccessTone.background,
-                color: dataAccessTone.text,
-                borderRadius: 999,
-                padding: "3px 8px",
-                fontSize: 10,
-                fontWeight: 800,
-                lineHeight: 1,
-              }}
+            {/* style-audit-allow runtime: data-access state tone */}
+            <span className={layoutStyles.accessPill} style={{ "--access-border": dataAccessTone.border, "--access-background": dataAccessTone.background, "--access-text": dataAccessTone.text }}
               title={dataAccess.detail}
               aria-label={`Data access ${dataAccess.label}: ${dataAccess.detail}`}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 999,
-                  background: dataAccessTone.dot,
-                  flexShrink: 0,
-                }}
-              />
+              {/* style-audit-allow runtime: data-access state dot */}
+              <span className={layoutStyles.accessDot} style={{ "--access-dot": dataAccessTone.dot }} />
               Data: {dataAccess.label}
             </span>
             {canSeePlatformAdmin ? (
-              <button
+              <Button bare
                 type="button"
                 onClick={() => attemptNavigation(() => router.push("/platform-admin"))}
                 className={layoutStyles.extracted42}
                 title="Open Platform Admin"
               >
                 Platform
-              </button>
+              </Button>
             ) : null}
           </div>
         </footer>

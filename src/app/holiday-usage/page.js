@@ -501,7 +501,7 @@ function StatTile({ label, value, tone = "default", icon: Icon }) {
   const tones = {
     default: { bg: "var(--legacy-color-ffffff)", br: "var(--legacy-color-d7dee8)", fg: UI.brand },
     soft: { bg: UI.brandSoft, br: UI.brandBorder, fg: UI.brand },
-    warn: { bg: "var(--legacy-color-fff7ed)", br: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" },
+    warn: { bg: "var(--legacy-color-fff)7ed", br: "var(--legacy-color-fed7aa)", fg: "var(--legacy-color-9a3412)" },
     good: { bg: "var(--legacy-color-ecfdf5)", br: "var(--legacy-color-bbf7d0)", fg: "var(--legacy-color-065f46)" },
     danger: { bg: "var(--legacy-color-fef2f2)", br: "var(--legacy-color-fecaca)", fg: "var(--legacy-color-991b1b)" },
   };
@@ -940,14 +940,18 @@ export default function HolidayUsagePage() {
             .some((t) => t.includes("accrued") || t.includes("toil"));
         if (isAccrued) return;
 
-        const isUnpaidLeave =
-          rec.isUnpaid === true ||
-          rec.unpaid === true ||
-          rec.paid === false ||
-          norm(rec.paidStatus) === "unpaid" ||
-          ["type", "leaveType", "category", "status", "kind"].some((k) =>
-            norm(rec[k]).includes("unpaid")
-          );
+        // paidStatus is the current editable field, so it must win when old
+        // boolean/type fields disagree with it. Legacy fields are only used
+        // for records which pre-date paidStatus.
+        const explicitPaidStatus = norm(rec.paidStatus);
+        const isUnpaidLeave = explicitPaidStatus
+          ? explicitPaidStatus === "unpaid"
+          : rec.isUnpaid === true ||
+            rec.unpaid === true ||
+            rec.paid === false ||
+            ["type", "leaveType", "category", "status", "kind"].some((k) =>
+              norm(rec[k]).includes("unpaid")
+            );
 
         const { single, half, when } = getSingleDayHalfMeta(rec, start, end);
 
@@ -1821,7 +1825,7 @@ export default function HolidayUsagePage() {
                                 }}
                               >
                                 {halfPrefix ? (
-                                  <span style={{ ...chip, background: "var(--legacy-color-fff7ed)" }}>
+                                  <span style={{ ...chip, background: "var(--legacy-color-fff)7ed" }}>
                                     {halfPrefix}
                                   </span>
                                 ) : null}

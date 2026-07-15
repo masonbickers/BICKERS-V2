@@ -5,7 +5,12 @@ import {
   adminPatchDocument,
   adminReadDocument,
 } from "@/app/api/_firebaseAdminRest";
-import { buildStatisticsInsightSnapshot, redactSnapshotForVariant } from "@/app/utils/statisticsInsightSnapshot";
+import {
+  buildDeterministicSectionContent,
+  buildStatisticsInsightSnapshot,
+  formatStatisticsEvidence,
+  redactSnapshotForVariant,
+} from "@/app/utils/statisticsInsightSnapshot";
 import { londonClock } from "@/app/utils/londonTime";
 
 const MODEL = process.env.OPENAI_STATISTICS_MODEL || "gpt-4o-mini";
@@ -22,12 +27,18 @@ export const BRIEFING_ACTIONS = Object.freeze({
 const sha256 = (value) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const clean = (value, max = 500) => String(value || "").trim().slice(0, max);
 
-const formatEvidence = (item) => {
-  const value = item.unit === "GBP" ? `£${Number(item.value || 0).toLocaleString("en-GB")}` : `${item.value}${item.unit === "%" ? "%" : ` ${item.unit}`}`;
-  const comparison = Number.isFinite(item.comparison)
-    ? ` (${item.comparison >= 0 ? "+" : ""}${item.comparison}% versus the previous 30 days)`
-    : "";
-  return `${item.label}: ${value}${comparison}`;
+const formatEvidence = formatStatisticsEvidence;
+
+const attachSectionEvidence = (snapshot, variant, inputSections) => {
+  const catalog = new Map((snapshot.evidenceCatalog || []).map((item) => [item.id, item]));
+  return Object.fromEntries(Object.entries(inputSections || {})
+    .filter(([key]) => variant === "management" || key !== "financeQuality")
+    .map(([key, section]) => [key, {
+      ...section,
+      evidence: (section.evidenceIds || []).map((id) => ({ ...catalog.get(id), text: formatEvidence(catalog.get(id)) })),
+      action: BRIEFING_ACTIONS[section.actionKey || "statistics"],
+      mode: "daily",
+    }]));
 };
 
 function deterministicBriefing(snapshot, variant, reason = "") {
@@ -107,8 +118,48 @@ function deterministicBriefing(snapshot, variant, reason = "") {
     headline: variant === "management" ? "Today’s management view of Bickers performance" : "Today’s booking and pipeline view",
     summary: `A deterministic briefing was prepared from verified booking metrics${reason ? ` because ${reason}` : ""}. Review the evidence on each card before acting.`,
     insights,
+    sections: attachSectionEvidence(snapshot, variant, buildDeterministicSectionContent(snapshot, variant)),
   };
 }
+
+const sectionKeysFor = (variant) => variant === "management"
+  ? ["overview", "trends", "resources", "financeQuality"]
+  : ["overview", "trends", "resources"];
+
+const validateSectionNumbers = (summary, evidence) => {
+  const allowed = new Set(JSON.stringify(evidence).match(/-?\d+(?:\.\d+)?/g) || []);
+  const used = String(summary || "").match(/-?\d+(?:\.\d+)?/g) || [];
+  if (used.some((number) => !allowed.has(number))) throw new Error("Section analysis contains a figure not present in its evidence.");
+};
+
+const validateAiSections = (value, snapshot, variant) => {
+  const catalog = new Map((snapshot.evidenceCatalog || []).map((item) => [item.id, item]));
+  const requiredKeys = sectionKeysFor(variant);
+  if (!value || typeof value !== "object" || requiredKeys.some((key) => !value[key])) throw new Error("AI section analysis is incomplete.");
+  return Object.fromEntries(requiredKeys.map((key) => {
+    const item = value[key];
+    const summary = clean(item.summary, 700);
+    const evidenceIds = Array.isArray(item.evidenceIds) ? [...new Set(item.evidenceIds.map(String))].slice(0, 3) : [];
+    if (!summary || !evidenceIds.length || evidenceIds.some((id) => !catalog.has(id) || catalog.get(id).section !== key)) {
+      throw new Error(`AI section ${key} contains unsupported evidence.`);
+    }
+    if (/\b(caused|because of|led to|resulted in|driven by)\b/i.test(summary)) throw new Error(`AI section ${key} contains an unsupported causal claim.`);
+    const actionKey = String(item.actionKey || "statistics");
+    const action = BRIEFING_ACTIONS[actionKey];
+    if (!action || (variant !== "management" && action.managementOnly)) throw new Error(`AI section ${key} contains an unsupported action.`);
+    const evidence = evidenceIds.map((id) => ({ ...catalog.get(id), text: formatEvidence(catalog.get(id)) }));
+    validateSectionNumbers(summary, evidence);
+    return [key, {
+      summary,
+      evidenceIds,
+      evidence,
+      confidence: ["low", "medium", "high"].includes(item.confidence) ? item.confidence : "medium",
+      caveat: clean(item.caveat, 300),
+      action,
+      mode: "daily",
+    }];
+  }));
+};
 
 function validateAiBriefing(value, snapshot, variant) {
   if (!value || typeof value !== "object") throw new Error("AI briefing was not an object.");
@@ -134,7 +185,7 @@ function validateAiBriefing(value, snapshot, variant) {
     };
   });
   if (insights.some((item) => !item.title || !item.whyItMatters)) throw new Error("AI briefing contains an incomplete insight.");
-  return { headline: clean(value.headline, 180), summary: clean(value.summary, 600), insights };
+  return { headline: clean(value.headline, 180), summary: clean(value.summary, 600), insights, sections: validateAiSections(value.sections, snapshot, variant) };
 }
 
 async function generateWithAi(snapshot, rules, variant) {
@@ -165,7 +216,10 @@ async function generateWithAi(snapshot, rules, variant) {
           "Use only the supplied aggregated snapshot and approved operating rules.",
           "Never calculate new figures, infer missing values, claim causation, judge employees, or propose record changes.",
           "Every insight must cite one or more exact evidenceIds from the catalog.",
-          `Return JSON only with headline, summary and 1-5 insights. Each insight requires id, title, type (decision|opportunity|risk|data_quality), severity (neutral|medium|high), whyItMatters, evidenceIds, confidence (low|medium|high), caveat and actionKey. Allowed actionKey values: ${allowedActions.join(", ")}.`,
+          "Also return a sections object. Required keys are overview, trends and resources; management also requires financeQuality.",
+          "Each section requires summary, 1-3 evidenceIds belonging to that section, confidence, caveat and actionKey. Use only exact figures already present in the cited evidence and do not claim causation.",
+          "Do not interpret comparisons, conversion or concentration as a conclusion when the cited evidence confidence is low or its sample is below the approved minimum.",
+          `Return JSON only with headline, summary, 1-5 insights and sections. Each insight requires id, title, type (decision|opportunity|risk|data_quality), severity (neutral|medium|high), whyItMatters, evidenceIds, confidence (low|medium|high), caveat and actionKey. Allowed actionKey values: ${allowedActions.join(", ")}.`,
         ].join("\n"),
       },
       { role: "user", content: JSON.stringify({ audience: variant, approvedOperatingRules: rulesContext, statisticsSnapshot: snapshot }) },
@@ -195,35 +249,60 @@ export async function generateDailyBriefings({ companyId = "bickers-action", now
   const generatedAt = now.toISOString();
   const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
   const results = {};
+  const priorDocuments = await adminListDocuments("aiStatisticsBriefings");
 
   for (const variant of ["management", "booking"]) {
     const snapshot = redactSnapshotForVariant(fullSnapshot, variant);
     let content;
     let status = "ready";
     let generationError = "";
+    let stale = false;
+    let currentHighlights = [];
+    let contentGeneratedAt = generatedAt;
+    let contentRulesVersion = published.version;
     try {
       content = await generateWithAi(snapshot, published.rules, variant);
     } catch (error) {
       status = "degraded";
       generationError = clean(error?.message || "AI generation failed", 300);
-      content = deterministicBriefing(snapshot, variant, generationError);
+      const deterministic = deterministicBriefing(snapshot, variant, generationError);
+      const previous = priorDocuments
+        .map(({ data }) => data)
+        .filter((item) => item.companyId === companyId && item.variant === variant && item.briefingDate !== clock.day)
+        .sort((a, b) => String(b.generatedAt || "").localeCompare(String(a.generatedAt || "")))[0];
+      if (previous?.insights?.length) {
+        stale = true;
+        currentHighlights = deterministic.insights.slice(0, 3);
+        contentGeneratedAt = previous.generatedAt || generatedAt;
+        contentRulesVersion = previous.businessRulesVersion || published.version;
+        content = { headline: previous.headline, summary: previous.summary, insights: previous.insights, sections: previous.sections || deterministic.sections };
+      } else {
+        content = deterministic;
+      }
     }
     const document = {
+      schemaVersion: 2,
       companyId,
       briefingDate: clock.day,
       variant,
       status,
       generatedAt,
+      contentGeneratedAt,
       expiresAt,
       sourceSnapshotHash,
-      businessRulesVersion: published.version,
+      businessRulesVersion: contentRulesVersion,
+      currentBusinessRulesVersion: published.version,
       model: status === "ready" ? MODEL : "deterministic-fallback",
       generationError,
+      stale,
+      currentHighlights,
       snapshot: {
         asOf: snapshot.asOf,
         periods: snapshot.periods,
         evidenceCatalog: snapshot.evidenceCatalog,
         dataQuality: snapshot.dataQuality,
+        analysisConfig: snapshot.analysisConfig,
+        sections: snapshot.sections,
       },
       ...content,
     };

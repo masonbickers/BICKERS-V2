@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "../components/ProtectedRoute";
 import HeaderSidebarLayout from "@/app/components/HeaderSidebarLayout";
 import { useAuth } from "@/app/context/authContext";
+import { Button } from "@/app/components/ui";
 import ViewBookingModal from "../components/ViewBookingModal";
 import DashboardMaintenanceModal from "../components/DashboardMaintenanceModal";
 import RouteLoadingOverlay from "../components/RouteLoadingOverlay";
@@ -44,212 +45,6 @@ import {
   Wrench,
   Package,
 } from "lucide-react";
-
-const pageWrap = { padding: "16px 16px 32px", background: "var(--color-canvas)", minHeight: "100vh" };
-const headerBar = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "var(--space-3)",
-  marginBottom: 12,
-  flexWrap: "wrap",
-};
-const h1 = {
-  color: "var(--color-text)",
-  fontSize: 22,
-  lineHeight: 1.08,
-  fontWeight: 800,
-  letterSpacing: 0,
-  margin: 0,
-};
-const sub = { color: "var(--color-text-muted)", fontSize: 13.5, lineHeight: 1.45, marginTop: 6 };
-const surface = { background: "var(--color-surface)", borderRadius: "var(--radius-md)", border: "var(--border-default)", boxShadow: "var(--shadow-sm)" };
-
-const chip = {
-  padding: "6px 10px",
-  borderRadius: 999,
-  border: `1px solid ${"var(--color-brand-border)"}`,
-  background: "var(--color-brand-soft)",
-  color: "var(--color-text)",
-  fontSize: 11.5,
-  fontWeight: 800,
-};
-
-const card = {
-  ...surface,
-  padding: 12,
-  background: "var(--color-surface)",
-};
-
-const cardTitle = { fontWeight: 900, fontSize: 16, margin: 0, color: "var(--color-text)", letterSpacing: 0 };
-const cardHint = { color: "var(--color-text-muted)", fontSize: 12.5, marginTop: 4, lineHeight: 1.4 };
-
-const grid = (cols = 12) => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-  gap: "var(--space-3)",
-});
-
-const btnChip = (active) => ({
-  padding: "6px 10px",
-  borderRadius: 999,
-  border: active ? `1px solid ${"var(--color-brand)"}` : `1px solid ${"var(--color-brand-border)"}`,
-  boxShadow: active ? "0 8px 18px rgba(24,63,103,0.14)" : "none",
-  background: active ? "var(--color-brand)" : "var(--legacy-color-fff)",
-  color: active ? "var(--legacy-color-fff)" : "var(--color-text)",
-  cursor: "pointer",
-  fontSize: 12.5,
-  fontWeight: 800,
-});
-
-const sectionHeader = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 8,
-  marginBottom: 8,
-  flexWrap: "wrap",
-};
-
-const titleRow = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-};
-
-const iconBox = (color = "var(--color-brand)", bg = "var(--color-brand-soft)", border = "var(--color-brand-border)") => ({
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: bg,
-  color,
-  border: `1px solid ${border}`,
-  flex: "0 0 auto",
-});
-
-const sectionTag = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "4px 9px",
-  borderRadius: 999,
-  border: `1px solid ${"var(--color-brand-border)"}`,
-  background: "var(--color-brand-soft)",
-  color: "var(--color-brand)",
-  fontSize: 10.5,
-  fontWeight: 800,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-};
-
-const executivePanel = {
-  ...surface,
-  background: "var(--color-surface)",
-  color: "var(--color-text)",
-  padding: 12,
-};
-
-const executiveGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
-  gap: "var(--space-3)",
-  marginBottom: "var(--space-3)" - 2,
-};
-
-const executiveStat = {
-  borderRadius: "var(--radius-md)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)",
-  padding: 10,
-  minWidth: 0,
-};
-
-const tableWrap = {
-  overflow: "auto",
-  border: "var(--border-default)",
-  borderRadius: "var(--radius-md)",
-  background: "var(--legacy-color-fff)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
-};
-const tableEl = { width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 13.5 };
-const th = {
-  textAlign: "left",
-  padding: "9px 10px",
-  borderBottom: "var(--border-default)",
-  position: "sticky",
-  top: 0,
-  background: "var(--legacy-color-f7f9fc)",
-  zIndex: 1,
-  whiteSpace: "nowrap",
-  fontWeight: 800,
-  fontSize: 12,
-  color: "var(--color-text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
-};
-const td = { padding: "9px 10px", borderBottom: "var(--border-default)", verticalAlign: "top" };
-
-const listReset = { listStyle: "none", padding: 0, margin: 0 };
-const liItem = {
-  border: "var(--border-default)",
-  borderRadius: "var(--radius-md)",
-  padding: "9px 11px",
-  marginBottom: 7,
-  background: "var(--legacy-color-fff)",
-  display: "grid",
-  gap: 3,
-  boxShadow: "var(--shadow-sm)",
-};
-const tag = (kind) => {
-  const map = {
-    "first pencil": { bg: "var(--legacy-color-e4edf8)", border: "var(--legacy-color-bfd0e2)", col: "var(--legacy-color-2f4e6f)" },
-    "second pencil": { bg: "var(--legacy-color-f8e7e3)", border: "var(--legacy-color-e0b9b0)", col: "var(--legacy-color-7b3a32)" },
-    confirmed: { bg: "var(--legacy-color-e9f0d8)", border: "var(--legacy-color-bed0ae)", col: "var(--legacy-color-31462f)" },
-  };
-  const t = map[kind] || { bg: "var(--color-brand-soft)", border: "var(--color-brand-border)", col: "var(--color-brand)" };
-  return {
-    display: "inline-block",
-    marginLeft: 8,
-    padding: "2px 8px",
-    fontSize: 11,
-    borderRadius: 999,
-    border: `1px solid ${t.border}`,
-    background: t.bg,
-    color: t.col,
-    fontWeight: 800,
-    whiteSpace: "nowrap",
-  };
-};
-
-const btnPrimary = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  padding: "8px 11px",
-  borderRadius: "var(--radius-md)",
-  border: `1px solid ${"var(--color-brand)"}`,
-  background: "var(--color-brand)",
-  color: "var(--legacy-color-fff)",
-  fontWeight: 800,
-  cursor: "pointer",
-  boxShadow: "0 8px 18px rgba(24,63,103,0.14)",
-};
-const btnGhost = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  padding: "8px 11px",
-  borderRadius: "var(--radius-md)",
-  border: `1px solid ${"var(--color-brand-border)"}`,
-  background: "var(--legacy-color-fff)",
-  color: "var(--color-text)",
-  fontWeight: 800,
-  cursor: "pointer",
-};
 
 /* ────────────────────────────────────────────────────────────────────────────
    Date + normalisers
@@ -374,7 +169,7 @@ function Bucket({ title, items }) {
     <div className={layoutStyles.extracted4}>
       <div className={layoutStyles.extracted5}>
         <div className={layoutStyles.extracted6}>{title}</div>
-        <span style={{ ...chip, padding: "4px 8px", fontSize: 10.5 }}>Top 5</span>
+        <span className={`${layoutStyles.chip} ${layoutStyles.chipCompact}`}>Top 5</span>
       </div>
       {items && items.length ? (
         <ul className={layoutStyles.extracted7}>
@@ -790,52 +585,21 @@ export default function HomePage() {
               <div className={layoutStyles.extracted17}>Live operations overview for booking activity, preparation, scheduling conflicts and fleet readiness.</div>
             </div>
             <div className={layoutStyles.extracted18}>
-              <span style={chip}>Operations overview</span>
-              <span
-                style={{
-                  ...chip,
-                  background:
-                    dataState.status === "ready"
-                      ? "var(--legacy-color-ecfdf5)"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "var(--legacy-color-fef2f2)"
-                        : "var(--legacy-color-fffbeb)",
-                  borderColor:
-                    dataState.status === "ready"
-                      ? "var(--legacy-color-bbf7d0)"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "var(--legacy-color-fecaca)"
-                        : "var(--legacy-color-fde68a)",
-                  color:
-                    dataState.status === "ready"
-                      ? "var(--legacy-color-166534)"
-                      : dataState.status === "denied" || dataState.status === "error"
-                        ? "var(--legacy-color-991b1b)"
-                        : "var(--legacy-color-92400e)",
-                }}
+              <span className={layoutStyles.chip}>Operations overview</span>
+              <span className={`${layoutStyles.chip} ${dataState.status === "ready" ? layoutStyles.dataChipReady : dataState.status === "denied" || dataState.status === "error" ? layoutStyles.dataChipError : layoutStyles.dataChipLoading}`}
                 title={dataState.message || "Home data loaded."}
               >
                 Data: {dataState.status === "ready" ? "Loaded" : dataState.status}
               </span>
-              <span style={{ ...chip, background: "var(--color-brand-soft)", borderColor: "var(--legacy-color-dbeafe)", color: "var(--color-brand)" }}>
+              <span className={`${layoutStyles.chip} ${layoutStyles.windowChip}`}>
                 Window: <b className={layoutStyles.extracted19}>{windowDays}d</b>
               </span>
             </div>
           </div>
 
+          {/* style-audit-allow runtime: data loading/error tone */}
           {dataState.status !== "ready" && (
-            <div
-              style={{
-                ...surface,
-                padding: "10px 12px",
-                marginBottom: 12,
-                background: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-fef2f2)" : "var(--legacy-color-fffbeb)",
-                borderColor: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-fecaca)" : "var(--legacy-color-fde68a)",
-                color: dataState.status === "denied" || dataState.status === "error" ? "var(--legacy-color-991b1b)" : "var(--legacy-color-92400e)",
-                fontSize: 13,
-                fontWeight: 800,
-              }}
-            >
+            <div className={layoutStyles.dataAlert} style={{ "--state-background": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger-soft)" : "var(--color-warning-soft)", "--state-border": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger-border)" : "var(--color-warning-border)", "--state-text": dataState.status === "denied" || dataState.status === "error" ? "var(--color-danger)" : "var(--color-warning)" }}>
               {dataState.message || "Loading home data..."}
             </div>
           )}
@@ -848,9 +612,9 @@ export default function HomePage() {
               </span>
               <div className={layoutStyles.extracted21}>
                 {[7, 14, 30, 90].map((d) => (
-                  <button key={d} onClick={() => setWindowDays(d)} style={btnChip(windowDays === d)} type="button">
+                  <Button bare key={d} onClick={() => setWindowDays(d)} className={`${layoutStyles.windowButton} ${windowDays === d ? layoutStyles.windowButtonActive : ""}`} type="button">
                     {d}d
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div className={layoutStyles.extracted22}>
@@ -872,26 +636,22 @@ export default function HomePage() {
               <div className={layoutStyles.extracted23}>
                 Primary action
               </div>
-              <button
+              <Button
                 type="button"
                 disabled={createBookingOpening}
-                style={{
-                  ...btnPrimary,
-                  width: "100%",
-                  cursor: createBookingOpening ? "wait" : "pointer",
-                  opacity: createBookingOpening ? 0.82 : 1,
-                }}
+                className={layoutStyles.fullWidthPrimary}
+                loading={createBookingOpening}
                 onClick={openCreateBooking}
               >
                 <Plus size={14} />
                 {createBookingOpening ? `Opening ${createBookingProgress}%` : "Create booking"}
-              </button>
+              </Button>
             </section>
 
             <section className={`home-tile home-calendar-tile ${layoutStyles.extracted81}`} >
               <div className={layoutStyles.extracted24}>
                 <div className={layoutStyles.extracted25}>
-                  <span style={iconBox()}>
+                  <span className={layoutStyles.iconBox}>
                     <CalendarDays size={17} />
                   </span>
                   <div>
@@ -899,7 +659,7 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted27}>Review the current booking programme and open any entry for full detail.</div>
                   </div>
                 </div>
-                <span style={sectionTag}>Month view</span>
+                <span className={layoutStyles.sectionTag}>Month view</span>
               </div>
 
               <div className={layoutStyles.extracted28}>
@@ -962,7 +722,8 @@ export default function HomePage() {
                   { label: "Note", color: "var(--legacy-color-ccfbf1)" },
                 ].map((item) => (
                   <div key={item.label} className={layoutStyles.extracted30}>
-                    <div style={{ width: 14, height: 14, backgroundColor: item.color, border: "1px solid var(--legacy-color-d1d5db)", borderRadius: 3 }} />
+                    {/* style-audit-allow runtime: calendar legend colour */}
+                    <div className={layoutStyles.legendSwatch} style={{ "--swatch-color": item.color }} />
                     <span className={layoutStyles.extracted31}>{item.label}</span>
                   </div>
                 ))}
@@ -976,7 +737,7 @@ export default function HomePage() {
                     <h2 className={layoutStyles.extracted33}>Follow-Up Queue</h2>
                     <div className={layoutStyles.extracted34}>First pencil bookings starting in the next 72 hours.</div>
                   </div>
-                  <span style={sectionTag}>{firstPencils72h.length} items</span>
+                  <span className={layoutStyles.sectionTag}>{firstPencils72h.length} items</span>
                 </div>
 
                 {firstPencils72h.length ? (
@@ -989,7 +750,7 @@ export default function HomePage() {
                         </div>
                         <div className={layoutStyles.extracted40}>{e.client}</div>
                         <div>
-                          <span style={tag("first pencil")}>First Pencil</span>
+                          <span className={layoutStyles.tag} data-tone="first pencil">First Pencil</span>
                         </div>
                       </li>
                     ))}
@@ -1005,7 +766,7 @@ export default function HomePage() {
                     <h2 className={layoutStyles.extracted43}>Scheduling Conflicts</h2>
                     <div className={layoutStyles.extracted44}>Second pencil work overlapping confirmed or first pencil vehicle allocations.</div>
                   </div>
-                  <span style={sectionTag}>{clashesSecondVsFirm.length} flagged</span>
+                  <span className={layoutStyles.sectionTag}>{clashesSecondVsFirm.length} flagged</span>
                 </div>
 
                 {clashesSecondVsFirm.length ? (
@@ -1018,12 +779,12 @@ export default function HomePage() {
 
                         <div className={layoutStyles.extracted48}>
                           2nd: {c.second.jobNumber} ({moment(c.second.start).format("MMM D")} - {moment(c.second.end).format("MMM D")})
-                          <span style={tag("second pencil")}>Second</span>
+                          <span className={layoutStyles.tag} data-tone="second pencil">Second</span>
                         </div>
 
                         <div className={layoutStyles.extracted49}>
                           Firm: {c.firm.jobNumber} ({moment(c.firm.start).format("MMM D")} - {moment(c.firm.end).format("MMM D")})
-                          <span style={tag(c.firm.status)}>{c.firm.status}</span>
+                          <span className={layoutStyles.tag} data-tone={String(c.firm.status || "").toLowerCase()}>{c.firm.status}</span>
                         </div>
                       </li>
                     ))}
@@ -1037,7 +798,7 @@ export default function HomePage() {
             <section className={`home-tile home-prep-tile ${layoutStyles.extracted84}`} >
               <div className={layoutStyles.extracted51}>
                 <div className={layoutStyles.extracted52}>
-                  <span style={iconBox("var(--legacy-color-0f766e)", "var(--legacy-color-f0fdfa)", "var(--legacy-color-99f6e4)")}>
+                  <span className={`${layoutStyles.iconBox} ${layoutStyles.iconPrep}`}>
                     <ClipboardList size={17} />
                   </span>
                   <div>
@@ -1045,7 +806,7 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted54}>Upcoming work starting in the next 2 days that may require operational preparation.</div>
                   </div>
                 </div>
-                <span style={sectionTag}>{prepList.length} upcoming</span>
+                <span className={layoutStyles.sectionTag}>{prepList.length} upcoming</span>
               </div>
 
               {prepList.length ? (
@@ -1085,7 +846,7 @@ export default function HomePage() {
             <section className={`home-tile home-fleet-tile ${layoutStyles.extracted85}`} >
               <div className={layoutStyles.extracted69}>
                 <div className={layoutStyles.extracted70}>
-                  <span style={iconBox("var(--color-accent)", "var(--color-accent-soft)", "var(--legacy-color-dcc8b8)")}>
+                  <span className={`${layoutStyles.iconBox} ${layoutStyles.iconFleet}`}>
                     <Wrench size={17} />
                   </span>
                   <div>
@@ -1093,7 +854,7 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted72}>Overdue items and due dates within the next 3 weeks.</div>
                   </div>
                 </div>
-                <span style={sectionTag}>Vehicle review</span>
+                <span className={layoutStyles.sectionTag}>Vehicle review</span>
               </div>
 
               <div className="home-fleet-grid">
@@ -1107,7 +868,7 @@ export default function HomePage() {
             <section className={`home-tile home-assistant-tile ${layoutStyles.extracted86}`} >
               <div className={layoutStyles.extracted73}>
                 <div className={layoutStyles.extracted74}>
-                  <span style={iconBox("var(--legacy-color-1f4b7a)", "var(--legacy-color-edf3f8)", "var(--legacy-color-c8d6e3)")}>
+                  <span className={layoutStyles.iconBox}>
                     <Plus size={17} />
                   </span>
                   <div>
@@ -1115,7 +876,7 @@ export default function HomePage() {
                     <div className={layoutStyles.extracted76}>Open the core operational sections from the home hub.</div>
                   </div>
                 </div>
-                <span style={sectionTag}>v1.0 links</span>
+                <span className={layoutStyles.sectionTag}>v1.0 links</span>
               </div>
               <div className={layoutStyles.extracted77}>
                 {[
@@ -1125,15 +886,16 @@ export default function HomePage() {
                   { label: "Workshop", href: "/workshop", icon: <Wrench size={14} /> },
                   { label: "Equipment", href: "/equipment", icon: <Package size={14} /> },
                 ].map((action) => (
-                  <button
+                  <Button
                     key={action.href}
                     type="button"
                     onClick={() => router.push(action.href)}
-                    style={{ ...btnGhost, width: "100%", justifyContent: "flex-start" }}
+                    variant="secondary"
+                    className={layoutStyles.fullWidthAction}
                   >
                     {action.icon}
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </section>

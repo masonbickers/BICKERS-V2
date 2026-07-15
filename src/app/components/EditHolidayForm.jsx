@@ -197,7 +197,9 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
         const isSingle = sD && eD ? sameYMD(sD, eD) : sYMD && eYMD && sYMD === eYMD;
 
         setEmployee(rec.employee || "");
-        setPaidStatus(rec.paidStatus || (rec.paid === false ? "Unpaid" : "Paid"));
+        const storedPaidStatus = String(rec.paidStatus || "").trim();
+        const legacyUnpaid = rec.isUnpaid === true || rec.unpaid === true || rec.paid === false;
+        setPaidStatus(storedPaidStatus || (legacyUnpaid ? "Unpaid" : "Paid"));
         setHolidayReason(rec.holidayReason || rec.notes || "");
 
         setIsMultiDay(!isSingle);
@@ -352,6 +354,11 @@ export default function EditHolidayForm({ holidayId, onClose, onSaved }) {
 
         holidayReason: holidayReason.trim(),
         paidStatus,
+        // Keep legacy consumers in sync while paidStatus remains canonical.
+        paid: paidStatus === "Paid",
+        isPaid: paidStatus === "Paid",
+        unpaid: paidStatus === "Unpaid",
+        isUnpaid: paidStatus === "Unpaid",
 
         status: finalStatus,
         approvalStatus: preserveApproval ? "approved" : "requested",
